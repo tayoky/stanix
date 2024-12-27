@@ -9,8 +9,8 @@ out_files = ${out}/boot/${kernel} ${out}/boot/limine/limine.conf
 all : hdd iso
 
 test : all
-	qemu-system-amd64 -drive file=${hdd_out}
-hdd : ${hdd_out}
+	qemu-system-amd64 -drive file=${hdd_out} -serial stdio
+hdd : kernel-out ${hdd_out}
 ${hdd_out} : ${out_files}
 	rm ${hdd_out}
 	dd if=/dev/zero bs=1M count=0 seek=64 of=${hdd_out}
@@ -27,8 +27,8 @@ ${hdd_out} : ${out_files}
 	mcopy -i ${hdd_out}@@1M ${out}/boot/limine/limine.conf limine/limine-bios.sys ::/boot/limine
 	mcopy -i ${hdd_out}@@1M limine/BOOTX64.EFI ::/EFI/BOOT
 	mcopy -i ${hdd_out}@@1M limine/BOOTIA32.EFI ::/EFI/BOOT
-iso : ${out_files}
-${out}/boot/${kernel} : kernel/*
+iso : kernel-out ${out_files}
+kernel-out : 
 	cd kernel && make ../${out}/boot/limine/limine.conf \
 	&& make ../${out}/boot/${kernel}
 kernel/out.mk : makefile
