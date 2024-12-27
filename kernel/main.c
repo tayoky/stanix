@@ -4,7 +4,7 @@
 //the entry point
 void kmain(){
         init_serial();
-        write_serial_char("hello world");
+        write_serial("hello world");
         //infinite loop
         while (1){
                 
