@@ -16,3 +16,4 @@ CFLAGS = -Wall \
 CFLAGS += -I ./
 CFLAGS += -I ./include/
 CFLAGS += -I ../limine/
+CFLAGS += -I ./cpu/include/

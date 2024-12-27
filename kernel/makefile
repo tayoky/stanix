@@ -9,7 +9,7 @@ LD = ld
 LDFLAGS = 
 
 #all sources
-src_c = $(shell find *.c)
+src_c = $(shell find -name "*.c")
 OBJ = ${src_c:.c=.o}
 
 #DO NOT EDIT
