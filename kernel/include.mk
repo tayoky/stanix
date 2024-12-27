@@ -14,4 +14,5 @@ CFLAGS = -Wall \
     -mno-red-zone \
     -mcmodel=kernel
 CFLAGS += -I ./
+CFLAGS += -I ./include/
 CFLAGS += -I ../limine/
