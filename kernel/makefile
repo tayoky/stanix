@@ -26,6 +26,8 @@ include include.mk
 ${out}/boot/${kernel} : ${OBJ}
 	${LD} ${LDFLAGS} ${OBJ} ${out}/boot/${kernel}
 
+${out}/boot/limine/limine.conf : limine.conf
+	cp limine.conf ${out}/boot/limine/limine.conf
 %.o : %.c
 	${CC} ${CFLAGS} -o $@ -c $^
 clean :
