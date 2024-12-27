@@ -15,8 +15,7 @@ OBJ = ${src_c:.c=.o}
 #DO NOT EDIT
 #except if you know what you are doing
 LDFLAGS += \
-    -Wl,-m,elf_x86_64 \
-    -Wl,--build-id=none \
+    -m elf_x86_64 \
     -nostdlib \
     -static \
     -z max-page-size=0x1000 \
@@ -24,7 +23,7 @@ LDFLAGS += \
 include include.mk
 
 ${out}/boot/${kernel} : ${OBJ}
-	${LD} ${LDFLAGS} ${OBJ} ${out}/boot/${kernel}
+	${LD} ${LDFLAGS} ${OBJ} -o ${out}/boot/${kernel}
 
 ${out}/boot/limine/limine.conf : limine.conf
 	cp limine.conf ${out}/boot/limine/limine.conf
