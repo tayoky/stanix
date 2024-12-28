@@ -3,10 +3,6 @@ out/boot/limine/*.conf
 
 #build of stanix kernel
 stanix.elf
-makefile
-kernel/main.c
-kernel/serial.c
-kernel/include/serial.h
 
 #images build
 FOS25.*
