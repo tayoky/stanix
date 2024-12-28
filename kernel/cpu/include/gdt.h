@@ -2,6 +2,15 @@
 #define GDT_H
 #include <stdint.h>
 
+#define GDT_SEGMENT_ACCESS_ACCESS 0x01
+#define GDT_SEGMENT_ACCESS_RW 0x02
+#define GDT_SEGMENT_ACCESS_DC 0X04
+#define GDT_SEGMENT_ACCESS_EXECUTABLE 0x08
+#define GDT_SEGMENT_ACCESS_S 0x10
+#define GDT_SEGMENT_ACCESS_DPL_KERNEL 0X00
+#define GDT_SEGMENT_ACCESS_DPL_USER 0X60
+#define GDT_SEGMENT_ACCESS_PRESENT 0X80
+
 typedef struct {
     uint16_t limit;
     uint16_t base1;

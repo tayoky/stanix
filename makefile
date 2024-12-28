@@ -9,10 +9,10 @@ out_files = ${out}/boot/${kernel} ${out}/boot/limine/limine.conf
 all : hdd iso
 
 test : all
-	qemu-system-amd64 -drive file=${hdd_out} -serial stdio
+	qemu-system-x86_64 -drive file=${hdd_out}  -nographic -serial file:test.txt
 hdd : kernel-out ${hdd_out}
 ${hdd_out} : ${out_files}
-	rm ${hdd_out}
+	rm -f ${hdd_out}
 	dd if=/dev/zero bs=1M count=0 seek=64 of=${hdd_out}
 	sgdisk ${hdd_out} -n 1:2048 -t 1:ef00 
 	make -C limine
