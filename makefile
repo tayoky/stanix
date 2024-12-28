@@ -1,10 +1,14 @@
 #output
 hdd_out = FOS25.hdd
-iso_out = FOS25.hdd
+iso_out = FOS25.iso
 out = out
 kernel = stanix.elf
 
-out_files = ${out}/boot/${kernel} ${out}/boot/limine/limine.conf ${out}/boot/limine/limine-bios.sys ${out}/EFI/BOOT/BOOTX64.EFI ${out}/EFI/BOOT/BOOTIA32.EFI
+out_files = ${out}/boot/${kernel} ${out}/boot/limine/limine.conf ${out}/boot/limine/limine-bios.sys \
+${out}/EFI/BOOT/BOOTX64.EFI \
+${out}/EFI/BOOT/BOOTIA32.EFI \
+${out}/boot/limine/limine-bios-cd.bin\
+${out}/boot/limine/limine-uefi-cd.bin
 
 all : hdd iso
 
@@ -23,6 +27,12 @@ ${hdd_out} : ${out_files}
 #copy the files
 	cd ${out} && mcopy -i ../${hdd_out}@@1M * -/ ::/
 iso : kernel-out ${out_files}
+	rm -f ${iso_out}
+	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
+        -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
+        -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
+        -efi-boot-part --efi-boot-image --protective-msdos-label \
+        ${out} -o ${iso_out}
 kernel-out : 
 	cd kernel && make ../${out}/boot/limine/limine.conf \
 	&& make ../${out}/boot/${kernel}
@@ -34,6 +44,8 @@ ${out}/boot/limine/limine-bios.sys : limine/limine-bios.sys
 	cp limine/limine-bios.sys ${out}/boot/limine
 ${out}/EFI/BOOT/% : limine/%
 	mkdir -p ${out}/EFI/BOOT/
+	cp  $^ $@
+${out}/boot/limine/limine-% : limine/limine-%
 	cp  $^ $@
 clean :
 	cd kernel && make clean
