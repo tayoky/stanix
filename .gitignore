@@ -6,3 +6,8 @@ stanix.elf
 
 #images build
 FOS25.*
+
+#limine build
+limine-bios.sys
+BOOTIA32.EFI
+BOOTX64.EFI
