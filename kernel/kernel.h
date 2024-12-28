@@ -4,6 +4,7 @@
 
 typedef struct {
     gdt_segment gdt[5];
+    GDTR gdtr;
 }kernel_table;
 
 #endif

@@ -2,6 +2,7 @@
 #include "serial.h"
 #include "gdt.h"
 #include "kernel.h"
+#include "asm.h"
 
 kernel_table master_kernel_table;
 

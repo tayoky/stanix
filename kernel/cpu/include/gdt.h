@@ -20,6 +20,11 @@ typedef struct {
     uint8_t base3;
 } __attribute__((packed)) gdt_segment;
 
+typedef struct {
+    uint16_t size;
+    uint64_t offset;
+} __attribute__((packed)) GDTR;
+
 #include "kernel.h"
 
 void init_gdt(kernel_table *kernel);

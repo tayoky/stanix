@@ -1,6 +1,7 @@
 #include "gdt.h"
 #include "serial.h"
 #include "kernel.h"
+#include "asm.h"
 
 gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint8_t falgs){
     gdt_segment result;
@@ -39,4 +40,24 @@ void init_gdt(kernel_table *kernel){
     //user code and data
     kernel->gdt[3] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_USER | GDT_SEGMENT_ACCESS_EXECUTABLE,0X02);
     kernel->gdt[4] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_USER,0x00);
+
+    //create the GDTR anc load it so the GDT is actually used
+    kernel->gdtr.size = sizeof(kernel->gdt);
+    kernel->gdtr.offset = (uint64_t)&kernel->gdt[0];
+
+    disable_interrupt();
+    asm("lgdt (%0)" : : "r" (&kernel->gdtr));
+    asm volatile("push $0x08; \
+              lea .reload_seg(%%rip), %%rax; \
+              push %%rax; \
+              retfq; \
+              .reload_seg: \
+              mov $0x10, %%ax; \
+              mov %%ax, %%ds; \
+              mov %%ax, %%es; \
+              mov %%ax, %%fs; \
+              mov %%ax, %%gs; \
+              mov %%ax, %%ss" : : : "eax", "rax");
+    //later if i need tts
+    //asm volatile("mov "something", %%ax\nltr %%ax" : : : "eax");
 }
