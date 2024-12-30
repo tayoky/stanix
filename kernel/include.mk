@@ -17,3 +17,4 @@ CFLAGS += -I ./
 CFLAGS += -I ./include/
 CFLAGS += -I ../limine/
 CFLAGS += -I ./cpu/include/
+CFLAGS += -I ./klib/include/

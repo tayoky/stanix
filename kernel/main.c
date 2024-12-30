@@ -3,6 +3,7 @@
 #include "gdt.h"
 #include "kernel.h"
 #include "asm.h"
+#include "print.h"
 
 kernel_table master_kernel_table;
 
@@ -10,7 +11,8 @@ kernel_table master_kernel_table;
 void kmain(){
         init_serial();
         init_gdt(&master_kernel_table);
-        write_serial("hello world\n");
+        
+        kprintf("finish init kernel\n");
         //infinite loop
         while (1){
                 
