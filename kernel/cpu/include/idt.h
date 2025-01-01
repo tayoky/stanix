@@ -23,5 +23,6 @@ struct kernel_table_struct;
 
 void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags);
 void init_idt(struct kernel_table_struct *kernel);
+void exception_handler();
 
 #endif

@@ -14,6 +14,7 @@ void kmain(){
         init_serial();
         init_gdt(&master_kernel_table);
         init_idt(&master_kernel_table);
+        enable_interrupt()
         kprintf("finish init kernel\n");
         //infinite loop
         while (1){
