@@ -17,6 +17,11 @@ typedef struct kernel_table_struct{
 	uint64_t total_memory;
 	//in bytes
 	uint64_t used_memory;
+
+	uint64_t *bitmap;
+	uint64_t bitmap_size;
 }kernel_table;
+
+void halt();
 
 #endif

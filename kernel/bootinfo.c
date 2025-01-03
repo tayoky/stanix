@@ -20,6 +20,10 @@ static volatile struct limine_memmap_request memmap_request = {
 static volatile struct limine_boot_time_request boot_time_request = {
 	.id = LIMINE_BOOT_TIME_REQUEST
 };
+
+static volatile struct limine_hhdm_request hhdm_request = {
+	.id = LIMINE_HHDM_REQUEST
+};
 LIMINE_REQUESTS_END_MARKER
 
 static const char * memmap_types[] = {
@@ -40,6 +44,7 @@ void get_bootinfo(kernel_table *kernel){
 	kernel->bootinfo.kernel_address_response = kernel_address_request.response;
 	kernel->bootinfo.memmap_response = memmap_request.response;
 	kernel->bootinfo.boot_time_response = boot_time_request.response;
+	kernel->bootinfo.hhdm_response = hhdm_request.response;
 
 	//cacul the total amount of memory
 	kernel->total_memory = kernel->bootinfo.memmap_response->entries[kernel->bootinfo.memmap_response->entry_count-1]->base;
