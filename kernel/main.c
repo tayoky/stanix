@@ -12,6 +12,7 @@ kernel_table master_kernel_table;
 void kmain(){
         disable_interrupt();
         init_serial();
+        get_bootinfo(&master_kernel_table);
         init_gdt(&master_kernel_table);
         init_idt(&master_kernel_table);
         enable_interrupt()
