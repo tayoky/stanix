@@ -40,6 +40,10 @@ void get_bootinfo(kernel_table *kernel){
 	kernel->bootinfo.kernel_address_response = kernel_address_request.response;
 	kernel->bootinfo.memmap_response = memmap_request.response;
 	kernel->bootinfo.boot_time_response = boot_time_request.response;
+
+	//cacul the total amount of memory
+	kernel->total_memory = kernel->bootinfo.memmap_response->entries[kernel->bootinfo.memmap_response->entry_count-1]->base;
+	kernel->total_memory += kernel->bootinfo.memmap_response->entries[kernel->bootinfo.memmap_response->entry_count-1]->length;
 	kok();
 
 	kdebugf("info :\n");
@@ -49,7 +53,8 @@ void get_bootinfo(kernel_table *kernel){
 	kdebugf("memmap:\n");
 	for(uint64_t i=0;i<kernel->bootinfo.memmap_response->entry_count;i++){
 		kdebugf("	segment of type %s\n",memmap_types[kernel->bootinfo.memmap_response->entries[i]->type]);
-		kdebugf("		offset : %x\n",kernel->bootinfo.memmap_response->entries[i]->base);
-		kdebugf("		size   : %x\n",kernel->bootinfo.memmap_response->entries[i]->length);
+		kdebugf("		offset : %lx\n",kernel->bootinfo.memmap_response->entries[i]->base);
+		kdebugf("		size   : %lu\n",kernel->bootinfo.memmap_response->entries[i]->length);
 	}
+	kinfof("total memory amount : %dMB\n",kernel->total_memory / (0x1000 * 0x1000));
 }
