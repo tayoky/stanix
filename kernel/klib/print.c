@@ -129,6 +129,14 @@ void kprintf(const char *fmt,...){
 	va_end(args);
 }
 
+void kdebugf(const char *fmt,...){
+	kprintf("[debug] ");
+	va_list args;
+	va_start(args,fmt);
+	printfunc(write_serial_char,fmt,args);
+	va_end(args);
+}
+
 void kstatus(const char *status){
 	kprintf(status);
 }
