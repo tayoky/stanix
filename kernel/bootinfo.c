@@ -68,5 +68,5 @@ void get_bootinfo(kernel_table *kernel){
 		kdebugf("		offset : %lx\n",kernel->bootinfo.memmap_response->entries[i]->base);
 		kdebugf("		size   : %lu\n",kernel->bootinfo.memmap_response->entries[i]->length);
 	}
-	kinfof("total memory amount : %dMB\n",kernel->total_memory / (0x1000 * 0x1000));
+	kinfof("total memory amount : %dMB\n",kernel->total_memory / (1024 * 1024));
 }
