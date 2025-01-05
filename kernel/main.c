@@ -17,11 +17,9 @@ void kmain(){
         get_bootinfo(&master_kernel_table);
         init_gdt(&master_kernel_table);
         init_idt(&master_kernel_table);
-        enable_interrupt()
+        enable_interrupt();
         init_bitmap(&master_kernel_table);
         kprintf("finish init kernel\n");
         //infinite loop
-        while (1){
-                
-        }
+        halt();
 }
