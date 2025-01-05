@@ -2,6 +2,7 @@
 #include "kernel.h"
 #include "print.h"
 #include "limine.h"
+#include "panic.h"
 
 void init_bitmap(kernel_table *kernel){
 	kstatus("init memory bitmap ...");
@@ -18,7 +19,11 @@ void init_bitmap(kernel_table *kernel){
 			kfail();
 			kstatus("this is a vital step in init the kernel\n");
 			kstatus("can't boot\n");
-			halt();
+			kdebugf("bitmap size : %lu\n",kernel->bitmap_size);
+			regs registers ={
+				.cr2 = 0
+			};
+			panic("can't init bitmap",registers);
 		}
 	}
 	kernel->bitmap = kernel->bootinfo.memmap_response->entries[i]->base + kernel->bootinfo.hhdm_response->offset;

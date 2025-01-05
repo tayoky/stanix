@@ -1,5 +1,6 @@
 #ifndef BITMAP_H
 #define BITMAP_H
+#include <stdint.h>
 
 struct kernel_table_struct;
 void init_bitmap(struct kernel_table_struct *kernel);

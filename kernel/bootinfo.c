@@ -47,8 +47,15 @@ void get_bootinfo(kernel_table *kernel){
 	kernel->bootinfo.hhdm_response = hhdm_request.response;
 
 	//cacul the total amount of memory
-	kernel->total_memory = kernel->bootinfo.memmap_response->entries[kernel->bootinfo.memmap_response->entry_count-1]->base;
-	kernel->total_memory += kernel->bootinfo.memmap_response->entries[kernel->bootinfo.memmap_response->entry_count-1]->length;
+	//kernel->total_memory = kernel->bootinfo.memmap_response->entries[kernel->bootinfo.memmap_response->entry_count-1]->base;
+	//kernel->total_memory += kernel->bootinfo.memmap_response->entries[kernel->bootinfo.memmap_response->entry_count-1]->length;
+	kernel->total_memory = 0;
+	for (uint64_t i = 0; i < kernel->bootinfo.memmap_response->entry_count; i++){
+		if(kernel->bootinfo.memmap_response->entries[i]->type != LIMINE_MEMMAP_RESERVED){
+			kernel->total_memory += kernel->bootinfo.memmap_response->entries[i]->length;
+		}
+	}
+	
 	kok();
 
 	kdebugf("info :\n");

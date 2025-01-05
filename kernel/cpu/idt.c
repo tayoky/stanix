@@ -3,6 +3,7 @@
 #include "print.h"
 #include <stdint.h>
 #include "interrupt.h"
+#include "panic.h"
 
 void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){
 	idt[index].offset1 = (uint64_t)offset & 0xFFFF;
@@ -45,9 +46,13 @@ void exception_handler(){
 	uint64_t error = 5;
 	asm("mov %%rax ,%%rbx" : "=b" (error): );
 	kprintf("error : code 0x%lx\n",error);
+	regs registers;
+	registers.cr2 = 0;
 	if(error < (sizeof(error_msg) / sizeof(char *)))
-	kprintf("%s\n",error_msg[error]);
-	while(1);
+		panic(error_msg[error],registers);
+	else
+	panic("",registers);
+
 	return;
 }
 
