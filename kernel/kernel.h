@@ -20,6 +20,8 @@ typedef struct kernel_table_struct{
 
 	uint64_t *bitmap;
 	uint64_t bitmap_size;
+	uint64_t hhdm;
+	struct limine_memmap_response *memmap;
 }kernel_table;
 
 void halt();

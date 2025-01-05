@@ -42,17 +42,15 @@ void get_bootinfo(kernel_table *kernel){
 
 	//get the response from the limine request
 	kernel->bootinfo.kernel_address_response = kernel_address_request.response;
-	kernel->bootinfo.memmap_response = memmap_request.response;
+	kernel->memmap = memmap_request.response;
 	kernel->bootinfo.boot_time_response = boot_time_request.response;
-	kernel->bootinfo.hhdm_response = hhdm_request.response;
+	kernel->hhdm = hhdm_request.response->offset;
 
 	//cacul the total amount of memory
-	//kernel->total_memory = kernel->bootinfo.memmap_response->entries[kernel->bootinfo.memmap_response->entry_count-1]->base;
-	//kernel->total_memory += kernel->bootinfo.memmap_response->entries[kernel->bootinfo.memmap_response->entry_count-1]->length;
 	kernel->total_memory = 0;
-	for (uint64_t i = 0; i < kernel->bootinfo.memmap_response->entry_count; i++){
-		if(kernel->bootinfo.memmap_response->entries[i]->type != LIMINE_MEMMAP_RESERVED){
-			kernel->total_memory += kernel->bootinfo.memmap_response->entries[i]->length;
+	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++){
+		if(kernel->memmap->entries[i]->type != LIMINE_MEMMAP_RESERVED){
+			kernel->total_memory += kernel->memmap->entries[i]->length;
 		}
 	}
 	
@@ -63,10 +61,10 @@ void get_bootinfo(kernel_table *kernel){
 	kdebugf("kernel loaded at Vaddress : %x\n",kernel->bootinfo.kernel_address_response->virtual_base);
 	kdebugf("                 Paddress : %x\n",kernel->bootinfo.kernel_address_response->physical_base);
 	kdebugf("memmap:\n");
-	for(uint64_t i=0;i<kernel->bootinfo.memmap_response->entry_count;i++){
-		kdebugf("	segment of type %s\n",memmap_types[kernel->bootinfo.memmap_response->entries[i]->type]);
-		kdebugf("		offset : %lx\n",kernel->bootinfo.memmap_response->entries[i]->base);
-		kdebugf("		size   : %lu\n",kernel->bootinfo.memmap_response->entries[i]->length);
+	for(uint64_t i=0;i<kernel->memmap->entry_count;i++){
+		kdebugf("	segment of type %s\n",memmap_types[kernel->memmap->entries[i]->type]);
+		kdebugf("		offset : %lx\n",kernel->memmap->entries[i]->base);
+		kdebugf("		size   : %lu\n",kernel->memmap->entries[i]->length);
 	}
 	kinfof("total memory amount : %dMB\n",kernel->total_memory / (1024 * 1024));
 }
