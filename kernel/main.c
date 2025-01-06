@@ -11,7 +11,6 @@ kernel_table master_kernel_table;
 
 //the entry point
 void kmain(){
-        //TODO place the bitmap before IDT
         disable_interrupt();
         init_serial();
         get_bootinfo(&master_kernel_table);
