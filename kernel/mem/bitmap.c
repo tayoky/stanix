@@ -3,6 +3,7 @@
 #include "print.h"
 #include "limine.h"
 #include "panic.h"
+#include "page.h"
 
 //TODO add out of bound check 
 
@@ -88,8 +89,8 @@ void init_bitmap(kernel_table *kernel){
 	for (uint64_t index = 0; index < kernel->memmap->entry_count; index++){
 		if(kernel->memmap->entries[index]->type != LIMINE_MEMMAP_USABLE)
 			continue;
-		uint64_t addr = kernel->memmap->entries[index]->base / 0x1000;
-		uint64_t end = addr + (kernel->memmap->entries[index]->length / 0x1000);
+		uint64_t addr = kernel->memmap->entries[index]->base / PAGE_SIZE;
+		uint64_t end = addr + (kernel->memmap->entries[index]->length / PAGE_SIZE);
 		while (addr < end){
 			free_page(kernel->bitmap,addr);
 			addr++;
@@ -97,7 +98,7 @@ void init_bitmap(kernel_table *kernel){
 	}
 
 	//set the pages used by the bimtap as used
-	uint64_t bitmap_start_page = ((uint64_t)kernel->bitmap - kernel->hhdm)/0x1000;
+	uint64_t bitmap_start_page = ((uint64_t)kernel->bitmap - kernel->hhdm)/PAGE_SIZE;
 	for (uint64_t addr= 0; addr < kernel->bitmap_size; addr++)
 	{
 		set_allocted_page(kernel->bitmap,bitmap_start_page + addr);
