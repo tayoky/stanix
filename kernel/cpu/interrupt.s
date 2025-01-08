@@ -1,10 +1,10 @@
 %macro isr_err_stub 2
     global %1
     %1:
-        push rax
-        mov rax, %2
+        push rdi
+        mov rdi, %2
         call exception_handler
-        pop rax
+        pop rdi
         iretq
 %endmacro
 section .text

@@ -41,10 +41,7 @@ const char *error_msg[] = {
 	"control protection exception",
 };
 
-void exception_handler(){
-	//get the error code from register rax so we can use it to know the error
-	uint64_t error = 5;
-	asm("mov %%rax ,%%rbx" : "=b" (error): );
+void exception_handler(uint64_t error){
 	kprintf("error : code 0x%lx\n",error);
 	regs registers;
 	registers.cr2 = 0;
