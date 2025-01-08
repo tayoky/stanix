@@ -5,6 +5,7 @@
 #include "idt.h"
 #include "limine.h"
 #include "bootinfo.h"
+#include "bitmap.h"
 
 typedef struct kernel_table_struct{
 	gdt_segment gdt[5];
@@ -18,8 +19,7 @@ typedef struct kernel_table_struct{
 	//in bytes
 	uint64_t used_memory;
 
-	uint64_t *bitmap;
-	uint64_t bitmap_size;
+	bitmap_meta bitmap;
 	uint64_t hhdm;
 	struct limine_memmap_response *memmap;
 }kernel_table;
