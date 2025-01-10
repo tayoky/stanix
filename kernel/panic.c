@@ -2,7 +2,7 @@
 #include "print.h"
 #include "asm.h"
 
-void register_dump(regs *registers){
+void register_dump(fault_frame *registers){
     asm("mov %%rax, %0" : "=r"(registers->rax):);
     asm("mov %%rbx, %0" : "=r"(registers->rbx):);
     asm("mov %%rcx, %0" : "=r"(registers->rcx):);
@@ -19,22 +19,25 @@ void register_dump(regs *registers){
     asm("mov %%r15, %0" : "=r"(registers->r15):);
 }
 
-void panic(const char *error,regs registers_state){
-    if(!registers_state.cr2)register_dump(&registers_state);
+void panic(const char *error,fault_frame *fault){
     kprintf("====== ERROR : KERNEL PANIC =====\n");
     kprintf("error : %s\n",error);
     kprintf("========== REGISTER DUMP ========\n");
-    kprintf("rax : 0x%x\tr8  : 0x%x\n",registers_state.rax,registers_state.r8);
-    kprintf("rbx : 0x%x\tr9  : 0x%x\n",registers_state.rbx,registers_state.r9);
-    kprintf("rcx : 0x%x\tr10 : 0x%x\n",registers_state.rcx,registers_state.r10);
-    kprintf("rdx : 0x%x\tr11 : 0x%x\n",registers_state.rdx,registers_state.r11);
-    kprintf("rsi : 0x%x\tr12 : 0x%x\n",registers_state.rsi,registers_state.r12);
-    kprintf("rdi : 0x%x\tr13 : 0x%x\n",registers_state.rdi,registers_state.r13);
-    kprintf("rbp : 0x%x\tr14 : 0x%x\n",registers_state.rbp,registers_state.r14);
-    kprintf("rip : 0x%x\tr15 : 0x%x\n",registers_state.rip,registers_state.r15);
-    kprintf("======= SPECIAL REGISTERS =======\n");
-    asm("mov %%cr2 ,%%rax" : "=a"(registers_state.cr2) : );
-    asm("mov %%cr3 ,%%rax" : "=a"(registers_state.cr3) : );
-    kprintf("cr2 : 0x%x\tcr3 : 0x%x\n",registers_state.cr2,registers_state.cr3);
+    if(fault){
+        kprintf("rax : 0x%x\tr8  : 0x%x\n",fault->rax,fault->r8);
+        kprintf("rbx : 0x%x\tr9  : 0x%x\n",fault->rbx,fault->r9);
+        kprintf("rcx : 0x%x\tr10 : 0x%x\n",fault->rcx,fault->r10);
+        kprintf("rdx : 0x%x\tr11 : 0x%x\n",fault->rdx,fault->r11);
+        kprintf("rsi : 0x%x\tr12 : 0x%x\n",fault->rsi,fault->r12);
+        kprintf("rdi : 0x%x\tr13 : 0x%x\n",fault->rdi,fault->r13);
+        kprintf("rbp : 0x%x\tr14 : 0x%x\n",fault->rbp,fault->r14);
+        kprintf("rsp : 0x%x\tr15 : 0x%x\n",fault->rsp,fault->r15);
+        kprintf("======= SPECIAL REGISTERS =======\n");
+        asm("mov %%cr2 ,%%rax" : "=a"(fault->cr2) : );
+        asm("mov %%cr3 ,%%rax" : "=a"(fault->cr3) : );
+        kprintf("cr2 : 0x%x\tcr3 : 0x%x\n",fault->cr2,fault->cr3);
+    }else{
+        kprintf("unavalible\n");
+    }
     halt();
 }

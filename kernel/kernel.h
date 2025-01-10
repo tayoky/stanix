@@ -24,6 +24,4 @@ typedef struct kernel_table_struct{
 	struct limine_memmap_response *memmap;
 }kernel_table;
 
-void halt();
-
 #endif

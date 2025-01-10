@@ -41,14 +41,12 @@ const char *error_msg[] = {
 	"control protection exception",
 };
 
-void exception_handler(uint64_t error){
-	kprintf("error : code 0x%lx\n",error);
-	regs registers;
-	registers.cr2 = 0;
-	if(error < (sizeof(error_msg) / sizeof(char *)))
-		panic(error_msg[error],registers);
+void exception_handler(fault_frame *fault){
+	kprintf("error : 0x%lx\n",fault->err_type);
+	if(fault->err_type < (sizeof(error_msg) / sizeof(char *)))
+		panic(error_msg[fault->err_type],fault);
 	else
-	panic("",registers);
+		panic("unkown fault",fault);
 
 	return;
 }

@@ -39,9 +39,7 @@ uint64_t allocate_page(bitmap_meta *bitmap){
 		index++;
 		if(index >= bitmap->size){
 			//OUT OF MEMORY
-			regs registers;
-			registers.cr2 = 0;
-			panic("out of memory",registers);
+			panic("out of memory",NULL);
 		}
 	}
 
@@ -51,9 +49,7 @@ uint64_t allocate_page(bitmap_meta *bitmap){
 		bit ++;
 		if(bit >= 64){
 			//should never happen
-			regs registers;
-			registers.cr2 = 0;
-			panic("weird bug",registers);
+			panic("weird bitmap bug",NULL);
 		}
 	}
 
@@ -86,10 +82,7 @@ void init_bitmap(kernel_table *kernel){
 			kstatus("this is a vital step in init the kernel\n");
 			kstatus("can't boot\n");
 			kdebugf("bitmap size : %lu\n",kernel->bitmap.size);
-			regs registers ={
-				.cr2 = 0
-			};
-			panic("can't init bitmap",registers);
+			panic("can't init bitmap",NULL);
 		}
 	}
 
