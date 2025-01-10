@@ -33,9 +33,10 @@ void panic(const char *error,fault_frame *fault){
         kprintf("rbp : 0x%x\tr14 : 0x%x\n",fault->rbp,fault->r14);
         kprintf("rsp : 0x%x\tr15 : 0x%x\n",fault->rsp,fault->r15);
         kprintf("======= SPECIAL REGISTERS =======\n");
-        asm("mov %%cr2 ,%%rax" : "=a"(fault->cr2) : );
-        asm("mov %%cr3 ,%%rax" : "=a"(fault->cr3) : );
         kprintf("cr2 : 0x%x\tcr3 : 0x%x\n",fault->cr2,fault->cr3);
+        kprintf("============== RFLAGS ==============\n");
+        kprintf("falgs: 0x%x\n",fault->flags);
+
     }else{
         kprintf("unavalible\n");
     }

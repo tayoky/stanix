@@ -41,12 +41,30 @@ const char *error_msg[] = {
 	"control protection exception",
 };
 
+void page_fault_info(fault_frame *fault){
+	kprintf("page fault at address 0x%lx\n",fault->cr2);
+	if(fault->err_code & 0x04)kprintf("user");
+	else kprintf("OS");
+	kprintf(" as trying to ");
+	if(fault->err_code & 0x10) kprintf("execute");
+	else if(fault->err_code & 0x02)kprintf("write");
+	else kprintf("read");
+	kprintf(" a ");
+	if(!fault->err_code & 0x01)kprintf("non ");
+	kprintf("present page\n");
+}
+
 void exception_handler(fault_frame *fault){
 	kprintf("error : 0x%lx\n",fault->err_type);
-	if(fault->err_type < (sizeof(error_msg) / sizeof(char *)))
+	if(fault->err_type < (sizeof(error_msg) / sizeof(char *))){
+		//show info for page fault
+		if(fault->err_type == 14){
+			page_fault_info(fault);
+		}
 		panic(error_msg[fault->err_type],fault);
-	else
+	}else{
 		panic("unkown fault",fault);
+	}
 
 	return;
 }
