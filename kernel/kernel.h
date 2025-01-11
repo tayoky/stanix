@@ -13,6 +13,7 @@ typedef struct kernel_table_struct{
 	idt_gate idt[256];
 	IDTR idtr;
 	bootinfo_table bootinfo;
+	struct limine_kernel_address_response *kernel_address;
 
 	//in bytes
 	uint64_t total_memory;

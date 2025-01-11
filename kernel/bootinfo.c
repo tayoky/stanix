@@ -41,7 +41,7 @@ void get_bootinfo(kernel_table *kernel){
 	kstatus("getting limine response ...");
 
 	//get the response from the limine request
-	kernel->bootinfo.kernel_address_response = kernel_address_request.response;
+	kernel->kernel_address = kernel_address_request.response;
 	kernel->memmap = memmap_request.response;
 	kernel->bootinfo.boot_time_response = boot_time_request.response;
 	kernel->hhdm = hhdm_request.response->offset;
@@ -58,8 +58,8 @@ void get_bootinfo(kernel_table *kernel){
 
 	kdebugf("info :\n");
 	kdebugf("time at boot : %lu\n",kernel->bootinfo.boot_time_response->boot_time);
-	kdebugf("kernel loaded at Vaddress : %x\n",kernel->bootinfo.kernel_address_response->virtual_base);
-	kdebugf("                 Paddress : %x\n",kernel->bootinfo.kernel_address_response->physical_base);
+	kdebugf("kernel loaded at Vaddress : %x\n",kernel->kernel_address->virtual_base);
+	kdebugf("                 Paddress : %x\n",kernel->kernel_address->physical_base);
 	kdebugf("memmap:\n");
 	for(uint64_t i=0;i<kernel->memmap->entry_count;i++){
 		kdebugf("	segment of type %s\n",memmap_types[kernel->memmap->entries[i]->type]);

@@ -4,7 +4,6 @@
 #include "limine.h"
 
 typedef struct {
-	struct limine_kernel_address_response *kernel_address_response;
 	struct limine_boot_time_response *boot_time_response;
 }bootinfo_table;
 

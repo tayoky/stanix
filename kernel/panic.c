@@ -20,22 +20,23 @@ void register_dump(fault_frame *registers){
 }
 
 void panic(const char *error,fault_frame *fault){
-    kprintf("====== ERROR : KERNEL PANIC =====\n");
+    kprintf("\e[31m====== ERROR : KERNEL PANIC =====\n");
     kprintf("error : %s\n",error);
     kprintf("========== REGISTER DUMP ========\n");
     if(fault){
-        kprintf("rax : 0x%x\tr8  : 0x%x\n",fault->rax,fault->r8);
-        kprintf("rbx : 0x%x\tr9  : 0x%x\n",fault->rbx,fault->r9);
-        kprintf("rcx : 0x%x\tr10 : 0x%x\n",fault->rcx,fault->r10);
-        kprintf("rdx : 0x%x\tr11 : 0x%x\n",fault->rdx,fault->r11);
-        kprintf("rsi : 0x%x\tr12 : 0x%x\n",fault->rsi,fault->r12);
-        kprintf("rdi : 0x%x\tr13 : 0x%x\n",fault->rdi,fault->r13);
-        kprintf("rbp : 0x%x\tr14 : 0x%x\n",fault->rbp,fault->r14);
-        kprintf("rsp : 0x%x\tr15 : 0x%x\n",fault->rsp,fault->r15);
+        kprintf("rax : 0x%lx\tr8  : 0x%lx\n",fault->rax,fault->r8);
+        kprintf("rbx : 0x%lx\tr9  : 0x%lx\n",fault->rbx,fault->r9);
+        kprintf("rcx : 0x%lx\tr10 : 0x%lx\n",fault->rcx,fault->r10);
+        kprintf("rdx : 0x%lx\tr11 : 0x%lx\n",fault->rdx,fault->r11);
+        kprintf("rsi : 0x%lx\tr12 : 0x%lx\n",fault->rsi,fault->r12);
+        kprintf("rdi : 0x%lx\tr13 : 0x%lx\n",fault->rdi,fault->r13);
+        kprintf("rbp : 0x%lx\tr14 : 0x%lx\n",fault->rbp,fault->r14);
+        kprintf("rsp : 0x%lx\tr15 : 0x%lx\n",fault->rsp,fault->r15);
         kprintf("======= SPECIAL REGISTERS =======\n");
-        kprintf("cr2 : 0x%x\tcr3 : 0x%x\n",fault->cr2,fault->cr3);
+        kprintf("cr2 : 0x%lx\tcr3 : 0x%lx\n",fault->cr2,fault->cr3);
+        kprintf("rip : 0x%lx\n",fault->rip);
         kprintf("============== RFLAGS ==============\n");
-        kprintf("falgs: 0x%x\n",fault->flags);
+        kprintf("falgs: 0x%lx\n",fault->flags);
 
     }else{
         kprintf("unavalible\n");
