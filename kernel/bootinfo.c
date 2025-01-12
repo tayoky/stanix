@@ -37,8 +37,16 @@ static const char * memmap_types[] = {
 	"framebuffer"
 };
 
+
 void get_bootinfo(kernel_table *kernel){
 	kstatus("getting limine response ...");
+	//get the stack start
+	uint64_t *rbp;
+	asm("mov %%rbp, %%rax":"=a"(rbp));
+	while (*rbp){
+		rbp = *rbp;
+	}
+	kernel->stack_start = rbp;
 
 	//get the response from the limine request
 	kernel->kernel_address = kernel_address_request.response;
@@ -57,6 +65,7 @@ void get_bootinfo(kernel_table *kernel){
 	kok();
 
 	kdebugf("info :\n");
+	kdebugf("stack start : 0x%lx\n",kernel->stack_start);
 	kdebugf("time at boot : %lu\n",kernel->bootinfo.boot_time_response->boot_time);
 	kdebugf("kernel loaded at Vaddress : %x\n",kernel->kernel_address->virtual_base);
 	kdebugf("                 Paddress : %x\n",kernel->kernel_address->physical_base);

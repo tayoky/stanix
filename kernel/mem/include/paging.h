@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "page.h"
 
+void init_paging(kernel_table *kernel);
 /// @brief create an new PMLT4 and map all kernel modules and framebuffers
 /// @param kernel an pointer to the kernel table
 /// @return an pointer to the PMLT4

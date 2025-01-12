@@ -19,10 +19,9 @@ void kmain(){
         init_idt(&master_kernel_table);
         enable_interrupt();
         init_bitmap(&master_kernel_table);
+        init_paging(&master_kernel_table);
         kprintf("finish init kernel\n");
 
-        uint64_t *PMLT4 = init_PMLT4(&master_kernel_table);
-        map_page(&master_kernel_table,PMLT4,allocate_page(&master_kernel_table.bitmap),0XFFFFFFF / PAGE_SIZE,PAGING_FLAG_RW_CPL0);
         //infinite loop
         kprintf("test V2P : 0x%lx\n",virt2phys(&master_kernel_table,master_kernel_table.kernel_address->virtual_base));
         halt();
