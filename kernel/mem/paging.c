@@ -29,6 +29,34 @@ uint64_t *init_PMLT4(kernel_table *kernel){
 	return PMLT4;
 }
 
+void delete_PMLT4(kernel_table *kernel,uint64_t *PMLT4){
+	//recusively free everythings
+
+	for (uint16_t PMLT4i = 0; PMLT4i < 512; PMLT4i++){
+		if(!PMLT4[PMLT4i] & 1)continue;
+		uint64_t *PDP = (PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+
+		for (uint16_t PDPi = 0; PDPi < 512; PDPi++){
+			if(!PDP[PDPi] & 1)continue;
+			uint64_t *PD = (PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+
+			for (uint16_t PDi = 0; PDi < 512; PDi++){
+				if(!PD[PDi] & 1)continue;
+				uint64_t *PT = (PMLT4[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+				
+				free_page(&kernel->bitmap,(uint64_t)PT/PAGE_SIZE);
+			}
+
+			free_page(&kernel->bitmap,(uint64_t)PD/PAGE_SIZE);
+		}
+
+		free_page(&kernel->bitmap,(uint64_t)PDP/PAGE_SIZE);
+	}
+	
+
+	free_page(&kernel->bitmap,(uint64_t)PMLT4/PAGE_SIZE);
+}
+
 void *virt2phys(kernel_table *kernel,void *address){
 	uint64_t PMLT4i= ((uint64_t)address >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)address >> 30) & 0x1FF;
