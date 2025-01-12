@@ -10,15 +10,15 @@ extern uint64_t p_kernel_end[];
 void init_paging(kernel_table *kernel){
 	kstatus("init paging ...");
 	uint64_t *PMLT4 = init_PMLT4(kernel);
-	//asm("mov %%rax, %%cr3" : : "a" (PMLT4));
-	//for(;;);
+	uint64_t cr3 = (uint64_t)PMLT4 - kernel->hhdm;
+	asm volatile ("movq %0, %%cr3" : :  "r" (cr3) );
 	kok();
 }
 
 uint64_t *init_PMLT4(kernel_table *kernel){
 	//allocate place for the PMLT4
 	uint64_t *PMLT4 = PAGE_SIZE * allocate_page(&kernel->bitmap) + kernel->hhdm;
-
+	kprintf("PMLT4 : 0x%lx\n",PMLT4);
 	//Set all entry as 0
 	memset(PMLT4,0,PAGE_SIZE);
 
@@ -62,10 +62,10 @@ void *virt2phys(kernel_table *kernel,void *address){
 }
 
 void map_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint8_t falgs){
-	uint64_t PMLT4i= ((uint64_t)virtual_page >> 39) & 0x1FF;
-	uint64_t PDPi  = ((uint64_t)virtual_page >> 30) & 0x1FF;
-	uint64_t PDi   = ((uint64_t)virtual_page >> 21) & 0x1FF;
-	uint64_t PTi   = ((uint64_t)virtual_page >> 12) & 0x1FF;
+	uint64_t PMLT4i= ((uint64_t)virtual_page >> 27) & 0x1FF;
+	uint64_t PDPi  = ((uint64_t)virtual_page >> 18) & 0x1FF;
+	uint64_t PDi   = ((uint64_t)virtual_page >> 9) & 0x1FF;
+	uint64_t PTi   = ((uint64_t)virtual_page >> 0) & 0x1FF;
 	
 	if(!PMLT4[PMLT4i] & 1){
 		PMLT4[PMLT4i] = PAGE_SIZE * allocate_page(&kernel->bitmap) + PAGING_FLAG_RW_CPL3;
@@ -91,10 +91,10 @@ void map_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t physical_page,uint64
 }
 
 void unmap_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t virtual_page){
-	uint64_t PMLT4i= ((uint64_t)virtual_page >> 39) & 0x1FF;
-	uint64_t PDPi  = ((uint64_t)virtual_page >> 30) & 0x1FF;
-	uint64_t PDi   = ((uint64_t)virtual_page >> 21) & 0x1FF;
-	uint64_t PTi   = ((uint64_t)virtual_page >> 12) & 0x1FF;
+	uint64_t PMLT4i= ((uint64_t)virtual_page >> 27) & 0x1FF;
+	uint64_t PDPi  = ((uint64_t)virtual_page >> 18) & 0x1FF;
+	uint64_t PDi   = ((uint64_t)virtual_page >> 9) & 0x1FF;
+	uint64_t PTi   = ((uint64_t)virtual_page >> 0) & 0x1FF;
 
 	if(!PMLT4[PMLT4i] & 1){
 		return;
@@ -116,6 +116,31 @@ void unmap_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t virtual_page){
 	}
 
 	PT[PTi] = 0;
+
+	//if there are not more mapped entries in a table we can delete it
+	for (uint16_t i = 0; i < 512; i++){
+		if(PT[i] & 1){
+			return;
+		}
+	}
+	free_page(&kernel->bitmap,((uint64_t)PT-kernel->hhdm)/PAGE_SIZE);
+	PD[PDi] = 0;
+	
+	for (uint16_t i = 0; i < 512; i++){
+		if(PD[i] & 1){
+			return;
+		}
+	}
+	free_page(&kernel->bitmap,((uint64_t)PD-kernel->hhdm)/PAGE_SIZE);
+	PDP[PDPi] = 0;
+
+	for (uint16_t i = 0; i < 512; i++){
+		if(PDP[i] & 1){
+			return;
+		}
+	}
+	free_page(&kernel->bitmap,((uint64_t)PDP-kernel->hhdm)/PAGE_SIZE);
+	PMLT4[PMLT4i] = 0;
 }
 ///
 void map_kernel(kernel_table *kernel,uint64_t *PMLT4){
@@ -140,7 +165,8 @@ void map_hhdm(kernel_table *kernel,uint64_t *PMLT4){
 			type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE ||
 			type == LIMINE_MEMMAP_FRAMEBUFFER ||
 			type == LIMINE_MEMMAP_KERNEL_AND_MODULES ||
-			type == LIMINE_MEMMAP_USABLE){
+			type == LIMINE_MEMMAP_USABLE
+			){
 				//map all the section
 				uint64_t section_size = PAGE_ALIGN_UP(kernel->memmap->entries[index]->base);
 				uint64_t phys_page = kernel->memmap->entries[index]->base / PAGE_SIZE;

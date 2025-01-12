@@ -9,6 +9,8 @@ typedef struct bitmap_struct{
 	uint64_t size;
 	/// @brief the first free page (-1 if not caculated)
 	uint64_t last_allocated;
+	uint64_t page_count;
+	uint64_t used_page_count;
 	uint64_t *data;
 }bitmap_meta;
 

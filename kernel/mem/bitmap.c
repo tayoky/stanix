@@ -11,6 +11,9 @@ void set_allocted_page(bitmap_meta *bitmap,uint64_t page){
 	//find the good uint64_t
 	uint64_t index = page / 64;
 	uint64_t bit = 1 << (page % 64);
+	if(!bitmap->data[index] & bit){
+		bitmap->used_page_count++;
+	}
 	bitmap->data[index] |= bit;
 }
 
@@ -24,6 +27,9 @@ void free_page(bitmap_meta *bitmap,uint64_t page){
 	//find the good uint64_t
 	uint64_t index = page / 64;
 	uint64_t bit = 1 << (page % 64);
+	if(bitmap->data[index] & bit){
+		bitmap->used_page_count--;
+	}
 	bitmap->data[index] &= ~bit;
 }
 
@@ -59,6 +65,8 @@ uint64_t allocate_page(bitmap_meta *bitmap){
 	//now translate to a page number
 	uint64_t page = index * 64 + bit;
 
+	bitmap->used_page_count++;
+
 	//set the last allocated acceleration
 	bitmap->last_allocated = page;
 
@@ -69,8 +77,10 @@ void init_bitmap(kernel_table *kernel){
 	kstatus("init memory bitmap ...");
 
 	//create an bitmap of the correspondig size
-	//each unint64_t can store state for 64 page of 4KB each so 65536 bytes
-	kernel->bitmap.size = kernel->total_memory/65536+1;
+	//each unint64_t can store state for 64 page of 4KB
+	kernel->bitmap.size = kernel->total_memory/(64*PAGE_SIZE)+1;
+	kernel->bitmap.page_count = kernel->total_memory/PAGE_SIZE;
+	kernel->bitmap.used_page_count = kernel->bitmap.page_count;
 
 	//find a good segment we can use
 	uint64_t selected_seg=0;
