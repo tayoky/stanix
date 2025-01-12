@@ -35,8 +35,17 @@ void panic(const char *error,fault_frame *fault){
         kprintf("======= SPECIAL REGISTERS =======\n");
         kprintf("cr2 : 0x%lx\tcr3 : 0x%lx\n",fault->cr2,fault->cr3);
         kprintf("rip : 0x%lx\n",fault->rip);
-        kprintf("============== RFLAGS ==============\n");
+        kprintf("============= FLAGS =============\n");
         kprintf("falgs: 0x%lx\n",fault->flags);
+        kprintf("========== STACK TRACE ==========\n");
+        kprintf("most recent call\n");
+        uint64_t *rbp = fault->rbp;
+        while (*rbp){
+            kprintf("<0x%lx>\n",*(rbp+1));
+            rbp = *rbp;
+        }
+        
+        kprintf("older call\n");
 
     }else{
         kprintf("unavalible\n");
