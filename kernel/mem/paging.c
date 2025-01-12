@@ -18,7 +18,7 @@ void init_paging(kernel_table *kernel){
 uint64_t *init_PMLT4(kernel_table *kernel){
 	//allocate place for the PMLT4
 	uint64_t *PMLT4 = PAGE_SIZE * allocate_page(&kernel->bitmap) + kernel->hhdm;
-	kprintf("PMLT4 : 0x%lx\n",PMLT4);
+
 	//Set all entry as 0
 	memset(PMLT4,0,PAGE_SIZE);
 
@@ -168,7 +168,7 @@ void map_hhdm(kernel_table *kernel,uint64_t *PMLT4){
 			type == LIMINE_MEMMAP_USABLE
 			){
 				//map all the section
-				uint64_t section_size = PAGE_ALIGN_UP(kernel->memmap->entries[index]->base);
+				uint64_t section_size = PAGE_ALIGN_UP(kernel->memmap->entries[index]->length);
 				uint64_t phys_page = kernel->memmap->entries[index]->base / PAGE_SIZE;
 				uint64_t virt_page = (kernel->memmap->entries[index]->base + kernel->hhdm) / PAGE_SIZE;
 				for (uint64_t i = 0; i < section_size; i++){

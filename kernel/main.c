@@ -19,9 +19,31 @@ void kmain(){
         init_idt(&master_kernel_table);
         enable_interrupt();
         init_bitmap(&master_kernel_table);
+        kprintf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
         init_paging(&master_kernel_table);
         kprintf("finish init kernel\n");
 
+        //just a test to test all PMM and paging functionality
+        kdebugf("test mapping/unmapping\n");
+        kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
+        kdebugf("create new PMLT4\n");
+        uint64_t *PMLT4 = init_PMLT4(&master_kernel_table);
+
+        kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
+        kdebugf("allocate page and map it\n");
+        uint64_t test_page = allocate_page(&master_kernel_table.bitmap);
+        map_page(&master_kernel_table,PMLT4,test_page,0xFFFFFFFF/PAGE_SIZE,PAGING_FLAG_RW_CPL0);
+
+        kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
+        kdebugf("unmapping page\n");
+        unmap_page(&master_kernel_table,PMLT4,0xFFFFFFFF/PAGE_SIZE);
+
+        kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
+        kdebugf("free page\n");
+        free_page(&master_kernel_table.bitmap,test_page);
+
+        kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
+        
         //infinite loop
         kprintf("test V2P : 0x%lx\n",virt2phys(&master_kernel_table,master_kernel_table.kernel_address->virtual_base));
         halt();
