@@ -99,8 +99,6 @@ void init_bitmap(kernel_table *kernel){
 	//stupid (void *) to make compiler happy
 	kernel->bitmap.data = (void *)kernel->memmap->entries[selected_seg]->base + kernel->hhdm;
 
-	kdebugf("use segment %lu\n",selected_seg);
-
 	//fill the bitmap with 1
 	for(uint64_t index = 0;index < kernel->bitmap.size;index++){
 		kernel->bitmap.data[index] = (uint64_t)-1;

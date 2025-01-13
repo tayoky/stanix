@@ -8,11 +8,11 @@
 #define PRINTF_MODIFIER_O 2
 
 void kok(void){
-	kstatus("[" COLOR_GREEN " OK " COLOR_RESET "]\n");
+	kprintf("[" COLOR_GREEN " OK " COLOR_RESET "]\n");
 }
 
 void kfail(void){
-	kstatus("[" COLOR_RED "FAIL" COLOR_RESET "]\n");
+	kprintf("[" COLOR_RED "FAIL" COLOR_RESET "]\n");
 }
 
 void printuint(print_func func,uint64_t integer,uint8_t base){
@@ -130,7 +130,7 @@ void kprintf(const char *fmt,...){
 }
 
 void kdebugf(const char *fmt,...){
-	kprintf("[debug] ");
+	kprintf("["COLOR_BLUE"debug"COLOR_RESET"] ");
 	va_list args;
 	va_start(args,fmt);
 	printfunc(write_serial_char,fmt,args);
@@ -138,7 +138,7 @@ void kdebugf(const char *fmt,...){
 }
 
 void kinfof(const char *fmt,...){
-	kprintf("[infos] ");
+	kprintf("["COLOR_YELLOW"infos"COLOR_RESET"] ");
 	va_list args;
 	va_start(args,fmt);
 	printfunc(write_serial_char,fmt,args);
@@ -147,5 +147,6 @@ void kinfof(const char *fmt,...){
 
 
 void kstatus(const char *status){
+	kprintf("["COLOR_YELLOW"infos"COLOR_RESET"] ");
 	kprintf(status);
 }

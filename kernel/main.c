@@ -15,6 +15,7 @@ kernel_table master_kernel_table;
 void kmain(){
         disable_interrupt();
         init_serial();
+        kinfof("starting stanix kernel\n");
         get_bootinfo(&master_kernel_table);
         init_gdt(&master_kernel_table);
         init_idt(&master_kernel_table);
@@ -23,7 +24,7 @@ void kmain(){
         kprintf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
         init_paging(&master_kernel_table);
         init_kheap(&master_kernel_table);
-        kprintf("finish init kernel\n");
+        kstatus("finish init kernel\n");
 
         //just a test to test all PMM and paging functionality
         kdebugf("test mapping/unmapping\n");
