@@ -43,6 +43,10 @@ void kmain(){
         free_page(&master_kernel_table.bitmap,test_page);
 
         kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
+        kdebugf("delete PMLT4\n");
+        delete_PMLT4(&master_kernel_table,PMLT4);
+
+        kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
         
         //infinite loop
         kprintf("test V2P : 0x%lx\n",virt2phys(&master_kernel_table,master_kernel_table.kernel_address->virtual_base));

@@ -44,17 +44,17 @@ void delete_PMLT4(kernel_table *kernel,uint64_t *PMLT4){
 				if(!PD[PDi] & 1)continue;
 				uint64_t *PT = (PMLT4[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
 				
-				free_page(&kernel->bitmap,(uint64_t)PT/PAGE_SIZE);
+				free_page(&kernel->bitmap,((uint64_t)PT-kernel->hhdm)/PAGE_SIZE);
 			}
 
-			free_page(&kernel->bitmap,(uint64_t)PD/PAGE_SIZE);
+			free_page(&kernel->bitmap,((uint64_t)PD-kernel->hhdm)/PAGE_SIZE);
 		}
 
-		free_page(&kernel->bitmap,(uint64_t)PDP/PAGE_SIZE);
+		free_page(&kernel->bitmap,((uint64_t)PDP-kernel->hhdm)/PAGE_SIZE);
 	}
 	
 
-	free_page(&kernel->bitmap,(uint64_t)PMLT4/PAGE_SIZE);
+	free_page(&kernel->bitmap,((uint64_t)PMLT4-kernel->hhdm)/PAGE_SIZE);
 }
 
 void *virt2phys(kernel_table *kernel,void *address){
