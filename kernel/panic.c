@@ -20,7 +20,7 @@ void register_dump(fault_frame *registers){
 }
 
 void panic(const char *error,fault_frame *fault){
-    kprintf("\e[31m====== ERROR : KERNEL PANIC =====\n");
+    kprintf(COLOR_RED "====== ERROR : KERNEL PANIC =====\n");
     kprintf("error : %s\n",error);
     kprintf("========== REGISTER DUMP ========\n");
     if(fault){
@@ -50,5 +50,6 @@ void panic(const char *error,fault_frame *fault){
     }else{
         kprintf("unavalible\n");
     }
+    kprintf(COLOR_RESET);
     halt();
 }

@@ -6,6 +6,7 @@
 #include "limine.h"
 #include "bootinfo.h"
 #include "bitmap.h"
+#include "kheap.h"
 
 typedef struct kernel_table_struct{
 	gdt_segment gdt[5];
@@ -24,6 +25,7 @@ typedef struct kernel_table_struct{
 	uint64_t hhdm;
 	struct limine_memmap_response *memmap;
 	uint64_t stack_start;
+	kheap_info kheap;
 }kernel_table;
 
 #endif

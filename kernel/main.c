@@ -7,6 +7,7 @@
 #include "print.h"
 #include "bitmap.h"
 #include "paging.h"
+#include "kheap.h"
 
 kernel_table master_kernel_table;
 
@@ -21,6 +22,7 @@ void kmain(){
         init_bitmap(&master_kernel_table);
         kprintf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
         init_paging(&master_kernel_table);
+        init_kheap(&master_kernel_table);
         kprintf("finish init kernel\n");
 
         //just a test to test all PMM and paging functionality
@@ -47,6 +49,13 @@ void kmain(){
         delete_PMLT4(&master_kernel_table,PMLT4);
 
         kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
+
+        kdebugf("alloc test\n");
+        kdebugf("change heap size\n");
+        change_kheap_size(&master_kernel_table,PAGE_SIZE * 20);
+        change_kheap_size(&master_kernel_table,PAGE_SIZE * -10);
+        uint64_t *ptr_test = master_kernel_table.kheap.start;
+        *ptr_test = 0xFFF;
         
         //infinite loop
         kprintf("test V2P : 0x%lx\n",virt2phys(&master_kernel_table,master_kernel_table.kernel_address->virtual_base));

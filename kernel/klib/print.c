@@ -8,11 +8,11 @@
 #define PRINTF_MODIFIER_O 2
 
 void kok(void){
-	kstatus("[ OK ]\n");
+	kstatus("[" COLOR_GREEN " OK " COLOR_RESET "]\n");
 }
 
 void kfail(void){
-	kstatus("[FAIL]\n");
+	kstatus("[" COLOR_RED "FAIL" COLOR_RESET "]\n");
 }
 
 void printuint(print_func func,uint64_t integer,uint8_t base){

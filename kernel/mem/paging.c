@@ -174,7 +174,7 @@ void unmap_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t virtual_page){
 void map_kernel(kernel_table *kernel,uint64_t *PMLT4){
 	uint64_t kernel_start = *(&p_kernel_start);
 	uint64_t kernel_end   = *(&p_kernel_end);
-	uint64_t kernel_size = PAGE_ALIGN_UP(kernel_end - kernel_start);
+	uint64_t kernel_size = PAGE_DIV_UP(kernel_end - kernel_start);
 	uint64_t phys_page = kernel->kernel_address->physical_base / PAGE_SIZE;
 	uint64_t virt_page = kernel->kernel_address->virtual_base / PAGE_SIZE;
 
@@ -196,7 +196,7 @@ void map_hhdm(kernel_table *kernel,uint64_t *PMLT4){
 			type == LIMINE_MEMMAP_USABLE
 			){
 				//map all the section
-				uint64_t section_size = PAGE_ALIGN_UP(kernel->memmap->entries[index]->length);
+				uint64_t section_size = PAGE_DIV_UP(kernel->memmap->entries[index]->length);
 				uint64_t phys_page = kernel->memmap->entries[index]->base / PAGE_SIZE;
 				uint64_t virt_page = (kernel->memmap->entries[index]->base + kernel->hhdm) / PAGE_SIZE;
 				for (uint64_t i = 0; i < section_size; i++){

@@ -2,6 +2,7 @@
 #define PAGING_H
 #include <stdint.h>
 #include "page.h"
+#include "kernel.h"
 
 void init_paging(kernel_table *kernel);
 /// @brief create an new PMLT4 and map all kernel modules and framebuffers
@@ -54,5 +55,6 @@ void *virt2phys(kernel_table *kernel,void *address);
 #define PAGING_FLAG_RW_CPL0 0x03
 #define PAGING_FLAG_READONLY_CPL3 0x05
 #define PAGING_FLAG_RW_CPL3 0x07
+#define PAGING_FLAG_NO_EXE (1 << 61)
 
 #endif
