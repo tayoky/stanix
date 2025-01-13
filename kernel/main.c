@@ -52,11 +52,9 @@ void kmain(){
         kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
 
         kdebugf("alloc test\n");
-        kdebugf("change heap size\n");
-        change_kheap_size(&master_kernel_table,PAGE_SIZE * 20);
-        change_kheap_size(&master_kernel_table,PAGE_SIZE * -10);
-        uint64_t *ptr_test = master_kernel_table.kheap.start;
-        *ptr_test = 0xFFF;
+        kdebugf("alloc 128 bytes\n");
+        uint64_t *test_ptr = kmalloc(&master_kernel_table,128);
+        kdebugf("allocated at 0x%lx\n",test_ptr);
         
         //infinite loop
         kprintf("test V2P : 0x%lx\n",virt2phys(&master_kernel_table,master_kernel_table.kernel_address->virtual_base));

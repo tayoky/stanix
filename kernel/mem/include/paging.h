@@ -21,7 +21,7 @@ void delete_PMLT4(kernel_table *kernel,uint64_t *PMLT4);
 /// @param physical_page the physical page it will be map
 /// @param virtual_page the virtual page to map
 /// @param flags flag to use for the virtual page (eg readonly, not executable...)
-void map_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint8_t flags);
+void map_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint64_t flags);
 
 /// @brief unmap an page
 /// @param kernel an pointer to the kernel table
@@ -55,6 +55,6 @@ void *virt2phys(kernel_table *kernel,void *address);
 #define PAGING_FLAG_RW_CPL0 0x03
 #define PAGING_FLAG_READONLY_CPL3 0x05
 #define PAGING_FLAG_RW_CPL3 0x07
-#define PAGING_FLAG_NO_EXE (1 << 61)
+#define PAGING_FLAG_NO_EXE ((uint64_t)1 << 61)
 
 #endif

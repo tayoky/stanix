@@ -89,7 +89,7 @@ void *virt2phys(kernel_table *kernel,void *address){
 	return (void *) (PT[PTi] & PAGING_ENTRY_ADDRESS + ((uint64_t)address & 0XFFF));
 }
 
-void map_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint8_t falgs){
+void map_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint64_t falgs){
 	uint64_t PMLT4i= ((uint64_t)virtual_page >> 27) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)virtual_page >> 18) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)virtual_page >> 9) & 0x1FF;
@@ -114,7 +114,7 @@ void map_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t physical_page,uint64
 
 	uint64_t *PT = (PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
 	if(!PT[PTi] & 1){
-		PT[PTi] = PAGE_SIZE * physical_page + falgs;
+		PT[PTi] = (PAGE_SIZE * physical_page) | falgs;
 	}
 }
 
