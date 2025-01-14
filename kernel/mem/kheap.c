@@ -1,16 +1,22 @@
 #include "paging.h"
 #include "kheap.h"
 #include "print.h"
-
+#include "panic.h"
 
 void init_kheap(kernel_table *kernel){
 	kstatus("init kheap...");
-	kernel->kheap.start = PAGE_ALIGN_DOWN(0xFFFFFFFF90000000);
+	kernel->kheap.start = PAGE_ALIGN_DOWN(KHEAP_START);
+
 	//get cr3
 	uint64_t cr3;
 	asm("mov %%cr3, %%rax" : "=a" (cr3));
 	uint64_t *PMLT4 = (uint64_t *)(cr3 + kernel->hhdm);
 	map_page(kernel,PMLT4,allocate_page(&kernel->bitmap),kernel->kheap.start/PAGE_SIZE,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+
+	//get the PDP for the kernel heap
+	kernel->kheap.PMLT4i = (kernel->kheap.start >> 39) & 0x1FF;
+	kernel->kheap.PDP = PMLT4[kernel->kheap.PMLT4i] & PAGING_ENTRY_ADDRESS;
+
 	kernel->kheap.lenght = PAGE_SIZE;
 
 	//init the first seg
@@ -21,6 +27,8 @@ void init_kheap(kernel_table *kernel){
 	kernel->kheap.first_seg->next = NULL;
 
 	kok();
+	kdebugf("kheap start : 0x%lx\n",KHEAP_START);
+	kdebugf("kheap PDP   : 0x%lx\n",kernel->kheap.PDP);
 }
 
 void change_kheap_size(kernel_table *kernel,int64_t offset){
@@ -55,6 +63,7 @@ void *kmalloc(kernel_table *kernel,size_t amount){
 	while (current_seg->lenght < amount || current_seg->magic != KHEAP_SEG_MAGIC_FREE){
 		if(current_seg->next == NULL){
 			//no more segment need to make kheap bigger
+			panic("kheap too small",NULL);
 		}
 		current_seg = current_seg->next;
 	}

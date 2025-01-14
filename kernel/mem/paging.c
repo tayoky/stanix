@@ -24,16 +24,26 @@ uint64_t *init_PMLT4(kernel_table *kernel){
 
 	//map kernel in it
 	map_kernel(kernel,PMLT4);
+
 	//map the hhdm
 	map_hhdm(kernel,PMLT4);
+
+	//map the kernel heap
+	map_kheap(kernel,PMLT4);
+
 	return PMLT4;
 }
 
 void delete_PMLT4(kernel_table *kernel,uint64_t *PMLT4){
 	//recusively free everythings
+	//EXECPT THE KHEAP TABLES!!!
 
 	for (uint16_t PMLT4i = 0; PMLT4i < 512; PMLT4i++){
 		if(!PMLT4[PMLT4i] & 1)continue;
+
+		//special check for the kheap
+		if(PMLT4i == kernel->kheap.PMLT4i)continue;
+
 		uint64_t *PDP = (PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
 
 		for (uint16_t PDPi = 0; PDPi < 512; PDPi++){
@@ -208,4 +218,8 @@ void map_hhdm(kernel_table *kernel,uint64_t *PMLT4){
 			}
 	}
 	
+}
+
+void map_kheap(kernel_table *kernel,uint64_t *PMLT4){
+	PMLT4[kernel->kheap.PMLT4i] = (uint64_t)kernel->kheap.PDP | PAGING_FLAG_RW_CPL0;
 }

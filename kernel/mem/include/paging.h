@@ -39,6 +39,11 @@ void map_kernel(kernel_table *kernel,uint64_t *PMLT4);
 /// @param PMLT4 an pointer to the PMLT4
 void map_hhdm(kernel_table *kernel,uint64_t *PMLT4);
 
+/// @brief map the kheap on a PMLT4
+/// @param kernel an pointer to the kernel table
+/// @param PMLT4 an pointer to the PMLT4
+void map_kheap(kernel_table *kernel,uint64_t *PMLT4);
+
 /// @brief return the mapped physcal address of a virtual address
 /// @param kernel an pointer to the kernel table
 /// @param address the virtual address

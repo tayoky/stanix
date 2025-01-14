@@ -18,6 +18,8 @@ typedef struct kheap_segment_struct{
 typedef struct {
 	uint64_t start;
 	uint64_t lenght;
+	uint64_t *PDP;
+	uint64_t PMLT4i;
 	kheap_segment *first_seg;
 }kheap_info;
 
@@ -43,5 +45,7 @@ void *kmalloc(struct kernel_table_struct *kernel,size_t amount);
 /// @param kernel an poiter to the kernel table
 /// @param ptr an pointer to the memory region to free
 void kfree(struct kernel_table_struct *kernel,void *ptr);
+
+#define KHEAP_START (((uint64_t)0xFFFF << 48)  | ((uint64_t)(509 & 0x1FF) << 39))
 
 #endif
