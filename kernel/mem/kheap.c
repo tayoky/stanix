@@ -80,3 +80,36 @@ void *kmalloc(kernel_table *kernel,size_t amount){
 	current_seg->magic = KHEAP_SEG_MAGIC_ALLOCATED;
 	return (void *)current_seg + sizeof(kheap_segment);
 }
+
+void kfree(struct kernel_table_struct *kernel,void *ptr){
+	if(!ptr)return;
+	
+	kheap_segment *current_seg = (kheap_segment *)((uintptr_t)ptr - sizeof(kheap_segment));
+	if(current_seg->magic != KHEAP_SEG_MAGIC_ALLOCATED)return;
+
+	current_seg->magic = KHEAP_SEG_MAGIC_FREE;
+
+	if(current_seg->next && current_seg->magic == KHEAP_SEG_MAGIC_FREE){
+		//merge with next
+		current_seg->lenght += current_seg->next->lenght + sizeof(kheap_segment);
+
+		if(current_seg->next->next){
+			current_seg->next->next->prev = current_seg;
+		}
+		current_seg->next = current_seg->next->next;
+	}
+
+	if(current_seg->prev && current_seg->prev->magic == KHEAP_SEG_MAGIC_FREE){
+		//megre with prev
+		current_seg->prev->lenght += current_seg->lenght + sizeof(kheap_segment);
+
+		if(current_seg->next){
+			current_seg->next->prev = current_seg->prev;
+		}
+		current_seg->prev->next = current_seg->next;
+	}
+
+	//just to make the compiler think we use the kernel table because if i change something
+	//there probably will be a a need of it
+	asm("nop" : : "a" (kernel));
+}

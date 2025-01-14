@@ -55,6 +55,10 @@ void kmain(){
         kdebugf("alloc 128 bytes\n");
         uint64_t *test_ptr = kmalloc(&master_kernel_table,128);
         kdebugf("allocated at 0x%lx\n",test_ptr);
+        kfree(&master_kernel_table,test_ptr);
+        kdebugf("free succefully\n");
+        test_ptr = kmalloc(&master_kernel_table,256);
+        kdebugf("allocated 256 bytes at 0x%lx\n",test_ptr);
         
         //infinite loop
         kprintf("test V2P : 0x%lx\n",virt2phys(&master_kernel_table,master_kernel_table.kernel_address->virtual_base));

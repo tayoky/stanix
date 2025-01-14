@@ -33,8 +33,15 @@ void init_kheap(struct kernel_table_struct *kernel);
 
 void change_kheap_size(struct kernel_table_struct *kernel,int64_t offset);
 
+/// @brief allocate space in kernel heap
+/// @param kernel an pointer to the kernel table
+/// @param amount the amount of memory to allocate
+/// @return an pointer to the allocated region
 void *kmalloc(struct kernel_table_struct *kernel,size_t amount);
 
-void free(void *ptr);
+/// @brief free space in the kernel heap
+/// @param kernel an poiter to the kernel table
+/// @param ptr an pointer to the memory region to free
+void kfree(struct kernel_table_struct *kernel,void *ptr);
 
 #endif
