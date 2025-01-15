@@ -11,7 +11,7 @@ void set_allocted_page(bitmap_meta *bitmap,uint64_t page){
 	//find the good uint64_t
 	uint64_t index = page / 64;
 	uint64_t bit = 1 << (page % 64);
-	if(!bitmap->data[index] & bit){
+	if(!(bitmap->data[index] & bit)){
 		bitmap->used_page_count++;
 	}
 	bitmap->data[index] |= bit;

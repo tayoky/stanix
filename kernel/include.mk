@@ -19,3 +19,4 @@ CFLAGS += -I ../limine/
 CFLAGS += -I ./cpu/include/
 CFLAGS += -I ./klib/include/
 CFLAGS += -I ./mem/include/
+CFLAGS += -I ./drivers/include/

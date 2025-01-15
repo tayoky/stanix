@@ -62,13 +62,13 @@ void kmain(){
 
         uint8_t *tests_ptrs[128];
         kdebugf("stress test allocating 256 bytes 128 times and then free it\n");
-        for (uint8_t i = 0; i < 256; i++){
+        for (uint16_t i = 0; i < 256; i++){
                 tests_ptrs[i] = kmalloc(&master_kernel_table,256);
                 kdebugf("%d : allocating at 0x%lx\n",i,tests_ptrs[i]);
         }
         
         
         //infinite loop
-        kprintf("test V2P : 0x%lx\n",virt2phys(&master_kernel_table,master_kernel_table.kernel_address->virtual_base));
+        kprintf("test V2P : 0x%lx\n",virt2phys(&master_kernel_table,(void *)master_kernel_table.kernel_address->virtual_base));
         halt();
 }

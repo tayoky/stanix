@@ -15,7 +15,7 @@ void init_kheap(kernel_table *kernel){
 
 	//get the PDP for the kernel heap
 	kernel->kheap.PMLT4i = (kernel->kheap.start >> 39) & 0x1FF;
-	kernel->kheap.PDP = PMLT4[kernel->kheap.PMLT4i] & PAGING_ENTRY_ADDRESS;
+	kernel->kheap.PDP = (uint64_t *)(PMLT4[kernel->kheap.PMLT4i] & PAGING_ENTRY_ADDRESS);
 
 	kernel->kheap.lenght = PAGE_SIZE;
 

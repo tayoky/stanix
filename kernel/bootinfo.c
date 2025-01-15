@@ -44,9 +44,9 @@ void get_bootinfo(kernel_table *kernel){
 	uint64_t *rbp;
 	asm("mov %%rbp, %%rax":"=a"(rbp));
 	while (*rbp){
-		rbp = *rbp;
+		rbp = (uint64_t *)*rbp;
 	}
-	kernel->stack_start = rbp;
+	kernel->stack_start = (uint64_t)rbp;
 
 	//get the response from the limine request
 	kernel->kernel_address = kernel_address_request.response;

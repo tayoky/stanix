@@ -17,7 +17,7 @@ void init_paging(kernel_table *kernel){
 
 uint64_t *init_PMLT4(kernel_table *kernel){
 	//allocate place for the PMLT4
-	uint64_t *PMLT4 = PAGE_SIZE * allocate_page(&kernel->bitmap) + kernel->hhdm;
+	uint64_t *PMLT4 = (uint64_t *)(PAGE_SIZE * allocate_page(&kernel->bitmap) + kernel->hhdm);
 
 	//Set all entry as 0
 	memset(PMLT4,0,PAGE_SIZE);
@@ -44,15 +44,15 @@ void delete_PMLT4(kernel_table *kernel,uint64_t *PMLT4){
 		//special check for the kheap
 		if(PMLT4i == kernel->kheap.PMLT4i)continue;
 
-		uint64_t *PDP = (PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+		uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 
 		for (uint16_t PDPi = 0; PDPi < 512; PDPi++){
 			if(!PDP[PDPi] & 1)continue;
-			uint64_t *PD = (PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+			uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 
 			for (uint16_t PDi = 0; PDi < 512; PDi++){
 				if(!PD[PDi] & 1)continue;
-				uint64_t *PT = (PMLT4[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+				uint64_t *PT = (uint64_t *)((PMLT4[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 				
 				free_page(&kernel->bitmap,((uint64_t)PT-kernel->hhdm)/PAGE_SIZE);
 			}
@@ -76,27 +76,27 @@ void *virt2phys(kernel_table *kernel,void *address){
 	uint64_t cr3;
 	asm volatile("mov %%cr3, %%rax" : "=a" (cr3));
 
-	uint64_t *PMLT4 = cr3 + kernel->hhdm;
+	uint64_t *PMLT4 = (uint64_t *)(cr3 + kernel->hhdm);
 	if(!PMLT4[PMLT4i] & 1){
 		return NULL;
 	}
 
-	uint64_t *PDP = (PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+	uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if(!PDP[PDPi] & 1){
 		return NULL;
 	}
 
-	uint64_t *PD = (PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if(!PD[PDi] & 1){
 		return NULL;
 	}
 
-	uint64_t *PT = (PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if(!PT[PTi] & 1){
 		return NULL;
 	}
 
-	return (void *) (PT[PTi] & PAGING_ENTRY_ADDRESS + ((uint64_t)address & 0XFFF));
+	return (void *) ((PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF));
 }
 
 void map_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint64_t falgs){
@@ -107,22 +107,22 @@ void map_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t physical_page,uint64
 	
 	if(!PMLT4[PMLT4i] & 1){
 		PMLT4[PMLT4i] = PAGE_SIZE * allocate_page(&kernel->bitmap) + PAGING_FLAG_RW_CPL3;
-		memset((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm,0,PAGE_SIZE);
+		memset((uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm),0,PAGE_SIZE);
 	}
 
-	uint64_t *PDP = (PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+	uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if(!PDP[PDPi] & 1){
 		PDP[PDPi] = PAGE_SIZE * allocate_page(&kernel->bitmap) + PAGING_FLAG_RW_CPL3;
-		memset((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm,0,PAGE_SIZE);
+		memset((uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm),0,PAGE_SIZE);
 	}
 
-	uint64_t *PD = (PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if(!PD[PDi] & 1){
 		PD[PDi] = PAGE_SIZE * allocate_page(&kernel->bitmap) + PAGING_FLAG_RW_CPL3;
-		memset((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm,0,PAGE_SIZE);
+		memset((uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm),0,PAGE_SIZE);
 	}
 
-	uint64_t *PT = (PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if(!PT[PTi] & 1){
 		PT[PTi] = (PAGE_SIZE * physical_page) | falgs;
 	}
@@ -138,17 +138,17 @@ void unmap_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t virtual_page){
 		return;
 	}
 
-	uint64_t *PDP = (PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+	uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if(!PDP[PDPi] & 1){
 		return;
 	}
 
-	uint64_t *PD = (PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if(!PD[PDi] & 1){
 		return;
 	}
 
-	uint64_t *PT = (PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm;
+	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if(!PT[PTi] & 1){
 		return;
 	}
@@ -182,8 +182,8 @@ void unmap_page(kernel_table *kernel,uint64_t *PMLT4,uint64_t virtual_page){
 }
 ///
 void map_kernel(kernel_table *kernel,uint64_t *PMLT4){
-	uint64_t kernel_start = *(&p_kernel_start);
-	uint64_t kernel_end   = *(&p_kernel_end);
+	uint64_t kernel_start = (uint64_t)*(&p_kernel_start);
+	uint64_t kernel_end   = (uint64_t)*(&p_kernel_end);
 	uint64_t kernel_size = PAGE_DIV_UP(kernel_end - kernel_start);
 	uint64_t phys_page = kernel->kernel_address->physical_base / PAGE_SIZE;
 	uint64_t virt_page = kernel->kernel_address->virtual_base / PAGE_SIZE;
