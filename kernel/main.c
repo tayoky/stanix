@@ -57,15 +57,6 @@ void kmain(){
         kdebugf("allocated at 0x%lx\n",test_ptr);
         kfree(&master_kernel_table,test_ptr);
         kdebugf("free succefully\n");
-        test_ptr = kmalloc(&master_kernel_table,256);
-        kdebugf("allocated 256 bytes at 0x%lx\n",test_ptr);
-
-        uint8_t *tests_ptrs[128];
-        kdebugf("stress test allocating 256 bytes 128 times and then free it\n");
-        for (uint16_t i = 0; i < 256; i++){
-                tests_ptrs[i] = kmalloc(&master_kernel_table,256);
-                kdebugf("%d : allocating at 0x%lx\n",i,tests_ptrs[i]);
-        }
         
         
         //infinite loop
