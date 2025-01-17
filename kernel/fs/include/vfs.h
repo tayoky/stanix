@@ -14,7 +14,7 @@ typedef struct vfs_node_struct {
 	uint64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	uint64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	uint64_t (* close)(struct vfs_node_struct *);
-	struct vfs_node_struct (* finddir)(struct vfs_node_struct *,char *name);
+	struct vfs_node_struct *(* finddir)(struct vfs_node_struct *,char *name);
 }vfs_node;
 
 struct vfs_mount_point_struct;
@@ -32,8 +32,8 @@ void init_vfs(void);
 
 int vfs_mount(const char *name,vfs_node *mounting_root);
 
-
-vfs_node finddir(vfs_node *node,const char *name);
+vfs_node *vfs_open(const char *path);
+vfs_node *vfs_finddir(vfs_node *node,const char *name);
 uint64_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count);
 uint64_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 void vfs_close(vfs_node *node);
