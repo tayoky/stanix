@@ -43,7 +43,7 @@ int vfs_mount(const char *name,vfs_node *mounting_node){
 	strcpy(mount_point->name,name);
 	mount_point->root = mounting_node;
 
-	mount_point = kernel->first_mount_point;
+	mount_point->next = kernel->first_mount_point;
 	kernel->first_mount_point = mount_point;
 	return 0;
 }

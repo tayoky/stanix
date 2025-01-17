@@ -38,6 +38,9 @@ void init_tmpfs(){
 		kfail();
 		halt();
 	}
+	vfs_node *test = vfs_open("tmp:/");
+	
+	vfs_mkdir(test,"folder",777);
 	kok();
 }
 vfs_node *new_tmpfs(){
