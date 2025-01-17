@@ -7,6 +7,7 @@
 #include "bootinfo.h"
 #include "bitmap.h"
 #include "kheap.h"
+#include "vfs.h"
 
 typedef struct kernel_table_struct{
 	gdt_segment gdt[5];
@@ -26,6 +27,8 @@ typedef struct kernel_table_struct{
 	struct limine_memmap_response *memmap;
 	uint64_t stack_start;
 	kheap_info kheap;
+	vfs_mount_point *first_mount_point;
 }kernel_table;
 
+extern kernel_table *kernel;
 #endif

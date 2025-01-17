@@ -10,20 +10,23 @@
 #include "kheap.h"
 
 kernel_table master_kernel_table;
+kernel_table *kernel;
 
 //the entry point
 void kmain(){
+        kernel = &master_kernel_table;
         disable_interrupt();
         init_serial();
         kinfof("starting stanix kernel\n");
-        get_bootinfo(&master_kernel_table);
-        init_gdt(&master_kernel_table);
-        init_idt(&master_kernel_table);
+        get_bootinfo();
+        init_gdt();
+        init_idt();
         enable_interrupt();
-        init_bitmap(&master_kernel_table);
+        init_bitmap();
         kprintf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
-        init_paging(&master_kernel_table);
-        init_kheap(&master_kernel_table);
+        init_paging();
+        init_kheap();
+        init_vfs();
         kstatus("finish init kernel\n");
 
         //just a test to test all PMM and paging functionality
@@ -35,11 +38,11 @@ void kmain(){
         kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
         kdebugf("allocate page and map it\n");
         uint64_t test_page = allocate_page(&master_kernel_table.bitmap);
-        map_page(&master_kernel_table,PMLT4,test_page,0xFFFFFFFF/PAGE_SIZE,PAGING_FLAG_RW_CPL0);
+        map_page(PMLT4,test_page,0xFFFFFFFF/PAGE_SIZE,PAGING_FLAG_RW_CPL0);
 
         kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
         kdebugf("unmapping page\n");
-        unmap_page(&master_kernel_table,PMLT4,0xFFFFFFFF/PAGE_SIZE);
+        unmap_page(PMLT4,0xFFFFFFFF/PAGE_SIZE);
 
         kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
         kdebugf("free page\n");
@@ -47,19 +50,19 @@ void kmain(){
 
         kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
         kdebugf("delete PMLT4\n");
-        delete_PMLT4(&master_kernel_table,PMLT4);
+        delete_PMLT4(PMLT4);
 
         kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
 
         kdebugf("alloc test\n");
         kdebugf("alloc 128 bytes\n");
-        uint64_t *test_ptr = kmalloc(&master_kernel_table,128);
+        uint64_t *test_ptr = kmalloc(128);
         kdebugf("allocated at 0x%lx\n",test_ptr);
-        kfree(&master_kernel_table,test_ptr);
+        kfree(test_ptr);
         kdebugf("free succefully\n");
         
         
         //infinite loop
-        kprintf("test V2P : 0x%lx\n",virt2phys(&master_kernel_table,(void *)master_kernel_table.kernel_address->virtual_base));
+        kprintf("test V2P : 0x%lx\n",virt2phys((void *)master_kernel_table.kernel_address->virtual_base));
         halt();
 }

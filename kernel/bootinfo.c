@@ -38,7 +38,7 @@ static const char * memmap_types[] = {
 };
 
 
-void get_bootinfo(kernel_table *kernel){
+void get_bootinfo(void){
 	kstatus("getting limine response ...");
 	//get the stack start
 	uint64_t *rbp;

@@ -73,8 +73,8 @@ uint64_t allocate_page(bitmap_meta *bitmap){
 	return page;
 }
 
-void init_bitmap(kernel_table *kernel){
-	kstatus("init memory bitmap ...");
+void init_bitmap(){
+	kstatus("init memory bitmap... ");
 
 	//create an bitmap of the correspondig size
 	//each unint64_t can store state for 64 page of 4KB

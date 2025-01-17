@@ -3,15 +3,15 @@
 #include "print.h"
 #include "panic.h"
 
-void init_kheap(kernel_table *kernel){
-	kstatus("init kheap...");
+void init_kheap(void){
+	kstatus("init kheap... ");
 	kernel->kheap.start = PAGE_ALIGN_DOWN(KHEAP_START);
 
 	//get cr3
 	uint64_t cr3;
 	asm("mov %%cr3, %%rax" : "=a" (cr3));
 	uint64_t *PMLT4 = (uint64_t *)(cr3 + kernel->hhdm);
-	map_page(kernel,PMLT4,allocate_page(&kernel->bitmap),kernel->kheap.start/PAGE_SIZE,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+	map_page(PMLT4,allocate_page(&kernel->bitmap),kernel->kheap.start/PAGE_SIZE,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 
 	//get the PDP for the kernel heap
 	kernel->kheap.PMLT4i = (kernel->kheap.start >> 39) & 0x1FF;
@@ -31,7 +31,7 @@ void init_kheap(kernel_table *kernel){
 	kdebugf("kheap PDP   : 0x%lx\n",kernel->kheap.PDP);
 }
 
-void change_kheap_size(kernel_table *kernel,int64_t offset){
+void change_kheap_size(int64_t offset){
 	if(!offset)return;
 	int64_t offset_page = offset / PAGE_SIZE;
 
@@ -44,26 +44,26 @@ void change_kheap_size(kernel_table *kernel,int64_t offset){
 		//make kheap smaller
 		for (int64_t i = 0; i > offset_page; i--){
 			uint64_t virt_page = (kernel->kheap.start + kernel->kheap.lenght)/PAGE_SIZE + i;
-			uint64_t phys_page = (uint64_t)virt2phys(kernel,(void *)(virt_page*PAGE_SIZE)) / PAGE_SIZE;
-			unmap_page(kernel,PMLT4,virt_page);
+			uint64_t phys_page = (uint64_t)virt2phys((void *)(virt_page*PAGE_SIZE)) / PAGE_SIZE;
+			unmap_page(PMLT4,virt_page);
 			free_page(&kernel->bitmap,phys_page);
 		}
 	} else {
 		//make kheap bigger
 		for (int64_t i = 0; i < offset_page; i++){
-			map_page(kernel,PMLT4,allocate_page(&kernel->bitmap),(kernel->kheap.start+kernel->kheap.lenght)/PAGE_SIZE+i,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+			map_page(PMLT4,allocate_page(&kernel->bitmap),(kernel->kheap.start+kernel->kheap.lenght)/PAGE_SIZE+i,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 		}
 	}
 	kernel->kheap.lenght += offset_page * PAGE_SIZE;
 }
 
-void *kmalloc(kernel_table *kernel,size_t amount){
+void *kmalloc(size_t amount){
 	kheap_segment *current_seg = kernel->kheap.first_seg;
 
 	while (current_seg->lenght < amount || current_seg->magic != KHEAP_SEG_MAGIC_FREE){
 		if(current_seg->next == NULL){
 			//no more segment need to make kheap bigger
-			change_kheap_size(kernel,PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 1));
+			change_kheap_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 1));
 			current_seg->lenght = amount + sizeof(kheap_segment) + 1;
 			break;
 		}
@@ -92,7 +92,7 @@ void *kmalloc(kernel_table *kernel,size_t amount){
 	return (void *)current_seg + sizeof(kheap_segment);
 }
 
-void kfree(struct kernel_table_struct *kernel,void *ptr){
+void kfree(void *ptr){
 	if(!ptr)return;
 	
 	kheap_segment *current_seg = (kheap_segment *)((uintptr_t)ptr - sizeof(kheap_segment));
@@ -119,8 +119,4 @@ void kfree(struct kernel_table_struct *kernel,void *ptr){
 		}
 		current_seg->prev->next = current_seg->next;
 	}
-
-	//just to make the compiler think we use the kernel table because if i change something
-	//there probably will be a a need of it
-	asm("nop" : : "a" (kernel));
 }

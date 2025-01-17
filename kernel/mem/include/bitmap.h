@@ -2,7 +2,6 @@
 #define BITMAP_H
 #include <stdint.h>
 
-struct kernel_table_struct;
 
 typedef struct bitmap_struct{
 	/// @brief size in uin64_t count
@@ -16,7 +15,7 @@ typedef struct bitmap_struct{
 
 
 /// @brief init the bitmap
-void init_bitmap(struct kernel_table_struct *kernel);
+void init_bitmap();
 
 /// @brief find an free page and allocate it
 /// @param bitmap an pointer to the bitmap

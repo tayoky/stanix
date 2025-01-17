@@ -69,8 +69,8 @@ void exception_handler(fault_frame *fault){
 	return;
 }
 
-void init_idt(kernel_table *kernel){
-	kstatus("init IDT ...");
+void init_idt(void){
+	kstatus("init IDT... ");
 
 	//some exception other exceptions are not very important
 	set_idt_gate(kernel->idt,0,&divide_exception,0x8E);
