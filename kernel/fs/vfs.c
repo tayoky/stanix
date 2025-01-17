@@ -81,6 +81,22 @@ void vfs_close(vfs_node *node){
 	kfree(node);
 }
 
+int vfs_create(vfs_node *node,const char *name,int perm){
+	if(node->create){
+		return node->create(node,(char *)name,perm);
+	} else {
+		return -1;
+	}
+}
+
+int vfs_mkdir(vfs_node *node,const char *name,int perm){
+	if(node->mkdir){
+		return node->mkdir(node,(char *)name,perm);
+	} else {
+		return -1;
+	}
+}
+
 vfs_node *vfs_open(const char *path){
 	//first parse the path
 	char *new_path = strdup(path);
