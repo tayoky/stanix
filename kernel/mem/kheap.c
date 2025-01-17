@@ -69,13 +69,13 @@ void *kmalloc(size_t amount){
 		}
 		current_seg = current_seg->next;
 	}
-	kdebugf("cur seg : 0x%lx\n",current_seg);
+
 	//we find a good segment
 
 	//if big enougth cut it
 	if(current_seg->lenght >= amount + sizeof(kheap_segment) + 1){
 		//bit enougth
-		kheap_segment *new_seg = (kheap_segment *)((uint64_t)current_seg + amount);
+		kheap_segment *new_seg = (kheap_segment *)((uint64_t)current_seg + amount + sizeof(kheap_segment));
 		new_seg->lenght = current_seg->lenght - (sizeof(kheap_segment) + amount);
 		current_seg->lenght = amount;
 		new_seg->magic = KHEAP_SEG_MAGIC_FREE;
