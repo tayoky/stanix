@@ -16,16 +16,25 @@ static inline int strequ(const char *str1,const char *str2){
 	return 0;
 }
 
-static inline vfs_node *vfs_get_root(const char *name){
+static inline vfs_mount_point *vfs_get_mount_point(const char *drive){
 	vfs_mount_point *current = kernel->first_mount_point;
 
 	while (current){
-		if(strequ(current->name,name)){
-			return current->root;
+		if(strequ(current->name,drive)){
+			return current;
 		}
 		current = current->next;
 	}
 	return NULL;
+}
+
+static inline vfs_node *vfs_get_root(const char *name){
+	vfs_mount_point *mount_point = vfs_get_mount_point(name);
+	if(!vfs_get_mount_point){
+		return NULL;
+	}
+
+	return mount_point->root;
 }
 
 void init_vfs(void){
@@ -74,6 +83,11 @@ vfs_node *vfs_finddir(vfs_node *node,const char *name){
 }
 
 void vfs_close(vfs_node *node){
+	if(node->mount_point->root == node){
+		//don't close it it's root !!!
+		return;
+	}
+
 	if(node->close){
 		node->close(node);
 	}
@@ -97,6 +111,22 @@ int vfs_mkdir(vfs_node *node,const char *name,int perm){
 	}
 }
 
+int vfs_unlink(vfs_node *node,const char *name){
+	if(node->unlink){
+		return node->unlink(node,(char *)name);
+	} else {
+		return -1;
+	}
+}
+
+struct dirent *vfs_readdir(vfs_node *node,uint64_t index){
+	if(node->readdir){
+		return node->readdir(node,index);
+	} else {
+		return NULL;
+	}
+}
+
 vfs_node *vfs_open(const char *path){
 	//first parse the path
 	char *new_path = strdup(path);
@@ -114,7 +144,6 @@ vfs_node *vfs_open(const char *path){
 	*drive_separator = '\0';
 	char *drive = new_path;
 	new_path = drive_separator+1;
-	kprintf("drive : %s\n",drive);
 
 	uint64_t path_depth = 0;
 	//first count the number of depth
@@ -139,7 +168,6 @@ vfs_node *vfs_open(const char *path){
         path_array[i] = (char *) new_path + j + 1;
     }
     
-	kdebugf("path depth : %lx\n",path_depth);
 
 	vfs_node *local_root = vfs_get_root(drive);
 	vfs_node *current_node = local_root;
@@ -147,17 +175,18 @@ vfs_node *vfs_open(const char *path){
 	for (uint64_t i = 0; i < path_depth; i++){
 		if(!current_node)goto open_error;
 		vfs_node *next_node = vfs_finddir(current_node,path_array[i]);
-
-		if(current_node != local_root){
-			vfs_close(current_node);
-		}
-
+		vfs_close(current_node);
 		current_node = next_node;
 	}
 	
+	if(!current_node)return NULL;
+	current_node->mount_point = vfs_get_mount_point(drive);
+	kfree(new_path);
+	kfree(path_array);
 	return current_node;
 
 	open_error:
+	kfree(path_array);
 	kfree(new_path);
 	return NULL;
 }

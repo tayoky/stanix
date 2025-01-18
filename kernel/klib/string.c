@@ -31,21 +31,16 @@ void *memset(void *pointer,int value,uint64_t count){
 	return pointer;
 }
 
-//this implementation is from stack overflow : 
-//https://stackoverflow.com/questions/34873209/implementation-of-strcmp
-int strcmp(const char *s1, const char *s2){
-	int i = 0, flag = 0;    
-    while (flag == 0) {
-        if (s1[i] > s2[i]) {
-            flag = 1;
-        } else
-        if (s1[i] < s2[i]) {
-            flag = -1;
-        } else {
-            i++;
-        }
-    }
-    return flag;
+//this implementation is from reddit :
+//https://www.reddit.com/r/C_Programming/comments/8zd888/implementing_my_own_strcmp_have_i_got_it_right/?rdt=53637
+int strcmp(const char *str1,const  char *str2) {
+	while (*str1 || *str2) 
+	{
+		if (*str1 > *str2) return 1;
+		if (*str2 > *str1) return -1;
+		str1++; str2++;
+	}
+	return 0;
 }
 
 void *memcpy(void *dest, const void *src,size_t n){

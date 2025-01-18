@@ -23,6 +23,8 @@ uint64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 void tmpfs_close(vfs_node *node);
 int tmpfs_create(vfs_node *node,const char *name,int perm);
 int tmpfs_mkdir(vfs_node *node,const char *name,int perm);
+int tmpfs_unlink(vfs_node *node,const char *name);
+struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index);
 
 #define TMPFS_FLAGS_FILE 0x01
 #define TMPFS_FLAGS_DIR   0x02
