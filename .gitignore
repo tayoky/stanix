@@ -13,3 +13,6 @@ BOOTIA32.EFI
 BOOTX64.EFI
 out/boot/limine/limine-bios-cd.bin
 out/boot/limine/limine-uefi-cd.bin
+
+#ramdisk
+initrd.tar

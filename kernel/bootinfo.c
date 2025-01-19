@@ -24,6 +24,22 @@ static volatile struct limine_boot_time_request boot_time_request = {
 static volatile struct limine_hhdm_request hhdm_request = {
 	.id = LIMINE_HHDM_REQUEST
 };
+
+struct limine_internal_module initrd_request = {
+	.path = "initrd.tar",
+	.flags = LIMINE_INTERNAL_MODULE_REQUIRED
+};
+
+struct limine_internal_module internal_module_list[] ={ 
+	&initrd_request
+};
+
+struct limine_module_request module_request = {
+	.id = LIMINE_MODULE_REQUEST,
+	.revision = 0,
+	.internal_modules = &internal_module_list,
+	.internal_module_count = 1
+};
 LIMINE_REQUESTS_END_MARKER
 
 static const char * memmap_types[] = {
@@ -53,6 +69,7 @@ void get_bootinfo(void){
 	kernel->memmap = memmap_request.response;
 	kernel->bootinfo.boot_time_response = boot_time_request.response;
 	kernel->hhdm = hhdm_request.response->offset;
+	kernel->initrd = module_request.response->modules[0];
 
 	//cacul the total amount of memory
 	kernel->total_memory = 0;
@@ -76,4 +93,5 @@ void get_bootinfo(void){
 		kdebugf("		size   : %lu\n",kernel->memmap->entries[i]->length);
 	}
 	kinfof("total memory amount : %dMB\n",kernel->total_memory / (1024 * 1024));
+	kdebugf("initrd loaded at 0x%lx size : %ld KB\n",kernel->initrd->address,kernel->initrd->size / 1024);
 }

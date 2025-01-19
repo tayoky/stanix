@@ -28,6 +28,7 @@ typedef struct kernel_table_struct{
 	uint64_t stack_start;
 	kheap_info kheap;
 	vfs_mount_point *first_mount_point;
+	struct limine_file *initrd;
 }kernel_table;
 
 extern kernel_table *kernel;

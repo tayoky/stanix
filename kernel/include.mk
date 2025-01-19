@@ -20,3 +20,4 @@ CFLAGS += -I ./cpu/include/
 CFLAGS += -I ./klib/include/
 CFLAGS += -I ./mem/include/
 CFLAGS += -I ./drivers/include/
+CFLAGS += -I ./fs/include/

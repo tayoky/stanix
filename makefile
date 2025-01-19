@@ -8,7 +8,8 @@ out_files = ${out}/boot/${kernel} ${out}/boot/limine/limine.conf ${out}/boot/lim
 ${out}/EFI/BOOT/BOOTX64.EFI \
 ${out}/EFI/BOOT/BOOTIA32.EFI \
 ${out}/boot/limine/limine-bios-cd.bin\
-${out}/boot/limine/limine-uefi-cd.bin
+${out}/boot/limine/limine-uefi-cd.bin\
+${out}/boot/initrd.tar
 
 all : hdd iso
 
@@ -47,5 +48,9 @@ ${out}/EFI/BOOT/% : limine/%
 	cp  $^ $@
 ${out}/boot/limine/limine-% : limine/limine-%
 	cp  $^ $@
+#for build the ramdisk
+initrd : ${out}/boot/initrd.tar
+${out}/boot/initrd.tar :
+	tar --create -f ${out}/boot/initrd.tar initrd
 clean :
 	cd kernel && make clean

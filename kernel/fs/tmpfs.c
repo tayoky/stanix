@@ -48,13 +48,13 @@ void init_tmpfs(){
 	vfs_mkdir(tmp_root,"sys",000);
 	vfs_close(tmp_root);
 	vfs_node *tmp_sys_folder = vfs_open("tmp:/sys");
-	kprintf("sys.finddir : 0x%lx\n",tmp_sys_folder->finddir);
 	vfs_create(tmp_sys_folder,"log",777);
 	vfs_close(tmp_sys_folder);
 	vfs_node *sys_log_file = vfs_open("tmp:/sys/log");
 	kdebugf("vfs_node : 0x%lx\n",sys_log_file);
 	char test[] = "tmpfs succefull init";
 	vfs_write(sys_log_file,test,0,strlen(test)+1);
+	vfs_close(sys_log_file);
 }
 vfs_node *new_tmpfs(){
 	return inode2node(new_inode("root",TMPFS_FLAGS_DIR));
@@ -94,14 +94,12 @@ uint64_t tmpfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t cou
 
 uint64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-	kdebugf("start write len : %ld\n",count);
 
 	//if the write is out of bound make the file bigger
 	if(offset + count > inode->buffer_size){
 		tmpfs_truncate(node,offset + count);
 	}
 	memcpy(inode->buffer,buffer,count);
-	kdebugf("finish write\n");
 	return count;
 }
 

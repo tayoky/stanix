@@ -172,7 +172,6 @@ vfs_node *vfs_open(const char *path){
 
 	char *current_dir = &new_path[1];
 	for (uint64_t i = 0; i < path_depth; i++){
-		kdebugf("try find %s\n",current_dir);
 		if(!current_node)goto open_error;
 		vfs_node *next_node = vfs_finddir(current_node,current_dir);
 		vfs_close(current_node);
