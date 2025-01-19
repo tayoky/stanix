@@ -154,7 +154,8 @@ vfs_node *vfs_open(const char *path){
 	new_path = drive_separator+1;
 
 	uint64_t path_depth = 0;
-	//first count the number of depth
+
+	//find the path depth
     for(int i = 0; new_path[i] ; i++){
         //only if it's a path separator
         if(new_path[i] != '/') {
@@ -166,35 +167,26 @@ vfs_node *vfs_open(const char *path){
         }
     }
 
-    char **path_array = kmalloc(sizeof(char*) * path_depth);
-
-    int j = 0;
-    for(int i = 0; i < path_depth; i++){
-        while(new_path[j]){
-            j++;
-        }
-        path_array[i] = (char *) new_path + j + 1;
-		j++;
-    }
     
 	vfs_node *current_node = vfs_get_root(drive);
 
+	char *current_dir = &new_path[1];
 	for (uint64_t i = 0; i < path_depth; i++){
+		kdebugf("try find %s\n",current_dir);
 		if(!current_node)goto open_error;
-		vfs_node *next_node = vfs_finddir(current_node,path_array[i]);
+		vfs_node *next_node = vfs_finddir(current_node,current_dir);
 		vfs_close(current_node);
 		current_node = next_node;
+		current_dir += strlen(current_dir) + 1;
 	}
 	
 	if(!current_node)goto open_error;
 
 	current_node->mount_point = vfs_get_mount_point(drive);
 	kfree(drive);
-	kfree(path_array);
 	return current_node;
 
 	open_error:
-	kfree(path_array);
 	kfree(drive);
 	return NULL;
 }
