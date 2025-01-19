@@ -10,7 +10,7 @@ static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	inode->brother = NULL;
 	inode->children_count = 0;
 	inode->buffer_size = 0;
-	inode->buffer = NULL;
+	inode->buffer = kmalloc(0);
 	inode->flags = flags;
 	strcpy(inode->name,name);
 }
@@ -30,6 +30,7 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 	if(inode->flags & TMPFS_FLAGS_FILE){
 		node->read = tmpfs_read;
 		node->write = tmpfs_write;
+		node->truncate = tmpfs_truncate;
 	}
 
 	node->close = tmpfs_close;
@@ -46,10 +47,14 @@ void init_tmpfs(){
 	
 	vfs_mkdir(tmp_root,"sys",000);
 	vfs_close(tmp_root);
-
 	vfs_node *tmp_sys_folder = vfs_open("tmp:/sys");
+	kprintf("sys.finddir : 0x%lx\n",tmp_sys_folder->finddir);
 	vfs_create(tmp_sys_folder,"log",777);
 	vfs_close(tmp_sys_folder);
+	vfs_node *sys_log_file = vfs_open("tmp:/sys/log");
+	kdebugf("vfs_node : 0x%lx\n",sys_log_file);
+	char test[] = "tmpfs succefull init";
+	vfs_write(sys_log_file,test,0,strlen(test)+1);
 }
 vfs_node *new_tmpfs(){
 	return inode2node(new_inode("root",TMPFS_FLAGS_DIR));
@@ -72,11 +77,48 @@ vfs_node *tmpfs_finddir(vfs_node *node,const char *name){
 }
 
 uint64_t tmpfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+
+	//if the read is out of bound make it smaller
+	if(offset + count > inode->buffer_size){
+		if(offset >= inode->buffer_size){
+			return 0;
+		}
+		count = inode->buffer_size - offset;
+	}
+
+	memcpy(buffer,inode->buffer,count);
+
 	return count;
 }
 
 uint64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	kdebugf("start write len : %ld\n",count);
+
+	//if the write is out of bound make the file bigger
+	if(offset + count > inode->buffer_size){
+		tmpfs_truncate(node,offset + count);
+	}
+	memcpy(inode->buffer,buffer,count);
+	kdebugf("finish write\n");
 	return count;
+}
+
+int tmpfs_truncate(vfs_node *node,size_t size){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	char *new_buffer = kmalloc(size);
+
+	if(inode->buffer_size > size){
+		memcpy(new_buffer,inode->buffer,inode->buffer_size);
+	} else {
+		memcpy(new_buffer,inode->buffer,size);
+	}
+
+	kfree(inode->buffer);
+
+	inode->buffer_size = size;
+	inode->buffer;
 }
 
 int tmpfs_unlink(vfs_node *node,const char *name){
@@ -100,6 +142,7 @@ int tmpfs_unlink(vfs_node *node,const char *name){
 		inode->child = current_inode->brother;
 	}
 	
+	kfree(current_inode->buffer);
 	kfree(current_inode);
 }
 

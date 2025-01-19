@@ -25,8 +25,9 @@ int tmpfs_create(vfs_node *node,const char *name,int perm);
 int tmpfs_mkdir(vfs_node *node,const char *name,int perm);
 int tmpfs_unlink(vfs_node *node,const char *name);
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index);
+int tmpfs_truncate(vfs_node *node,size_t size);
 
 #define TMPFS_FLAGS_FILE 0x01
-#define TMPFS_FLAGS_DIR   0x02
+#define TMPFS_FLAGS_DIR  0x02
 
 #endif

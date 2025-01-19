@@ -26,6 +26,7 @@ typedef struct vfs_node_struct {
 	int (* mkdir)(struct vfs_node_struct*,char *name,int mode);
 	int (* unlink)(struct vfs_node_struct*,char *);
 	struct dirent *(* readdir)(struct vfs_node_struct*,uint64_t index);
+	int (* truncate)(struct vfs_node_struct*,size_t);
 }vfs_node;
 
 typedef struct vfs_mount_point_struct{
@@ -50,4 +51,5 @@ int vfs_mkdir(vfs_node *node,const char *name,int perm);
 void vfs_close(vfs_node *node);
 int vfs_unlink(vfs_node *node,const char *name);
 struct dirent *vfs_readdir(vfs_node *node,uint64_t index);
+int vfs_truncate(vfs_node *node,size_t size);
 #endif

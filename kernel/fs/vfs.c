@@ -83,7 +83,7 @@ vfs_node *vfs_finddir(vfs_node *node,const char *name){
 }
 
 void vfs_close(vfs_node *node){
-	if(node->mount_point->root == node){
+	if(node->mount_point && node->mount_point->root == node){
 		//don't close it it's root !!!
 		return;
 	}
@@ -127,6 +127,14 @@ struct dirent *vfs_readdir(vfs_node *node,uint64_t index){
 	}
 }
 
+int vfs_truncate(vfs_node *node,size_t size){
+	if(node->truncate){
+		return node->truncate(node,size);
+	} else {
+		return -1;
+	}
+}
+
 vfs_node *vfs_open(const char *path){
 	//first parse the path
 	char *new_path = strdup(path);
@@ -166,11 +174,10 @@ vfs_node *vfs_open(const char *path){
             j++;
         }
         path_array[i] = (char *) new_path + j + 1;
+		j++;
     }
     
-
-	vfs_node *local_root = vfs_get_root(drive);
-	vfs_node *current_node = local_root;
+	vfs_node *current_node = vfs_get_root(drive);
 
 	for (uint64_t i = 0; i < path_depth; i++){
 		if(!current_node)goto open_error;
@@ -179,14 +186,15 @@ vfs_node *vfs_open(const char *path){
 		current_node = next_node;
 	}
 	
-	if(!current_node)return NULL;
+	if(!current_node)goto open_error;
+
 	current_node->mount_point = vfs_get_mount_point(drive);
-	kfree(new_path);
+	kfree(drive);
 	kfree(path_array);
 	return current_node;
 
 	open_error:
 	kfree(path_array);
-	kfree(new_path);
+	kfree(drive);
 	return NULL;
 }
