@@ -58,3 +58,15 @@ char *strdup(const char *str){
 	char *new_str = kmalloc(str_size);
 	return strcpy(new_str,str);
 }
+
+int memcmp(const void *buf1,const void *buf2,size_t count){
+	while (count > 0){
+		if(*(char *)buf1 < *(char *)buf2)return -1;
+		if(*(char *)buf1 > *(char *)buf2)return 1;
+		(char *)buf1++;
+		(char *)buf2++;
+		count--;
+	}
+
+	return 0;
+}

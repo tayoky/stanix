@@ -12,13 +12,13 @@ typedef struct ustar_header_struct{
 	uint64_t checksum;
 	char type;
 	char linked_file[100];
-	char ustart[6];
+	char ustar[6];
 	char owner_name[32];
 	char group_name[32];
 	uint64_t major_number;
 	uint64_t minor_number;
 	char prefix[155];
-}ustar_header;
+}__attribute__((packed)) ustar_header;
 
 #define USTAR_REGTYPE  '0'        // Regular file (preferred code)
 #define USTAR_AREGTYPE '\0'       // Regular file (alternate code)

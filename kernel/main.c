@@ -9,6 +9,7 @@
 #include "paging.h"
 #include "kheap.h"
 #include "tmpfs.h"
+#include "tarfs.h"
 
 kernel_table master_kernel_table;
 kernel_table *kernel;
@@ -29,6 +30,7 @@ void kmain(){
         init_kheap();
         init_vfs();
         init_tmpfs();
+        mount_initrd();
         kstatus("finish init kernel\n");
 
         //just a test to test all PMM and paging functionality

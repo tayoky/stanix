@@ -156,18 +156,18 @@ vfs_node *vfs_open(const char *path){
 	uint64_t path_depth = 0;
 
 	//find the path depth
-    for(int i = 0; new_path[i] ; i++){
-        //only if it's a path separator
-        if(new_path[i] != '/') {
-            continue;
-        }
-        new_path[i] = '\0';
-        if(new_path[i + 1]) {
-            path_depth++;
-        }
-    }
+	for(int i = 0; new_path[i] ; i++){
+		//only if it's a path separator
+		if(new_path[i] != '/') {
+			continue;
+		}
+		new_path[i] = '\0';
+		if(new_path[i + 1]) {
+			path_depth++;
+		}
+	}
 
-    
+	
 	vfs_node *current_node = vfs_get_root(drive);
 
 	char *current_dir = &new_path[1];
