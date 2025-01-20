@@ -11,6 +11,8 @@ ${out}/boot/limine/limine-bios-cd.bin\
 ${out}/boot/limine/limine-uefi-cd.bin\
 ${out}/boot/initrd.tar
 
+initrd_src = $(shell find ./initrd -name "*")
+
 all : hdd iso
 
 test : all
@@ -49,8 +51,8 @@ ${out}/EFI/BOOT/% : limine/%
 ${out}/boot/limine/limine-% : limine/limine-%
 	cp  $^ $@
 #for build the ramdisk
-initrd : ${out}/boot/initrd.tar
-${out}/boot/initrd.tar :
+rd : ${out}/boot/initrd.tar
+${out}/boot/initrd.tar : ${initrd_src}
 	tar --create -f ${out}/boot/initrd.tar initrd
 clean :
 	cd kernel && make clean
