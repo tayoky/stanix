@@ -15,7 +15,7 @@ initrd_src = $(shell find ./initrd -name "*")
 
 all : hdd iso
 
-test : all
+test : hdd
 	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio
 hdd : kernel-out ${hdd_out}
 ${hdd_out} : ${out_files}
@@ -53,6 +53,6 @@ ${out}/boot/limine/limine-% : limine/limine-%
 #for build the ramdisk
 rd : ${out}/boot/initrd.tar
 ${out}/boot/initrd.tar : ${initrd_src}
-	tar --create -f ${out}/boot/initrd.tar initrd
+	cd initrd && tar --create -f ../${out}/boot/initrd.tar **
 clean :
 	cd kernel && make clean

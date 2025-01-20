@@ -32,15 +32,15 @@ static void ls(const char *path){
 
 void mount_initrd(void){
 	kstatus("unpack initrd ...");
+	//create an tmpfs for it
 	if(vfs_mount("initrd",new_tmpfs())){
 		kfail();
 		halt();
 	}
 
-	vfs_node *initrd_root = vfs_open("initrd:/");
-
 	char *addr = (char *)kernel->initrd->address;
 
+	//for each file in the tar file create one on the tmpfs
 	while(!memcmp(((ustar_header *)addr)->ustar,"ustar",5)){
 		ustar_header *current_file = (ustar_header *)addr;
 
@@ -48,27 +48,49 @@ void mount_initrd(void){
 		char *parent_path = kmalloc(strlen(current_file->name) + strlen("initrd:/") +1);
 		strcpy(parent_path,"initrd:/");
 		strcat(parent_path,current_file->name);
-		char *i = (char *)((uint64_t)parent_path + strlen(parent_path)-2);
-		while ( *i != '/')i--;
-		*i = '\0';
-		i++;
+		char *child = (char *)((uint64_t)parent_path + strlen(parent_path)-2);
+		while ( *child != '/')child--;
+		*child = '\0';
+		child++;
 		kdebugf("parent path : %s\n",parent_path);
 		vfs_node *parent = vfs_open(parent_path);
 
-		//it is a folder if it finish with /
-		if(current_file->name[strlen(current_file->name) -1] == '/'){
-			vfs_mkdir(parent,i,777);
+		uint64_t file_size = octal2int(current_file->file_size);
+
+		if(!parent){
+			kfail();
+			kinfof("can't open %s\n",parent_path);
+			halt();
+		}
+
+		if(current_file->type == USTAR_DIRTYPE){
+			child[strlen(child)-1] = '\0';
+			if(vfs_mkdir(parent,child,777)<0){
+				kfail();
+				kinfof("can't create folder %s on %s for initrd\n",child,parent_path);
+				halt();
+			}
 		} else {
-			vfs_create(parent,i,777);
+			vfs_create(parent,child,777);
+			char *full_path = kmalloc(strlen(current_file->name) + strlen("initrd:/") + 1);
+			strcpy(full_path,"initrd:/");
+			strcat(full_path,current_file->name);
+			vfs_node *file = vfs_open(full_path);
+			if(!file){
+				kfail();
+				kinfof("fail to open file : %s\n",full_path);
+				halt();
+			}
+			vfs_write(file,addr + 512,0,file_size);
+			//page fault when closing need to fix that
+			//vfs_close(file);
 		}
 
 		vfs_close(parent);
 
-		uint64_t file_size = octal2int(current_file->file_size);
 		addr += (((uint64_t)file_size + 1023) / 512) * 512;
 	}
 
-	vfs_close(initrd_root);
 	ls("initrd:/");
 	kok();
 }
