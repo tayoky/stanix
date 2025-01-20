@@ -12,6 +12,7 @@ static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	inode->buffer_size = 0;
 	inode->buffer = kmalloc(0);
 	inode->flags = flags;
+	inode->parent = NULL;
 	strcpy(inode->name,name);
 }
 
@@ -63,6 +64,17 @@ vfs_node *new_tmpfs(){
 
 vfs_node *tmpfs_finddir(vfs_node *node,const char *name){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+
+	if(!strcmp(name,".")){
+		return inode2node(inode);
+	}
+
+	if(!strcmp(name,"..")){
+		if(inode->parent)
+		return inode2node(inode->parent);
+		return inode2node(inode);
+	}
+	
 	tmpfs_inode *current_inode = inode->child;
 	for (uint64_t i = 0; i < inode->children_count + 1; i++){
 		if(current_inode == NULL)return NULL;
@@ -147,6 +159,20 @@ int tmpfs_unlink(vfs_node *node,const char *name){
 
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+
+	if(index == 0){
+		struct dirent *ret = kmalloc(sizeof(struct dirent));
+		strcpy(ret->d_name,".");
+		return ret;
+	}
+
+	if(index == 1){
+		struct dirent *ret = kmalloc(sizeof(struct dirent));
+		strcpy(ret->d_name,"..");
+		return ret;
+	}
+
+	index -=2;
 	if(index >= inode->children_count){
 		//out of bound LOL
 		return NULL;
@@ -174,6 +200,7 @@ void tmpfs_close(vfs_node *node){
 int tmpfs_create(vfs_node *node,const char *name,int perm){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	tmpfs_inode *child_inode = new_inode(name,TMPFS_FLAGS_FILE);
+	child_inode->parent = inode;
 	inode->children_count++;
 	child_inode->brother = inode->child;
 	inode->child = child_inode;
@@ -182,6 +209,7 @@ int tmpfs_create(vfs_node *node,const char *name,int perm){
 int tmpfs_mkdir(vfs_node *node,const char *name,int perm){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	tmpfs_inode *child_inode = new_inode(name,TMPFS_FLAGS_DIR);
+	child_inode->parent = inode;
 	inode->children_count++;
 	child_inode->brother = inode->child;
 	inode->child = child_inode;

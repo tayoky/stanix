@@ -15,25 +15,60 @@ static uint64_t octal2int(const char *octal){
 	return integer;
 }
 
-vfs_node *new_tarfs(const char *tar_file){
-	vfs_node *root = new_tmpfs();
-	ustar_header *current_file = (ustar_header *)tar_file;
+static void ls(const char *path){
+	vfs_node *node = vfs_open(path);
 
-
-	while(!memcmp(current_file->ustar,"ustar",5)){
-		uint64_t file_size = octal2int(current_file->file_size);
-		kdebugf("find file %s , size : %s[octal] %lu[int]\n",current_file->name,current_file->file_size,file_size);
-		current_file += ((file_size + 1023) / 512) * 512;
-		kprintf("ustar indicator : %c%c%c%c%c\n",current_file->ustar[0],current_file->ustar[1],current_file->ustar[2],current_file->ustar[3],current_file->ustar[4]);
+	struct dirent *ret;
+	uint64_t index = 0;
+	while(1){
+		ret = vfs_readdir(node,index);
+		if(!ret)break;
+		kprintf("%s\n",ret->d_name);
+		index++;
 	}
-	return NULL;
+
+	vfs_close(node);
 }
 
 void mount_initrd(void){
 	kstatus("unpack initrd ...");
-	if(vfs_mount("initrd",new_tarfs(kernel->initrd->address))){
+	if(vfs_mount("initrd",new_tmpfs())){
 		kfail();
 		halt();
 	}
+
+	vfs_node *initrd_root = vfs_open("initrd:/");
+
+	char *addr = (char *)kernel->initrd->address;
+
+	while(!memcmp(((ustar_header *)addr)->ustar,"ustar",5)){
+		ustar_header *current_file = (ustar_header *)addr;
+
+		//get the path for the parent
+		char *parent_path = kmalloc(strlen(current_file->name) + strlen("initrd:/") +1);
+		strcpy(parent_path,"initrd:/");
+		strcat(parent_path,current_file->name);
+		char *i = (char *)((uint64_t)parent_path + strlen(parent_path)-2);
+		while ( *i != '/')i--;
+		*i = '\0';
+		i++;
+		kdebugf("parent path : %s\n",parent_path);
+		vfs_node *parent = vfs_open(parent_path);
+
+		//it is a folder if it finish with /
+		if(current_file->name[strlen(current_file->name) -1] == '/'){
+			vfs_mkdir(parent,i,777);
+		} else {
+			vfs_create(parent,i,777);
+		}
+
+		vfs_close(parent);
+
+		uint64_t file_size = octal2int(current_file->file_size);
+		addr += (((uint64_t)file_size + 1023) / 512) * 512;
+	}
+
+	vfs_close(initrd_root);
+	ls("initrd:/");
 	kok();
 }

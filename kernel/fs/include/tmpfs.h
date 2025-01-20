@@ -11,6 +11,7 @@ typedef struct {
 	char name[256];
 	struct tmpfs_inode_struct *child;
 	struct tmpfs_inode_struct *brother;
+	struct tmpfs_inode_struct *parent;
 	uint64_t children_count;
 	uint64_t flags;
 	size_t buffer_size;

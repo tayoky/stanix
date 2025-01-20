@@ -59,6 +59,13 @@ char *strdup(const char *str){
 	return strcpy(new_str,str);
 }
 
+char *strcat(char * dest, const char * src){
+	while(*dest){
+		dest++;
+	}
+	return strcpy(dest,src);
+}
+
 int memcmp(const void *buf1,const void *buf2,size_t count){
 	while (count > 0){
 		if(*(char *)buf1 < *(char *)buf2)return -1;
