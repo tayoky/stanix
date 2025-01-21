@@ -135,6 +135,28 @@ int vfs_truncate(vfs_node *node,size_t size){
 	}
 }
 
+int vfs_chmod(vfs_node *node,mode_t perm){
+	if(!node->chmod){
+		return -1;
+	}
+	int ret = node->chmod(node,perm);
+	if(!ret){
+		node->perm = perm;
+	}
+	return ret;
+}
+int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
+	if(!node->chown){
+		return -1;
+	}
+	int ret = node->chown(node,owner,group_owner);
+	if(!ret){
+		node->owner = owner;
+		node->group_owner = group_owner;
+	}
+	return ret;
+}
+
 vfs_node *vfs_open(const char *path){
 	//first parse the path
 	char *new_path = strdup(path);

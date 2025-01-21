@@ -11,6 +11,10 @@
 struct vfs_node_struct;
 struct vfs_mount_point_struct;
 
+typedef uint64_t gid_t;
+typedef uint64_t uid_t;
+typedef int mode_t;
+
 struct dirent {
 	char d_name[VFS_MAX_PATH_LEN];
 };
@@ -18,15 +22,20 @@ struct dirent {
 typedef struct vfs_node_struct {
 	void *private_inode;
 	struct vfs_mount_point_struct *mount_point;
+	uid_t owner;
+	gid_t group_owner;
+	mode_t perm;
 	uint64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	uint64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	int (* close)(struct vfs_node_struct *);
 	struct vfs_node_struct *(* finddir)(struct vfs_node_struct *,char *name);
-	int (* create)(struct vfs_node_struct*,char *name,int mode);
-	int (* mkdir)(struct vfs_node_struct*,char *name,int mode);
+	int (* create)(struct vfs_node_struct*,char *name,mode_t perm);
+	int (* mkdir)(struct vfs_node_struct*,char *name,mode_t perm);
 	int (* unlink)(struct vfs_node_struct*,char *);
 	struct dirent *(* readdir)(struct vfs_node_struct*,uint64_t index);
 	int (* truncate)(struct vfs_node_struct*,size_t);
+	int (* chmod)(struct vfs_node_struct*,mode_t perm);
+	int (* chown)(struct vfs_node_struct*,uid_t owner,gid_t group_owner);
 }vfs_node;
 
 typedef struct vfs_mount_point_struct{
@@ -52,4 +61,6 @@ void vfs_close(vfs_node *node);
 int vfs_unlink(vfs_node *node,const char *name);
 struct dirent *vfs_readdir(vfs_node *node,uint64_t index);
 int vfs_truncate(vfs_node *node,size_t size);
+int vfs_chmod(vfs_node *node,mode_t perm);
+int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
 #endif
