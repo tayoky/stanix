@@ -30,7 +30,7 @@ static inline vfs_mount_point *vfs_get_mount_point(const char *drive){
 
 static inline vfs_node *vfs_get_root(const char *name){
 	vfs_mount_point *mount_point = vfs_get_mount_point(name);
-	if(!vfs_get_mount_point){
+	if(!mount_point){
 		return NULL;
 	}
 

@@ -28,7 +28,6 @@ void init_kheap(void){
 
 	kok();
 	kdebugf("kheap start : 0x%lx\n",KHEAP_START);
-	kdebugf("kheap PDP   : 0x%lx\n",kernel->kheap.PDP);
 }
 
 void change_kheap_size(int64_t offset){
@@ -57,6 +56,18 @@ void change_kheap_size(int64_t offset){
 	kernel->kheap.lenght += offset_page * PAGE_SIZE;
 }
 
+void show_memseg(){
+	kheap_segment *current_seg = kernel->kheap.first_seg;
+	char *labels[] ={
+		"free     ",
+		"allocated"
+	};
+	while (current_seg){
+		kdebugf("memseg %s start : 0x%lx lenght : 0x%lx\n",labels[(current_seg->magic == KHEAP_SEG_MAGIC_ALLOCATED)],current_seg,current_seg->lenght);
+		current_seg = current_seg->next;
+	}
+}
+
 void *kmalloc(size_t amount){
 	kheap_segment *current_seg = kernel->kheap.first_seg;
 
@@ -74,7 +85,7 @@ void *kmalloc(size_t amount){
 
 	//if big enougth cut it
 	if(current_seg->lenght >= amount + sizeof(kheap_segment) + 1){
-		//bit enougth
+		//big enougth
 		kheap_segment *new_seg = (kheap_segment *)((uint64_t)current_seg + amount + sizeof(kheap_segment));
 		new_seg->lenght = current_seg->lenght - (sizeof(kheap_segment) + amount);
 		current_seg->lenght = amount;
@@ -100,7 +111,7 @@ void kfree(void *ptr){
 
 	current_seg->magic = KHEAP_SEG_MAGIC_FREE;
 
-	if(current_seg->next && current_seg->magic == KHEAP_SEG_MAGIC_FREE){
+	if(current_seg->next && current_seg->next->magic == KHEAP_SEG_MAGIC_FREE){
 		//merge with next
 		current_seg->lenght += current_seg->next->lenght + sizeof(kheap_segment);
 
@@ -111,7 +122,7 @@ void kfree(void *ptr){
 	}
 
 	if(current_seg->prev && current_seg->prev->magic == KHEAP_SEG_MAGIC_FREE){
-		//megre with prev
+		//merge with prev
 		current_seg->prev->lenght += current_seg->lenght + sizeof(kheap_segment);
 
 		if(current_seg->next){

@@ -128,7 +128,7 @@ int tmpfs_truncate(vfs_node *node,size_t size){
 	kfree(inode->buffer);
 
 	inode->buffer_size = size;
-	inode->buffer;
+	inode->buffer = new_buffer;
 }
 
 int tmpfs_unlink(vfs_node *node,const char *name){
