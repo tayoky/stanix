@@ -39,13 +39,14 @@ vfs_node *dev_finddir(vfs_node *node,const char *name){
 	ret->private_inode = (void *)device;
 
 	//copy the file op
-	ret->read = device->read;
-	ret->write = device->write;
-	ret->mkdir = device->mkdir;
-	ret->create = device->create;
+	ret->read     = device->read;
+	ret->write    = device->write;
+	ret->mkdir    = device->mkdir;
+	ret->create   = device->create;
 	ret->truncate = device->truncate;
-	ret->unlink = device->unlink;
-	ret->close = dev_close;
+	ret->unlink   = device->unlink;
+	ret->ioctl    = device->ioctl;
+	ret->close    = dev_close;
 
 	return ret;
 }

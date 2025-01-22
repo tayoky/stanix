@@ -12,6 +12,7 @@ typedef struct {
 	int (* mkdir)(struct vfs_node_struct*,char *name,mode_t perm);
 	int (* unlink)(struct vfs_node_struct*,char *);
 	int (* truncate)(struct vfs_node_struct*,size_t);
+	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
 }device_op;
 
 void init_devices(void);

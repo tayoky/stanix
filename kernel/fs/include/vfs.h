@@ -41,6 +41,7 @@ typedef struct vfs_node_struct {
 	int (* truncate)(struct vfs_node_struct*,size_t);
 	int (* chmod)(struct vfs_node_struct*,mode_t perm);
 	int (* chown)(struct vfs_node_struct*,uid_t owner,gid_t group_owner);
+	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
 }vfs_node;
 
 typedef struct vfs_mount_point_struct{
@@ -101,4 +102,11 @@ int vfs_chmod(vfs_node *node,mode_t perm);
 /// @param group_owner gid of new group_owner
 /// @return 0 on succes else error code
 int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
+
+/// @brief device specific operation
+/// @param node the context of the file/dev
+/// @param request the id of the request
+/// @param arg device/request specific
+/// @return device/request specific
+int ioctl(vfs_node *node,uint64_t request,void *arg);
 #endif
