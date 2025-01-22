@@ -40,6 +40,10 @@ struct limine_module_request module_request = {
 	.internal_modules = &internal_module_list,
 	.internal_module_count = 1
 };
+
+struct limine_framebuffer_request frambuffer_request ={
+	.id = LIMINE_FRAMEBUFFER_REQUEST	
+};
 LIMINE_REQUESTS_END_MARKER
 
 static const char * memmap_types[] = {

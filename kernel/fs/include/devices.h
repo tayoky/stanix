@@ -15,8 +15,13 @@ typedef struct {
 	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
 }device_op;
 
+typedef struct {
+	device_op *device;
+	void *private_inode;
+}device_inode;
+
 void init_devices(void);
 
-int create_dev(const char *path,device_op *device);
+int create_dev(const char *path,device_op *device,void *private_inode);
 
 #endif

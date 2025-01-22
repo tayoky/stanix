@@ -137,7 +137,6 @@ int vfs_mkdir(const char *path,int perm){
 	//cut the string into 2 the child and parent
 	char *child = parent + strlen(parent) - 2;
 	while(*child != '/'){
-		kdebugf("char : %c\n",*child);
 		child--;
 		if(child <= parent){
 			break;
