@@ -8,6 +8,10 @@
 #define VFS_MAX_MOUNT_POINT_NAME_LEN 128
 #define VFS_MAX_PATH_LEN 256
 
+#define VFS_FILE 0x01
+#define VFS_DIR  0x02
+#define VFS_LINK 0x04
+
 struct vfs_node_struct;
 struct vfs_mount_point_struct;
 
@@ -25,6 +29,7 @@ typedef struct vfs_node_struct {
 	uid_t owner;
 	gid_t group_owner;
 	mode_t perm;
+	uint64_t flags;
 	uint64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	uint64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	int (* close)(struct vfs_node_struct *);

@@ -19,6 +19,7 @@ static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 static vfs_node*inode2node(tmpfs_inode *inode){
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	node->private_inode = (void *)inode;
+	node->flags = 0;
 
 	if(inode->flags & TMPFS_FLAGS_DIR){
 		node->finddir = tmpfs_finddir;
@@ -26,12 +27,14 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 		node->create = tmpfs_create;
 		node->mkdir = tmpfs_mkdir;
 		node->unlink = tmpfs_unlink;
+		node->flags |= VFS_DIR;
 	}
 
 	if(inode->flags & TMPFS_FLAGS_FILE){
 		node->read = tmpfs_read;
 		node->write = tmpfs_write;
 		node->truncate = tmpfs_truncate;
+		node->flags |= VFS_FILE;
 	}
 
 	node->close = tmpfs_close;
