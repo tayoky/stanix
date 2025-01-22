@@ -45,47 +45,32 @@ void mount_initrd(void){
 	while(!memcmp(((ustar_header *)addr)->ustar,"ustar",5)){
 		ustar_header *current_file = (ustar_header *)addr;
 
-		//get the path for the parent and the child
-		char *parent_path = kmalloc(strlen(current_file->name) + strlen("initrd:/") +1);
-		strcpy(parent_path,"initrd:/");
-		strcat(parent_path,current_file->name);
-		char *child = (char *)((uint64_t)parent_path + strlen(parent_path)-2);
-		while ( *child != '/')child--;
-		*child = '\0';
-		child++;
+		//find the full path of the file
+		char *full_path = kmalloc(strlen(current_file->name) + strlen("initrd:/") + 1);
+		strcpy(full_path,"initrd:/");
+		strcat(full_path,current_file->name);
 
 		//now open the parent
-		vfs_node *parent = vfs_open(parent_path);
-		if(!parent){
-			kfail();
-			kinfof("can't open %s\n",parent_path);
-			halt();
-		}
 
 		//find file size
 		uint64_t file_size = octal2int(current_file->file_size);
 
 		if(current_file->type == USTAR_DIRTYPE){
-			child[strlen(child)-1] = '\0';
+			full_path[strlen(full_path)-1] = '\0';
 
 			//create the directory
-			if(vfs_mkdir(parent,child,777)<0){
+			if(vfs_mkdir(full_path,777)<0){
 				kfail();
-				kinfof("can't create folder %s on %s for initrd\n",child,parent_path);
+				kinfof("can't create folder %s for initrd\n",full_path);
 				halt();
 			}
 		} else {
 			//create the file
-			if(vfs_create(parent,child,777)){
+			if(vfs_create(full_path,777)){
 				kfail();
 				kinfof("fail to create file initrd:/%s\n",current_file->name);
 				halt();
 			}
-
-			//find the full path of the file
-			char *full_path = kmalloc(strlen(current_file->name) + strlen("initrd:/") + 1);
-			strcpy(full_path,"initrd:/");
-			strcat(full_path,current_file->name);
 
 			//open the file
 			vfs_node *file = vfs_open(full_path);
@@ -106,9 +91,7 @@ void mount_initrd(void){
 			//now close and free
 			vfs_close(file);
 			kfree(full_path);
-		}
-		kfree(parent_path);
-		vfs_close(parent);
+		};
 
 		addr += (((uint64_t)file_size + 1023) / 512) * 512;
 	}

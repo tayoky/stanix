@@ -46,11 +46,9 @@ void init_tmpfs(){
 	kok();
 	vfs_node *tmp_root = vfs_open("tmp:/");
 	
-	vfs_mkdir(tmp_root,"sys",000);
+	vfs_mkdir("tmp:/sys",000);
 	vfs_close(tmp_root);
-	vfs_node *tmp_sys_folder = vfs_open("tmp:/sys");
-	vfs_create(tmp_sys_folder,"log",777);
-	vfs_close(tmp_sys_folder);
+	vfs_create("tmp:/sys/log",777);
 	vfs_node *sys_log_file = vfs_open("tmp:/sys/log");
 	kdebugf("vfs_node : 0x%lx\n",sys_log_file);
 	char test[] = "tmpfs succefull init";
@@ -154,6 +152,8 @@ int tmpfs_unlink(vfs_node *node,const char *name){
 	
 	kfree(current_inode->buffer);
 	kfree(current_inode);
+	
+	return 0;
 }
 
 
@@ -198,6 +198,7 @@ void tmpfs_close(vfs_node *node){
 
 
 int tmpfs_create(vfs_node *node,const char *name,int perm){
+	kdebugf("creating file %s\n",name);
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	tmpfs_inode *child_inode = new_inode(name,TMPFS_FLAGS_FILE);
 	child_inode->parent = inode;

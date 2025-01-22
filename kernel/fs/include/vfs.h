@@ -51,16 +51,49 @@ void init_vfs(void);
 
 int vfs_mount(const char *name,vfs_node *mounting_root);
 
+/// @brief open a context for a given path (absolute)
+/// @param path 
+/// @return an pointer to the vfs_node or NULL if fail
 vfs_node *vfs_open(const char *path);
 vfs_node *vfs_finddir(vfs_node *node,const char *name);
 uint64_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count);
 uint64_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
-int vfs_create(vfs_node *node,const char *name,int perm);
-int vfs_mkdir(vfs_node *node,const char *name,int perm);
+int vfs_create(const char *path,int perm);
+int vfs_mkdir(const char *path,int perm);
+
+/// @brief close an context
+/// @param node the context to close
 void vfs_close(vfs_node *node);
+
+/// @brief unlink a directory entry
+/// @deprecated will likely change in future version
+/// @param node 
+/// @param name 
+/// @return 
 int vfs_unlink(vfs_node *node,const char *name);
+
+/// @brief read an entry in a directory at a specifed index
+/// @param node context of the dir
+/// @param index the index to reads
+/// @return a pointer to a dirent that can be free or NULL if fail
 struct dirent *vfs_readdir(vfs_node *node,uint64_t index);
+
+/// @brief truncate a file to a specfied size
+/// @param node context of the file
+/// @param size the new size
+/// @return 0 on succes else error code
 int vfs_truncate(vfs_node *node,size_t size);
+
+/// @brief change permission of a file/dir
+/// @param node context of the file/dir
+/// @param perm new permission
+/// @return 0 on succes else error code
 int vfs_chmod(vfs_node *node,mode_t perm);
+
+/// @brief change owner of a file/dir
+/// @param node context for the file/dir
+/// @param owner uid of new owner
+/// @param group_owner gid of new group_owner
+/// @return 0 on succes else error code
 int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
 #endif
