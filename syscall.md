@@ -1,0 +1,21 @@
+# syscall
+note this is a preview nothing is iplmented
+- [ ] open
+- [ ] close
+- [ ] read
+- [ ] write
+- [ ] exit
+- [ ] lseek
+- [ ] fstat
+- [ ] mkdir
+- [ ] rmdir
+- [ ] dup
+- [ ] dup2
+- [ ] fchmod
+- [ ] fchown
+- [ ] stat
+- [ ] chmod
+- [ ] chown
+- [ ] fork
+- [ ] exec
+- [ ] wait
