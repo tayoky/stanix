@@ -11,6 +11,7 @@
 #define VFS_FILE 0x01
 #define VFS_DIR  0x02
 #define VFS_LINK 0x04
+#define VFS_DEV  0x08
 
 struct vfs_node_struct;
 struct vfs_mount_point_struct;
@@ -108,5 +109,5 @@ int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
 /// @param request the id of the request
 /// @param arg device/request specific
 /// @return device/request specific
-int ioctl(vfs_node *node,uint64_t request,void *arg);
+int vfs_ioctl(vfs_node *node,uint64_t request,void *arg);
 #endif
