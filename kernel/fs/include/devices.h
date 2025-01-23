@@ -3,17 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "vfs.h"
+#include "tmpfs.h"
 
-typedef struct {
-	uint64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
-	uint64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
-	int (* close)(struct vfs_node_struct *);
-	int (* create)(struct vfs_node_struct*,char *name,mode_t perm);
-	int (* mkdir)(struct vfs_node_struct*,char *name,mode_t perm);
-	int (* unlink)(struct vfs_node_struct*,char *);
-	int (* truncate)(struct vfs_node_struct*,size_t);
-	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
-}device_op;
 
 typedef struct {
 	device_op *device;

@@ -16,6 +16,13 @@ static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	strcpy(inode->name,name);
 }
 
+static void copy_op(vfs_node *dest,device_op *src){
+	dest->write    = src->write;
+	dest->read     = src->read;
+	dest->truncate = src->truncate;
+	dest->ioctl    = src->ioctl;
+}
+
 static vfs_node*inode2node(tmpfs_inode *inode){
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	node->private_inode = (void *)inode;
@@ -37,6 +44,12 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 		node->flags |= VFS_FILE;
 	}
 
+	if(inode->flags & TMPFS_FLAG_DEV){
+		copy_op(node,inode->dev_op);
+		node->flags |= VFS_DEV;
+	}
+
+	node->ioctl = tmpfs_ioctl;
 	node->close = tmpfs_close;
 }
 
@@ -196,7 +209,13 @@ struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
 }
 
 void tmpfs_close(vfs_node *node){
-
+	//if the dev as close call it
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	if(inode->flags & TMPFS_FLAG_DEV){
+		if(inode->dev_op->close){
+			inode->dev_op->close(node);
+		}
+	}
 }
 
 
@@ -217,5 +236,32 @@ int tmpfs_mkdir(vfs_node *node,const char *name,int perm){
 	inode->children_count++;
 	child_inode->brother = inode->child;
 	inode->child = child_inode;
+	return 0;
+}
+
+int tmpfs_ioctl(vfs_node *node,uint64_t request,void *arg){
+	//for the moment only one ioctl is possible : create dev
+	if(request != IOCTL_TMPFS_CREATE_DEV){
+		return -1;
+	}
+
+	//IOCTL_TMPFS_CREATE_DIR : turn a normal file into a device
+	//only work on file
+	tmpfs_inode *inode = node->private_inode;
+	if(!inode->flags & TMPFS_FLAGS_FILE){
+		return -1;
+	}
+
+	if(!arg){
+		return -1;
+	}
+
+	inode->flags |= TMPFS_FLAG_DEV;
+
+	inode->dev_op = arg;
+
+	//now update the op
+	copy_op(node,inode->dev_op);
+
 	return 0;
 }
