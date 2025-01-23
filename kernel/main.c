@@ -11,6 +11,7 @@
 #include "tmpfs.h"
 #include "tarfs.h"
 #include "devices.h"
+#include "framebuffer.h"
 
 kernel_table master_kernel_table;
 kernel_table *kernel;
@@ -33,6 +34,7 @@ void kmain(){
         init_tmpfs();
         mount_initrd();
         init_devices();
+        init_frambuffer();
         kstatus("finish init kernel\n");
 
         //just a test to test all PMM and paging functionality

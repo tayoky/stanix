@@ -28,6 +28,7 @@ typedef struct {
 	size_t buffer_size;
 	char *buffer;
 	device_op *dev_op; //only use for dev
+	void *dev_inode;   //only use for dev
 }tmpfs_inode;
 
 vfs_node *tmpfs_finddir(vfs_node *node,const char *name);
@@ -46,5 +47,6 @@ int tmpfs_ioctl(vfs_node *node,uint64_t request,void *arg);
 #define TMPFS_FLAG_DEV 0x04
 
 #define IOCTL_TMPFS_CREATE_DEV 0x01
+#define IOCTL_TMPFS_SET_DEV_INODE 0x02
 
 #endif

@@ -15,12 +15,20 @@ int create_dev(const char *path,device_op *device,void *private_inode){
 		return ret;
 	}
 
-	//then turn in into a device
+	//open it
 	vfs_node *dev_file = vfs_open(path);
 	if(!dev_file){
 		return -1;
 	}
 
+	//set the dev_inode
+	ret = vfs_ioctl(dev_file,IOCTL_TMPFS_SET_DEV_INODE,private_inode);
+	if(ret){
+		vfs_close(dev_file);
+		return ret;
+	}
+	
+	//then turn in into a device
 	ret = vfs_ioctl(dev_file,IOCTL_TMPFS_CREATE_DEV,device);
 	if(ret){
 		vfs_close(dev_file);

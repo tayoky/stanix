@@ -241,29 +241,33 @@ int tmpfs_mkdir(vfs_node *node,const char *name,int perm){
 	return 0;
 }
 
+//TODO make IOCTL DEV realted top domain function
 int tmpfs_ioctl(vfs_node *node,uint64_t request,void *arg){
-	//for the moment only one ioctl is possible : create dev
-	if(request != IOCTL_TMPFS_CREATE_DEV){
-		return -1;
-	}
-
-	//IOCTL_TMPFS_CREATE_DIR : turn a normal file into a device
-	//only work on file
 	tmpfs_inode *inode = node->private_inode;
-	if(!inode->flags & TMPFS_FLAGS_FILE){
+	switch (request){
+	case IOCTL_TMPFS_CREATE_DEV:
+		//IOCTL_TMPFS_CREATE_DIR : turn a normal file into a device
+		//only work on file
+		if(!inode->flags & TMPFS_FLAGS_FILE){
+			return -1;
+		}
+
+		if(!arg){
+			return -1;
+		}
+
+		inode->flags |= TMPFS_FLAG_DEV;
+
+		inode->dev_op = arg;
+
+		//now update the op
+		copy_op(node,inode->dev_op);
+
+		return 0;
+	case IOCTL_TMPFS_SET_DEV_INODE:
+		inode->dev_inode = arg;
+		return 0;
+	default:
 		return -1;
 	}
-
-	if(!arg){
-		return -1;
-	}
-
-	inode->flags |= TMPFS_FLAG_DEV;
-
-	inode->dev_op = arg;
-
-	//now update the op
-	copy_op(node,inode->dev_op);
-
-	return 0;
 }
