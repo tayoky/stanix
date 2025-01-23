@@ -168,6 +168,8 @@ int tmpfs_unlink(vfs_node *node,const char *name){
 	
 	kfree(current_inode->buffer);
 	kfree(current_inode);
+
+	inode->children_count--;
 	
 	return 0;
 }
@@ -220,7 +222,6 @@ void tmpfs_close(vfs_node *node){
 
 
 int tmpfs_create(vfs_node *node,const char *name,int perm){
-	kdebugf("creating file %s\n",name);
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	tmpfs_inode *child_inode = new_inode(name,TMPFS_FLAGS_FILE);
 	child_inode->parent = inode;
@@ -229,6 +230,7 @@ int tmpfs_create(vfs_node *node,const char *name,int perm){
 	inode->child = child_inode;
 	return 0;
 }
+
 int tmpfs_mkdir(vfs_node *node,const char *name,int perm){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	tmpfs_inode *child_inode = new_inode(name,TMPFS_FLAGS_DIR);
