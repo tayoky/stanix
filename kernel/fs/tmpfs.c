@@ -32,7 +32,7 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 		node->finddir = tmpfs_finddir;
 		node->readdir = tmpfs_readdir;
 		node->create = tmpfs_create;
-		node->mkdir = tmpfs_mkdir;
+		node->create_dev = tmpfs_create_dev;
 		node->unlink = tmpfs_unlink;
 		node->flags |= VFS_DIR;
 	}
@@ -46,10 +46,10 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 
 	if(inode->flags & TMPFS_FLAG_DEV){
 		copy_op(node,inode->dev_op);
+		node->dev_inode = inode->dev_inode;
 		node->flags |= VFS_DEV;
 	}
 
-	node->ioctl = tmpfs_ioctl;
 	node->close = tmpfs_close;
 }
 
@@ -64,7 +64,7 @@ void init_tmpfs(){
 	
 	vfs_mkdir("tmp:/sys",000);
 	vfs_close(tmp_root);
-	vfs_create("tmp:/sys/log",777);
+	vfs_create("tmp:/sys/log",777,VFS_FILE);
 	vfs_node *sys_log_file = vfs_open("tmp:/sys/log");
 	kdebugf("vfs_node : 0x%lx\n",sys_log_file);
 	char test[] = "tmpfs succefull init";
@@ -221,53 +221,39 @@ void tmpfs_close(vfs_node *node){
 }
 
 
-int tmpfs_create(vfs_node *node,const char *name,int perm){
+int tmpfs_create(vfs_node *node,const char *name,int perm,uint64_t flags){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-	tmpfs_inode *child_inode = new_inode(name,TMPFS_FLAGS_FILE);
-	child_inode->parent = inode;
-	inode->children_count++;
-	child_inode->brother = inode->child;
-	inode->child = child_inode;
-	return 0;
-}
 
-int tmpfs_mkdir(vfs_node *node,const char *name,int perm){
-	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-	tmpfs_inode *child_inode = new_inode(name,TMPFS_FLAGS_DIR);
-	child_inode->parent = inode;
-	inode->children_count++;
-	child_inode->brother = inode->child;
-	inode->child = child_inode;
-	return 0;
-}
-
-//TODO make IOCTL DEV realted top domain function
-int tmpfs_ioctl(vfs_node *node,uint64_t request,void *arg){
-	tmpfs_inode *inode = node->private_inode;
-	switch (request){
-	case IOCTL_TMPFS_CREATE_DEV:
-		//IOCTL_TMPFS_CREATE_DIR : turn a normal file into a device
-		//only work on file
-		if(!inode->flags & TMPFS_FLAGS_FILE){
-			return -1;
-		}
-
-		if(!arg){
-			return -1;
-		}
-
-		inode->flags |= TMPFS_FLAG_DEV;
-
-		inode->dev_op = arg;
-
-		//now update the op
-		copy_op(node,inode->dev_op);
-
-		return 0;
-	case IOCTL_TMPFS_SET_DEV_INODE:
-		inode->dev_inode = arg;
-		return 0;
-	default:
-		return -1;
+	//turn vfs flag into tmpfs flags
+	uint64_t inode_flag = 0;
+	if(flags & VFS_FILE){
+		inode_flag |= TMPFS_FLAGS_FILE;
 	}
+	if(flags & VFS_DIR){
+		inode_flag |= TMPFS_FLAGS_DIR;
+	}
+
+	//create new inode
+	tmpfs_inode *child_inode = new_inode(name,inode_flag);
+	child_inode->parent = inode;
+	inode->children_count++;
+	child_inode->brother = inode->child;
+	inode->child = child_inode;
+	return 0;
+}
+
+int tmpfs_create_dev(vfs_node *node,const char *name,device_op *op,void *dev_inode){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+
+	//create new inode
+	tmpfs_inode *child_inode = new_inode(name,TMPFS_FLAG_DEV);
+	child_inode->parent = inode;
+	inode->children_count++;
+	child_inode->brother = inode->child;
+	inode->child = child_inode;
+
+	//set dev sepcific
+	child_inode->dev_op = op;
+	child_inode->dev_inode = dev_inode;
+	return 0;
 }

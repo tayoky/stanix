@@ -13,7 +13,7 @@ device_op framebuffer_op = {
 };
 
 uint64_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	struct limine_framebuffer *inode = ((device_inode *)node->private_inode)->private_inode;
+	struct limine_framebuffer *inode = node->dev_inode;
 	uint64_t size = inode->width * inode->height * (inode->bpp / 8);
 	if(offset + count > size){
 		if(offset > size){
@@ -28,7 +28,7 @@ uint64_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t co
 	return count;
 }
 int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
-	struct limine_framebuffer *inode = ((device_inode *)node->private_inode)->private_inode;
+	struct limine_framebuffer *inode = node->dev_inode;
 	
 	//implent basic ioctl : width hight ...
 	switch (request){
@@ -52,7 +52,7 @@ void init_frambuffer(void){
 		kinfof("fail to create dir dev:/fb/\n");
 		return;
 	}
-	
+
 	for (uint64_t i = 0; i < frambuffer_request.response->framebuffer_count; i++){
 		if(i >= 100){
 			kfail();
@@ -72,7 +72,7 @@ void init_frambuffer(void){
 		strcat(full_path,fb_num);
 
 		//create the device
-		if(create_dev(full_path,&framebuffer_op,frambuffer_request.response->framebuffers[i])){
+		if(vfs_create_dev(full_path,&framebuffer_op,frambuffer_request.response->framebuffers[i])){
 			kfail();
 			kinfof("fail to create device %s\n",full_path);
 			kfree(full_path);
@@ -82,5 +82,5 @@ void init_frambuffer(void){
 	}
 	kok();
 	
-	kinfof("%lu frambuffer find\n",frambuffer_request.response->framebuffer_count);
+	kinfof("%lu frambuffer found\n",frambuffer_request.response->framebuffer_count);
 }

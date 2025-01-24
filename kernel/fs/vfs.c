@@ -95,7 +95,42 @@ void vfs_close(vfs_node *node){
 	kfree(node);
 }
 
-int vfs_create(const char *path,int perm){
+int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
+	int ret = -1;
+
+	//make a copy of the path
+	char *parent = strdup(path);
+	char *child = parent + strlen(path) - 2;
+	while(*child != '/'){
+		child --;
+		if(child <= parent){
+			break;
+		}
+	}
+	*child = '\0';
+	child++;
+
+	//open the parent
+	vfs_node *node = vfs_open(parent);
+	if(!node){
+		goto vfs_create_dev_error;
+	}
+
+	//call create on the parent
+	if(node->create_dev){
+		ret = node->create_dev(node,(char *)path,op,dev_inode);
+	} else {
+		ret = -1;
+	}
+
+	//close and free
+	vfs_close(node);
+	vfs_create_dev_error:
+	kfree(parent);
+	return ret;
+}
+
+int vfs_create(const char *path,int perm,uint64_t flags){
 	int ret = -1;
 
 	//make a copy of the path
@@ -118,7 +153,7 @@ int vfs_create(const char *path,int perm){
 
 	//call create on the parent
 	if(node->create){
-		ret = node->create(node,child,perm);
+		ret = node->create(node,child,perm,flags);
 	}
 
 	//close and free
@@ -129,38 +164,7 @@ int vfs_create(const char *path,int perm){
 }
 
 int vfs_mkdir(const char *path,int perm){
-	int ret = -1;
-
-	//make a copy of the path
-	char *parent = strdup(path);
-
-	//cut the string into 2 the child and parent
-	char *child = parent + strlen(parent) - 2;
-	while(*child != '/'){
-		child--;
-		if(child <= parent){
-			break;
-		}
-	}
-	*child = '\0';
-	child++;
-
-	//open the parent
-	vfs_node *node = vfs_open(parent);
-	if(!node){
-		goto vfs_mkdir_error;
-	}
-
-	//call mkdir on the parent
-	if(node->mkdir){
-		ret = node->mkdir(node,child,perm);
-	}
-
-	//close and free
-	vfs_close(node);
-	vfs_mkdir_error:
-	kfree(parent);
-	return ret;
+	return vfs_create(path,perm,VFS_DIR);
 }
 
 int vfs_unlink(vfs_node *node,const char *name){

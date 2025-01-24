@@ -66,7 +66,7 @@ void mount_initrd(void){
 			}
 		} else {
 			//create the file
-			if(vfs_create(full_path,777)){
+			if(vfs_create(full_path,777,VFS_FILE)){
 				kfail();
 				kinfof("fail to create file initrd:/%s\n",current_file->name);
 				halt();
