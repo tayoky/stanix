@@ -42,6 +42,7 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 		node->write = tmpfs_write;
 		node->truncate = tmpfs_truncate;
 		node->flags |= VFS_FILE;
+		node->size = inode->buffer_size;
 	}
 
 	if(inode->flags & TMPFS_FLAG_DEV){

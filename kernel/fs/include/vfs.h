@@ -43,6 +43,7 @@ typedef struct vfs_node_struct {
 	gid_t group_owner;
 	mode_t perm;
 	uint64_t flags;
+	uint64_t size;
 	uint64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	uint64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	int (* close)(struct vfs_node_struct *);
