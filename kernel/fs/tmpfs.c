@@ -51,6 +51,11 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 	}
 
 	node->close = tmpfs_close;
+
+	//copy metadata
+	node->perm        = inode->perm;
+	node->owner       = inode->owner;
+	node->group_owner = inode->group_owner;
 }
 
 void init_tmpfs(){
@@ -239,6 +244,8 @@ int tmpfs_create(vfs_node *node,const char *name,int perm,uint64_t flags){
 	inode->children_count++;
 	child_inode->brother = inode->child;
 	inode->child = child_inode;
+
+	inode->perm = perm;
 	return 0;
 }
 
@@ -256,4 +263,16 @@ int tmpfs_create_dev(vfs_node *node,const char *name,device_op *op,void *dev_ino
 	child_inode->dev_op = op;
 	child_inode->dev_inode = dev_inode;
 	return 0;
+}
+
+int tmpfs_chmod(vfs_node *node,mode_t perm){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+
+	inode->perm = perm;
+}
+int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+
+	inode->owner = owner;
+	inode->group_owner = group_owner;
 }

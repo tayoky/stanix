@@ -18,6 +18,9 @@ typedef struct {
 	char *buffer;
 	device_op *dev_op; //only use for dev
 	void *dev_inode;   //only use for dev
+	mode_t perm;
+	uid_t owner;
+	gid_t group_owner;
 }tmpfs_inode;
 
 vfs_node *tmpfs_finddir(vfs_node *node,const char *name);
@@ -29,6 +32,8 @@ int tmpfs_unlink(vfs_node *node,const char *name);
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index);
 int tmpfs_truncate(vfs_node *node,size_t size);
 int tmpfs_create_dev(vfs_node *node,const char *name,device_op *op,void *dev_inode);
+int tmpfs_chmod(vfs_node *node,mode_t perm);
+int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
 
 #define TMPFS_FLAGS_FILE 0x01
 #define TMPFS_FLAGS_DIR  0x02
