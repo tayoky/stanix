@@ -1,11 +1,19 @@
 #include "print.h"
 #include "serial.h"
+#include "kernel.h"
 #include <stdarg.h>
 #include <stdint.h>
 #define NULL (void *)0
 #define PRINTF_MODIFIER_D 0
 #define PRINTF_MODIFIER_X 1
 #define PRINTF_MODIFIER_O 2
+
+void output_char(char c){
+	write_serial_char(c);
+	if(kernel->terminal_settings.activate){
+		term_draw_char(c);
+	}
+}
 
 void kok(void){
 	kprintf("[" COLOR_GREEN " OK " COLOR_RESET "]\n");
@@ -125,7 +133,7 @@ void printfunc(print_func func,const char *fmt,va_list args){
 void kprintf(const char *fmt,...){
 	va_list args;
 	va_start(args,fmt);
-	printfunc(write_serial_char,fmt,args);
+	printfunc(output_char,fmt,args);
 	va_end(args);
 }
 
@@ -133,7 +141,7 @@ void kdebugf(const char *fmt,...){
 	kprintf("["COLOR_BLUE"debug"COLOR_RESET"] ");
 	va_list args;
 	va_start(args,fmt);
-	printfunc(write_serial_char,fmt,args);
+	printfunc(output_char,fmt,args);
 	va_end(args);
 }
 
@@ -141,7 +149,7 @@ void kinfof(const char *fmt,...){
 	kprintf("["COLOR_YELLOW"infos"COLOR_RESET"] ");
 	va_list args;
 	va_start(args,fmt);
-	printfunc(write_serial_char,fmt,args);
+	printfunc(output_char,fmt,args);
 	va_end(args);
 }
 

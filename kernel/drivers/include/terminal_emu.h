@@ -25,5 +25,6 @@ typedef struct {
 #define PSF1_FONT_MAGIC 0x0436
 
 void init_terminal_emualtor(void);
+void term_draw_char(char c);
 
 #endif
