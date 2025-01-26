@@ -23,10 +23,11 @@ uint64_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t co
 	}
 
 	//write to the framebuffer is easy just memcpy
-	memcpy((void *)inode->address,buffer,count);
+	memcpy((void *)((uint64_t)inode->address) + offset,buffer,count);
 
 	return count;
 }
+
 int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 	struct limine_framebuffer *inode = node->dev_inode;
 	
@@ -38,11 +39,38 @@ int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 	case IOCTL_FRAMEBUFFER_WIDTH:
 		return inode->width;
 		break;
+	case IOCTL_FRAMEBUFFER_BPP:
+		return inode->bpp;
+		break;
+	case IOCTL_FRAMEBUFFER_RM:
+		return inode->red_mask_size;
+		break;
+	case IOCTL_FRAMEBUFFER_RS:
+		return inode->red_mask_shift;
+		break;
+	case IOCTL_FRAMEBUFFER_GM:
+		return inode->green_mask_size;
+		break;
+	case IOCTL_FRAMEBUFFER_GS:
+		return inode->green_mask_shift;
+		break;
+	case IOCTL_FRAMEBUFFER_BM:
+		return inode->blue_mask_size;
+		break;
+	case IOCTL_FRAMEBUFFER_BS:
+		return inode->blue_mask_shift;
+		break;
 	default:
 		//invalid
 		return -1;
 		break;
 	}
+}
+
+void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color){
+	struct limine_framebuffer *inode = framebuffer->dev_inode;
+	uint64_t location =  y * inode->pitch  + (x * sizeof(uint32_t));
+	vfs_write(framebuffer,&color,location,sizeof(uint32_t));
 }
 
 void init_frambuffer(void){
