@@ -8,6 +8,7 @@
 #include "bitmap.h"
 #include "kheap.h"
 #include "vfs.h"
+#include "terminal_emu.h"
 
 typedef struct kernel_table_struct{
 	gdt_segment gdt[5];
@@ -29,6 +30,8 @@ typedef struct kernel_table_struct{
 	kheap_info kheap;
 	vfs_mount_point *first_mount_point;
 	struct limine_file *initrd;
+	const char *conf_file;
+	terminal_emu_settings terminal_settings;
 }kernel_table;
 
 extern kernel_table *kernel;

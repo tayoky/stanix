@@ -12,9 +12,26 @@
 #include "tarfs.h"
 #include "devices.h"
 #include "framebuffer.h"
+#include "ini.h"
+#include "terminal_emu.h"
 
 kernel_table master_kernel_table;
 kernel_table *kernel;
+
+static void ls(const char *path){
+	vfs_node *node = vfs_open(path);
+
+	struct dirent *ret;
+	uint64_t index = 0;
+	while(1){
+		ret = vfs_readdir(node,index);
+		if(!ret)break;
+		kprintf("%s\n",ret->d_name);
+		index++;
+	}
+
+	vfs_close(node);
+}
 
 //the entry point
 void kmain(){
@@ -35,6 +52,9 @@ void kmain(){
         mount_initrd();
         init_devices();
         init_frambuffer();
+        read_main_conf_file();
+        init_terminal_emualtor();
+        ls("dev:/");
         kstatus("finish init kernel\n");
 
         //just a test to test all PMM and paging functionality
