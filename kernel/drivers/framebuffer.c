@@ -21,6 +21,11 @@ uint64_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t co
 		}
 		count = size - offset;
 	}
+	if(count == sizeof(uint32_t)){
+		//special case if we set only one pixel to go faster
+		*(uint32_t *)(((uint64_t)inode->address) + offset) = *(uint32_t *)buffer;
+		return sizeof(uint32_t);	
+	}
 
 	//write to the framebuffer is easy just memcpy
 	memcpy((void *)((uint64_t)inode->address) + offset,buffer,count);

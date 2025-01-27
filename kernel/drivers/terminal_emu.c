@@ -6,6 +6,17 @@
 #include "vfs.h"
 #include "framebuffer.h"
 
+uint32_t ANSI_color[] = {
+	0x000000,
+	0xDD0000,
+	0x00DD00,
+	0xDDDD00,
+	0x0000DD,
+	0xDD00DD,
+	0x00DDDD,
+	0xc0c0c0
+};
+
 void term_draw_char(char c){
 	PSF1_Header *header = kernel->terminal_settings.header;
 	char * font_data = kernel->terminal_settings.font;
@@ -15,18 +26,69 @@ void term_draw_char(char c){
 		return;
 	}
 
+	if(c == '\e'){
+		kernel->terminal_settings.ANSI_esc_mode = 1;
+		return;
+	}
+
+	if(kernel->terminal_settings.ANSI_esc_mode){
+		if(c == 'm'){
+			if(kernel->terminal_settings.ANSI_esc_mode == 3){
+				kernel->terminal_settings.font_color = 0xFFFFFF;
+			}
+			kernel->terminal_settings.ANSI_esc_mode = 0;
+			return;
+		}
+
+		if(kernel->terminal_settings.ANSI_esc_mode == 5){
+			c-= '0';
+			if( c >= sizeof(ANSI_color) / sizeof(uint32_t)){
+				//out of bound
+				return;
+			}
+			kernel->terminal_settings.font_color = ANSI_color[c];
+		}
+		kernel->terminal_settings.ANSI_esc_mode++;
+		return;
+	}
+
 	uint64_t current_byte = c * header->characterSize;
+
+	//get color
+	uint32_t font_color = kernel->terminal_settings.font_color;
 
 	for (uint16_t y = 0; y < header->characterSize; y++){
 		for (uint8_t x = 0; x < 8; x++){
 			if((font_data[current_byte] >> (7 - x)) & 0x01){
-				draw_pixel(kernel->terminal_settings.frambuffer_dev,kernel->terminal_settings.x + x,kernel->terminal_settings.y + y,0xFFFFFF);
+				draw_pixel(kernel->terminal_settings.frambuffer_dev,kernel->terminal_settings.x + x,kernel->terminal_settings.y + y,font_color);
 			}
 		}
 		
 		current_byte++;
 	}
 	kernel->terminal_settings.x += 8;
+}
+
+int term_ioctl(vfs_node *node,uint64_t request,void *arg){
+	terminal_emu_settings *inode = node->dev_inode;
+	switch (request)
+	{
+	case IOCTL_TTY_WIDTH:
+		return inode->width;
+		break;
+	case IOCTL_TTY_HEIGHT:
+		return inode->height;
+		break;
+	case IOCTL_TTY_CURX:
+		return inode->x;
+		break;
+	case IOCTL_TTY_CURY:
+		return inode->y;
+		break;
+	default:
+		return -1;
+		break;
+	}
 }
 
 void init_terminal_emualtor(void){
@@ -40,32 +102,26 @@ void init_terminal_emualtor(void){
 		return;
 	}
 
-	if(!strcmp(activated_value,"true")){
-		kernel->terminal_settings.activate = 1;
-	}
-	kfree(activated_value);
-
-	if(!kernel->terminal_settings.activate){
+	if(strcmp(activated_value,"true")){
 		kok();
 		kinfof("terminal_emulator not enable\n");
 		kinfof("actviate it by stetting the activate key in the conf file to true\n");
 		return;
 	}
+	kfree(activated_value);
 
 	//now find the framebuffer to use
 	char *frambuffer_path = ini_get_value(kernel->conf_file,"terminal_emulator","framebuffer");
 	if(!frambuffer_path){
 		kfail();
-		kernel->terminal_settings.activate = 0;
 		kinfof("can't find an frammebuffer to use in conf file\n");
 		return;
 	}
-
+	kinfof("test\n");
 	//and open the frammebuffer
 	vfs_node *frambuffer_dev = vfs_open(frambuffer_path);
 	if(!frambuffer_dev){
 		kfail();
-		kernel->terminal_settings.activate = 0;
 		kinfof("fail to open device : %s\n",frambuffer_path);
 		kfree(frambuffer_path);
 		return;
@@ -82,7 +138,6 @@ void init_terminal_emualtor(void){
 		//can't find the key
 		kfail();
 		kinfof("can't find font key in conf file\n");
-		kernel->terminal_settings.activate = 0;
 		return;
 	}
 
@@ -96,7 +151,6 @@ void init_terminal_emualtor(void){
 	vfs_node *font_file = vfs_open(font_path);
 	if(!font_file){
 		kfail();
-		kernel->terminal_settings.activate = 0;
 		kinfof("fail to open file : %s\n",font_path);
 		return;
 	}
@@ -105,7 +159,6 @@ void init_terminal_emualtor(void){
 	char *font = kmalloc(font_file->size);
 	if(vfs_read(font_file,font,0,font_file->size) != font_file->size){
 		kfail();
-		kernel->terminal_settings.activate = 0;
 		kinfof("fail to read from file %s\n",font_path);
 		return;
 	}
@@ -122,16 +175,26 @@ void init_terminal_emualtor(void){
 		return;
 	}
 
+	//init width height and the char buffer
+	kernel->terminal_settings.width = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_WIDTH,NULL) / 8;
+	kernel->terminal_settings.height = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_HEIGHT,NULL) / ((PSF1_Header *)font)->characterSize;
+
 	kernel->terminal_settings.font_type = FONT_TYPE_PSF1;
 	kernel->terminal_settings.font = font + sizeof(PSF1_Header);
 
 	//init cursor pos
 	kernel->terminal_settings.x = 0;
 	kernel->terminal_settings.y = 0;
+	kernel->terminal_settings.ANSI_esc_mode = 0;
+
+	//init default color
+	kernel->terminal_settings.font_color = 0xFFFFFF;
+	kernel->terminal_settings.back_color = 0x000000;
+
+	kernel->terminal_settings.activate = 1;
+	printfunc(term_draw_char,"vfs PMM inird and other thing aready init\n",NULL);
 
 	kok();
 	kinfof("succefuly load font from file %s\n",font_path);
 	kfree(font_path);
-	printfunc(term_draw_char,"hello world\n",NULL);
-	printfunc(term_draw_char,"line return work !!!\n",NULL);
 }

@@ -14,6 +14,11 @@ typedef struct {
 	vfs_node *frambuffer_dev;
 	uint64_t x;
 	uint64_t y;
+	uint32_t font_color;
+	uint32_t back_color;
+	uint64_t width;
+	uint64_t height;
+	uint64_t ANSI_esc_mode;
 } terminal_emu_settings;
 
 typedef struct {
@@ -26,5 +31,10 @@ typedef struct {
 
 void init_terminal_emualtor(void);
 void term_draw_char(char c);
+
+#define IOCTL_TTY_WIDTH  0x89798
+#define IOCTL_TTY_HEIGHT 0x89146
+#define IOCTL_TTY_CURX   0x89545
+#define IOCTL_TTY_CURY   0x89504
 
 #endif

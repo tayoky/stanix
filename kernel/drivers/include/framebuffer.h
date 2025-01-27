@@ -1,6 +1,7 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 #include "vfs.h"
+#include "stdarg.h"
 
 void init_frambuffer(void);
 
@@ -17,4 +18,5 @@ void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color);
 #define IOCTL_FRAMEBUFFER_GS     0x07
 #define IOCTL_FRAMEBUFFER_BM     0x08
 #define IOCTL_FRAMEBUFFER_BS     0x09
+#define IOCTL_FRAMEBUFFER_DRAW_PIXEL 0x0A
 #endif
