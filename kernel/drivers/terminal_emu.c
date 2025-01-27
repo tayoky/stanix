@@ -91,6 +91,19 @@ int term_ioctl(vfs_node *node,uint64_t request,void *arg){
 	}
 }
 
+int64_t term_write(vfs_node *node,char *buffer,uint64_t offset,size_t count){
+	for (size_t i = 0; i < count; i++){
+		term_draw_char(buffer[i]);
+	}
+	
+	return count;
+}
+
+device_op term_op = {
+	.write = term_write,
+	.ioctl = term_ioctl,
+};
+
 void init_terminal_emualtor(void){
 	kstatus("init terminal emualtor ...");
 	//not activated by default
@@ -117,7 +130,7 @@ void init_terminal_emualtor(void){
 		kinfof("can't find an frammebuffer to use in conf file\n");
 		return;
 	}
-	kinfof("test\n");
+
 	//and open the frammebuffer
 	vfs_node *frambuffer_dev = vfs_open(frambuffer_path);
 	if(!frambuffer_dev){
@@ -193,6 +206,13 @@ void init_terminal_emualtor(void){
 
 	kernel->terminal_settings.activate = 1;
 	printfunc(term_draw_char,"vfs PMM inird and other thing aready init\n",NULL);
+
+	//create the device
+	if(vfs_create_dev("dev:/tty0",&term_op,&kernel->terminal_settings)){
+		kfail();
+		kinfof("terminal emualotr init but can't create dev dev:/tty0\n");
+		return;
+	}
 
 	kok();
 	kinfof("succefuly load font from file %s\n",font_path);

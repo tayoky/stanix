@@ -33,7 +33,6 @@ void read_main_conf_file(void){
 		halt();
 	}
 	buffer[conf_file->size] = '\0';
-	kdebugf("ini file : \n%s\n",buffer);
 
 	kernel->conf_file = buffer;
 
