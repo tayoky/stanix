@@ -25,6 +25,7 @@ static void copy_op(vfs_node *dest,device_op *src){
 
 static vfs_node*inode2node(tmpfs_inode *inode){
 	vfs_node *node = kmalloc(sizeof(vfs_node));
+	memset(node,0,sizeof(vfs_node));
 	node->private_inode = (void *)inode;
 	node->flags = 0;
 
