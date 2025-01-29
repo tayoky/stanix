@@ -30,7 +30,7 @@ typedef struct {
 #define PSF1_FONT_MAGIC 0x0436
 
 void init_terminal_emualtor(void);
-void term_draw_char(char c);
+void term_draw_char(char c,terminal_emu_settings *terminal_settings);
 
 #define IOCTL_TTY_WIDTH  0x89798
 #define IOCTL_TTY_HEIGHT 0x89146

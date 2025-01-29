@@ -9,9 +9,19 @@
 #define PRINTF_MODIFIER_O 2
 
 void output_char(char c){
-	write_serial_char(c);
-	if(kernel->terminal_settings.activate){
-		term_draw_char(c);
+	//when kout is not init just output trought serial
+	if(!kernel->outs){
+		write_serial_char(c);
+		return;
+	}
+	//else output to all context open in kernel.outs
+	vfs_node *current = *kernel->outs;
+	uint64_t index = 0;
+	while(current){
+		//out to it
+		vfs_write(current,&c,0,sizeof(char));
+		index++;
+		current = kernel->outs[index];
 	}
 }
 

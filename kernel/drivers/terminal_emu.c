@@ -17,56 +17,56 @@ uint32_t ANSI_color[] = {
 	0xc0c0c0
 };
 
-void term_draw_char(char c){
-	PSF1_Header *header = kernel->terminal_settings.header;
-	char * font_data = kernel->terminal_settings.font;
+void term_draw_char(char c,terminal_emu_settings *terminal_settings){
+	PSF1_Header *header = terminal_settings->header;
+	char * font_data = terminal_settings->font;
 	if(c == '\n'){
-		kernel->terminal_settings.x = 0;
-		kernel->terminal_settings.y += header->characterSize +1;
+		terminal_settings->x = 0;
+		terminal_settings->y += header->characterSize +1;
 		return;
 	}
 
 	if(c == '\e'){
-		kernel->terminal_settings.ANSI_esc_mode = 1;
+		terminal_settings->ANSI_esc_mode = 1;
 		return;
 	}
 
-	if(kernel->terminal_settings.ANSI_esc_mode){
+	if(terminal_settings->ANSI_esc_mode){
 		if(c == 'm'){
-			if(kernel->terminal_settings.ANSI_esc_mode == 3){
-				kernel->terminal_settings.font_color = 0xFFFFFF;
+			if(terminal_settings->ANSI_esc_mode == 3){
+				terminal_settings->font_color = 0xFFFFFF;
 			}
-			kernel->terminal_settings.ANSI_esc_mode = 0;
+			terminal_settings->ANSI_esc_mode = 0;
 			return;
 		}
 
-		if(kernel->terminal_settings.ANSI_esc_mode == 5){
+		if(terminal_settings->ANSI_esc_mode == 5){
 			c-= '0';
 			if( (uint64_t)c >= sizeof(ANSI_color) / sizeof(uint32_t)){
 				//out of bound
 				return;
 			}
-			kernel->terminal_settings.font_color = ANSI_color[(uint8_t)c];
+			terminal_settings->font_color = ANSI_color[(uint8_t)c];
 		}
-		kernel->terminal_settings.ANSI_esc_mode++;
+		terminal_settings->ANSI_esc_mode++;
 		return;
 	}
 
 	uint64_t current_byte = c * header->characterSize;
 
 	//get color
-	uint32_t font_color = kernel->terminal_settings.font_color;
+	uint32_t font_color = terminal_settings->font_color;
 
 	for (uint16_t y = 0; y < header->characterSize; y++){
 		for (uint8_t x = 0; x < 8; x++){
 			if((font_data[current_byte] >> (7 - x)) & 0x01){
-				draw_pixel(kernel->terminal_settings.frambuffer_dev,kernel->terminal_settings.x + x,kernel->terminal_settings.y + y,font_color);
+				draw_pixel(terminal_settings->frambuffer_dev,terminal_settings->x + x,terminal_settings->y + y,font_color);
 			}
 		}
 		
 		current_byte++;
 	}
-	kernel->terminal_settings.x += 8;
+	terminal_settings->x += 8;
 }
 
 int term_ioctl(vfs_node *node,uint64_t request,void *arg){
@@ -95,14 +95,16 @@ int term_ioctl(vfs_node *node,uint64_t request,void *arg){
 
 int64_t term_write(vfs_node *node,void *vbuffer,uint64_t offset,size_t count){
 	//make compiler happy
-	(void)node;
 	(void)offset;
+
+	//get the option of the terminal
+	terminal_emu_settings *terminal_settings = node->dev_inode;
 
 	//the buffer is just char
 	char *buffer = (char *)vbuffer;
 
 	for (size_t i = 0; i < count; i++){
-		term_draw_char(buffer[i]);
+		term_draw_char(buffer[i],terminal_settings);
 	}
 	
 	return count;
@@ -114,9 +116,8 @@ device_op term_op = {
 };
 
 void init_terminal_emualtor(void){
-	kstatus("init terminal emualtor ...");
+	kstatus("init terminal emulator ...");
 	//not activated by default
-	kernel->terminal_settings.activate = 0;
 	char *activated_value = ini_get_value(kernel->conf_file,"terminal_emulator","activate");
 	if(!activated_value){
 		kfail();
@@ -148,7 +149,6 @@ void init_terminal_emualtor(void){
 		kfree(frambuffer_path);
 		return;
 	}
-	kernel->terminal_settings.frambuffer_dev = frambuffer_dev;
 	kfree(frambuffer_path);
 
 	char *font_path_key = ini_get_value(kernel->conf_file,"terminal_emulator","font");
@@ -188,8 +188,14 @@ void init_terminal_emualtor(void){
 	//close the file
 	vfs_close(font_file);
 
+	//allocate place for the inode
+	terminal_emu_settings* terminal_settings = kmalloc(sizeof(terminal_emu_settings));
+
+	//save the framebuffer context
+	terminal_settings->frambuffer_dev = frambuffer_dev;
+
 	//start parse the font
-	kernel->terminal_settings.header = font;
+	terminal_settings->header = font;
 	if(((PSF1_Header *)font)->magic != PSF1_FONT_MAGIC){
 		kfail();
 		kinfof("font %s is not a psf1 file\n",font_path);
@@ -198,30 +204,32 @@ void init_terminal_emualtor(void){
 	}
 
 	//init width height and the char buffer
-	kernel->terminal_settings.width = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_WIDTH,NULL) / 8;
-	kernel->terminal_settings.height = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_HEIGHT,NULL) / ((PSF1_Header *)font)->characterSize;
+	terminal_settings->width = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_WIDTH,NULL) / 8;
+	terminal_settings->height = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_HEIGHT,NULL) / ((PSF1_Header *)font)->characterSize;
 
-	kernel->terminal_settings.font_type = FONT_TYPE_PSF1;
-	kernel->terminal_settings.font = font + sizeof(PSF1_Header);
+	terminal_settings->font_type = FONT_TYPE_PSF1;
+	terminal_settings->font = font + sizeof(PSF1_Header);
 
 	//init cursor pos
-	kernel->terminal_settings.x = 0;
-	kernel->terminal_settings.y = 0;
-	kernel->terminal_settings.ANSI_esc_mode = 0;
+	terminal_settings->x = 0;
+	terminal_settings->y = 0;
+	terminal_settings->ANSI_esc_mode = 0;
 
 	//init default color
-	kernel->terminal_settings.font_color = 0xFFFFFF;
-	kernel->terminal_settings.back_color = 0x000000;
-
-	kernel->terminal_settings.activate = 1;
-	printfunc(term_draw_char,"vfs PMM inird and other thing aready init\n",NULL);
+	terminal_settings->font_color = 0xFFFFFF;
+	terminal_settings->back_color = 0x000000;
 
 	//create the device
-	if(vfs_create_dev("dev:/tty0",&term_op,&kernel->terminal_settings)){
+	if(vfs_create_dev("dev:/tty0",&term_op,terminal_settings)){
 		kfail();
-		kinfof("terminal emualotr init but can't create dev dev:/tty0\n");
+		kinfof("terminal emulator init but can't create dev dev:/tty0\n");
 		return;
 	}
+
+	vfs_node *tty = vfs_open("dev:/tty0");
+	char *tty_start = "[" COLOR_YELLOW "infos" COLOR_RESET "] PMM, VMM vfs tmpFS and other aready init \n";
+	vfs_write(tty,tty_start,0,strlen(tty_start));
+	vfs_close(tty);
 
 	kok();
 	kinfof("succefuly load font from file %s\n",font_path);
