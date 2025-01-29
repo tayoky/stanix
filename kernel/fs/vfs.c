@@ -57,7 +57,7 @@ int vfs_mount(const char *name,vfs_node *mounting_node){
 	return 0;
 }
 
-uint64_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
+int64_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
 	if(node->read){
 		return node->read(node,(void *)buffer,offset,count);
 	} else {
@@ -65,7 +65,7 @@ uint64_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count
 	}
 }
 
-uint64_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+int64_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	if(node->write){
 		return node->write(node,(void *)buffer,offset,count);
 	} else {

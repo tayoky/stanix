@@ -27,7 +27,7 @@ void read_main_conf_file(void){
 	//now read it
 	char *buffer = kmalloc(conf_file->size + 1);
 
-	if(vfs_read(conf_file,buffer,0,127) != conf_file->size){
+	if(vfs_read(conf_file,buffer,0,conf_file->size) != (int64_t)conf_file->size){
 		kfail();
 		kdebugf("fail to read from conf file\n");
 		halt();
