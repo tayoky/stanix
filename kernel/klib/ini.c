@@ -40,7 +40,7 @@ void read_main_conf_file(void){
 	kok();
 }
 
-static char *next_line(const char *line){
+static const char *next_line(const char *line){
 	while(*line != '\n' && *line != '\0'){
 		line++;
 	}
@@ -51,7 +51,7 @@ static char *next_line(const char *line){
 	return line;
 }
 
-static char *skip_space(const char* str){
+static const char *skip_space(const char* str){
 	while(*str == ' '){
 
 		//if end return now

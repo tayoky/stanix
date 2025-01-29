@@ -14,6 +14,7 @@ static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	inode->flags = flags;
 	inode->parent = NULL;
 	strcpy(inode->name,name);
+	return inode;
 }
 
 static void copy_op(vfs_node *dest,device_op *src){
@@ -58,6 +59,7 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 	node->perm        = inode->perm;
 	node->owner       = inode->owner;
 	node->group_owner = inode->group_owner;
+	return node;
 }
 
 void init_tmpfs(){
@@ -109,7 +111,7 @@ vfs_node *tmpfs_finddir(vfs_node *node,const char *name){
 	return inode2node(current_inode);
 }
 
-uint64_t tmpfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
+int64_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	//if the read is out of bound make it smaller
@@ -125,7 +127,7 @@ uint64_t tmpfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t cou
 	return count;
 }
 
-uint64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+int64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	//if the write is out of bound make the file bigger
@@ -150,6 +152,7 @@ int tmpfs_truncate(vfs_node *node,size_t size){
 
 	inode->buffer_size = size;
 	inode->buffer = new_buffer;
+	return 0;
 }
 
 int tmpfs_unlink(vfs_node *node,const char *name){
@@ -271,10 +274,12 @@ int tmpfs_chmod(vfs_node *node,mode_t perm){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	inode->perm = perm;
+	return 0;
 }
 int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	inode->owner = owner;
 	inode->group_owner = group_owner;
+	return 0;
 }

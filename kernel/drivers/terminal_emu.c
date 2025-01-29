@@ -42,11 +42,11 @@ void term_draw_char(char c){
 
 		if(kernel->terminal_settings.ANSI_esc_mode == 5){
 			c-= '0';
-			if( c >= sizeof(ANSI_color) / sizeof(uint32_t)){
+			if( (uint64_t)c >= sizeof(ANSI_color) / sizeof(uint32_t)){
 				//out of bound
 				return;
 			}
-			kernel->terminal_settings.font_color = ANSI_color[c];
+			kernel->terminal_settings.font_color = ANSI_color[(uint8_t)c];
 		}
 		kernel->terminal_settings.ANSI_esc_mode++;
 		return;
@@ -70,6 +70,8 @@ void term_draw_char(char c){
 }
 
 int term_ioctl(vfs_node *node,uint64_t request,void *arg){
+	//make compiler happy
+	(void)arg;
 	terminal_emu_settings *inode = node->dev_inode;
 	switch (request)
 	{
@@ -91,7 +93,14 @@ int term_ioctl(vfs_node *node,uint64_t request,void *arg){
 	}
 }
 
-int64_t term_write(vfs_node *node,char *buffer,uint64_t offset,size_t count){
+int64_t term_write(vfs_node *node,void *vbuffer,uint64_t offset,size_t count){
+	//make compiler happy
+	(void)node;
+	(void)offset;
+
+	//the buffer is just char
+	char *buffer = (char *)vbuffer;
+
 	for (size_t i = 0; i < count; i++){
 		term_draw_char(buffer[i]);
 	}

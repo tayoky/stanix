@@ -3,7 +3,7 @@
 #include "kernel.h"
 #include <stdarg.h>
 #include <stdint.h>
-#define NULL (void *)0
+#include <stddef.h>
 #define PRINTF_MODIFIER_D 0
 #define PRINTF_MODIFIER_X 1
 #define PRINTF_MODIFIER_O 2

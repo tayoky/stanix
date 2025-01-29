@@ -26,12 +26,12 @@ static volatile struct limine_hhdm_request hhdm_request = {
 };
 
 struct limine_internal_module initrd_request = {
+	.flags = LIMINE_INTERNAL_MODULE_REQUIRED,
 	.path = "initrd.tar",
-	.flags = LIMINE_INTERNAL_MODULE_REQUIRED
 };
 
-struct limine_internal_module internal_module_list[] ={ 
-	&initrd_request
+struct limine_internal_module *internal_module_list = { 
+	&initrd_request,
 };
 
 struct limine_module_request module_request = {

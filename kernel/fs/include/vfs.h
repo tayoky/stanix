@@ -25,8 +25,8 @@ struct dirent {
 };
 
 typedef struct {
-	uint64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
-	uint64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
+	int64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
+	int64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	int (* close)(struct vfs_node_struct *);
 	int (* create)(struct vfs_node_struct*,char *name,mode_t perm);
 	int (* mkdir)(struct vfs_node_struct*,char *name,mode_t perm);
@@ -44,13 +44,13 @@ typedef struct vfs_node_struct {
 	mode_t perm;
 	uint64_t flags;
 	uint64_t size;
-	uint64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
-	uint64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
-	int (* close)(struct vfs_node_struct *);
-	struct vfs_node_struct *(* finddir)(struct vfs_node_struct *,char *name);
-	int (* create)(struct vfs_node_struct*,char *name,mode_t perm,uint64_t);
-	int (* create_dev)(struct vfs_node_struct*,char *name,device_op *op,void *dev_inode);
-	int (* unlink)(struct vfs_node_struct*,char *);
+	int64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
+	int64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
+	void (* close)(struct vfs_node_struct *);
+	struct vfs_node_struct *(* finddir)(struct vfs_node_struct *,const char *name);
+	int (* create)(struct vfs_node_struct*,const char *name,mode_t perm,uint64_t);
+	int (* create_dev)(struct vfs_node_struct*,const char *name,device_op *op,void *dev_inode);
+	int (* unlink)(struct vfs_node_struct*,const char *);
 	struct dirent *(* readdir)(struct vfs_node_struct*,uint64_t index);
 	int (* truncate)(struct vfs_node_struct*,size_t);
 	int (* chmod)(struct vfs_node_struct*,mode_t perm);

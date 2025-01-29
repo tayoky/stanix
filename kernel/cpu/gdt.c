@@ -4,6 +4,7 @@
 #include "asm.h"
 
 gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint8_t falgs){
+	(void)falgs;
 	gdt_segment result;
 	result.base1 = base & 0xFFFF;
 	result.base2 = (base >> 16) & 0xFF;

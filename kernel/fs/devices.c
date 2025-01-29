@@ -8,7 +8,11 @@
 #include "port.h"
 #include "serial.h"
 
-uint64_t zero_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
+int64_t zero_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	//to make compiler happy
+	(void)node;
+	(void)offset;
+
 	memset(buffer,0,count);
 	return count;
 }
@@ -17,7 +21,10 @@ device_op zero_op = {
 	.read = zero_read
 };
 
-uint64_t port_read(vfs_node *node,void *buffer,uint64_t port,size_t count){
+int64_t port_read(vfs_node *node,void *buffer,uint64_t port,size_t count){
+	//make compiler happy
+	(void)node;
+
 	uint8_t *cbuf = buffer;
 	while(count > 0){
 		*cbuf = in_byte(port);
@@ -27,7 +34,10 @@ uint64_t port_read(vfs_node *node,void *buffer,uint64_t port,size_t count){
 	return count;
 }
 
-uint64_t port_write(vfs_node *node,void *buffer,uint64_t port,size_t count){
+int64_t port_write(vfs_node *node,void *buffer,uint64_t port,size_t count){
+	//make compiler happy
+	(void)node;
+	
 	uint8_t *cbuf = buffer;
 	while(count > 0){
 		out_byte(port,*cbuf);
@@ -42,7 +52,11 @@ device_op port_op = {
 	.write = port_write
 };
 
-uint64_t write_serial_dev(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+int64_t write_serial_dev(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	//make compiler happy
+	(void)node;
+	(void)offset;
+
 	char *str = (char *)buffer;
 	for (size_t i = 0; i < count; i++){
 		write_serial_char(str[i]);
