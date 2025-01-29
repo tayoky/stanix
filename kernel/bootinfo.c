@@ -30,14 +30,14 @@ struct limine_internal_module initrd_request = {
 	.path = "initrd.tar",
 };
 
-struct limine_internal_module *internal_module_list = { 
+struct limine_internal_module *internal_module_list[] = { 
 	&initrd_request,
 };
 
 struct limine_module_request module_request = {
 	.id = LIMINE_MODULE_REQUEST,
 	.revision = 0,
-	.internal_modules = &internal_module_list,
+	.internal_modules = internal_module_list,
 	.internal_module_count = 1
 };
 
