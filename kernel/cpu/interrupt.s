@@ -61,3 +61,6 @@ isr_err_stub_base:
     pop r15
     add rsp,16
     iretq
+extern isr_ignore
+isr_ignore:
+	iretq

@@ -33,6 +33,7 @@ typedef struct kernel_table_struct{
 	const char *conf_file;
 	vfs_node **outs;
 	terminal_emu_settings terminal_settings;
+	uint8_t pic_type;
 }kernel_table;
 
 extern kernel_table *kernel;
