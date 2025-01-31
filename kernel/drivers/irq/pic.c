@@ -77,8 +77,8 @@ void pic_unmask(uint64_t irq_num){
 
 void pic_eoi(uint64_t irq_num){
 	if(irq_num < 8){
-		out_byte(PIC1_DATA,0x20);
+		out_byte(PIC1_COMMAND,0x20);
 	} else {
-		out_byte(PIC2_DATA,0x20);
+		out_byte(PIC2_COMMAND,0x20);
 	}
 }
