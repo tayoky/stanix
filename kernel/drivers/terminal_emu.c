@@ -26,6 +26,11 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 		return;
 	}
 
+	if(c == '\t'){
+		terminal_settings->x = (terminal_settings->x / 32 + 2) * 32;
+		return ;
+	}
+
 	if(c == '\e'){
 		terminal_settings->ANSI_esc_mode = 1;
 		return;
