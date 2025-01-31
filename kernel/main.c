@@ -15,6 +15,8 @@
 #include "ini.h"
 #include "terminal_emu.h"
 #include "kout.h"
+#include "irq.h"
+#include "pit.h"
 
 kernel_table master_kernel_table;
 kernel_table *kernel;
@@ -72,6 +74,8 @@ void kmain(){
         read_main_conf_file();
         init_terminal_emualtor();
         init_kout();
+        init_irq();
+        init_pit();
         ls("dev:/");
         kstatus("finish init kernel\n");
 
