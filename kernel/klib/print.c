@@ -165,6 +165,6 @@ void kinfof(const char *fmt,...){
 
 
 void kstatus(const char *status){
-	kprintf("["COLOR_YELLOW"infos"COLOR_RESET"] ");
+	kprintf("["COLOR_YELLOW"status"COLOR_RESET"] ");
 	kprintf(status);
 }

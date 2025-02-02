@@ -9,6 +9,7 @@
 #include "kheap.h"
 #include "vfs.h"
 #include "terminal_emu.h"
+#include "scheduler.h"
 
 typedef struct kernel_table_struct{
 	gdt_segment gdt[5];
@@ -34,6 +35,9 @@ typedef struct kernel_table_struct{
 	vfs_node **outs;
 	terminal_emu_settings terminal_settings;
 	uint8_t pic_type;
+	pid_t created_proc_count;
+	process *current_proc;
+	char can_task_switch;
 }kernel_table;
 
 extern kernel_table *kernel;

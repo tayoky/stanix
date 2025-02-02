@@ -7,7 +7,7 @@
 void init_paging(void);
 /// @brief create an new PMLT4 and map all kernel modules and framebuffers
 /// @return an pointer to the PMLT4
-uint64_t *init_PMLT4();
+uint64_t *init_PMLT4(kernel_table *kernel);
 
 /// @brief delete an PMLT4 and free all used pages by it (only by the table not the physical pages the PT point to)
 /// @param PMLT4 an pointer to the PMLT4 to free/delete
@@ -63,5 +63,7 @@ void *PMLT4_virt2phys(uint64_t *PMLT4,void *address);
 #define KERNEL_STACK_SIZE (64 * 1024)
 #define KERNEL_STACK_TOP 0xfffffffffffff000
 #define KERNEL_STACK_BOTTOM (KERNEL_STACK_TOP - KERNEL_STACK_SIZE)
+
+#define switch_stack() asm volatile("mov $0, %%rbp\nmov %0, %%rsp" : :)
 
 #endif

@@ -4,6 +4,7 @@ global timer
 extern msg
 extern irq_eoi
 extern sleep_tick
+extern context_switch
 timer:
 	;push
 	push rax
@@ -21,6 +22,8 @@ timer:
 	;pop
 	pop rbx
 	pop rax
+
+	jmp context_switch
 
 	;end of interrupt
 	push rdi
