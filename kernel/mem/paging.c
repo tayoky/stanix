@@ -35,8 +35,14 @@ uint64_t *init_PMLT4(kernel_table *kernel){
 }
 
 void delete_PMLT4(uint64_t *PMLT4){
+	//first free the kernel stack
+	for (size_t cur = KERNEL_STACK_BOTTOM; cur < KERNEL_STACK_TOP; cur+= PAGE_SIZE){
+		free_page(&kernel->bitmap,(uintptr_t)PMLT4_virt2phys(PMLT4,(void *)cur)/PAGE_SIZE);
+	}
+	
+
 	//recusively free everythings
-	//EXECPT THE KHEAP TABLES!!!
+	//EXCEPT THE KHEAP TABLES!!!
 
 	for (uint16_t PMLT4i = 0; PMLT4i < 512; PMLT4i++){
 		if(!PMLT4[PMLT4i] & 1)continue;
@@ -68,15 +74,21 @@ void delete_PMLT4(uint64_t *PMLT4){
 }
 
 void *virt2phys(void *address){
+	//find the PMLT4 of the current address space
+	uint64_t cr3;
+	asm volatile("mov %%cr3, %0" : "=r" (cr3));
+	uint64_t *PMLT4 = (uint64_t *)(cr3 + kernel->hhdm);
+
+	//and then just wrap arround PMLT4_virt2phys
+	return PMLT4_virt2phys(PMLT4,address);
+}
+
+void *PMLT4_virt2phys(uint64_t *PMLT4, void *address){
 	uint64_t PMLT4i= ((uint64_t)address >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)address >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)address >> 21) & 0x1FF;
 	uint64_t PTi   = ((uint64_t)address >> 12) & 0x1FF;
-
-	uint64_t cr3;
-	asm volatile("mov %%cr3, %%rax" : "=a" (cr3));
-
-	uint64_t *PMLT4 = (uint64_t *)(cr3 + kernel->hhdm);
+	
 	if(!PMLT4[PMLT4i] & 1){
 		return NULL;
 	}
@@ -191,6 +203,14 @@ void map_kernel(uint64_t *PMLT4){
 	for (uint64_t i = 0; i < kernel_size; i++){
 		map_page(PMLT4,phys_page,virt_page,PAGING_FLAG_RW_CPL0);
 		phys_page++;
+		virt_page++;
+	}
+
+	//map the stack
+	uint64_t kernel_stack_page = KERNEL_STACK_SIZE / PAGE_SIZE;
+	virt_page = KERNEL_STACK_BOTTOM / PAGE_SIZE;
+	for (size_t i = 0; i < kernel_stack_page; i++){
+		map_page(PMLT4,allocate_page(&kernel->bitmap),virt_page,PAGING_FLAG_NO_EXE | PAGING_FLAG_RW_CPL0);
 		virt_page++;
 	}
 }

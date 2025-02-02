@@ -42,6 +42,12 @@ void map_kheap(uint64_t *PMLT4);
 /// @return the physical address it is mapped to
 void *virt2phys(void *address);
 
+/// @brief return the mapped physcal address of a virtual address in any PMLT4
+/// @param PMLT4 an pointer to the PMLT4
+/// @param address the virtual address
+/// @return the physical address it is mapped to
+void *PMLT4_virt2phys(uint64_t *PMLT4,void *address);
+
 #ifndef NULL
 #define NULL (void *)0
 #endif
@@ -53,5 +59,9 @@ void *virt2phys(void *address);
 #define PAGING_FLAG_READONLY_CPL3 0x05
 #define PAGING_FLAG_RW_CPL3 0x07
 #define PAGING_FLAG_NO_EXE ((uint64_t)1 << 61)
+
+#define KERNEL_STACK_SIZE (64 * 1024)
+#define KERNEL_STACK_TOP 0xfffffffffffff000
+#define KERNEL_STACK_BOTTOM (KERNEL_STACK_TOP - KERNEL_STACK_SIZE)
 
 #endif
