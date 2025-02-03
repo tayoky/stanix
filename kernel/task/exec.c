@@ -58,7 +58,7 @@ int exec(char *path){
 
 	//now read all program headers
 	Elf64_Phdr *prog_header = kmalloc(header.e_phentsize * header.e_phnum);
-	if(vfs_read(file,prog_header,0,header.e_phentsize * header.e_phnum) < 0){
+	if(vfs_read(file,prog_header,header.e_phoff,header.e_phentsize * header.e_phnum) < 0){
 		goto error;
 	}
 
