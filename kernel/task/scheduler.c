@@ -3,6 +3,7 @@
 #include "print.h"
 #include "kheap.h"
 #include "paging.h"
+#include "cleaner.h"
 
 void test_thread(uint64_t argc,char **argv){
 	kdebugf("hello from other thread !!!!\n");
@@ -39,7 +40,7 @@ void init_task(){
 	new_kernel_task(test_thread,1,args);
 
 	//start the cleaner task
-	
+	new_kernel_task(cleaner_task,0,NULL);
 }
 
 void schedule(){
@@ -109,7 +110,7 @@ process *get_current_proc(){
 }
 
 void kill_proc(process *proc){
-	proc->flags = PROC_STATE_PRESENT & PROC_STATE_DEAD;
+	proc->flags = PROC_STATE_PRESENT | PROC_STATE_DEAD;
 
 	//if the proc is it self
 	//then we have to while until we are stoped

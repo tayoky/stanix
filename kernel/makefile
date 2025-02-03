@@ -37,4 +37,4 @@ ${out}/boot/limine/limine.conf : limine.conf
 %.o : %.s
 	${NASM} ${ASMFLAGS} $< -o $@
 clean :
-	rm ${OBJ}
+	rm ${OBJ} ${out}
