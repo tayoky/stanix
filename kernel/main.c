@@ -17,6 +17,7 @@
 #include "kout.h"
 #include "irq.h"
 #include "pit.h"
+#include "string.h"
 
 kernel_table master_kernel_table;
 kernel_table *kernel;
@@ -51,6 +52,24 @@ void print_license(void){
 		"GNU General Public License for more details.\n");
 }
 
+void spawn_init(){
+	kstatus("try spawn init... ");
+	//first get the path for the init program
+	char *init_path = ini_get_value(kernel->conf_file,"init","init");
+
+	if(!init_path){
+		init_path = strdup("initrd:/init");
+	}
+
+	if(exec(init_path)){
+		kfail();
+		kinfof("can't spawn %s\n",init_path);
+	}
+
+	kfree(init_path);
+	kok();
+}
+
 //the entry point
 void kmain(){
 	kernel = &master_kernel_table;
@@ -77,8 +96,11 @@ void kmain(){
 	init_irq();
 	init_task();
 	init_pit();
+
+	//spawn init
 	ls("dev:/");
 	kstatus("finish init kernel\n");
+	spawn_init();
 
 	//just a test to test all PMM and paging functionality
 	kdebugf("test mapping/unmapping\n");

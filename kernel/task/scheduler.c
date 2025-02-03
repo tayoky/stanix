@@ -5,13 +5,6 @@
 #include "paging.h"
 #include "cleaner.h"
 
-void test_thread(uint64_t argc,char **argv){
-	kdebugf("hello from other thread !!!!\n");
-	kdebugf("try to stop itself\n");
-	kill_proc(get_current_proc());
-	kdebugf("should not show");
-	while (1);
-}
 
 void init_task(){
 	kstatus("init kernel task... ");
@@ -32,12 +25,6 @@ void init_task(){
 	kernel->can_task_switch = 1;
 
 	kok();
-
-	char *args[] ={
-	 "test arg",
-	};
-	kdebugf("arg : %lx\n",args);
-	new_kernel_task(test_thread,1,args);
 
 	//start the cleaner task
 	new_kernel_task(cleaner_task,0,NULL);
