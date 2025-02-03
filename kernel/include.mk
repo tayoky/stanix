@@ -22,3 +22,4 @@ CFLAGS += -I ./mem/include/
 CFLAGS += -I ./drivers/include/
 CFLAGS += -I ./fs/include/
 CFLAGS += -I ./drivers/irq/include/
+CFLAGS += -I ./task/include/
