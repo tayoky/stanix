@@ -13,7 +13,7 @@ typedef struct process_struct{
 	pid_t pid;
 	struct process_struct *next;
 	struct process_struct *parent;
-	uint64_t state;
+	uint64_t flags;
 } process;
 
 #define PROC_STATE_PRESENT 0x01
@@ -23,6 +23,7 @@ typedef struct process_struct{
 void init_task();
 process *get_current_proc();
 process *new_proc();
-process *new_kernel_task(void (*func));
+process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
+void kill_proc(process *proc);
 
 #endif

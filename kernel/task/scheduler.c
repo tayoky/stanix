@@ -4,8 +4,11 @@
 #include "kheap.h"
 #include "paging.h"
 
-void test_thread(){
+void test_thread(uint64_t argc,char **argv){
 	kdebugf("hello from other thread !!!!\n");
+	kdebugf("try to stop itself\n");
+	kill_proc(get_current_proc());
+	kdebugf("should not show");
 	while (1);
 }
 
@@ -16,7 +19,7 @@ void init_task(){
 	kernel_task->parent = kernel_task;
 	kernel_task->pid = 0;
 	kernel_task->next = kernel_task;
-	kernel_task->state = PROC_STATE_PRESENT | PROC_STATE_RUN;
+	kernel_task->flags = PROC_STATE_PRESENT | PROC_STATE_RUN;
 
 	//get the cr3
 	asm volatile("mov %%cr3, %0" : "=r" (kernel_task->cr3));
@@ -29,7 +32,14 @@ void init_task(){
 
 	kok();
 
-	new_kernel_task(test_thread);
+	char *args[] ={
+	 "test arg",
+	};
+	kdebugf("arg : %lx\n",args);
+	new_kernel_task(test_thread,1,args);
+
+	//start the cleaner task
+	
 }
 
 void schedule(){
@@ -39,7 +49,7 @@ void schedule(){
 	}
 	do{
 		kernel->current_proc = kernel->current_proc->next;
-	} while (!kernel->current_proc->state & PROC_STATE_RUN);
+	} while (!kernel->current_proc->flags & PROC_STATE_RUN);
 }
 
 process *new_proc(){
@@ -48,7 +58,7 @@ process *new_proc(){
 	proc->pid = ++kernel->created_proc_count;
 	proc->cr3 = ((uintptr_t)init_PMLT4(kernel)) - kernel->hhdm;
 	proc->parent = get_current_proc();
-	proc->state = PROC_STATE_PRESENT;
+	proc->flags = PROC_STATE_PRESENT;
 
 	//put it just after the current task
 	proc->next = get_current_proc()->next;
@@ -57,23 +67,27 @@ process *new_proc(){
 	return proc;
 }
 
-process *new_kernel_task(void (*func)){
+//TODO argv don't work
+process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]){
 	process *proc = new_proc();
 	proc->rsp = KERNEL_STACK_TOP;
 
 	proc_push(proc,0x10); //ss
-	kdebugf("test\n");
 	proc_push(proc,KERNEL_STACK_TOP); //rsp
 	proc_push(proc,0x204); //flags
 	proc_push(proc,0x08); //cs
 	proc_push(proc,(uint64_t)func); //rip
 
-	//push 0 for all 15 registers
-	for (size_t i = 0; i < 15; i++){
+	//use the two first register (rdi and rsi) for argc and argv
+	proc_push(proc,argc);
+	proc_push(proc,argv);
+ 
+	//push 0 for all other 13 registers
+	for (size_t i = 0; i < 13; i++){
 		proc_push(proc,0);
 	}
 
-	proc->state |= PROC_STATE_RUN;
+	proc->flags |= PROC_STATE_RUN;
 
 	return proc;
 }
@@ -85,7 +99,6 @@ void proc_push(process *proc,uint64_t value){
 	//find the address to write to
 	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
 	uint64_t *address = (uint64_t *) (((uintptr_t) PMLT4_virt2phys(PMLT4,(void *)proc->rsp)) + kernel->hhdm);
-	kdebugf("address : 0x%lx\n",address);
 
 	//and write to it
 	*address = value;
@@ -93,4 +106,14 @@ void proc_push(process *proc,uint64_t value){
 
 process *get_current_proc(){
 	return kernel->current_proc;
+}
+
+void kill_proc(process *proc){
+	proc->flags = PROC_STATE_PRESENT & PROC_STATE_DEAD;
+
+	//if the proc is it self
+	//then we have to while until we are stoped
+	if(proc == get_current_proc()){
+		for(;;);
+	}
 }
