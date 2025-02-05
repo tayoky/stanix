@@ -36,6 +36,12 @@ context_switch:
 	mov cr3, rbx
 	mov rsp, qword[rax + 8]
 
+	;end of interrupt
+	push rdi
+	xor rdi, rdi
+	call irq_eoi
+	pop rdi
+
 	;pop all
 	pop rbp
 	pop r15
@@ -46,17 +52,11 @@ context_switch:
 	pop r10
 	pop r9
 	pop r8
-	pop rax
-	pop rbx
-	pop rcx
 	pop rdx
+	pop rcx
+	pop rbx
+	pop rax
 	pop rsi
-	pop rdi
-
-	;end of interrupt
-	push rdi
-	xor rdi, rdi
-	call irq_eoi
 	pop rdi
 
 	iretq

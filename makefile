@@ -11,14 +11,18 @@ ${out}/boot/limine/limine-bios-cd.bin\
 ${out}/boot/limine/limine-uefi-cd.bin\
 ${out}/boot/initrd.tar
 
+kernel_src = $(shell find ./kernel -name "*")
+
 initrd_src = $(shell find ./initrd -name "*")
 
 all : hdd iso
 
 test : hdd
 	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio
-hdd : kernel-out ${hdd_out}
-${hdd_out} : ${out_files}
+hdd : ${hdd_out}
+${hdd_out} : ${out_files} ${kernel_src}
+	cd kernel && make ../${out}/boot/limine/limine.conf \
+	&& make ../${out}/boot/${kernel}
 	rm -f ${hdd_out}
 	dd if=/dev/zero bs=1M count=0 seek=64 of=${hdd_out}
 	sgdisk ${hdd_out} -n 1:2048 -t 1:ef00 
