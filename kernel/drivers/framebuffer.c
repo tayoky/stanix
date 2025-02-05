@@ -33,10 +33,15 @@ int64_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t cou
 	return count;
 }
 
-int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
-	//make compiler happy
-	(void)arg;
+int framebuffer_scroll(struct limine_framebuffer *inode,uint64_t count){
+	//scroll the specified amount of pixel
+	uint32_t *buffer = (uint32_t *)inode->address;
+	for (size_t i = 0; i < inode->width * inode->height - count * inode->width; i++){
+		buffer[i] = buffer[i + count * inode->width];
+	}
+}
 
+int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 	struct limine_framebuffer *inode = node->dev_inode;
 	
 	//implent basic ioctl : width hight ...
@@ -67,6 +72,9 @@ int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 		break;
 	case IOCTL_FRAMEBUFFER_BS:
 		return inode->blue_mask_shift;
+		break;
+	case IOCTL_FRAMEBUFFER_SCROLL:
+		return framebuffer_scroll(inode,(uint64_t) arg);
 		break;
 	default:
 		//invalid

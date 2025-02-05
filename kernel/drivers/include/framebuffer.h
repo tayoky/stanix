@@ -19,4 +19,5 @@ void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color);
 #define IOCTL_FRAMEBUFFER_BM     0x08
 #define IOCTL_FRAMEBUFFER_BS     0x09
 #define IOCTL_FRAMEBUFFER_DRAW_PIXEL 0x0A
+#define IOCTL_FRAMEBUFFER_SCROLL 0x0B
 #endif

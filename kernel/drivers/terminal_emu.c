@@ -23,6 +23,11 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 	if(c == '\n'){
 		terminal_settings->x = 0;
 		terminal_settings->y += header->characterSize +1;
+		//some out of bound check
+		if(terminal_settings->y / header->characterSize + 1 >= terminal_settings->height){
+			vfs_ioctl(terminal_settings->frambuffer_dev,IOCTL_FRAMEBUFFER_SCROLL,(void *)header->characterSize + 1);
+			terminal_settings->y -= header->characterSize + 1;
+		}
 		return;
 	}
 
@@ -210,7 +215,7 @@ void init_terminal_emualtor(void){
 
 	//init width height and the char buffer
 	terminal_settings->width = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_WIDTH,NULL) / 8;
-	terminal_settings->height = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_HEIGHT,NULL) / ((PSF1_Header *)font)->characterSize;
+	terminal_settings->height = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_HEIGHT,NULL) / (((PSF1_Header *)font)->characterSize + 1);
 
 	terminal_settings->font_type = FONT_TYPE_PSF1;
 	terminal_settings->font = font + sizeof(PSF1_Header);
