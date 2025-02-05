@@ -50,8 +50,6 @@ void mount_initrd(void){
 		strcpy(full_path,"initrd:/");
 		strcat(full_path,current_file->name);
 
-		//now open the parent
-
 		//find file size
 		uint64_t file_size = octal2int(current_file->file_size);
 
@@ -90,8 +88,8 @@ void mount_initrd(void){
 
 			//now close and free
 			vfs_close(file);
-			kfree(full_path);
 		};
+		kfree(full_path);
 
 		addr += (((uint64_t)file_size + 1023) / 512) * 512;
 	}
