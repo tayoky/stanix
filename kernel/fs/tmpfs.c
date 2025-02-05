@@ -122,7 +122,7 @@ int64_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 		count = inode->buffer_size - offset;
 	}
 
-	memcpy(buffer,inode->buffer,count);
+	memcpy(buffer,(void *)((uint64_t)inode->buffer) + offset,count);
 
 	return count;
 }
@@ -134,7 +134,7 @@ int64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	if(offset + count > inode->buffer_size){
 		tmpfs_truncate(node,offset + count);
 	}
-	memcpy(inode->buffer,buffer,count);
+	memcpy((void *)((uint64_t)inode->buffer) + offset,count,buffer,count);
 	return count;
 }
 
