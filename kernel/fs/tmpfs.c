@@ -134,7 +134,7 @@ int64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	if(offset + count > inode->buffer_size){
 		tmpfs_truncate(node,offset + count);
 	}
-	memcpy((void *)((uint64_t)inode->buffer) + offset,count,buffer,count);
+	memcpy((void *)((uint64_t)inode->buffer) + offset,buffer,count);
 	return count;
 }
 
