@@ -42,6 +42,11 @@ void init_gdt(void){
 	kernel->gdt[3] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_USER | GDT_SEGMENT_ACCESS_EXECUTABLE,0X02);
 	kernel->gdt[4] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_USER,0x00);
 
+	//tss take two entries
+	kernel->gdt[5] = create_gdt_segement((uint64_t)&kernel->tss & 0xFFFFFFFF,sizeof(TSS) - 1,0x89,0x40);
+	uint32_t tss_addressH = ((uint64_t)&kernel->tss >> 32) & 0xFFFFFFFF;
+	kernel->gdt[6] = *(gdt_segment *)&tss_addressH;
+
 	//create the GDTR anc load it so the GDT is actually used
 	kernel->gdtr.size = sizeof(kernel->gdt);
 	kernel->gdtr.offset = (uint64_t)&kernel->gdt[0];

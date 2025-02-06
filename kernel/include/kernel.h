@@ -10,12 +10,14 @@
 #include "vfs.h"
 #include "terminal_emu.h"
 #include "scheduler.h"
+#include "tss.h"
 
 typedef struct kernel_table_struct{
-	gdt_segment gdt[5];
+	gdt_segment gdt[7];
 	GDTR gdtr;
 	idt_gate idt[256];
 	IDTR idtr;
+	TSS tss;
 	bootinfo_table bootinfo;
 	struct limine_kernel_address_response *kernel_address;
 

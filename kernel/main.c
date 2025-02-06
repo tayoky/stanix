@@ -18,6 +18,7 @@
 #include "irq.h"
 #include "pit.h"
 #include "string.h"
+#include "tss.h"
 
 kernel_table master_kernel_table;
 kernel_table *kernel;
@@ -81,6 +82,7 @@ void kmain(){
 	init_gdt();
 	init_idt();
 	enable_interrupt();
+	init_tss();
 	init_bitmap();
 	kprintf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
 	init_paging();
