@@ -26,6 +26,7 @@ void auto_map(uint64_t *PMLT4,uint64_t address,uint64_t size,uint64_t flags){
 	//first convert all of that intp pages
 	address = PAGE_ALIGN_DOWN(address) / PAGE_SIZE;
 	size = PAGE_ALIGN_UP(size) / PAGE_SIZE;
+	kdebugf("address: 0x%lx\nsize : 0x%lx\n",address,size);
 
 	while(size > 0){
 		map_page(PMLT4,allocate_page(&kernel->bitmap),address,flags);
@@ -64,6 +65,7 @@ int exec(char *path){
 
 	//get the PMLT4
 	uint64_t *PMLT4 = get_current_proc()->cr3 + kernel->hhdm;
+	kdebugf("pmlt4 : %lx\n",PMLT4);
 
 	//then iterate trought each prog header
 	for (size_t i = 0; i < header.e_phnum; i++){
@@ -72,10 +74,11 @@ int exec(char *path){
 		if(prog_header[i].p_type != PT_LOAD){
 			continue;
 		}
+		kdebugf("find seg %ld to load\n",i);
 
 		//convert elf header to paging header
-		uint64_t flags = PAGING_FLAG_READONLY_CPL3;
-		if(prog_header[i].p_flags & PF_X){
+		uint64_t flags = PAGING_FLAG_READONLY_CPL3 | PAGING_FLAG_RW_CPL3;
+		/*if(prog_header[i].p_flags & PF_X){
 			if(prog_header[i].p_flags & PF_R){
 				flags |= PAGING_FLAG_RW_CPL3;
 			}
@@ -84,7 +87,7 @@ int exec(char *path){
 			if(prog_header[i].p_flags & PF_W){
 				flags |= PAGING_FLAG_RW_CPL3;
 			}
-		}
+		}*/
 		
 		auto_map(PMLT4,prog_header[i].p_vaddr,prog_header[i].p_memsz,flags);
 		memset((void*)prog_header[i].p_vaddr,0,prog_header[i].p_memsz);
@@ -97,10 +100,9 @@ int exec(char *path){
 		if(vfs_read(file,(void*)prog_header[i].p_vaddr,prog_header[i].p_offset,prog_header[i].p_filesz) < 0){
 			goto error;
 		}
-
 		
 	}
-	
+	kfree(prog_header);
 
 	vfs_close(file);
 

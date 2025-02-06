@@ -117,25 +117,25 @@ void map_page(uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint6
 	uint64_t PDi   = ((uint64_t)virtual_page >> 9) & 0x1FF;
 	uint64_t PTi   = ((uint64_t)virtual_page >> 0) & 0x1FF;
 	
-	if(!PMLT4[PMLT4i] & 1){
-		PMLT4[PMLT4i] = PAGE_SIZE * allocate_page(&kernel->bitmap) + PAGING_FLAG_RW_CPL3;
+	if(!(PMLT4[PMLT4i] & 1)){
+		PMLT4[PMLT4i] = (PAGE_SIZE * allocate_page(&kernel->bitmap)) | PAGING_FLAG_RW_CPL3;
 		memset((uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm),0,PAGE_SIZE);
 	}
 
 	uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!PDP[PDPi] & 1){
-		PDP[PDPi] = PAGE_SIZE * allocate_page(&kernel->bitmap) + PAGING_FLAG_RW_CPL3;
+	if(!(PDP[PDPi] & 1)){
+		PDP[PDPi] = (PAGE_SIZE * allocate_page(&kernel->bitmap) )| PAGING_FLAG_RW_CPL3;
 		memset((uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm),0,PAGE_SIZE);
 	}
 
 	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!PD[PDi] & 1){
-		PD[PDi] = PAGE_SIZE * allocate_page(&kernel->bitmap) + PAGING_FLAG_RW_CPL3;
+	if(!(PD[PDi] & 1)){
+		PD[PDi] = (PAGE_SIZE * allocate_page(&kernel->bitmap)) | PAGING_FLAG_RW_CPL3;
 		memset((uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm),0,PAGE_SIZE);
 	}
 
 	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!PT[PTi] & 1){
+	if(!(PT[PTi] & 1)){
 		PT[PTi] = (PAGE_SIZE * physical_page) | falgs;
 	}
 }
@@ -241,5 +241,8 @@ void map_hhdm(uint64_t *PMLT4){
 }
 
 void map_kheap(uint64_t *PMLT4){
-	PMLT4[kernel->kheap.PMLT4i] = (uint64_t)kernel->kheap.PDP | PAGING_FLAG_RW_CPL0;
+	//map only if kheap was init
+	if((uint64_t)kernel->kheap.PDP){
+		PMLT4[kernel->kheap.PMLT4i] = (uint64_t)kernel->kheap.PDP | PAGING_FLAG_RW_CPL0;
+	}
 }
