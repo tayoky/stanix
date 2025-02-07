@@ -3,6 +3,7 @@ hdd_out = FOS25.hdd
 iso_out = FOS25.iso
 out = out
 kernel = stanix.elf
+MAKEFLAGS += --no-builtin-rules
 
 out_files = ${out}/boot/${kernel} ${out}/boot/limine/limine.conf ${out}/boot/limine/limine-bios.sys \
 ${out}/EFI/BOOT/BOOTX64.EFI \
@@ -20,9 +21,9 @@ all : hdd iso
 test : hdd
 	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio
 hdd : ${hdd_out}
-${hdd_out} : ${out_files} ${kernel_src}
+${hdd_out} : ${kernel_src} ${out_files} 
 	cd kernel && make ../${out}/boot/limine/limine.conf \
-	&& make ../${out}/boot/${kernel}
+	../${out}/boot/${kernel}
 	rm -f ${hdd_out}
 	dd if=/dev/zero bs=1M count=0 seek=64 of=${hdd_out}
 	sgdisk ${hdd_out} -n 1:2048 -t 1:ef00 
@@ -33,14 +34,14 @@ ${hdd_out} : ${out_files} ${kernel_src}
 	mformat -i ${hdd_out}@@1M	
 #copy the files
 	cd ${out} && mcopy -i ../${hdd_out}@@1M * -/ ::/
-iso : kernel-out ${out_files}
+iso : ${kernel_src} ${out_files}
 	rm -f ${iso_out}
 	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
         -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
         -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
         -efi-boot-part --efi-boot-image --protective-msdos-label \
         ${out} -o ${iso_out}
-kernel-out : 
+${out}/boot/${kernel} : 
 	cd kernel && make ../${out}/boot/limine/limine.conf \
 	&& make ../${out}/boot/${kernel}
 kernel/out.mk : makefile
