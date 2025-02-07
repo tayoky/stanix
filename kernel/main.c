@@ -19,6 +19,8 @@
 #include "pit.h"
 #include "string.h"
 #include "tss.h"
+#include "sys.h"
+#include "exec.h"
 
 kernel_table master_kernel_table;
 kernel_table *kernel;
@@ -98,6 +100,7 @@ void kmain(){
 	init_irq();
 	init_task();
 	init_pit();
+	init_syscall();
 
 	//spawn init
 	ls("dev:/");
