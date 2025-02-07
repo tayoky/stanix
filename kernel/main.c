@@ -56,7 +56,7 @@ void print_license(void){
 }
 
 void spawn_init(){
-	kstatus("try spawn init... ");
+	kstatus("try spawn init...\n");
 	//first get the path for the init program
 	char *init_path = ini_get_value(kernel->conf_file,"init","init");
 
@@ -64,13 +64,17 @@ void spawn_init(){
 		init_path = strdup("initrd:/init");
 	}
 
+	kinfof("try to exec %s\n",init_path);
+
 	if(exec(init_path)){
 		kfail();
 		kinfof("can't spawn %s\n",init_path);
 	}
 
 	kfree(init_path);
-	kok();
+
+	kinfof("halt because no init program can be executed\n");
+	halt();
 }
 
 //the entry point
@@ -107,40 +111,4 @@ void kmain(){
 	kstatus("finish init kernel\n");
 	spawn_init();
 
-	//just a test to test all PMM and paging functionality
-	kdebugf("test mapping/unmapping\n");
-	kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
-	kdebugf("create new PMLT4\n");
-	uint64_t *PMLT4 = init_PMLT4(&master_kernel_table);
-
-	kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
-	kdebugf("allocate page and map it\n");
-	uint64_t test_page = allocate_page(&master_kernel_table.bitmap);
-	map_page(PMLT4,test_page,0xFFFFFFFF/PAGE_SIZE,PAGING_FLAG_RW_CPL0);
-
-	kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
-	kdebugf("unmapping page\n");
-	unmap_page(PMLT4,0xFFFFFFFF/PAGE_SIZE);
-
-	kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
-	kdebugf("free page\n");
-	free_page(&master_kernel_table.bitmap,test_page);
-
-	kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
-	kdebugf("delete PMLT4\n");
-	delete_PMLT4(PMLT4);
-
-	kdebugf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
-
-	kdebugf("alloc test\n");
-	kdebugf("alloc 128 bytes\n");
-	uint64_t *test_ptr = kmalloc(128);
-	kdebugf("allocated at 0x%lx\n",test_ptr);
-	kfree(test_ptr);
-	kdebugf("free succefully\n");
-	
-	
-	//infinite loop
-	kprintf("test V2P : 0x%lx\n",virt2phys((void *)master_kernel_table.kernel_address->virtual_base));
-	halt();
 }
