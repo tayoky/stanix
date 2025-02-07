@@ -5,5 +5,7 @@ _start:
 	mov rax, 1
 	mov rbx, 3
 	add rax,rbx
-	loop:
-	jmp loop
+	;now exit
+	mov rax, 0
+	mov rdi, 1
+	int 80h
