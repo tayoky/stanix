@@ -12,7 +12,7 @@ gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint
 	result.limit = limit & 0xFFFF;
 	result.flags = (limit >> 16) & 0x0F;
 	result.access = access;
-	result.flags = (access << 4) & 0xF0;
+	result.flags = (falgs << 4) & 0xF0;
 	return result;
 }
 
@@ -43,7 +43,7 @@ void init_gdt(void){
 	kernel->gdt[4] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_USER,0x00);
 
 	//tss take two entries
-	kernel->gdt[5] = create_gdt_segement((uint64_t)&kernel->tss & 0xFFFFFFFF,sizeof(TSS) - 1,0x89,0x40);
+	kernel->gdt[5] = create_gdt_segement((uint64_t)&kernel->tss & 0xFFFFFFFF,sizeof(TSS) - 1,0x89,0);
 	uint32_t tss_addressH = ((uint64_t)&kernel->tss >> 32) & 0xFFFFFFFF;
 	kernel->gdt[6] = *(gdt_segment *)&tss_addressH;
 
