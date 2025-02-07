@@ -22,7 +22,9 @@ git submodule init
 git submodule update
 ```
 ### building
-you can use `make all` to make all image or  
+you first need to build userspace apps and install it into the initrd   
+you can do `make -C userspace/ install` to do that  
+then you can use `make all` to make all images or  
 - `make hdd` for hdd image
 - `make iso` for iso image  
 you can do `make test` to make an hdd image and automaticly launch qemu with it
