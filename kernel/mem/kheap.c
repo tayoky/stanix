@@ -27,7 +27,6 @@ void init_kheap(void){
 	kernel->kheap.first_seg->next = NULL;
 
 	kok();
-	kdebugf("kheap start : 0x%lx\n",KHEAP_START);
 }
 
 void change_kheap_size(int64_t offset){

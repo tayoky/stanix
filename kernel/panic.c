@@ -20,8 +20,10 @@ void register_dump(fault_frame *registers){
 }
 
 void panic(const char *error,fault_frame *fault){
+    disable_interrupt();
     kprintf(COLOR_RED "====== ERROR : KERNEL PANIC =====\n");
     kprintf("error : %s\n",error);
+    kprintf("code : 0x%lx\n",fault->err_code);
     kprintf("========== REGISTER DUMP ========\n");
     if(fault){
         kprintf("rax : 0x%lx\tr8  : 0x%lx\n",fault->rax,fault->r8);
@@ -41,7 +43,7 @@ void panic(const char *error,fault_frame *fault){
         kprintf("most recent call\n");
         kprintf("<0x%lx>\n",fault->rip);
         uint64_t *rbp = (uint64_t *)fault->rbp;
-        while (*rbp){
+        while (rbp && *rbp && *(rbp+1)){
             kprintf("<0x%lx>\n",*(rbp+1));
             rbp = (uint64_t *)(*rbp);
         }

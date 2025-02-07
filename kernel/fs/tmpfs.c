@@ -75,7 +75,6 @@ void init_tmpfs(){
 	vfs_close(tmp_root);
 	vfs_create("tmp:/sys/log",777,VFS_FILE);
 	vfs_node *sys_log_file = vfs_open("tmp:/sys/log");
-	kdebugf("vfs_node : 0x%lx\n",sys_log_file);
 	char test[] = "tmpfs succefull init";
 	vfs_write(sys_log_file,test,0,strlen(test)+1);
 	vfs_close(sys_log_file);
