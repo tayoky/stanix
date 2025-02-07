@@ -16,3 +16,4 @@ out/boot/limine/limine-uefi-cd.bin
 
 #ramdisk
 initrd.tar
+initrd/bin/*
