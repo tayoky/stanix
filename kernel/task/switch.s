@@ -21,6 +21,10 @@ context_switch:
 	push r15
 	push rbp
 
+	;push seg
+	mov ax, ds
+	push rax
+
 	call get_current_proc
 	;the current proc is in rax
 
@@ -41,6 +45,17 @@ context_switch:
 	xor rdi, rdi
 	call irq_eoi
 	pop rdi
+
+	;pop seg
+	pop rax
+
+	;little tick : ds,es,fs and gs are alaways the same
+	;so only save ds
+	;cs and ss are aready saved by the intterrupt frame
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs,ax
 
 	;pop all
 	pop rbp

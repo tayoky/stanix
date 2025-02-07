@@ -5,6 +5,7 @@
 #include "string.h"
 #include "paging.h"
 #include "print.h"
+#include "userspace.h"
 
 int verfiy_elf(Elf64_Ehdr *header){
 	if(memcmp(header,ELFMAG,4)){
@@ -96,9 +97,9 @@ int exec(char *path){
 	vfs_close(file);
 
 	//now jump into the program !!
-	//USER_JUMP(header.e_entry);
-	void ( *entry)(int argc) = header.e_entry;
-	entry(0);
+	//jump_userspace((void *)header.e_entry,(void *)KERNEL_STACK_TOP);
+	void ( *entry)(void) = (void *)header.e_entry;
+	entry();
 
 	return 0;
 }

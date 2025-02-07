@@ -47,23 +47,22 @@ void init_gdt(void){
 	uint32_t tss_addressH = ((uint64_t)&kernel->tss >> 32) & 0xFFFFFFFF;
 	kernel->gdt[6] = *(gdt_segment *)&tss_addressH;
 
-	//create the GDTR anc load it so the GDT is actually used
+	//create the GDTR and load it so the GDT is actually used
 	kernel->gdtr.size = sizeof(kernel->gdt);
 	kernel->gdtr.offset = (uint64_t)&kernel->gdt[0];
 
-	asm("lgdt (%0)" : : "r" (&kernel->gdtr));
+	asm("lgdt %0" : : "m" (kernel->gdtr));
+
 	asm volatile("push $0x08; \
-			  lea .reload_seg(%%rip), %%rax; \
-			  push %%rax; \
-			  retfq; \
-			  .reload_seg: \
-			  mov $0x10, %%ax; \
-			  mov %%ax, %%ds; \
-			  mov %%ax, %%es; \
-			  mov %%ax, %%fs; \
-			  mov %%ax, %%gs; \
-			  mov %%ax, %%ss" : : : "eax", "rax");
-	//later if i need tts
-	//asm volatile("mov "something", %%ax\nltr %%ax" : : : "eax");
+				lea .reload_seg(%%rip), %%rax; \
+				push %%rax; \
+				retfq; \
+				.reload_seg: \
+				mov $0x10, %%ax; \
+				mov %%ax, %%ds; \
+				mov %%ax, %%es; \
+				mov %%ax, %%fs; \
+				mov %%ax, %%gs; \
+				mov %%ax, %%ss" : : : "eax", "rax");
 	kok();
 }

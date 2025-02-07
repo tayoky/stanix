@@ -75,6 +75,9 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 		proc_push(proc,0);
 	}
 
+	//push ds
+	proc_push(proc,0x10);
+
 	proc->flags |= PROC_STATE_RUN;
 
 	return proc;
