@@ -2,10 +2,33 @@ bits 64
 section .text
 global _start
 _start:
+	;first open the tty
 	mov rax, 1
-	mov rbx, 3
-	add rax,rbx
+	mov rdi, path
+	int 80h
+
+	;save fd in r15
+	mov r15, rax
+	
+	;now write to it
+	mov rax, 4
+	mov rdi, r15
+	mov rsi, hello
+	mov rdx, 22
+	int 80h
+
+	;now close it
+	mov rax, 2
+	mov rdi, r15
+	int 80h
+
 	;now exit
 	mov rax, 0
 	mov rdi, 1
 	int 80h
+
+section .data
+path:
+db `dev:/tty0`,0
+hello :
+db `hello from program !!\n`

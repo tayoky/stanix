@@ -2,10 +2,13 @@
 #define PROCESS_H
 
 #include <stdint.h>
+#include "fd.h"
 
 typedef uint64_t pid_t;
 
 struct process_struct;
+
+#define MAX_FD 32
 
 typedef struct process_struct{
 	uint64_t cr3;
@@ -14,6 +17,7 @@ typedef struct process_struct{
 	struct process_struct *next;
 	struct process_struct *parent;
 	uint64_t flags;
+	file_descriptor fds[MAX_FD];
 } process;
 
 #define PROC_STATE_PRESENT 0x01
