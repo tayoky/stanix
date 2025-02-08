@@ -27,6 +27,14 @@ void free_proc(process *proc,process *prev){
 	//now free the paging tables
 	delete_PMLT4((uint64_t *)(proc->cr3 + kernel->hhdm));
 
+	//close every open fd
+	for (size_t i = 0; i < MAX_FD; i++){
+		if(proc->fds[i].present){
+			vfs_close(proc->fds[i].node);
+		}
+	}
+	
+
 	//and then free the  process struct
 	kfree(proc);
 }
