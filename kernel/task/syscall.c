@@ -77,6 +77,20 @@ int sys_open(const char *path,int flags,mode_t mode){
 		return -ENOENT;
 	}
 
+	//is a directory check
+	if(flags & O_DIRECTORY){
+		if(!node->flags & VFS_DIR){
+			vfs_close(node);
+			return -ENOTDIR;
+		}
+	}
+
+	//simple check for writing on directory
+	if((flags & O_WRONLY || flags & O_RDWR) && node->flags & VFS_DIR){
+		vfs_close(node);
+		return -EISDIR;
+	}
+
 	//now init the fd
 	file->node = node;
 	file->present = 1;
