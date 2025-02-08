@@ -225,7 +225,7 @@ int vfs_ioctl(vfs_node *node,uint64_t request,void *arg){
 
 vfs_node *vfs_open(const char *path,uint64_t flags){
 	//don't open for nothing
-	if((!flags & VFS_READONLY )&& (!flags &  VFS_WRITEONLY)){
+	if((!flags & VFS_READONLY )&& (!(flags &  VFS_WRITEONLY))){
 		return NULL;
 	}
 

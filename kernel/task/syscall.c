@@ -21,7 +21,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 	if(flags & O_WRONLY && flags & O_RDWR){
 		return -EINVAL;
 	}
-	if((!flags & O_WRONLY) && (!flags & O_RDWR)){
+	if((!flags & O_WRONLY) && (!(flags & O_RDWR))){
 		//can't use trunc with readonly
 		if(flags & O_TRUNC){
 			return -EINVAL;
@@ -79,7 +79,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 
 	//is a directory check
 	if(flags & O_DIRECTORY){
-		if(!node->flags & VFS_DIR){
+		if(!(node->flags & VFS_DIR)){
 			vfs_close(node);
 			return -ENOTDIR;
 		}

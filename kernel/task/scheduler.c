@@ -37,7 +37,7 @@ void schedule(){
 	}
 	do{
 		kernel->current_proc = kernel->current_proc->next;
-	} while (!kernel->current_proc->flags & PROC_STATE_RUN);
+	} while (!(kernel->current_proc->flags & PROC_STATE_RUN));
 }
 
 process *new_proc(){
@@ -68,7 +68,7 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 
 	//use the two first register (rdi and rsi) for argc and argv
 	proc_push(proc,argc);
-	proc_push(proc,argv);
+	proc_push(proc,(uint64_t)argv);
  
 	//push 0 for all other 13 registers
 	for (size_t i = 0; i < 13; i++){

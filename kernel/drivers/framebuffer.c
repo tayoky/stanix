@@ -39,6 +39,7 @@ int framebuffer_scroll(struct limine_framebuffer *inode,uint64_t count){
 	for (size_t i = 0; i < inode->width * inode->height - count * inode->width; i++){
 		buffer[i] = buffer[i + count * inode->width];
 	}
+	return 0;
 }
 
 int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
