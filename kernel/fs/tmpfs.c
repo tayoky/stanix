@@ -69,12 +69,12 @@ void init_tmpfs(){
 		halt();
 	}
 	kok();
-	vfs_node *tmp_root = vfs_open("tmp:/");
+	vfs_node *tmp_root = vfs_open("tmp:/",VFS_READONLY);
 	
 	vfs_mkdir("tmp:/sys",000);
 	vfs_close(tmp_root);
 	vfs_create("tmp:/sys/log",777,VFS_FILE);
-	vfs_node *sys_log_file = vfs_open("tmp:/sys/log");
+	vfs_node *sys_log_file = vfs_open("tmp:/sys/log",VFS_WRITEONLY);
 	char test[] = "tmpfs succefull init";
 	vfs_write(sys_log_file,test,0,strlen(test)+1);
 	vfs_close(sys_log_file);

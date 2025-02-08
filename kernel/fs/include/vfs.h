@@ -73,8 +73,9 @@ int vfs_mount(const char *name,vfs_node *mounting_root);
 
 /// @brief open a context for a given path (absolute)
 /// @param path 
+/// @param flags open flags (VFS_READONLY,...)
 /// @return an pointer to the vfs_node or NULL if fail
-vfs_node *vfs_open(const char *path);
+vfs_node *vfs_open(const char *path,uint64_t flags);
 vfs_node *vfs_finddir(vfs_node *node,const char *name);
 int64_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count);
 int64_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
@@ -131,4 +132,10 @@ int vfs_ioctl(vfs_node *node,uint64_t request,void *arg);
 /// @param dev_inode pointer to device inode (or NULL)
 /// @return 0 on succes else error code
 int vfs_create_dev(const char *path,device_op *op,void *dev_inode);
+
+//flags
+#define VFS_READONLY     0x01 //readonly
+#define VFS_WRITEONLY    0x02 //write only
+#define VFS_READWRITE    0x03 //write and read
+
 #endif

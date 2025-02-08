@@ -26,7 +26,7 @@ kernel_table master_kernel_table;
 kernel_table *kernel;
 
 static void ls(const char *path){
-	vfs_node *node = vfs_open(path);
+	vfs_node *node = vfs_open(path,VFS_READONLY);
 
 	struct dirent *ret;
 	uint64_t index = 0;

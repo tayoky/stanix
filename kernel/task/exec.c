@@ -36,7 +36,7 @@ void auto_map(uint64_t *PMLT4,uint64_t address,uint64_t size,uint64_t flags){
 }
 
 int exec(char *path){
-	vfs_node *file = vfs_open(path);
+	vfs_node *file = vfs_open(path,VFS_READONLY);
 	if(!file){
 		return -1;
 	}

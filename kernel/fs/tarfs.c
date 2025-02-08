@@ -16,7 +16,7 @@ static uint64_t octal2int(const char *octal){
 }
 
 static void ls(const char *path){
-	vfs_node *node = vfs_open(path);
+	vfs_node *node = vfs_open(path,VFS_READONLY);
 
 	struct dirent *ret;
 	uint64_t index = 0;
@@ -71,7 +71,7 @@ void mount_initrd(void){
 			}
 
 			//open the file
-			vfs_node *file = vfs_open(full_path);
+			vfs_node *file = vfs_open(full_path,VFS_WRITEONLY);
 			if(!file){
 				kfail();
 				kinfof("fail to open file : %s\n",full_path);

@@ -76,7 +76,7 @@ void init_kout(){
 		char *current_kout = ini_get_value(kernel->conf_file,"kout",current_key);
 
 		kfree(current_key);
-		vfs_node *current_node = vfs_open(current_kout);
+		vfs_node *current_node = vfs_open(current_kout,VFS_WRITEONLY);
 		if(!current_node){
 			kinfof("can't open %s \n",current_kout);
 			kfree(current_kout);

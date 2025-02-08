@@ -5,6 +5,7 @@ _start:
 	;first open the tty
 	mov rax, 1
 	mov rdi, path
+	mov rsi, 1 ;write only mode
 	int 80h
 
 	;save fd in r15

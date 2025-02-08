@@ -4,6 +4,7 @@
 #include "kheap.h"
 #include "string.h"
 #include <stddef.h>
+#include <errno.h>
 
 static inline int strequ(const char *str1,const char *str2){
 	while (*str1 == *str2){
@@ -111,7 +112,7 @@ int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
 	child++;
 
 	//open the parent
-	vfs_node *node = vfs_open(parent);
+	vfs_node *node = vfs_open(parent,VFS_WRITEONLY);
 	if(!node){
 		goto vfs_create_dev_error;
 	}
@@ -146,7 +147,7 @@ int vfs_create(const char *path,int perm,uint64_t flags){
 	child++;
 
 	//open the parent
-	vfs_node *node = vfs_open(parent);
+	vfs_node *node = vfs_open(parent,VFS_WRITEONLY);
 	if(!node){
 		goto vfs_create_error;
 	}
@@ -222,7 +223,12 @@ int vfs_ioctl(vfs_node *node,uint64_t request,void *arg){
 	}
 }
 
-vfs_node *vfs_open(const char *path){
+vfs_node *vfs_open(const char *path,uint64_t flags){
+	//don't open for nothing
+	if((!flags & VFS_READONLY )&& (!flags &  VFS_WRITEONLY)){
+		return NULL;
+	}
+
 	//first parse the path
 	char *new_path = strdup(path);
 
