@@ -2,13 +2,19 @@
 #define PROCESS_H
 
 #include <stdint.h>
-#include "fd.h"
+#include "vfs.h"
 
 typedef uint64_t pid_t;
 
 struct process_struct;
 
 #define MAX_FD 32
+
+typedef struct {
+	vfs_node *node;
+	uint64_t offset;
+	uint64_t present;
+}file_descriptor;
 
 typedef struct process_struct{
 	uint64_t cr3;
@@ -29,5 +35,7 @@ process *get_current_proc();
 process *new_proc();
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
 void kill_proc(process *proc);
+
+#define is_valid_fd(fd) get_current_proc()->fds[fd].present
 
 #endif

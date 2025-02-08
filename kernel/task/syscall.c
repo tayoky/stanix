@@ -17,7 +17,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 	kdebugf("app try to open %s\n",path);
 	//first find a fd for it
 	int fd = 0;
-	while(is_vaild_fd(fd)){
+	while(is_valid_fd(fd)){
 		fd++;
 		if(fd >= MAX_FD){
 			return -1;
@@ -38,7 +38,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 }
 
 int sys_close(int fd){
-	if(!is_vaild_fd(fd)){
+	if(!is_valid_fd(fd)){
 		return -1;
 	}
 	file_descriptor *file = &get_current_proc()->fds[fd];
@@ -48,7 +48,7 @@ int sys_close(int fd){
 }
 
 int64_t sys_write(int fd,void *buffer,size_t count){
-	if(!is_vaild_fd(fd)){
+	if(!is_valid_fd(fd)){
 		return -1;
 	}
 	file_descriptor *file = &get_current_proc()->fds[fd];
@@ -62,7 +62,7 @@ int64_t sys_write(int fd,void *buffer,size_t count){
 }
 
 int64_t sys_read(int fd,void *buffer,size_t count){
-	if(!is_vaild_fd(fd)){
+	if(!is_valid_fd(fd)){
 		return -1;
 	}
 	file_descriptor *file = &get_current_proc()->fds[fd];
