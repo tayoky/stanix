@@ -14,6 +14,20 @@ void init_syscall(void){
 	kok();
 }
 
+static int find_fd(){
+	int fd = 0;
+	while(is_valid_fd(fd)){
+		fd++;
+	}
+
+	if(fd >= MAX_FD){
+		//to much fd open
+		return -1;
+	}
+
+	return fd;
+}
+
 int sys_open(const char *path,int flags,mode_t mode){
 	kdebugf("app try to open %s\n",path);
 
@@ -30,13 +44,9 @@ int sys_open(const char *path,int flags,mode_t mode){
 
 
 	//first find a fd for it
-	int fd = 0;
-	while(is_valid_fd(fd)){
-		fd++;
-		if(fd >= MAX_FD){
-			//to much fd open
-			return -ENXIO;
-		}
+	int fd = find_fd();
+	if(fd == -1){
+		return -ENXIO;
 	}
 
 	//translate to vfs flags
@@ -152,6 +162,47 @@ void sys_exit(uint64_t error_code){
 	kill_proc(get_current_proc());
 }
 
+int sys_dup(int oldfd){
+	//first find a newfd for it
+	int newfd = find_fd();
+	if(newfd == -1){
+		return -ENXIO;
+	}
+	
+	//use sys_dup2 to make the copy
+	return sys_dup2(oldfd,newfd);
+}
+
+int sys_dup2(int oldfd, int newfd){
+	//some checks
+	if(oldfd == newfd){
+		return newfd;
+	}
+	if(newfd < 0 || newfd >= MAX_FD){
+		return -EBADF;
+	}
+	if(is_valid_fd(oldfd)){
+		return -EBADF;
+	}
+
+	file_descriptor *old_file = &get_current_proc()->fds[oldfd];
+	file_descriptor *new_file = &get_current_proc()->fds[newfd];
+
+	//okay now we can close if aready open
+	if(new_file->present){
+		sys_close(newfd);
+	}
+
+	//make the actual copy
+	new_file->node = vfs_dup(old_file->node);
+	if(new_file->node){
+		new_file->present = 1;
+	} else {
+		return -EIO;
+	}
+	return newfd;
+}
+
 int64_t sys_seek(int fd,int64_t offset,int whence){
 	if(whence > 2){
 		return -EINVAL;
@@ -192,6 +243,8 @@ void *syscall_table[] = {
 	(void *)sys_read,
 	(void *)sys_write,
 	(void *)sys_seek,
+	(void *)sys_dup,
+	(void *)sys_dup2,
 	(void *)sys_getpid,
 };
 

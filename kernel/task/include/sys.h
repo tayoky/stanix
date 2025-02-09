@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include "scheduler.h"
 
-void sys_exit(uint64_t error_code);
-pid_t sys_getpid();
 void init_syscall(void);
 
 #define O_RDONLY	00000000
@@ -45,5 +43,17 @@ void init_syscall(void);
 #ifndef SEEK_END
 #define SEEK_END 2
 #endif
+
+void init_syscall(void);
+static int find_fd();
+int sys_open(const char *, int, mode_t);
+int sys_close(int);
+int64_t sys_write(int, void *, size_t);
+int64_t sys_read(int, void *, size_t);
+void sys_exit(uint64_t);
+int sys_dup(int);
+int sys_dup2(int, int);
+int64_t sys_seek(int, int64_t, int);
+pid_t sys_getpid();
 
 #endif
