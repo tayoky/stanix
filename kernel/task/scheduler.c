@@ -17,6 +17,12 @@ void init_task(){
 
 	//get the cr3
 	asm volatile("mov %%cr3, %0" : "=r" (kernel_task->cr3));
+	
+	//let just the boot kernel task start with a cwd at initrd root
+	//low effort but it work okay ?
+	kernel_task->cwd.present = 1;
+	kernel_task->cwd.node = vfs_open("initrd:/",VFS_READONLY);
+
 
 	//the current task is the kernel task
 	kernel->current_proc = kernel_task;
@@ -77,6 +83,9 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 
 	//push ds
 	proc_push(proc,0x10);
+
+	//just copy the cwd of the current task
+	proc->cwd.node = vfs_dup(get_current_proc()->cwd.node);
 
 	proc->flags |= PROC_STATE_RUN;
 

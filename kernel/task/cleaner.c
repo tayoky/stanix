@@ -33,6 +33,9 @@ void free_proc(process *proc,process *prev){
 			vfs_close(proc->fds[i].node);
 		}
 	}
+
+	//close cwd
+	vfs_close(proc->cwd.node);
 	
 
 	//and then free the  process struct
