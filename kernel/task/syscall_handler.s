@@ -1,22 +1,9 @@
-extern sys_exit
-extern sys_open
-extern sys_close
-extern sys_read
-extern sys_write
-extern sys_getpid
-extern kdebugf
 section .data
-syscall_table:
-dq sys_exit
-dq sys_open
-dq sys_close
-dq sys_read
-dq sys_write
-dq sys_getpid
-syscall_table_end:
 msg:
 db `rax : %lx\n`, 0
 section .text
+extern syscall_table
+extern syscall_number
 global syscall_handler
 syscall_handler:
 	push rbx
@@ -44,8 +31,8 @@ syscall_handler:
 	mov fs ,bx
 	mov gs, bx
 
-	;first out of bound check
-	cmp rax, (syscall_table_end - syscall_table) / 8
+	;first out of bound check 
+	cmp rax, syscall_number
 	jae sys_invalid
 
 	;mov rdi, msg

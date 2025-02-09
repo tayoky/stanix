@@ -152,6 +152,47 @@ void sys_exit(uint64_t error_code){
 	kill_proc(get_current_proc());
 }
 
+int64_t sys_seek(int fd,int64_t offset,int whence){
+	if(whence > 2){
+		return -EINVAL;
+	}
+
+	if(!is_valid_fd(fd)){
+		return -EBADF;
+	}
+
+	//get the fd
+	file_descriptor *file = &get_current_proc()->fds[fd];
+
+	switch (whence)
+	{
+	case SEEK_SET:
+		file->offset = offset;
+		break;
+	case SEEK_CUR:
+		file->offset += offset;
+		break;
+	case SEEK_END:
+		file->offset = file->node->size + offset;
+		break;
+	default:
+		break;
+	}
+
+	return file->offset;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
+
+void *syscall_table[] = {
+	(void *)sys_exit,
+	(void *)sys_open,
+	(void *)sys_read,
+	(void *)sys_write,
+	(void *)sys_seek,
+	(void *)sys_getpid,
+};
+
+uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

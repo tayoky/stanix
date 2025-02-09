@@ -36,4 +36,14 @@ void init_syscall(void);
 #define O_CLOEXEC	02000000	/* set close_on_exec */
 #endif
 
+#ifndef SEEK_SET
+#define SEEK_SET 0
+#endif
+#ifndef SEEK_CUR
+#define SEEK_CUR 1
+#endif
+#ifndef SEEK_END
+#define SEEK_END 2
+#endif
+
 #endif
