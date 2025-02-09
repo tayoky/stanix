@@ -14,7 +14,14 @@ typedef struct {
 	vfs_node *node;
 	uint64_t offset;
 	uint64_t present;
+	uint64_t flags;
 }file_descriptor;
+
+#define FD_READ     0x01
+#define FD_WRITE    0x02
+#define FD_APPEND   0x04
+#define FD_NONBLOCK 0x08
+#define FD_CLOEXEC  0x10
 
 typedef struct process_struct{
 	uint64_t cr3;
@@ -39,5 +46,6 @@ void kill_proc(process *proc);
 void proc_push(process *proc,uint64_t value);
 
 #define is_valid_fd(fd)  (fd >= 0 && (get_current_proc()->fds[fd].present) && fd < MAX_FD)
+#define FD_CHECK(fd,flag) (get_current_proc()->fds[fd].flags & flag)
 
 #endif

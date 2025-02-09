@@ -116,6 +116,24 @@ int sys_open(const char *path,int flags,mode_t mode){
 		file->offset = node->size;
 	}
 
+	//now apply the flags on the fd
+	file->flags = 0;
+	if(flags & O_WRONLY){
+		file->flags |= FD_WRITE;
+	} else if (flags & O_RDWR){
+		file->flags |= FD_WRITE | FD_READ;
+	} else {
+		file->flags |= FD_READ;
+	}
+
+	if(flags & O_APPEND){
+		file->flags |= FD_APPEND;
+	}
+
+	if(flags & O_CLOEXEC){
+		file->flags |= FD_CLOEXEC;
+	}
+
 	return fd;
 }
 
@@ -130,10 +148,18 @@ int sys_close(int fd){
 }
 
 int64_t sys_write(int fd,void *buffer,size_t count){
-	if(!is_valid_fd(fd)){
+	if((!is_valid_fd(fd) || (!FD_CHECK(fd,FD_WRITE)))){
 		return -EBADF;
 	}
+
+
 	file_descriptor *file = &get_current_proc()->fds[fd];
+
+	//if append go to the end
+	if(FD_CHECK(fd,FD_APPEND)){
+		file->offset = file->node->size;
+	}
+
 	int64_t wsize = vfs_write(file->node,buffer,file->offset,count);
 
 	if(wsize > 0){
@@ -144,7 +170,7 @@ int64_t sys_write(int fd,void *buffer,size_t count){
 }
 
 int64_t sys_read(int fd,void *buffer,size_t count){
-	if(!is_valid_fd(fd)){
+	if((!is_valid_fd(fd) || (!FD_CHECK(fd,FD_READ)))){
 		return -EBADF;
 	}
 	file_descriptor *file = &get_current_proc()->fds[fd];
