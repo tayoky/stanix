@@ -223,6 +223,14 @@ int vfs_ioctl(vfs_node *node,uint64_t request,void *arg){
 	}
 }
 
+vfs_node *vfs_dup(vfs_node *node){
+	//well we can copy a the void so ...
+	//we can copy an non existant node
+	if(!node) return NULL;
+	if(!node->dup) return NULL;
+	return node->dup(node); 
+}
+
 vfs_node *vfs_open(const char *path,uint64_t flags){
 	//don't open for nothing
 	if((!flags & VFS_READONLY )&& (!(flags &  VFS_WRITEONLY))){

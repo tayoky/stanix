@@ -56,6 +56,7 @@ typedef struct vfs_node_struct {
 	int (* chmod)(struct vfs_node_struct*,mode_t perm);
 	int (* chown)(struct vfs_node_struct*,uid_t owner,gid_t group_owner);
 	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
+	struct vfs_node_struct *(* dup)(struct vfs_node_struct *);
 }vfs_node;
 
 typedef struct vfs_mount_point_struct{
@@ -132,6 +133,11 @@ int vfs_ioctl(vfs_node *node,uint64_t request,void *arg);
 /// @param dev_inode pointer to device inode (or NULL)
 /// @return 0 on succes else error code
 int vfs_create_dev(const char *path,device_op *op,void *dev_inode);
+
+/// @brief duplicate an vfs_node
+/// @param node the vfs_node to duplicate
+/// @return the new vfs_node
+vfs_node *vfs_dup(vfs_node *node);
 
 //flags
 #define VFS_READONLY     0x01 //readonly
