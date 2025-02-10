@@ -140,6 +140,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 }
 
 int sys_close(int fd){
+	kdebugf("try close fd %ld\n",fd);
 	if(!is_valid_fd(fd)){
 		return -EBADF;
 	}
@@ -300,6 +301,7 @@ pid_t sys_getpid(){
 void *syscall_table[] = {
 	(void *)sys_exit,
 	(void *)sys_open,
+	(void *)sys_close,
 	(void *)sys_read,
 	(void *)sys_write,
 	(void *)sys_seek,

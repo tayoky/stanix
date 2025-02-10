@@ -32,7 +32,7 @@ syscall_handler:
 	mov gs, bx
 
 	;first out of bound check 
-	cmp rax, syscall_number
+	cmp rax, qword[syscall_number]
 	jae sys_invalid
 
 	;mov rdi, msg

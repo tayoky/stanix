@@ -4,6 +4,7 @@
 #include "kheap.h"
 #include "paging.h"
 #include "cleaner.h"
+#include "string.h"
 
 
 void init_task(){
@@ -49,6 +50,7 @@ void schedule(){
 process *new_proc(){
 	//init the new proc
 	process *proc = kmalloc(sizeof(process));
+	memset(proc,0,sizeof(process));
 	proc->pid = ++kernel->created_proc_count;
 	proc->cr3 = ((uintptr_t)init_PMLT4(kernel)) - kernel->hhdm;
 	proc->parent = get_current_proc();
