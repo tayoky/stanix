@@ -2,3 +2,6 @@
 	path = limine
 	url = https://github.com/limine-bootloader/limine.git
 	branch = v8.x-binary
+[submodule "tlibc"]
+	path = tlibc
+	url = https://github.com/tayoky/tlibc.git
