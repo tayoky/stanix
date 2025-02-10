@@ -32,6 +32,8 @@ typedef struct process_struct{
 	uint64_t flags;
 	file_descriptor fds[MAX_FD];
 	file_descriptor cwd;
+	uint64_t heap_start;
+	uint64_t heap_end;
 } process;
 
 #define PROC_STATE_PRESENT 0x01

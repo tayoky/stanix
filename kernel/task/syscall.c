@@ -5,6 +5,8 @@
 #include "idt.h"
 #include "print.h"
 #include <errno.h>
+#include "page.h"
+#include "paging.h"
 
 extern void syscall_handler();
 
@@ -259,6 +261,38 @@ int64_t sys_seek(int fd,int64_t offset,int whence){
 	return file->offset;
 }
 
+uint64_t sys_sbrk(intptr_t incr){
+	//get rid of the 0 case
+	if(!incr){
+		return get_current_proc()->heap_end;
+	}
+
+	//get proc
+	process *proc = get_current_proc();
+
+	int64_t incr_pages = PAGE_ALIGN_UP(incr) / PAGE_SIZE;
+
+	//get the PMLT4
+	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
+
+	if(incr < 0){
+		//make heap smaller
+		for (int64_t i = 0; i > incr_pages; i--){
+			uint64_t virt_page = (kernel->kheap.start + kernel->kheap.lenght)/PAGE_SIZE + i;
+			uint64_t phys_page = (uint64_t)virt2phys((void *)(virt_page*PAGE_SIZE)) / PAGE_SIZE;
+			unmap_page(PMLT4, virt_page);
+			free_page(&kernel->bitmap,phys_page);
+		}
+	} else {
+		//make heap bigger
+		for (int64_t i = 0; i < incr_pages; i++){
+			map_page(PMLT4, allocate_page(&kernel->bitmap) ,proc->heap_end/PAGE_SIZE + i, PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE);
+		}
+	}
+	proc->heap_end += incr_pages * PAGE_SIZE;
+	return proc->heap_end;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -271,6 +305,7 @@ void *syscall_table[] = {
 	(void *)sys_seek,
 	(void *)sys_dup,
 	(void *)sys_dup2,
+	(void *)sys_sbrk,
 	(void *)sys_getpid,
 };
 

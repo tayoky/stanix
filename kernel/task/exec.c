@@ -66,6 +66,9 @@ int exec(char *path){
 	//get the PMLT4
 	uint64_t *PMLT4 = (uint64_t *)(get_current_proc()->cr3 + kernel->hhdm);
 
+	//set the heap start to 0
+	get_current_proc()->heap_start = 0;
+
 	//then iterate trought each prog header
 	for (size_t i = 0; i < header.e_phnum; i++){
 		//only load porgram header with PT_LOAD
@@ -77,6 +80,12 @@ int exec(char *path){
 		uint64_t flags = PAGING_FLAG_READONLY_CPL3 | PAGING_FLAG_RW_CPL3;
 		if(!prog_header[i].p_flags & PF_X){
 			flags |= PAGING_FLAG_NO_EXE;
+		}
+
+		//make sure heap start is after the segment
+		//so at the end the heap start is right after the end of excetuable
+		if(get_current_proc()->heap_start < PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz)){
+			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz);
 		}
 		
 		auto_map(PMLT4,prog_header[i].p_vaddr,prog_header[i].p_memsz,flags);
@@ -95,6 +104,9 @@ int exec(char *path){
 	kfree(prog_header);
 
 	vfs_close(file);
+
+	//set the heap end
+	get_current_proc()->heap_end = get_current_proc()->heap_start;
 
 	//now jump into the program !!
 	//jump_userspace((void *)header.e_entry,(void *)KERNEL_STACK_TOP);

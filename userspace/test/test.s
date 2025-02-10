@@ -2,6 +2,11 @@ bits 64
 section .text
 global _start
 _start:
+	;just sbrk test
+	mov rax,7 ;sbrk
+	mov rdi, 0x1000 ; 4096 bytes
+	int 80h
+	 
 	;first open the tty
 	mov rax, 1
 	mov rdi, path
