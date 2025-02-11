@@ -19,7 +19,7 @@ you need to install all of this (`sudo apt install xxx` on ubuntu)
 - autoconf
 - automake
 ### cross compilator
-you then need to use make a cross compilator and then you can folow the build instructions like you were on stanix
+you then need to make a cross compilator and then you can follow the build instructions like you were on stanix
 ## build from StanixOS
 if you build on StanixOS (or any other OS  with cross compilator) you first need to install all of this sofware
 ### required software
@@ -34,11 +34,13 @@ if you build on StanixOS (or any other OS  with cross compilator) you first need
 ###cloning
 now clone the repo 
 ```sh
-git clone https://github.com/tayoky/FOS2```
+git clone https://github.com/tayoky/FOS2
+```
 and it's submodules
 ```sh
 git submodule init
-git submodule update```
+git submodule update
+```
 ###building
 now you can actually build  
 NOTE : if you're using a cross compilator change CC and LD to your linker and compilator in kernel/makefile
