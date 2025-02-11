@@ -19,7 +19,11 @@ you need to install all of this (`sudo apt install xxx` on ubuntu)
 - autoconf
 - automake
 ### cross compilator
-you then need to make a cross compilator and then you can follow the build instructions like you were on stanix
+you then need to make a cross compilator and then you can follow the build instructions like you were on stanix  
+the cross compilator you need to build is 
+- [cross gcc for stanix](https://github.com/tayoky/gcc)
+- [cross binutil for stanix](https://github.com/binutil)  
+just put them in a folder (eg `$HOME/opt/cross`) and add it to your `$PATH` (it will be usefull later)
 ## build from StanixOS
 if you build on StanixOS (or any other OS  with cross compilator) you first need to install all of this sofware
 ### required software
