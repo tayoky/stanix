@@ -31,7 +31,7 @@ if you build on StanixOS (or any other OS  with cross compilator) you first need
 - xorriso (for iso images)
 - mtools (for hdd image)
 - qemu or any other VM (recommanded for testing)
-###cloning
+### cloning
 now clone the repo 
 ```sh
 git clone https://github.com/tayoky/FOS2
@@ -41,7 +41,7 @@ and it's submodules
 git submodule init
 git submodule update
 ```
-###building
+### building
 now you can actually build  
 NOTE : if you're using a cross compilator change CC and LD to your linker and compilator in kernel/makefile
   
