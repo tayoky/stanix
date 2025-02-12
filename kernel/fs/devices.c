@@ -69,6 +69,10 @@ device_op serial_op = {
 	.write = write_serial_dev
 };
 
+device_op null_op = {
+
+};
+
 void init_devices(void){
 	kstatus("init dev ...");
 	if(vfs_mount("dev",new_tmpfs())){
@@ -96,6 +100,13 @@ void init_devices(void){
 	// dev:/console
 	if(vfs_create_dev("dev:/console",&serial_op,NULL)){
 		kinfof("fail to create device : dev:/console\n");
+	}
+
+	//dev:/null
+	if(vfs_create_dev("dev:/null",&null_op,NULL)){
+		kfail();
+		kinfof("fail to create device dev:/null\n");
+		halt();
 	}
 
 	kok();
