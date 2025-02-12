@@ -34,7 +34,7 @@ CFLAGS = -Wall \
     -mno-red-zone \
     -mcmodel=kernel\
     --sysroot=${SYSROOT}\
-    -isystem={SYSROOT}/usr/include
+    -isystem=${SYSROOT}/usr/include
 CFLAGS += -I ./
 
 all : ${OUT}
