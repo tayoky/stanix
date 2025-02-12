@@ -1,6 +1,6 @@
 ![](https://tokei.rs/b1/github/tayoky/FOS2) ![GitHub top language](https://img.shields.io/github/languages/top/tayoky/FOS2)
    
-# FOS2
+# StanixOS
 An 64 bit OS made from scratch  
 this os use the stanix kernel an 64 bit monolic higher half kernel  
 [credit here](CREDITS.md)
@@ -15,16 +15,11 @@ to build an image of the os you first need to make sure to have all of this :
 - qemu (for testing in vm ot any other vm)
 - make
 ### submodule
-this OS use the limine bootloader   
-clone the submodule :  
+the repo as two submodules : limine and tlibc   
+clone the submodules :  
 ```sh
 git submodule init
 git submodule update
 ```
 ### building
-you first need to build userspace apps and install it into the initrd   
-you can do `make -C userspace/ install` to do that  
-then you can use `make all` to make all images or  
-- `make hdd` for hdd image
-- `make iso` for iso image  
-you can do `make test` to make an hdd image and automaticly launch qemu with it
+see the [build docs](BUILD.md)

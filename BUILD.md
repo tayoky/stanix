@@ -1,11 +1,10 @@
-# bulding
-to build build StanixOS there are two possibility  
-- you currently run StanixOS (problably not)
-- you want to compile StanixOS from another host OS 
-## cross build
-if you want yo compile StanixOS from another host OS you will first need to install required sofware
+# build
+there are two possiblity : 
+- you are building StanixOS on itself (self building)
+- you are building StanixOS form another OS (eg linux/gnu or any other unix like OS)
+## cross building
+if you are building from another OS you will first have to make an cross compiler  
 ### required sofware
-you need to install all of this (`sudo apt install xxx` on ubuntu)  
 - git
 - gcc
 - binutil
@@ -18,53 +17,22 @@ you need to install all of this (`sudo apt install xxx` on ubuntu)
 - textinfo
 - autoconf
 - automake
-### cross compilator
-you then need to make a cross compilator and then you can follow the build instructions like you were on stanix  
-the cross compilator you need to build is 
-- [cross gcc for stanix](https://github.com/tayoky/gcc)
-- [cross binutil for stanix](https://github.com/binutil)  
-just put them in a folder (eg `$HOME/opt/cross`) and add it to your `$PATH` (it will be usefull later)
-## build from StanixOS
-if you build on StanixOS (or any other OS  with cross compilator) you first need to install all of this sofware
+
+first create an sysroot with the libc header : 
+```sh
+cd stanix
+make header
+```
+the new sysroot is now avalible inside the sysroot folder in the repo
+## self building
 ### required software
 - git
+- gcc
+- ld
 - make
-- gcc (or cross one if cross compiling)
-- binutil (or cross one if cross compiling)
 - nasm
-- xorriso (for iso images)
-- mtools (for hdd image)
-- qemu or any other VM (recommanded for testing)
-### cloning
-now clone the repo 
-```sh
-git clone https://github.com/tayoky/FOS2
-```
-and it's submodules
-```sh
-git submodule init
-git submodule update
-```
-### building
-now you can actually build  
-NOTE : if you're using a cross compilator change CC and LD to your linker and compilator in kernel/makefile
-  
-firt step : make tlibc and install it into sysroot
-```sh
-make -C tlibc
-cd tlibc && ./install.sh ../sysroot
-```
-now you can build the userspace and install it
-```sh
-make -C userspace install
-```
-NOTE : the userspace for the moment don't support any other sysroot
-then build the kernel, the ramdisk and the boot directory 
-```sh
-make
-```
-now you can make your own image with sysroot and out or do  
-- `make iso`
-- `make hdd`  
-  
-`make test` will automacily launch qemu with and hdd image 
+- coreutil
+just run `make all HOST=x86_64-stanix` for all images or
+- `make hdd HOST=x86_64-stanix` for hdd image
+- `make iso HOST=x86_64-stanix` for iso image
+`make test` create an hdd image for x86_64 and automticly launch it with qemu

@@ -1,29 +1,33 @@
 #output
 hdd_out = FOS25.hdd
 iso_out = FOS25.iso
-out = out
-kernel = stanix.elf
+OUT = out
+KERNEL = stanix.elf
 MAKEFLAGS += --no-builtin-rules
+SYSROOT = sysroot
 
-out_files = ${out}/boot/${kernel} ${out}/boot/limine/limine.conf ${out}/boot/limine/limine-bios.sys \
-${out}/EFI/BOOT/BOOTX64.EFI \
-${out}/EFI/BOOT/BOOTIA32.EFI \
-${out}/boot/limine/limine-bios-cd.bin\
-${out}/boot/limine/limine-uefi-cd.bin\
-${out}/boot/initrd.tar
+#tools
+export CC = gcc
+export LD = ld 
+export NASM = nasm
+
+out_files = ${OUT}/boot/limine/limine-bios.sys \
+${OUT}/EFI/BOOT/BOOTX64.EFI \
+${OUT}/EFI/BOOT/BOOTIA32.EFI \
+${OUT}/boot/limine/limine-bios-cd.bin\
+${OUT}/boot/limine/limine-uefi-cd.bin\
+${OUT}/boot/initrd.tar
 
 kernel_src = $(shell find ./kernel -name "*")
-
 initrd_src = $(shell find ./initrd -name "*")
 
 all : hdd iso
 
 test : hdd
 	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio
-hdd : ${hdd_out}
+	
+hdd : build ${hdd_out}
 ${hdd_out} : ${kernel_src} ${out_files} 
-	cd kernel && make ../${out}/boot/limine/limine.conf \
-	../${out}/boot/${kernel}
 	rm -f ${hdd_out}
 	dd if=/dev/zero bs=1M count=0 seek=64 of=${hdd_out}
 	sgdisk ${hdd_out} -n 1:2048 -t 1:ef00 
@@ -33,31 +37,37 @@ ${hdd_out} : ${kernel_src} ${out_files}
 # Format the image as fat32.
 	mformat -i ${hdd_out}@@1M	
 #copy the files
-	cd ${out} && mcopy -i ../${hdd_out}@@1M * -/ ::/
-iso : ${kernel_src} ${out_files}
+	cd ${OUT} && mcopy -i ../${hdd_out}@@1M * -/ ::/
+
+iso : build ${iso_out}
+${iso_out} : ${kernel_src} ${out_files}
 	rm -f ${iso_out}
 	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
         -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
         -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
         -efi-boot-part --efi-boot-image --protective-msdos-label \
-        ${out} -o ${iso_out}
-${out}/boot/${kernel} : 
-	cd kernel && make ../${out}/boot/limine/limine.conf \
-	&& make ../${out}/boot/${kernel}
-kernel/out.mk : makefile
-	echo out = ../${out} > kernel/out.mk
-	echo kernel = ${kernel} >> kernel/out.mk
+        ${OUT} -o ${iso_out}
+
 #limine files to copy
-${out}/boot/limine/limine-bios.sys : limine/limine-bios.sys
-	cp limine/limine-bios.sys ${out}/boot/limine
-${out}/EFI/BOOT/% : limine/%
-	mkdir -p ${out}/EFI/BOOT/
+${OUT}/boot/limine/limine-bios.sys : limine/limine-bios.sys
+	cp limine/limine-bios.sys ${OUT}/boot/limine
+${OUT}/EFI/BOOT/% : limine/%
+	mkdir -p ${OUT}/EFI/BOOT/
 	cp  $^ $@
-${out}/boot/limine/limine-% : limine/limine-%
+${OUT}/boot/limine/limine-% : limine/limine-%
 	cp  $^ $@
+
 #for build the ramdisk
-rd : ${out}/boot/initrd.tar
-${out}/boot/initrd.tar : ${initrd_src}
-	cd initrd && tar --create -f ../${out}/boot/initrd.tar **
+rd : ${OUT}/boot/initrd.tar
+${OUT}/boot/initrd.tar : ${initrd_src}
+	cd initrd && tar --create -f ../${OUT}/boot/initrd.tar **
+
+#build!!!
+build : header
+	${MAKE} -C kernel OUT=../${OUT} KERNEL=${KERNEL}
+	${MAKE} -C tlibc install TARGET=stanix SYSROOT=../${SYSROOT}
+	${MAKE} -C userspace install SYSROOT=../${SYSROOT}
+header : 
+	${MAKE} -C tlibc header TARGET=stanix SYSROOT=../${SYSROOT}
 clean :
 	cd kernel && make clean

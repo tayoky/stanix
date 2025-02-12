@@ -1,0 +1,51 @@
+
+#first get all the src
+SRC_C = $(shell find -name "*.c")
+SRC_ASM = $(shell find -name "*.s")
+OBJ = ${SRC_C:.c=.o} ${SRC_ASM:.s=.o}
+
+#find bin name
+PWD = $(shell pwd)
+OUT = $(shell basename ${PWD})
+
+#ld flags
+LDFLAGS += \
+    -m elf_x86_64 \
+    -nostdlib \
+    -static \
+#nasm flags
+ASMFLAGS += -Wall \
+    -f elf64
+
+#cc flags
+CFLAGS = -Wall \
+    -Wextra \
+    -std=gnu11 \
+    -ffreestanding \
+    -fno-stack-protector \
+    -fno-stack-check \
+    -fno-PIC \
+    -m64 \
+    -march=x86-64 \
+    -mno-80387 \
+    -mno-mmx \
+    -mno-sse \
+    -mno-sse2 \
+    -mno-red-zone \
+    -mcmodel=kernel\
+    --sysroot=${SYSROOT}\
+    -isystem={SYSROOT}/usr/include
+CFLAGS += -I ./
+
+all : ${OUT}
+
+${OUT} : ${OBJ}
+	${LD} ${LDFLAGS} -o ${OUT} ${OBJ} -L ${SYSROOT}/usr/lib -lc  ${SYSROOT}/usr/lib/crt0.o
+
+%.o : %.c
+	${CC} ${CFLAGS} -o $@ -g -c $^
+%.o : %.s
+	${NASM} ${ASMFLAGS} $< -o $@
+
+clean : 
+	rm -f ${OBJ}

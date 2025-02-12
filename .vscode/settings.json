@@ -1,0 +1,31 @@
+{
+    "files.associations": {
+        "stdarg.h": "c",
+        "kheap.h": "c",
+        "paging.h": "c",
+        "page.h": "c",
+        "kernel.h": "c",
+        "print.h": "c",
+        "serial.h": "c",
+        "bitmap.h": "c",
+        "vfs.h": "c",
+        "stdint.h": "c",
+        "string.h": "c",
+        "stddef.h": "c",
+        "devices.h": "c",
+        "tmpfs.h": "c",
+        "framebuffer.h": "c",
+        "asm.h": "c",
+        "stdio.h": "c",
+        "fcntl.h": "c",
+        "port.h": "c",
+        "terminal_emu.h": "c",
+        "tss.h": "c",
+        "scheduler.h": "c",
+        "sys.h": "c",
+        "fd.h": "c",
+        "idt.h": "c",
+        "errno.h": "c",
+        "cleaner.h": "c"
+    }
+}

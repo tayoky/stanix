@@ -1,10 +1,6 @@
 #output
-include out.mk
-
-#define your compilator and other tools here
-CC = gcc
-LD = ld
-NASM = nasm
+OUT = out
+KERNEL = stanix.elf
 
 #flag
 LDFLAGS = 
@@ -27,10 +23,10 @@ ASMFLAGS += -Wall \
     -f elf64
 include include.mk
 
-${out}/boot/${kernel} : ${OBJ}
-	${LD} ${LDFLAGS} ${OBJ} -o ${out}/boot/${kernel}
+${OUT}/boot/${KERNEL} : ${OBJ}
+	${LD} ${LDFLAGS} ${OBJ} -o ${OUT}/boot/${KERNEL}
 
-${out}/boot/limine/limine.conf : limine.conf
+${OUT}/boot/limine/limine.conf : limine.conf
 	cp limine.conf ${out}/boot/limine/limine.conf
 %.o : %.c
 	${CC} ${CFLAGS} -o $@ -c $^
