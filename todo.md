@@ -1,9 +1,10 @@
 # todo
-- framebuffer driver
-- refactoring in tmpfs and vfs
-- fix warning
-- open take flag
-- ini parser
-- terminal emulator
+- vfs_openat
 - userpsace
-- syscall
+- ps2 keybaord driver
+- relative path support
+- syscall chdir and getcwd
+- syscall openat
+- fork
+- syscall fork/exec
+- argc/argv  support for exec
