@@ -1,16 +1,16 @@
 # syscall
-note this is a preview nothing is iplmented
-- [ ] open
-- [ ] close
-- [ ] read
-- [ ] write
-- [ ] exit
-- [ ] lseek
+list of all syscall 
+- [x] open
+- [x] close
+- [x] read
+- [x] write
+- [x] exit
+- [x] lseek(seek in internal lseek in libc for compatibility
 - [ ] fstat
 - [ ] mkdir
 - [ ] rmdir
-- [ ] dup
-- [ ] dup2
+- [x] dup
+- [x] dup2
 - [ ] fchmod
 - [ ] fchown
 - [ ] stat
@@ -19,3 +19,6 @@ note this is a preview nothing is iplmented
 - [ ] fork
 - [ ] exec
 - [ ] wait
+- [ ] pipe
+- [x] sbrk
+- [ ] mmap
