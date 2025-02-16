@@ -18,4 +18,5 @@ char *strcat(char * dest, const char * src);
 void *memcpy(void *dest, const void *src,size_t n);
 
 int memcmp(const void *buf1,const void *buf2,size_t count);
+void *memmove(void *dest, const void *src, size_t n);
 #endif

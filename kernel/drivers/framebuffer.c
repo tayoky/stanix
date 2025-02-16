@@ -36,9 +36,9 @@ int64_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t cou
 int framebuffer_scroll(struct limine_framebuffer *inode,uint64_t count){
 	//scroll the specified amount of pixel
 	uint32_t *buffer = (uint32_t *)inode->address;
-	for (size_t i = 0; i < inode->width * inode->height - count * inode->width; i++){
-		buffer[i] = buffer[i + count * inode->width];
-	}
+
+	memmove(buffer,&buffer[count * inode->width],(inode->width * inode->height - count * inode->width) * sizeof(uint32_t));
+	
 	return 0;
 }
 

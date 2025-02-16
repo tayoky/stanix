@@ -44,12 +44,26 @@ int strcmp(const char *str1,const  char *str2) {
 }
 
 void *memcpy(void *dest, const void *src,size_t n){
-	while (n > 0){
-		*(char *)dest = *(char *)src;
-		(char *)src++;
-		(char *)dest++;
-		n--;
+	asm("rep movsb"
+		: : "D" (dest),
+		    "S" (src),
+		    "c" (n));
+	return dest;
+}
+
+void *memmove(void *dest, const void *src, size_t n){
+	if(dest == src){
+		return dest;
 	}
+
+	if(dest < src){
+		return memcpy(dest,src,n);
+	}
+
+	asm("rep movsq"
+		: : "D" (dest),
+		    "S" (src),
+		    "c" (n));
 	return dest;
 }
 
