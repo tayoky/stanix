@@ -64,7 +64,7 @@ ${OUT}/boot/initrd.tar : ${initrd_src}
 
 #build!!!
 build : header
-	${MAKE} -C kernel OUT=../${OUT} KERNEL=${KERNEL}
+	${MAKE} -C kernel OUT=../${OUT} KERNEL=${KERNEL} SYSROOT=../${SYSROOT}
 	${MAKE} -C tlibc install TARGET=stanix SYSROOT=../${SYSROOT}
 	${MAKE} -C userspace install SYSROOT=../${SYSROOT}
 header : 

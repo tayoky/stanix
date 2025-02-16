@@ -1,6 +1,7 @@
 #ifndef KERNEL_H
 #define KERNEL_H
 #include <stdint.h>
+#include <sys/time.h>
 #include "gdt.h"
 #include "idt.h"
 #include "limine.h"
@@ -11,6 +12,8 @@
 #include "terminal_emu.h"
 #include "scheduler.h"
 #include "tss.h"
+
+extern struct timeval time;
 
 typedef struct kernel_table_struct{
 	gdt_segment gdt[7];

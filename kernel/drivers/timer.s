@@ -5,20 +5,24 @@ extern msg
 extern irq_eoi
 extern sleep_tick
 extern context_switch
+extern time
 timer:
 	
 	;push
 	push rax
 	push rbx
 
-	;dec sleep_tick if superior to 0
-	mov rbx, sleep_tick
-	mov rax, qword[rbx]
-	cmp rax, 0
-	je skip
-	dec rax
-	mov qword[rbx], rax
+	;increase time
+	mov rax, qword[time + 8]
+	add rax, 1000
+	cmp rax, 1000000
+	jl skip
+	xor rax, rax  ;reset subsecond to 0
+	mov rbx, qword[time]
+	inc rbx
+	mov qword[time], rbx
 	skip:
+	mov qword[time + 8], rax
 
 	;pop
 	pop rbx

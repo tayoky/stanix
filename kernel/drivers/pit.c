@@ -4,6 +4,7 @@
 #include "irq.h"
 #include "port.h"
 #include "serial.h"
+#include "sleep.h"
 
 #define PIT_CHANNEL0 0x40
 #define PIT_CHANNEL1 0x41
@@ -13,11 +14,6 @@
 void timer();
 
 uint64_t sleep_tick = 0;
-
-void pit_sleep(uint64_t tick){
-	sleep_tick = tick;
-	while(sleep_tick);
-}
 
 void init_pit(void){
 	kstatus("init PIT... ");
@@ -33,7 +29,7 @@ void init_pit(void){
 	out_byte(PIT_CHANNEL0,(divider >> 8) & 0xFF);
 	
 	//just wait to make sure PIT work
-	pit_sleep(1);
+	sleep(1);
 
 	kok();
 }

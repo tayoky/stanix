@@ -21,9 +21,15 @@
 #include "tss.h"
 #include "sys.h"
 #include "exec.h"
+#include <sys/time.h>
 
 kernel_table master_kernel_table;
 kernel_table *kernel;
+
+struct timeval time = {
+	.tv_sec = 0,
+	.tv_usec = 0,
+};
 
 static void ls(const char *path){
 	vfs_node *node = vfs_open(path,VFS_READONLY);

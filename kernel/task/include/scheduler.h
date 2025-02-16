@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "vfs.h"
+#include <sys/type.h>
 
 typedef uint64_t pid_t;
 
@@ -34,11 +35,13 @@ typedef struct process_struct{
 	file_descriptor cwd;
 	uint64_t heap_start;
 	uint64_t heap_end;
+	struct timeval wakeup_time;
 } process;
 
 #define PROC_STATE_PRESENT 0x01
 #define PROC_STATE_DEAD    0x02
 #define PROC_STATE_RUN     0x04
+#define PROC_STATE_SLEEP   0x08
 
 void init_task();
 process *get_current_proc();

@@ -2,6 +2,8 @@
 OUT = out
 KERNEL = stanix.elf
 
+SYSROOT =
+
 #flag
 LDFLAGS = 
 ASMFLAGS =
@@ -22,6 +24,8 @@ LDFLAGS += \
 ASMFLAGS += -Wall \
     -f elf64
 include include.mk
+
+CFLAGS += --sysroot=${SYSROOT} -isystem ${SYSROOT}/usr/include
 
 ${OUT}/boot/${KERNEL} : ${OBJ}
 	${LD} ${LDFLAGS} ${OBJ} -o ${OUT}/boot/${KERNEL}

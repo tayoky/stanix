@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 void __tlibc_init();
 
@@ -16,6 +17,9 @@ int main(){
 	open("dev:/tty0",O_WRONLY); //stderr
 
 	printf("hello world !!\n");
+	int fd = open("tmp:/test.txt",O_CREAT |O_RDWR);
+	
+	//assert(5 == 3);
 
 	return 0;
 }

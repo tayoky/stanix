@@ -44,6 +44,21 @@ void schedule(){
 	}
 	do{
 		kernel->current_proc = kernel->current_proc->next;
+
+		if((kernel->current_proc->flags & PROC_STATE_SLEEP) && (kernel->current_proc->flags & PROC_STATE_RUN)){
+			//the process is spleeping
+			//see if we wakeup
+			struct timeval wakeup_time = kernel->current_proc->wakeup_time;
+			if(wakeup_time.tv_sec > time.tv_sec){
+				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_SLEEP;
+				break;
+			}
+			if((wakeup_time.tv_sec == time.tv_sec) && (wakeup_time.tv_usec > time.tv_usec)){
+				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_SLEEP;
+				break;
+			}
+			continue;
+		}
 	} while (!(kernel->current_proc->flags & PROC_STATE_RUN));
 }
 
