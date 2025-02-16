@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include "vfs.h"
-#include <sys/type.h>
+#include <sys/time.h>
 
 typedef uint64_t pid_t;
 
