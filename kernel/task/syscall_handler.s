@@ -42,6 +42,7 @@ syscall_handler:
 	;now just call the handler
 	call qword[syscall_table + rax * 8]
 
+	syscall_finish:
 	;restore user segment
 	pop rdx
 	mov ds, dx
@@ -66,19 +67,5 @@ syscall_handler:
 	iretq
 
 sys_invalid:
-	pop r15
-	pop r14
-	pop r13
-	pop r12
-	pop r11
-	pop r10
-	pop r9
-	pop r8
-	pop rbp
-	pop rdi
-	pop rsi
-	pop rdx
-	pop rcx
-	pop rbx
 	mov rax, -1
-	iretq
+	jmp syscall_finish
