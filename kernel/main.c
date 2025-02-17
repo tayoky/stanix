@@ -21,6 +21,7 @@
 #include "tss.h"
 #include "sys.h"
 #include "exec.h"
+#include "cmos.h"
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -109,6 +110,7 @@ void kmain(){
 	init_kout();
 	init_irq();
 	init_task();
+	init_cmos();
 	init_pit();
 	init_syscall();
 
