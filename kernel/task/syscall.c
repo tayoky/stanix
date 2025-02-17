@@ -7,6 +7,8 @@
 #include <errno.h>
 #include "page.h"
 #include "paging.h"
+#include "sleep.h"
+#include <sys/type.h>
 
 extern void syscall_handler();
 
@@ -62,7 +64,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 	}
 	
 
-	file_descriptor *file = &get_current_proc()->fds[fd];
+	file_descriptor *file = &FD_GET(fd);
 	vfs_node *node = vfs_open(path,vfs_flags);
 
 	//O_CREAT things
@@ -144,7 +146,7 @@ int sys_close(int fd){
 	if(!is_valid_fd(fd)){
 		return -EBADF;
 	}
-	file_descriptor *file = &get_current_proc()->fds[fd];
+	file_descriptor *file = &FD_GET(fd);
 	vfs_close(file->node);
 	file->present = 0;
 	return 0;
@@ -156,7 +158,7 @@ int64_t sys_write(int fd,void *buffer,size_t count){
 	}
 
 
-	file_descriptor *file = &get_current_proc()->fds[fd];
+	file_descriptor *file = &FD_GET(fd);
 
 	//if append go to the end
 	if(FD_CHECK(fd,FD_APPEND)){
@@ -176,7 +178,7 @@ int64_t sys_read(int fd,void *buffer,size_t count){
 	if((!is_valid_fd(fd) || (!FD_CHECK(fd,FD_READ)))){
 		return -EBADF;
 	}
-	file_descriptor *file = &get_current_proc()->fds[fd];
+	file_descriptor *file = &FD_GET(fd);
 	int64_t rsize = vfs_read(file->node,buffer,file->offset,count);
 
 	if(rsize > 0){
@@ -242,7 +244,7 @@ int64_t sys_seek(int fd,int64_t offset,int whence){
 	}
 
 	//get the fd
-	file_descriptor *file = &get_current_proc()->fds[fd];
+	file_descriptor *file = &FD_GET(fd);
 
 	switch (whence)
 	{
@@ -294,6 +296,30 @@ uint64_t sys_sbrk(intptr_t incr){
 	return proc->heap_end;
 }
 
+int sys_ioctl(int fd,uint64_t request,void *arg){
+	//first fd check
+	if(!is_valid_fd(fd)){
+		return -EBADF;
+	}
+
+	return vfs_ioctl(FD_GET(fd).node,request,arg);
+}
+
+int sys_usleep(useconds_t usec){
+	micro_sleep(usec);
+	return 0;
+}
+
+int sys_sleepuntil(struct timeval *time){
+	sleep_until(*time);
+	return 0;
+}
+
+int sys_gettimeofday(struct timeval *tv, struct timezone *tz){
+	*tv = time;
+	return 0;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -308,6 +334,10 @@ void *syscall_table[] = {
 	(void *)sys_dup,
 	(void *)sys_dup2,
 	(void *)sys_sbrk,
+	(void *)sys_ioctl,
+	(void *)sys_usleep,
+	(void *)sys_sleepuntil,
+	(void *)sys_gettimeofday,
 	(void *)sys_getpid,
 };
 

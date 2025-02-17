@@ -4,8 +4,7 @@
 #include <stdint.h>
 #include "vfs.h"
 #include <sys/time.h>
-
-typedef uint64_t pid_t;
+#include <sys/types.h>
 
 struct process_struct;
 
@@ -52,7 +51,8 @@ void proc_push(process *proc,uint64_t value);
 
 void yeld();
 
-#define is_valid_fd(fd)  (fd >= 0 && (get_current_proc()->fds[fd].present) && fd < MAX_FD)
-#define FD_CHECK(fd,flag) (get_current_proc()->fds[fd].flags & flag)
+#define FD_GET(fd) get_current_proc()->fds[fd]
+#define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))
+#define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)
 
 #endif

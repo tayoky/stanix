@@ -54,6 +54,10 @@ void sys_exit(uint64_t);
 int sys_dup(int);
 int sys_dup2(int, int);
 int64_t sys_seek(int, int64_t, int);
+int sys_ioctl(int fd,uint64_t request,void *arg);
+int sys_usleep(useconds_t usec);
+int sys_sleepuntil(struct timeval *time);
+int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
 pid_t sys_getpid();
 
 #endif

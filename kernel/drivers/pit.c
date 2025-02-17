@@ -29,7 +29,7 @@ void init_pit(void){
 	out_byte(PIT_CHANNEL0,(divider >> 8) & 0xFF);
 	
 	//just wait to make sure PIT work
-	sleep(1);
+	micro_sleep(100000);
 
 	kok();
 }
