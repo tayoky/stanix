@@ -50,6 +50,8 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 void kill_proc(process *proc);
 void proc_push(process *proc,uint64_t value);
 
+void yeld();
+
 #define is_valid_fd(fd)  (fd >= 0 && (get_current_proc()->fds[fd].present) && fd < MAX_FD)
 #define FD_CHECK(fd,flag) (get_current_proc()->fds[fd].flags & flag)
 

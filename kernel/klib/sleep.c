@@ -5,11 +5,11 @@
 void sleep_until(struct timeval wakeup_time){
 	get_current_proc()->wakeup_time = wakeup_time;
 	get_current_proc()->flags |= PROC_STATE_SLEEP;
-	asm("int 31");
+	yeld();
 }
 
 void sleep(long seconds){
-	return micro_sleep(seconds * 1000);
+	return micro_sleep(seconds * 1000000);
 }
 
 void micro_sleep(suseconds_t micro_second){

@@ -2,6 +2,32 @@ global context_switch
 extern schedule
 extern get_current_proc
 extern irq_eoi
+global yeld
+
+yeld:
+;simulate an interruption as happen
+push rax
+push rbx
+
+mov rbx, rsp
+
+mov ax, ss
+push rax         ;ss
+push rbx         ;rsp
+pushf            ;flags
+mov ax, cs
+push rax         ;cs
+push yeld_resume ; rip
+
+jmp context_switch
+
+yeld_resume:
+
+pop rbx
+pop rax
+ret
+
+
 
 context_switch:
 	;push all

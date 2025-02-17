@@ -42,24 +42,30 @@ void schedule(){
 	if(!kernel->can_task_switch){
 		return;
 	}
-	do{
+
+	for(;;){
 		kernel->current_proc = kernel->current_proc->next;
 
 		if((kernel->current_proc->flags & PROC_STATE_SLEEP) && (kernel->current_proc->flags & PROC_STATE_RUN)){
 			//the process is spleeping
 			//see if we wakeup
 			struct timeval wakeup_time = kernel->current_proc->wakeup_time;
-			if(wakeup_time.tv_sec > time.tv_sec){
+			if(time.tv_sec > wakeup_time.tv_usec){
 				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_SLEEP;
 				break;
 			}
-			if((wakeup_time.tv_sec == time.tv_sec) && (wakeup_time.tv_usec > time.tv_usec)){
+			if((wakeup_time.tv_sec == time.tv_sec) && (time.tv_usec > wakeup_time.tv_usec)){
 				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_SLEEP;
 				break;
 			}
 			continue;
 		}
-	} while (!(kernel->current_proc->flags & PROC_STATE_RUN));
+
+		if(kernel->current_proc->flags & PROC_STATE_RUN){
+			//we have find a runing process
+			break;
+		}
+	}
 }
 
 process *new_proc(){
@@ -131,6 +137,7 @@ void kill_proc(process *proc){
 	//if the proc is it self
 	//then we have to while until we are stoped
 	if(proc == get_current_proc()){
+		yeld();
 		for(;;);
 	}
 }
