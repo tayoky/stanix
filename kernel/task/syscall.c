@@ -9,6 +9,7 @@
 #include "paging.h"
 #include "sleep.h"
 #include <sys/type.h>
+#include "pipe.h"
 
 extern void syscall_handler();
 
@@ -320,8 +321,35 @@ int sys_gettimeofday(struct timeval *tv, struct timezone *tz){
 	return 0;
 }
 
+int sys_pipe(int pipefd[2]){
+	int read = find_fd();
+	if(read == -1){
+		return -ENXIO;
+	}
+	FD_GET(read).present = 1;
+	FD_GET(read).flags = FD_READ;
+
+	int write = find_fd();
+	if(write == -1){
+		sys_close(read);
+		return -ENXIO;
+	}
+	FD_GET(write).flags = FD_WRITE;
+	FD_GET(write).present = 1;
+
+	create_pipe(&FD_GET(read).node,&FD_GET(write).node);
+
+	pipefd[0] = read;
+	pipefd[1] = write;
+	return 0;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
+}
+
+int sys_stub(void){
+	return 0;
 }
 
 void *syscall_table[] = {
@@ -338,6 +366,8 @@ void *syscall_table[] = {
 	(void *)sys_usleep,
 	(void *)sys_sleepuntil,
 	(void *)sys_gettimeofday,
+	(void *)sys_stub, //settimeoftheday
+	(void *)sys_pipe,
 	(void *)sys_getpid,
 };
 
