@@ -5,6 +5,7 @@ list of all syscall
 - [x] read
 - [x] write
 - [x] exit
+- [x] ioctl
 - [x] lseek(seek in internal lseek in libc for compatibility
 - [ ] fstat
 - [ ] mkdir
@@ -22,3 +23,6 @@ list of all syscall
 - [ ] pipe
 - [x] sbrk
 - [ ] mmap
+- [x] gettimeoftheday
+- [x] sleep
+- [x] sleepuntil  
