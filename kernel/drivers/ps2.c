@@ -6,6 +6,7 @@
 #include "vfs.h"
 #include "ringbuf.h"
 #include <event.h>
+#include <input.h>
 
 #define PS2_DATA    0x60
 #define PS2_COMMAND 0x64
@@ -58,13 +59,13 @@ char kbd_us[128] = {
 	'q','w','e','r','t','y','u','i','o','p','[',']','\n',
 	0, /* control */
 	'a','s','d','f','g','h','j','k','l',';','\'', '`',
-	0, /* left shift */
+	KEY_SHIFT, /* left shift */
 	'\\','z','x','c','v','b','n','m',',','.','/',
-	0, /* right shift */
+	KEY_SHIFT, /* right shift */
 	'*',
 	0, /* alt */
 	' ', /* space */
-	0, /* caps lock */
+	KEY_CAPSLOCK, /* caps lock */
 	0, /* F1 [59] */
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, /* ... F10 */

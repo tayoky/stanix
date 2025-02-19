@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <sys/time.h>
 #include <syscall.h>
+#include <ctype.h>
+#include <input.h>
 
 void __tlibc_init();
 
@@ -42,6 +44,8 @@ int main(){
 
 	//try open keayboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);
+	char shift = 0;
+	char caps = 0;
 
 	for(;;){
 		char c;
@@ -50,12 +54,30 @@ int main(){
 			continue;
 		}
 
-		//is it a relase ?
-		if(c & 0x80){
-			continue;
-		}
+		switch (c)
+		{
+		case KEY_SHIFT:
+			shift = 1;
+			break;
+		case KEY_SHIFT + 0x80:
+			shift = 0;
+			break;
+		case KEY_CAPSLOCK:
+			caps = 1 - caps;
+			break;
+		default:
+			//is it a relase ?
+			if(c & 0x80){
+				continue;
+			}
 
-		putchar(c);
+			if(shift || caps){
+				putchar(toupper(c));
+				break;
+			}
+			putchar(c);
+			break;
+		}
 	}
 	
 	
