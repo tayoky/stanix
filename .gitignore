@@ -6,6 +6,8 @@ stanix.elf
 
 #images build
 FOS25.*
+stanix.iso
+stanix.hdd
 
 #limine build
 limine-bios.sys

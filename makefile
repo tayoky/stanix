@@ -1,6 +1,6 @@
 #output
-hdd_out = FOS25.hdd
-iso_out = FOS25.iso
+hdd_out = stanix.hdd
+iso_out = stanix.iso
 OUT = out
 KERNEL = stanix.elf
 MAKEFLAGS += --no-builtin-rules
