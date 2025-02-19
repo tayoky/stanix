@@ -39,6 +39,24 @@ int main(){
 	while(!feof(pipe_read)){
 		putchar(getc(pipe_read));
 	}
+
+	//try open keayboard
+	int kbd_fd = open("dev:/kb0",O_RDONLY);
+
+	for(;;){
+		char c;
+		size_t rsize = read(kbd_fd,&c,1);
+		if(rsize < 1){
+			continue;
+		}
+
+		//is it a relase ?
+		if(c & 0x80){
+			continue;
+		}
+
+		putchar(c);
+	}
 	
 	
 	//assert(5 == 3);

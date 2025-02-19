@@ -22,6 +22,7 @@
 #include "sys.h"
 #include "exec.h"
 #include "cmos.h"
+#include "ps2.h"
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -110,6 +111,7 @@ void kmain(){
 	init_kout();
 	init_irq();
 	init_task();
+	init_ps2();
 	init_cmos();
 	init_pit();
 	init_syscall();
