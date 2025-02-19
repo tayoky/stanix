@@ -41,6 +41,16 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 		return;
 	}
 
+	if(c == '\b'){
+		if(terminal_settings->x <= 0){
+			return;
+		}
+		terminal_settings->x -= 8;
+		term_draw_char(' ',terminal_settings);
+		terminal_settings->x -= 8;
+		return ;
+	}
+
 	if(terminal_settings->ANSI_esc_mode){
 		if(c == 'm'){
 			if(terminal_settings->ANSI_esc_mode == 3){
@@ -66,11 +76,14 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 
 	//get color
 	uint32_t font_color = terminal_settings->font_color;
+	uint32_t back_color = terminal_settings->back_color;
 
 	for (uint16_t y = 0; y < header->characterSize; y++){
 		for (uint8_t x = 0; x < 8; x++){
 			if((font_data[current_byte] >> (7 - x)) & 0x01){
 				draw_pixel(terminal_settings->frambuffer_dev,terminal_settings->x + x,terminal_settings->y + y,font_color);
+			} else {
+				draw_pixel(terminal_settings->frambuffer_dev,terminal_settings->x + x,terminal_settings->y + y,back_color);
 			}
 		}
 		
