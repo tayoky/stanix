@@ -10,6 +10,7 @@
 #include "sleep.h"
 #include <sys/type.h>
 #include "pipe.h"
+#include "exec.h"
 
 extern void syscall_handler();
 
@@ -344,6 +345,16 @@ int sys_pipe(int pipefd[2]){
 	return 0;
 }
 
+int sys_execve(const char *path,const char **argv){
+	//get argc
+	int argc = 0;
+	while(argv[argc]){
+		argc ++;
+	}
+	kdebugf("try executing %s\n",path);
+	return exec(path,argc,argv);
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -368,6 +379,7 @@ void *syscall_table[] = {
 	(void *)sys_gettimeofday,
 	(void *)sys_stub, //settimeoftheday
 	(void *)sys_pipe,
+	(void *)sys_execve,
 	(void *)sys_getpid,
 };
 

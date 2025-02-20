@@ -42,6 +42,13 @@ int main(){
 		putchar(getc(pipe_read));
 	}
 
+	//try launching hello
+	char **arg = {
+		"initrd:/bin/hello",
+		NULL
+	};
+	execve("initrd:/bin/hello",arg,NULL);
+
 	//try open keayboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);
 	char shift = 0;

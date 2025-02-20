@@ -106,8 +106,8 @@ int exec(char *path,int argc,char **argv){
 
 	//now jump into the program !!
 	//jump_userspace((void *)header.e_entry,(void *)KERNEL_STACK_TOP);
-	void ( *entry)(void) = (void *)header.e_entry;
-	entry();
+	void ( *entry)(int,char **) = (void *)header.e_entry;
+	entry(0,NULL);
 
 	return 0;
 }
