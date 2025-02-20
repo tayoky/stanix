@@ -2,8 +2,9 @@
 #include <stdint.h>
 #include "paging.h"
 #include "scheduler.h"
+#include "string.h"
 
-void memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){
+memseg *memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){
 	//first convert all of that into pages
 	address = PAGE_ALIGN_DOWN(address) / PAGE_SIZE;
 	size = PAGE_ALIGN_UP(size) / PAGE_SIZE;
@@ -25,6 +26,8 @@ void memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){
 		address++;
 		size--;
 	}
+
+	return new_memseg;
 }
 
 void memseg_unmap(process *proc,memseg *seg){
@@ -54,4 +57,21 @@ void memseg_unmap(process *proc,memseg *seg){
 	}
 
 	kfree(seg);
+}
+
+void memseg_clone(process *parent,process *child,memseg *seg){
+	memseg *new_seg = memseg_map(child,seg->offset,seg->size,seg->flags);
+	
+	size_t size = new_seg->size;
+	uint64_t virt_page = (uint64_t)new_seg->offset / PAGE_SIZE;
+	while(size > 0){
+		//get the phys page
+		void * phys_page = PMLT4_virt2phys(child->cr3 + kernel->hhdm,virt_page * PAGE_SIZE);
+
+		memcpy((uint64_t)phys_page + kernel->hhdm,seg->offset + (virt_page * PAGE_SIZE - (uint64_t)new_seg->offset),PAGE_SIZE);
+		
+		virt_page++;
+		size--;
+	}
+
 }

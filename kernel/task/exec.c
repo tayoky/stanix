@@ -55,6 +55,18 @@ int exec(char *path,int argc,char **argv){
 		goto error;
 	}
 
+	//save argv
+	char **saved_argv = kmalloc(argc + 1);
+	for (size_t i = 0; i < argc; i++){
+		if(argv[i]){
+			saved_argv[i] = kmalloc(strlen(argv[i]) + 1);
+			strcpy(saved_argv[i],argv[i]);
+		} else {
+			saved_argv[i] = NULL;
+		}
+	}
+	saved_argv[argc] = NULL;
+	
 	//unmap everything;
 	memseg *current_memseg = get_current_proc()->first_memseg;
 	while(current_memseg){

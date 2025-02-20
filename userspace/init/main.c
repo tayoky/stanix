@@ -42,6 +42,10 @@ int main(){
 		putchar(getc(pipe_read));
 	}
 
+	//try forking
+	fork();
+	printf("double\n");
+
 	//try launching hello
 	char **arg = {
 		"initrd:/bin/hello",

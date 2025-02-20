@@ -12,6 +12,7 @@
 #include "pipe.h"
 #include "exec.h"
 #include "memseg.h"
+#include "fork.h"
 
 extern void syscall_handler();
 
@@ -350,8 +351,14 @@ int sys_execve(const char *path,const char **argv){
 	while(argv[argc]){
 		argc ++;
 	}
+	//FIXME : arg support 
+	argc = 0;
 	kdebugf("try executing %s\n",path);
 	return exec(path,argc,argv);
+}
+
+pid_t sys_fork(void){
+	return fork();
 }
 
 pid_t sys_getpid(){
@@ -379,6 +386,7 @@ void *syscall_table[] = {
 	(void *)sys_stub, //settimeoftheday
 	(void *)sys_pipe,
 	(void *)sys_execve,
+	(void *)sys_fork,
 	(void *)sys_getpid,
 };
 
