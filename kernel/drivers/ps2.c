@@ -5,7 +5,6 @@
 #include "port.h"
 #include "vfs.h"
 #include "ringbuf.h"
-#include <event.h>
 #include <input.h>
 
 #define PS2_DATA    0x60
