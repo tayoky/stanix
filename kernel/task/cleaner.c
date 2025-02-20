@@ -3,6 +3,7 @@
 #include "paging.h"
 #include "scheduler.h"
 #include "print.h"
+#include "memseg.h"
 
 void cleaner_task(){
 	kstatus("start cleaner task\n");
@@ -51,6 +52,13 @@ void free_proc(process *proc,process *prev){
 
 	//close cwd
 	vfs_close(proc->cwd.node);
+
+	//free the used space
+	memseg *current_memseg = proc->first_memseg;
+	while(current_memseg){
+		memseg_unmap(proc,current_memseg);
+		current_memseg = current_memseg->next;
+	}
 
 	//and then free the  process struct
 	kfree(proc);

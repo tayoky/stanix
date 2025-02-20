@@ -23,6 +23,14 @@ typedef struct {
 #define FD_NONBLOCK 0x08
 #define FD_CLOEXEC  0x10
 
+typedef struct memseg_struct {
+	void *offset;
+	size_t size;
+	struct memseg_struct *next;
+	struct memseg_struct *prev;
+	uint64_t flags;
+}memseg;
+
 typedef struct process_struct{
 	uint64_t cr3;
 	uint64_t rsp;
@@ -35,6 +43,7 @@ typedef struct process_struct{
 	uint64_t heap_start;
 	uint64_t heap_end;
 	struct timeval wakeup_time;
+	memseg *first_memseg;
 } process;
 
 #define PROC_STATE_PRESENT 0x01

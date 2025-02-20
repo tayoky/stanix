@@ -46,6 +46,7 @@ int main(){
 	int kbd_fd = open("dev:/kb0",O_RDONLY);
 	char shift = 0;
 	char caps = 0;
+	exit(0);
 
 	for(;;){
 		char c;

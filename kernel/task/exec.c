@@ -6,6 +6,7 @@
 #include "paging.h"
 #include "print.h"
 #include "userspace.h"
+#include "memseg.h"
 
 int verfiy_elf(Elf64_Ehdr *header){
 	if(memcmp(header,ELFMAG,4)){
@@ -23,19 +24,9 @@ int verfiy_elf(Elf64_Ehdr *header){
 	return 1;
 }
 
-void auto_map(uint64_t *PMLT4,uint64_t address,uint64_t size,uint64_t flags){
-	//first convert all of that intp pages
-	address = PAGE_ALIGN_DOWN(address) / PAGE_SIZE;
-	size = PAGE_ALIGN_UP(size) / PAGE_SIZE;
 
-	while(size > 0){
-		map_page(PMLT4,allocate_page(&kernel->bitmap),address,flags);
-		address++;
-		size--;
-	}
-}
 
-int exec(char *path){
+int exec(char *path,int argc,char **argv){
 	vfs_node *file = vfs_open(path,VFS_READONLY);
 	if(!file){
 		return -1;
@@ -60,11 +51,16 @@ int exec(char *path){
 	//now read all program headers
 	Elf64_Phdr *prog_header = kmalloc(header.e_phentsize * header.e_phnum);
 	if(vfs_read(file,prog_header,header.e_phoff,header.e_phentsize * header.e_phnum) < 0){
+		kfree(prog_header);
 		goto error;
 	}
 
-	//get the PMLT4
-	uint64_t *PMLT4 = (uint64_t *)(get_current_proc()->cr3 + kernel->hhdm);
+	//unmap everything;
+	memseg *current_memseg = get_current_proc()->first_memseg;
+	while(current_memseg){
+		memseg_unmap(get_current_proc(),current_memseg);
+		current_memseg = current_memseg->next;
+	}
 
 	//set the heap start to 0
 	get_current_proc()->heap_start = 0;
@@ -88,7 +84,7 @@ int exec(char *path){
 			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz);
 		}
 		
-		auto_map(PMLT4,prog_header[i].p_vaddr,prog_header[i].p_memsz,flags);
+		memseg_map(get_current_proc(),prog_header[i].p_vaddr,prog_header[i].p_memsz,flags);
 		memset((void*)prog_header[i].p_vaddr,0,prog_header[i].p_memsz);
 
 		//file size must be <= to virtual size

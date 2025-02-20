@@ -74,7 +74,7 @@ void spawn_init(){
 
 	kinfof("try to exec %s\n",init_path);
 
-	if(exec(init_path)){
+	if(exec(init_path,0,NULL)){
 		kfail();
 		kinfof("can't spawn %s\n",init_path);
 	}
