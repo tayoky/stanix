@@ -11,6 +11,7 @@
 #include <sys/type.h>
 #include "pipe.h"
 #include "exec.h"
+#include "memseg.h"
 
 extern void syscall_handler();
 
@@ -290,9 +291,7 @@ uint64_t sys_sbrk(intptr_t incr){
 		}
 	} else {
 		//make heap bigger
-		for (int64_t i = 0; i < incr_pages; i++){
-			map_page(PMLT4, allocate_page(&kernel->bitmap) ,proc->heap_end/PAGE_SIZE + i, PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE);
-		}
+		memseg_map(get_current_proc(),proc->heap_end,PAGE_SIZE * incr_pages,PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE);
 	}
 	proc->heap_end += incr_pages * PAGE_SIZE;
 	return proc->heap_end;
