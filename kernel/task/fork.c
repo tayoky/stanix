@@ -38,9 +38,7 @@ pid_t fork(void){
 			proc_push(child,0);
 			continue;
 		}
-		if(i == 4){
-			kdebugf("rip : %lx",*(uint64_t *)parent->syscall_frame[20 - i]);
-		}
+
 		proc_push(child,parent->syscall_frame[20 - i]);
 	}
 

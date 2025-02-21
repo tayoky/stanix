@@ -25,21 +25,6 @@ void free_proc(process *proc,process *prev){
 	//first remove it from the list
 	prev->next = proc->next;
 
-	
-	//free all the heap
-	uint64_t num_pages = PAGE_ALIGN_UP(proc->heap_end - proc->heap_start) / PAGE_SIZE;
-	uint64_t virt_page = PAGE_ALIGN_DOWN(proc->heap_start);
-	while(num_pages > 0){
-		//find it's phys address
-		uint64_t phys_page = (uint64_t)PMLT4_virt2phys((uint64_t *)(proc->cr3 + kernel->hhdm),(void *)PAGE_ALIGN_UP(proc->heap_end) - num_pages * PAGE_SIZE) / PAGE_SIZE;
-
-		//and then free it
-		free_page(&kernel->bitmap,phys_page);
-
-		virt_page++;
-		num_pages--;
-	}
-
 	//now free the paging tables
 	delete_PMLT4((uint64_t *)(proc->cr3 + kernel->hhdm));
 
@@ -56,8 +41,9 @@ void free_proc(process *proc,process *prev){
 	//free the used space
 	memseg *current_memseg = proc->first_memseg;
 	while(current_memseg){
+		memseg *next = current_memseg->next;
 		memseg_unmap(proc,current_memseg);
-		current_memseg = current_memseg->next;
+		current_memseg = next;
 	}
 
 	//and then free the  process struct
