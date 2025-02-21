@@ -21,6 +21,7 @@ memseg *memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){
 	new_memseg->size = size;
 	new_memseg->flags = flags;
 
+
 	while(size > 0){
 		map_page(proc->cr3 + kernel->hhdm,allocate_page(&kernel->bitmap),address,flags);
 		address++;
@@ -60,8 +61,7 @@ void memseg_unmap(process *proc,memseg *seg){
 }
 
 void memseg_clone(process *parent,process *child,memseg *seg){
-	kdebugf("falgs : %lx offset : %lx size :  %lx\n",seg->flags,seg->offset,seg->size);
-	memseg *new_seg = memseg_map(child,seg->offset,seg->size,seg->flags);
+	memseg *new_seg = memseg_map(child,seg->offset,seg->size * PAGE_SIZE,seg->flags);
 	
 	size_t size = new_seg->size;
 	uint64_t virt_addr = (uint64_t)new_seg->offset;
