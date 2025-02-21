@@ -60,17 +60,18 @@ void memseg_unmap(process *proc,memseg *seg){
 }
 
 void memseg_clone(process *parent,process *child,memseg *seg){
+	kdebugf("falgs : %lx offset : %lx size :  %lx\n",seg->flags,seg->offset,seg->size);
 	memseg *new_seg = memseg_map(child,seg->offset,seg->size,seg->flags);
 	
 	size_t size = new_seg->size;
-	uint64_t virt_page = (uint64_t)new_seg->offset / PAGE_SIZE;
+	uint64_t virt_addr = (uint64_t)new_seg->offset;
 	while(size > 0){
 		//get the phys page
-		void * phys_page = PMLT4_virt2phys(child->cr3 + kernel->hhdm,virt_page * PAGE_SIZE);
+		void * phys_addr = PMLT4_virt2phys(child->cr3 + kernel->hhdm,virt_addr);
 
-		memcpy((uint64_t)phys_page + kernel->hhdm,seg->offset + (virt_page * PAGE_SIZE - (uint64_t)new_seg->offset),PAGE_SIZE);
+		memcpy((uint64_t)phys_addr + kernel->hhdm, virt_addr ,PAGE_SIZE);
 		
-		virt_page++;
+		virt_addr+= PAGE_SIZE;
 		size--;
 	}
 

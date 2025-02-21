@@ -20,7 +20,7 @@ pid_t fork(void){
 	child->heap_end = parent->heap_end;
 	child->heap_start = parent->heap_start;
 	
-	//kdebugf("rax : %ld\n",parent->syscall_frame[15]);
+	kdebugf("rax : %ld\n",parent->syscall_frame[13]);
 
 	//setup the return frame for the child
 	for (size_t i = 0; i < 21; i++){
@@ -30,10 +30,13 @@ pid_t fork(void){
 			proc_push(child,0);
 			continue;
 		}
+		if(i == 4){
+			kdebugf("rip : %lx",*(uint64_t *)parent->syscall_frame[20 - i]);
+		}
 		proc_push(child,parent->syscall_frame[20 - i]);
 	}
 
 	//flags
-	child->flags = parent->flags;
+	//child->flags = parent->flags;
 	return child->pid;
 }

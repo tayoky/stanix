@@ -46,7 +46,7 @@ void page_fault_info(fault_frame *fault){
 	kprintf("page fault at address 0x%lx\n",fault->cr2);
 	if(fault->err_code & 0x04)kprintf("user");
 	else kprintf("OS");
-	kprintf(" as trying to ");
+	kprintf(" has trying to ");
 	if(fault->err_code & 0x10) kprintf("execute");
 	else if(fault->err_code & 0x02)kprintf("write");
 	else kprintf("read");
@@ -59,6 +59,7 @@ void exception_handler(fault_frame *fault){
 	if(fault->cs == 0x1B){
 		if(fault->err_type == 14){
 			kprintf("segmentation fault (core dumped)\n");
+			page_fault_info(fault);
 			kill_proc(get_current_proc());
 		}
 		kprintf("fault (core dumped)\n");
