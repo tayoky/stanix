@@ -4,14 +4,15 @@ db `rax : %lx\n`, 0
 section .text
 extern syscall_table
 extern syscall_number
+extern get_current_proc
 global syscall_handler
 syscall_handler:
+	push rdi
+	push rsi
+	push rax
 	push rbx
 	push rcx
 	push rdx
-	push rsi
-	push rdi
-	push rbp
 	push r8
 	push r9
 	push r10
@@ -20,7 +21,9 @@ syscall_handler:
 	push r13
 	push r14
 	push r15
+	push rbp
 
+	;push seg
 	mov bx, ds
 	push rbx
 
@@ -30,6 +33,23 @@ syscall_handler:
 	mov es, bx
 	mov fs ,bx
 	mov gs, bx
+
+	;get the current proc
+	push rax
+	push rdi
+	push rsi
+	push rdx
+	push rcx
+	call get_current_proc
+	mov r15, rax
+	pop rcx
+	pop rdx
+	pop rsi
+	pop rdi
+	pop rax
+
+	;set the syscall frame
+	mov qword[r15 + 16], rsp
 
 	;first out of bound check 
 	cmp rax, qword[syscall_number]
@@ -43,13 +63,15 @@ syscall_handler:
 	call qword[syscall_table + rax * 8]
 
 	syscall_finish:
-	;restore user segment
-	pop rdx
-	mov ds, dx
-	mov es, dx
-	mov fs ,dx
-	mov gs, dx
-	
+	;restore seg
+	pop rbx
+	mov ds, bx
+	mov es, bx
+	mov fs, bx
+	mov gs, bx
+
+	;pop all
+	pop rbp
 	pop r15
 	pop r14
 	pop r13
@@ -58,12 +80,12 @@ syscall_handler:
 	pop r10
 	pop r9
 	pop r8
-	pop rbp
-	pop rdi
-	pop rsi
 	pop rdx
 	pop rcx
 	pop rbx
+	add rsp, 8 ;don't pop rax
+	pop rsi
+	pop rdi
 	iretq
 
 sys_invalid:

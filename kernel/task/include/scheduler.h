@@ -32,8 +32,9 @@ typedef struct memseg_struct {
 }memseg;
 
 typedef struct process_struct{
-	uint64_t cr3;
-	uint64_t rsp;
+	uint64_t cr3;            //WARNING !!!!
+	uint64_t rsp;            //this three value are reference in switch.s and syscall_handler.s
+	uint64_t *syscall_frame; //any change here must be also done in this files
 	pid_t pid;
 	struct process_struct *next;
 	struct process_struct *parent;

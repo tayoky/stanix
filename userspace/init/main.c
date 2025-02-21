@@ -43,7 +43,10 @@ int main(){
 	}
 
 	//try forking
-	fork();
+	pid_t child = fork();
+	if(!child){
+		printf("i'am the child\n");
+	}
 	printf("double\n");
 
 	//try launching hello
