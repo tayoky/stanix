@@ -32,6 +32,8 @@ the new sysroot is now avalible inside the sysroot folder in the repo
 - make
 - nasm
 - coreutil
+- gdisk
+- mtools
 just run `make all HOST=x86_64-stanix` for all images or
 - `make hdd HOST=x86_64-stanix` for hdd image
 - `make iso HOST=x86_64-stanix` for iso image

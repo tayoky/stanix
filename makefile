@@ -62,8 +62,10 @@ rd : ${OUT}/boot/initrd.tar
 ${OUT}/boot/initrd.tar : ${initrd_src}
 	cd initrd && tar --create -f ../${OUT}/boot/initrd.tar **
 
+${OUT}/boot/limine/limine.conf : kernel/limine.conf
+	cp kernel/limine.conf ${OUT}/boot/limine/limine.conf
 #build!!!
-build : header
+build : header ${OUT}/boot/limine/limine.conf
 	${MAKE} -C kernel OUT=../${OUT} KERNEL=${KERNEL} SYSROOT=../${SYSROOT}
 	${MAKE} -C tlibc install TARGET=stanix SYSROOT=../${SYSROOT}
 	${MAKE} -C userspace install SYSROOT=../${SYSROOT}
