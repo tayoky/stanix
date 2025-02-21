@@ -116,10 +116,11 @@ int exec(char *path,int argc,char **argv){
 	//set the heap end
 	get_current_proc()->heap_end = get_current_proc()->heap_start;
 
+	//map stack
+	memseg_map(get_current_proc(),USER_STACK_BOTTOM,USER_STACK_SIZE,PAGING_FLAG_RW_CPL3  | PAGING_FLAG_NO_EXE);
+
 	//now jump into the program !!
-	//jump_userspace((void *)header.e_entry,(void *)KERNEL_STACK_TOP);
-	void ( *entry)(int,char **) = (void *)header.e_entry;
-	entry(0,NULL);
+	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP - 8);
 
 	return 0;
 }

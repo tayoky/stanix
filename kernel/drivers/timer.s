@@ -7,7 +7,6 @@ extern sleep_tick
 extern context_switch
 extern time
 timer:
-	
 	;push
 	push rax
 	push rbx

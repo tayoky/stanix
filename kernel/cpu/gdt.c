@@ -4,7 +4,6 @@
 #include "asm.h"
 
 gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint8_t falgs){
-	(void)falgs;
 	gdt_segment result;
 	result.base1 = base & 0xFFFF;
 	result.base2 = (base >> 16) & 0xFF;
@@ -39,8 +38,8 @@ void init_gdt(void){
 	kernel->gdt[2] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_KERNEL,0x00);
 
 	//user code and data
-	kernel->gdt[3] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_USER | GDT_SEGMENT_ACCESS_EXECUTABLE,0X02);
-	kernel->gdt[4] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_USER,0x00);
+	kernel->gdt[3] = create_gdt_segement(0,0,0xFA,0x02);
+	kernel->gdt[4] = create_gdt_segement(0,0,0xF2,0x00);
 
 	//tss take two entries
 	kernel->gdt[5] = create_gdt_segement((uint64_t)&kernel->tss & 0xFFFFFFFF,sizeof(TSS) - 1,0x89,0);
@@ -48,7 +47,7 @@ void init_gdt(void){
 	kernel->gdt[6] = *(gdt_segment *)&tss_addressH;
 
 	//create the GDTR and load it so the GDT is actually used
-	kernel->gdtr.size = sizeof(kernel->gdt);
+	kernel->gdtr.size = sizeof(kernel->gdt) - 1;
 	kernel->gdtr.offset = (uint64_t)&kernel->gdt[0];
 
 	asm("lgdt %0" : : "m" (kernel->gdtr));

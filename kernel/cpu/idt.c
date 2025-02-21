@@ -81,7 +81,7 @@ void init_idt(void){
 	set_idt_gate(kernel->idt,14,&pagefault_exception,0x8E);
 
 	//create the IDTR
-	kernel->idtr.size = sizeof(kernel->idt);
+	kernel->idtr.size = sizeof(kernel->idt) - 1;
 	kernel->idtr.offset =(uint64_t) &kernel->idt;
 	//and load it
 	asm("lidt %0" : : "m" (kernel->idtr));
