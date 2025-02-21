@@ -5,6 +5,7 @@
 #include "print.h"
 
 pid_t fork(void){
+	kdebugf("forking\n");
 	process *parent = get_current_proc();
 	process *child = new_proc();
 	child->parent = parent;
@@ -27,18 +28,14 @@ pid_t fork(void){
 	}
 	child->cwd = parent->cwd;
 	child->cwd.node = vfs_dup(parent->cwd.node);
-	
-	kdebugf("rax : %ld\n",parent->syscall_frame[13]);
 
 	//setup the return frame for the child
 	for (size_t i = 0; i < 21; i++){
-		//kdebugf("%lx\n",parent->syscall_frame[20 - i]);
 		if(i == 7){
 			//force rax to be 0
 			proc_push(child,0);
 			continue;
 		}
-
 		proc_push(child,parent->syscall_frame[20 - i]);
 	}
 
