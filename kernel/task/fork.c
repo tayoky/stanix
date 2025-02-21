@@ -16,7 +16,7 @@ pid_t fork(void){
 	}
 
 	//clone metadata
-	child->rsp = KERNEL_STACK_TOP;
+	child->rsp = KERNEL_STACK_TOP - 8;
 	child->heap_end = parent->heap_end;
 	child->heap_start = parent->heap_start;
 	
@@ -25,7 +25,7 @@ pid_t fork(void){
 	//setup the return frame for the child
 	for (size_t i = 0; i < 21; i++){
 		//kdebugf("%lx\n",parent->syscall_frame[20 - i]);
-		if(i == 5){
+		if(i == 7){
 			//force rax to be 0
 			proc_push(child,0);
 			continue;
@@ -34,6 +34,6 @@ pid_t fork(void){
 	}
 
 	//flags
-	//child->flags = parent->flags;
+	child->flags = parent->flags;
 	return child->pid;
 }

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "interrupt.h"
 #include "panic.h"
+#include "scheduler.h"
 
 void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){
 	idt[index].offset1 = (uint64_t)offset & 0xFFFF;
@@ -55,6 +56,14 @@ void page_fault_info(fault_frame *fault){
 }
 
 void exception_handler(fault_frame *fault){
+	if(fault->cs == 0x1B){
+		if(fault->err_type == 14){
+			kprintf("segmentation fault (core dumped)\n");
+			kill_proc(get_current_proc());
+		}
+		kprintf("fault (core dumped)\n");
+		kill_proc(get_current_proc());
+	}
 	kprintf("error : 0x%lx\n",fault->err_type);
 	if(fault->err_type < (sizeof(error_msg) / sizeof(char *))){
 		//show info for page fault

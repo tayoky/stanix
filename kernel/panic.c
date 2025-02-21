@@ -1,6 +1,8 @@
 #include "panic.h"
 #include "print.h"
 #include "asm.h"
+#include "kernel.h"
+#include "scheduler.h"
 
 void register_dump(fault_frame *registers){
     asm("mov %%rax, %0" : "=r"(registers->rax):);
@@ -21,9 +23,15 @@ void register_dump(fault_frame *registers){
 
 void panic(const char *error,fault_frame *fault){
     disable_interrupt();
+    pid_t pid = 0;
+    if(kernel->can_task_switch){
+        pid = get_current_proc()->pid;
+    }
     kprintf(COLOR_RED "====== ERROR : KERNEL PANIC =====\n");
     kprintf("error : %s\n",error);
     kprintf("code : 0x%lx\n",fault->err_code);
+    kprintf("============= INFOS =============\n");
+    kprintf("pid : %ld\n",pid);
     kprintf("========== REGISTER DUMP ========\n");
     if(fault){
         kprintf("rax : 0x%lx\tr8  : 0x%lx\n",fault->rax,fault->r8);
