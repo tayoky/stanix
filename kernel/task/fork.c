@@ -19,6 +19,14 @@ pid_t fork(void){
 	child->rsp = KERNEL_STACK_TOP - 8;
 	child->heap_end = parent->heap_end;
 	child->heap_start = parent->heap_start;
+
+	//clone fd
+	for(int i = 0;i<MAX_FD;i++){
+		child->fds[i] = parent->fds[i];
+		child->fds[i].node  = vfs_dup(parent->fds[i].node);
+	}
+	child->cwd = parent->cwd;
+	child->cwd.node = vfs_dup(parent->cwd.node);
 	
 	kdebugf("rax : %ld\n",parent->syscall_frame[13]);
 
@@ -37,6 +45,6 @@ pid_t fork(void){
 	}
 
 	//flags
-	//child->flags = parent->flags;
+	child->flags = parent->flags;
 	return child->pid;
 }
