@@ -361,6 +361,10 @@ pid_t sys_fork(void){
 	return fork();
 }
 
+int sys_mkdir(const char *path,mode_t mode){
+	return vfs_mkdir(path,mode);
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -387,6 +391,8 @@ void *syscall_table[] = {
 	(void *)sys_pipe,
 	(void *)sys_execve,
 	(void *)sys_fork,
+	(void *)sys_mkdir,
+	(void *)sys_stub, //unlink
 	(void *)sys_getpid,
 };
 
