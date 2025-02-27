@@ -8,7 +8,7 @@ list of all syscall
 - [x] ioctl
 - [x] lseek(seek in internal lseek in libc for compatibility
 - [ ] fstat
-- [ ] mkdir
+- [x] mkdir
 - [ ] rmdir
 - [x] dup
 - [x] dup2
@@ -17,10 +17,10 @@ list of all syscall
 - [ ] stat
 - [ ] chmod
 - [ ] chown
-- [ ] fork
-- [ ] exec
+- [x] fork
+- [x] exec (no envp and argv)
 - [ ] wait
-- [ ] pipe
+- [x] pipe
 - [x] sbrk
 - [ ] mmap
 - [x] gettimeoftheday
