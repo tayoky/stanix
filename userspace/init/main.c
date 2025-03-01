@@ -9,6 +9,8 @@
 #include <syscall.h>
 #include <ctype.h>
 #include <input.h>
+#include <dirent.h>
+#include <errno.h>
 
 void __tlibc_init();
 
@@ -46,8 +48,24 @@ int main(){
 	pid_t child = fork();
 	if(!child){
 		printf("i'am the child\n");
+		exit(0);
 	}
-	printf("double\n");
+	printf("i'am the parent\n");
+
+	//try do some ls
+	DIR *dir = opendir("dev:/");
+	if(!dir){
+		fprintf(stderr,"%s\n",strerror(errno));
+		exit(1);
+	}
+	for(;;){
+		struct dirent *ret = readdir(dir);
+		if(!ret){
+			break;
+		}
+		printf("%s\n",ret->d_name);
+	}
+	closedir(dir);
 
 	//try launching hello
 	char **arg = {

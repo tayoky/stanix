@@ -9,6 +9,7 @@
 #include "paging.h"
 #include "sleep.h"
 #include <sys/type.h>
+#include <dirent.h>
 #include "pipe.h"
 #include "exec.h"
 #include "memseg.h"
@@ -101,10 +102,18 @@ int sys_open(const char *path,int flags,mode_t mode){
 			vfs_close(node);
 			return -ENOTDIR;
 		}
+	} else {
+		//the user don't want a dir but got one
+		//not good
+		if(node->flags & VFS_DIR){
+			vfs_close(node);
+			return -EISDIR;
+		}
 	}
+	
 
 	//simple check for writing on directory
-	if((flags & O_WRONLY || flags & O_RDWR) && node->flags & VFS_DIR){
+	if((flags & O_WRONLY || flags & O_RDWR || flags & O_TRUNC) && node->flags & VFS_DIR){
 		vfs_close(node);
 		return -EISDIR;
 	}
@@ -365,12 +374,28 @@ int sys_mkdir(const char *path,mode_t mode){
 	return vfs_mkdir(path,mode);
 }
 
+int sys_readdir(int fd,struct dirent *ret,long int index){
+	if(!is_valid_fd(fd)){
+		return -EBADF;
+	}
+	struct dirent *kret = vfs_readdir(FD_GET(fd).node,(uint64_t)index);
+	
+	if(kret == NULL){
+		return -ENOENT;
+	}
+
+	//now copy kret to userspace ret and free it
+	*ret = *kret;
+	kfree(kret);
+	return 0;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
 
 int sys_stub(void){
-	return 0;
+	return -ENOTSUP;
 }
 
 void *syscall_table[] = {
@@ -393,6 +418,8 @@ void *syscall_table[] = {
 	(void *)sys_fork,
 	(void *)sys_mkdir,
 	(void *)sys_stub, //unlink
+	(void *)sys_stub, //rmdir
+	(void *)sys_readdir, //readdir
 	(void *)sys_getpid,
 };
 

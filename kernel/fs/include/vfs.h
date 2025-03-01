@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <sys/type.h>
+#include <dirent.h>
 
 #define VFS_MAX_NODE_NAME_LEN 256
 #define VFS_MAX_MOUNT_POINT_NAME_LEN 128
@@ -16,10 +17,6 @@
 
 struct vfs_node_struct;
 struct vfs_mount_point_struct;
-
-struct dirent {
-	char d_name[VFS_MAX_PATH_LEN];
-};
 
 typedef struct {
 	int64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
