@@ -3,6 +3,7 @@
 #include "print.h"
 #include "kheap.h"
 #include "string.h"
+#include "sleep.h"
 #include <stddef.h>
 #include <errno.h>
 
@@ -231,6 +232,14 @@ vfs_node *vfs_dup(vfs_node *node){
 	return node->dup(node); 
 }
 
+int vfs_sync(vfs_node *node){
+	//make sure we can actually sync
+	if(!node->sync){
+		return -EIO; //should be another error ... but what ???
+	}
+	return node->sync(node);
+}
+
 vfs_node *vfs_open(const char *path,uint64_t flags){
 	//don't open for nothing
 	if((!flags & VFS_READONLY )&& (!(flags &  VFS_WRITEONLY))){
@@ -284,6 +293,15 @@ vfs_node *vfs_open(const char *path,uint64_t flags){
 
 	current_node->mount_point = vfs_get_mount_point(drive);
 	kfree(drive);
+
+	///update modify / access time
+	if((flags & VFS_WRITEONLY) || (flags & VFS_READWRITE)){
+		current_node->mtime = NOW();
+	}
+	if((flags & VFS_READONLY) || (flags & VFS_READWRITE)){
+		current_node->atime = NOW();
+	}
+
 	return current_node;
 
 	open_error:

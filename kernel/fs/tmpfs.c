@@ -3,6 +3,7 @@
 #include "string.h"
 #include "print.h"
 #include "asm.h"
+#include "sleep.h"
 
 static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	tmpfs_inode *inode = kmalloc(sizeof(tmpfs_inode));
@@ -13,6 +14,12 @@ static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	inode->buffer = kmalloc(0);
 	inode->flags = flags;
 	inode->parent = NULL;
+
+	//set times
+	inode->atime = NOW();
+	inode->ctime = NOW();
+	inode->mtime = NOW();
+
 	strcpy(inode->name,name);
 	return inode;
 }
@@ -289,4 +296,13 @@ vfs_node *tmpfs_dup(vfs_node *node){
 
 	//just create an new node from the inode
 	return inode2node(inode);
+}
+
+int tmpfs_sync(vfs_node *node){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	//low effort way of sync
+	vfs_node *new_node = inode2node(inode);
+	*node = *new_node;
+	vfs_close(new_node);
+	return 0;
 }

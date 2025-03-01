@@ -2,6 +2,9 @@
 #define TMPFS_H
 #include "vfs.h"
 
+#include <sys/type.h>
+#include <sys/time.h>
+
 void init_tmpfs();
 vfs_node *new_tmpfs();
 
@@ -21,6 +24,9 @@ typedef struct tmpfs_inode_struct{
 	mode_t perm;
 	uid_t owner;
 	gid_t group_owner;
+	time_t atime;
+	time_t ctime;
+	time_t mtime;
 }tmpfs_inode;
 
 vfs_node *tmpfs_finddir(vfs_node *node,const char *name);
@@ -35,6 +41,7 @@ int tmpfs_create_dev(vfs_node *node,const char *name,device_op *op,void *dev_ino
 int tmpfs_chmod(vfs_node *node,mode_t perm);
 int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
 vfs_node *tmpfs_dup(vfs_node *node);
+int tmpfs_sync(vfs_node *node);
 
 #define TMPFS_FLAGS_FILE 0x01
 #define TMPFS_FLAGS_DIR  0x02
