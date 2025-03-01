@@ -225,7 +225,7 @@ int sys_dup2(int oldfd, int newfd){
 	if(newfd < 0 || newfd >= MAX_FD){
 		return -EBADF;
 	}
-	if(is_valid_fd(oldfd)){
+	if(!is_valid_fd(oldfd)){
 		return -EBADF;
 	}
 
@@ -341,7 +341,7 @@ int sys_pipe(int pipefd[2]){
 
 	int write = find_fd();
 	if(write == -1){
-		sys_close(read);
+		FD_GET(read).present = 0;
 		return -ENXIO;
 	}
 	FD_GET(write).flags = FD_WRITE;
@@ -419,7 +419,7 @@ void *syscall_table[] = {
 	(void *)sys_mkdir,
 	(void *)sys_stub, //unlink
 	(void *)sys_stub, //rmdir
-	(void *)sys_readdir, //readdir
+	(void *)sys_readdir,
 	(void *)sys_getpid,
 };
 
