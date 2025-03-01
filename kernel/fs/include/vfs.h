@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <sys/type.h>
 
 #define VFS_MAX_NODE_NAME_LEN 256
 #define VFS_MAX_MOUNT_POINT_NAME_LEN 128
@@ -15,10 +16,6 @@
 
 struct vfs_node_struct;
 struct vfs_mount_point_struct;
-
-typedef uint64_t gid_t;
-typedef uint64_t uid_t;
-typedef int mode_t;
 
 struct dirent {
 	char d_name[VFS_MAX_PATH_LEN];
