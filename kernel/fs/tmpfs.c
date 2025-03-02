@@ -81,7 +81,7 @@ void init_tmpfs(){
 	
 	vfs_mkdir("tmp:/sys",000);
 	vfs_close(tmp_root);
-	vfs_create("tmp:/sys/log",777,VFS_FILE);
+	vfs_create("tmp:/sys/log",0x777,VFS_FILE);
 	vfs_node *sys_log_file = vfs_open("tmp:/sys/log",VFS_WRITEONLY);
 	char test[] = "tmpfs succefull init";
 	vfs_write(sys_log_file,test,0,strlen(test)+1);
@@ -129,6 +129,9 @@ int64_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 		count = inode->buffer_size - offset;
 	}
 
+	//update atime
+	inode->atime = NOW();
+
 	memcpy(buffer,(void *)((uint64_t)inode->buffer) + offset,count);
 
 	return count;
@@ -141,6 +144,10 @@ int64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	if(offset + count > inode->buffer_size){
 		tmpfs_truncate(node,offset + count);
 	}
+
+	//update mtime
+	inode->mtime = NOW();
+
 	memcpy((void *)((uint64_t)inode->buffer) + offset,buffer,count);
 	return count;
 }
@@ -159,6 +166,10 @@ int tmpfs_truncate(vfs_node *node,size_t size){
 
 	inode->buffer_size = size;
 	inode->buffer = new_buffer;
+
+	//update mtime
+	inode->mtime = NOW();
+
 	return 0;
 }
 
@@ -194,6 +205,9 @@ int tmpfs_unlink(vfs_node *node,const char *name){
 
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+
+	//update atime
+	inode->atime = NOW();
 
 	if(index == 0){
 		struct dirent *ret = kmalloc(sizeof(struct dirent));

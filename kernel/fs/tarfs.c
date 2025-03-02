@@ -57,14 +57,14 @@ void mount_initrd(void){
 			full_path[strlen(full_path)-1] = '\0';
 
 			//create the directory
-			if(vfs_mkdir(full_path,777)<0){
+			if(vfs_mkdir(full_path,0x777)<0){
 				kfail();
 				kinfof("can't create folder %s for initrd\n",full_path);
 				halt();
 			}
 		} else {
 			//create the file
-			if(vfs_create(full_path,777,VFS_FILE)){
+			if(vfs_create(full_path,0x777,VFS_FILE)){
 				kfail();
 				kinfof("fail to create file initrd:/%s\n",current_file->name);
 				halt();
@@ -77,6 +77,9 @@ void mount_initrd(void){
 				kinfof("fail to open file : %s\n",full_path);
 				halt();
 			}
+
+			//set the owner to root
+			vfs_chown(file,0,0);
 
 			//copy the files content
 			int64_t write_size = vfs_write(file,addr + 512,0,file_size);

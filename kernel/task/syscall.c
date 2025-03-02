@@ -10,6 +10,7 @@
 #include "sleep.h"
 #include <sys/type.h>
 #include <dirent.h>
+#include <sys/stat.h>
 #include "pipe.h"
 #include "exec.h"
 #include "memseg.h"
@@ -390,12 +391,75 @@ int sys_readdir(int fd,struct dirent *ret,long int index){
 	return 0;
 }
 
+void node_stat(vfs_node *node,struct stat *st){
+	//first get lasted info from filesystem
+	vfs_sync(node);
+
+	//then copy metadata
+	st->st_size  = node->size;
+	st->st_uid   = node->owner;
+	st->st_gid   = node->group_owner;
+	st->st_ctime = node->ctime;
+	st->st_atime = node->atime;
+	st->st_mtime = node->mtime;
+	st->st_mode  = node->perm;
+
+	st->st_nlink = 1;
+
+	//file type to mode
+	if(node->flags & VFS_FILE){
+		st->st_mode |= S_IFREG;
+	}
+	if(node->flags & VFS_DIR){
+		st->st_mode |= S_IFDIR;
+	}
+	if(node->flags & VFS_DEV){
+		st->st_mode |= S_IFBLK; //well dev type don't exist let just say 
+		st->st_mode |= S_IFCHR; //it is a block and char dev
+	}
+	if(node->flags & VFS_LINK){
+		st->st_mode |= S_IFLNK;
+	}
+
+	//simulate fake blocks of 512 bytes
+	//because blocks don't exist on stanix
+	st->st_blksize = 512;
+	st->st_blocks = (st->st_size + st->st_blksize - 1) / st->st_blksize;
+
+	//set to 0 all the bloat that don't exist on stanix
+	//and can't be emulated
+	st->st_dev = 0;
+	st->st_rdev = 0;
+	st->st_ino = 0;
+}
+
+int sys_stat(const char *pathname,struct stat *st){
+	vfs_node *node = vfs_open(pathname,VFS_READONLY);
+	if(!node){
+		return -ENOENT;
+	}
+
+	node_stat(node,st);
+
+	return 0;
+}
+
+int sys_fstat(int fd,struct stat *st){
+	if(!is_valid_fd(fd)){
+		return -EBADF;
+	}
+
+	node_stat(FD_GET(fd).node,st);
+
+	return 0;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
 
 int sys_stub(void){
-	return -ENOTSUP;
+	return -ENOSYS;
 }
 
 void *syscall_table[] = {
@@ -420,6 +484,8 @@ void *syscall_table[] = {
 	(void *)sys_stub, //unlink
 	(void *)sys_stub, //rmdir
 	(void *)sys_readdir,
+	(void *)sys_stat,
+	(void *)sys_fstat,
 	(void *)sys_getpid,
 };
 

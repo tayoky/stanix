@@ -6,6 +6,7 @@
 #include <stdio.h>
 //#include <assert.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <syscall.h>
 #include <ctype.h>
 #include <input.h>
@@ -66,6 +67,11 @@ int main(){
 		printf("%s\n",ret->d_name);
 	}
 	closedir(dir);
+
+	//stat test
+	struct stat st;
+	stat("initrd:/bin/hello",&st);
+	printf("size : %ld\n",st.st_size);
 
 	//try launching hello
 	char **arg = {
