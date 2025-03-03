@@ -5,6 +5,7 @@
 #include "port.h"
 #include "vfs.h"
 #include "ringbuf.h"
+#include "string.h"
 #include <input.h>
 
 #define PS2_DATA    0x60
@@ -49,40 +50,42 @@ static void keyboard_write(uint8_t data){
 	ps2_write(data);
 }
 
+#define ESC "\033"
 
-char kbd_us[128] = {
-	0, 27,
-	'1','2','3','4','5','6','7','8','9','0',
-	'-','=','\b',
-	'\t', /* tab */
-	'q','w','e','r','t','y','u','i','o','p','[',']','\n',
-	0, /* control */
-	'a','s','d','f','g','h','j','k','l',';','\'', '`',
-	KEY_SHIFT, /* left shift */
-	'\\','z','x','c','v','b','n','m',',','.','/',
-	KEY_SHIFT, /* right shift */
-	'*',
+
+const char *kbd_us[128] = {
+	0,ESC"^[  ",
+	"1","2","3","4","5","6","7","8","9","0",
+	"-","=","\b",
+	"\t", /* tab */
+	"q","w","e","r","t","y","u","i","o","p","[","]","\n",
+	ESC"^sco", /* control */
+	"a","s","d","f","g","h","j","k","l",";","\"", "`",
+	ESC"^sls", /* left shift */
+	"\\","z","x","c","v","b","n","m",",",".","/",
+	ESC"^srs", /* right shift */
+	"*",
 	0, /* alt */
-	' ', /* space */
-	KEY_CAPSLOCK, /* caps lock */
+	" ", /* space */
+	ESC"^scl", /* caps lock */
 	0, /* F1 [59] */
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, /* ... F10 */
 	0, /* 69 num lock */
 	0, /* scroll lock */
-	0, /* home */
-	0, /* up */
-	0, /* page up */
-	'-',
-	0, /* left arrow */
+	ESC"^[[H", /* home */
+	ESC"^[[A", /* up arrow */
+	ESC"^[[5~", /* page up */
+	"-",
+	ESC"^[[D", /* left arrow */
 	0,
-	0, /* right arrow */
-	'+',
-	0, /* 79 end */
-	0, /* down */
-	0, /* page down */
-	0, /* insert */
-	0, /* delete */
+	ESC"^[[C", /* right arrow */
+	"+",
+	ESC"^[[F", /* 79 end */
+	ESC"^[[B", /* down arrow */
+	ESC"^[[6~", /* page down */
+	ESC"^[[2~", /* insert */
+	ESC"^[[3~", /* delete */
 	0, 0, 0,
 	0, /* F11 */
 	0, /* F12 */
@@ -91,11 +94,16 @@ char kbd_us[128] = {
 
 void keyboard_handler(fault_frame *frame){
 	uint8_t scancode = ps2_read();
-	if(kbd_us[scancode]){
-		ringbuffer_write(&kbd_us[scancode],&keyboard_queue,1);
+	if(scancode < 0x80 && kbd_us[scancode]){
+		char flags = 0;
+		ringbuffer_write(&flags,&keyboard_queue,1);
+		char *seq = kbd_us[scancode];
+		ringbuffer_write(seq,&keyboard_queue,strlen(seq));
 	} else if(kbd_us[scancode - 0x80]){
-		scancode = kbd_us[scancode - 0x80] + 0x80;
-		ringbuffer_write(&scancode,&keyboard_queue,1);
+		char flags = 1;
+		ringbuffer_write(&flags,&keyboard_queue,1);
+		char *seq = kbd_us[scancode - 0x80];
+		ringbuffer_write(seq,&keyboard_queue,strlen(seq));
 	}
 }
 

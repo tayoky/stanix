@@ -73,50 +73,46 @@ int main(){
 	stat("initrd:/bin/hello",&st);
 	printf("size : %ld\n",st.st_size);
 
-	//try launching hello
+	//try launching doom
 	char **arg = {
-		"initrd:/bin/hello",
+		"initrd:/bin/doom",
 		NULL
 	};
-	execve("initrd:/bin/hello",arg,NULL);
+	//execve("initrd:/bin/doom",arg,NULL);
 
 	//try open keayboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);
 	char shift = 0;
 	char caps = 0;
-	exit(0);
+	#define ESC '\033'
 
 	for(;;){
-		char c;
-		size_t rsize = read(kbd_fd,&c,1);
-		if(rsize < 1){
+		char c[6];
+		size_t rsize = read(kbd_fd,c,2);
+		if(rsize < 2){
 			continue;
 		}
 
-		switch (c)
-		{
-		case KEY_SHIFT:
-			shift = 1;
-			break;
-		case KEY_SHIFT + 0x80:
-			shift = 0;
-			break;
-		case KEY_CAPSLOCK:
-			caps = 1 - caps;
-			break;
-		default:
-			//is it a relase ?
-			if(c & 0x80){
-				continue;
-			}
-
-			if(shift || caps){
-				putchar(toupper(c));
-				break;
-			}
-			putchar(c);
-			break;
+		//if it is ESC escape sequence
+		if(c[1] == ESC){
+			read(kbd_fd,&c[2],4);
 		}
+
+		//it is a release ?
+		if(c[0]){
+			//release ignore
+			continue;
+		}
+
+		if(c[1] == ESC){
+			putchar(c[2]);
+			putchar(c[3]);
+			putchar(c[4]);
+			putchar(c[5]);
+		} else{
+			putchar(c[1]);
+		}
+		
 	}
 	
 	
