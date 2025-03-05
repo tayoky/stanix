@@ -150,9 +150,10 @@ int vfs_create(const char *path,int perm,uint64_t flags){
 	//open the parent
 	vfs_node *node = vfs_open(parent,VFS_WRITEONLY);
 	if(!node){
-		goto vfs_create_error;
+		//cant free or GD for some reason
+		return -ENOENT;
 	}
-
+	
 	//call create on the parent
 	if(node->create){
 		ret = node->create(node,child,perm,flags);
@@ -162,7 +163,6 @@ int vfs_create(const char *path,int perm,uint64_t flags){
 
 	//close and free
 	vfs_close(node);
-	vfs_create_error:
 	kfree(parent);
 	return ret;
 }
