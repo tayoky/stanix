@@ -98,7 +98,7 @@ void vfs_close(vfs_node *node){
 }
 
 int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
-	int ret = -1;
+	int ret = -ENOENT;
 
 	//make a copy of the path
 	char *parent = strdup(path);
@@ -122,7 +122,7 @@ int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
 	if(node->create_dev){
 		ret = node->create_dev(node,(char *)child,op,dev_inode);
 	} else {
-		ret = -1;
+		ret = -ENOTDIR;
 	}
 
 	//close and free
@@ -133,7 +133,7 @@ int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
 }
 
 int vfs_create(const char *path,int perm,uint64_t flags){
-	int ret = -1;
+	int ret = -ENOENT;
 
 	//make a copy of the path
 	char *parent = strdup(path);
@@ -156,6 +156,8 @@ int vfs_create(const char *path,int perm,uint64_t flags){
 	//call create on the parent
 	if(node->create){
 		ret = node->create(node,child,perm,flags);
+	} else {
+		ret = -ENOTDIR;
 	}
 
 	//close and free
