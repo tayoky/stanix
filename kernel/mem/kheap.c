@@ -79,7 +79,7 @@ void *kmalloc(size_t amount){
 		if(current_seg->next == NULL){
 			//no more segment need to make kheap bigger
 			change_kheap_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 1));
-			current_seg->lenght = amount + sizeof(kheap_segment) + 1;
+			current_seg->lenght += PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 1);
 			break;
 		}
 		current_seg = current_seg->next;
