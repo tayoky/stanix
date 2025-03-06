@@ -146,7 +146,7 @@ int exec(char *path,int argc,char **argv){
 	kfree(saved_argv);
 
 	//now jump into the program !!
-	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP - 8,0,argv);
+	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP - 8,argc,argv);
 
 	return 0;
 }
