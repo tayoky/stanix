@@ -74,7 +74,12 @@ void spawn_init(){
 
 	kinfof("try to exec %s\n",init_path);
 
-	if(exec(init_path,0,NULL)){
+	char *arg[] = {
+		init_path,
+		NULL
+	};
+
+	if(exec(init_path,1,arg)){
 		kfail();
 		kinfof("can't spawn %s\n",init_path);
 	}

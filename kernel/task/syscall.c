@@ -356,13 +356,14 @@ int sys_pipe(int pipefd[2]){
 }
 
 int sys_execve(const char *path,const char **argv){
+	kdebugf("argv : %lx\n",argv);
 	//get argc
 	int argc = 0;
 	while(argv[argc]){
 		argc ++;
 	}
 	//FIXME : arg support 
-	argc = 0;
+	kdebugf("argc : %d\n",argc);
 	kdebugf("try executing %s\n",path);
 	return exec(path,argc,argv);
 }

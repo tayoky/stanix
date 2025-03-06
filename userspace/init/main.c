@@ -15,15 +15,20 @@
 
 void __tlibc_init();
 
-int main(){
+int main(int argc,char **argv){
 	__tlibc_init();
-
+	
 	//init std streams
 	open("dev:/null",O_RDONLY); //stdin
-	open("dev:/tty0",O_WRONLY); //stdout
-	open("dev:/tty0",O_WRONLY); //stderr
+	open("dev:/console",O_WRONLY); //stdout
+	open("dev:/console",O_WRONLY); //stderr
+
 
 	printf("hello world !!\n");
+	for (size_t i = 0; i < argc; i++){
+		printf("arg %d : %s\n",i,argv[i]);
+	}
+	
 	int fd = open("tmp:/test.txt",O_CREAT |O_RDWR);
 
 	struct timeval time;
@@ -74,11 +79,14 @@ int main(){
 	printf("size : %ld\n",st.st_size);
 
 	//try launching doom
-	char **arg = {
-		"initrd:/bin/doom",
+	char *arg[] = {
+		"initrd:/bin/hello",
+		"-iwad",
+		"doom1.wad",
 		NULL
 	};
-	//execve("initrd:/bin/doom",arg,NULL);
+
+	execve("initrd:/bin/hello",arg,NULL);
 
 	//try open keayboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);

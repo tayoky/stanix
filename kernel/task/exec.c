@@ -7,6 +7,7 @@
 #include "print.h"
 #include "userspace.h"
 #include "memseg.h"
+#include "sys.h"
 
 int verfiy_elf(Elf64_Ehdr *header){
 	if(memcmp(header,ELFMAG,4)){
@@ -56,16 +57,14 @@ int exec(char *path,int argc,char **argv){
 	}
 
 	//save argv
-	char **saved_argv = kmalloc(argc + 1);
+	size_t total_arg_size = (argc + 1)  * sizeof(char *);
+	char **saved_argv = kmalloc((argc + 1) * sizeof(char **));
 	for (size_t i = 0; i < argc; i++){
-		if(argv[i]){
-			saved_argv[i] = kmalloc(strlen(argv[i]) + 1);
-			strcpy(saved_argv[i],argv[i]);
-		} else {
-			saved_argv[i] = NULL;
-		}
+		total_arg_size += strlen(argv[i]) + 1;
+		saved_argv[i] = kmalloc(strlen(argv[i]) + 1);
+		strcpy(saved_argv[i],argv[i]);
 	}
-	saved_argv[argc] = NULL;
+	saved_argv[argc] = NULL; // last NULL entry at the end
 	
 	//unmap everything;
 	memseg *current_memseg = get_current_proc()->first_memseg;
@@ -85,9 +84,12 @@ int exec(char *path,int argc,char **argv){
 		}
 
 		//convert elf header to paging header
-		uint64_t flags = PAGING_FLAG_READONLY_CPL3 | PAGING_FLAG_RW_CPL3;
+		uint64_t flags = PAGING_FLAG_READONLY_CPL3;
 		if(!prog_header[i].p_flags & PF_X){
 			flags |= PAGING_FLAG_NO_EXE;
+		}
+		if(prog_header[i].p_flags & PF_W){
+			flags |= PAGING_FLAG_RW_CPL3;
 		}
 
 		//make sure heap start is after the segment
@@ -96,7 +98,7 @@ int exec(char *path,int argc,char **argv){
 			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz);
 		}
 		
-		memseg_map(get_current_proc(),prog_header[i].p_vaddr,prog_header[i].p_memsz,flags);
+		memseg *seg = memseg_map(get_current_proc(),prog_header[i].p_vaddr,prog_header[i].p_memsz,PAGING_FLAG_RW_CPL0);
 		memset((void*)prog_header[i].p_vaddr,0,prog_header[i].p_memsz);
 
 		//file size must be <= to virtual size
@@ -107,20 +109,44 @@ int exec(char *path,int argc,char **argv){
 		if(vfs_read(file,(void*)prog_header[i].p_vaddr,prog_header[i].p_offset,prog_header[i].p_filesz) < 0){
 			goto error;
 		}
-		
+
+		//set the flags
+		memeseg_chflag(get_current_proc(),seg,flags);
 	}
 	kfree(prog_header);
 
 	vfs_close(file);
 
-	//set the heap end
-	get_current_proc()->heap_end = get_current_proc()->heap_start;
-
 	//map stack
 	memseg_map(get_current_proc(),USER_STACK_BOTTOM,USER_STACK_SIZE,PAGING_FLAG_RW_CPL3  | PAGING_FLAG_NO_EXE);
 
+	//set the heap end
+	get_current_proc()->heap_end = get_current_proc()->heap_start;
+
+	//make place for argv
+	argv = (char **)get_current_proc()->heap_start;
+	sys_sbrk(PAGE_ALIGN_UP(total_arg_size));
+	char *ptr = (char *)(((uint64_t)argv) + (argc + 1) * sizeof(char *));
+	
+
+	//restore argv
+	for (size_t i = 0; i < argc; i++){
+		argv[i] = ptr;
+		//copy saved arg to userpsace heap
+		strcpy(ptr,saved_argv[i]);
+		ptr += strlen(saved_argv[i]) + 1;
+		kdebugf("arg %d : %s\n",i,saved_argv[i]);
+
+		//free the saved arg in kernel space
+		kfree(saved_argv[i]);
+	}
+	argv[argc] = NULL;
+
+	//free argv list
+	kfree(saved_argv);
+
 	//now jump into the program !!
-	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP - 8);
+	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP - 8,0,argv);
 
 	return 0;
 }
