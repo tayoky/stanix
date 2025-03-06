@@ -21,6 +21,7 @@ typedef struct {
 	uint64_t *PDP;
 	uint64_t PMLT4i;
 	kheap_segment *first_seg;
+	int lock;
 }kheap_info;
 
 #ifndef NULL

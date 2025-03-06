@@ -2,9 +2,13 @@
 #include "kheap.h"
 #include "print.h"
 #include "panic.h"
+#include "spinlock.h"
 
 void init_kheap(void){
 	kstatus("init kheap... ");
+
+	spinlock_release(kernel->kheap.lock);
+
 	kernel->kheap.start = PAGE_ALIGN_DOWN(KHEAP_START);
 
 	//get cr3
@@ -68,6 +72,7 @@ void show_memseg(){
 }
 
 void *kmalloc(size_t amount){
+	spinlock_acquire(kernel->kheap.lock);
 	kheap_segment *current_seg = kernel->kheap.first_seg;
 
 	while (current_seg->lenght < amount || current_seg->magic != KHEAP_SEG_MAGIC_FREE){
@@ -99,14 +104,21 @@ void *kmalloc(size_t amount){
 	}
 
 	current_seg->magic = KHEAP_SEG_MAGIC_ALLOCATED;
+	spinlock_release(kernel->kheap.lock);
 	return (void *)current_seg + sizeof(kheap_segment);
 }
 
 void kfree(void *ptr){
 	if(!ptr)return;
+
+	spinlock_acquire(kernel->kheap.lock);
 	
 	kheap_segment *current_seg = (kheap_segment *)((uintptr_t)ptr - sizeof(kheap_segment));
-	if(current_seg->magic != KHEAP_SEG_MAGIC_ALLOCATED)return;
+	if(current_seg->magic != KHEAP_SEG_MAGIC_ALLOCATED){
+		kdebugf("try to free not allocated kheap seg \n");
+		spinlock_release(kernel->kheap.lock);
+		return;
+	}
 
 	current_seg->magic = KHEAP_SEG_MAGIC_FREE;
 
@@ -129,4 +141,5 @@ void kfree(void *ptr){
 		}
 		current_seg->prev->next = current_seg->next;
 	}
+	spinlock_release(kernel->kheap.lock);
 }
