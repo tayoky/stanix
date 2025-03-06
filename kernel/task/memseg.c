@@ -31,6 +31,19 @@ memseg *memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){
 	return new_memseg;
 }
 
+void memeseg_chflag(process *proc,memseg *seg,uint64_t flags){
+	
+	size_t size = seg->size;
+	uint64_t address = (uintptr_t)seg->offset / PAGE_SIZE;
+	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
+	seg->flags = flags;
+	while(size > 0){
+		map_page(PMLT4,(uintptr_t)PMLT4_virt2phys(PMLT4,address * PAGE_SIZE)/PAGE_SIZE,address,flags);
+		address++;
+		size--;
+	}
+}
+
 void memseg_unmap(process *proc,memseg *seg){
 	//link the two sides
 	if(seg->prev){

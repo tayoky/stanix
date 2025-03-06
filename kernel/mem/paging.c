@@ -135,9 +135,7 @@ void map_page(uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint6
 	}
 
 	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!(PT[PTi] & 1)){
-		PT[PTi] = (PAGE_SIZE * physical_page) | falgs;
-	}
+	PT[PTi] = (PAGE_SIZE * physical_page) | falgs;
 }
 
 void unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
