@@ -18,6 +18,7 @@ SECTIONS
         *(.text .text.*)
     } :text
     . += CONSTANT(MAXPAGESIZE);
+    p_kernel_text_end = .;
     .rodata : {
         *(.rodata .rodata.*)
     } :rodata

@@ -6,6 +6,7 @@
 
 extern uint64_t p_kernel_start[];
 extern uint64_t p_kernel_end[];
+extern uint64_t p_kernel_text_end[];
 
 void init_paging(void){
 	kstatus("init paging... ");
@@ -192,13 +193,19 @@ void unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
 }
 ///
 void map_kernel(uint64_t *PMLT4){
-	uint64_t kernel_start = (uint64_t)*(&p_kernel_start);
-	uint64_t kernel_end   = (uint64_t)*(&p_kernel_end);
+	uint64_t kernel_start      = (uint64_t)*(&p_kernel_start);
+	uint64_t kernel_end        = (uint64_t)*(&p_kernel_end);
+	uint64_t kernel_text_end   = (uint64_t)*(&p_kernel_text_end);
+
 	uint64_t kernel_size = PAGE_DIV_UP(kernel_end - kernel_start);
 	uint64_t phys_page = kernel->kernel_address->physical_base / PAGE_SIZE;
 	uint64_t virt_page = kernel->kernel_address->virtual_base / PAGE_SIZE;
 
 	for (uint64_t i = 0; i < kernel_size; i++){
+		uint64_t flags = PAGING_FLAG_READONLY_CPL0;
+		if(virt_page * PAGE_SIZE >= kernel_text_end){
+			flags |= PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE;
+		}
 		map_page(PMLT4,phys_page,virt_page,PAGING_FLAG_RW_CPL0);
 		phys_page++;
 		virt_page++;
