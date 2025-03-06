@@ -58,6 +58,7 @@ int sys_ioctl(int fd,uint64_t request,void *arg);
 int sys_usleep(useconds_t usec);
 int sys_sleepuntil(struct timeval *time);
 int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
+uint64_t sys_sbrk(intptr_t incr);
 pid_t sys_getpid();
 
 #endif
