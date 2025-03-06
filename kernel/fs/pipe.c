@@ -55,7 +55,7 @@ int64_t pipe_write(vfs_node *node,void *buffer,size_t offset,size_t count){
 	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
 
 	//borken pipe check
-	if(!pipe_inode->writer_count){
+	if(!pipe_inode->reader_count){
 		return -EPIPE;
 	}
 
