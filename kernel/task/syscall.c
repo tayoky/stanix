@@ -15,6 +15,7 @@
 #include "exec.h"
 #include "memseg.h"
 #include "fork.h"
+#include "userspace.h"
 
 extern void syscall_handler();
 
@@ -39,7 +40,9 @@ static int find_fd(){
 }
 
 int sys_open(const char *path,int flags,mode_t mode){
-	kdebugf("app try to open %s\n",path);
+	if(!CHECK_STR(path)){
+		return -EFAULT;
+	}
 
 	//imposible conbinason of flags
 	if(flags & O_WRONLY && flags & O_RDWR){
@@ -167,6 +170,10 @@ int sys_close(int fd){
 }
 
 int64_t sys_write(int fd,void *buffer,size_t count){
+	if(!CHECK_MEM(buffer,count)){
+		return -EFAULT;
+	}
+
 	if((!is_valid_fd(fd) || (!FD_CHECK(fd,FD_WRITE)))){
 		return -EBADF;
 	}
@@ -189,6 +196,10 @@ int64_t sys_write(int fd,void *buffer,size_t count){
 }
 
 int64_t sys_read(int fd,void *buffer,size_t count){
+	if(!CHECK_MEM(buffer,count)){
+		return -EFAULT;
+	}
+
 	if((!is_valid_fd(fd) || (!FD_CHECK(fd,FD_READ)))){
 		return -EBADF;
 	}
@@ -323,16 +334,27 @@ int sys_usleep(useconds_t usec){
 }
 
 int sys_sleepuntil(struct timeval *time){
+	if(!CHECK_STRUCT(time)){
+		return -EFAULT;
+	}
 	sleep_until(*time);
 	return 0;
 }
 
 int sys_gettimeofday(struct timeval *tv, struct timezone *tz){
+	if(!CHECK_STRUCT(tv)){
+		return -EFAULT;
+	}
+
 	*tv = time;
 	return 0;
 }
 
 int sys_pipe(int pipefd[2]){
+	if(!CHECK_MEM(pipefd,sizeof(int) * 2)){
+		return -EFAULT;
+	}
+
 	int read = find_fd();
 	if(read == -1){
 		return -ENXIO;
@@ -356,14 +378,25 @@ int sys_pipe(int pipefd[2]){
 }
 
 int sys_execve(const char *path,const char **argv){
-	kdebugf("argv : %lx\n",argv);
+	if(!CHECK_STR(path)){
+		return -EFAULT;
+	}
+	if(!CHECK_PTR(argv)){
+		return -EFAULT;
+	}
+
 	//get argc
 	int argc = 0;
 	while(argv[argc]){
+		if(!CHECK_STR(argv[argc])){
+			return -EFAULT;
+		}
 		argc ++;
+
+		if(!CHECK_PTR(&argv[argc])){
+			return -EFAULT;
+		}
 	}
-	//FIXME : arg support 
-	kdebugf("argc : %d\n",argc);
 	kdebugf("try executing %s\n",path);
 	return exec(path,argc,argv);
 }
@@ -373,10 +406,18 @@ pid_t sys_fork(void){
 }
 
 int sys_mkdir(const char *path,mode_t mode){
+	if(!CHECK_STR(path)){
+		return -EFAULT;
+	}
+
 	return vfs_mkdir(path,mode);
 }
 
 int sys_readdir(int fd,struct dirent *ret,long int index){
+	if(!CHECK_STRUCT(ret)){
+		return -EFAULT;
+	}
+
 	if(!is_valid_fd(fd)){
 		return -EBADF;
 	}
@@ -435,6 +476,10 @@ void node_stat(vfs_node *node,struct stat *st){
 }
 
 int sys_stat(const char *pathname,struct stat *st){
+	if(!CHECK_STRUCT(st)){
+		return -EFAULT;
+	}
+
 	vfs_node *node = vfs_open(pathname,VFS_READONLY);
 	if(!node){
 		return -ENOENT;
@@ -446,6 +491,10 @@ int sys_stat(const char *pathname,struct stat *st){
 }
 
 int sys_fstat(int fd,struct stat *st){
+	if(!CHECK_STRUCT(st)){
+		return -EFAULT;
+	}
+	
 	if(!is_valid_fd(fd)){
 		return -EBADF;
 	}
