@@ -1,9 +1,8 @@
 #include <stdio.h>
-
-void __tlibc_init();
+#include <tlibc.h>
 
 int main(int argc,char **argv){
-	__tlibc_init();
+	__init_tlibc(argc,argv,0,0);
 
 	printf("hello world\n");
 	printf("argc is : %d\n",argc);

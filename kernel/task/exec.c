@@ -8,6 +8,7 @@
 #include "userspace.h"
 #include "memseg.h"
 #include "sys.h"
+#include <errno.h>
 
 int verfiy_elf(Elf64_Ehdr *header){
 	if(memcmp(header,ELFMAG,4)){
@@ -26,8 +27,9 @@ int verfiy_elf(Elf64_Ehdr *header){
 }
 
 
-
+//TODO : add envp to that for full execve support
 int exec(char *path,int argc,char **argv){
+	int ret = 0;
 	vfs_node *file = vfs_open(path,VFS_READONLY);
 	if(!file){
 		return -1;
@@ -36,16 +38,19 @@ int exec(char *path,int argc,char **argv){
 	//first read the header
 	Elf64_Ehdr header;
 	if(vfs_read(file,&header,0,sizeof(header)) < 0){
+		ret = -ENOMEM;
 		error:
 		vfs_close(file);
-		return -1;
+		return ret;
 	}
 
 	//then verify it
 	if(!verfiy_elf(&header)){
+		ret = -ENOEXEC;
 		goto error;
 	}
 	if(header.e_type != ET_EXEC){
+		ret = -ENOEXEC;
 		goto error;
 	}
 

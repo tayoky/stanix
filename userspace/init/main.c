@@ -12,11 +12,10 @@
 #include <input.h>
 #include <dirent.h>
 #include <errno.h>
-
-void __tlibc_init();
+#include <tlibc.h>
 
 int main(int argc,char **argv){
-	__tlibc_init();
+	__init_tlibc(argc,argv,0,NULL);
 	
 	//init std streams
 	open("dev:/null",O_RDONLY); //stdin
@@ -86,7 +85,7 @@ int main(int argc,char **argv){
 		NULL
 	};
 
-	execve("initrd:/bin/hello",arg,NULL);
+	execvp("initrd:/bin/hello",arg);
 
 	//try open keayboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);
