@@ -46,8 +46,6 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 			return;
 		}
 		terminal_settings->x -= 8;
-		term_draw_char(' ',terminal_settings);
-		terminal_settings->x -= 8;
 		return ;
 	}
 

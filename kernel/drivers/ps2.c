@@ -6,6 +6,7 @@
 #include "vfs.h"
 #include "ringbuf.h"
 #include "string.h"
+#include "kernel.h"
 #include <input.h>
 
 #define PS2_DATA    0x60
@@ -54,38 +55,38 @@ static void keyboard_write(uint8_t data){
 
 
 const char *kbd_us[128] = {
-	0,ESC"^[  ",
-	"1","2","3","4","5","6","7","8","9","0",
-	"-","=","\b",
-	"\t", /* tab */
-	"q","w","e","r","t","y","u","i","o","p","[","]","\n",
-	ESC"^sco", /* control */
-	"a","s","d","f","g","h","j","k","l",";","\"", "`",
-	ESC"^sls", /* left shift */
-	"\\","z","x","c","v","b","n","m",",",".","/",
-	ESC"^srs", /* right shift */
-	"*",
+	0,0,
+	'1','2','3','4','5','6','7','8','9','0',
+	'-','=','\b',
+	'\t', /* tab */
+	'q','w','e','r','t','y','u','i','o','p','[',']','\n',
+	0, /* control */
+	'a','s','d','f','g','h','j','k','l',';','\'', '`',
+	0, /* left shift */
+	'\\','z','x','c','v','b','n','m',',','.','/',
+	0, /* right shift */
+	'*',
 	0, /* alt */
-	" ", /* space */
-	ESC"^scl", /* caps lock */
+	' ', /* space */
+	0, /* caps lock */
 	0, /* F1 [59] */
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, /* ... F10 */
 	0, /* 69 num lock */
 	0, /* scroll lock */
-	ESC"^[[H", /* home */
-	ESC"^[[A", /* up arrow */
-	ESC"^[[5~", /* page up */
-	"-",
-	ESC"^[[D", /* left arrow */
+	0, /* home */
+	0, /* up arrow */
+	0, /* page up */
+	'-',
+	0, /* left arrow */
 	0,
-	ESC"^[[C", /* right arrow */
-	"+",
-	ESC"^[[F", /* 79 end */
-	ESC"^[[B", /* down arrow */
-	ESC"^[[6~", /* page down */
-	ESC"^[[2~", /* insert */
-	ESC"^[[3~", /* delete */
+	0, /* right arrow */
+	'+',
+	0, /* 79 end */
+	0, /* down arrow */
+	0, /* page down */
+	0, /* insert */
+	0, /* delete */
 	0, 0, 0,
 	0, /* F11 */
 	0, /* F12 */
@@ -94,17 +95,30 @@ const char *kbd_us[128] = {
 
 void keyboard_handler(fault_frame *frame){
 	uint8_t scancode = ps2_read();
-	if(scancode < 0x80 && kbd_us[scancode]){
-		char flags = 0;
-		ringbuffer_write(&flags,&keyboard_queue,1);
-		char *seq = kbd_us[scancode];
-		ringbuffer_write(seq,&keyboard_queue,strlen(seq));
-	} else if(kbd_us[scancode - 0x80]){
-		char flags = 1;
-		ringbuffer_write(&flags,&keyboard_queue,1);
-		char *seq = kbd_us[scancode - 0x80];
-		ringbuffer_write(seq,&keyboard_queue,strlen(seq));
+	int press = 1;
+	if(scancode & 0x80){
+		scancode -= 0x80;
+		press = 0;
 	}
+
+	struct input_event event;
+	event.timestamp = time;
+	event.ie_class = IE_CLASS_KEYBOARD;
+	event.ie_subclass = IE_SUBCLASS_PS2_KBD;
+	event.ie_type = IE_KEY_EVENT;
+	if(press){
+		event.ie_key.flags = IE_KEY_PRESS;
+	} else {
+		event.ie_key.flags = IE_KEY_RELEASE;
+	}
+
+	if(kbd_us[scancode]){
+		event.ie_key.c = kbd_us[scancode];
+		event.ie_key.flags |= IE_KEY_GRPAH;
+	}
+	event.ie_key.scancode = scancode;
+
+	ringbuffer_write(&event,&keyboard_queue,sizeof(event));
 }
 
 int64_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
@@ -147,7 +161,7 @@ void init_ps2(void){
 	keyboard_write(2);
 
 	//init queue
-	keyboard_queue = new_ringbuffer(50);
+	keyboard_queue = new_ringbuffer(sizeof(struct input_event) * 25);
 
 	//create device
 	if(vfs_create_dev("dev:/kb0",&kbd_op,NULL)){

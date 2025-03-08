@@ -13,6 +13,8 @@
 #include <dirent.h>
 #include <errno.h>
 #include <tlibc.h>
+//stanix specific input device header
+#include <input.h>
 
 int main(int argc,char **argv){
 	__init_tlibc(argc,argv,0,NULL);
@@ -85,7 +87,7 @@ int main(int argc,char **argv){
 		NULL
 	};
 
-	execvp("initrd:/bin/hello",arg);
+	//execvp("initrd:/bin/hello",arg);
 
 	//try open keayboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);
@@ -94,31 +96,28 @@ int main(int argc,char **argv){
 	#define ESC '\033'
 
 	for(;;){
-		char c[6];
-		size_t rsize = read(kbd_fd,c,2);
-		if(rsize < 2){
+		struct input_event event;
+
+		if(read(kbd_fd,&event,sizeof(event)) < 1){
 			continue;
 		}
 
-		//if it is ESC escape sequence
-		if(c[1] == ESC){
-			read(kbd_fd,&c[2],4);
-		}
-
-		//it is a release ?
-		if(c[0]){
-			//release ignore
+		//ignore not key event
+		if(event.ie_type != IE_KEY_EVENT){
 			continue;
 		}
 
-		if(c[1] == ESC){
-			putchar(c[2]);
-			putchar(c[3]);
-			putchar(c[4]);
-			putchar(c[5]);
-		} else{
-			putchar(c[1]);
+		//ignore key release
+		if(event.ie_key.flags & IE_KEY_RELEASE){
+			continue;
 		}
+
+		//print if possible
+		if(event.ie_key.flags & IE_KEY_GRPAH){
+			putchar(event.ie_key.c);
+			continue;
+		}
+
 		
 	}
 	
