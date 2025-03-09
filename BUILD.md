@@ -24,6 +24,39 @@ cd stanix
 make header
 ```
 the new sysroot is now avalible inside the sysroot folder in the repo
+### cloning
+you now have to clone the patched version of gcc and binutils 
+```sh
+git clone https://github.com/tayoky/binutils-gdb.git
+git clone https://github.com/tayoky/gcc.git
+```
+### configure
+now we have to configure some variables
+```sh
+export SYSROOT=/path/to/sysroot
+export PREFIX=$HOME/cross/stanix
+export PATH=$PREFIX/bin:$PATH
+export TARGET=x86_64-stanix
+```
+### build
+now build binutils and gcc  
+binutils :
+```sh
+cd binutils-gdb
+./configure --target=$TARGET --prefix=$PREFIX --with-sysroot=$SYSROOT --disable-nls --disable-werror
+make
+make install
+```
+gcc :
+```sh
+cd gcc
+./configure --target=$TARGET --prefix=$PREFIX --disable-nls --enable-languages=c,c++  --with-sysroot=$SYSROOT --disable-hosted-libstdcxx
+make all-gcc
+make all-target-libgcc
+make install-gcc
+make install-target-libgcc
+```
+you can folow the rest of the tutorial like on stanix self building
 ## self building
 ### required software
 - git
