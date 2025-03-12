@@ -4,12 +4,13 @@ iso_out = stanix.iso
 OUT = out
 KERNEL = stanix.elf
 MAKEFLAGS += --no-builtin-rules
-SYSROOT = sysroot
+
+include config.mk
 
 #tools
-export CC = gcc
-export LD = ld 
-export NASM = nasm
+export CC
+export LD
+export NASM
 
 out_files = ${OUT}/boot/limine/limine-bios.sys \
 ${OUT}/EFI/BOOT/BOOTX64.EFI \
@@ -24,8 +25,10 @@ initrd_src = $(shell find ./initrd -name "*")
 all : hdd iso
 
 test : hdd
-	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio
-	
+	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio -d int
+debug : hdd
+	objdump -D ${OUT}/boot/${KERNEL} > asm.txt
+	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio -s -S
 hdd : build ${hdd_out}
 ${hdd_out} : ${kernel_src} ${out_files} 
 	rm -f ${hdd_out}
@@ -66,10 +69,12 @@ ${OUT}/boot/limine/limine.conf : kernel/limine.conf
 	cp kernel/limine.conf ${OUT}/boot/limine/limine.conf
 #build!!!
 build : header ${OUT}/boot/limine/limine.conf
-	${MAKE} -C kernel OUT=../${OUT} KERNEL=${KERNEL} SYSROOT=../${SYSROOT}
-	${MAKE} -C tlibc install TARGET=stanix SYSROOT=../${SYSROOT}
-	${MAKE} -C userspace install SYSROOT=../${SYSROOT}
+	${MAKE} -C kernel OUT=../${OUT} KERNEL=${KERNEL} SYSROOT=${SYSROOT}
+	${MAKE} -C tlibc install TARGET=stanix SYSROOT=${SYSROOT}
+	${MAKE} -C userspace install SYSROOT=${SYSROOT}
 header : 
-	${MAKE} -C tlibc header TARGET=stanix SYSROOT=../${SYSROOT}
+	${MAKE} -C tlibc header TARGET=stanix SYSROOT=${SYSROOT}
 clean :
 	cd kernel && make clean
+config.mk :
+	$(error "run ./configure before runing make")

@@ -1,0 +1,89 @@
+#!/bin/sh
+
+#delete any old conf file
+rm -f $(dirname $0)/config.mk
+
+#default sysroot
+SYSROOT=$(dirname $(realpath $0))/sysroot
+
+#default host
+#HOST="x86_64-stanix"
+
+##for the moment use linux toolchain cause stanix gcc don't work
+HOST="x86_64-linux-gnu"
+
+for i in "$@"; do
+  case $i in
+    --with-sysroot=*)
+      SYSROOT="${i#*=}"
+      shift # past argument=value
+      ;;
+    --with-CC=*)
+      CC="${i#*=}"
+      shift # past argument=value
+      ;;
+    --with-LD=*)
+      LD="${i#*=}"
+      shift # past argument=value
+      ;;
+    --with-NASM=*)
+      NASM="${i#*=}"
+      shift # past argument=value
+      ;;
+    --host=*)
+      HOST="${i#*=}"
+      shift # past argument=value
+      ;;
+    -*|--*)
+      echo "Unknown option $i"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
+
+#alaways use absolute path
+SYSROOT=$(realpath $SYSROOT)
+
+#check tools
+
+if [ "$CC" = "" ] ; then
+	if $HOST-gcc --version > /dev/null 2>/dev/null ; then
+		CC="$HOST-gcc"
+	elif $HOST-clang --version > /dev/null 2>/dev/null ; then
+		CC="$HOST-clang"
+	else
+		echo "error : no c compilator found"
+		exit 1
+	fi
+fi
+
+if [ "$NASM" = "" ] ; then
+	if nasm --version > /dev/null ; then
+		NASM="nasm"
+	else
+		echo "error : nasm not found"
+		exit 1
+	fi
+fi
+
+if [ "$LD" = "" ] ; then
+	if $HOST-ld --version > /dev/null 2>/dev/null ; then
+		LD="$HOST-ld"
+	else
+		echo "error : ld not found"
+		exit 1
+	fi
+fi
+
+echo "using $CC"
+echo "using $LD"
+echo "using $NASM"
+echo "using $SYSROOT as sysroot"
+
+echo "#generated automatically by configure.sh" > config.mk
+echo "SYSROOT=$SYSROOT" >> config.mk
+echo "LD=$LD" >> config.mk
+echo "CC=$CC" >> config.mk
+echo "NASM=$NASM" >> config.mk

@@ -20,5 +20,8 @@ out/boot/limine/limine-uefi-cd.bin
 initrd.tar
 initrd/bin/*
 
-#defualt sysroot
+#default sysroot
 sysroot
+
+#config
+config.mk
