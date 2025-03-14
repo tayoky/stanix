@@ -12,7 +12,8 @@ CFLAGS = -Wall \
     -mno-sse \
     -mno-sse2 \
     -mno-red-zone \
-    -mcmodel=kernel
+    -mcmodel=kernel \
+    -fsanitize=undefined
 CFLAGS += -I ./
 CFLAGS += -I ./include/
 CFLAGS += -I ../limine/
