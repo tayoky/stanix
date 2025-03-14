@@ -45,9 +45,14 @@ void init_vfs(void){
 	kok();
 }
 
-//todo add check for if something is aready mount at this place
+
 int vfs_mount(const char *name,vfs_node *mounting_node){
-	if(!mounting_node)return -1;
+	if(!mounting_node)return -EINVAL;
+
+	//check if something is aready mount
+	if(vfs_get_mount_point(name)){
+		return -EEXIST;
+	}
 
 	vfs_mount_point *mount_point = kmalloc(sizeof(vfs_mount_point));
 	memset(mount_point,0,sizeof(vfs_mount_point));
@@ -63,7 +68,10 @@ int64_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count)
 	if(node->read){
 		return node->read(node,(void *)buffer,offset,count);
 	} else {
-		return -1;
+		if(node->flags & VFS_DIR){
+			return -EISDIR;
+		}
+		return -EBADF;
 	}
 }
 
@@ -71,7 +79,10 @@ int64_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	if(node->write){
 		return node->write(node,(void *)buffer,offset,count);
 	} else {
-		return -1;
+		if(node->flags & VFS_DIR){
+			return -EISDIR;
+		}
+		return -EBADF;
 	}
 }
 
@@ -133,6 +144,12 @@ int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
 }
 
 int vfs_create(const char *path,int perm,uint64_t flags){
+	//first check if aready exist
+	vfs_node *check = vfs_open(path,VFS_READONLY);
+	if(check){
+		vfs_close(check);
+		return -EEXIST;
+	}
 	int ret = -ENOENT;
 
 	//make a copy of the path
@@ -175,7 +192,10 @@ int vfs_unlink(vfs_node *node,const char *name){
 	if(node->unlink){
 		return node->unlink(node,(char *)name);
 	} else {
-		return -1;
+		if(!(node->flags & VFS_DIR)){
+			return -ENOTDIR;
+		}
+		return -EBADF;
 	}
 }
 
@@ -191,7 +211,10 @@ int vfs_truncate(vfs_node *node,size_t size){
 	if(node->truncate){
 		return node->truncate(node,size);
 	} else {
-		return -1;
+		if(node->flags & VFS_DIR){
+			return -EISDIR;
+		}
+		return -EBADF;
 	}
 }
 
