@@ -377,7 +377,7 @@ int sys_pipe(int pipefd[2]){
 	return 0;
 }
 
-int sys_execve(const char *path,const char **argv){
+int sys_execve(const char *path,const char **argv,char *envp){
 	if(!CHECK_STR(path)){
 		return -EFAULT;
 	}
@@ -397,8 +397,21 @@ int sys_execve(const char *path,const char **argv){
 			return -EFAULT;
 		}
 	}
+
+	//get envc
+	int envc = 0;
+	while(envp[envc]){
+		if(!CHECK_STR(envp[envc])){
+			return -EFAULT;
+		}
+		envc ++;
+
+		if(!CHECK_PTR(&envp[envc])){
+			return -EFAULT;
+		}
+	}
 	kdebugf("try executing %s\n",path);
-	return exec(path,argc,argv);
+	return exec(path,argc,argv,envc,envp);
 }
 
 pid_t sys_fork(void){

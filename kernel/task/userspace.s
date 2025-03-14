@@ -23,11 +23,12 @@ jump_userspace:
 	mov rdi, rdx ;argc
 	mov rsi, rcx ;argv
 
+	mov rdx, r8 ;envc
+	mov rcx, r9 ;envp
+
 	;clear registers
 	xor rax, rax
 	xor rbx, rbx
-	xor rcx, rcx
-	xor rdx, rdx
 	xor r8, r8
 	xor r9, r9
 	xor r10, r10

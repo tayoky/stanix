@@ -79,7 +79,12 @@ void spawn_init(){
 		NULL
 	};
 
-	if(exec(init_path,1,arg)){
+	char *env[] = {
+		"KERNEL=stanix",
+		NULL
+	};
+
+	if(exec(init_path,1,arg,1,env)){
 		kfail();
 		kinfof("can't spawn %s\n",init_path);
 	}

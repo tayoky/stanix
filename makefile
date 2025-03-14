@@ -25,7 +25,7 @@ initrd_src = $(shell find ./initrd -name "*")
 all : hdd iso
 
 test : hdd
-	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio -d int
+	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio
 debug : hdd
 	objdump -D ${OUT}/boot/${KERNEL} > asm.txt
 	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio -s -S

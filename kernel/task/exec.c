@@ -28,7 +28,7 @@ int verfiy_elf(Elf64_Ehdr *header){
 
 
 //TODO : add envp to that for full execve support
-int exec(char *path,int argc,char **argv){
+int exec(char *path,int argc,char **argv,int envc,char **envp){
 	int ret = 0;
 	vfs_node *file = vfs_open(path,VFS_READONLY);
 	if(!file){
@@ -63,13 +63,23 @@ int exec(char *path,int argc,char **argv){
 
 	//save argv
 	size_t total_arg_size = (argc + 1)  * sizeof(char *);
-	char **saved_argv = kmalloc((argc + 1) * sizeof(char **));
+	char **saved_argv = kmalloc((argc + 1) * sizeof(char *));
 	for (size_t i = 0; i < argc; i++){
 		total_arg_size += strlen(argv[i]) + 1;
 		saved_argv[i] = kmalloc(strlen(argv[i]) + 1);
 		strcpy(saved_argv[i],argv[i]);
 	}
 	saved_argv[argc] = NULL; // last NULL entry at the end
+
+	//save envp
+	total_arg_size += (envc + 1) * sizeof(char *);
+	char **saved_envp = kmalloc((envc + 1) * sizeof(char *));
+	for (size_t i = 0; i < envc; i++){
+		total_arg_size += strlen(envp[i]) + 1;
+		saved_envp[i] = kmalloc(strlen(envp[i]) + 1);
+		strcpy(saved_envp[i],envp[i]);
+	}
+	saved_envp[envc] = NULL; // last NULL entry at the end
 	
 	//unmap everything;
 	memseg *current_memseg = get_current_proc()->first_memseg;
@@ -147,11 +157,28 @@ int exec(char *path,int argc,char **argv){
 	}
 	argv[argc] = NULL;
 
+	//restore envp
+	envp = (char **)ptr;
+	ptr += (envc + 1) * sizeof(char *);
+	for (size_t i = 0; i < envc; i++){
+		envp[i] = ptr;
+		//copy saved arg to userpsace heap
+		strcpy(ptr,saved_envp[i]);
+		ptr += strlen(saved_envp[i]) + 1;
+		kdebugf("env %d : %s\n",i,saved_envp[i]);
+
+		//free the saved env in kernel space
+		kfree(saved_envp[i]);
+	}
+	envp[envc] = NULL;
+
 	//free argv list
 	kfree(saved_argv);
+	//and envp too
+	kfree(saved_envp);
 
 	//now jump into the program !!
-	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP - 8,argc,argv);
+	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP - 8,argc,argv,envc,envp);
 
 	return 0;
 }

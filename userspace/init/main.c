@@ -12,13 +12,12 @@
 #include <input.h>
 #include <dirent.h>
 #include <errno.h>
-#include <tlibc.h>
 //stanix specific input device header
 #include <input.h>
 
+extern char **environ;
+
 int main(int argc,char **argv){
-	__init_tlibc(argc,argv,0,NULL);
-	
 	//init std streams
 	open("dev:/null",O_RDONLY); //stdin
 	open("dev:/console",O_WRONLY); //stdout
@@ -78,6 +77,19 @@ int main(int argc,char **argv){
 	struct stat st;
 	stat("initrd:/bin/hello",&st);
 	printf("size : %ld\n",st.st_size);
+
+	//setup fake env
+	putenv("PATH=initrd:/;initrd:/bin");
+	putenv("USER=root");
+
+	//env test
+	printf("all env : \n");
+	int i = 0;
+	while(environ[i]){
+		printf("%s\n",environ[i]);
+		i++;
+	}
+	printf("kernel name : %s\n",getenv("KERNEL"));
 
 	//try launching doom
 	char *arg[] = {

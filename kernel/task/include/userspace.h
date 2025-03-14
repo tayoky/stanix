@@ -5,7 +5,7 @@
 #include "paging.h"
 #include <stdint.h>
 
-void jump_userspace(void *address,void *stack,int argc,char **argv);
+void jump_userspace(void *address,void *stack,int argc,char **argv,int envc,char **envp);
 
 #define USER_STACK_TOP 0x80000000000
 #define USER_STACK_SIZE 64 *PAGE_SIZE
