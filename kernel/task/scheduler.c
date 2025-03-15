@@ -21,9 +21,8 @@ void init_task(){
 	
 	//let just the boot kernel task start with a cwd at initrd root
 	//low effort but it work okay ?
-	kernel_task->cwd.present = 1;
-	kernel_task->cwd.node = vfs_open("initrd:/",VFS_READONLY);
-
+	kernel_task->cwd_node = vfs_open("initrd:/",VFS_READONLY);
+	kernel_task->cwd_path = strdup("initrd:/");
 
 	//the current task is the kernel task
 	kernel->current_proc = kernel_task;
@@ -108,7 +107,8 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 	proc_push(proc,0x10);
 
 	//just copy the cwd of the current task
-	proc->cwd.node = vfs_dup(get_current_proc()->cwd.node);
+	proc->cwd_node = vfs_dup(get_current_proc()->cwd_node);
+	proc->cwd_path = strdup(get_current_proc()->cwd_path);
 
 	proc->flags |= PROC_STATE_RUN;
 

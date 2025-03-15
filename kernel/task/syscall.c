@@ -16,6 +16,8 @@
 #include "memseg.h"
 #include "fork.h"
 #include "userspace.h"
+#include "cwd.h"
+#include "string.h"
 
 extern void syscall_handler();
 
@@ -74,27 +76,35 @@ int sys_open(const char *path,int flags,mode_t mode){
 	
 
 	file_descriptor *file = &FD_GET(fd);
-	vfs_node *node = vfs_open(path,vfs_flags);
+
+	//make the path absolute
+	char *abs_path = absolute_path(path);
+	vfs_node *node = vfs_open(abs_path,vfs_flags);
+	
 
 	//O_CREAT things
 	if(flags & O_CREAT){
 		if(node && flags & O_EXCL){
 			vfs_close(node);
+			kfree(abs_path);
 			return -EEXIST;
 		}
 		
 		if(!node){
 			//the user want to create the file
-			int result = vfs_create(path,mode,VFS_FILE);
+			int result = vfs_create(abs_path,mode,VFS_FILE);
 
 			if(result){
 				//vfs_create failed
+				kfree(abs_path);
 				return result;
 			}
 
-			node = vfs_open(path,vfs_flags);
+			node = vfs_open(abs_path,vfs_flags);
 		}
 	}
+
+	kfree(abs_path);
 
 	if(!node){
 		return -ENOENT;
@@ -492,8 +502,10 @@ int sys_stat(const char *pathname,struct stat *st){
 	if(!CHECK_STRUCT(st)){
 		return -EFAULT;
 	}
-
-	vfs_node *node = vfs_open(pathname,VFS_READONLY);
+	
+	char *abs_path = absolute_path(pathname);
+	vfs_node *node = vfs_open(abs_path,VFS_READONLY);
+	kfree(abs_path);
 	if(!node){
 		return -ENOENT;
 	}
@@ -513,6 +525,20 @@ int sys_fstat(int fd,struct stat *st){
 	}
 
 	node_stat(FD_GET(fd).node,st);
+
+	return 0;
+}
+
+int sys_getcwd(char *buf,size_t size){
+	if(!CHECK_MEM(buf,size)){
+		return -EFAULT;
+	}
+
+	if(size < strlen(get_current_proc()->cwd_path) + 1){
+		return -ERANGE;
+	}
+
+	strcpy(buf,get_current_proc()->cwd_path);
 
 	return 0;
 }
@@ -549,6 +575,8 @@ void *syscall_table[] = {
 	(void *)sys_readdir,
 	(void *)sys_stat,
 	(void *)sys_fstat,
+	(void *)sys_getcwd,
+	(void *)sys_stub, //chdir
 	(void *)sys_getpid,
 };
 

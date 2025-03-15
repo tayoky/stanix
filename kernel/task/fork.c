@@ -3,6 +3,7 @@
 #include "memseg.h"
 #include "paging.h"
 #include "print.h"
+#include "string.h"
 
 pid_t fork(void){
 	kdebugf("forking\n");
@@ -26,8 +27,8 @@ pid_t fork(void){
 		child->fds[i] = parent->fds[i];
 		child->fds[i].node  = vfs_dup(parent->fds[i].node);
 	}
-	child->cwd = parent->cwd;
-	child->cwd.node = vfs_dup(parent->cwd.node);
+	child->cwd_path = strdup(parent->cwd_path);
+	child->cwd_node = vfs_dup(parent->cwd_node);
 
 	//setup the return frame for the child
 	for (size_t i = 0; i < 21; i++){

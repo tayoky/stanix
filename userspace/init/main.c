@@ -91,6 +91,14 @@ int main(int argc,char **argv){
 	}
 	printf("kernel name : %s\n",getenv("KERNEL"));
 
+	//test cwd
+	char cwd[256];
+	if(getcwd(cwd,256)){
+		printf("cwd : %s\n",cwd);
+	} else {
+		perror("getcwd");
+	}
+
 	//try launching doom
 	char *arg[] = {
 		"initrd:/bin/hello",

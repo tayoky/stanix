@@ -8,6 +8,7 @@
 #include "userspace.h"
 #include "memseg.h"
 #include "sys.h"
+#include "cwd.h"
 #include <errno.h>
 
 int verfiy_elf(Elf64_Ehdr *header){
@@ -26,11 +27,14 @@ int verfiy_elf(Elf64_Ehdr *header){
 	return 1;
 }
 
-
-//TODO : add envp to that for full execve support
 int exec(char *path,int argc,char **argv,int envc,char **envp){
 	int ret = 0;
-	vfs_node *file = vfs_open(path,VFS_READONLY);
+
+	//don't forget support for relative path
+	char *abs_path = absolute_path(path);
+	vfs_node *file = vfs_open(abs_path,VFS_READONLY);
+	kfree(abs_path);
+
 	if(!file){
 		return -1;
 	}

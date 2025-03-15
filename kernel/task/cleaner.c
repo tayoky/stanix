@@ -36,7 +36,8 @@ void free_proc(process *proc,process *prev){
 	}
 
 	//close cwd
-	vfs_close(proc->cwd.node);
+	vfs_close(proc->cwd_node);
+	kfree(proc->cwd_path);
 
 	//free the used space
 	memseg *current_memseg = proc->first_memseg;
