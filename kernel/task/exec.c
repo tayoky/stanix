@@ -71,6 +71,11 @@ int exec(char *path,int argc,char **argv,int envc,char **envp){
 	}
 	saved_argv[argc] = NULL; // last NULL entry at the end
 
+	//align this
+	if(total_arg_size & 0b111){
+		total_arg_size += 8 - (total_arg_size % 8);
+	}
+
 	//save envp
 	total_arg_size += (envc + 1) * sizeof(char *);
 	char **saved_envp = kmalloc((envc + 1) * sizeof(char *));
@@ -156,6 +161,11 @@ int exec(char *path,int argc,char **argv,int envc,char **envp){
 		kfree(saved_argv[i]);
 	}
 	argv[argc] = NULL;
+
+	//align the pointer
+	if((uintptr_t)ptr & 0b111){
+		ptr += 8 - ((uintptr_t)ptr % 8);
+	}
 
 	//restore envp
 	envp = (char **)ptr;

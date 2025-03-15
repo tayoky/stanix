@@ -10,7 +10,7 @@
 void set_allocted_page(bitmap_meta *bitmap,uint64_t page){
 	//find the good uint64_t
 	uint64_t index = page / 64;
-	uint64_t bit = 1 << (page % 64);
+	uint64_t bit = (uint64_t)1 << (page % 64);
 	if(!(bitmap->data[index] & bit)){
 		bitmap->used_page_count++;
 	}
@@ -26,7 +26,7 @@ void free_page(bitmap_meta *bitmap,uint64_t page){
 
 	//find the good uint64_t
 	uint64_t index = page / 64;
-	uint64_t bit = 1 << (page % 64);
+	uint64_t bit = (uint64_t)1 << (page % 64);
 	if(bitmap->data[index] & bit){
 		bitmap->used_page_count--;
 	}
@@ -36,7 +36,7 @@ void free_page(bitmap_meta *bitmap,uint64_t page){
 uint64_t allocate_page(bitmap_meta *bitmap){
 	//start at the last allocated uint64_t if caculated
 	uint64_t index = 0;
-	uint64_t bit = 1;
+	uint64_t bit = 0;
 	if(bitmap->last_allocated != (uint64_t)-1){
 		index = bitmap->last_allocated / 64;
 	}
@@ -50,7 +50,7 @@ uint64_t allocate_page(bitmap_meta *bitmap){
 	}
 
 	//now find the bit
-	while (bitmap->data[index] & (1 << bit))
+	while (bitmap->data[index] & ((uint64_t)1 << bit))
 	{
 		bit ++;
 		if(bit >= 64){
@@ -60,7 +60,7 @@ uint64_t allocate_page(bitmap_meta *bitmap){
 	}
 
 	//mark it as allocated
-	bitmap->data[index] |= 1<< bit;
+	bitmap->data[index] |= (uint64_t)1 << bit;
 
 	//now translate to a page number
 	uint64_t page = index * 64 + bit;

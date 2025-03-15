@@ -3,6 +3,9 @@
 #include "asm.h"
 #include "kernel.h"
 #include "scheduler.h"
+#include "serial.h"
+
+int panic_count = 0;
 
 void register_dump(fault_frame *registers){
     asm("mov %%rax, %0" : "=r"(registers->rax):);
@@ -23,13 +26,18 @@ void register_dump(fault_frame *registers){
 
 void panic(const char *error,fault_frame *fault){
     disable_interrupt();
+    panic_count++;
+    if(panic_count > 1){
+        write_serial("\nkernel panic paniced\n");
+        halt();
+    }
     pid_t pid = 0;
     if(kernel->can_task_switch){
         pid = get_current_proc()->pid;
     }
     kprintf(COLOR_RED "====== ERROR : KERNEL PANIC =====\n");
     kprintf("error : %s\n",error);
-    kprintf("code : 0x%lx\n",fault->err_code);
+    if(fault)kprintf("code : 0x%lx\n",fault->err_code);
     kprintf("============= INFOS =============\n");
     kprintf("pid : %ld\n",pid);
     kprintf("========== REGISTER DUMP ========\n");
@@ -60,6 +68,16 @@ void panic(const char *error,fault_frame *fault){
 
     }else{
         kprintf("unavalible\n");
+        kprintf("========== STACK TRACE ==========\n");
+        kprintf("most recent call\n");
+        kprintf("<0x%lx>\n",fault->rip);
+        uint64_t *rbp;
+        asm("mov %%rbp , %%rax" : "=a" (rbp));
+        while (rbp && *rbp && *(rbp+1)){
+            kprintf("<0x%lx>\n",*(rbp+1));
+            rbp = (uint64_t *)(*rbp);
+        }
+        kprintf("older call\n");
     }
     kprintf(COLOR_RESET);
     halt();

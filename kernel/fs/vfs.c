@@ -144,12 +144,7 @@ int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
 }
 
 int vfs_create(const char *path,int perm,uint64_t flags){
-	//first check if aready exist
-	vfs_node *check = vfs_open(path,VFS_READONLY);
-	if(check){
-		vfs_close(check);
-		return -EEXIST;
-	}
+	//TODO : check if aready exist
 	int ret = -ENOENT;
 
 	//make a copy of the path

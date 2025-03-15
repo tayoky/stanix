@@ -45,7 +45,7 @@ static void print_err(uint32_t error){
 
 void __ubsan_handle_type_mismatch_v1(const struct type_mismatch_data *data,void *pointer){
 	kdebugf("__ubsan_handle_type_mismatch_v1 reached\n");
-	kdebugf("location : %s:%u\n",data->loc.filename,data->loc.line);
+	kdebugf("location : %s:%u %u\n",data->loc.filename,data->loc.line,data->loc.column);
 	kdebugf("type : %hx:%hu\n",data->type->type_kind,data->type->type_info);
 
 	uintptr_t alignement = (uintptr_t)1 << data->log_alignment;

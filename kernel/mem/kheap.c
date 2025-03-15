@@ -72,14 +72,18 @@ void show_memseg(){
 }
 
 void *kmalloc(size_t amount){
+	//make amount aligned
+	if(amount & 0b111)
+	amount += 8 - (amount % 8);
+	
 	spinlock_acquire(kernel->kheap.lock);
 	kheap_segment *current_seg = kernel->kheap.first_seg;
 
 	while (current_seg->lenght < amount || current_seg->magic != KHEAP_SEG_MAGIC_FREE){
 		if(current_seg->next == NULL){
 			//no more segment need to make kheap bigger
-			change_kheap_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 1));
-			current_seg->lenght += PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 1);
+			change_kheap_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 8));
+			current_seg->lenght += PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 8);
 			break;
 		}
 		current_seg = current_seg->next;
@@ -88,9 +92,9 @@ void *kmalloc(size_t amount){
 	//we find a good segment
 
 	//if big enougth cut it
-	if(current_seg->lenght >= amount + sizeof(kheap_segment) + 1){
+	if(current_seg->lenght >= amount + sizeof(kheap_segment) + 8){
 		//big enougth
-		kheap_segment *new_seg = (kheap_segment *)((uint64_t)current_seg + amount + sizeof(kheap_segment));
+		kheap_segment *new_seg = (kheap_segment *)((uintptr_t)current_seg + amount + sizeof(kheap_segment));
 		new_seg->lenght = current_seg->lenght - (sizeof(kheap_segment) + amount);
 		current_seg->lenght = amount;
 		new_seg->magic = KHEAP_SEG_MAGIC_FREE;
