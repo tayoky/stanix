@@ -58,24 +58,9 @@ int main(int argc,char **argv){
 	}
 	printf("i'am the parent\n");
 
-	//try do some ls
-	DIR *dir = opendir("dev:/");
-	if(!dir){
-		fprintf(stderr,"%s\n",strerror(errno));
-		exit(1);
-	}
-	for(;;){
-		struct dirent *ret = readdir(dir);
-		if(!ret){
-			break;
-		}
-		printf("%s\n",ret->d_name);
-	}
-	closedir(dir);
-
 	//stat test
 	struct stat st;
-	stat("initrd:/bin/hello",&st);
+	stat("bin/hello",&st);
 	printf("size : %ld\n",st.st_size);
 
 	//setup fake env
@@ -98,6 +83,25 @@ int main(int argc,char **argv){
 	} else {
 		perror("getcwd");
 	}
+	//try to cd into bin
+	if(chdir("bin") < 0){
+		perror("chdir(\"bin\")");
+	}
+
+	//try do some ls
+	DIR *dir = opendir(".");
+	if(!dir){
+		fprintf(stderr,"%s\n",strerror(errno));
+		exit(1);
+	}
+	for(;;){
+		struct dirent *ret = readdir(dir);
+		if(!ret){
+			break;
+		}
+		printf("%s\n",ret->d_name);
+	}
+	closedir(dir);
 
 	//try launching doom
 	char *arg[] = {

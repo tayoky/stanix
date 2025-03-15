@@ -543,6 +543,41 @@ int sys_getcwd(char *buf,size_t size){
 	return 0;
 }
 
+int sys_chdir(const char *path){
+	if(!CHECK_STR(path)){
+		return -EFAULT;
+	}
+
+	const char *abs_path = absolute_path(path);
+
+	//check if exist
+	vfs_node *node = vfs_open(abs_path,VFS_READONLY);
+	if(!node){
+		kfree(abs_path);
+		return -ENOENT;
+	}
+
+	if(!(node->flags & VFS_DIR)){
+		kfree(abs_path);
+		return -ENOTDIR;
+	}
+
+	//free old cwd
+	kfree(get_current_proc()->cwd_path);
+
+	//make sure it finish with an /
+	if(abs_path[strlen(abs_path) - 1] != '/'){
+		char *fixed_path = kmalloc(strlen(abs_path) + 2);
+		strcpy(fixed_path,abs_path);
+		strcat(fixed_path,"/");
+		kfree(abs_path);
+		abs_path = fixed_path;
+	}
+
+	get_current_proc()->cwd_path = abs_path;
+	return 0;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -576,7 +611,7 @@ void *syscall_table[] = {
 	(void *)sys_stat,
 	(void *)sys_fstat,
 	(void *)sys_getcwd,
-	(void *)sys_stub, //chdir
+	(void *)sys_chdir,
 	(void *)sys_getpid,
 };
 
