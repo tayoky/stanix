@@ -7,6 +7,7 @@
 //#include <assert.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <syscall.h>
 #include <ctype.h>
 #include <input.h>
@@ -32,7 +33,7 @@ int main(int argc,char **argv){
 	int fd = open("tmp:/test.txt",O_CREAT |O_RDWR);
 
 	struct timeval time;
-	sleep(2);
+	sleep(1);
 	gettimeofday(&time,NULL);
 	printf("unix timestamp : %ld\n",time.tv_sec);
 
@@ -55,6 +56,9 @@ int main(int argc,char **argv){
 	if(!child){
 		printf("i'am the child\n");
 		exit(0);
+	}
+	if(child > 0){
+		waitpid(child,NULL,0);
 	}
 	printf("i'am the parent\n");
 

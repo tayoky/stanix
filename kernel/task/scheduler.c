@@ -49,12 +49,23 @@ void schedule(){
 			//the process is spleeping
 			//see if we wakeup
 			struct timeval wakeup_time = kernel->current_proc->wakeup_time;
-			if(time.tv_sec > wakeup_time.tv_usec){
+			if(time.tv_sec > wakeup_time.tv_sec){
 				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_SLEEP;
 				break;
 			}
 			if((wakeup_time.tv_sec == time.tv_sec) && (time.tv_usec > wakeup_time.tv_usec)){
 				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_SLEEP;
+				break;
+			}
+			continue;
+		}
+
+		if((kernel->current_proc->flags & PROC_STATE_WAIT) && (kernel->current_proc->flags & PROC_STATE_RUN)){
+			//is the waitfor process a zombie ?
+			//TODO : introduce signal for remplacing this
+			if(kernel->current_proc->waitfor->flags & PROC_STATE_ZOMBIE){
+				kernel->current_proc->waitfor->flags |= PROC_STATE_DEAD;
+				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_WAIT;
 				break;
 			}
 			continue;
@@ -132,7 +143,7 @@ process *get_current_proc(){
 }
 
 void kill_proc(process *proc){
-	proc->flags = PROC_STATE_PRESENT | PROC_STATE_DEAD;
+	proc->flags = PROC_STATE_PRESENT | PROC_STATE_ZOMBIE | PROC_STATE_TOCLEAN;
 
 	//if the proc is it self
 	//then we have to while until we are stoped
@@ -140,4 +151,22 @@ void kill_proc(process *proc){
 		yeld();
 		for(;;);
 	}
+}
+
+process *pid2proc(pid_t pid){
+	//is it ourself ?
+	if(get_current_proc()->pid == pid){
+		return get_current_proc();
+	}
+
+	process *proc = get_current_proc()->next;
+
+	while(proc->pid != pid){
+		if(proc == get_current_proc()){
+			//don't exist
+			return NULL;
+		}
+		proc = proc->next;
+	}
+	return proc;
 }

@@ -13,18 +13,23 @@ void cleaner_task(){
 
 	for(;;){
 		cur = cur->next;
-		//if the task is dead free it
-		if(cur->flags & PROC_STATE_DEAD){
+		//if the task is toclean free it's resources
+		if(cur->flags & PROC_STATE_TOCLEAN){
 			free_proc(cur,prev);
+			cur->flags &= ~(uint64_t)PROC_STATE_TOCLEAN;
+		}
+		//if the task is really dead free it
+		if(cur->flags & PROC_STATE_DEAD){
+			//remove it from the list
+			prev->next = cur->next;
+			kfree(cur);
+			continue;
 		}
 		prev = cur;
 	}
 }
 
 void free_proc(process *proc,process *prev){
-	//first remove it from the list
-	prev->next = proc->next;
-
 	//now free the paging tables
 	delete_PMLT4((uint64_t *)(proc->cr3 + kernel->hhdm));
 
@@ -46,7 +51,4 @@ void free_proc(process *proc,process *prev){
 		memseg_unmap(proc,current_memseg);
 		current_memseg = next;
 	}
-
-	//and then free the  process struct
-	kfree(proc);
 }

@@ -50,7 +50,7 @@ int sys_open(const char *, int, mode_t);
 int sys_close(int);
 int64_t sys_write(int, void *, size_t);
 int64_t sys_read(int, void *, size_t);
-void sys_exit(uint64_t);
+void sys_exit(int);
 int sys_dup(int);
 int sys_dup2(int, int);
 int64_t sys_seek(int, int64_t, int);

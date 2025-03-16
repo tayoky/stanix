@@ -46,12 +46,17 @@ typedef struct process_struct{
 	uint64_t heap_end;
 	struct timeval wakeup_time;
 	memseg *first_memseg;
+	struct process_struct *waitfor;
+	long exit_status;
 } process;
 
 #define PROC_STATE_PRESENT 0x01
-#define PROC_STATE_DEAD    0x02
-#define PROC_STATE_RUN     0x04
-#define PROC_STATE_SLEEP   0x08
+#define PROC_STATE_ZOMBIE  0x02
+#define PROC_STATE_TOCLEAN 0x04
+#define PROC_STATE_DEAD    0x08
+#define PROC_STATE_RUN     0x10
+#define PROC_STATE_SLEEP   0x20
+#define PROC_STATE_WAIT    0x40
 
 void init_task();
 process *get_current_proc();
@@ -59,6 +64,7 @@ process *new_proc();
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
 void kill_proc(process *proc);
 void proc_push(process *proc,uint64_t value);
+process *pid2proc(pid_t pid);
 
 void yeld();
 

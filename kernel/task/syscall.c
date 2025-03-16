@@ -223,7 +223,9 @@ int64_t sys_read(int fd,void *buffer,size_t count){
 	return rsize;
 }
 
-void sys_exit(uint64_t error_code){
+void sys_exit(int error_code){
+	//set that we exited normally
+	get_current_proc()->exit_status = ((uint64_t)1 << 32) | error_code;
 	kdebugf("exit with code : %ld\n",error_code);
 	kill_proc(get_current_proc());
 }
@@ -578,6 +580,54 @@ int sys_chdir(const char *path){
 	return 0;
 }
 
+int sys_waitpid(pid_t pid,int *status){
+	kdebugf("wait for %ld\n",pid);
+	if(status && !CHECK_MEM(status,sizeof(status))){
+		return -EFAULT;
+	}
+
+	//wait for group : not supported
+	if(pid < 1 || pid == 0){
+		return -ENOTSUP;
+	}
+
+	//wait for any
+	if(pid == -1){
+		return -ENOTSUP;
+	} 
+
+	//wait for pid
+	process *proc = pid2proc(pid);
+
+	//make sure it exist and is a child
+	if((!proc) || proc->parent != get_current_proc()){
+		return -ECHILD;
+	}
+
+	//don't wait for zombie
+	if(proc->flags & PROC_STATE_ZOMBIE){
+		if(status){
+			*status = proc->exit_status;
+		}
+		proc->flags |= PROC_STATE_DEAD;
+		return pid;
+	}
+
+	get_current_proc()->waitfor = proc;
+	get_current_proc()->flags |= PROC_STATE_WAIT;
+
+	//yeld, when we wake up the process is now a zombie
+	yeld();
+
+	//get the exist status
+	if(status){
+		*status = proc->exit_status;
+	}
+	proc->flags |= PROC_STATE_DEAD;
+
+	return pid;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -612,6 +662,7 @@ void *syscall_table[] = {
 	(void *)sys_fstat,
 	(void *)sys_getcwd,
 	(void *)sys_chdir,
+	(void *)sys_waitpid,
 	(void *)sys_getpid,
 };
 

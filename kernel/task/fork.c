@@ -6,10 +6,11 @@
 #include "string.h"
 
 pid_t fork(void){
-	kdebugf("forking\n");
 	process *parent = get_current_proc();
 	process *child = new_proc();
 	child->parent = parent;
+
+	kdebugf("forking child : %ld\n",child->pid);
 
 	memseg *current_seg = parent->first_memseg;
 	while(current_seg){
