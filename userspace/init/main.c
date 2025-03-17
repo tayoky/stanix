@@ -50,6 +50,8 @@ int main(int argc,char **argv){
 	while(!feof(pipe_read)){
 		putchar(getc(pipe_read));
 	}
+	fclose(pipe_read);
+	fclose(pipe_write);
 
 	//try forking
 	pid_t child = fork();
@@ -109,13 +111,11 @@ int main(int argc,char **argv){
 
 	//try launching doom
 	char *arg[] = {
-		"initrd:/bin/hello",
-		"-iwad",
-		"doom1.wad",
+		"initrd:/bin/term",
 		NULL
 	};
 
-	//execvp("initrd:/bin/hello",arg);
+	execvp("initrd:/bin/term",arg);
 
 	//try open keayboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);
@@ -141,7 +141,7 @@ int main(int argc,char **argv){
 		}
 
 		//print if possible
-		if(event.ie_key.flags & IE_KEY_GRPAH){
+		if(event.ie_key.flags & IE_KEY_GRAPH){
 			putchar(event.ie_key.c);
 			continue;
 		}

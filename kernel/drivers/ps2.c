@@ -114,7 +114,7 @@ void keyboard_handler(fault_frame *frame){
 
 	if(kbd_us[scancode]){
 		event.ie_key.c = kbd_us[scancode];
-		event.ie_key.flags |= IE_KEY_GRPAH;
+		event.ie_key.flags |= IE_KEY_GRAPH;
 	}
 	event.ie_key.scancode = scancode;
 
