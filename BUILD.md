@@ -18,9 +18,11 @@ if you are building from another OS you will first have to make an cross compile
 - autoconf
 - automake
 
-first create an sysroot with the libc header : 
+first clone the stanix repo and create an sysroot with the libc header : 
 ```sh
+git clone https://github.com/tayoky/stanix --recurse
 cd stanix
+./configure
 make header
 ```
 the new sysroot is now avalible inside the sysroot folder in the repo
@@ -56,7 +58,7 @@ make all-target-libgcc
 make install-gcc
 make install-target-libgcc
 ```
-you can folow the rest of the tutorial like on stanix self building
+you can folow the rest of the tutorial like on [stanix self building](#self-building)
 ## self building
 ### required software
 - git
@@ -67,7 +69,27 @@ you can folow the rest of the tutorial like on stanix self building
 - coreutil
 - gdisk
 - mtools
-just run `make all HOST=x86_64-stanix` for all images or
-- `make hdd HOST=x86_64-stanix` for hdd image
-- `make iso HOST=x86_64-stanix` for iso image
-`make test` create an hdd image for x86_64 and automticly launch it with qemu
+first configure
+```sh
+./configure
+```
+NOTE : if you are cross compiling stanix you need the host option : 
+```sh
+./configure --host="x86_64-stanix"
+```
+see [configuration option](#configuration-options) for all supported options  
+then just run `make all` for all images or
+- `make hdd` for hdd image
+- `make iso` for iso image
+`make test` create an hdd image  and automaticly launch it with qemu
+## configuration options
+all options supported by the `./configure` script
+- `--host=XXX` precise the host for finding the compilator this should always be `x86_64-stanix` or not present
+- `--with-sysroot=XXX` precise a custom sysroot path
+- `--with-CC=XXX` use a custom c compiler
+- `--with-LD=XXX` use a custom linker
+- `--with-NASM=XXX` use a custom assembler NOTE : the assembler must use the intel syntax and make 64 buts objects files
+# installing programs
+for the moment, any program you want to install must be put into `./initrd/bin/` in the repo  
+then redo `make all`  
+NOTE : there is currently no list of port (the only one being the very broken port of doomgeneric) the list will be made later (i will update this guide when it happen)
