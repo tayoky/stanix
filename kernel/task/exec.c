@@ -36,7 +36,7 @@ int exec(char *path,int argc,char **argv,int envc,char **envp){
 	kfree(abs_path);
 
 	if(!file){
-		return -1;
+		return -ENOENT;
 	}
 
 	//first read the header
@@ -57,7 +57,7 @@ int exec(char *path,int argc,char **argv,int envc,char **envp){
 		ret = -ENOEXEC;
 		goto error;
 	}
-
+	
 	//now read all program headers
 	Elf64_Phdr *prog_header = kmalloc(header.e_phentsize * header.e_phnum);
 	if(vfs_read(file,prog_header,header.e_phoff,header.e_phentsize * header.e_phnum) < 0){

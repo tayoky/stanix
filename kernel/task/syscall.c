@@ -389,11 +389,14 @@ int sys_pipe(int pipefd[2]){
 	return 0;
 }
 
-int sys_execve(const char *path,const char **argv,char *envp){
+int sys_execve(const char *path,const char **argv,char **envp){
 	if(!CHECK_STR(path)){
 		return -EFAULT;
 	}
-	if(!CHECK_PTR(argv)){
+	if(!CHECK_MEM(argv,sizeof(char *))){
+		return -EFAULT;
+	}
+	if(!CHECK_MEM(envp,sizeof(char *))){
 		return -EFAULT;
 	}
 
@@ -405,7 +408,7 @@ int sys_execve(const char *path,const char **argv,char *envp){
 		}
 		argc ++;
 
-		if(!CHECK_PTR(&argv[argc])){
+		if(!CHECK_MEM(&argv[argc],sizeof(char*))){
 			return -EFAULT;
 		}
 	}
@@ -418,7 +421,7 @@ int sys_execve(const char *path,const char **argv,char *envp){
 		}
 		envc ++;
 
-		if(!CHECK_PTR(&envp[envc])){
+		if(!CHECK_MEM(&envp[envc],sizeof(char*))){
 			return -EFAULT;
 		}
 	}
