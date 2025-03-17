@@ -1,6 +1,7 @@
 #include "print.h"
 #include "serial.h"
 #include "kernel.h"
+#include "string.h"
 #include <stdarg.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -33,10 +34,15 @@ void kfail(void){
 	kprintf("[" COLOR_RED "FAIL" COLOR_RESET "]\n");
 }
 
-void printuint(print_func func,uint64_t integer,uint8_t base){
+void printuint(print_func func,uint64_t integer,uint8_t base,int padding,char paddind_char){
 	char figures[] = "0123456789ABCDEF";
 	char str[64];
 	str[63] = '\0';
+	memset(str,paddind_char,63);
+
+	if(padding > 63){
+		padding = 63;
+	}
 	
 	uint64_t index = 62;
 	while(index > 0){
@@ -50,26 +56,58 @@ void printuint(print_func func,uint64_t integer,uint8_t base){
 		if(integer < base)break;
 		integer = integer / base;
 		index--;
+		padding--;
+	}
+
+	//if there are still some padding to do well ... do it !!!
+	while(padding > 0){
+		padding --;
+		index --;
 	}
 
 	//now we can actually print the string
 	printfunc(func,(char *) str + index,NULL);
 }
 
+#define PAD(n) {int count = n ; while(count > 0)func(pad_char);count--;}
+
 void printfunc(print_func func,const char *fmt,va_list args){
 	uint64_t index = 0;
 	while (fmt[index]){
 		if(fmt[index] == '%'){
+			int padding = 0;
+			char pad_char = ' ';
 			index++;
+			switch (fmt[index]){
+			case '0':
+				pad_char = '0';
+			case ' ':
+				fmt++;
+				break;
+			}
+			
+			if(fmt[index] >= '1' && fmt[index] <= '9'){
+				while(fmt[index] >= '0' && fmt[index] <= '9'){
+					padding *= 10;
+					padding += fmt[index] - '0';
+					fmt++;
+				}
+			}
 			//start with string and char because there are the only diferent
 			if(fmt[index] == 'c'){
+				PAD(padding -1);
 				func(va_arg(args,int));
 				index++;
 				continue;
 			}
 
 			if(fmt[index] == 's'){
-				printfunc(func,va_arg(args,char *),NULL);
+				char *str = va_arg(args,char *);
+				PAD(padding - strlen(str));
+				while(*str){
+					func(*str);
+					str++;
+				}
 				index ++;
 				continue;
 			}
@@ -82,6 +120,7 @@ void printfunc(print_func func,const char *fmt,va_list args){
 			//now float
 			if(fmt[index] == 'f'){
 				//unimplented yet
+				PAD(padding);
 				index ++;
 				continue;
 			}
@@ -90,44 +129,48 @@ void printfunc(print_func func,const char *fmt,va_list args){
 			//so we will convert all type in an uint64_t to make thing easier
 			uint64_t integer;
 
-			if(fmt[index] == 'l'){
+			switch(fmt[index]){
+			case 'l' :
 				integer = va_arg(args,long);
 				index ++;
-			}else if(fmt[index] == 'h'){
+				break;
+			case 'p' :
+				integer = va_arg(args,long);
+				break;
+			case 'h' :
 				integer = va_arg(args,int);
 				index ++;
-			}else {
+				break;
+			default:
 				integer = va_arg(args,int);
 			}
 
 			//now we need to apply the modfier
 			int8_t modifier = PRINTF_MODIFIER_D;
-			if(fmt[index] == 'd' || fmt[index] == 'i'){
+			switch(fmt[index]){
+			case 'd':
+			case 'i':
 				//now we we make the abs of the number
 				//and put an - if needed so we don't have to care about it anymore
 				if(((int64_t)integer) < 0){
 					func('-');
 					integer = (uint64_t)(-(int64_t)integer);
 				}
-			} else if (fmt[index] == 'x'){
-				modifier = PRINTF_MODIFIER_X;
-			} else if (fmt[index] == 'o'){
-				//octal don't even know what it is so...
-				//unsuported;
-				modifier = PRINTF_MODIFIER_O;
-				continue;
-			}
-
-			switch (modifier){
-				case PRINTF_MODIFIER_D :
-					printuint(func,integer,10);
+			case 'u' :
+				printuint(func,integer,10,padding,pad_char);
 				break;
-				case PRINTF_MODIFIER_X :
-					printuint(func,integer,16);
-				default:
-					//we should never end here
-					//normally ...
+			case 'p' :
+				padding = 15;
+				pad_char = '0';
+			case 'x' :
+			case 'X' :
+				printuint(func,integer,16,padding,pad_char);
 				break;
+			case 'o':
+				printuint(func,integer,8,padding,pad_char);
+				break;
+			default :
+				kdebugf("invalid identifier '%c'\n",fmt[index]);
 			}
 			
 			index++;

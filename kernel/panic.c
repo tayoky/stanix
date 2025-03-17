@@ -42,17 +42,17 @@ void panic(const char *error,fault_frame *fault){
     kprintf("pid : %ld\n",pid);
     kprintf("========== REGISTER DUMP ========\n");
     if(fault){
-        kprintf("rax : 0x%lx\tr8  : 0x%lx\n",fault->rax,fault->r8);
-        kprintf("rbx : 0x%lx\tr9  : 0x%lx\n",fault->rbx,fault->r9);
-        kprintf("rcx : 0x%lx\tr10 : 0x%lx\n",fault->rcx,fault->r10);
-        kprintf("rdx : 0x%lx\tr11 : 0x%lx\n",fault->rdx,fault->r11);
-        kprintf("rsi : 0x%lx\tr12 : 0x%lx\n",fault->rsi,fault->r12);
-        kprintf("rdi : 0x%lx\tr13 : 0x%lx\n",fault->rdi,fault->r13);
-        kprintf("rbp : 0x%lx\tr14 : 0x%lx\n",fault->rbp,fault->r14);
-        kprintf("rsp : 0x%lx\tr15 : 0x%lx\n",fault->rsp,fault->r15);
+        kprintf("rax : 0x%p\tr8  : 0x%p\n",fault->rax,fault->r8);
+        kprintf("rbx : 0x%p\tr9  : 0x%p\n",fault->rbx,fault->r9);
+        kprintf("rcx : 0x%p\tr10 : 0x%p\n",fault->rcx,fault->r10);
+        kprintf("rdx : 0x%p\tr11 : 0x%p\n",fault->rdx,fault->r11);
+        kprintf("rsi : 0x%p\tr12 : 0x%p\n",fault->rsi,fault->r12);
+        kprintf("rdi : 0x%p\tr13 : 0x%p\n",fault->rdi,fault->r13);
+        kprintf("rbp : 0x%p\tr14 : 0x%p\n",fault->rbp,fault->r14);
+        kprintf("rsp : 0x%p\tr15 : 0x%p\n",fault->rsp,fault->r15);
         kprintf("======= SPECIAL REGISTERS =======\n");
-        kprintf("cr2 : 0x%lx\tcr3 : 0x%lx\n",fault->cr2,fault->cr3);
-        kprintf("rip : 0x%lx\n",fault->rip);
+        kprintf("cr2 : 0x%p\tcr3 : 0x%p\n",fault->cr2,fault->cr3);
+        kprintf("rip : 0x%p\n",fault->rip);
         kprintf("============= FLAGS =============\n");
         kprintf("falgs: 0x%lx\n",fault->flags);
         kprintf("========== STACK TRACE ==========\n");
