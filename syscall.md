@@ -1,28 +1,29 @@
 # syscall
-list of all syscall 
-- [x] open
-- [x] close
-- [x] read
-- [x] write
-- [x] exit
-- [x] ioctl
-- [x] lseek(seek in internal lseek in libc for compatibility
-- [ ] fstat
-- [x] mkdir
-- [ ] rmdir
-- [x] dup
-- [x] dup2
-- [ ] fchmod
-- [ ] fchown
-- [ ] stat
-- [ ] chmod
-- [ ] chown
-- [x] fork
-- [x] exec (no envp and argv)
-- [ ] wait
-- [x] pipe
-- [x] sbrk
-- [ ] mmap
-- [x] gettimeoftheday
-- [x] sleep
-- [x] sleepuntil  
+list of all syscall
+- [x]  [exit](syscall/exit.md)
+- [x]  [open](syscall/open.md)
+- [x]  close
+- [x]  [read](syscall/read.md)
+- [x]  [write](syscall/write.md)
+- [x]  ioctl
+- [x]  lseek(seek in internal lseek in libc for compatibility
+- [x]  fstat
+- [x]  mkdir
+- [ ]  rmdir
+- [ ]  unlink
+- [x]  dup
+- [x]  dup2
+- [ ]  fchmod
+- [ ]  fchown
+- [x]  stat
+- [ ]  chmod
+- [ ]  chown
+- [x]  fork
+- [x]  exec
+- [x]  waitpid (only wait for a specific pid)
+- [x]  pipe
+- [x]  sbrk
+- [ ]  mmap
+- [x]  gettimeoftheday
+- [x]  sleep
+- [x]  sleepuntil  
