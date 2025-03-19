@@ -14,8 +14,8 @@ memseg *memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){
 		proc->first_memseg->prev = new_memseg;
 	}
 	new_memseg->next = proc->first_memseg;
-	proc->first_memseg = new_memseg;
 	new_memseg->prev = NULL;
+	proc->first_memseg = new_memseg;
 
 	new_memseg->offset = (void*)(address * PAGE_SIZE);
 	new_memseg->size = size;
@@ -49,8 +49,13 @@ void memseg_unmap(process *proc,memseg *seg){
 	if(seg->prev){
 		seg->prev->next = seg->next;
 	}
+	
 	if(seg->next){
 		seg->next->prev = seg->prev;
+	}
+
+	if(proc->first_memseg == seg){
+		proc->first_memseg = NULL;
 	}
 
 	//unmap

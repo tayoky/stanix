@@ -6,12 +6,12 @@
 //most basic terminal emumator
 int main(int argc,char **argv){
 	printf("starting userspace terminal emulator\n");
-	char pipefd[2];
+	int pipefd[2];
 	pipe(pipefd);
 
 	dup2(pipefd[0],STDIN_FILENO);
 
-	//try open keayboard
+	//try open keyboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);
 
 	if(kbd_fd < 0){
