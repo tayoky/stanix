@@ -5,16 +5,31 @@
 #include "paging.h"
 #include "cleaner.h"
 #include "string.h"
+#include "list.h"
 
+
+process *running_proc;
+list *proc_list;
+list *sleeping_proc;
+list *to_clean_proc;
+list *to_free_proc;
 
 void init_task(){
 	kstatus("init kernel task... ");
+	//init the scheduler first
+	sleeping_proc = new_list();
+	proc_list     = new_list();
+	to_clean_proc = new_list();
+	to_free_proc  = new_list();
+	
 	//init the kernel task
 	process *kernel_task = kmalloc(sizeof(process));
 	kernel_task->parent = kernel_task;
 	kernel_task->pid = 0;
 	kernel_task->next = kernel_task;
+	kernel_task->prev = kernel_task;
 	kernel_task->flags = PROC_STATE_PRESENT | PROC_STATE_RUN;
+	kernel_task->child = new_list();
 
 	//get the cr3
 	asm volatile("mov %%cr3, %0" : "=r" (kernel_task->cr3));
@@ -26,6 +41,10 @@ void init_task(){
 
 	//the current task is the kernel task
 	kernel->current_proc = kernel_task;
+
+	list_append(proc_list,kernel_task);
+
+	running_proc = kernel_task;
 
 	//activate task switch
 	kernel->can_task_switch = 1;
@@ -42,40 +61,9 @@ void schedule(){
 		return;
 	}
 
-	for(;;){
-		kernel->current_proc = kernel->current_proc->next;
-
-		if((kernel->current_proc->flags & PROC_STATE_SLEEP) && (kernel->current_proc->flags & PROC_STATE_RUN)){
-			//the process is spleeping
-			//see if we wakeup
-			struct timeval wakeup_time = kernel->current_proc->wakeup_time;
-			if(time.tv_sec > wakeup_time.tv_sec){
-				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_SLEEP;
-				break;
-			}
-			if((wakeup_time.tv_sec == time.tv_sec) && (time.tv_usec > wakeup_time.tv_usec)){
-				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_SLEEP;
-				break;
-			}
-			continue;
-		}
-
-		if((kernel->current_proc->flags & PROC_STATE_WAIT) && (kernel->current_proc->flags & PROC_STATE_RUN)){
-			//is the waitfor process a zombie ?
-			//TODO : introduce signal for remplacing this
-			if(kernel->current_proc->waitfor->flags & PROC_STATE_ZOMBIE){
-				kernel->current_proc->waitfor->flags |= PROC_STATE_DEAD;
-				kernel->current_proc->flags &= ~(uint64_t)PROC_STATE_WAIT;
-				break;
-			}
-			continue;
-		}
-
-		if(kernel->current_proc->flags & PROC_STATE_RUN){
-			//we have find a runing process
-			break;
-		}
-	}
+	//get the next task
+	kernel->current_proc = running_proc->next;
+	//kdebugf("switch to %p\n",get_current_proc());
 }
 
 process *new_proc(){
@@ -86,12 +74,20 @@ process *new_proc(){
 	proc->cr3 = ((uintptr_t)init_PMLT4(kernel)) - kernel->hhdm;
 	proc->parent = get_current_proc();
 	proc->flags = PROC_STATE_PRESENT;
+	proc->child = new_list();
 
-	//put it just after the current task
-	proc->next = get_current_proc()->next;
-	get_current_proc()->next = proc;
+	//add it to the global process list
+	list_append(proc_list,proc);
 
 	return proc;
+}
+
+static void set_running(process *proc){
+	yeld();
+	proc->next = get_current_proc();
+	proc->prev = get_current_proc()->prev;
+	get_current_proc()->prev = proc;
+	get_current_proc()->prev->next = proc;
 }
 
 //TODO argv don't work
@@ -123,6 +119,10 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 
 	proc->flags |= PROC_STATE_RUN;
 
+	//put it into the running process list
+	//just before us
+	set_running(proc);
+
 	return proc;
 }
 
@@ -143,10 +143,19 @@ process *get_current_proc(){
 }
 
 void kill_proc(process *proc){
+	//is the parent waiting ?
+	if(proc->parent && (proc->parent->flags & PROC_STATE_WAIT)){
+		//see if we can wake it up
+		if(proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1){
+			unblock_proc(proc->parent);
+		}
+	}
 	proc->flags = PROC_STATE_PRESENT | PROC_STATE_ZOMBIE | PROC_STATE_TOCLEAN;
 
+	list_append(to_clean_proc,proc);
+
 	//if the proc is it self
-	//then we have to while until we are stoped
+	//then we have to yeld
 	if(proc == get_current_proc()){
 		yeld();
 		for(;;);
@@ -159,14 +168,31 @@ process *pid2proc(pid_t pid){
 		return get_current_proc();
 	}
 
-	process *proc = get_current_proc()->next;
-
-	while(proc->pid != pid){
-		if(proc == get_current_proc()){
-			//don't exist
-			return NULL;
+	foreach(node,proc_list){
+		process *proc = node->value;
+		if(proc->pid == pid){
+			return proc;
 		}
-		proc = proc->next;
 	}
-	return proc;
+
+	return NULL;
+}
+
+void block_proc(){
+	//block ourself
+	get_current_proc()->flags &= ~(uint64_t)PROC_STATE_RUN;
+
+	//remove us from the list
+
+	//apply
+	yeld();
+}
+
+void unblock_proc(process *proc){
+	//aready unblock ?
+	if(proc->flags & PROC_STATE_RUN){
+		return;
+	}
+	proc->flags |= PROC_STATE_RUN;
+	set_running(proc);
 }

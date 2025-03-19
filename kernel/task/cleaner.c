@@ -7,7 +7,11 @@
 
 void cleaner_task(){
 	kstatus("start cleaner task\n");
-	//go trought each task
+	block_proc();
+	for(;;){
+		yeld();
+	}
+	/*//go trought each task
 	process *cur = get_current_proc();
 	process *prev = cur;
 
@@ -26,7 +30,7 @@ void cleaner_task(){
 			continue;
 		}
 		prev = cur;
-	}
+	}*/
 }
 
 void free_proc(process *proc,process *prev){
@@ -51,4 +55,7 @@ void free_proc(process *proc,process *prev){
 		memseg_unmap(proc,current_memseg);
 		current_memseg = next;
 	}
+
+	//free child list
+	free_list(proc->child);
 }

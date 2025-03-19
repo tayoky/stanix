@@ -5,6 +5,7 @@
 #include "vfs.h"
 #include <sys/time.h>
 #include <sys/types.h>
+#include "list.h"
 
 struct process_struct;
 
@@ -37,6 +38,7 @@ typedef struct process_struct{
 	uint64_t *syscall_frame; //any change here must be also done in this files
 	pid_t pid;
 	struct process_struct *next;
+	struct process_struct *prev;
 	struct process_struct *parent;
 	uint64_t flags;
 	file_descriptor fds[MAX_FD];
@@ -46,8 +48,9 @@ typedef struct process_struct{
 	uint64_t heap_end;
 	struct timeval wakeup_time;
 	memseg *first_memseg;
-	struct process_struct *waitfor;
+	pid_t waitfor;
 	long exit_status;
+	list *child;
 } process;
 
 #define PROC_STATE_PRESENT 0x01
@@ -65,6 +68,8 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 void kill_proc(process *proc);
 void proc_push(process *proc,uint64_t value);
 process *pid2proc(pid_t pid);
+void block_proc();
+void unblock_proc(process *proc);
 
 void yeld();
 
