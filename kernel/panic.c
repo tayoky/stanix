@@ -70,7 +70,6 @@ void panic(const char *error,fault_frame *fault){
         kprintf("unavalible\n");
         kprintf("========== STACK TRACE ==========\n");
         kprintf("most recent call\n");
-        kprintf("<0x%lx>\n",fault->rip);
         uint64_t *rbp;
         asm("mov %%rbp , %%rax" : "=a" (rbp));
         while (rbp && *rbp && *(rbp+1)){

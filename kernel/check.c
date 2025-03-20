@@ -38,6 +38,10 @@ static void print_err(uint32_t error){
 	kdebugf("error : %s\n",error_strings[error]);
 }
 
+static void print_loc(struct source_location loc){
+	kdebugf("location : %s:%u %u\n",loc.filename,loc.line,loc.column);
+}
+
 #define DEF(name) void name(){\
 	kdebugf("%s reached\n",#name);\
 	panic(#name,NULL);\
@@ -45,7 +49,7 @@ static void print_err(uint32_t error){
 
 void __ubsan_handle_type_mismatch_v1(const struct type_mismatch_data *data,void *pointer){
 	kdebugf("__ubsan_handle_type_mismatch_v1 reached\n");
-	kdebugf("location : %s:%u %u\n",data->loc.filename,data->loc.line,data->loc.column);
+	print_loc(data->loc);
 	kdebugf("type : %hx:%hu\n",data->type->type_kind,data->type->type_info);
 
 	uintptr_t alignement = (uintptr_t)1 << data->log_alignment;
@@ -59,6 +63,7 @@ void __ubsan_handle_type_mismatch_v1(const struct type_mismatch_data *data,void 
 		error = ERR_InsufficientObjectSize;
 	}
 	print_err(error);
+	kdebugf("at %p\n",pointer);
 
 	panic("__ubsan_handle_type_mismatch_v1 reached",NULL);
 }
