@@ -77,4 +77,7 @@ void yeld();
 #define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))
 #define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)
 
+extern list *to_clean_proc;
+extern process *cleaner;
+
 #endif

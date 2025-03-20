@@ -616,17 +616,20 @@ int sys_waitpid(pid_t pid,int *status){
 		return pid;
 	}
 
-	get_current_proc()->waitfor = proc;
+	get_current_proc()->waitfor = pid;
 	get_current_proc()->flags |= PROC_STATE_WAIT;
+	
+	//block, when we wake up the process is now a zombie
+	block_proc();
 
-	//yeld, when we wake up the process is now a zombie
-	yeld();
-
-	//get the exist status
+	//get the exit status
 	if(status){
 		*status = proc->exit_status;
 	}
+
 	proc->flags |= PROC_STATE_DEAD;
+	list_append(to_clean_proc,proc);
+	unblock_proc(cleaner);
 
 	return pid;
 }

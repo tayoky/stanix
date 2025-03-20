@@ -4,6 +4,6 @@
 #include "scheduler.h"
 
 void cleaner_task();
-void free_proc(process *proc,process *prev);
+void free_proc(process *proc);
 
 #endif

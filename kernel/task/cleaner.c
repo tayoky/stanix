@@ -7,33 +7,20 @@
 
 void cleaner_task(){
 	kstatus("start cleaner task\n");
-	block_proc();
-	for(;;){
-		yeld();
-	}
-	/*//go trought each task
-	process *cur = get_current_proc();
-	process *prev = cur;
+
+	///go trought each task
+
 
 	for(;;){
-		cur = cur->next;
-		//if the task is toclean free it's resources
-		if(cur->flags & PROC_STATE_TOCLEAN){
-			free_proc(cur,prev);
-			cur->flags &= ~(uint64_t)PROC_STATE_TOCLEAN;
+		while(to_clean_proc->frist_node){
+			free_proc(to_clean_proc->frist_node->value);
+			list_remove(to_clean_proc,to_clean_proc->frist_node->value);
 		}
-		//if the task is really dead free it
-		if(cur->flags & PROC_STATE_DEAD){
-			//remove it from the list
-			prev->next = cur->next;
-			kfree(cur);
-			continue;
-		}
-		prev = cur;
-	}*/
+		block_proc();
+	}
 }
 
-void free_proc(process *proc,process *prev){
+void free_proc(process *proc){
 	//now free the paging tables
 	delete_PMLT4((uint64_t *)(proc->cr3 + kernel->hhdm));
 
@@ -58,4 +45,6 @@ void free_proc(process *proc,process *prev){
 
 	//free child list
 	free_list(proc->child);
+
+	kfree(proc);
 }

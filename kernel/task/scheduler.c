@@ -12,7 +12,19 @@ process *running_proc;
 list *proc_list;
 list *sleeping_proc;
 list *to_clean_proc;
-list *to_free_proc;
+
+process *idle;
+process *cleaner;
+
+static void idle_task(){
+	for(;;){
+		//if there are other process runnnig block us
+		if(get_current_proc()->next != get_current_proc()){
+			block_proc();
+		}
+		yeld();
+	}
+}
 
 void init_task(){
 	kstatus("init kernel task... ");
@@ -20,7 +32,6 @@ void init_task(){
 	sleeping_proc = new_list();
 	proc_list     = new_list();
 	to_clean_proc = new_list();
-	to_free_proc  = new_list();
 	
 	//init the kernel task
 	process *kernel_task = kmalloc(sizeof(process));
@@ -52,7 +63,10 @@ void init_task(){
 	kok();
 
 	//start the cleaner task
-	new_kernel_task(cleaner_task,0,NULL);
+	cleaner = new_kernel_task(cleaner_task,0,NULL);
+
+	//start idle task
+	idle = new_kernel_task(idle_task,0,NULL);
 }
 
 void schedule(){
@@ -86,8 +100,8 @@ static void set_running(process *proc){
 	yeld();
 	proc->next = get_current_proc();
 	proc->prev = get_current_proc()->prev;
-	get_current_proc()->prev = proc;
 	get_current_proc()->prev->next = proc;
+	get_current_proc()->prev = proc;
 }
 
 //TODO argv don't work
@@ -179,10 +193,16 @@ process *pid2proc(pid_t pid){
 }
 
 void block_proc(){
+	//if this is the last process unblock the idle task
+	if(get_current_proc()->next == get_current_proc()){
+		unblock_proc(idle);
+	}
 	//block ourself
 	get_current_proc()->flags &= ~(uint64_t)PROC_STATE_RUN;
 
 	//remove us from the list
+	get_current_proc()->prev->next = get_current_proc()->next;
+	get_current_proc()->next->prev = get_current_proc()->prev;
 
 	//apply
 	yeld();
