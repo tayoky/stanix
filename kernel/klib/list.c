@@ -41,6 +41,28 @@ void list_append(list *l,void *value){
 	l->node_count++;
 }
 
+void list_add_after(list *l,list_node *node,void *value){
+	if(node == l->last_node){
+		return list_append(l,value);
+	} else if (node){
+		list_node *new_node = kmalloc(sizeof(list_node));
+		new_node->prev = node;
+		new_node->next = node->next;
+		new_node->value = value;
+
+		node->next = new_node;
+		new_node->next->prev = new_node;
+	} else {
+		list_node *new_node = kmalloc(sizeof(list_node));
+		new_node->prev = NULL;
+		new_node->next = l->frist_node;
+		new_node->value = value;
+		l->frist_node = new_node;
+	}
+
+	l->node_count++;
+}
+
 void list_remove(list *l,void *value){
 	foreach(node,l){
 		if(node->value == value){
