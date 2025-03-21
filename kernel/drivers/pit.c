@@ -20,7 +20,7 @@ void pit_handler(fault_frame *frame){
 		time.tv_sec++;
 	}
 
-	//irq_eoi(frame->err_code);
+	irq_eoi(frame->err_code);
 
 	//yeld to next task
 	yeld();
