@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include "list.h"
 
+struct fault_frame;
 struct process_struct;
 
 #define MAX_FD 32
@@ -34,8 +35,8 @@ typedef struct memseg_struct {
 
 typedef struct process_struct{
 	uint64_t cr3;            //WARNING !!!!
-	uint64_t rsp;            //this three value are reference in switch.s and syscall_handler.s
-	uint64_t *syscall_frame; //any change here must be also done in this files
+	uint64_t rsp;            //this first two value are reference in switch.s
+	struct fault_frame *syscall_frame; //any change here must be also done in this file
 	pid_t pid;
 	struct process_struct *snext; //next field used in sleep
 	struct process_struct *next;

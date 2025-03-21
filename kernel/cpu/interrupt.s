@@ -19,6 +19,7 @@ isr_err_stub_no_code invalid_op_exception, 6
 isr_err_stub_code invalid_tss_exception, 10
 isr_err_stub_code global_fault_exception, 13
 isr_err_stub_code pagefault_exception, 14
+isr_err_stub_no_code isr128, 128
 
 isr_err_stub_base:
     push r15

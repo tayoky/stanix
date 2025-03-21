@@ -18,14 +18,7 @@
 #include "userspace.h"
 #include "cwd.h"
 #include "string.h"
-
-extern void syscall_handler();
-
-void init_syscall(void){
-	kstatus("init syscall... ");
-	set_idt_gate(kernel->idt,0x80,syscall_handler,0xEF);
-	kok();
-}
+#include "arch.h"
 
 static int find_fd(){
 	int fd = 0;
@@ -673,3 +666,15 @@ void *syscall_table[] = {
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
+
+void syscall_handler(fault_frame *context){
+	if(context->rax >= syscall_number){
+		context->rax = (uint64_t)-EINVAL;
+		return;
+	}
+
+	get_current_proc()->syscall_frame = context;
+
+	long (*syscall)(long,long,long,long) = syscall_table[context->rax];
+	context->rax = syscall(context->rdi,context->rsi,context->rdx,context->rcx);
+}

@@ -124,7 +124,6 @@ void kmain(){
 	init_ps2();
 	init_cmos();
 	init_pit();
-	init_syscall();
 
 	//spawn init
 	ls("dev:/");

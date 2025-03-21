@@ -44,7 +44,7 @@ void init_syscall(void);
 #define SEEK_END 2
 #endif
 
-void init_syscall(void);
+void syscall_handler(fault_frame *context);
 static int find_fd();
 int sys_open(const char *, int, mode_t);
 int sys_close(int);

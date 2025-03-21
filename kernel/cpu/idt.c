@@ -5,6 +5,7 @@
 #include "interrupt.h"
 #include "panic.h"
 #include "scheduler.h"
+#include "sys.h"
 
 void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){
 	idt[index].offset1 = (uint64_t)offset & 0xFFFF;
@@ -56,13 +57,17 @@ void page_fault_info(fault_frame *fault){
 }
 
 void exception_handler(fault_frame *fault){
+	//0x80 is syscall not a fault
+	if(fault->err_type == 0x80){
+		return syscall_handler(fault);
+	}
 	if(fault->cs == 0x1B){
 		if(fault->err_type == 14){
 			kprintf("segmentation fault (core dumped)\n");
 			page_fault_info(fault);
 			kill_proc(get_current_proc());
 		}
-		kprintf("fault (core dumped)\n");
+		kprintf("fault %lu (core dumped)\n",fault->err_type);
 		kill_proc(get_current_proc());
 	}
 	kprintf("error : 0x%lx\n",fault->err_type);
@@ -89,6 +94,9 @@ void init_idt(void){
 	set_idt_gate(kernel->idt,10,&invalid_tss_exception,0x8E);
 	set_idt_gate(kernel->idt,13,&global_fault_exception,0x8E);
 	set_idt_gate(kernel->idt,14,&pagefault_exception,0x8E);
+
+	//syscall
+	set_idt_gate(kernel->idt,0x80,&isr128,0xEF);
 
 	//create the IDTR
 	kernel->idtr.size = sizeof(kernel->idt) - 1;
