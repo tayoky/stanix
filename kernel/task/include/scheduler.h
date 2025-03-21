@@ -37,6 +37,7 @@ typedef struct process_struct{
 	uint64_t rsp;            //this three value are reference in switch.s and syscall_handler.s
 	uint64_t *syscall_frame; //any change here must be also done in this files
 	pid_t pid;
+	struct process_struct *snext; //next field used in sleep
 	struct process_struct *next;
 	struct process_struct *prev;
 	struct process_struct *parent;
@@ -66,7 +67,7 @@ process *get_current_proc();
 process *new_proc();
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
 void kill_proc(process *proc);
-void proc_push(process *proc,uint64_t value);
+void proc_push(process *proc,void *value,size_t size);
 process *pid2proc(pid_t pid);
 void block_proc();
 void unblock_proc(process *proc);
@@ -79,5 +80,6 @@ void yeld();
 
 extern list *to_clean_proc;
 extern process *cleaner;
+extern process *sleeping_proc;
 
 #endif

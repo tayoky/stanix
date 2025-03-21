@@ -4,8 +4,11 @@
 #include "paging.h"
 #include "print.h"
 #include "string.h"
+#include "arch.h"
 
 pid_t fork(void){
+	kdebugf("because of scheduler rewrite fork() don't work\n");
+	panic("fork() uniplemented",NULL);
 	process *parent = get_current_proc();
 	process *child = new_proc();
 	child->parent = parent;
@@ -19,27 +22,20 @@ pid_t fork(void){
 	}
 
 	//clone metadata
-	child->rsp = KERNEL_STACK_TOP - 8;
+	child->rsp = KERNEL_STACK_TOP;
 	child->heap_end = parent->heap_end;
 	child->heap_start = parent->heap_start;
 
 	//clone fd
 	for(int i = 0;i<MAX_FD;i++){
 		child->fds[i] = parent->fds[i];
-		child->fds[i].node  = vfs_dup(parent->fds[i].node);
+		if(child->fds[i].present) child->fds[i].node  = vfs_dup(parent->fds[i].node);
 	}
-	child->cwd_path = strdup(parent->cwd_path);
-	child->cwd_node = vfs_dup(parent->cwd_node);
 
 	//setup the return frame for the child
-	for (size_t i = 0; i < 21; i++){
-		if(i == 7){
-			//force rax to be 0
-			proc_push(child,0);
-			continue;
-		}
-		proc_push(child,parent->syscall_frame[20 - i]);
-	}
+	fault_frame frame;
+	
+	proc_push(child,&frame,sizeof(frame));
 
 	//flags
 	child->flags = parent->flags;

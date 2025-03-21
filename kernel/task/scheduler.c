@@ -6,11 +6,11 @@
 #include "cleaner.h"
 #include "string.h"
 #include "list.h"
-
+#include "arch.h"
 
 process *running_proc;
 list *proc_list;
-list *sleeping_proc;
+process *sleeping_proc;
 list *to_clean_proc;
 
 process *idle;
@@ -20,6 +20,7 @@ static void idle_task(){
 	for(;;){
 		//if there are other process runnnig block us
 		if(get_current_proc()->next != get_current_proc()){
+			kdebugf("blocking idle task\n");
 			block_proc();
 		}
 		yeld();
@@ -29,7 +30,6 @@ static void idle_task(){
 void init_task(){
 	kstatus("init kernel task... ");
 	//init the scheduler first
-	sleeping_proc = new_list();
 	proc_list     = new_list();
 	to_clean_proc = new_list();
 	
@@ -75,8 +75,18 @@ void schedule(){
 		return;
 	}
 
+	//see if we can wakeup anything
+	while(sleeping_proc){
+		if(sleeping_proc->wakeup_time.tv_sec < time.tv_usec || (sleeping_proc->wakeup_time.tv_sec == time.tv_sec && sleeping_proc->wakeup_time.tv_usec < time.tv_usec)){
+			break;
+		}
+		unblock_proc(sleeping_proc);
+		sleeping_proc = sleeping_proc->snext;
+	}
+	
+
 	//get the next task
-	kernel->current_proc = running_proc->next;
+	kernel->current_proc = get_current_proc()->next;
 	//kdebugf("switch to %p\n",get_current_proc());
 }
 
@@ -96,60 +106,73 @@ process *new_proc(){
 	return proc;
 }
 
-static void set_running(process *proc){
-	yeld();
-	proc->next = get_current_proc();
-	proc->prev = get_current_proc()->prev;
-	get_current_proc()->prev->next = proc;
-	get_current_proc()->prev = proc;
-}
-
 //TODO argv don't work
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]){
 	process *proc = new_proc();
 	proc->rsp = KERNEL_STACK_TOP;
 
-	proc_push(proc,0x10); //ss
-	proc_push(proc,KERNEL_STACK_TOP); //rsp
-	proc_push(proc,0x204); //flags
-	proc_push(proc,0x08); //cs
-	proc_push(proc,(uint64_t)func); //rip
-
-	//use the two first register (rdi and rsi) for argc and argv
-	proc_push(proc,argc);
-	proc_push(proc,(uint64_t)argv);
- 
-	//push 0 for all other 13 registers
-	for (size_t i = 0; i < 13; i++){
-		proc_push(proc,0);
-	}
-
-	//push ds
-	proc_push(proc,0x10);
+	fault_frame context;
+	memset(&context,0,sizeof(fault_frame));
+	context.rsi = argc;
+	context.rdi = argv;
+	proc_push(proc,&context,sizeof(fault_frame));
+	proc_push(proc,&func,sizeof(void *));
+	kdebugf("%p %p\n",proc->cr3,proc->rsp);
 
 	//just copy the cwd of the current task
 	proc->cwd_node = vfs_dup(get_current_proc()->cwd_node);
 	proc->cwd_path = strdup(get_current_proc()->cwd_path);
 
-	proc->flags |= PROC_STATE_RUN;
-
-	//put it into the running process list
-	//just before us
-	set_running(proc);
+	//created process are blocked until with unblock them
+	unblock_proc(proc);
 
 	return proc;
 }
 
-void proc_push(process *proc,uint64_t value){
+void proc_push(process *proc,void *value,size_t size){
 	//update the stack pointer
-	proc->rsp -= sizeof(uint64_t);
+	proc->rsp -= size;
 
-	//find the address to write to
+	char *buffer = value;
+
 	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
-	uint64_t *address = (uint64_t *) (((uintptr_t) PMLT4_virt2phys(PMLT4,(void *)proc->rsp)) + kernel->hhdm);
+	for(int i=0; i<size; i++){
+		//find the address to write to
+		char *address = (char *) (((uintptr_t) PMLT4_virt2phys(PMLT4,(void *)(proc->rsp + i))) + kernel->hhdm);
 
-	//and write to it
-	*address = value;
+		//and write to it
+		*address = buffer[i];
+	}
+}
+
+void yeld(){
+	if(!kernel->can_task_switch){
+		return;
+	}
+
+	kernel->can_task_switch = 0;
+
+	//save old proc
+	process *old = get_current_proc();
+
+ 	schedule();
+
+	//get the new cr3 and rsp
+	//uint64_t cr3 = get_current_proc()->cr3;
+	//uint64_t rsp = get_current_proc()->rsp;
+
+	//kdebugf("diff : %p %p\n",old,get_current_proc());
+
+	//kdebugf("switch to %p %p\n",cr3,rsp);
+
+
+	fault_frame context;
+	context_save(&context);
+
+	kernel->can_task_switch = 1;
+
+	context_switch(old,get_current_proc());
+	context_load(&context);
 }
 
 process *get_current_proc(){
@@ -214,5 +237,10 @@ void unblock_proc(process *proc){
 		return;
 	}
 	proc->flags |= PROC_STATE_RUN;
-	set_running(proc);
+	
+	//add it just before us
+	proc->next = get_current_proc();
+	proc->prev = get_current_proc()->prev;
+	proc->prev->next = proc;
+	get_current_proc()->prev = proc;
 }

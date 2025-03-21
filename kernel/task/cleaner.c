@@ -9,7 +9,7 @@ void cleaner_task(){
 	kstatus("start cleaner task\n");
 
 	///go trought each task
-
+	block_proc();
 
 	for(;;){
 		while(to_clean_proc->frist_node){

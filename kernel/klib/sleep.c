@@ -5,7 +5,28 @@
 void sleep_until(struct timeval wakeup_time){
 	get_current_proc()->wakeup_time = wakeup_time;
 	get_current_proc()->flags |= PROC_STATE_SLEEP;
-	yeld();
+
+	//add us to the list
+	//keep the list orgnazie from first awake to last
+	process *proc = sleeping_proc;
+	process *prev = NULL;
+	while(proc){
+
+		if(proc->wakeup_time.tv_sec > wakeup_time.tv_usec || (proc->wakeup_time.tv_sec == wakeup_time.tv_sec && proc->wakeup_time.tv_usec > wakeup_time.tv_usec)){
+			break;
+		}
+
+		prev = proc;
+		proc = proc->snext;
+	}
+
+	if(prev){
+		prev->snext = get_current_proc();
+	} else {
+		sleeping_proc = get_current_proc();
+	}
+
+	block_proc();
 }
 
 void sleep(long seconds){

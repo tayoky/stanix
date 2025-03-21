@@ -1,103 +1,50 @@
 global context_switch
-extern schedule
-extern get_current_proc
-extern irq_eoi
-global yeld
+global context_save
+global context_load
+context_save: 
+	;cr2
+	;cr3
+	mov qword[rdi + 0x10], rax
+	mov qword[rdi + 0x18], rbx
+	mov qword[rdi + 0x20], rcx
+	mov qword[rdi + 0x28], rdx
+	mov qword[rdi + 0x30], rsi
+	mov qword[rdi + 0x38], rdi
+	mov qword[rdi + 0x40], rbp
+	mov qword[rdi + 0x48], r8 
+	mov qword[rdi + 0x50], r9 
+	mov qword[rdi + 0x58], r10
+	mov qword[rdi + 0x60], r11
+	mov qword[rdi + 0x68], r12
+	mov qword[rdi + 0x70], r13
+	mov qword[rdi + 0x78], r14
+	mov qword[rdi + 0x80], r15
+	ret
 
-yeld:
-;simulate an interruption as happen
-push rax
-push rbx
-
-mov rbx, rsp
-
-mov ax, ss
-push rax         ;ss
-push rbx         ;rsp
-pushf            ;flags
-mov ax, cs
-push rax         ;cs
-push yeld_resume ; rip
-
-jmp context_switch
-
-yeld_resume:
-
-pop rbx
-pop rax
-ret
-
-
-
+context_load:
+	;cr2
+	;cr3
+	mov rax, qword[rdi + 0x10]
+	mov rbx, qword[rdi + 0x18]
+	mov rcx, qword[rdi + 0x20]
+	mov rdx, qword[rdi + 0x28]
+	mov rsi, qword[rdi + 0x30]
+	mov rdi, qword[rdi + 0x38]
+	mov rbp, qword[rdi + 0x40]
+	mov r8 , qword[rdi + 0x48]
+	mov r9 , qword[rdi + 0x50]
+	mov r10, qword[rdi + 0x58]
+	mov r11, qword[rdi + 0x60]
+	mov r12, qword[rdi + 0x68]
+	mov r13, qword[rdi + 0x70]
+	mov r14, qword[rdi + 0x78]
+	mov r15, qword[rdi + 0x80]
+	ret
+	
 context_switch:
-	;push all
-	push rdi
-	push rsi
-	push rax
-	push rbx
-	push rcx
-	push rdx
-	push r8
-	push r9
-	push r10
-	push r11
-	push r12
-	push r13
-	push r14
-	push r15
-	push rbp
-
-	;push seg
-	mov ax, ds
-	push rax
-
-	call get_current_proc
-	;the current proc is in rax
-
-	;save rsp
-	mov qword[rax + 8], rsp 
-
-	call schedule
-
-	call get_current_proc
-
-	;now reload cr3 and rsp
-	mov rbx, qword[rax]
-	mov cr3, rbx
-	mov rsp, qword[rax + 8]
-
-	;end of interrupt
-	push rdi
-	xor rdi, rdi
-	call irq_eoi
-	pop rdi
-
-	;pop seg
-	pop rax
-
-	;little tick : ds,es,fs and gs are alaways the same
-	;so only save ds
-	;cs and ss are aready saved by the intterrupt frame
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs,ax
-
-	;pop all
-	pop rbp
-	pop r15
-	pop r14
-	pop r13
-	pop r12
-	pop r11
-	pop r10
-	pop r9
-	pop r8
-	pop rdx
-	pop rcx
-	pop rbx
-	pop rax
-	pop rsi
-	pop rdi
-
-	iretq
+;first save rsp
+mov qword[rdi + 8], rsp
+mov rax, qword[rsi]
+mov cr3,rax
+mov rsp, qword[rsi + 8]
+ret

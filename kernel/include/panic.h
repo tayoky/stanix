@@ -2,7 +2,7 @@
 #define PANIC_H
 #include <stdint.h>
 
-
+//todo move that to arch.h
 typedef struct{
 	uint64_t cr2;
 	uint64_t cr3;

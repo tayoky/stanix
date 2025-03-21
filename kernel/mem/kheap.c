@@ -120,6 +120,7 @@ void kfree(void *ptr){
 	kheap_segment *current_seg = (kheap_segment *)((uintptr_t)ptr - sizeof(kheap_segment));
 	if(current_seg->magic != KHEAP_SEG_MAGIC_ALLOCATED){
 		kdebugf("try to free not allocated kheap seg \n");
+		panic("kheap error",NULL);
 		spinlock_release(kernel->kheap.lock);
 		return;
 	}
