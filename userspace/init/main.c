@@ -33,7 +33,7 @@ int main(int argc,char **argv){
 	int fd = open("tmp:/test.txt",O_CREAT |O_RDWR);
 
 	struct timeval time;
-	sleep(1);
+	sleep(2);
 	gettimeofday(&time,NULL);
 	printf("unix timestamp : %ld\n",time.tv_sec);
 

@@ -20,10 +20,8 @@ static void idle_task(){
 	for(;;){
 		//if there are other process runnnig block us
 		if(get_current_proc()->next != get_current_proc()){
-			kdebugf("blocking idle task\n");
 			block_proc();
 		}
-		kdebugf("time : %ld\n",time.tv_sec);
 	}
 }
 

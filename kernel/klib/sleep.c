@@ -30,7 +30,6 @@ void sleep_until(struct timeval wakeup_time){
 		get_current_proc()->snext = sleeping_proc;
 		sleeping_proc = get_current_proc();
 	}
-	kdebugf("sleep : %p\n",sleeping_proc);
 	block_proc();
 }
 

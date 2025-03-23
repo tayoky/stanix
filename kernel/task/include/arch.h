@@ -35,7 +35,5 @@ typedef struct fault_frame{
 //arch specific functions
 
 void context_switch(process *old,process *new);
-void context_save(fault_frame *context);
-void context_load(fault_frame *context);
 
 #endif
