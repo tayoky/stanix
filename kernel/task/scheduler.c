@@ -23,7 +23,7 @@ static void idle_task(){
 			kdebugf("blocking idle task\n");
 			block_proc();
 		}
-		yeld();
+		kdebugf("time : %ld\n",time.tv_sec);
 	}
 }
 
@@ -75,7 +75,7 @@ void schedule(){
 
 	//see if we can wakeup anything
 	while(sleeping_proc){
-		if(sleeping_proc->wakeup_time.tv_sec < time.tv_usec || (sleeping_proc->wakeup_time.tv_sec == time.tv_sec && sleeping_proc->wakeup_time.tv_usec < time.tv_usec)){
+		if(sleeping_proc->wakeup_time.tv_sec < time.tv_sec || (sleeping_proc->wakeup_time.tv_sec == time.tv_sec && sleeping_proc->wakeup_time.tv_usec < time.tv_usec)){
 			break;
 		}
 		unblock_proc(sleeping_proc);
@@ -160,9 +160,9 @@ void yeld(){
 	uint64_t cr3 = get_current_proc()->cr3;
 	uint64_t rsp = get_current_proc()->rsp;
 
-	kdebugf("diff : %p %p\n",old,get_current_proc());
+	//kdebugf("diff : %p %p\n",old,get_current_proc());
 
-	kdebugf("switch to %p %p\n",cr3,rsp);
+	//kdebugf("switch to %p %p\n",cr3,rsp);
 
 
 	fault_frame context;
@@ -220,6 +220,9 @@ void block_proc(){
 	if(get_current_proc()->next == get_current_proc()){
 		unblock_proc(idle);
 	}
+
+	kernel->can_task_switch = 0;
+
 	//block ourself
 	get_current_proc()->flags &= ~(uint64_t)PROC_STATE_RUN;
 
@@ -227,6 +230,7 @@ void block_proc(){
 	get_current_proc()->prev->next = get_current_proc()->next;
 	get_current_proc()->next->prev = get_current_proc()->prev;
 
+	kernel->can_task_switch = 1;
 	//apply
 	yeld();
 }
@@ -238,10 +242,14 @@ void unblock_proc(process *proc){
 	}
 	kdebugf("unblock %ld\n",proc->pid);
 	proc->flags |= PROC_STATE_RUN;
-	
+
+	kernel->can_task_switch = 0;
+
 	//add it just before us
 	proc->next = get_current_proc();
 	proc->prev = get_current_proc()->prev;
 	proc->prev->next = proc;
 	get_current_proc()->prev = proc;
+
+	kernel->can_task_switch = 1;
 }
