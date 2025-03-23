@@ -51,11 +51,13 @@ context_switch:
 	mov ax, ss
 	push rax ;ss
 
-	push rsp
+	mov rax, rsp
+	add rax, 8
+	push rax
 	pushf
 
 	;save cs
-	mov ax, ss
+	mov ax, cs
 	push rax ;cs
 
 	;save rip
