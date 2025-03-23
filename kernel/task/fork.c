@@ -1,14 +1,14 @@
 #include "fork.h"
+#include "arch.h"
 #include "scheduler.h"
 #include "memseg.h"
 #include "paging.h"
 #include "print.h"
 #include "string.h"
-#include "arch.h"
 
 pid_t fork(void){
 	kdebugf("because of scheduler rewrite fork() don't work\n");
-	panic("fork() uniplemented",NULL);
+	//panic("fork() uniplemented",NULL);
 	process *parent = get_current_proc();
 	process *child = new_proc();
 	child->parent = parent;
@@ -32,12 +32,21 @@ pid_t fork(void){
 		if(child->fds[i].present) child->fds[i].node  = vfs_dup(parent->fds[i].node);
 	}
 
+	child->cwd_node = vfs_dup(parent->cwd_node);
+	child->cwd_path = strdup(parent->cwd_path);
+
 	//setup the return frame for the child
-	fault_frame frame;
+	fault_frame frame = *(get_current_proc()->syscall_frame);
+
 	
 	proc_push(child,&frame,sizeof(frame));
 
+
 	//flags
 	child->flags = parent->flags;
+
+	//make it ruuuunnnnn !!!
+	unblock_proc(child);
+
 	return child->pid;
 }

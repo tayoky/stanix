@@ -23,7 +23,7 @@ void pit_handler(fault_frame *frame){
 	irq_eoi(frame->err_code);
 
 	//yeld to next task
-	yeld();
+	//yeld();
 }
 
 void init_pit(void){

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef struct{
+typedef struct fault_frame{
 	uint64_t cr2;
 	uint64_t cr3;
 	uint64_t rax;

@@ -19,10 +19,12 @@ void sleep_until(struct timeval wakeup_time){
 		prev = proc;
 		proc = proc->snext;
 	}
-
+	
 	if(prev){
+		get_current_proc()->snext = prev->snext;
 		prev->snext = get_current_proc();
 	} else {
+		get_current_proc()->snext = sleeping_proc;
 		sleeping_proc = get_current_proc();
 	}
 

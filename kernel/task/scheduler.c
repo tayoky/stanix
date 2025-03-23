@@ -70,10 +70,8 @@ void init_task(){
 }
 
 void schedule(){
-	//only if can task switch
-	if(!kernel->can_task_switch){
-		return;
-	}
+	//get the next task
+	kernel->current_proc = get_current_proc()->next;
 
 	//see if we can wakeup anything
 	while(sleeping_proc){
@@ -84,9 +82,6 @@ void schedule(){
 		sleeping_proc = sleeping_proc->snext;
 	}
 	
-
-	//get the next task
-	kernel->current_proc = get_current_proc()->next;
 	//kdebugf("switch to %p\n",get_current_proc());
 }
 
@@ -115,8 +110,12 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 	memset(&context,0,sizeof(fault_frame));
 	context.rsi = argc;
 	context.rdi = argv;
+	context.flags = 0x208;
+	context.cs = 0x08;
+	context.ss = 0x10;
+	context.rip = (uint64_t)func;
+	context.rsp = KERNEL_STACK_TOP;
 	proc_push(proc,&context,sizeof(fault_frame));
-	proc_push(proc,&func,sizeof(void *));
 	kdebugf("%p %p\n",proc->cr3,proc->rsp);
 
 	//just copy the cwd of the current task
@@ -158,21 +157,21 @@ void yeld(){
  	schedule();
 
 	//get the new cr3 and rsp
-	//uint64_t cr3 = get_current_proc()->cr3;
-	//uint64_t rsp = get_current_proc()->rsp;
+	uint64_t cr3 = get_current_proc()->cr3;
+	uint64_t rsp = get_current_proc()->rsp;
 
-	//kdebugf("diff : %p %p\n",old,get_current_proc());
+	kdebugf("diff : %p %p\n",old,get_current_proc());
 
-	//kdebugf("switch to %p %p\n",cr3,rsp);
+	kdebugf("switch to %p %p\n",cr3,rsp);
 
 
 	fault_frame context;
-	context_save(&context);
+	//context_save(&context);
 
 	kernel->can_task_switch = 1;
 
 	context_switch(old,get_current_proc());
-	context_load(&context);
+	//context_load(&context);
 }
 
 process *get_current_proc(){
@@ -216,6 +215,7 @@ process *pid2proc(pid_t pid){
 }
 
 void block_proc(){
+	kdebugf("block %ld\n",get_current_proc()->pid);
 	//if this is the last process unblock the idle task
 	if(get_current_proc()->next == get_current_proc()){
 		unblock_proc(idle);
@@ -236,6 +236,7 @@ void unblock_proc(process *proc){
 	if(proc->flags & PROC_STATE_RUN){
 		return;
 	}
+	kdebugf("unblock %ld\n",proc->pid);
 	proc->flags |= PROC_STATE_RUN;
 	
 	//add it just before us
