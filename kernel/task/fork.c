@@ -37,13 +37,12 @@ pid_t fork(void){
 
 	//setup the return frame for the child
 	fault_frame frame = *(get_current_proc()->syscall_frame);
-
 	
+	//return 0 to the child
+	frame.rax = 0;
+
+	//push the context to the child
 	proc_push(child,&frame,sizeof(frame));
-
-
-	//flags
-	child->flags = parent->flags;
 
 	//make it ruuuunnnnn !!!
 	unblock_proc(child);
