@@ -1,8 +1,11 @@
 #include "sleep.h"
 #include "kernel.h"
 #include "scheduler.h"
+#include "print.h"
 
 void sleep_until(struct timeval wakeup_time){
+	kernel->can_task_switch = 0;
+	kdebugf("wait until : %ld:%ld\n",wakeup_time.tv_sec,wakeup_time.tv_usec);
 	get_current_proc()->wakeup_time = wakeup_time;
 	get_current_proc()->flags |= PROC_STATE_SLEEP;
 
@@ -27,7 +30,7 @@ void sleep_until(struct timeval wakeup_time){
 		get_current_proc()->snext = sleeping_proc;
 		sleeping_proc = get_current_proc();
 	}
-
+	kdebugf("sleep : %p\n",sleeping_proc);
 	block_proc();
 }
 
