@@ -6,6 +6,7 @@ context_switch:
 	mov cr2, rax
 
 	;save ss
+	xor rax, rax
 	mov ax, ss
 	push rax ;ss
 
@@ -15,6 +16,7 @@ context_switch:
 	pushf
 
 	;save cs
+	xor rax, rax
 	mov ax, cs
 	push rax ;cs
 
@@ -67,9 +69,15 @@ mov rsp, qword[rsi + 8]
 	pop r15
 	add rsp, 16 ;skip err code and type
 
-	;reset rsp
-	add rsp, 40
-	;mov qword[rsp - 16], rsp
-	sub rsp, 40
+	;restore ds and other segment
+	push rax
+	mov rax, qword[rsp + 40]
+
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	
+	pop rax
 
 	iretq

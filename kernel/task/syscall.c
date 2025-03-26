@@ -590,13 +590,17 @@ int sys_waitpid(pid_t pid,int *status){
 	//wait for any
 	if(pid == -1){
 		return -ENOTSUP;
-	} 
+	}
+
+	//prevent child state from changing
+	kernel->can_task_switch = 0;
 
 	//wait for pid
 	process *proc = pid2proc(pid);
 
 	//make sure it exist and is a child
 	if((!proc) || proc->parent != get_current_proc()){
+		kernel->can_task_switch = 1;
 		return -ECHILD;
 	}
 
@@ -606,6 +610,9 @@ int sys_waitpid(pid_t pid,int *status){
 			*status = proc->exit_status;
 		}
 		proc->flags |= PROC_STATE_DEAD;
+		list_append(to_clean_proc,proc);
+		//unblock_proc(cleaner);
+		kernel->can_task_switch = 1;
 		return pid;
 	}
 
@@ -613,6 +620,7 @@ int sys_waitpid(pid_t pid,int *status){
 	get_current_proc()->flags |= PROC_STATE_WAIT;
 	
 	//block, when we wake up the process is now a zombie
+	kernel->can_task_switch = 1;
 	block_proc();
 
 	//get the exit status
