@@ -7,8 +7,6 @@
 #include "string.h"
 
 pid_t fork(void){
-	kdebugf("because of scheduler rewrite fork() don't work\n");
-	//panic("fork() uniplemented",NULL);
 	process *parent = get_current_proc();
 	process *child = new_proc();
 	child->parent = parent;

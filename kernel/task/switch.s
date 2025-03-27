@@ -1,3 +1,4 @@
+extern kernel
 global context_switch
 context_switch:
 	;save context
@@ -77,6 +78,10 @@ mov rsp, qword[rsi + 8]
 	mov es, ax
 	mov fs, ax
 	mov gs, ax
+
+	;reactive task switch
+	mov rax, qword[kernel]
+	mov byte[rax], 0
 	
 	pop rax
 

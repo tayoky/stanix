@@ -611,7 +611,7 @@ int sys_waitpid(pid_t pid,int *status){
 		}
 		proc->flags |= PROC_STATE_DEAD;
 		list_append(to_clean_proc,proc);
-		//unblock_proc(cleaner);
+		unblock_proc(cleaner);
 		kernel->can_task_switch = 1;
 		return pid;
 	}

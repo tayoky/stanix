@@ -16,6 +16,7 @@
 extern struct timeval time;
 
 typedef struct kernel_table_struct{
+	char can_task_switch; //used in switch.s
 	gdt_segment gdt[7];
 	GDTR gdtr;
 	idt_gate idt[256];
@@ -42,7 +43,6 @@ typedef struct kernel_table_struct{
 	uint8_t pic_type;
 	pid_t created_proc_count;
 	process *current_proc;
-	char can_task_switch;
 }kernel_table;
 
 extern kernel_table *kernel;

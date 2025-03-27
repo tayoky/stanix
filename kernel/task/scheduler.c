@@ -155,22 +155,8 @@ void yeld(){
 
  	schedule();
 
-	//get the new cr3 and rsp
-	uint64_t cr3 = get_current_proc()->cr3;
-	uint64_t rsp = get_current_proc()->rsp;
-
-	//kdebugf("diff : %p %p\n",old,get_current_proc());
-
-	//kdebugf("switch to %p %p\n",cr3,rsp);
-
-
-	fault_frame context;
-	//context_save(&context);
-
-	kernel->can_task_switch = 1;
-
 	context_switch(old,get_current_proc());
-	//context_load(&context);
+	kernel->can_task_switch = 1;
 }
 
 process *get_current_proc(){
@@ -185,10 +171,10 @@ void kill_proc(process *proc){
 			unblock_proc(proc->parent);
 		}
 	}
-	proc->flags = PROC_STATE_PRESENT | PROC_STATE_ZOMBIE | PROC_STATE_TOCLEAN;
-
-	list_append(to_clean_proc,proc);
-
+	
+	proc->flags |= PROC_STATE_ZOMBIE;
+	block_proc(proc);
+	
 	//if the proc is it self
 	//then we have to yeld
 	if(proc == get_current_proc()){
