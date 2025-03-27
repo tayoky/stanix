@@ -2,7 +2,6 @@
 #include "scheduler.h"
 #include "print.h"
 #include "kernel.h"
-#include "idt.h"
 #include "print.h"
 #include <errno.h>
 #include "page.h"
@@ -676,13 +675,13 @@ void *syscall_table[] = {
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
 
 void syscall_handler(fault_frame *context){
-	if(context->rax >= syscall_number){
-		context->rax = (uint64_t)-EINVAL;
+	if(ARG0_REG(*context) >= syscall_number){
+		ARG0_REG(*context) = (uint64_t)-EINVAL;
 		return;
 	}
 
 	get_current_proc()->syscall_frame = context;
 
-	long (*syscall)(long,long,long,long) = syscall_table[context->rax];
-	context->rax = syscall(context->rdi,context->rsi,context->rdx,context->rcx);
+	long (*syscall)(long,long,long,long) = syscall_table[ARG0_REG(*context)];
+	RET_REG(*context) = syscall(ARG1_REG(*context),ARG2_REG(*context),ARG3_REG(*context),ARG4_REG(*context));
 }

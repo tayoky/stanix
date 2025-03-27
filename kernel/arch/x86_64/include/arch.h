@@ -36,4 +36,12 @@ typedef struct fault_frame{
 
 void context_switch(process *old,process *new);
 
+#define ARG0_REG(frame) ( frame ).rax
+#define ARG1_REG(frame) ( frame ).rdi
+#define ARG2_REG(frame) ( frame ).rsi
+#define ARG3_REG(frame) ( frame ).rdx
+#define ARG4_REG(frame) ( frame ).rcx
+#define RET_REG(frame)  ( frame ).rax
+#define SP_REG(frame)   ( frame ).rsp
+
 #endif
