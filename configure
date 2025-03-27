@@ -12,6 +12,9 @@ SYSROOT=$(dirname $(realpath $0))/sysroot
 ##for the moment use linux toolchain cause stanix gcc don't work
 HOST="x86_64-linux-gnu"
 
+#default arch
+ARCH="x86_64"
+
 for i in "$@"; do
   case $i in
     --with-sysroot=*)
@@ -87,3 +90,4 @@ echo "SYSROOT=$SYSROOT" >> config.mk
 echo "LD=$LD" >> config.mk
 echo "CC=$CC" >> config.mk
 echo "NASM=$NASM" >> config.mk
+echo "ARCH=$ARCH" >> config.mk

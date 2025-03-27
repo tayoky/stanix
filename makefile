@@ -11,6 +11,7 @@ include config.mk
 export CC
 export LD
 export NASM
+export ARCH
 
 out_files = ${OUT}/boot/limine/limine-bios.sys \
 ${OUT}/EFI/BOOT/BOOTX64.EFI \
