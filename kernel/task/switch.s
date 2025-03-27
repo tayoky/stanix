@@ -1,6 +1,8 @@
 extern kernel
 global context_switch
 context_switch:
+	sti
+
 	;save context
 	;use cr2 to store the address to return
 	pop rax
@@ -79,10 +81,8 @@ mov rsp, qword[rsi + 8]
 	mov fs, ax
 	mov gs, ax
 
-	;reactive task switch
-	mov rax, qword[kernel]
-	mov byte[rax], 0
-	
 	pop rax
 
+	cli
+	
 	iretq
