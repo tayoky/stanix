@@ -11,15 +11,13 @@ void init_kheap(void){
 
 	kernel->kheap.start = PAGE_ALIGN_DOWN(KHEAP_START);
 
-	//get cr3
-	uint64_t cr3;
-	asm("mov %%cr3, %%rax" : "=a" (cr3));
-	uint64_t *PMLT4 = (uint64_t *)(cr3 + kernel->hhdm);
-	map_page(PMLT4,allocate_page(&kernel->bitmap),kernel->kheap.start/PAGE_SIZE,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+	//get addr space
+	uint64_t *addr_space = (uint64_t *)(get_addr_space() + kernel->hhdm);
+	map_page(addr_space,allocate_page(&kernel->bitmap),kernel->kheap.start/PAGE_SIZE,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 
 	//get the PDP for the kernel heap
 	kernel->kheap.PMLT4i = (kernel->kheap.start >> 39) & 0x1FF;
-	kernel->kheap.PDP = (uint64_t *)(PMLT4[kernel->kheap.PMLT4i] & PAGING_ENTRY_ADDRESS);
+	kernel->kheap.PDP = (uint64_t *)(addr_space[kernel->kheap.PMLT4i] & PAGING_ENTRY_ADDRESS);
 
 	kernel->kheap.lenght = PAGE_SIZE;
 
@@ -37,23 +35,21 @@ void change_kheap_size(int64_t offset){
 	if(!offset)return;
 	int64_t offset_page = offset / PAGE_SIZE;
 
-	//get the PMLT4
-	uint64_t cr3;
-	asm("mov %%cr3, %%rax" : "=a" (cr3));
-	uint64_t *PMLT4 = (uint64_t *)(cr3 + kernel->hhdm);
+	//get the addr space
+	uint64_t *addr_space = (uint64_t *)(get_addr_space() + kernel->hhdm);
 
 	if(offset < 0){
 		//make kheap smaller
 		for (int64_t i = 0; i > offset_page; i--){
 			uint64_t virt_page = (kernel->kheap.start + kernel->kheap.lenght)/PAGE_SIZE + i;
 			uint64_t phys_page = (uint64_t)virt2phys((void *)(virt_page*PAGE_SIZE)) / PAGE_SIZE;
-			unmap_page(PMLT4,virt_page);
+			unmap_page(addr_space,virt_page);
 			free_page(&kernel->bitmap,phys_page);
 		}
 	} else {
 		//make kheap bigger
 		for (int64_t i = 0; i < offset_page; i++){
-			map_page(PMLT4,allocate_page(&kernel->bitmap),(kernel->kheap.start+kernel->kheap.lenght)/PAGE_SIZE+i,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+			map_page(addr_space,allocate_page(&kernel->bitmap),(kernel->kheap.start+kernel->kheap.lenght)/PAGE_SIZE+i,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 		}
 	}
 	kernel->kheap.lenght += offset_page * PAGE_SIZE;

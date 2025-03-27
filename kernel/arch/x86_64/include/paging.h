@@ -7,11 +7,11 @@
 void init_paging(void);
 /// @brief create an new PMLT4 and map all kernel modules and framebuffers
 /// @return an pointer to the PMLT4
-uint64_t *init_PMLT4(kernel_table *kernel);
+uint64_t *create_addr_space(kernel_table *kernel);
 
 /// @brief delete an PMLT4 and free all used pages by it (only by the table not the physical pages the PT point to)
 /// @param PMLT4 an pointer to the PMLT4 to free/delete
-void delete_PMLT4(uint64_t *PMLT4);
+void delete_addr_space(uint64_t *PMLT4);
 
 /// @brief map an virtual page to a physcal page
 /// @param PMLT4 an pointer to the PMLT4
@@ -46,7 +46,11 @@ void *virt2phys(void *address);
 /// @param PMLT4 an pointer to the PMLT4
 /// @param address the virtual address
 /// @return the physical address it is mapped to
-void *PMLT4_virt2phys(uint64_t *PMLT4,void *address);
+void *space_virt2phys(uint64_t *PMLT4,void *address);
+
+/// @brief get the current address space
+/// @return the current address space
+uint64_t get_addr_space();
 
 #ifndef NULL
 #define NULL (void *)0

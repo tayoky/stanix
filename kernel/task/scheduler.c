@@ -41,8 +41,8 @@ void init_task(){
 	kernel_task->flags = PROC_STATE_PRESENT | PROC_STATE_RUN;
 	kernel_task->child = new_list();
 
-	//get the cr3
-	asm volatile("mov %%cr3, %0" : "=r" (kernel_task->cr3));
+	//get the address space
+	kernel_task->cr3 = get_addr_space();
 	
 	//let just the boot kernel task start with a cwd at initrd root
 	//low effort but it work okay ?
@@ -89,7 +89,7 @@ process *new_proc(){
 	process *proc = kmalloc(sizeof(process));
 	memset(proc,0,sizeof(process));
 	proc->pid = ++kernel->created_proc_count;
-	proc->cr3 = ((uintptr_t)init_PMLT4(kernel)) - kernel->hhdm;
+	proc->cr3 = ((uintptr_t)create_addr_space(kernel)) - kernel->hhdm;
 	proc->parent = get_current_proc();
 	proc->flags = PROC_STATE_PRESENT;
 	proc->child = new_list();
@@ -136,7 +136,7 @@ void proc_push(process *proc,void *value,size_t size){
 	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
 	for(int i=0; i<size; i++){
 		//find the address to write to
-		char *address = (char *) (((uintptr_t) PMLT4_virt2phys(PMLT4,(void *)(proc->rsp + i))) + kernel->hhdm);
+		char *address = (char *) (((uintptr_t) space_virt2phys(PMLT4,(void *)(proc->rsp + i))) + kernel->hhdm);
 
 		//and write to it
 		*address = buffer[i];

@@ -8,15 +8,21 @@ extern uint64_t p_kernel_start[];
 extern uint64_t p_kernel_end[];
 extern uint64_t p_kernel_text_end[];
 
+uint64_t get_addr_space(){
+	uint64_t cr3;
+	asm("mov %%cr3, %%rax" : "=a" (cr3));
+	return cr3;
+}
+
 void init_paging(void){
 	kstatus("init paging... ");
-	uint64_t *PMLT4 = init_PMLT4(kernel);
+	uint64_t *PMLT4 = create_addr_space(kernel);
 	uint64_t cr3 = (uint64_t)PMLT4 - kernel->hhdm;
 	asm volatile ("movq %0, %%cr3" : :  "r" (cr3) );
 	kok();
 }
 
-uint64_t *init_PMLT4(kernel_table *kernel){
+uint64_t *create_addr_space(kernel_table *kernel){
 	//allocate place for the PMLT4
 	uint64_t *PMLT4 = (uint64_t *)(PAGE_SIZE * allocate_page(&kernel->bitmap) + kernel->hhdm);
 
@@ -35,10 +41,10 @@ uint64_t *init_PMLT4(kernel_table *kernel){
 	return PMLT4;
 }
 
-void delete_PMLT4(uint64_t *PMLT4){
+void delete_addr_space(uint64_t *PMLT4){
 	//first free the kernel stack
 	for (size_t cur = KERNEL_STACK_BOTTOM; cur < KERNEL_STACK_TOP; cur+= PAGE_SIZE){
-		free_page(&kernel->bitmap,(uintptr_t)PMLT4_virt2phys(PMLT4,(void *)cur)/PAGE_SIZE);
+		free_page(&kernel->bitmap,(uintptr_t)space_virt2phys(PMLT4,(void *)cur)/PAGE_SIZE);
 	}
 	
 
@@ -80,11 +86,11 @@ void *virt2phys(void *address){
 	asm volatile("mov %%cr3, %0" : "=r" (cr3));
 	uint64_t *PMLT4 = (uint64_t *)(cr3 + kernel->hhdm);
 
-	//and then just wrap arround PMLT4_virt2phys
-	return PMLT4_virt2phys(PMLT4,address);
+	//and then just wrap arround space_virt2phys
+	return space_virt2phys(PMLT4,address);
 }
 
-void *PMLT4_virt2phys(uint64_t *PMLT4, void *address){
+void *space_virt2phys(uint64_t *PMLT4, void *address){
 	uint64_t PMLT4i= ((uint64_t)address >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)address >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)address >> 21) & 0x1FF;

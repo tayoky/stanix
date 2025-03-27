@@ -38,7 +38,7 @@ void memeseg_chflag(process *proc,memseg *seg,uint64_t flags){
 	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
 	seg->flags = flags;
 	while(size > 0){
-		map_page(PMLT4,(uintptr_t)PMLT4_virt2phys(PMLT4,address * PAGE_SIZE)/PAGE_SIZE,address,flags);
+		map_page(PMLT4,(uintptr_t)space_virt2phys(PMLT4,address * PAGE_SIZE)/PAGE_SIZE,address,flags);
 		address++;
 		size--;
 	}
@@ -63,7 +63,7 @@ void memseg_unmap(process *proc,memseg *seg){
 	uint64_t virt_page = (uint64_t)seg->offset / PAGE_SIZE;
 	while(size > 0){
 		//get the phys page
-		uint64_t phys_page = (uint64_t)PMLT4_virt2phys(proc->cr3 + kernel->hhdm,virt_page * PAGE_SIZE) / PAGE_SIZE;
+		uint64_t phys_page = (uint64_t)space_virt2phys(proc->cr3 + kernel->hhdm,virt_page * PAGE_SIZE) / PAGE_SIZE;
 
 		//unmap it
 		unmap_page(proc->cr3 + kernel->hhdm,virt_page);
@@ -85,7 +85,7 @@ void memseg_clone(process *parent,process *child,memseg *seg){
 	uint64_t virt_addr = (uint64_t)new_seg->offset;
 	while(size > 0){
 		//get the phys page
-		void * phys_addr = PMLT4_virt2phys(child->cr3 + kernel->hhdm,virt_addr);
+		void * phys_addr = space_virt2phys(child->cr3 + kernel->hhdm,virt_addr);
 
 		memcpy((uint64_t)phys_addr + kernel->hhdm, virt_addr ,PAGE_SIZE);
 		
