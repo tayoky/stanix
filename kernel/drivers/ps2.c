@@ -7,6 +7,7 @@
 #include "ringbuf.h"
 #include "string.h"
 #include "kernel.h"
+#include "time.h"
 #include <input.h>
 
 #define PS2_DATA    0x60

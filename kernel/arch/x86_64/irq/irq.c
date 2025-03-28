@@ -31,23 +31,23 @@ void init_irq(void){
 	init_pic();
 
 	//set generic handler
-	set_idt_gate(kernel->idt,32,irq0,0x8E);
-	set_idt_gate(kernel->idt,33,irq1,0x8E);
-	set_idt_gate(kernel->idt,34,irq2,0x8E);
-	set_idt_gate(kernel->idt,35,irq3,0x8E);
-	set_idt_gate(kernel->idt,36,irq4,0x8E);
-	set_idt_gate(kernel->idt,37,irq5,0x8E);
-	set_idt_gate(kernel->idt,38,irq6,0x8E);
-	set_idt_gate(kernel->idt,39,irq7,0x8E);
-	set_idt_gate(kernel->idt,40,irq8,0x8E);
-	set_idt_gate(kernel->idt,41,irq9,0x8E);
-	set_idt_gate(kernel->idt,42,irq10,0x8E);
-	set_idt_gate(kernel->idt,43,irq11,0x8E);
-	set_idt_gate(kernel->idt,44,irq12,0x8E);
-	set_idt_gate(kernel->idt,45,irq13,0x8E);
-	set_idt_gate(kernel->idt,46,irq14,0x8E);
-	set_idt_gate(kernel->idt,47,irq15,0x8E);
-
+	set_idt_gate(kernel->arch.idt,32,irq0,0x8E);
+	set_idt_gate(kernel->arch.idt,33,irq1,0x8E);
+	set_idt_gate(kernel->arch.idt,34,irq2,0x8E);
+	set_idt_gate(kernel->arch.idt,35,irq3,0x8E);
+	set_idt_gate(kernel->arch.idt,36,irq4,0x8E);
+	set_idt_gate(kernel->arch.idt,37,irq5,0x8E);
+	set_idt_gate(kernel->arch.idt,38,irq6,0x8E);
+	set_idt_gate(kernel->arch.idt,39,irq7,0x8E);
+	set_idt_gate(kernel->arch.idt,40,irq8,0x8E);
+	set_idt_gate(kernel->arch.idt,41,irq9,0x8E);
+	set_idt_gate(kernel->arch.idt,42,irq10,0x8E);
+	set_idt_gate(kernel->arch.idt,43,irq11,0x8E);
+	set_idt_gate(kernel->arch.idt,44,irq12,0x8E);
+	set_idt_gate(kernel->arch.idt,45,irq13,0x8E);
+	set_idt_gate(kernel->arch.idt,46,irq14,0x8E);
+	set_idt_gate(kernel->arch.idt,47,irq15,0x8E);
+ 
 	kok();
 
 	if(kernel->pic_type == PIC_PIC){
@@ -59,7 +59,7 @@ void init_irq(void){
 
 void irq_map(void *handler,uint64_t irq_num){
 	//first add it into the IDT
-	set_idt_gate(kernel->idt,irq_num + 32,handler,0x8E);
+	set_idt_gate(kernel->arch.idt,irq_num + 32,handler,0x8E);
 
 	//and then unmask it
 	switch (kernel->pic_type)

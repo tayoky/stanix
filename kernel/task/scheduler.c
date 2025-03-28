@@ -7,6 +7,7 @@
 #include "string.h"
 #include "list.h"
 #include "arch.h"
+#include "time.h"
 
 process *running_proc;
 list *proc_list;

@@ -31,26 +31,26 @@ void init_gdt(void){
 	kstatus("init GDT... ");
 
 	//first the null segment
-	kernel->gdt[0] = create_gdt_segement(0,0,0,0);
+	kernel->arch.gdt[0] = create_gdt_segement(0,0,0,0);
 
 	//kernel code and data
-	kernel->gdt[1] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_KERNEL | GDT_SEGMENT_ACCESS_EXECUTABLE,0x02);
-	kernel->gdt[2] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_KERNEL,0x00);
+	kernel->arch.gdt[1] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_KERNEL | GDT_SEGMENT_ACCESS_EXECUTABLE,0x02);
+	kernel->arch.gdt[2] = create_gdt_segement(0,0,GDT_SEGMENT_ACCESS_KERNEL,0x00);
 
 	//user code and data
-	kernel->gdt[3] = create_gdt_segement(0,0,0xFA,0x02);
-	kernel->gdt[4] = create_gdt_segement(0,0,0xF2,0x00);
+	kernel->arch.gdt[3] = create_gdt_segement(0,0,0xFA,0x02);
+	kernel->arch.gdt[4] = create_gdt_segement(0,0,0xF2,0x00);
 
 	//tss take two entries
-	kernel->gdt[5] = create_gdt_segement((uint64_t)&kernel->tss & 0xFFFFFFFF,sizeof(TSS) - 1,0x89,0);
-	uint32_t tss_addressH = ((uint64_t)&kernel->tss >> 32) & 0xFFFFFFFF;
-	kernel->gdt[6] = *(gdt_segment *)&tss_addressH;
+	kernel->arch.gdt[5] = create_gdt_segement((uint64_t)&kernel->arch.tss & 0xFFFFFFFF,sizeof(TSS) - 1,0x89,0);
+	uint32_t tss_addressH = ((uint64_t)&kernel->arch.tss >> 32) & 0xFFFFFFFF;
+	kernel->arch.gdt[6] = *(gdt_segment *)&tss_addressH;
 
 	//create the GDTR and load it so the GDT is actually used
-	kernel->gdtr.size = sizeof(kernel->gdt) - 1;
-	kernel->gdtr.offset = (uint64_t)&kernel->gdt[0];
+	kernel->arch.gdtr.size = sizeof(kernel->arch.gdt) - 1;
+	kernel->arch.gdtr.offset = (uint64_t)&kernel->arch.gdt[0];
 
-	asm("lgdt %0" : : "m" (kernel->gdtr));
+	asm("lgdt %0" : : "m" (kernel->arch.gdtr));
 
 	asm volatile("push $0x08; \
 				lea .reload_seg(%%rip), %%rax; \

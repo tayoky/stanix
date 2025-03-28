@@ -8,9 +8,9 @@ void init_tss(){
 	kstatus("init tss... ");
 
 	//just set the tss
-	memset(&kernel->tss,0,sizeof(TSS));
-	kernel->tss.rsph0 = (KERNEL_STACK_TOP) >> 32;
-	kernel->tss.rspl0 = (KERNEL_STACK_TOP);
+	memset(&kernel->arch.tss,0,sizeof(TSS));
+	kernel->arch.tss.rsph0 = (KERNEL_STACK_TOP) >> 32;
+	kernel->arch.tss.rspl0 = (KERNEL_STACK_TOP);
 
 
 	//and load it

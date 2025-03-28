@@ -4,7 +4,7 @@
 #include "irq.h"
 #include "port.h"
 #include "serial.h"
-#include "sleep.h"
+#include "time.h"
 #include "arch.h"
 
 #define PIT_CHANNEL0 0x40

@@ -2,8 +2,6 @@
 #define KERNEL_H
 #include <stdint.h>
 #include <sys/time.h>
-#include "gdt.h"
-#include "idt.h"
 #include "limine.h"
 #include "bootinfo.h"
 #include "bitmap.h"
@@ -11,17 +9,10 @@
 #include "vfs.h"
 #include "terminal_emu.h"
 #include "scheduler.h"
-#include "tss.h"
-
-extern struct timeval time;
+#include "arch.h"
 
 typedef struct kernel_table_struct{
-	char can_task_switch; //used in switch.s
-	gdt_segment gdt[7];
-	GDTR gdtr;
-	idt_gate idt[256];
-	IDTR idtr;
-	TSS tss;
+	arch_specific arch;
 	bootinfo_table bootinfo;
 	struct limine_kernel_address_response *kernel_address;
 
@@ -43,6 +34,7 @@ typedef struct kernel_table_struct{
 	uint8_t pic_type;
 	pid_t created_proc_count;
 	process *current_proc;
+	char can_task_switch;
 }kernel_table;
 
 extern kernel_table *kernel;

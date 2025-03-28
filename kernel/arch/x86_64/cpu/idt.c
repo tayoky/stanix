@@ -88,20 +88,20 @@ void init_idt(void){
 	kstatus("init IDT... ");
 
 	//some exception other exceptions are not very important
-	set_idt_gate(kernel->idt,0,&divide_exception,0x8E);
-	set_idt_gate(kernel->idt,4,&overflow_exception,0x8E);
-	set_idt_gate(kernel->idt,6,&invalid_op_exception,0x8E);
-	set_idt_gate(kernel->idt,10,&invalid_tss_exception,0x8E);
-	set_idt_gate(kernel->idt,13,&global_fault_exception,0x8E);
-	set_idt_gate(kernel->idt,14,&pagefault_exception,0x8E);
+	set_idt_gate(kernel->arch.idt,0,&divide_exception,0x8E);
+	set_idt_gate(kernel->arch.idt,4,&overflow_exception,0x8E);
+	set_idt_gate(kernel->arch.idt,6,&invalid_op_exception,0x8E);
+	set_idt_gate(kernel->arch.idt,10,&invalid_tss_exception,0x8E);
+	set_idt_gate(kernel->arch.idt,13,&global_fault_exception,0x8E);
+	set_idt_gate(kernel->arch.idt,14,&pagefault_exception,0x8E);
 
 	//syscall
-	set_idt_gate(kernel->idt,0x80,&isr128,0xEF);
+	set_idt_gate(kernel->arch.idt,0x80,&isr128,0xEF);
 
 	//create the IDTR
-	kernel->idtr.size = sizeof(kernel->idt) - 1;
-	kernel->idtr.offset =(uint64_t) &kernel->idt;
+	kernel->arch.idtr.size = sizeof(kernel->arch.idt) - 1;
+	kernel->arch.idtr.offset =(uint64_t) &kernel->arch.idt;
 	//and load it
-	asm("lidt %0" : : "m" (kernel->idtr));
+	asm("lidt %0" : : "m" (kernel->arch.idtr));
 	kok();
 }

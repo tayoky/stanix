@@ -1,6 +1,10 @@
 #ifndef ARCH_H
 #define ARCH_H
 
+#include "gdt.h"
+#include "idt.h"
+#include "tss.h"
+
 #include <stdint.h>
 
 typedef struct fault_frame{
@@ -29,6 +33,14 @@ typedef struct fault_frame{
 	uint64_t rsp;
 	uint64_t ss;
 } fault_frame;
+
+typedef struct arch_specific {
+	gdt_segment gdt[7];
+	GDTR gdtr;
+	idt_gate idt[256];
+	IDTR idtr;
+	TSS tss;
+} arch_specific ;
 
 #include "scheduler.h"
 
