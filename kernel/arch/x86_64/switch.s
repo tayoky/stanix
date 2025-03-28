@@ -1,7 +1,7 @@
 extern kernel
 global context_switch
 context_switch:
-	sti
+	cti
 
 	;save context
 	;use cr2 to store the address to return
@@ -82,7 +82,5 @@ mov rsp, qword[rsi + 8]
 	mov gs, ax
 
 	pop rax
-
-	cli
 	
 	iretq
