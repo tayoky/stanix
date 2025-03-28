@@ -68,6 +68,12 @@ uint64_t get_addr_space();
 #define KERNEL_STACK_TOP 0xfffffffffffff000
 #define KERNEL_STACK_BOTTOM (KERNEL_STACK_TOP - KERNEL_STACK_SIZE)
 
+#define USER_STACK_TOP 0x80000000000
+#define USER_STACK_SIZE 64 *PAGE_SIZE
+#define USER_STACK_BOTTOM USER_STACK_TOP - USER_STACK_SIZE
+
+#define USERSPACE_LIMIT (uintptr_t)0x7FFFFFFFFFFFF
+
 #define switch_stack() asm volatile("mov $0, %%rbp\nmov %0, %%rsp" : :)
 
 #endif
