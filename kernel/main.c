@@ -26,7 +26,7 @@
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
-kernel_table *kernel;
+kernel_table *kernel = &master_kernel_table;
 
 struct timeval time = {
 	.tv_sec = 0,
@@ -97,7 +97,6 @@ void spawn_init(){
 
 //the entry point
 void kmain(){
-	kernel = &master_kernel_table;
 	disable_interrupt();
 	init_serial();
 	kinfof("\n"
@@ -117,10 +116,7 @@ void kmain(){
 	);
 	print_license();
 	get_bootinfo();
-	init_gdt();
-	init_idt();
 	enable_interrupt();
-	init_tss();
 	init_bitmap();
 	kprintf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
 	init_paging();
