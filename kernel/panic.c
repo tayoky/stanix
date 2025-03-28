@@ -7,23 +7,6 @@
 
 int panic_count = 0;
 
-void register_dump(fault_frame *registers){
-    asm("mov %%rax, %0" : "=r"(registers->rax):);
-    asm("mov %%rbx, %0" : "=r"(registers->rbx):);
-    asm("mov %%rcx, %0" : "=r"(registers->rcx):);
-    asm("mov %%rdx, %0" : "=r"(registers->rdx):);
-    asm("mov %%rsi, %0" : "=r"(registers->rsi):);
-    asm("mov %%rdi, %0" : "=r"(registers->rdi):);
-    asm("mov %%r8 , %0" : "=r"(registers->r8):);
-    asm("mov %%r9 , %0" : "=r"(registers->r9):);
-    asm("mov %%r10, %0" : "=r"(registers->r10):);
-    asm("mov %%r11, %0" : "=r"(registers->r11):);
-    asm("mov %%r12, %0" : "=r"(registers->r12):);
-    asm("mov %%r13, %0" : "=r"(registers->r13):);
-    asm("mov %%r14, %0" : "=r"(registers->r14):);
-    asm("mov %%r15, %0" : "=r"(registers->r15):);
-}
-
 void panic(const char *error,fault_frame *fault){
     disable_interrupt();
     panic_count++;
