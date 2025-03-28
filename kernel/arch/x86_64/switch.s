@@ -1,7 +1,7 @@
 extern kernel
 global context_switch
 context_switch:
-	cti
+	cli
 
 	;save context
 	;use cr2 to store the address to return
@@ -30,29 +30,29 @@ context_switch:
 	push 0
 	push 0
 	push r15
-    push r14
-    push r13
-    push r12
-    push r11
-    push r10
-    push r9
-    push r8
-    push rbp
-    push rdi
-    push rsi
-    push rdx
-    push rcx
-    push rbx
-    push rax
-    push 0 ;cr3
-    push 0 ;cr2
+	push r14
+	push r13
+	push r12
+	push r11
+	push r10
+	push r9
+	push r8
+	push rbp
+	push rdi
+	push rsi
+	push rdx
+	push rcx
+	push rbx
+	push rax
+	push 0 ;cr3
+	push 0 ;cr2
 
-;first save rsp
+	;first save rsp
 
-mov qword[rdi + 8], rsp
-mov rax, qword[rsi]
-mov cr3,rax
-mov rsp, qword[rsi + 8]
+	mov qword[rdi + 8], rsp
+	mov rax, qword[rsi]
+	mov cr3,rax
+	mov rsp, qword[rsi + 8]
 
 	add rsp, 16 ;skip cr2 ad cr3
 	pop rax
