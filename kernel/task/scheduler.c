@@ -8,6 +8,7 @@
 #include "list.h"
 #include "arch.h"
 #include "time.h"
+#include "asm.h"
 
 process *running_proc;
 list *proc_list;
@@ -156,8 +157,11 @@ void yeld(){
 
  	schedule();
 
-	context_switch(old,get_current_proc());
+	disable_interrupt();
+	
 	kernel->can_task_switch = 1;
+
+	context_switch(old,get_current_proc());
 }
 
 process *get_current_proc(){
