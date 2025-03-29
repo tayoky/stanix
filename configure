@@ -26,7 +26,11 @@ for i in "$@"; do
       LD="${i#*=}"
       shift # past argument=value
       ;;
-    --with-NASM=*)
+    --with-AS=*)
+      AS="${i#*=}"
+      shift # past argument=value
+      ;;
+   --with-NASM=*)
       NASM="${i#*=}"
       shift # past argument=value
       ;;
@@ -46,6 +50,8 @@ done
 #alaways use absolute path
 SYSROOT=$(realpath $SYSROOT)
 
+ARCH=${HOST%%-*}
+
 #check tools
 
 if [ "$CC" = "" ] ; then
@@ -59,12 +65,24 @@ if [ "$CC" = "" ] ; then
 	fi
 fi
 
-if [ "$NASM" = "" ] ; then
-	if nasm --version > /dev/null ; then
-		NASM="nasm"
-	else
-		echo "error : nasm not found"
-		exit 1
+
+if [ "$ARCH" = "x86_64" ] ; then
+	if [ "$NASM" = "" ] ; then
+		if nasm --version > /dev/null ; then
+			NASM="nasm"
+		else
+			echo "error : nasm not found"
+			exit 1
+		fi
+	fi
+else
+	if [ "$AS" = "" ] ; then
+		if $HOST-as --version > /dev/null ; then
+			AS="$HOST-as"
+		else
+			echo "error : no assembleur found"
+			exit 1
+		fi
 	fi
 fi
 
@@ -77,17 +95,16 @@ if [ "$LD" = "" ] ; then
 	fi
 fi
 
-ARCH=${HOST%%-*}
-
 echo "using $CC"
 echo "using $LD"
-echo "using $NASM"
+echo "using $NASM$AS"
 echo "using $SYSROOT as sysroot"
 
 echo "#generated automatically by configure.sh" > config.mk
 echo "SYSROOT=$SYSROOT" >> config.mk
 echo "LD=$LD" >> config.mk
 echo "CC=$CC" >> config.mk
+echo "AS=$AS" >> config mk
 echo "NASM=$NASM" >> config.mk
 echo "HOST=$HOST" >> config.mk
 echo "ARCH=$ARCH" >> config.mk

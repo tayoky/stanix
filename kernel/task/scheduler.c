@@ -110,7 +110,7 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 	fault_frame context;
 	memset(&context,0,sizeof(fault_frame));
 	ARG1_REG(context) = argc;
-	ARG2_REG(context) = argv;
+	ARG2_REG(context) = (uint64_t)argv;
 	#ifdef x86_64
 	context.flags = 0x208;
 	context.cs = 0x08;

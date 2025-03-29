@@ -21,6 +21,8 @@ device_op zero_op = {
 	.read = zero_read
 };
 
+//dev:/port only exist on x86_64
+#ifdef x86_64
 int64_t port_read(vfs_node *node,void *buffer,uint64_t port,size_t count){
 	//make compiler happy
 	(void)node;
@@ -51,6 +53,7 @@ device_op port_op = {
 	.read = port_read,
 	.write = port_write
 };
+#endif
 
 int64_t write_serial_dev(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	//make compiler happy
@@ -91,11 +94,13 @@ void init_devices(void){
 	}
 
 	// dev:/port
+#ifdef x86_64
 	if(vfs_create_dev("dev:/port",&port_op,NULL)){
 		kfail();
 		kinfof("fail to create device dev:/port\n");
 		halt();
 	}
+#endif
 
 	// dev:/console
 	if(vfs_create_dev("dev:/console",&serial_op,NULL)){

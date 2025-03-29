@@ -23,7 +23,7 @@ memseg *memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){
 
 
 	while(size > 0){
-		map_page(proc->cr3 + kernel->hhdm,allocate_page(&kernel->bitmap),address,flags);
+		map_page((void *)proc->cr3 + kernel->hhdm,allocate_page(&kernel->bitmap),address,flags);
 		address++;
 		size--;
 	}
@@ -38,7 +38,7 @@ void memeseg_chflag(process *proc,memseg *seg,uint64_t flags){
 	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
 	seg->flags = flags;
 	while(size > 0){
-		map_page(PMLT4,(uintptr_t)space_virt2phys(PMLT4,address * PAGE_SIZE)/PAGE_SIZE,address,flags);
+		map_page(PMLT4,(uintptr_t)space_virt2phys(PMLT4,(void *)(address * PAGE_SIZE))/PAGE_SIZE,address,flags);
 		address++;
 		size--;
 	}
@@ -63,10 +63,10 @@ void memseg_unmap(process *proc,memseg *seg){
 	uint64_t virt_page = (uint64_t)seg->offset / PAGE_SIZE;
 	while(size > 0){
 		//get the phys page
-		uint64_t phys_page = (uint64_t)space_virt2phys(proc->cr3 + kernel->hhdm,virt_page * PAGE_SIZE) / PAGE_SIZE;
+		uint64_t phys_page = (uint64_t)space_virt2phys((void *)proc->cr3 + kernel->hhdm,(void *)(virt_page * PAGE_SIZE)) / PAGE_SIZE;
 
 		//unmap it
-		unmap_page(proc->cr3 + kernel->hhdm,virt_page);
+		unmap_page((void *)proc->cr3 + kernel->hhdm,virt_page);
 
 		//free it
 		free_page(&kernel->bitmap,phys_page);
@@ -79,15 +79,17 @@ void memseg_unmap(process *proc,memseg *seg){
 }
 
 void memseg_clone(process *parent,process *child,memseg *seg){
-	memseg *new_seg = memseg_map(child,seg->offset,seg->size * PAGE_SIZE,seg->flags);
+	(void)parent;
+
+	memseg *new_seg = memseg_map(child,(uintptr_t)seg->offset,seg->size * PAGE_SIZE,seg->flags);
 	
 	size_t size = new_seg->size;
 	uint64_t virt_addr = (uint64_t)new_seg->offset;
 	while(size > 0){
 		//get the phys page
-		void * phys_addr = space_virt2phys(child->cr3 + kernel->hhdm,virt_addr);
+		void * phys_addr = space_virt2phys((void *)child->cr3 + kernel->hhdm,(void *)virt_addr);
 
-		memcpy((uint64_t)phys_addr + kernel->hhdm, virt_addr ,PAGE_SIZE);
+		memcpy((void *)phys_addr + kernel->hhdm, (void *)virt_addr ,PAGE_SIZE);
 		
 		virt_addr+= PAGE_SIZE;
 		size--;

@@ -10,6 +10,8 @@
 #include "time.h"
 #include <input.h>
 
+//this driver won't work on aarch64
+
 #define PS2_DATA    0x60
 #define PS2_COMMAND 0x64
 #define PS2_STATUS  0x64
@@ -26,26 +28,42 @@
 ring_buffer keyboard_queue;
 
 static void wait_output(){
+#ifdef x86_64
 	while(!(in_byte(PS2_STATUS) & 0x01));
+#else
+#endif
 }
 
 static void wait_input(){
+#ifdef x86_64
 	while(in_byte(PS2_STATUS) & 0x02);
+#else
+#endif
 }
 
 static void ps2_send_command(uint8_t command){
 	wait_input();
+#ifdef x86_64
 	out_byte(PS2_COMMAND,command);
+#else
+#endif
 }
 
 static uint8_t ps2_read(void){
 	wait_output();
+#ifdef x86_64
 	return in_byte(PS2_DATA);
+#else
+	return 0;
+#endif
 }
 
 static void ps2_write(uint8_t data){
 	wait_input();
+#ifdef x86_64
 	out_byte(PS2_DATA,data);
+#else
+#endif
 }
 
 static void keyboard_write(uint8_t data){
@@ -55,7 +73,7 @@ static void keyboard_write(uint8_t data){
 #define ESC "\033"
 
 
-const char *kbd_us[128] = {
+const char kbd_us[128] = {
 	0,0,
 	'1','2','3','4','5','6','7','8','9','0',
 	'-','=','\b',
@@ -133,6 +151,12 @@ device_op kbd_op = {
 
 void init_ps2(void){
 	kstatus("init ps2... ");
+
+	//on aarch64 the driver won't work
+#ifndef x86_64
+	kfail();
+	kinfof("the ps2 driver don't work on aarch64\n");
+#endif
 	//todo check if ps2 is present
 
 	//disable
@@ -140,7 +164,9 @@ void init_ps2(void){
 	ps2_send_command(PS2_DISABLE_PORT2);
 
 	//flush output
+#ifdef x86_64
 	in_byte(PS2_DATA);
+#endif
 
 	//modify configuration
 	ps2_send_command(PS2_READ_CONF);
@@ -154,8 +180,9 @@ void init_ps2(void){
 
 	//re enable port 1
 	ps2_send_command(PS2_ENABLE_PORT1);
-
+#ifdef x86_64
 	irq_generic_map(keyboard_handler,1);
+#endif
 
 	//set scancode set 3
 	keyboard_write(PS2_SET_SCANCODE_SET);

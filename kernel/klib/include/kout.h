@@ -1,5 +1,5 @@
 #ifndef KOUT_H
-#define KOUT_h
+#define KOUT_H
 
 void init_kout(void);
 

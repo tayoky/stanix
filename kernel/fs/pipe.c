@@ -40,7 +40,7 @@ int create_pipe(vfs_node **read,vfs_node **write){
 	return 0;
 }
 
-int64_t pipe_read(vfs_node *node,void *buffer,size_t offset,size_t count){
+int64_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
 
 	//borken pipe check
@@ -51,7 +51,7 @@ int64_t pipe_read(vfs_node *node,void *buffer,size_t offset,size_t count){
 	return ringbuffer_read(buffer,&pipe_inode->ring,count);
 }
 
-int64_t pipe_write(vfs_node *node,void *buffer,size_t offset,size_t count){
+int64_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
 
 	//borken pipe check
@@ -101,5 +101,5 @@ void pipe_close(vfs_node *node){
 		kfree(pipe_inode);
 	}
 
-	return 0;
+	return;
 }

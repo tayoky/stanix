@@ -10,6 +10,7 @@ include config.mk
 #tools
 export CC
 export LD
+export AS
 export NASM
 export ARCH
 
