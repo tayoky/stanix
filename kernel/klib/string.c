@@ -44,10 +44,21 @@ int strcmp(const char *str1,const  char *str2) {
 }
 
 void *memcpy(void *dest, const void *src,size_t n){
+	#ifdef x86_64
 	asm("rep movsb"
 		: : "D" (dest),
 		    "S" (src),
 		    "c" (n));
+	#else
+	char *str1 = dest;
+	const char *str2 = src;
+	while(n > 0){
+		*str1 = *str2;
+		str1++;
+		str2++;
+		n--;
+	}
+	#endif
 	return dest;
 }
 
@@ -60,10 +71,17 @@ void *memmove(void *dest, const void *src, size_t n){
 		return memcpy(dest,src,n);
 	}
 
+	#ifdef x86_64
 	asm("rep movsq"
 		: : "D" (dest),
 		    "S" (src),
 		    "c" (n));
+	#else
+	while(n > 0){
+		n--;
+		((char *)dest)[n] = ((char *)src)[n];
+	}
+	#endif
 	return dest;
 }
 

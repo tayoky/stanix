@@ -1,5 +1,6 @@
 #include "port.h"
 #include "serial.h"
+#include <stdint.h>
 
 int init_serial(void){
 	out_byte(SERIAL_PORT + 1, 0x00);

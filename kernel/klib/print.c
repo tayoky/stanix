@@ -66,7 +66,8 @@ void printuint(print_func func,uint64_t integer,uint8_t base,int padding,char pa
 	}
 
 	//now we can actually print the string
-	printfunc(func,(char *) str + index,NULL);
+	va_list stub;
+	printfunc(func,(char *) str + index,stub);
 }
 
 #define PAD(n) {int count = n ; while(count > 0)func(pad_char);count--;}

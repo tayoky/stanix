@@ -109,13 +109,15 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 
 	fault_frame context;
 	memset(&context,0,sizeof(fault_frame));
-	context.rsi = argc;
-	context.rdi = argv;
+	ARG1_REG(context) = argc;
+	ARG2_REG(context) = argv;
+	#ifdef x86_64
 	context.flags = 0x208;
 	context.cs = 0x08;
 	context.ss = 0x10;
 	context.rip = (uint64_t)func;
 	context.rsp = KERNEL_STACK_TOP;
+	#endif
 	proc_push(proc,&context,sizeof(fault_frame));
 	kdebugf("%p %p\n",proc->cr3,proc->rsp);
 

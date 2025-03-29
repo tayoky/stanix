@@ -1,0 +1,1 @@
+LDFLAGS += -m aarch64elf

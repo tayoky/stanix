@@ -7,6 +7,7 @@ CFLAGS += \
 	-m64 \
 	-mno-red-zone \
     -mcmodel=kernel
+LDFLAGS += -m elf_x86_64
 
 %.o : %.s
 	${NASM} ${ASMFLAGS} $< -o $@

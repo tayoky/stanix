@@ -61,12 +61,14 @@ static const char * memmap_types[] = {
 void get_bootinfo(void){
 	kstatus("getting limine response ...");
 	//get the stack start
+	#ifdef x86_64
 	uint64_t *rbp;
 	asm("mov %%rbp, %%rax":"=a"(rbp));
 	while (*rbp){
 		rbp = (uint64_t *)*rbp;
 	}
 	kernel->stack_start = (uint64_t)rbp;
+	#endif
 
 	//get the response from the limine request
 	kernel->kernel_address = kernel_address_request.response;
