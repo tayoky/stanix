@@ -35,6 +35,10 @@ struct timeval time = {
 
 static void ls(const char *path){
 	vfs_node *node = vfs_open(path,VFS_READONLY);
+	if(!node){
+		kprintf("%s don't exist\n",path);
+		return;
+	}
 
 	struct dirent *ret;
 	uint64_t index = 0;
@@ -42,6 +46,7 @@ static void ls(const char *path){
 		ret = vfs_readdir(node,index);
 		if(!ret)break;
 		kprintf("%s\n",ret->d_name);
+		kfree(ret);
 		index++;
 	}
 

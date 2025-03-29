@@ -37,7 +37,7 @@ pid_t fork(void){
 	fault_frame frame = *(get_current_proc()->syscall_frame);
 	
 	//return 0 to the child
-	frame.rax = 0;
+	RET_REG(frame) = 0;
 
 	//push the context to the child
 	proc_push(child,&frame,sizeof(frame));
