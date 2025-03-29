@@ -5,14 +5,6 @@ CFLAGS = -Wall \
     -fno-stack-protector \
     -fno-stack-check \
     -fno-PIC \
-    -m64 \
-    -march=x86-64 \
-    -mno-80387 \
-    -mno-mmx \
-    -mno-sse \
-    -mno-sse2 \
-    -mno-red-zone \
-    -mcmodel=kernel \
     -fsanitize=undefined
 CFLAGS += -I ./
 CFLAGS += -I ./include/

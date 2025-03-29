@@ -25,6 +25,8 @@ ASMFLAGS += -Wall \
     -f elf64
 include include.mk
 
+include arch/${ARCH}/arch.mk
+
 CFLAGS += --sysroot=${SYSROOT} -isystem ${SYSROOT}/usr/include
 
 ${OUT}/boot/${KERNEL} : ${OBJ}
@@ -33,8 +35,6 @@ ${OUT}/boot/${KERNEL} : ${OBJ}
 ${OUT}/boot/limine/limine.conf : limine.conf
 	cp limine.conf ${out}/boot/limine/limine.conf
 %.o : %.c
-	${CC} ${CFLAGS} -o $@ -c $^
-%.o : %.s
-	${NASM} ${ASMFLAGS} $< -o $@
+	${CC} ${CFLAGS} -o $@ -g -c $^
 clean :
 	rm ${OBJ} ${out}
