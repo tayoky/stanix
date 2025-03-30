@@ -97,7 +97,7 @@ int main(int argc,char **argv){
 	//try do some ls
 	DIR *dir = opendir(".");
 	if(!dir){
-		fprintf(stderr,"%s\n",strerror(errno));
+		//fprintf(stderr,"%s\n",strerror(errno));
 		exit(1);
 	}
 	for(;;){

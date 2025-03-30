@@ -36,4 +36,4 @@ ${OUT}/boot/limine/limine.conf : limine.conf
 %.o : %.c
 	${CC} -D${ARCH} ${CFLAGS} -o $@ -g -c $^
 clean :
-	rm ${OBJ} ${out}
+	rm -f ${OBJ} ${out}

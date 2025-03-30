@@ -15,4 +15,4 @@ install : all
 	mkdir -p ../initrd/bin
 	cd out && cp -r ./ ../../initrd/bin
 clean :
-	$(foreach dir,${apps},${MAKE} -C ${dir} clean SYSROOT=${SYSROOT})
+	$(foreach dir,${apps},${MAKE} -C ${dir} clean SYSROOT=${SYSROOT} && ) true

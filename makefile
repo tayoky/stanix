@@ -17,6 +17,7 @@ export ARCH
 out_files = ${OUT}/boot/limine/limine-bios.sys \
 ${OUT}/EFI/BOOT/BOOTX64.EFI \
 ${OUT}/EFI/BOOT/BOOTIA32.EFI \
+${OUT}/EFI/BOOT/BOOTAA64.EFI \
 ${OUT}/boot/limine/limine-bios-cd.bin\
 ${OUT}/boot/limine/limine-uefi-cd.bin\
 ${OUT}/boot/initrd.tar
@@ -27,10 +28,10 @@ initrd_src = $(shell find ./initrd -name "*")
 all : hdd iso
 
 test : hdd
-	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio
+	qemu-system-${ARCH} -drive file=${hdd_out}  -serial stdio
 debug : hdd
 	objdump -D ${OUT}/boot/${KERNEL} > asm.txt
-	qemu-system-x86_64 -drive file=${hdd_out}  -serial stdio -s -S
+	qemu-system-${ARCH} -drive file=${hdd_out}  -serial stdio -s -S
 hdd : build ${hdd_out}
 ${hdd_out} : ${kernel_src} ${out_files} 
 	rm -f ${hdd_out}
@@ -77,6 +78,8 @@ build : header ${OUT}/boot/limine/limine.conf
 header : 
 	${MAKE} -C tlibc header TARGET=stanix SYSROOT=${SYSROOT}
 clean :
-	cd kernel && make clean
+	make -C kernel clean
+	make -C tlibc clean
+	make -C userspace clean
 config.mk :
 	$(error "run ./configure before runing make")
