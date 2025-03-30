@@ -34,6 +34,6 @@ ${OUT}/boot/${KERNEL} : ${OBJ}
 ${OUT}/boot/limine/limine.conf : limine.conf
 	cp limine.conf ${out}/boot/limine/limine.conf
 %.o : %.c
-	${CC} -D${ARCH} ${CFLAGS} -o $@ -g -c $^
+	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^
 clean :
 	rm -f ${OBJ} ${out}

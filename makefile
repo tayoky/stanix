@@ -38,12 +38,12 @@ ${hdd_out} : ${kernel_src} ${out_files}
 	dd if=/dev/zero bs=1M count=0 seek=64 of=${hdd_out}
 	sgdisk ${hdd_out} -n 1:2048 -t 1:ef00 
 	make -C limine
-# Install the Limine BIOS stages onto the image.
-	./limine/limine bios-install ${hdd_out}
 # Format the image as fat32.
 	mformat -i ${hdd_out}@@1M	
 #copy the files
 	cd ${OUT} && mcopy -i ../${hdd_out}@@1M * -/ ::/
+# Install the Limine BIOS stages onto the image.
+	./limine/limine bios-install ${hdd_out}
 
 iso : build ${iso_out}
 ${iso_out} : ${kernel_src} ${out_files}
@@ -53,6 +53,7 @@ ${iso_out} : ${kernel_src} ${out_files}
         -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
         -efi-boot-part --efi-boot-image --protective-msdos-label \
         ${OUT} -o ${iso_out}
+	./limine/limine bios-install ${iso_out}
 
 #limine files to copy
 ${OUT}/boot/limine/limine-bios.sys : limine/limine-bios.sys
