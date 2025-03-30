@@ -54,6 +54,9 @@ ${iso_out} : ${kernel_src} ${out_files}
         -efi-boot-part --efi-boot-image --protective-msdos-label \
         ${OUT} -o ${iso_out}
 	./limine/limine bios-install ${iso_out}
+OVMF-img.bin : OVMF.fd
+	cp OVMF.fd OVMF-img.bin
+	dd if=/dev/zero of=OVMF-img.bin bs=1 count=0 seek=67108864
 
 #limine files to copy
 ${OUT}/boot/limine/limine-bios.sys : limine/limine-bios.sys

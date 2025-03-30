@@ -8,6 +8,7 @@ stanix.elf
 FOS25.*
 stanix.iso
 stanix.hdd
+OVMF-img.bin
 
 #limine build
 limine-bios.sys
