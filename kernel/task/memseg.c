@@ -89,7 +89,7 @@ void memseg_clone(process *parent,process *child,memseg *seg){
 		//get the phys page
 		void * phys_addr = space_virt2phys((void *)child->cr3 + kernel->hhdm,(void *)virt_addr);
 
-		memcpy((void *)phys_addr + kernel->hhdm, (void *)virt_addr ,PAGE_SIZE);
+		memcpy((void *)((uintptr_t)phys_addr + kernel->hhdm), (void *)virt_addr ,PAGE_SIZE);
 		
 		virt_addr+= PAGE_SIZE;
 		size--;

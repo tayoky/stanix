@@ -27,11 +27,19 @@ struct type_mismatch_data {
 #define ERR_NullPointerUse 1
 #define ERR_MisalignedPointerUse 2
 #define ERR_InsufficientObjectSize 3
+#define ERR_NullptrWithOffset 4
+#define ERR_NullptrWithNonZeroOffset 5
+#define ERR_NullptrAfterNonZeroOffset 6
+#define ERR_PointerOverflow 7
 
 static char *error_strings[] = {
 	[ERR_NullPointerUse] = "NullPointerUse",
 	[ERR_MisalignedPointerUse] = "MisalignedPointerUse",
 	[ERR_InsufficientObjectSize] = "InsufficientObjectSize",
+	[ERR_NullptrWithOffset] = "NullptrWithOffset",
+	[ERR_NullptrWithNonZeroOffset] = "NullptrWithNonZeroOffset",
+	[ERR_NullptrAfterNonZeroOffset] = "NullptrAfterNonZeroOffset",
+	[ERR_PointerOverflow] = "PointerOverflow",
 };
 
 static void print_err(uint32_t error){
@@ -67,7 +75,27 @@ void __ubsan_handle_type_mismatch_v1(const struct type_mismatch_data *data,void 
 
 	panic("__ubsan_handle_type_mismatch_v1 reached",NULL);
 }
-DEF(__ubsan_handle_pointer_overflow)
+void __ubsan_handle_pointer_overflow(const struct source_location *loc,void *base,void *result){
+	print_loc(*loc);
+
+	uint32_t error;
+	if(base == NULL && result == NULL){
+		error = ERR_NullptrWithOffset;
+	} else if (base == NULL && result != NULL){
+		error = ERR_NullptrWithNonZeroOffset;
+	} else if (base != NULL && result == NULL){
+		error = ERR_NullptrAfterNonZeroOffset;
+	} else {
+		error = ERR_PointerOverflow;
+	}
+
+	print_err(error);
+
+	kdebugf("base   : 0x%p\n",base);
+	kdebugf("result : 0x%p\n",result);
+
+	panic("__ubsan_handle_pointer_overflow reached",NULL);
+}
 DEF(__ubsan_handle_add_overflow)
 DEF(__ubsan_handle_sub_overflow)
 DEF(__ubsan_handle_mul_overflow)

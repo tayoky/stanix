@@ -6,5 +6,6 @@ CFLAGS += \
 	-mno-sse \
 	-mno-sse2 \
 	-mno-red-zone \
-	-mcmodel=kernel
+	-mcmodel=kernel\
+	-Dx86_64
 LDFLAGS += -m elf_x86_64
