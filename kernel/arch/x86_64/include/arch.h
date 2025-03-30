@@ -48,6 +48,8 @@ typedef struct arch_specific {
 
 void context_switch(process *old,process *new);
 
+void init_timer();
+
 #define ARG0_REG(frame) ( frame ).rax
 #define ARG1_REG(frame) ( frame ).rdi
 #define ARG2_REG(frame) ( frame ).rsi

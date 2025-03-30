@@ -15,3 +15,8 @@ void _start(){
 
 	kmain();
 }
+
+void init_timer(){
+	init_cmos();
+	init_pit();
+}

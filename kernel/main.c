@@ -14,11 +14,9 @@
 #include "terminal_emu.h"
 #include "kout.h"
 #include "irq.h"
-#include "pit.h"
 #include "string.h"
 #include "sys.h"
 #include "exec.h"
-#include "cmos.h"
 #include "ps2.h"
 #include <sys/time.h>
 
@@ -134,8 +132,7 @@ void kmain(){
 	init_irq();
 	init_task();
 	init_ps2();
-	init_cmos();
-	init_pit();
+	init_timer();
 
 	//spawn init
 	ls("dev:/");
