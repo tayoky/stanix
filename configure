@@ -95,6 +95,14 @@ if [ "$LD" = "" ] ; then
 	fi
 fi
 
+#propagate configuration to tlibc
+if [ ! -f ./tlibc/configure ] ; then
+	git submodule init
+	git submodule update tlibc
+fi
+
+(cd tlibc && ./configure --with-sysroot=$SYSROOT --with-CC=$CC --host=$HOST --prefix=$SYSROOT)
+
 echo "using $CC"
 echo "using $LD"
 echo "using $NASM$AS"
