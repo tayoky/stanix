@@ -7,21 +7,21 @@ LIMINE_REQUESTS_START_MARKER
 
 static volatile LIMINE_BASE_REVISION(3);
 
-static volatile struct limine_kernel_address_request kernel_address_request = {
+volatile struct limine_kernel_address_request kernel_address_request = {
 	.id = LIMINE_KERNEL_ADDRESS_REQUEST,
 	.revision = 2
 };
 
-static volatile struct limine_memmap_request memmap_request = {
+volatile struct limine_memmap_request memmap_request = {
 	.id = LIMINE_MEMMAP_REQUEST,
 	.revision = 0
 };
 
-static volatile struct limine_boot_time_request boot_time_request = {
+volatile struct limine_boot_time_request boot_time_request = {
 	.id = LIMINE_BOOT_TIME_REQUEST
 };
 
-static volatile struct limine_hhdm_request hhdm_request = {
+volatile struct limine_hhdm_request hhdm_request = {
 	.id = LIMINE_HHDM_REQUEST
 };
 

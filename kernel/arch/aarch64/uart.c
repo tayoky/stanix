@@ -1,5 +1,6 @@
 #include "serial.h"
 #include "asm.h"
+#include "limine.h"
 #include <stdint.h>
 
 //define some const for later
@@ -46,7 +47,7 @@
 typedef struct uart{
 	uint32_t    uart_dr;                // 0x000 - UART data register
 	uint32_t    uart_sr_cr;             // 0x004 - UART status/error clear register
-	uint8_t     __reserved1[12];        // 0x008 - 0x014 reserved
+	uint8_t     __reserved1[16];        // 0x008 - 0x018 reserved
 	uint32_t    uart_fr;                // 0x018 - UART flags registers
 	uint32_t    __reserved2;            // 0x01C - reserved
 	uint32_t    uart_lpr;               // 0x020 - UART low-power counter register
@@ -70,7 +71,10 @@ void set_baudrate(uart *port,uint64_t baudrate){
 	port->uart_fbrd = (divisor >> 16) & 0xFFFF;
 }
 
+extern volatile struct limine_hhdm_request *hhdm_request;
+
 int init_serial(){
+	pl011 += hhdm_request->response->offset;
 	//disable port during config
 	pl011->uart_cr &= ~(UART_EN);
 
