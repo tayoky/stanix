@@ -1,31 +1,31 @@
 # syscall
 list of all syscall
-- 0  [x]  [exit](exit.md)
-- 1  [x]  [open](open.md)
-- 2  [x]  close
-- 3  [x]  [read](read.md)
-- 4  [x]  [write](write.md)
-- 5  [x]  lseek(seek in internal lseek in libc for compatibility
-- 6  [x]  dup
-- 7  [x]  dup2
-- 8  [x]  sbrk
-- 9  [x]  ioctl
-- 10  [x]  usleep
-- 11  [x]  sleepuntil
-- 12  [x]  gettimeofday
-- 13  [ ]  settimeofday
-- 14  [x]  pipe
-- 15  [x]  execve
-- 16  [x]  fork
-- 17  [x]  mkdir
-- 18  [ ]  unlink
-- 19  [ ]  rmdir
-- 20  [x]  readdir
-- 21  [x]  stat
-- 22  [x]  fstat
-- 23  [x]  getcwd
-- 24  [x]  chdir
-- 25  [x]  waitpid (uncomplete impl)
+- [x] 0 [exit](exit.md)
+- [x] 1 [open](open.md)
+- [x] 2 close
+- [x] 3 [read](read.md)
+- [x] 4 [write](write.md)
+- [x] 5 lseek(seek in internal lseek in libc for compatibility
+- [x] 6 dup
+- [x] 7 dup2
+- [x] 8 sbrk
+- [x] 9 ioctl
+- [x] 10 usleep
+- [x] 11 sleepuntil
+- [x] 12 gettimeofday
+- [ ] 13 settimeofday
+- [x] 14 pipe
+- [x] 15 execve
+- [x] 16 fork
+- [x] 17 mkdir
+- [ ] 18 unlink
+- [ ] 19 rmdir
+- [x] 20 readdir
+- [x] 21 stat
+- [x] 22 fstat
+- [x] 23 getcwd
+- [x] 24 chdir
+- [x] 25 waitpid (uncomplete impl)
 - [ ]  fchmod
 - [ ]  fchown
 - [ ]  chmod
