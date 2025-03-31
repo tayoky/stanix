@@ -11,9 +11,11 @@ DEF(create_addr_space)
 DEF(delete_addr_space)
 DEF(get_addr_space)
 
+/*
 DEF(init_serial)
 DEF(write_serial_char)
 DEF(write_serial)
+*/
 
 DEF(init_timer)
 
