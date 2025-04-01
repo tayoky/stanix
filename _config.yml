@@ -1,11 +1,19 @@
 #use minima theme
 remote_theme: "jekyll/minima@f1a2af4"
-email : "tayoky4848@gmail.com"
-github_username : "tayoky"
-author : "tayoky"
+author :
+  name : "tayoky"
+  email : "tayoky4848@gmail.com"
 
-header_pages:
- - index.html
- - user.html
- - syscall
- - kernel
+
+minima :
+  nav_pages:
+    - index.html
+    - user.html
+    - syscall
+    - kernel
+
+#social media link
+  social_links:
+    - title : "tayoky on github"
+      icon : github
+      url : "https://github.com/tayoky"
