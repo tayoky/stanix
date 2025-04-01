@@ -1,2 +1,11 @@
 #use minima theme
 remote_theme: "jekyll/minima@f1a2af4"
+email : "tayoky4848@gmail.com"
+github_username : "tayoky"
+author : "tayoky"
+
+header_pages:
+ - index.html
+ - user.html
+ - syscall
+ - kernel
