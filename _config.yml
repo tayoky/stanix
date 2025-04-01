@@ -1,12 +1,16 @@
-#use minima theme
-remote_theme: "jekyll/minima@f1a2af4"
 author :
   name : "tayoky"
   email : "tayoky4848@gmail.com"
 
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
 
-minima :
-  skin : auto
+#use minima theme
+remote_theme: "jekyll/minima@f1a2af4"
+
+minima:
+  skin: auto
   
   nav_pages:
     - index.html
@@ -16,6 +20,6 @@ minima :
 
 #social media link
   social_links:
-    - title : "tayoky on github"
-      icon : github
-      url : "https://github.com/tayoky"
+    - title: "tayoky on github"
+      icon: github
+      url: "https://github.com/tayoky"
