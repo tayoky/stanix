@@ -6,7 +6,7 @@ the entire operating system is written from scratch
 a new stable release is avalible each month
 - [source code](https://github.com/tayoky/stanix)
 - [lasted release](https://github.com/tayoky/stanix/releases)
-- [compile from source](miscellaneous/build.md)
+- [compile from source](miscellaneous/build)
 
 ## hardware
 list of all supported hardware  
@@ -30,5 +30,5 @@ list of all supported hardware
 - pipes
 
 ## docs
-see [kernel docs](kernel) and [userspace docs](user.md)  
+see [kernel docs](kernel) and [userspace docs](user)  
 

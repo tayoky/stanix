@@ -1,13 +1,13 @@
 # syscall
 list of all syscall
-- [x] 0 [exit](exit.md)
-- [x] 1 [open](open.md)
-- [x] 2 close
-- [x] 3 [read](read.md)
-- [x] 4 [write](write.md)
+- [x] 0 [exit](exit)
+- [x] 1 [open](open)
+- [x] 2 [close](close)
+- [x] 3 [read](read)
+- [x] 4 [write](write)
 - [x] 5 lseek(seek in internal lseek in libc for compatibility
-- [x] 6 dup
-- [x] 7 dup2
+- [x] 6 [dup](dup)
+- [x] 7 [dup2](dup2)
 - [x] 8 sbrk
 - [x] 9 ioctl
 - [x] 10 usleep
