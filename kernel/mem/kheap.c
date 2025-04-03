@@ -49,7 +49,7 @@ void change_kheap_size(int64_t offset){
 	} else {
 		//make kheap bigger
 		for (int64_t i = 0; i < offset_page; i++){
-			map_page(addr_space,allocate_page(&kernel->bitmap),(kernel->kheap.start+kernel->kheap.lenght)/PAGE_SIZE+i,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+			map_page(addr_space,allocate_page(&kernel->bitmap),((kernel->kheap.start+kernel->kheap.lenght)/PAGE_SIZE)+i,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 		}
 	}
 	kernel->kheap.lenght += offset_page * PAGE_SIZE;
@@ -78,8 +78,20 @@ void *kmalloc(size_t amount){
 	while (current_seg->lenght < amount || current_seg->magic != KHEAP_SEG_MAGIC_FREE){
 		if(current_seg->next == NULL){
 			//no more segment need to make kheap bigger
-			change_kheap_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 8));
-			current_seg->lenght += PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 8);
+			//if last is free make it bigger else create a new seg from scratch
+			if(current_seg->magic == KHEAP_SEG_MAGIC_FREE){
+				change_kheap_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 8));
+				current_seg->lenght += PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 8);
+			} else {
+				change_kheap_size(PAGE_ALIGN_UP(amount + sizeof(kheap_segment) * 2  + 8));
+				kheap_segment *new_seg = (kheap_segment *)((uintptr_t)current_seg + current_seg->lenght + sizeof(kheap_segment));
+				new_seg->lenght = PAGE_ALIGN_UP(amount + sizeof(kheap_segment) * 2 + 8);
+				new_seg->magic = KHEAP_SEG_MAGIC_FREE;
+				new_seg->next = NULL;
+				new_seg->prev = current_seg;
+				current_seg->next = new_seg;
+				current_seg = current_seg->next;
+			}
 			break;
 		}
 		current_seg = current_seg->next;
