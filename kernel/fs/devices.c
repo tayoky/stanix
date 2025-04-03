@@ -72,8 +72,16 @@ device_op serial_op = {
 	.write = write_serial_dev
 };
 
-device_op null_op = {
+static ssize_t null_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
+	return (ssize_t)count;
+}
+static ssize_t null_write(vfs_node *node,void *buf,uint64_t offset,size_t count){
+	return (ssize_t)count;
+}
 
+device_op null_op = {
+	.read = null_read,
+	.write = null_write
 };
 
 void init_devices(void){
