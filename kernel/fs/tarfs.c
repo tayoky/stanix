@@ -62,19 +62,21 @@ void mount_initrd(void){
 				kinfof("can't create folder %s for initrd\n",full_path);
 				halt();
 			}
-		} else {
+		} else if(current_file->type == USTAR_REGTYPE){
 			//create the file
+			kdebugf("%s\n",full_path);
 			if(vfs_create(full_path,0x777,VFS_FILE)){
 				kfail();
-				kinfof("fail to create file initrd:/%s\n",current_file->name);
+				kinfof("fail to create file %s\n",full_path);
 				halt();
 			}
 
 			//open the file
+			kdebugf("%s\n",full_path);
 			vfs_node *file = vfs_open(full_path,VFS_WRITEONLY);
 			if(!file){
 				kfail();
-				kinfof("fail to open file : %s\n",full_path);
+				kinfof("fail to open file %s\n",full_path);
 				halt();
 			}
 
@@ -85,7 +87,8 @@ void mount_initrd(void){
 			int64_t write_size = vfs_write(file,addr + 512,0,file_size);
 			if((uint64_t)write_size != file_size){
 				kfail();
-				kinfof("fail to write to file %s, can only write %luKB/%luKB\n",write_size,full_path,file_size);
+				kinfof("%s\n",current_file->name);
+				kinfof("fail to write to file %s, can only write %luKB/%luKB\n",full_path,write_size/1024,file_size/1024);
 				halt();
 			}
 
