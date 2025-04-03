@@ -158,8 +158,6 @@ void yeld(){
 	process *old = get_current_proc();
 
  	schedule();
-
-	disable_interrupt();
 	
 	kernel->can_task_switch = 1;
 
