@@ -97,6 +97,14 @@ int exec(char *path,int argc,char **argv,int envc,char **envp){
 		current_memseg = current_memseg->next;
 	}
 
+	//cose fd with CLOEXEC flags
+	for(size_t i = 0; i < MAX_FD; i++){
+		if(FD_GET(i).present && (FD_GET(i).flags & FD_CLOEXEC)){
+			sys_close(i);
+		}
+	}
+	
+
 	//set the heap start to 0
 	get_current_proc()->heap_start = 0;
 

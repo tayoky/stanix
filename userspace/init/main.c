@@ -30,7 +30,7 @@ int main(int argc,char **argv){
 		printf("arg %d : %s\n",i,argv[i]);
 	}
 	
-	int fd = open("tmp:/test.txt",O_CREAT |O_RDWR);
+	int fd = open("tmp:/test.txt",O_CREAT | O_RDWR | O_CLOEXEC);
 
 	struct timeval time;
 	sleep(2);
