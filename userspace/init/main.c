@@ -26,11 +26,12 @@ int main(int argc,char **argv){
 
 
 	printf("hello world !!\n");
-	for (size_t i = 0; i < argc; i++){
+	for (int i = 0; i < argc; i++){
 		printf("arg %d : %s\n",i,argv[i]);
 	}
 	
 	int fd = open("tmp:/test.txt",O_CREAT | O_RDWR | O_CLOEXEC);
+	(void)fd;
 
 	struct timeval time;
 	sleep(2);
@@ -110,7 +111,7 @@ int main(int argc,char **argv){
 	closedir(dir);
 
 	//try launching doom
-	char *arg[] = {
+	const char *arg[] = {
 		"initrd:/bin/doom",
 		"-iwad",
 		"initrd:/doom1.wad",
@@ -121,8 +122,6 @@ int main(int argc,char **argv){
 
 	//try open keayboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);
-	char shift = 0;
-	char caps = 0;
 	#define ESC '\033'
 
 	for(;;){

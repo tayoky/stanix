@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <input.h>
 #include <fcntl.h>
 
@@ -24,7 +25,7 @@ int main(int argc,char **argv){
 	pid_t child = fork();
 	if(!child){
 		//launch tsh because no login
-		char *arg[] = {
+		const char *arg[] = {
 			"initrd:/bin/tsh",
 			NULL
 		};
