@@ -138,7 +138,7 @@ void proc_push(process *proc,void *value,size_t size){
 	char *buffer = value;
 
 	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
-	for(int i=0; i<size; i++){
+	for(size_t i=0; i<size; i++){
 		//find the address to write to
 		char *address = (char *) (((uintptr_t) space_virt2phys(PMLT4,(void *)(proc->rsp + i))) + kernel->hhdm);
 

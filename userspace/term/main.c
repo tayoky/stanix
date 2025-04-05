@@ -5,6 +5,8 @@
 
 //most basic terminal emumator
 int main(int argc,char **argv){
+	(void)argc;
+	(void)argv;
 	printf("starting userspace terminal emulator\n");
 	int pipefd[2];
 	pipe(pipefd);

@@ -73,9 +73,15 @@ device_op serial_op = {
 };
 
 static ssize_t null_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
+	(void)node;
+	(void)buf;
+	(void)offset;
 	return (ssize_t)count;
 }
 static ssize_t null_write(vfs_node *node,void *buf,uint64_t offset,size_t count){
+	(void)node;
+	(void)buf;
+	(void)offset;
 	return (ssize_t)count;
 }
 

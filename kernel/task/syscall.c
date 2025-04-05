@@ -545,7 +545,7 @@ int sys_chdir(const char *path){
 		return -EFAULT;
 	}
 
-	const char *abs_path = absolute_path(path);
+	char *abs_path = absolute_path(path);
 
 	//check if exist
 	vfs_node *node = vfs_open(abs_path,VFS_READONLY);

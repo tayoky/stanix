@@ -2,6 +2,8 @@
 #include "idt.h"
 #include "gdt.h"
 #include "tss.h"
+#include "pit.h"
+#include "cmos.h"
 
 void kmain();
 

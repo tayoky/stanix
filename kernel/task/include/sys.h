@@ -46,7 +46,6 @@ void init_syscall(void);
 #endif
 
 void syscall_handler(fault_frame *context);
-static int find_fd();
 int sys_open(const char *, int, mode_t);
 int sys_close(int);
 int64_t sys_write(int, void *, size_t);

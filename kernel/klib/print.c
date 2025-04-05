@@ -147,7 +147,6 @@ void printfunc(print_func func,const char *fmt,va_list args){
 			}
 
 			//now we need to apply the modfier
-			int8_t modifier = PRINTF_MODIFIER_D;
 			switch(fmt[index]){
 			case 'd':
 			case 'i':
