@@ -111,11 +111,13 @@ int main(int argc,char **argv){
 
 	//try launching doom
 	char *arg[] = {
-		"initrd:/bin/term",
+		"initrd:/bin/doom",
+		"-iwad",
+		"initrd:/doom1.wad",
 		NULL
 	};
 
-	execvp("initrd:/bin/term",arg);
+	execvp("initrd:/bin/doom",arg);
 
 	//try open keayboard
 	int kbd_fd = open("dev:/kb0",O_RDONLY);

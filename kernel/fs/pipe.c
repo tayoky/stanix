@@ -41,6 +41,7 @@ int create_pipe(vfs_node **read,vfs_node **write){
 }
 
 int64_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	(void)offset;
 	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
 
 	//borken pipe check
@@ -52,6 +53,7 @@ int64_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 }
 
 int64_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	(void)offset;
 	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
 
 	//borken pipe check

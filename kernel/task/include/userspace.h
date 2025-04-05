@@ -5,7 +5,7 @@
 #include "paging.h"
 #include <stdint.h>
 
-void jump_userspace(void *address,void *stack,int argc,char **argv,int envc,char **envp);
+void jump_userspace(void *address,void *stack,int argc,const char **argv,int envc,const char **envp);
 
 //some macro to check ptr
 #define CHECK_PTR_INRANGE(ptr) ((uintptr_t)ptr <= USERSPACE_LIMIT)

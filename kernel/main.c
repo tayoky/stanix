@@ -74,12 +74,12 @@ void spawn_init(){
 
 	kinfof("try to exec %s\n",init_path);
 
-	char *arg[] = {
+	const char *arg[] = {
 		init_path,
 		NULL
 	};
 
-	char *env[] = {
+	const char *env[] = {
 		"KERNEL=stanix",
 		NULL
 	};

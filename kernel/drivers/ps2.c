@@ -113,6 +113,8 @@ const char kbd_us[128] = {
 };
 
 void keyboard_handler(fault_frame *frame){
+	(void)frame;
+
 	uint8_t scancode = ps2_read();
 	int press = 1;
 	if(scancode & 0x80){
@@ -141,6 +143,8 @@ void keyboard_handler(fault_frame *frame){
 }
 
 int64_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	(void)node;
+	(void)offset;
 	return ringbuffer_read(buffer,&keyboard_queue,count);
 }
 

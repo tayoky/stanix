@@ -346,6 +346,8 @@ int sys_sleepuntil(struct timeval *time){
 }
 
 int sys_gettimeofday(struct timeval *tv, struct timezone *tz){
+	(void)tz;
+
 	if(!CHECK_STRUCT(tv)){
 		return -EFAULT;
 	}
@@ -381,7 +383,7 @@ int sys_pipe(int pipefd[2]){
 	return 0;
 }
 
-int sys_execve(const char *path,const char **argv,char **envp){
+int sys_execve(const char *path,const char **argv,const char **envp){
 	if(!CHECK_STR(path)){
 		return -EFAULT;
 	}

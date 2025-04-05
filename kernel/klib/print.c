@@ -81,8 +81,8 @@ void printfunc(print_func func,const char *fmt,va_list args){
 			index++;
 			switch (fmt[index]){
 			case '0':
-				pad_char = '0';
 			case ' ':
+				pad_char = fmt[index];
 				fmt++;
 				break;
 			}

@@ -27,7 +27,7 @@ int verfiy_elf(Elf64_Ehdr *header){
 	return 1;
 }
 
-int exec(char *path,int argc,char **argv,int envc,char **envp){
+int exec(const char *path,int argc,const char **argv,int envc,const char **envp){
 	int ret = 0;
 
 	//don't forget support for relative path
@@ -68,7 +68,7 @@ int exec(char *path,int argc,char **argv,int envc,char **envp){
 	//save argv
 	size_t total_arg_size = (argc + 1)  * sizeof(char *);
 	char **saved_argv = kmalloc((argc + 1) * sizeof(char *));
-	for (size_t i = 0; i < argc; i++){
+	for (int i = 0; i < argc; i++){
 		total_arg_size += strlen(argv[i]) + 1;
 		saved_argv[i] = kmalloc(strlen(argv[i]) + 1);
 		strcpy(saved_argv[i],argv[i]);
@@ -83,7 +83,7 @@ int exec(char *path,int argc,char **argv,int envc,char **envp){
 	//save envp
 	total_arg_size += (envc + 1) * sizeof(char *);
 	char **saved_envp = kmalloc((envc + 1) * sizeof(char *));
-	for (size_t i = 0; i < envc; i++){
+	for (int i = 0; i < envc; i++){
 		total_arg_size += strlen(envp[i]) + 1;
 		saved_envp[i] = kmalloc(strlen(envp[i]) + 1);
 		strcpy(saved_envp[i],envp[i]);
@@ -156,13 +156,13 @@ int exec(char *path,int argc,char **argv,int envc,char **envp){
 	get_current_proc()->heap_end = get_current_proc()->heap_start;
 
 	//make place for argv
-	argv = (char **)get_current_proc()->heap_start;
+	argv = (const char **)get_current_proc()->heap_start;
 	sys_sbrk(PAGE_ALIGN_UP(total_arg_size));
 	char *ptr = (char *)(((uint64_t)argv) + (argc + 1) * sizeof(char *));
 	
 
 	//restore argv
-	for (size_t i = 0; i < argc; i++){
+	for (int i = 0; i < argc; i++){
 		argv[i] = ptr;
 		//copy saved arg to userpsace heap
 		strcpy(ptr,saved_argv[i]);
@@ -180,9 +180,9 @@ int exec(char *path,int argc,char **argv,int envc,char **envp){
 	}
 
 	//restore envp
-	envp = (char **)ptr;
+	envp = (const char **)ptr;
 	ptr += (envc + 1) * sizeof(char *);
-	for (size_t i = 0; i < envc; i++){
+	for (int i = 0; i < envc; i++){
 		envp[i] = ptr;
 		//copy saved arg to userpsace heap
 		strcpy(ptr,saved_envp[i]);
