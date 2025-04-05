@@ -171,7 +171,7 @@ int sys_close(int fd){
 	return 0;
 }
 
-int64_t sys_write(int fd,void *buffer,size_t count){
+ssize_t sys_write(int fd,void *buffer,size_t count){
 	if(!CHECK_MEM(buffer,count)){
 		return -EFAULT;
 	}
@@ -197,7 +197,7 @@ int64_t sys_write(int fd,void *buffer,size_t count){
 	return wsize;
 }
 
-int64_t sys_read(int fd,void *buffer,size_t count){
+ssize_t sys_read(int fd,void *buffer,size_t count){
 	if(!CHECK_MEM(buffer,count)){
 		return -EFAULT;
 	}
@@ -263,7 +263,7 @@ int sys_dup2(int oldfd, int newfd){
 	return newfd;
 }
 
-int64_t sys_seek(int fd,int64_t offset,int whence){
+off_t sys_seek(int fd,int64_t offset,int whence){
 	if(whence > 2){
 		return -EINVAL;
 	}

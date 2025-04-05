@@ -30,8 +30,8 @@ typedef struct tmpfs_inode_struct{
 }tmpfs_inode;
 
 vfs_node *tmpfs_finddir(vfs_node *node,const char *name);
-int64_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);
-int64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
+ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);
+ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 void tmpfs_close(vfs_node *node);
 int tmpfs_create(vfs_node *node,const char *name,int perm,uint64_t flags);
 int tmpfs_unlink(vfs_node *node,const char *name);

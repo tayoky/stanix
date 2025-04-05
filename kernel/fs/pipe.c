@@ -40,7 +40,7 @@ int create_pipe(vfs_node **read,vfs_node **write){
 	return 0;
 }
 
-int64_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
 
@@ -52,7 +52,7 @@ int64_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	return ringbuffer_read(buffer,&pipe_inode->ring,count);
 }
 
-int64_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
 

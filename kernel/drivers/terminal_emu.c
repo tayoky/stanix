@@ -113,8 +113,7 @@ int term_ioctl(vfs_node *node,uint64_t request,void *arg){
 		break;
 	}
 }
-
-int64_t term_write(vfs_node *node,void *vbuffer,uint64_t offset,size_t count){
+ssize_t term_write(vfs_node *node,void *vbuffer,uint64_t offset,size_t count){
 	//make compiler happy
 	(void)offset;
 

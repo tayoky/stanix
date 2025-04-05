@@ -77,8 +77,8 @@ int vfs_mount(const char *name,vfs_node *mounting_root);
 /// @return an pointer to the vfs_node or NULL if fail
 vfs_node *vfs_open(const char *path,uint64_t flags);
 vfs_node *vfs_finddir(vfs_node *node,const char *name);
-int64_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count);
-int64_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
+ssize_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count);
+ssize_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 int vfs_create(const char *path,int perm,uint64_t flags);
 int vfs_mkdir(const char *path,int perm);
 

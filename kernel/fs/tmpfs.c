@@ -117,8 +117,7 @@ vfs_node *tmpfs_finddir(vfs_node *node,const char *name){
 	if(current_inode == NULL)return NULL;
 	return inode2node(current_inode);
 }
-
-int64_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	//if the read is out of bound make it smaller
@@ -136,8 +135,7 @@ int64_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 
 	return count;
 }
-
-int64_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	//if the write is out of bound make the file bigger

@@ -8,7 +8,7 @@
 #include "port.h"
 #include "serial.h"
 
-int64_t zero_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t zero_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	//to make compiler happy
 	(void)node;
 	(void)offset;
@@ -23,7 +23,7 @@ device_op zero_op = {
 
 //dev:/port only exist on x86_64
 #ifdef x86_64
-int64_t port_read(vfs_node *node,void *buffer,uint64_t port,size_t count){
+ssize_t port_read(vfs_node *node,void *buffer,uint64_t port,size_t count){
 	//make compiler happy
 	(void)node;
 
@@ -35,8 +35,7 @@ int64_t port_read(vfs_node *node,void *buffer,uint64_t port,size_t count){
 	}
 	return count;
 }
-
-int64_t port_write(vfs_node *node,void *buffer,uint64_t port,size_t count){
+ssize_t port_write(vfs_node *node,void *buffer,uint64_t port,size_t count){
 	//make compiler happy
 	(void)node;
 	
@@ -54,8 +53,7 @@ device_op port_op = {
 	.write = port_write
 };
 #endif
-
-int64_t write_serial_dev(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t write_serial_dev(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	//make compiler happy
 	(void)node;
 	(void)offset;

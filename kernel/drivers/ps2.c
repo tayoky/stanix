@@ -141,8 +141,7 @@ void keyboard_handler(fault_frame *frame){
 
 	ringbuffer_write(&event,&keyboard_queue,sizeof(event));
 }
-
-int64_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)node;
 	(void)offset;
 	return ringbuffer_read(buffer,&keyboard_queue,count);

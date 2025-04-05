@@ -12,7 +12,7 @@ device_op framebuffer_op = {
 	.ioctl = framebuffer_ioctl
 };
 
-int64_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	struct limine_framebuffer *inode = node->dev_inode;
 	uint64_t size = inode->width * inode->height * (inode->bpp / 8);
 	if(offset + count > size){
