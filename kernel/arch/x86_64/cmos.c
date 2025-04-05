@@ -82,22 +82,31 @@ void init_cmos(void){
 	{
 	case 12:
 		day += 30;
+		//fallthrough
 	case 11:
 		day += 31;
+		//fallthrough
 	case 10:
 		day += 30;
+		//fallthrough
 	case 9:
 		day += 31;
+		//fallthrough
 	case 8:
 		day += 31;
+		//fallthrough
 	case 7:
 		day += 30;
+		//fallthrough
 	case 6:
 		day += 31;
+		//fallthrough
 	case 5:
 		day += 30;
+		//fallthrough
 	case 4:
 		day += 31;
+		//fallthrough
 	case 3:
 		if(is_leap(years)){
 			day += 29;
@@ -105,8 +114,10 @@ void init_cmos(void){
 		{
 			day += 28;
 		}
+		//fallthrough
 	case 2:
 		day += 31;
+		//fallthrough
 	case 1:
 		break;
 	

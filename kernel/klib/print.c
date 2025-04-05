@@ -156,12 +156,14 @@ void printfunc(print_func func,const char *fmt,va_list args){
 					func('-');
 					integer = (uint64_t)(-(int64_t)integer);
 				}
+				//fallthrough
 			case 'u' :
 				printuint(func,integer,10,padding,pad_char);
 				break;
 			case 'p' :
 				padding = 15;
 				pad_char = '0';
+				//fallthrough
 			case 'x' :
 			case 'X' :
 				printuint(func,integer,16,padding,pad_char);
