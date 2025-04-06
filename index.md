@@ -1,4 +1,6 @@
-# stanix
+---
+title: stanix
+---
 stanix is an 64 bit open source operating system made by tayoky since january 2025  
 the entire operating system is written from scratch
 

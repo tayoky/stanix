@@ -1,4 +1,6 @@
-# user documentation
+---
+title: user documentation
+---
 the user docs is decomposed in multpiles parts same as the man page convention
 - 1 command and executables
 - 2 [system calls](syscall)

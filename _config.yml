@@ -13,10 +13,10 @@ minima:
   skin: auto
   
   nav_pages:
-    - index.html
-    - user.html
+    - user.md
     - syscall
-    - kernel
+    - kernel.md
+    - todo.md
 
 #social media link
   social_links:

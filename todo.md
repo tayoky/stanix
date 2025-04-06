@@ -1,4 +1,23 @@
-# todo
-- rewrite the scheduler
-- one single fault frame
-- more sbtraction for paging
+---
+title : todo
+---
+- getting a shell to run
+- fix scheduler
+- get doom to run
+- nanosleep syscall instead of usleep
+- implement clock
+- dynamic module loading
+- ata pio driver
+- fat32 driver
+- unlink and rmdir syscall
+- ext2 driver
+- ahci driver
+- nvme driver
+- floppy driver
+- mbr driver
+- gpt driver
+- pty emulation and pty
+- userspace terminal emulator
+- tty for serial port
+- change framebuffer name
+- change dev:/console to a kernel console
