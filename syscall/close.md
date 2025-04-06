@@ -1,4 +1,6 @@
-# close
+---
+title: close
+---
 ```c
 int close(int fd);
 ```

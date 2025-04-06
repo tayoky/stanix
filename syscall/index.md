@@ -10,7 +10,7 @@ list of all syscall
 - [x] 7 [dup2](dup2)
 - [x] 8 sbrk
 - [x] 9 ioctl
-- [x] 10 usleep
+- [x] 10 [usleep](usleep)
 - [x] 11 sleepuntil
 - [x] 12 gettimeofday
 - [ ] 13 settimeofday

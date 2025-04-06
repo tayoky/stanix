@@ -1,4 +1,6 @@
-# write
+---
+title: write
+---
 ```c
 ssize_t write(int fd,void *buffer,size_t count);
 ```

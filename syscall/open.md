@@ -1,4 +1,6 @@
-# open
+---
+title: open
+---
 ```c
 int open(const char *path,int flags,... /*mode_t mode*/);
 ```

@@ -1,4 +1,6 @@
-# dup
+---
+title: dup
+---
 ```c
 int dup(int fd);
 ```

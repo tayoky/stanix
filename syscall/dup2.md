@@ -1,4 +1,6 @@
-# dup2
+---
+title: dup2
+---
 ```c
 int dup2(int oldfd,newfd);
 ```

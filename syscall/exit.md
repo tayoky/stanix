@@ -1,4 +1,6 @@
-# exit
+---
+title: exit
+---
 ```c
 void exit(int exit_code);
 ```
