@@ -13,6 +13,7 @@ export LD
 export AS
 export NASM
 export ARCH
+export SYSROOT
 
 out_files = ${OUT}/boot/limine/limine-bios.sys \
 ${OUT}/EFI/BOOT/BOOTX64.EFI \
@@ -79,12 +80,15 @@ build : header ${OUT}/boot/limine/limine.conf
 	${MAKE} -C kernel OUT=../${OUT} KERNEL=${KERNEL} SYSROOT=${SYSROOT}
 	${MAKE} -C tlibc install TARGET=stanix SYSROOT=${SYSROOT}
 	${MAKE} -C userspace install SYSROOT=${SYSROOT}
+	${MAKE} -C modules
+	${MAKE} -C modules install PREFIX=$(shell realpath ./initrd)
 header : 
 	${MAKE} -C kernel header  SYSROOT=${SYSROOT}
 	${MAKE} -C tlibc header TARGET=stanix SYSROOT=${SYSROOT}
 clean :
-	make -C kernel clean
-	make -C tlibc clean
-	make -C userspace clean
+	${MAKE} -C kernel clean
+	${MAKE} -C tlibc clean
+	${MAKE} -C userspace clean
+	${MAKE} -C modules clean
 config.mk :
 	$(error "run ./configure before runing make")
