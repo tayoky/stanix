@@ -101,7 +101,7 @@ if [ ! -f ./tlibc/configure ] ; then
 	git submodule update tlibc
 fi
 
-(cd tlibc && ./configure --with-sysroot=$SYSROOT --with-CC=$CC --host=$HOST --prefix=$SYSROOT)
+(cd tlibc && ./configure --with-sysroot=$SYSROOT --with-CC=$CC --host=$HOST --prefix=$SYSROOT/usr)
 
 echo "using $CC"
 echo "using $LD"

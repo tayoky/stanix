@@ -78,13 +78,13 @@ ${OUT}/boot/limine/limine.conf : kernel/limine.conf
 #build!!!
 build : header ${OUT}/boot/limine/limine.conf
 	${MAKE} -C kernel OUT=../${OUT} KERNEL=${KERNEL} SYSROOT=${SYSROOT}
-	${MAKE} -C tlibc install TARGET=stanix SYSROOT=${SYSROOT}
+	${MAKE} -C tlibc install TARGET=stanix
 	${MAKE} -C userspace install SYSROOT=${SYSROOT}
 	${MAKE} -C modules
 	${MAKE} -C modules install PREFIX=$(shell realpath ./initrd)
 header : 
 	${MAKE} -C kernel header  SYSROOT=${SYSROOT}
-	${MAKE} -C tlibc header TARGET=stanix SYSROOT=${SYSROOT}
+	${MAKE} -C tlibc header TARGET=stanix
 clean :
 	${MAKE} -C kernel clean
 	${MAKE} -C tlibc clean
