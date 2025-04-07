@@ -80,6 +80,7 @@ build : header ${OUT}/boot/limine/limine.conf
 	${MAKE} -C tlibc install TARGET=stanix SYSROOT=${SYSROOT}
 	${MAKE} -C userspace install SYSROOT=${SYSROOT}
 header : 
+	${MAKE} -C kernel header  SYSROOT=${SYSROOT}
 	${MAKE} -C tlibc header TARGET=stanix SYSROOT=${SYSROOT}
 clean :
 	make -C kernel clean

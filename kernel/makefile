@@ -16,12 +16,12 @@ OBJ = ${src_c:.c=.o} ${src_asm:.s=.o}
 #DO NOT EDIT
 #except if you know what you are doing
 LDFLAGS += \
-    -nostdlib \
-    -static \
-    -z max-page-size=0x1000 \
-    -T arch/${ARCH}/linker.ld
+	-nostdlib \
+	-static \
+	-z max-page-size=0x1000 \
+	-T arch/${ARCH}/linker.ld
 ASMFLAGS += -Wall \
-    -f elf64
+	-f elf64
 include include.mk
 
 include arch/${ARCH}/arch.mk
@@ -37,3 +37,13 @@ ${OUT}/boot/limine/limine.conf : limine.conf
 	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^
 clean :
 	rm -f ${OBJ} ${out}
+header :
+	mkdir -p ${SYSROOT}/usr/include/kernel
+	cp ./include/*.h \
+	./fs/include/*.h \
+	./klib/include/*.h \
+	./mem/include/*.h \
+	./task/include/*.h \
+	./drivers/include/*.h \
+	./arch/${ARCH}/include/*.h \
+	${SYSROOT}/usr/include/kernel
