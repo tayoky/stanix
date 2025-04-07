@@ -85,7 +85,7 @@ void *kmalloc(size_t amount){
 			} else {
 				change_kheap_size(PAGE_ALIGN_UP(amount + sizeof(kheap_segment) * 2  + 8));
 				kheap_segment *new_seg = (kheap_segment *)((uintptr_t)current_seg + current_seg->lenght + sizeof(kheap_segment));
-				new_seg->lenght = PAGE_ALIGN_UP(amount + sizeof(kheap_segment) * 2 + 8);
+				new_seg->lenght = PAGE_ALIGN_UP(amount + sizeof(kheap_segment) * 2 + 8) - sizeof(kheap_segment);
 				new_seg->magic = KHEAP_SEG_MAGIC_FREE;
 				new_seg->next = NULL;
 				new_seg->prev = current_seg;
