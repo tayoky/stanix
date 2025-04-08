@@ -14,7 +14,7 @@ minima:
   
   nav_pages:
     - user.md
-    - syscall
+    - syscall.md
     - kernel.md
     - todo.md
 

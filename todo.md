@@ -7,8 +7,9 @@ title : todo
 - nanosleep syscall instead of usleep
 - implement clock
 - dynamic module loading
-- ata pio driver
+- ata/atapi driver
 - fat32 driver
+- iso fs driver
 - unlink and rmdir syscall
 - ext2 driver
 - ahci driver
@@ -21,3 +22,5 @@ title : todo
 - tty for serial port
 - change framebuffer name
 - change dev:/console to a kernel console
+- rewrite vfs
+- new boot process
