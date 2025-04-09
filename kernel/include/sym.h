@@ -13,5 +13,6 @@ typedef struct sym {
 
 //this array is generated automatcly (see makefile)
 extern const sym_t symbols[];
+extern const size_t symbols_count;
 
 #endif
