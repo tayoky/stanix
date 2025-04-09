@@ -150,6 +150,12 @@ void vfs_close(vfs_node *node){
 				}
 			}
 		}
+		node->parent->childreen_count--;
+	}
+
+	vfs_node *parent = node->parent;
+	if(parent == node){
+		parent = NULL;
 	}
 
 	if(node->close){
@@ -157,6 +163,14 @@ void vfs_close(vfs_node *node){
 	}
 
 	kfree(node);
+
+	//maybee we can close the parent too ?
+	if(parent){
+		if(parent->childreen_count == 0 && parent->ref_count == 0){
+			parent->ref_count++;
+			return vfs_close(parent);
+		}
+	}
 }
 
 int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
