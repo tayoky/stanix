@@ -38,7 +38,7 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 	node->flags = 0;
 
 	if(inode->flags & TMPFS_FLAGS_DIR){
-		node->finddir    = tmpfs_finddir;
+		node->lookup    = tmpfs_lookup;
 		node->readdir    = tmpfs_readdir;
 		node->create     = tmpfs_create;
 		node->create_dev = tmpfs_create_dev;
@@ -91,7 +91,7 @@ vfs_node *new_tmpfs(){
 }
 
 
-vfs_node *tmpfs_finddir(vfs_node *node,const char *name){
+vfs_node *tmpfs_lookup(vfs_node *node,const char *name){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	if(!strcmp(name,".")){

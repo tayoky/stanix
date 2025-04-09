@@ -86,9 +86,9 @@ ssize_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 }
 
 
-vfs_node *vfs_finddir(vfs_node *node,const char *name){
-	if(node->finddir){
-		vfs_node *child = node->finddir(node,(char *)name);
+vfs_node *vfs_lookup(vfs_node *node,const char *name){
+	if(node->lookup){
+		vfs_node *child = node->lookup(node,(char *)name);
 		if(child){
 			child->ref_count = 1;
 		}
@@ -312,7 +312,7 @@ vfs_node *vfs_open(const char *path,uint64_t flags){
 	char *current_dir = &new_path[1];
 	for (uint64_t i = 0; i < path_depth; i++){
 		if(!current_node)goto open_error;
-		vfs_node *next_node = vfs_finddir(current_node,current_dir);
+		vfs_node *next_node = vfs_lookup(current_node,current_dir);
 		vfs_close(current_node);
 		current_node = next_node;
 		current_dir += strlen(current_dir) + 1;

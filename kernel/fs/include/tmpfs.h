@@ -29,7 +29,7 @@ typedef struct tmpfs_inode_struct{
 	time_t mtime;
 }tmpfs_inode;
 
-vfs_node *tmpfs_finddir(vfs_node *node,const char *name);
+vfs_node *tmpfs_lookup(vfs_node *node,const char *name);
 ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 void tmpfs_close(vfs_node *node);

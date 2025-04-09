@@ -43,7 +43,7 @@ typedef struct vfs_node_struct {
 	int64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	int64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	void (* close)(struct vfs_node_struct *);
-	struct vfs_node_struct *(* finddir)(struct vfs_node_struct *,const char *name);
+	struct vfs_node_struct *(* lookup)(struct vfs_node_struct *,const char *name);
 	int (* create)(struct vfs_node_struct*,const char *name,mode_t perm,uint64_t);
 	int (* create_dev)(struct vfs_node_struct*,const char *name,device_op *op,void *dev_inode);
 	int (* unlink)(struct vfs_node_struct*,const char *);
@@ -76,7 +76,7 @@ int vfs_mount(const char *name,vfs_node *mounting_root);
 /// @param flags open flags (VFS_READONLY,...)
 /// @return an pointer to the vfs_node or NULL if fail
 vfs_node *vfs_open(const char *path,uint64_t flags);
-vfs_node *vfs_finddir(vfs_node *node,const char *name);
+vfs_node *vfs_lookup(vfs_node *node,const char *name);
 ssize_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count);
 ssize_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 int vfs_create(const char *path,int perm,uint64_t flags);
