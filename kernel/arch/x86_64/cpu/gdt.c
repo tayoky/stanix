@@ -53,10 +53,10 @@ void init_gdt(void){
 	asm("lgdt %0" : : "m" (kernel->arch.gdtr));
 
 	asm volatile("push $0x08; \
-				lea .reload_seg(%%rip), %%rax; \
+				lea reload_seg(%%rip), %%rax; \
 				push %%rax; \
 				retfq; \
-				.reload_seg: \
+				reload_seg: \
 				mov $0x10, %%ax; \
 				mov %%ax, %%ds; \
 				mov %%ax, %%es; \

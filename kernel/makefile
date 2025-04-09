@@ -28,13 +28,21 @@ include arch/${ARCH}/arch.mk
 
 CFLAGS += --sysroot=${SYSROOT} -isystem ${SYSROOT}/usr/include
 
-${OUT}/boot/${KERNEL} : ${OBJ}
-	${LD} ${LDFLAGS} ${OBJ} -o ${OUT}/boot/${KERNEL}
+${OUT}/boot/${KERNEL} : ${OBJ} sym.o
+	${LD} ${LDFLAGS} ${OBJ} sym.o -o ${OUT}/boot/${KERNEL}
 
 ${OUT}/boot/limine/limine.conf : limine.conf
 	cp limine.conf ${out}/boot/limine/limine.conf
 %.o : %.c
 	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^
+sym.o : ${OBJ}
+	echo '#include "sym.h"' > sym.c
+	$(foreach SYM , $(shell nm ${OBJ} --defined-only -nj --quiet ),  echo "extern void ${SYM} ();" >> sym.c ; )
+	echo 'const sym_t symbols[] = {' >> sym.c
+	$(foreach SYM , $(shell nm ${OBJ} --defined-only -nj --quiet ),  echo "	{ .name = \"${SYM}\" , .value = (uintptr_t)${SYM} , .size = sizeof(${SYM})}," >> sym.c ; ) 
+	echo '};' >> sym.c
+	${CC} ${CFLAGS} -o sym.o -c sym.c 
+	rm sym.c
 clean :
 	rm -f ${OBJ} ${out}
 header :
