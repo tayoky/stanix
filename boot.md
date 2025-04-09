@@ -3,23 +3,24 @@ title: boot process
 ---
 this is how the OS boot  
 
-> [!NOTE]
+> [!NOTE]  
 > this is the new boot process it isen't implemented
 
+### BIOS
 first the **BIOS**/**UEFI** load the **bootloader**
 
 ### bootloader
 the **bootloader** load the **kernel**(stanix.elf) and the **initial ramdisk**(initrd.tar)  
-it also pass information such as the **memmory map** and the **framebuffers locations** to the **kernel**  
+it also pass information such as the **memory map** and the **framebuffers locations** to the **kernel**  
 
 ### kernel
 at this stage stanix as started and the **kernel** initialize core things and arch specific such as the **bitmap allocator** or the **exception handler**  
 once it as inizialed the **VFS** it will uncompress the **initial ramdisk** on a **tmpfs** and mount it as root  
-the **kernel** will then read config files and start the scheduler then the **init userspace program**(/bin/init)
+the **kernel** will then read config files and start the scheduler then the **init userspace program**(`/bin/init`)
 
 ### init userspace program
 the **init program** is the first userspace program to run , compared to most program it is on the **initial ramdisk** and not on a normal fat32 or ext2 partition  
-it will run in a space call the **early userspace** wich is like normal userspace except most kernel driver ar not loaded and the filesystem as not been setup  
+it will run in a space call the **early userspace** wich is like normal userspace except most kernel driver are not loaded and the filesystem as not been setup  
 the **init program** will run a serie of script call the **init scripts**
 
 ### init script 1 - module loading
