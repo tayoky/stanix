@@ -17,9 +17,32 @@ void init_vfs(void){
 }
 
 
-int vfs_mount(const char *name,vfs_node *mounting_node){
-	
-	return -ENOSYS;
+int vfs_mount(const char *name,vfs_node *local_root){
+	//first open the mount point or create it
+	vfs_node *mount_point = vfs_open(name,VFS_READWRITE);
+	if(!mount_point){
+		if(vfs_mkdir(name,0x777)){
+			return -ENOENT;
+		}
+		mount_point = vfs_open(name,VFS_READWRITE);
+		if(!mount_point){
+			return -ENOENT;
+		}
+	}
+
+	//something is aready mounted ?
+	if(mount_point->flags & VFS_MOUNT){
+		return -EBUSY;
+	}
+
+	mount_point->linked_node = local_root;
+	//make a ref to the local root to prevent it from being close
+	local_root->ref_count = 1;
+
+	mount_point->flags = VFS_MOUNT;
+
+	local_root->parent = mount_point->parent;
+	return 0;
 }
 ssize_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
 	if(node->read){
@@ -84,7 +107,7 @@ void vfs_close(vfs_node *node){
 		return;
 	}
 
-	if(node->flags & VFS_MOUNT){
+	if(node->flags & VFS_MOUNT || node == root){
 		//don't close a mount point
 		return;
 	}
@@ -253,7 +276,6 @@ int vfs_sync(vfs_node *node){
 }
 
 int vfs_chroot(vfs_node *new_root){
-	new_root->flags |= VFS_MOUNT;
 	root = new_root;
 	return 0;
 }
@@ -287,6 +309,10 @@ vfs_node *vfs_open(const char *path,uint64_t flags){
 	for (uint64_t i = 0; i < path_depth; i++){
 		if(!current_node)goto open_error;
 		vfs_node *next_node = vfs_lookup(current_node,current_dir);
+		//folow mount points
+		if(next_node && (next_node->flags & VFS_MOUNT)){
+			next_node = next_node->linked_node;
+		}
 		vfs_close(current_node);
 		current_node = next_node;
 		current_dir += strlen(current_dir) + 1;

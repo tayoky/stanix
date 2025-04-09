@@ -64,6 +64,8 @@ typedef struct vfs_node_struct {
 	struct vfs_node_struct *brother;
 	struct vfs_node_struct *child;
 	uint64_t childreen_count;
+
+	struct vfs_node_struct *linked_node; //used from mount point
 }vfs_node;
 
 typedef struct vfs_mount_point_struct{
