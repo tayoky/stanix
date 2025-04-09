@@ -10,38 +10,6 @@
 //TODO : make this process specific
 vfs_node *root;
 
-/*static inline int strequ(const char *str1,const char *str2){
-	while (*str1 == *str2){
-		if(!*str1){
-			return 1;
-		}
-		str1++;
-		str2++;
-	}
-	return 0;
-}
-
-static inline vfs_mount_point *vfs_get_mount_point(const char *drive){
-	vfs_mount_point *current = kernel->first_mount_point;
-
-	while (current){
-		if(strequ(current->name,drive)){
-			return current;
-		}
-		current = current->next;
-	}
-	return NULL;
-}
-
-static inline vfs_node *vfs_get_root(const char *name){
-	vfs_mount_point *mount_point = vfs_get_mount_point(name);
-	if(!mount_point){
-		return NULL;
-	}
-
-	return mount_point->root;
-}*/
-
 void init_vfs(void){
 	kstatus("init vfs... ");
 	root = NULL;
@@ -50,21 +18,7 @@ void init_vfs(void){
 
 
 int vfs_mount(const char *name,vfs_node *mounting_node){
-	if(!mounting_node)return -EINVAL;
-
-	//check if something is aready mount
-	/*if(vfs_get_mount_point(name)){
-		return -EEXIST;
-	}
-
-	vfs_mount_point *mount_point = kmalloc(sizeof(vfs_mount_point));
-	memset(mount_point,0,sizeof(vfs_mount_point));
-	strcpy(mount_point->name,name);
-	mount_point->root = mounting_node;
-
-	mount_point->next = kernel->first_mount_point;
-	kernel->first_mount_point = mount_point;
-	return 0;*/
+	
 	return -ENOSYS;
 }
 ssize_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
@@ -178,38 +132,7 @@ void vfs_close(vfs_node *node){
 }
 
 int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
-	int ret = -ENOENT;
-
-	//make a copy of the path
-	char *parent = strdup(path);
-	char *child = parent + strlen(path) - 2;
-	while(*child != '/'){
-		child --;
-		if(child <= parent){
-			break;
-		}
-	}
-	*child = '\0';
-	child++;
-
-	//open the parent
-	vfs_node *node = vfs_open(parent,VFS_WRITEONLY);
-	if(!node){
-		goto vfs_create_dev_error;
-	}
-
-	//call create on the parent
-	if(node->create_dev){
-		ret = node->create_dev(node,(char *)child,op,dev_inode);
-	} else {
-		ret = -ENOTDIR;
-	}
-
-	//close and free
-	vfs_close(node);
-	vfs_create_dev_error:
-	kfree(parent);
-	return ret;
+	return -ENOSYS;
 }
 
 int vfs_create(const char *path,int perm,uint64_t flags){
