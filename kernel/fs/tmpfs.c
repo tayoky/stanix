@@ -304,9 +304,9 @@ int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
 
 int tmpfs_sync(vfs_node *node){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-	//low effort way of sync
-	vfs_node *new_node = inode2node(inode);
-	*node = *new_node;
-	vfs_close(new_node);
+	node->size        = inode->buffer_size;
+	node->perm        = inode->perm;
+	node->owner       = inode->owner;
+	node->group_owner = inode->group_owner;
 	return 0;
 }

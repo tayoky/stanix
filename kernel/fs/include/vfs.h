@@ -56,6 +56,13 @@ typedef struct vfs_node_struct {
 	time_t atime;
 	time_t ctime;
 	time_t mtime;
+
+	//used for directories cache
+	char name[256];
+	struct vfs_node_struct *parent;
+	struct vfs_node_struct *brother;
+	struct vfs_node_struct *child;
+	uint64_t childreen_count;
 }vfs_node;
 
 typedef struct vfs_mount_point_struct{

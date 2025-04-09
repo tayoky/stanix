@@ -87,11 +87,32 @@ ssize_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 
 
 vfs_node *vfs_lookup(vfs_node *node,const char *name){
+	//first search in the directory cache
+	for(vfs_node *current = node->child; current; current = current->brother){
+		if(!strcmp(current->name,name)){
+			return current;
+		}
+	}
+
+	//it isen't chached
+	//ask the fs for it
+
 	if(node->lookup){
 		vfs_node *child = node->lookup(node,(char *)name);
-		if(child){
-			child->ref_count = 1;
+		if(!child){
+			return NULL;
 		}
+		child->ref_count = 1;
+		
+		//link it in the directories cache
+		child->parent = node;
+		child->brother = node->child;
+		node->child = child;
+		node->childreen_count++;
+		child->child = NULL;
+		child->childreen_count = 0;
+
+		strcpy(child->name,name);
 		return child;
 	} else {
 		return NULL;
