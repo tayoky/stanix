@@ -34,7 +34,7 @@ void mount_initrd(void){
 	kstatus("unpack initrd ...");
 	
 	//create an tmpfs for it
-	if(vfs_mount("initrd",new_tmpfs())){
+	if(vfs_chroot(new_tmpfs())){
 		kfail();
 		halt();
 	}
@@ -46,8 +46,8 @@ void mount_initrd(void){
 		ustar_header *current_file = (ustar_header *)addr;
 
 		//find the full path of the file
-		char *full_path = kmalloc(strlen(current_file->name) + strlen("initrd:/") + 1);
-		strcpy(full_path,"initrd:/");
+		char *full_path = kmalloc(strlen(current_file->name) + strlen("/") + 1);
+		strcpy(full_path,"/");
 		strcat(full_path,current_file->name);
 
 		//find file size
@@ -100,5 +100,5 @@ void mount_initrd(void){
 		addr += (((uint64_t)file_size + 1023) / 512) * 512;
 	}
 	kok();
-	ls("initrd:/");
+	ls("/");
 }

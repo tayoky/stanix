@@ -122,8 +122,8 @@ void kmain(){
 	init_paging();
 	init_kheap();
 	init_vfs();
-	init_tmpfs();
 	mount_initrd();
+	init_tmpfs();
 	init_devices();
 	init_frambuffer();
 	read_main_conf_file();
@@ -135,7 +135,7 @@ void kmain(){
 	init_timer();
 
 	//spawn init
-	ls("dev:/");
+	ls("/dev/");
 	kstatus("finish init kernel\n");
 	spawn_init();
 

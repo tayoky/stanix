@@ -35,6 +35,6 @@ _start:
 
 section .data
 path:
-db `dev:/tty0`,0
+db `/dev/tty0`,0
 hello :
 db `hello from program !!\n`

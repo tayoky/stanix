@@ -195,9 +195,9 @@ void init_ps2(void){
 	keyboard_queue = new_ringbuffer(sizeof(struct input_event) * 25);
 
 	//create device
-	if(vfs_create_dev("dev:/kb0",&kbd_op,NULL)){
+	if(vfs_create_dev("/dev/kb0",&kbd_op,NULL)){
 		kfail();
-		kinfof("fail to create dev dev:/kb0\n");
+		kinfof("fail to create dev /dev/kb0\n");
 	}
 
 	kok();

@@ -92,9 +92,9 @@ void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color){
 
 void init_frambuffer(void){
 	kstatus("init frambuffer ...");
-	if(vfs_mkdir("dev:/fb",555)){
+	if(vfs_mkdir("/dev/fb",555)){
 		kfail();
-		kinfof("fail to create dir dev:/fb/\n");
+		kinfof("fail to create dir /dev/fb/\n");
 		return;
 	}
 
@@ -112,8 +112,8 @@ void init_frambuffer(void){
 			'0' + (i % 10),
 			'\0'
 		};
-		char *full_path = kmalloc(strlen("dev:/fb/") + 3);
-		strcpy(full_path,"dev:/fb/");
+		char *full_path = kmalloc(strlen("/dev/fb/") + 3);
+		strcpy(full_path,"/dev/fb/");
 		strcat(full_path,fb_num);
 
 		//create the device

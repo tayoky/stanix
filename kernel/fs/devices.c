@@ -21,7 +21,7 @@ device_op zero_op = {
 	.read = zero_read
 };
 
-//dev:/port only exist on x86_64
+///dev/port only exist on x86_64
 #ifdef x86_64
 ssize_t port_read(vfs_node *node,void *buffer,uint64_t port,size_t count){
 	//make compiler happy
@@ -92,37 +92,37 @@ void init_devices(void){
 	kstatus("init dev ...");
 	if(vfs_mount("dev",new_tmpfs())){
 		kfail();
-		kinfof("fail to mount devfs on dev:/\n");
+		kinfof("fail to mount devfs on /dev/\n");
 		halt();
 	}
 
 	//create some simple devices
 
-	// dev:/zero
-	if(vfs_create_dev("dev:/zero",&zero_op,NULL)){
+	// /dev/zero
+	if(vfs_create_dev("/dev/zero",&zero_op,NULL)){
 		kfail();
-		kinfof("fail to create device dev:/zero\n");
+		kinfof("fail to create device /dev/zero\n");
 		halt();
 	}
 
-	// dev:/port
+	// /dev/port
 #ifdef x86_64
-	if(vfs_create_dev("dev:/port",&port_op,NULL)){
+	if(vfs_create_dev("/dev/port",&port_op,NULL)){
 		kfail();
-		kinfof("fail to create device dev:/port\n");
+		kinfof("fail to create device /dev/port\n");
 		halt();
 	}
 #endif
 
-	// dev:/console
-	if(vfs_create_dev("dev:/console",&serial_op,NULL)){
-		kinfof("fail to create device : dev:/console\n");
+	// /dev/console
+	if(vfs_create_dev("/dev/console",&serial_op,NULL)){
+		kinfof("fail to create device : /dev/console\n");
 	}
 
-	//dev:/null
-	if(vfs_create_dev("dev:/null",&null_op,NULL)){
+	///dev/null
+	if(vfs_create_dev("/dev/null",&null_op,NULL)){
 		kfail();
-		kinfof("fail to create device dev:/null\n");
+		kinfof("fail to create device /dev/null\n");
 		halt();
 	}
 

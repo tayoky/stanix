@@ -7,7 +7,10 @@
 #include <stddef.h>
 #include <errno.h>
 
-static inline int strequ(const char *str1,const char *str2){
+//TODO : make this process specific
+vfs_node *root;
+
+/*static inline int strequ(const char *str1,const char *str2){
 	while (*str1 == *str2){
 		if(!*str1){
 			return 1;
@@ -37,11 +40,11 @@ static inline vfs_node *vfs_get_root(const char *name){
 	}
 
 	return mount_point->root;
-}
+}*/
 
 void init_vfs(void){
 	kstatus("init vfs... ");
-	kernel->first_mount_point = NULL;
+	root = NULL;
 	kok();
 }
 
@@ -50,7 +53,7 @@ int vfs_mount(const char *name,vfs_node *mounting_node){
 	if(!mounting_node)return -EINVAL;
 
 	//check if something is aready mount
-	if(vfs_get_mount_point(name)){
+	/*if(vfs_get_mount_point(name)){
 		return -EEXIST;
 	}
 
@@ -61,7 +64,8 @@ int vfs_mount(const char *name,vfs_node *mounting_node){
 
 	mount_point->next = kernel->first_mount_point;
 	kernel->first_mount_point = mount_point;
-	return 0;
+	return 0;*/
+	return -ENOSYS;
 }
 ssize_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
 	if(node->read){
@@ -126,8 +130,8 @@ void vfs_close(vfs_node *node){
 		return;
 	}
 
-	if(node->mount_point && node->mount_point->root == node){
-		//don't close it it's root !!!
+	if(node->flags & VFS_MOUNT){
+		//don't close a mount point
 		return;
 	}
 
@@ -325,6 +329,12 @@ int vfs_sync(vfs_node *node){
 	return node->sync(node);
 }
 
+int vfs_chroot(vfs_node *new_root){
+	new_root->flags |= VFS_MOUNT;
+	root = new_root;
+	return 0;
+}
+
 vfs_node *vfs_open(const char *path,uint64_t flags){
 	//don't open for nothing
 	if((!flags & VFS_READONLY )&& (!(flags &  VFS_WRITEONLY))){
@@ -333,20 +343,6 @@ vfs_node *vfs_open(const char *path,uint64_t flags){
 
 	//first parse the path
 	char *new_path = strdup(path);
-
-	//path are like "drive:/folder/file.extention"
-	char *drive_separator = new_path;
-	while(*drive_separator != ':'){
-		if(!(*drive_separator)){
-			//path invalid
-			return NULL;
-		}
-		drive_separator++;
-	}
-
-	*drive_separator = '\0';
-	char *drive = new_path;
-	new_path = drive_separator+1;
 
 	uint64_t path_depth = 0;
 
@@ -362,8 +358,7 @@ vfs_node *vfs_open(const char *path,uint64_t flags){
 		}
 	}
 
-	
-	vfs_node *current_node = vfs_get_root(drive);
+	vfs_node *current_node = root;
 
 	char *current_dir = &new_path[1];
 	for (uint64_t i = 0; i < path_depth; i++){
@@ -376,8 +371,7 @@ vfs_node *vfs_open(const char *path,uint64_t flags){
 	
 	if(!current_node)goto open_error;
 
-	current_node->mount_point = vfs_get_mount_point(drive);
-	kfree(drive);
+	kfree(new_path);
 
 	///update modify / access time
 	if((flags & VFS_WRITEONLY) || (flags & VFS_READWRITE)){
@@ -386,10 +380,10 @@ vfs_node *vfs_open(const char *path,uint64_t flags){
 	if((flags & VFS_READONLY) || (flags & VFS_READWRITE)){
 		current_node->atime = NOW();
 	}
-
+	
 	return current_node;
 
 	open_error:
-	kfree(drive);
+	kfree(new_path);
 	return NULL;
 }

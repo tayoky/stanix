@@ -20,9 +20,9 @@ extern char **environ;
 
 int main(int argc,char **argv){
 	//init std streams
-	open("dev:/null",O_RDONLY); //stdin
-	open("dev:/console",O_WRONLY); //stdout
-	open("dev:/console",O_WRONLY); //stderr
+	open("/dev/null",O_RDONLY); //stdin
+	open("/dev/console",O_WRONLY); //stdout
+	open("/dev/console",O_WRONLY); //stderr
 
 
 	printf("hello world !!\n");
@@ -121,7 +121,7 @@ int main(int argc,char **argv){
 	execvp("initrd:/bin/doom",arg);
 
 	//try open keayboard
-	int kbd_fd = open("dev:/kb0",O_RDONLY);
+	int kbd_fd = open("/dev/kb0",O_RDONLY);
 	#define ESC '\033'
 
 	for(;;){

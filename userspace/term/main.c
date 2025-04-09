@@ -15,10 +15,10 @@ int main(int argc,char **argv){
 	dup2(pipefd[0],STDIN_FILENO);
 
 	//try open keyboard
-	int kbd_fd = open("dev:/kb0",O_RDONLY);
+	int kbd_fd = open("/dev/kb0",O_RDONLY);
 
 	if(kbd_fd < 0){
-		perror("dev:/kb0");
+		perror("/dev/kb0");
 		exit(1);
 	}
 

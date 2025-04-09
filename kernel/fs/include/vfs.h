@@ -11,10 +11,11 @@
 #define VFS_MAX_MOUNT_POINT_NAME_LEN 128
 #define VFS_MAX_PATH_LEN 256
 
-#define VFS_FILE 0x01
-#define VFS_DIR  0x02
-#define VFS_LINK 0x04
-#define VFS_DEV  0x08
+#define VFS_FILE  0x01
+#define VFS_DIR   0x02
+#define VFS_LINK  0x04
+#define VFS_DEV   0x08
+#define VFS_MOUNT 0x10
 
 struct vfs_node_struct;
 struct vfs_mount_point_struct;
@@ -77,6 +78,8 @@ struct kernel_table_struct;
 void init_vfs(void);
 
 int vfs_mount(const char *name,vfs_node *mounting_root);
+
+int vfs_chroot(vfs_node *new_root);
 
 /// @brief open a context for a given path (absolute)
 /// @param path 

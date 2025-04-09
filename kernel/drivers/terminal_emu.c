@@ -240,13 +240,13 @@ void init_terminal_emualtor(void){
 	terminal_settings->back_color = 0x000000;
 
 	//create the device
-	if(vfs_create_dev("dev:/tty0",&term_op,terminal_settings)){
+	if(vfs_create_dev("/dev/tty0",&term_op,terminal_settings)){
 		kfail();
-		kinfof("terminal emulator init but can't create dev dev:/tty0\n");
+		kinfof("terminal emulator init but can't create dev /dev/tty0\n");
 		return;
 	}
 
-	vfs_node *tty = vfs_open("dev:/tty0",VFS_WRITEONLY);
+	vfs_node *tty = vfs_open("/dev/tty0",VFS_WRITEONLY);
 	char *tty_start = "[" COLOR_YELLOW "infos" COLOR_RESET "] PMM, VMM vfs tmpFS and other aready init \n";
 	vfs_write(tty,tty_start,0,strlen(tty_start));
 	vfs_close(tty);
