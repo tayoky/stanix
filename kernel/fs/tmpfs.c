@@ -61,7 +61,6 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 	}
 
 	node->close = tmpfs_close;
-	node->dup = tmpfs_dup;
 
 	//copy metadata
 	node->perm        = inode->perm;
@@ -301,13 +300,6 @@ int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
 	inode->owner = owner;
 	inode->group_owner = group_owner;
 	return 0;
-}
-
-vfs_node *tmpfs_dup(vfs_node *node){
-	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-
-	//just create an new node from the inode
-	return inode2node(inode);
 }
 
 int tmpfs_sync(vfs_node *node){

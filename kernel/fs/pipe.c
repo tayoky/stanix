@@ -31,8 +31,6 @@ int create_pipe(vfs_node **read,vfs_node **write){
 	(*write)->dev_inode = pipe_inode;
 
 	//set functions
-	(*read)->dup    = pipe_dup;
-	(*write)->dup   = pipe_dup;
 	(*read)->close  = pipe_close;
 	(*write)->close = pipe_close;
 	(*read)->read   = pipe_read;
@@ -62,26 +60,6 @@ ssize_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	}
 
 	return ringbuffer_write(buffer,&pipe_inode->ring,count);
-}
-
-vfs_node *pipe_dup(vfs_node *node){
-	//duplicate the node not the inode
-	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
-	vfs_node *new_node = kmalloc(sizeof(vfs_node));
-	new_node->dev_inode = pipe_inode;
-
-	//determinate if we are a read pipe
-	char is_read_pipe = node->read != 0;
-
-	if(is_read_pipe){
-		new_node->read = pipe_read;
-		pipe_inode->reader_count++;
-	} else {
-		new_node->write = pipe_write;
-		pipe_inode->writer_count++;
-	}
-
-	return new_node;
 }
 
 void pipe_close(vfs_node *node){

@@ -39,6 +39,7 @@ typedef struct vfs_node_struct {
 	mode_t perm;
 	uint64_t flags;
 	uint64_t size;
+	uint64_t ref_count;
 	int64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	int64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	void (* close)(struct vfs_node_struct *);
@@ -51,7 +52,6 @@ typedef struct vfs_node_struct {
 	int (* chmod)(struct vfs_node_struct*,mode_t perm);
 	int (* chown)(struct vfs_node_struct*,uid_t owner,gid_t group_owner);
 	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
-	struct vfs_node_struct *(* dup)(struct vfs_node_struct *);
 	int(* sync)(struct vfs_node_struct *);
 	time_t atime;
 	time_t ctime;

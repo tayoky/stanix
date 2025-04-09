@@ -40,7 +40,6 @@ int tmpfs_truncate(vfs_node *node,size_t size);
 int tmpfs_create_dev(vfs_node *node,const char *name,device_op *op,void *dev_inode);
 int tmpfs_chmod(vfs_node *node,mode_t perm);
 int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
-vfs_node *tmpfs_dup(vfs_node *node);
 int tmpfs_sync(vfs_node *node);
 
 #define TMPFS_FLAGS_FILE 0x01

@@ -88,13 +88,23 @@ ssize_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 
 vfs_node *vfs_finddir(vfs_node *node,const char *name){
 	if(node->finddir){
-		return node->finddir(node,(char *)name);
+		vfs_node *child = node->finddir(node,(char *)name);
+		if(child){
+			child->ref_count = 1;
+		}
+		return child;
 	} else {
 		return NULL;
 	}
 }
 
 void vfs_close(vfs_node *node){
+	node->ref_count --;
+
+	if(node->ref_count > 0){
+		return;
+	}
+
 	if(node->mount_point && node->mount_point->root == node){
 		//don't close it it's root !!!
 		return;
@@ -247,8 +257,8 @@ vfs_node *vfs_dup(vfs_node *node){
 	//well we can copy a the void so ...
 	//we can copy an non existant node
 	if(!node) return NULL;
-	if(!node->dup) return NULL;
-	return node->dup(node); 
+	node->ref_count++;
+	return node;
 }
 
 int vfs_sync(vfs_node *node){
