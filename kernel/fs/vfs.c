@@ -131,6 +131,27 @@ void vfs_close(vfs_node *node){
 		return;
 	}
 
+	//if childreen can't close
+	if(node->childreen_count > 0){
+		return;
+	}
+
+	//we can finaly close
+	//but before remove the node from the directories cache
+	if(node->parent != node){
+		if(node->parent->child == node){
+			//special case for the first child
+			node->parent->child = node->brother;
+		} else {
+			for(vfs_node *current = node->parent->child; current; current = current->brother){
+				if(current->brother == node){
+					current->brother = node->brother;
+					break;
+				}
+			}
+		}
+	}
+
 	if(node->close){
 		node->close(node);
 	}
