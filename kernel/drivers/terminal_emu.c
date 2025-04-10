@@ -93,7 +93,7 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 int term_ioctl(vfs_node *node,uint64_t request,void *arg){
 	//make compiler happy
 	(void)arg;
-	terminal_emu_settings *inode = node->dev_inode;
+	terminal_emu_settings *inode = node->private_inode;
 	switch (request)
 	{
 	case IOCTL_TTY_WIDTH:
@@ -118,7 +118,7 @@ ssize_t term_write(vfs_node *node,void *vbuffer,uint64_t offset,size_t count){
 	(void)offset;
 
 	//get the option of the terminal
-	terminal_emu_settings *terminal_settings = node->dev_inode;
+	terminal_emu_settings *terminal_settings = node->private_inode;
 
 	//the buffer is just char
 	char *buffer = (char *)vbuffer;
@@ -129,11 +129,6 @@ ssize_t term_write(vfs_node *node,void *vbuffer,uint64_t offset,size_t count){
 	
 	return count;
 }
-
-device_op term_op = {
-	.write = term_write,
-	.ioctl = term_ioctl,
-};
 
 void init_terminal_emualtor(void){
 	kstatus("init terminal emulator ...");
@@ -171,29 +166,24 @@ void init_terminal_emualtor(void){
 	}
 	kfree(frambuffer_path);
 
-	char *font_path_key = ini_get_value(kernel->conf_file,"terminal_emulator","font");
-	if(!font_path_key){
-		font_path_key = ini_get_value(kernel->conf_file,"terminal_emulator","font.path");
+	char *font_path = ini_get_value(kernel->conf_file,"terminal_emulator","font");
+	if(!font_path){
+		font_path = ini_get_value(kernel->conf_file,"terminal_emulator","font.path");
 	}
 
-	if(!font_path_key){
+	if(!font_path){
 		//can't find the key
 		kfail();
 		kinfof("can't find font key in conf file\n");
 		return;
 	}
 
-	//now find the absolue path
-	char *font_path = kmalloc(strlen(font_path_key) + strlen("initrd:/") + 1);
-	strcpy(font_path,"initrd:/");
-	strcat(font_path,font_path_key);
-	kfree(font_path_key);
-
 	//now open the file
 	vfs_node *font_file = vfs_open(font_path,VFS_READONLY);
 	if(!font_file){
 		kfail();
 		kinfof("fail to open file : %s\n",font_path);
+		kfree(font_path);
 		return;
 	}
 
@@ -240,9 +230,15 @@ void init_terminal_emualtor(void){
 	terminal_settings->back_color = 0x000000;
 
 	//create the device
-	if(vfs_create_dev("/dev/tty0",&term_op,terminal_settings)){
+	vfs_node *terminal_dev = kmalloc(sizeof(vfs_node));
+	memset(terminal_dev,0,sizeof(vfs_node));
+	terminal_dev->private_inode = terminal_settings;
+	terminal_dev->ioctl =  term_ioctl;
+	terminal_dev->write = term_write;
+	terminal_dev->flags = VFS_DEV | VFS_CHAR;
+	if(vfs_mount("/dev/tty0",terminal_dev)){
 		kfail();
-		kinfof("terminal emulator init but can't create dev /dev/tty0\n");
+		kinfof("terminal emulator init but can't create device /dev/tty0\n");
 		return;
 	}
 
