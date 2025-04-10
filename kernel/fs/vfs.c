@@ -317,7 +317,9 @@ vfs_node *vfs_open(const char *path,uint64_t flags){
 		vfs_node *next_node = vfs_lookup(current_node,current_dir);
 		//folow mount points
 		if(next_node && (next_node->flags & VFS_MOUNT)){
-			next_node = next_node->linked_node;
+			vfs_node *mount_point = next_node;
+			next_node = vfs_dup(next_node->linked_node);
+			vfs_close(mount_point);
 		}
 		vfs_close(current_node);
 		current_node = next_node;
