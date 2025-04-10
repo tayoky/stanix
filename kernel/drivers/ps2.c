@@ -147,8 +147,9 @@ ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	return ringbuffer_read(buffer,&keyboard_queue,count);
 }
 
-device_op kbd_op = {
+vfs_node kbd_dev = {
 	.read = kbd_read,
+	.flags = VFS_DEV,
 };
 
 
@@ -195,7 +196,7 @@ void init_ps2(void){
 	keyboard_queue = new_ringbuffer(sizeof(struct input_event) * 25);
 
 	//create device
-	if(vfs_create_dev("/dev/kb0",&kbd_op,NULL)){
+	if(vfs_mount("/dev/kb0",&kbd_dev)){
 		kfail();
 		kinfof("fail to create dev /dev/kb0\n");
 	}

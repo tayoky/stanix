@@ -71,7 +71,7 @@ int main(int argc,char **argv){
 	printf("size : %ld\n",st.st_size);
 
 	//setup fake env
-	putenv("PATH=initrd:/;initrd:/bin");
+	putenv("PATH=/;/bin");
 	putenv("USER=root");
 
 	//env test
@@ -112,13 +112,13 @@ int main(int argc,char **argv){
 
 	//try launching doom
 	const char *arg[] = {
-		"initrd:/bin/doom",
+		"/bin/doom",
 		"-iwad",
-		"initrd:/doom1.wad",
+		"/doom1.wad",
 		NULL
 	};
 
-	execvp("initrd:/bin/doom",arg);
+	execvp("/bin/doom",arg);
 
 	//try open keayboard
 	int kbd_fd = open("/dev/kb0",O_RDONLY);

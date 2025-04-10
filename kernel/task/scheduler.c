@@ -47,9 +47,8 @@ void init_task(){
 	kernel_task->cr3 = get_addr_space();
 	
 	//let just the boot kernel task start with a cwd at initrd root
-	//low effort but it work okay ?
-	kernel_task->cwd_node = vfs_open("initrd:/",VFS_READONLY);
-	kernel_task->cwd_path = strdup("initrd:/");
+	kernel_task->cwd_node = vfs_open("/",VFS_READONLY);
+	kernel_task->cwd_path = strdup("/");
 
 	//the current task is the kernel task
 	kernel->current_proc = kernel_task;

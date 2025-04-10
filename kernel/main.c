@@ -69,7 +69,7 @@ void spawn_init(){
 	char *init_path = ini_get_value(kernel->conf_file,"init","init");
 
 	if(!init_path){
-		init_path = strdup("initrd:/init");
+		init_path = strdup("/init");
 	}
 
 	kinfof("try to exec %s\n",init_path);

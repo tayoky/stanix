@@ -26,11 +26,11 @@ int main(int argc,char **argv){
 	if(!child){
 		//launch tsh because no login
 		const char *arg[] = {
-			"initrd:/bin/tsh",
+			"/bin/tsh",
 			NULL
 		};
 		execv(arg[0],arg);
-		perror("initrd:/bin/tsh");
+		perror("/bin/tsh");
 	}
 
 	for(;;){
