@@ -152,5 +152,6 @@ int vfs_sync(vfs_node *node);
 #define VFS_READONLY     0x01 //readonly
 #define VFS_WRITEONLY    0x02 //write only
 #define VFS_READWRITE    0x03 //write and read
+#define VFS_PARENT       0x04 //open the parent
 
 #endif

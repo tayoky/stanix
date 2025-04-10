@@ -164,35 +164,34 @@ int vfs_create(const char *path,int perm,uint64_t flags){
 	//TODO : check if aready exist
 	int ret = -ENOENT;
 
-	//make a copy of the path
-	char *parent = strdup(path);
-	char *child = parent + strlen(path) - 2;
+	//open the parent
+	vfs_node *parent = vfs_open(path,VFS_WRITEONLY | VFS_PARENT);
+	if(!parent){
+		return -ENOENT;
+	}
+
+	char *child = path + strlen(path) - 1;
+	//path of directory might finish with / like /tmp/dir/
+	if(*child == '/')child--;
 	while(*child != '/'){
-		child --;
-		if(child <= parent){
+		child--;
+		if(child < path){
 			break;
 		}
 	}
-	*child = '\0';
 	child++;
 
-	//open the parent
-	vfs_node *node = vfs_open(parent,VFS_WRITEONLY);
-	if(!node){
-		//cant free or GD for some reason
-		return -ENOENT;
-	}
+	kdebugf("child : %s\n",child);
 	
 	//call create on the parent
-	if(node->create){
-		ret = node->create(node,child,perm,flags);
+	if(parent->create){
+		ret = parent->create(parent,child,perm,flags);
 	} else {
 		ret = -ENOTDIR;
 	}
 
-	//close and free
-	vfs_close(node);
-	kfree(parent);
+	//close
+	vfs_close(parent);
 	return ret;
 }
 
@@ -318,6 +317,15 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
 			path_depth++;
 			last_is_sep = 0;
 		}
+	}
+
+	//we handle VFS_PARENT here
+	if(flags & VFS_PARENT){
+		//do we have a parent ?
+		if(path_depth < 1){
+			return NULL;
+		}
+		path_depth--;
 	}
 
 	vfs_node *current_node = at;
