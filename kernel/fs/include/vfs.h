@@ -16,6 +16,8 @@
 #define VFS_LINK  0x04
 #define VFS_DEV   0x08
 #define VFS_MOUNT 0x10
+#define VFS_CHAR  0x20
+#define VFS_BLOCK 0x40
 
 struct vfs_node_struct;
 struct vfs_mount_point_struct;

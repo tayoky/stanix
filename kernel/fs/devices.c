@@ -17,8 +17,9 @@ ssize_t zero_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	return count;
 }
 
-device_op zero_op = {
-	.read = zero_read
+vfs_node zero_dev = {
+	.read = zero_read,
+	.flags = VFS_DEV | VFS_CHAR | VFS_BLOCK,
 };
 
 ///dev/port only exist on x86_64
@@ -48,7 +49,7 @@ ssize_t port_write(vfs_node *node,void *buffer,uint64_t port,size_t count){
 	return count;
 }
 
-device_op port_op = {
+vfs_node port_dev = {
 	.read = port_read,
 	.write = port_write
 };
@@ -66,8 +67,9 @@ ssize_t write_serial_dev(vfs_node *node,void *buffer,uint64_t offset,size_t coun
 	return count;
 }
 
-device_op serial_op = {
-	.write = write_serial_dev
+vfs_node serial_dev = {
+	.write = write_serial_dev,
+	.flags = VFS_DEV | VFS_CHAR,
 };
 
 static ssize_t null_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
@@ -83,23 +85,24 @@ static ssize_t null_write(vfs_node *node,void *buf,uint64_t offset,size_t count)
 	return (ssize_t)count;
 }
 
-device_op null_op = {
+vfs_node null_dev = {
 	.read = null_read,
-	.write = null_write
+	.write = null_write,
+	.flags = VFS_DEV | VFS_CHAR,
 };
 
 void init_devices(void){
 	kstatus("init dev ...");
-	if(vfs_mount("dev",new_tmpfs())){
+	if(vfs_mount("/dev",new_tmpfs())){
 		kfail();
-		kinfof("fail to mount devfs on /dev/\n");
+		kinfof("fail to mount devfs on /dev\n");
 		halt();
 	}
 
 	//create some simple devices
 
 	// /dev/zero
-	if(vfs_create_dev("/dev/zero",&zero_op,NULL)){
+	if(vfs_mount("/dev/zero",&zero_dev)){
 		kfail();
 		kinfof("fail to create device /dev/zero\n");
 		halt();
@@ -107,7 +110,7 @@ void init_devices(void){
 
 	// /dev/port
 #ifdef x86_64
-	if(vfs_create_dev("/dev/port",&port_op,NULL)){
+	if(vfs_mount("/dev/port",&port_dev)){
 		kfail();
 		kinfof("fail to create device /dev/port\n");
 		halt();
@@ -115,12 +118,12 @@ void init_devices(void){
 #endif
 
 	// /dev/console
-	if(vfs_create_dev("/dev/console",&serial_op,NULL)){
+	if(vfs_mount("/dev/console",&serial_dev)){
 		kinfof("fail to create device : /dev/console\n");
 	}
 
 	///dev/null
-	if(vfs_create_dev("/dev/null",&null_op,NULL)){
+	if(vfs_mount("/dev/null",&null_dev)){
 		kfail();
 		kinfof("fail to create device /dev/null\n");
 		halt();
