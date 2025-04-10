@@ -7,18 +7,18 @@
 #include "ini.h"
 
 void read_main_conf_file(void){
-	kstatus("open main conf file initrd:/conf.ini ...");
-	vfs_node *conf_file = vfs_open("initrd:/conf.ini",VFS_READONLY);
+	kstatus("open main conf file /conf.ini ...");
+	vfs_node *conf_file = vfs_open("/conf.ini",VFS_READONLY);
 
 	//retry with stanix.ini
 	if(!conf_file){
-		kinfof("fail to open initrd:/conf.ini\n");
-		kinfof("try to open initrd:/stanix.ini instead\n");
-		conf_file = vfs_open("initrd:/stanix.ini",VFS_READONLY);
+		kinfof("fail to open /conf.ini\n");
+		kinfof("try to open /stanix.ini instead\n");
+		conf_file = vfs_open("/stanix.ini",VFS_READONLY);
 	}
 
 	if(!conf_file){
-		kinfof("can't open initrd:/stanix.ini\n");
+		kinfof("can't open /stanix.ini\n");
 		kfail();
 		kinfof("no conf file find\n");
 		halt();
