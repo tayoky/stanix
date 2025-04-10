@@ -6,14 +6,8 @@
 #include "devices.h"
 #include "bootinfo.h"
 
-device_op framebuffer_op = {
-	.close = NULL,
-	.write = framebuffer_write,
-	.ioctl = framebuffer_ioctl
-};
-
 ssize_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	struct limine_framebuffer *inode = node->dev_inode;
+	struct limine_framebuffer *inode = node->private_inode;
 	uint64_t size = inode->width * inode->height * (inode->bpp / 8);
 	if(offset + count > size){
 		if(offset > size){
@@ -43,7 +37,7 @@ int framebuffer_scroll(struct limine_framebuffer *inode,uint64_t count){
 }
 
 int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
-	struct limine_framebuffer *inode = node->dev_inode;
+	struct limine_framebuffer *inode = node->private_inode;
 	
 	//implent basic ioctl : width hight ...
 	switch (request){
@@ -85,7 +79,7 @@ int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 }
 
 void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color){
-	struct limine_framebuffer *inode = framebuffer->dev_inode;
+	struct limine_framebuffer *inode = framebuffer->private_inode;
 	uint64_t location =  y * inode->pitch  + (x * sizeof(uint32_t));
 	vfs_write(framebuffer,&color,location,sizeof(uint32_t));
 }
@@ -116,8 +110,16 @@ void init_frambuffer(void){
 		strcpy(full_path,"/dev/fb/");
 		strcat(full_path,fb_num);
 
+
+		vfs_node *framebuffer_dev = kmalloc(sizeof(vfs_node));
+		memset(framebuffer_dev,0,sizeof(vfs_node));
+		framebuffer_dev->flags = VFS_DEV | VFS_BLOCK;
+		framebuffer_dev->write = framebuffer_write;
+		framebuffer_dev->ioctl = framebuffer_ioctl;
+		framebuffer_dev->private_inode = frambuffer_request.response->framebuffers[i];
+
 		//create the device
-		if(vfs_create_dev(full_path,&framebuffer_op,frambuffer_request.response->framebuffers[i])){
+		if(vfs_mount(full_path,framebuffer_dev)){
 			kfail();
 			kinfof("fail to create device %s\n",full_path);
 			kfree(full_path);
