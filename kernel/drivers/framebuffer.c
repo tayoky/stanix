@@ -86,11 +86,6 @@ void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color){
 
 void init_frambuffer(void){
 	kstatus("init frambuffer ...");
-	if(vfs_mkdir("/dev/fb",555)){
-		kfail();
-		kinfof("fail to create dir /dev/fb/\n");
-		return;
-	}
 
 	for (uint64_t i = 0; i < frambuffer_request.response->framebuffer_count; i++){
 		if(i >= 100){
@@ -101,15 +96,8 @@ void init_frambuffer(void){
 		}
 
 		//find the path for the frambuffer
-		char fb_num[3] = {
-			'0' + (i / 10),
-			'0' + (i % 10),
-			'\0'
-		};
-		char *full_path = kmalloc(strlen("/dev/fb/") + 3);
-		strcpy(full_path,"/dev/fb/");
-		strcat(full_path,fb_num);
-
+		char *full_path = kmalloc(strlen("/dev/fb") + 3);
+		sprintf(full_path,"/dev/fb%d",i);
 
 		vfs_node *framebuffer_dev = kmalloc(sizeof(vfs_node));
 		memset(framebuffer_dev,0,sizeof(vfs_node));
