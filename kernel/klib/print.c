@@ -194,6 +194,19 @@ void kfprintf(vfs_node *node,const char *fmt,...){
 	va_end(args);
 }
 
+static void kputbuf(char c,char **buf){
+	**buf = c;
+	(*buf)++;
+}
+
+void sprintf(char *buf,const char *fmt,...){
+	va_list args;
+	va_start(args,fmt);
+	printfunc((print_func)kputbuf,fmt,args,&buf);
+	*buf = '\0';
+	va_end(args);
+}
+
 void kprintf(const char *fmt,...){
 	va_list args;
 	va_start(args,fmt);
