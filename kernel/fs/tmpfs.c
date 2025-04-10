@@ -24,13 +24,6 @@ static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	return inode;
 }
 
-static void copy_op(vfs_node *dest,device_op *src){
-	dest->write    = src->write;
-	dest->read     = src->read;
-	dest->truncate = src->truncate;
-	dest->ioctl    = src->ioctl;
-}
-
 static vfs_node*inode2node(tmpfs_inode *inode){
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
@@ -41,7 +34,6 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 		node->lookup    = tmpfs_lookup;
 		node->readdir    = tmpfs_readdir;
 		node->create     = tmpfs_create;
-		node->create_dev = tmpfs_create_dev;
 		node->unlink     = tmpfs_unlink;
 		node->flags |= VFS_DIR;
 	}
@@ -52,12 +44,6 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 		node->truncate   = tmpfs_truncate;
 		node->flags |= VFS_FILE;
 		node->size = inode->buffer_size;
-	}
-
-	if(inode->flags & TMPFS_FLAG_DEV){
-		copy_op(node,inode->dev_op);
-		node->dev_inode = inode->dev_inode;
-		node->flags |= VFS_DEV;
 	}
 
 	node->close = tmpfs_close;
@@ -239,13 +225,7 @@ struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
 }
 
 void tmpfs_close(vfs_node *node){
-	//if the dev as close call it
-	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-	if(inode->flags & TMPFS_FLAG_DEV){
-		if(inode->dev_op->close){
-			inode->dev_op->close(node);
-		}
-	}
+	(void)node;
 }
 
 
@@ -269,22 +249,6 @@ int tmpfs_create(vfs_node *node,const char *name,int perm,uint64_t flags){
 	inode->child = child_inode;
 
 	inode->perm = perm;
-	return 0;
-}
-
-int tmpfs_create_dev(vfs_node *node,const char *name,device_op *op,void *dev_inode){
-	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-
-	//create new inode
-	tmpfs_inode *child_inode = new_inode(name,TMPFS_FLAG_DEV);
-	child_inode->parent = inode;
-	inode->children_count++;
-	child_inode->brother = inode->child;
-	inode->child = child_inode;
-
-	//set dev sepcific
-	child_inode->dev_op = op;
-	child_inode->dev_inode = dev_inode;
 	return 0;
 }
 

@@ -22,20 +22,8 @@
 struct vfs_node_struct;
 struct vfs_mount_point_struct;
 
-typedef struct {
-	int64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
-	int64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
-	int (* close)(struct vfs_node_struct *);
-	int (* create)(struct vfs_node_struct*,char *name,mode_t perm);
-	int (* mkdir)(struct vfs_node_struct*,char *name,mode_t perm);
-	int (* unlink)(struct vfs_node_struct*,char *);
-	int (* truncate)(struct vfs_node_struct*,size_t);
-	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
-}device_op;
-
 typedef struct vfs_node_struct {
 	void *private_inode;
-	void *dev_inode;  ///only use for dev
 	struct vfs_mount_point_struct *mount_point;
 	uid_t owner;
 	gid_t group_owner;
@@ -48,7 +36,6 @@ typedef struct vfs_node_struct {
 	void (* close)(struct vfs_node_struct *);
 	struct vfs_node_struct *(* lookup)(struct vfs_node_struct *,const char *name);
 	int (* create)(struct vfs_node_struct*,const char *name,mode_t perm,uint64_t);
-	int (* create_dev)(struct vfs_node_struct*,const char *name,device_op *op,void *dev_inode);
 	int (* unlink)(struct vfs_node_struct*,const char *);
 	struct dirent *(* readdir)(struct vfs_node_struct*,uint64_t index);
 	int (* truncate)(struct vfs_node_struct*,size_t);
@@ -81,7 +68,11 @@ typedef struct vfs_mount_point_struct{
 struct kernel_table_struct;
 void init_vfs(void);
 
-int vfs_mount(const char *name,vfs_node *mounting_root);
+/// @brief mount a vfs_node to the specified path and create a directory fpr it if needed
+/// @param path the path to mount to
+/// @param local_root the vfs_node to mount
+/// @return 0 on success else error code
+int vfs_mount(const char *path,vfs_node *local_root);
 
 int vfs_chroot(vfs_node *new_root);
 
@@ -109,14 +100,14 @@ int vfs_unlink(vfs_node *node,const char *name);
 
 /// @brief read an entry in a directory at a specifed index
 /// @param node context of the dir
-/// @param index the index to reads
+/// @param index the index to read
 /// @return a pointer to a dirent that can be free or NULL if fail
 struct dirent *vfs_readdir(vfs_node *node,uint64_t index);
 
 /// @brief truncate a file to a specfied size
 /// @param node context of the file
 /// @param size the new size
-/// @return 0 on succes else error code
+/// @return 0 on success else error code
 int vfs_truncate(vfs_node *node,size_t size);
 
 /// @brief change permission of a file/dir
@@ -138,14 +129,6 @@ int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
 /// @param arg device/request specific
 /// @return device/request specific
 int vfs_ioctl(vfs_node *node,uint64_t request,void *arg);
-
-
-/// @brief create an device file
-/// @param path the path that indacte the place where to create
-/// @param op pointer to device operation
-/// @param dev_inode pointer to device inode (or NULL)
-/// @return 0 on succes else error code
-int vfs_create_dev(const char *path,device_op *op,void *dev_inode);
 
 /// @brief duplicate an vfs_node
 /// @param node the vfs_node to duplicate

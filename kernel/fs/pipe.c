@@ -27,8 +27,8 @@ int create_pipe(vfs_node **read,vfs_node **write){
 	memset(*write,0,sizeof(vfs_node));
 	
 	//set the inodes
-	(*read)->dev_inode  = pipe_inode;
-	(*write)->dev_inode = pipe_inode;
+	(*read)->private_inode  = pipe_inode;
+	(*write)->private_inode = pipe_inode;
 
 	//set functions
 	(*read)->close  = pipe_close;
@@ -40,7 +40,7 @@ int create_pipe(vfs_node **read,vfs_node **write){
 
 ssize_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
-	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
+	struct pipe *pipe_inode = (struct pipe *)node->private_inode;
 
 	//borken pipe check
 	if(!pipe_inode->writer_count){
@@ -52,7 +52,7 @@ ssize_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 
 ssize_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
-	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
+	struct pipe *pipe_inode = (struct pipe *)node->private_inode;
 
 	//borken pipe check
 	if(!pipe_inode->reader_count){
@@ -63,7 +63,7 @@ ssize_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 }
 
 void pipe_close(vfs_node *node){
-	struct pipe *pipe_inode = (struct pipe *)node->dev_inode;
+	struct pipe *pipe_inode = (struct pipe *)node->private_inode;
 
 	//determinate if we are a read pipe
 	char is_read_pipe = node->read != 0;

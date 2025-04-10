@@ -160,10 +160,6 @@ void vfs_close(vfs_node *node){
 	}
 }
 
-int vfs_create_dev(const char *path,device_op *op,void *dev_inode){
-	return -ENOSYS;
-}
-
 int vfs_create(const char *path,int perm,uint64_t flags){
 	//TODO : check if aready exist
 	int ret = -ENOENT;

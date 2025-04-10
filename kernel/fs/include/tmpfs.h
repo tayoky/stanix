@@ -19,8 +19,6 @@ typedef struct tmpfs_inode_struct{
 	uint64_t flags;
 	size_t buffer_size;
 	char *buffer;
-	device_op *dev_op; //only use for dev
-	void *dev_inode;   //only use for dev
 	mode_t perm;
 	uid_t owner;
 	gid_t group_owner;
@@ -37,14 +35,12 @@ int tmpfs_create(vfs_node *node,const char *name,int perm,uint64_t flags);
 int tmpfs_unlink(vfs_node *node,const char *name);
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index);
 int tmpfs_truncate(vfs_node *node,size_t size);
-int tmpfs_create_dev(vfs_node *node,const char *name,device_op *op,void *dev_inode);
 int tmpfs_chmod(vfs_node *node,mode_t perm);
 int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
 int tmpfs_sync(vfs_node *node);
 
 #define TMPFS_FLAGS_FILE 0x01
 #define TMPFS_FLAGS_DIR  0x02
-#define TMPFS_FLAG_DEV 0x04
 
 #define IOCTL_TMPFS_CREATE_DEV 0x01
 #define IOCTL_TMPFS_SET_DEV_INODE 0x02
