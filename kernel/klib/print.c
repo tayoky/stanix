@@ -5,11 +5,9 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stddef.h>
-#define PRINTF_MODIFIER_D 0
-#define PRINTF_MODIFIER_X 1
-#define PRINTF_MODIFIER_O 2
 
-void output_char(char c){
+void output_char(char c,void *extra){
+	(void)extra;
 	//when kout is not init just output trought serial
 	if(!kernel->outs){
 		write_serial_char(c);
@@ -34,7 +32,7 @@ void kfail(void){
 	kprintf("[" COLOR_RED "FAIL" COLOR_RESET "]\n");
 }
 
-void printuint(print_func func,uint64_t integer,uint8_t base,int padding,char paddind_char){
+void printuint(print_func func,uint64_t integer,uint8_t base,int padding,char paddind_char,void *extra){
 	char figures[] = "0123456789ABCDEF";
 	char str[64];
 	str[63] = '\0';
@@ -67,12 +65,12 @@ void printuint(print_func func,uint64_t integer,uint8_t base,int padding,char pa
 
 	//now we can actually print the string
 	va_list stub;
-	printfunc(func,(char *) str + index,stub);
+	printfunc(func,(char *) str + index,stub,extra);
 }
 
-#define PAD(n) {int count = n ; while(count > 0)func(pad_char);count--;}
+#define PAD(n) {int count = n ; while(count > 0)func(pad_char,extra);count--;}
 
-void printfunc(print_func func,const char *fmt,va_list args){
+void printfunc(print_func func,const char *fmt,va_list args,void *extra){
 	uint64_t index = 0;
 	while (fmt[index]){
 		if(fmt[index] == '%'){
@@ -97,7 +95,7 @@ void printfunc(print_func func,const char *fmt,va_list args){
 			//start with string and char because there are the only diferent
 			if(fmt[index] == 'c'){
 				PAD(padding -1);
-				func(va_arg(args,int));
+				func(va_arg(args,int),extra);
 				index++;
 				continue;
 			}
@@ -106,14 +104,14 @@ void printfunc(print_func func,const char *fmt,va_list args){
 				char *str = va_arg(args,char *);
 				PAD(padding - strlen(str));
 				while(*str){
-					func(*str);
+					func(*str,extra);
 					str++;
 				}
 				index ++;
 				continue;
 			}
 			if(fmt[index] == '%'){
-				func('%');
+				func('%',extra);
 				index ++;
 				continue;
 			}
@@ -153,12 +151,12 @@ void printfunc(print_func func,const char *fmt,va_list args){
 				//now we we make the abs of the number
 				//and put an - if needed so we don't have to care about it anymore
 				if(((int64_t)integer) < 0){
-					func('-');
+					func('-',extra);
 					integer = (uint64_t)(-(int64_t)integer);
 				}
 				//fallthrough
 			case 'u' :
-				printuint(func,integer,10,padding,pad_char);
+				printuint(func,integer,10,padding,pad_char,extra);
 				break;
 			case 'p' :
 				padding = 15;
@@ -166,10 +164,10 @@ void printfunc(print_func func,const char *fmt,va_list args){
 				//fallthrough
 			case 'x' :
 			case 'X' :
-				printuint(func,integer,16,padding,pad_char);
+				printuint(func,integer,16,padding,pad_char,extra);
 				break;
 			case 'o':
-				printuint(func,integer,8,padding,pad_char);
+				printuint(func,integer,8,padding,pad_char,extra);
 				break;
 			default :
 				kdebugf("invalid identifier '%c'\n",fmt[index]);
@@ -180,15 +178,26 @@ void printfunc(print_func func,const char *fmt,va_list args){
 		}
 
 		//normal char 
-		func(fmt[index]);
+		func(fmt[index],extra);
 		index ++;
 	}
+}
+
+static void kfputc(char c,vfs_node *node){
+	vfs_write(node,&c,0,1);
+} 
+
+void kfprintf(vfs_node *node,const char *fmt,...){
+	va_list args;
+	va_start(args,fmt);
+	printfunc((print_func)kfputc,fmt,args,node);
+	va_end(args);
 }
 
 void kprintf(const char *fmt,...){
 	va_list args;
 	va_start(args,fmt);
-	printfunc(output_char,fmt,args);
+	printfunc(output_char,fmt,args,NULL);
 	va_end(args);
 }
 
@@ -196,7 +205,7 @@ void kdebugf(const char *fmt,...){
 	kprintf("["COLOR_BLUE"debug"COLOR_RESET"] ");
 	va_list args;
 	va_start(args,fmt);
-	printfunc(output_char,fmt,args);
+	printfunc(output_char,fmt,args,NULL);
 	va_end(args);
 }
 
@@ -204,7 +213,7 @@ void kinfof(const char *fmt,...){
 	kprintf("["COLOR_YELLOW"infos"COLOR_RESET"] ");
 	va_list args;
 	va_start(args,fmt);
-	printfunc(output_char,fmt,args);
+	printfunc(output_char,fmt,args,NULL);
 	va_end(args);
 }
 

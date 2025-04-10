@@ -1,11 +1,13 @@
 #ifndef PRINT_H
 #define PRINT_H
 #include <stdarg.h>
+#include "vfs.h"
 
-typedef void(*print_func)(const char ch);
+typedef void(*print_func)(const char ch,void *extra);
 
-void printfunc(print_func func,const char *fmt,va_list);
+void printfunc(print_func func,const char *fmt,va_list,void *extra);
 
+void kfprintf(vfs_node *node,const char *fmt,...);
 void kprintf(const char *fmt,...);
 void kstatus(const char *status);
 void kdebugf(const char *fmt,...);

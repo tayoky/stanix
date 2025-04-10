@@ -243,8 +243,7 @@ void init_terminal_emualtor(void){
 	}
 
 	vfs_node *tty = vfs_open("/dev/tty0",VFS_WRITEONLY);
-	char *tty_start = "[" COLOR_YELLOW "infos" COLOR_RESET "] PMM, VMM vfs tmpFS and other aready init \n";
-	vfs_write(tty,tty_start,0,strlen(tty_start));
+	kfprintf(tty,"[" COLOR_YELLOW "infos" COLOR_RESET "] PMM, VMM vfs tmpFS and other aready init \n");
 	vfs_close(tty);
 
 	kok();
