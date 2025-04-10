@@ -283,34 +283,49 @@ int vfs_chroot(vfs_node *new_root){
 }
 
 vfs_node *vfs_open(const char *path,uint64_t flags){
+	//if absolute relative to root else relative to cwd
+	if(path[0] == '/' || path[0] == '\0'){
+		return vfs_openat(root,path,flags);
+	}
+	return vfs_openat(get_current_proc()->cwd_node,path,flags);
+}
+
+
+vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
 	//don't open for nothing
 	if((!flags & VFS_READONLY )&& (!(flags &  VFS_WRITEONLY))){
 		return NULL;
 	}
 
-	//first parse the path
+	//we are going to modify it
 	char *new_path = strdup(path);
 
+	//first parse the path
 	uint64_t path_depth = 0;
+	char last_is_sep = 1;
+	char *path_array[64]; //hardcoded maximum identation level
 
-	//find the path depth
 	for(int i = 0; new_path[i] ; i++){
 		//only if it's a path separator
-		if(new_path[i] != '/') {
+		if(new_path[i] == '/') {
+			new_path[i] = '\0';
+			last_is_sep = 1;
 			continue;
 		}
-		new_path[i] = '\0';
-		if(new_path[i + 1]) {
+
+		if(last_is_sep){
+			path_array[path_depth] = &new_path[i];
 			path_depth++;
+			last_is_sep = 0;
 		}
 	}
 
-	vfs_node *current_node = root;
+	vfs_node *current_node = at;
 
-	char *current_dir = &new_path[1];
 	for (uint64_t i = 0; i < path_depth; i++){
 		if(!current_node)goto open_error;
-		vfs_node *next_node = vfs_lookup(current_node,current_dir);
+		
+		vfs_node *next_node = vfs_lookup(current_node,path_array[i]);
 		//folow mount points
 		if(next_node && (next_node->flags & VFS_MOUNT)){
 			vfs_node *mount_point = next_node;
@@ -319,7 +334,6 @@ vfs_node *vfs_open(const char *path,uint64_t flags){
 		}
 		vfs_close(current_node);
 		current_node = next_node;
-		current_dir += strlen(current_dir) + 1;
 	}
 	
 	if(!current_node)goto open_error;

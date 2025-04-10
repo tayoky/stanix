@@ -15,7 +15,6 @@
 #include "memseg.h"
 #include "fork.h"
 #include "userspace.h"
-#include "cwd.h"
 #include "string.h"
 #include "arch.h"
 
@@ -69,34 +68,29 @@ int sys_open(const char *path,int flags,mode_t mode){
 
 	file_descriptor *file = &FD_GET(fd);
 
-	//make the path absolute
-	char *abs_path = absolute_path(path);
-	vfs_node *node = vfs_open(abs_path,vfs_flags);
+	vfs_node *node = vfs_open(path,vfs_flags);
 	
 
 	//O_CREAT things
 	if(flags & O_CREAT){
 		if(node && flags & O_EXCL){
 			vfs_close(node);
-			kfree(abs_path);
 			return -EEXIST;
 		}
 		
 		if(!node){
 			//the user want to create the file
-			int result = vfs_create(abs_path,mode,VFS_FILE);
+			int result = vfs_create(path,mode,VFS_FILE);
 
 			if(result){
 				//vfs_create failed
-				kfree(abs_path);
 				return result;
 			}
 
-			node = vfs_open(abs_path,vfs_flags);
+			node = vfs_open(path,vfs_flags);
 		}
 	}
 
-	kfree(abs_path);
 
 	if(!node){
 		return -ENOENT;
@@ -502,9 +496,7 @@ int sys_stat(const char *pathname,struct stat *st){
 		return -EFAULT;
 	}
 	
-	char *abs_path = absolute_path(pathname);
-	vfs_node *node = vfs_open(abs_path,VFS_READONLY);
-	kfree(abs_path);
+	vfs_node *node = vfs_open(pathname,VFS_READONLY);
 	if(!node){
 		return -ENOENT;
 	}
@@ -547,33 +539,24 @@ int sys_chdir(const char *path){
 		return -EFAULT;
 	}
 
-	char *abs_path = absolute_path(path);
-
 	//check if exist
-	vfs_node *node = vfs_open(abs_path,VFS_READONLY);
+	vfs_node *node = vfs_open(path,VFS_READONLY);
 	if(!node){
-		kfree(abs_path);
 		return -ENOENT;
 	}
 
 	if(!(node->flags & VFS_DIR)){
-		kfree(abs_path);
 		return -ENOTDIR;
 	}
 
 	//free old cwd
 	kfree(get_current_proc()->cwd_path);
+	vfs_close(get_current_proc()->cwd_node);
 
-	//make sure it finish with an /
-	if(abs_path[strlen(abs_path) - 1] != '/'){
-		char *fixed_path = kmalloc(strlen(abs_path) + 2);
-		strcpy(fixed_path,abs_path);
-		strcat(fixed_path,"/");
-		kfree(abs_path);
-		abs_path = fixed_path;
-	}
+	//set new cwd
+	get_current_proc()->cwd_node = node;
+	get_current_proc()->cwd_path = strdup(path);
 
-	get_current_proc()->cwd_path = abs_path;
 	return 0;
 }
 
