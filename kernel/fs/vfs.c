@@ -39,7 +39,7 @@ int vfs_mount(const char *name,vfs_node *local_root){
 	//make a ref to the local root to prevent it from being close
 	local_root->ref_count = 1;
 
-	mount_point->flags = VFS_MOUNT;
+	mount_point->flags |= VFS_MOUNT;
 
 	local_root->parent = mount_point->parent;
 	return 0;
