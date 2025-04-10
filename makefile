@@ -60,23 +60,26 @@ OVMF-img.bin : OVMF.fd
 	dd if=/dev/zero of=OVMF-img.bin bs=1 count=0 seek=67108864
 
 #limine files to copy
-${OUT}/boot/limine/limine-bios.sys : limine/limine-bios.sys
-	cp limine/limine-bios.sys ${OUT}/boot/limine
 ${OUT}/EFI/BOOT/% : limine/%
+	@mkdir -p ${OUT}/EFI/BOOT/
 	mkdir -p ${OUT}/EFI/BOOT/
 	cp  $^ $@
 ${OUT}/boot/limine/limine-% : limine/limine-%
+	@mkdir -p ${OUT}/boot/limine/
 	cp  $^ $@
 
 #for build the ramdisk
 rd : ${OUT}/boot/initrd.tar
 ${OUT}/boot/initrd.tar : ${initrd_src}
+	@mkdir -p ${OUT}/boot
 	cd initrd && tar --create -f ../${OUT}/boot/initrd.tar **
 
 ${OUT}/boot/limine/limine.conf : kernel/limine.conf
+	@mkdir -p ${OUT}/boot/limine/
 	cp kernel/limine.conf ${OUT}/boot/limine/limine.conf
 #build!!!
 build : header ${OUT}/boot/limine/limine.conf
+	@mkdir -p ${OUT}/boot/
 	${MAKE} -C kernel OUT=../${OUT} KERNEL=${KERNEL} SYSROOT=${SYSROOT}
 	${MAKE} -C tlibc install TARGET=stanix
 	${MAKE} -C userspace install SYSROOT=${SYSROOT}
