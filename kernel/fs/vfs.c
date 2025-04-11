@@ -161,8 +161,12 @@ void vfs_close(vfs_node *node){
 }
 
 int vfs_create(const char *path,int perm,uint64_t flags){
-	//TODO : check if aready exist
-	int ret = -ENOENT;
+	//first check if aready exist
+	vfs_node *node = vfs_open(path,VFS_READONLY);
+	if(node){
+		vfs_close(node);
+		return -EEXIST;
+	}
 
 	//open the parent
 	vfs_node *parent = vfs_open(path,VFS_WRITEONLY | VFS_PARENT);
@@ -170,8 +174,8 @@ int vfs_create(const char *path,int perm,uint64_t flags){
 		return -ENOENT;
 	}
 
-	char *child = path + strlen(path) - 1;
-	//path of directory might finish with / like /tmp/dir/
+	const char *child = path + strlen(path) - 1;
+	//path of directory might finish with '/' like /tmp/dir/
 	if(*child == '/')child--;
 	while(*child != '/'){
 		child--;
@@ -180,10 +184,9 @@ int vfs_create(const char *path,int perm,uint64_t flags){
 		}
 	}
 	child++;
-
-	kdebugf("child : %s\n",child);
 	
 	//call create on the parent
+	int ret;
 	if(parent->create){
 		ret = parent->create(parent,child,perm,flags);
 	} else {
@@ -199,15 +202,42 @@ int vfs_mkdir(const char *path,int perm){
 	return vfs_create(path,perm,VFS_DIR);
 }
 
-int vfs_unlink(vfs_node *node,const char *name){
-	if(node->unlink){
-		return node->unlink(node,(char *)name);
-	} else {
-		if(!(node->flags & VFS_DIR)){
-			return -ENOTDIR;
-		}
-		return -EBADF;
+int vfs_unlink(const char *path){
+	//first check if exist
+	vfs_node *node = vfs_open(path,VFS_READONLY);
+	if(!node){
+		return -ENOENT;
 	}
+	vfs_close(node);
+
+	//open parent
+	vfs_node *parent = vfs_open(path,VFS_WRITEONLY | VFS_PARENT);
+	if(!parent){
+		return -ENOENT;
+	}
+
+	const char *child = path + strlen(path) - 1;
+	//path of directory might finish with '/' like /tmp/dir/
+	if(*child == '/')child--;
+	while(*child != '/'){
+		child--;
+		if(child < path){
+			break;
+		}
+	}
+	child++;
+
+	//call unlink on the parent
+	int ret;
+	if(parent->create){
+		ret = parent->unlink(parent,child);
+	} else {
+		ret = -ENOTDIR;
+	}
+	
+	//cleanup
+	vfs_close(parent);
+	return ret;
 }
 
 struct dirent *vfs_readdir(vfs_node *node,uint64_t index){

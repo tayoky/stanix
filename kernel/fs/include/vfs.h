@@ -99,12 +99,10 @@ int vfs_mkdir(const char *path,int perm);
 /// @param node the context to close
 void vfs_close(vfs_node *node);
 
-/// @brief unlink a directory entry
-/// @deprecated will likely change in future version
-/// @param node 
-/// @param name 
-/// @return 
-int vfs_unlink(vfs_node *node,const char *name);
+/// @brief unlink a path
+/// @param path the path to unlink
+/// @return 0 on success else error code
+int vfs_unlink(const char *path);
 
 /// @brief read an entry in a directory at a specifed index
 /// @param node context of the dir
