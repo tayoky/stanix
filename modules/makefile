@@ -17,7 +17,7 @@ MOD = ${SRC:.c=.ko}
 all : ${MOD}
 
 %.ko : %.c
-	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^
+	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^ -DMODULE
 install :
 	mkdir -p ${PREFIX}/mod
 	cp *.ko ${PREFIX}/mod/

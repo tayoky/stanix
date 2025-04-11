@@ -1,6 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
 
+
 //simple module to test the dynamic module loading
 
 void test_export(){
@@ -17,3 +18,13 @@ int fini(){
 	UNEXPORT(test_export);
 	return 0;
 }
+
+kmodule module_meta = {
+	.magic = MODULE_MAGIC,
+	.init = init,
+	.fini = fini,
+	.author = "tayoky",
+	.name = "test",
+	.description = "just a simple module to test",
+	.liscence = "GPL 3",
+};

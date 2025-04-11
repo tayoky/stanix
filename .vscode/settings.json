@@ -26,6 +26,12 @@
         "fd.h": "c",
         "idt.h": "c",
         "errno.h": "c",
-        "cleaner.h": "c"
-    }
+        "cleaner.h": "c",
+        "module.h": "c",
+        "syscall.h": "c"
+    },
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/**",
+        "/home/tayoky/stanix/usr/include"
+    ]
 }

@@ -17,6 +17,7 @@
 #include "userspace.h"
 #include "string.h"
 #include "arch.h"
+#include "module.h"
 
 static int find_fd(){
 	int fd = 0;
@@ -671,6 +672,37 @@ int sys_rmdir(const char *pathname){
 	return vfs_unlink(pathname);
 }
 
+int sys_insmod(const char *pathname,const char **arg){
+	if(!CHECK_STR(pathname)){
+		return -EFAULT;
+	}
+	if(!CHECK_MEM(arg,sizeof(char *))){
+		return -EFAULT;
+	}
+
+	//check arg
+	int argc = 0;
+	while(arg[argc]){
+		if(!CHECK_STR(arg[argc])){
+			return -EFAULT;
+		}
+		argc ++;
+		if(!CHECK_MEM(&arg[argc],sizeof(char*))){
+			return -EFAULT;
+		}
+	}
+
+	return insmod(pathname,arg,NULL);
+}
+
+int sys_rmmod(const char *name){
+	if(!CHECK_STR(name)){
+		return -EFAULT;
+	}
+
+	return rmmod(name);
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -706,6 +738,8 @@ void *syscall_table[] = {
 	(void *)sys_getcwd,
 	(void *)sys_chdir,
 	(void *)sys_waitpid,
+	(void *)sys_insmod,
+	(void *)sys_rmmod,
 	(void *)sys_getpid,
 };
 
