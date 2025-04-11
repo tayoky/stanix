@@ -619,6 +619,58 @@ int sys_waitpid(pid_t pid,int *status){
 	return pid;
 }
 
+int sys_unlink(const char *pathname){
+	if(!CHECK_STR(pathname)){
+		return -EFAULT;
+	}
+
+	//unlink don't work on dir while vfs_unlink work on dir
+	vfs_node *node = vfs_open(pathname,VFS_READONLY);
+	if(!node){
+		vfs_close(node);
+		return -ENOENT;
+	}
+	if(node->flags & VFS_DIR){
+		vfs_close(node);
+		return -EISDIR;
+	}
+	vfs_close(node);
+
+	return vfs_unlink(pathname);
+}
+
+int sys_rmdir(const char *pathname){
+	if(!CHECK_STR(pathname)){
+		return -EFAULT;
+	}
+
+	//check for dir and empty
+	vfs_node *node = vfs_open(pathname,VFS_READONLY);
+	if(!node){
+		vfs_close(node);
+		return -ENOENT;
+	}
+	if(!(node->flags & VFS_DIR)){
+		vfs_close(node);
+		return -ENOTDIR;
+	}
+	struct dirent *entry = vfs_readdir(node,2);
+	if(entry){
+		kfree(entry);
+		vfs_close(node);
+		return -ENOTEMPTY;
+	}
+
+	//now check if it in use
+	if(node->ref_count > 1){
+		vfs_close(node);
+		return -EBUSY;
+	}
+	vfs_close(node);
+
+	return vfs_unlink(pathname);
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -646,8 +698,8 @@ void *syscall_table[] = {
 	(void *)sys_execve,
 	(void *)sys_fork,
 	(void *)sys_mkdir,
-	(void *)sys_stub, //unlink
-	(void *)sys_stub, //rmdir
+	(void *)sys_unlink,
+	(void *)sys_rmdir,
 	(void *)sys_readdir,
 	(void *)sys_stat,
 	(void *)sys_fstat,
