@@ -18,6 +18,7 @@
 #include "sys.h"
 #include "exec.h"
 #include "ps2.h"
+#include "module.h"
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -133,9 +134,11 @@ void kmain(){
 	init_task();
 	init_ps2();
 	init_timer();
-
-	//spawn init
+	init_mod();
+	
+	//just to debug
 	ls("/dev/");
+
 	kstatus("finish init kernel\n");
 	spawn_init();
 

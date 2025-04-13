@@ -19,6 +19,8 @@ void __unexport_symbol(void *sym,const char *name);
 int insmod(const char *pathname,const char **args,char **name);
 int rmmod(const char *name);
 
+void init_mod();
+
 #define EXPORT(sym) __export_symbol(sym,#sym);
 #define UNEXPORT(sym) __unexport_symbol(sym,#sym);
 

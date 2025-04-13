@@ -38,7 +38,8 @@ static int check_mod_header(Elf64_Ehdr *header){
 static void *map_mod(size_t size){
 	ptr = (void *)PAGE_ALIGN_UP((uintptr_t)ptr);
 	void *buf = ptr;
-	while(size > PAGE_SIZE){
+	kdebugf("try to map module at 0x%p size : %ld\n",ptr,size);
+	while(size >= PAGE_SIZE){
 		map_page(get_addr_space() + kernel->hhdm,allocate_page(&kernel->bitmap),(uintptr_t)ptr/PAGE_SIZE,PAGING_FLAG_RW_CPL0);
 		size -= PAGE_SIZE;
 		ptr += PAGE_SIZE;
@@ -47,7 +48,7 @@ static void *map_mod(size_t size){
 }
 
 static inline Elf64_Shdr *get_Shdr(char *start,Elf64_Ehdr *header,Elf64_Word index){
-	return (Elf64_Shdr *)start + header->e_shoff + index * header->e_shentsize;
+	return (Elf64_Shdr *)((uintptr_t)start + header->e_shoff + (index * header->e_shentsize));
 }
 
 int insmod(const char *pathname,const char **args,char **name){
@@ -84,4 +85,10 @@ int insmod(const char *pathname,const char **args,char **name){
 
 int rmmod(const char *name){
 	return -ENOSYS;
+}
+
+void init_mod(){
+	kstatus("init modules loaded ... ");
+
+	kok();
 }
