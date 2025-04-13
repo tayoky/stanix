@@ -86,7 +86,7 @@ int insmod(const char *pathname,const char **args,char **name){
 		char *strtab = get_Shdr(sheader->sh_link)->sh_addr;
 		kdebugf("sym tab : %d\n",sheader->sh_link);
 		for (size_t i = 0; i < sheader->sh_size / sizeof(Elf64_Sym); i++){
-			if(symbols[i].st_shndx > 0 && symbols[i].st_shndx < 0xff00){
+			if(symbols[i].st_shndx > SHN_UNDEF && symbols[i].st_shndx < SHN_LOPROC){
 				kdebugf("relocate\n");
 				symbols[i].st_value += get_Shdr(symbols[i].st_shndx)->sh_addr;
 			}
