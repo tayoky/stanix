@@ -18,8 +18,6 @@ typedef struct heap_segment_struct{
 typedef struct {
 	uint64_t start;
 	uint64_t lenght;
-	uint64_t *PDP;
-	uint64_t PMLT4i;
 	heap_segment *first_seg;
 	int lock;
 	void (*changes_size)(ssize_t);

@@ -40,6 +40,7 @@ typedef struct arch_specific {
 	idt_gate idt[256];
 	IDTR idtr;
 	TSS tss;
+	uint64_t hPDP[8];
 } arch_specific ;
 
 #include "scheduler.h"

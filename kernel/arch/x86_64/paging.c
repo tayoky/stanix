@@ -16,7 +16,20 @@ uint64_t get_addr_space(){
 
 void init_paging(void){
 	kstatus("init paging... ");
+	
+	//init the 8 higher PDP
+	//the 8 higher PDP mapping are conserved across all address space
+	//for kernel module kheap , ...
+	for (int i = 0; i < 8; i++){
+		kernel->arch.hPDP[i] = (allocate_page(&kernel->bitmap) * PAGE_SIZE) | PAGING_FLAG_RW_CPL0;
+		memset((void *)kernel->arch.hPDP[i] + kernel->hhdm,0,PAGE_SIZE);
+	}
+	
 	uint64_t *PMLT4 = create_addr_space(kernel);
+
+	//map kernel in it
+	map_kernel(PMLT4);
+
 	uint64_t cr3 = (uint64_t)PMLT4 - kernel->hhdm;
 	asm volatile ("movq %0, %%cr3" : :  "r" (cr3) );
 	kok();
@@ -29,14 +42,19 @@ uint64_t *create_addr_space(kernel_table *kernel){
 	//Set all entry as 0
 	memset(PMLT4,0,PAGE_SIZE);
 
-	//map kernel in it
-	map_kernel(PMLT4);
+	//copy the 8 higher PDP
+	memcpy(PMLT4 + (512 - 8),kernel->arch.hPDP,sizeof(uint64_t) * 8);
 
 	//map the hhdm
 	map_hhdm(PMLT4);
 
-	//map the kernel heap
-	map_kheap(PMLT4);
+	//map the stack
+	uint64_t kernel_stack_page = KERNEL_STACK_SIZE / PAGE_SIZE;
+	uint64_t virt_page = KERNEL_STACK_BOTTOM / PAGE_SIZE;
+	for (size_t i = 0; i < kernel_stack_page; i++){
+		map_page(PMLT4,allocate_page(&kernel->bitmap),virt_page,PAGING_FLAG_NO_EXE | PAGING_FLAG_RW_CPL0);
+		virt_page++;
+	}
 
 	return PMLT4;
 }
@@ -49,13 +67,10 @@ void delete_addr_space(uint64_t *PMLT4){
 	
 
 	//recusively free everythings
-	//EXCEPT THE KHEAP TABLES!!!
+	//EXCEPT THE HIGHER PDP
 
-	for (uint16_t PMLT4i = 0; PMLT4i < 512; PMLT4i++){
+	for (uint16_t PMLT4i = 0; PMLT4i < (512 - 8); PMLT4i++){
 		if(!PMLT4[PMLT4i] & 1)continue;
-
-		//special check for the kheap
-		if(PMLT4i == kernel->kheap.PMLT4i)continue;
 
 		uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 
@@ -197,7 +212,7 @@ void unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
 	free_page(&kernel->bitmap,((uint64_t)PDP-kernel->hhdm)/PAGE_SIZE);
 	PMLT4[PMLT4i] = 0;
 }
-///
+
 void map_kernel(uint64_t *PMLT4){
 	uint64_t kernel_start      = (uint64_t)*(&p_kernel_start);
 	uint64_t kernel_end        = (uint64_t)*(&p_kernel_end);
@@ -214,14 +229,6 @@ void map_kernel(uint64_t *PMLT4){
 		}
 		map_page(PMLT4,phys_page,virt_page,PAGING_FLAG_RW_CPL0);
 		phys_page++;
-		virt_page++;
-	}
-
-	//map the stack
-	uint64_t kernel_stack_page = KERNEL_STACK_SIZE / PAGE_SIZE;
-	virt_page = KERNEL_STACK_BOTTOM / PAGE_SIZE;
-	for (size_t i = 0; i < kernel_stack_page; i++){
-		map_page(PMLT4,allocate_page(&kernel->bitmap),virt_page,PAGING_FLAG_NO_EXE | PAGING_FLAG_RW_CPL0);
 		virt_page++;
 	}
 }
@@ -249,11 +256,4 @@ void map_hhdm(uint64_t *PMLT4){
 			}
 	}
 	
-}
-
-void map_kheap(uint64_t *PMLT4){
-	//map only if kheap was init
-	if((uint64_t)kernel->kheap.PDP){
-		PMLT4[kernel->kheap.PMLT4i] = (uint64_t)kernel->kheap.PDP | PAGING_FLAG_RW_CPL0;
-	}
 }

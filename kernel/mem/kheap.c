@@ -16,10 +16,6 @@ void init_kheap(void){
 	uint64_t *addr_space = (uint64_t *)(get_addr_space() + kernel->hhdm);
 	map_page(addr_space,allocate_page(&kernel->bitmap),kernel->kheap.start/PAGE_SIZE,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 
-	//get the PDP for the kernel heap
-	kernel->kheap.PMLT4i = (kernel->kheap.start >> 39) & 0x1FF;
-	kernel->kheap.PDP = (uint64_t *)(addr_space[kernel->kheap.PMLT4i] & PAGING_ENTRY_ADDRESS);
-
 	kernel->kheap.lenght = PAGE_SIZE;
 
 	//init the first seg
