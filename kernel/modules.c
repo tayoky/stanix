@@ -47,9 +47,8 @@ static void *map_mod(size_t size){
 	return buf;
 }
 
-static inline Elf64_Shdr *get_Shdr(char *start,Elf64_Ehdr *header,Elf64_Word index){
-	return (Elf64_Shdr *)((uintptr_t)start + header->e_shoff + (index * header->e_shentsize));
-}
+#define get_Shdr(index) \
+((Elf64_Shdr *)((uintptr_t)mod + header.e_shoff + (index * header.e_shentsize)))
 
 int insmod(const char *pathname,const char **args,char **name){
 	int ret = -ENOSYS;
@@ -74,8 +73,26 @@ int insmod(const char *pathname,const char **args,char **name){
 
 	//update sections address
 	for(int i=0; i<header.e_shnum; i++){
-		Elf64_Shdr *sheader = get_Shdr(mod,&header,i);
+		Elf64_Shdr *sheader = get_Shdr(i);
 		sheader->sh_addr = mod + sheader->sh_offset;
+	}
+
+	//symbols stuff
+	for(int i=0; i<header.e_shnum; i++){
+		Elf64_Shdr *sheader = get_Shdr(i);
+		if(sheader->sh_type != SHT_SYMTAB) continue;
+
+		Elf64_Sym *symbols = sheader->sh_addr;
+		char *strtab = get_Shdr(sheader->sh_link)->sh_addr;
+		kdebugf("sym tab : %d\n",sheader->sh_link);
+		for (size_t i = 0; i < sheader->sh_size / sizeof(Elf64_Sym); i++){
+			if(symbols[i].st_shndx > 0 && symbols[i].st_shndx < 0xff00){
+				kdebugf("relocate\n");
+				symbols[i].st_value += get_Shdr(symbols[i].st_shndx)->sh_addr;
+			}
+			kdebugf("sym %s : %p\n",strtab + symbols[i].st_name,symbols[i].st_value);
+		}
+		
 	}
 
 	close:
