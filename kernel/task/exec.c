@@ -1,7 +1,7 @@
 #include "exec.h"
 #include "scheduler.h"
 #include "kernel.h"
-#include "elf.h"
+#include <elf.h>
 #include "string.h"
 #include "paging.h"
 #include "print.h"

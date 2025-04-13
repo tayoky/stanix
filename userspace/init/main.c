@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/module.h>
 #include <syscall.h>
 #include <ctype.h>
 #include <input.h>
@@ -109,6 +110,14 @@ int main(int argc,char **argv){
 		printf("%s\n",ret->d_name);
 	}
 	closedir(dir);
+
+	//try insmod
+	const char *kargs[] = {
+		"hello world !",
+		"second arg",
+		NULL
+	};
+	insmod("/mod/test.ko",kargs);
 
 	//try launching doom
 	const char *arg[] = {
