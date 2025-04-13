@@ -25,7 +25,7 @@ typedef struct kernel_table_struct{
 	uint64_t hhdm;
 	struct limine_memmap_response *memmap;
 	uint64_t stack_start;
-	kheap_info kheap;
+	heap_info kheap;
 	vfs_mount_point *first_mount_point;
 	struct limine_file *initrd;
 	const char *conf_file;

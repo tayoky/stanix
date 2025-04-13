@@ -3,26 +3,27 @@
 #include <stdint.h>
 #include <stddef.h>
 
-struct kheap_segment_struct;
+struct heap_segment_struct;
 
-#define KHEAP_SEG_MAGIC_FREE      0x1308
-#define KHEAP_SEG_MAGIC_ALLOCATED 0x0505
+#define HEAP_SEG_MAGIC_FREE      0x1308
+#define HEAP_SEG_MAGIC_ALLOCATED 0x0505
 
-typedef struct kheap_segment_struct{
+typedef struct heap_segment_struct{
 	uint64_t magic;
 	uint64_t lenght;
-	struct kheap_segment_struct *next;
-	struct kheap_segment_struct *prev;
-}kheap_segment;
+	struct heap_segment_struct *next;
+	struct heap_segment_struct *prev;
+}heap_segment;
 
 typedef struct {
 	uint64_t start;
 	uint64_t lenght;
 	uint64_t *PDP;
 	uint64_t PMLT4i;
-	kheap_segment *first_seg;
+	heap_segment *first_seg;
 	int lock;
-}kheap_info;
+	void (*changes_size)(ssize_t);
+}heap_info;
 
 #ifndef NULL
 #define NULL ((void*)0)
@@ -33,7 +34,18 @@ typedef struct {
 /// @brief init the kernel heap
 void init_kheap(void);
 
-void change_kheap_size(int64_t offset);
+void change_kheap_size(ssize_t offset);
+
+/// @brief allocate space in a heap
+/// @param heap the heap to search memory into
+/// @param amount the amount of memory to allocate
+/// @return an pointer to the allocated region
+void *malloc(heap_info *heap,size_t amount);
+
+/// @brief free memory in a heap
+/// @param heap the heap that contain the block of memory
+/// @param ptr the pointer to the allocated region
+void free(heap_info *heap,void *ptr);
 
 /// @brief allocate space in kernel heap
 /// @param amount the amount of memory to allocate

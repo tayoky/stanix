@@ -10,6 +10,7 @@ void init_kheap(void){
 	spinlock_release(kernel->kheap.lock);
 
 	kernel->kheap.start = PAGE_ALIGN_DOWN(KHEAP_START);
+	kernel->kheap.changes_size = change_kheap_size;
 
 	//get addr space
 	uint64_t *addr_space = (uint64_t *)(get_addr_space() + kernel->hhdm);
@@ -22,16 +23,16 @@ void init_kheap(void){
 	kernel->kheap.lenght = PAGE_SIZE;
 
 	//init the first seg
-	kernel->kheap.first_seg = (kheap_segment *)kernel->kheap.start;
-	kernel->kheap.first_seg->magic = KHEAP_SEG_MAGIC_FREE;
-	kernel->kheap.first_seg->lenght = kernel->kheap.lenght - sizeof(kheap_segment);
+	kernel->kheap.first_seg = (heap_segment *)kernel->kheap.start;
+	kernel->kheap.first_seg->magic = HEAP_SEG_MAGIC_FREE;
+	kernel->kheap.first_seg->lenght = kernel->kheap.lenght - sizeof(heap_segment);
 	kernel->kheap.first_seg->prev = NULL;
 	kernel->kheap.first_seg->next = NULL;
 
 	kok();
 }
 
-void change_kheap_size(int64_t offset){
+void change_kheap_size(ssize_t offset){
 	if(!offset)return;
 	int64_t offset_page = offset / PAGE_SIZE;
 
@@ -56,37 +57,42 @@ void change_kheap_size(int64_t offset){
 }
 
 void show_memseg(){
-	kheap_segment *current_seg = kernel->kheap.first_seg;
+	heap_segment *current_seg = kernel->kheap.first_seg;
 	char *labels[] ={
 		"free     ",
 		"allocated"
 	};
 	while (current_seg){
-		kdebugf("memseg %s start : 0x%lx lenght : 0x%lx\n",labels[(current_seg->magic == KHEAP_SEG_MAGIC_ALLOCATED)],current_seg,current_seg->lenght);
+		kdebugf("memseg %s start : 0x%lx lenght : 0x%lx\n",labels[(current_seg->magic == HEAP_SEG_MAGIC_ALLOCATED)],current_seg,current_seg->lenght);
 		current_seg = current_seg->next;
 	}
 }
 
-void *kmalloc(size_t amount){
+void *malloc(heap_info *heap,size_t amount){
 	//make amount aligned
 	if(amount & 0b111)
 	amount += 8 - (amount % 8);
 	
-	spinlock_acquire(kernel->kheap.lock);
-	kheap_segment *current_seg = kernel->kheap.first_seg;
+	spinlock_acquire(heap->lock);
+	heap_segment *current_seg = heap->first_seg;
 
-	while (current_seg->lenght < amount || current_seg->magic != KHEAP_SEG_MAGIC_FREE){
+	while (current_seg->lenght < amount || current_seg->magic != HEAP_SEG_MAGIC_FREE){
 		if(current_seg->next == NULL){
-			//no more segment need to make kheap bigger
+			//no more segment need to make heap bigger
+			if(!heap->changes_size){
+				//fixed size heap
+				return NULL;
+			}
+
 			//if last is free make it bigger else create a new seg from scratch
-			if(current_seg->magic == KHEAP_SEG_MAGIC_FREE){
-				change_kheap_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 8));
-				current_seg->lenght += PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(kheap_segment) + 8);
+			if(current_seg->magic == HEAP_SEG_MAGIC_FREE){
+				heap->changes_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(heap_segment) + 8));
+				current_seg->lenght += PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(heap_segment) + 8);
 			} else {
-				change_kheap_size(PAGE_ALIGN_UP(amount + sizeof(kheap_segment) * 2  + 8));
-				kheap_segment *new_seg = (kheap_segment *)((uintptr_t)current_seg + current_seg->lenght + sizeof(kheap_segment));
-				new_seg->lenght = PAGE_ALIGN_UP(amount + sizeof(kheap_segment) * 2 + 8) - sizeof(kheap_segment);
-				new_seg->magic = KHEAP_SEG_MAGIC_FREE;
+				heap->changes_size(PAGE_ALIGN_UP(amount + sizeof(heap_segment) * 2  + 8));
+				heap_segment *new_seg = (heap_segment *)((uintptr_t)current_seg + current_seg->lenght + sizeof(heap_segment));
+				new_seg->lenght = PAGE_ALIGN_UP(amount + sizeof(heap_segment) * 2 + 8) - sizeof(heap_segment);
+				new_seg->magic = HEAP_SEG_MAGIC_FREE;
 				new_seg->next = NULL;
 				new_seg->prev = current_seg;
 				current_seg->next = new_seg;
@@ -100,12 +106,12 @@ void *kmalloc(size_t amount){
 	//we find a good segment
 
 	//if big enougth cut it
-	if(current_seg->lenght >= amount + sizeof(kheap_segment) + 8){
+	if(current_seg->lenght >= amount + sizeof(heap_segment) + 8){
 		//big enougth
-		kheap_segment *new_seg = (kheap_segment *)((uintptr_t)current_seg + amount + sizeof(kheap_segment));
-		new_seg->lenght = current_seg->lenght - (sizeof(kheap_segment) + amount);
+		heap_segment *new_seg = (heap_segment *)((uintptr_t)current_seg + amount + sizeof(heap_segment));
+		new_seg->lenght = current_seg->lenght - (sizeof(heap_segment) + amount);
 		current_seg->lenght = amount;
-		new_seg->magic = KHEAP_SEG_MAGIC_FREE;
+		new_seg->magic = HEAP_SEG_MAGIC_FREE;
 
 		if(current_seg->next){
 			current_seg->next->prev = new_seg;
@@ -115,34 +121,34 @@ void *kmalloc(size_t amount){
 		current_seg->next = new_seg;
 	}
 
-	current_seg->magic = KHEAP_SEG_MAGIC_ALLOCATED;
-	spinlock_release(kernel->kheap.lock);
-	return (void *)current_seg + sizeof(kheap_segment);
+	current_seg->magic = HEAP_SEG_MAGIC_ALLOCATED;
+	spinlock_release(heap->lock);
+	return (void *)current_seg + sizeof(heap_segment);
 }
 
-void kfree(void *ptr){
+void free(heap_info *heap,void *ptr){
 	if(!ptr)return;
 
-	spinlock_acquire(kernel->kheap.lock);
+	spinlock_acquire(heap->lock);
 	
-	kheap_segment *current_seg = (kheap_segment *)((uintptr_t)ptr - sizeof(kheap_segment));
-	if(current_seg->magic != KHEAP_SEG_MAGIC_ALLOCATED){
-		if(current_seg->magic == KHEAP_SEG_MAGIC_FREE){
+	heap_segment *current_seg = (heap_segment *)((uintptr_t)ptr - sizeof(heap_segment));
+	if(current_seg->magic != HEAP_SEG_MAGIC_ALLOCATED){
+		if(current_seg->magic == HEAP_SEG_MAGIC_FREE){
 			kdebugf("try to free aready free segement\n");
-			spinlock_release(kernel->kheap.lock);
+			spinlock_release(heap->lock);
 			return;
 		}
-		kdebugf("try to free not allocated kheap seg at %p\n",current_seg);
-		panic("kheap error",NULL);
-		spinlock_release(kernel->kheap.lock);
+		kdebugf("try to free not allocated heap seg at %p\n",current_seg);
+		panic("heap error",NULL);
+		spinlock_release(heap->lock);
 		return;
 	}
 
-	current_seg->magic = KHEAP_SEG_MAGIC_FREE;
+	current_seg->magic = HEAP_SEG_MAGIC_FREE;
 
-	if(current_seg->next && current_seg->next->magic == KHEAP_SEG_MAGIC_FREE){
+	if(current_seg->next && current_seg->next->magic == HEAP_SEG_MAGIC_FREE){
 		//merge with next
-		current_seg->lenght += current_seg->next->lenght + sizeof(kheap_segment);
+		current_seg->lenght += current_seg->next->lenght + sizeof(heap_segment);
 
 		if(current_seg->next->next){
 			current_seg->next->next->prev = current_seg;
@@ -150,14 +156,22 @@ void kfree(void *ptr){
 		current_seg->next = current_seg->next->next;
 	}
 
-	if(current_seg->prev && current_seg->prev->magic == KHEAP_SEG_MAGIC_FREE){
+	if(current_seg->prev && current_seg->prev->magic == HEAP_SEG_MAGIC_FREE){
 		//merge with prev
-		current_seg->prev->lenght += current_seg->lenght + sizeof(kheap_segment);
+		current_seg->prev->lenght += current_seg->lenght + sizeof(heap_segment);
 
 		if(current_seg->next){
 			current_seg->next->prev = current_seg->prev;
 		}
 		current_seg->prev->next = current_seg->next;
 	}
-	spinlock_release(kernel->kheap.lock);
+	spinlock_release(heap->lock);
+}
+
+void *kmalloc(size_t amount){
+	return malloc(&kernel->kheap,amount);
+}
+
+void kfree(void *ptr){
+	return free(&kernel->kheap,ptr);
 }
