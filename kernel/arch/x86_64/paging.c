@@ -25,7 +25,7 @@ void init_paging(void){
 		memset((void *)kernel->arch.hPDP[i] + kernel->hhdm,0,PAGE_SIZE);
 	}
 	
-	uint64_t *PMLT4 = create_addr_space(kernel);
+	uint64_t *PMLT4 = create_addr_space();
 
 	//map kernel in it
 	map_kernel(PMLT4);
@@ -35,7 +35,7 @@ void init_paging(void){
 	kok();
 }
 
-uint64_t *create_addr_space(kernel_table *kernel){
+uint64_t *create_addr_space(){
 	//allocate place for the PMLT4
 	uint64_t *PMLT4 = (uint64_t *)(PAGE_SIZE * allocate_page(&kernel->bitmap) + kernel->hhdm);
 

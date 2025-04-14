@@ -7,7 +7,7 @@
 void init_paging(void);
 /// @brief create an new PMLT4 and map all kernel modules and framebuffers
 /// @return an pointer to the PMLT4
-uint64_t *create_addr_space(kernel_table *kernel);
+uint64_t *create_addr_space();
 
 /// @brief delete an PMLT4 and free all used pages by it (only by the table not the physical pages the PT point to)
 /// @param PMLT4 an pointer to the PMLT4 to free/delete

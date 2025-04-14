@@ -90,7 +90,7 @@ process *new_proc(){
 	process *proc = kmalloc(sizeof(process));
 	memset(proc,0,sizeof(process));
 	proc->pid = ++kernel->created_proc_count;
-	proc->cr3 = ((uintptr_t)create_addr_space(kernel)) - kernel->hhdm;
+	proc->cr3 = ((uintptr_t)create_addr_space()) - kernel->hhdm;
 	proc->parent = get_current_proc();
 	proc->flags = PROC_STATE_PRESENT;
 	proc->child = new_list();
