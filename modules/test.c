@@ -9,7 +9,7 @@ void test_export(){
 }
 
 int init(int argc,char **argv){
-	kdebugf("hello world from test.ko !!!\n");
+	kdebugf("hello world from kernel module !!!\n");
 	EXPORT(test_export);
 	return 0;
 }
