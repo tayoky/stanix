@@ -3,10 +3,10 @@
 #include "panic.h"
 #include "print.h"
 #include "port.h"
-#include "vfs.h"
+#include <kernel/vfs.h>
 #include "ringbuf.h"
 #include "string.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "time.h"
 #include <input.h>
 

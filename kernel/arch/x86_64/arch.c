@@ -1,4 +1,4 @@
-#include "arch.h"
+#include <kernel/arch.h>
 #include "idt.h"
 #include "gdt.h"
 #include "tss.h"

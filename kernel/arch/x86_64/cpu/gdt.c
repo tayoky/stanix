@@ -1,6 +1,6 @@
 #include "gdt.h"
 #include "print.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "asm.h"
 
 gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint8_t falgs){

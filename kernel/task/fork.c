@@ -1,8 +1,8 @@
 #include "fork.h"
-#include "arch.h"
-#include "scheduler.h"
+#include <kernel/arch.h>
+#include <kernel/scheduler.h>
 #include "memseg.h"
-#include "paging.h"
+#include <kernel/paging.h>
 #include "print.h"
 #include "string.h"
 

@@ -1,11 +1,11 @@
 #include "sys.h"
-#include "scheduler.h"
+#include <kernel/scheduler.h>
 #include "print.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "print.h"
 #include <errno.h>
-#include "page.h"
-#include "paging.h"
+#include <kernel/page.h>
+#include <kernel/paging.h>
 #include "time.h"
 #include <sys/type.h>
 #include <dirent.h>
@@ -16,7 +16,7 @@
 #include "fork.h"
 #include "userspace.h"
 #include "string.h"
-#include "arch.h"
+#include <kernel/arch.h>
 #include "module.h"
 
 static int find_fd(){

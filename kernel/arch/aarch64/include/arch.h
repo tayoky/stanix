@@ -39,7 +39,7 @@ typedef struct fault_frame{
 	uint64_t err_type;
 } fault_frame;
 
-#include "scheduler.h"
+#include <kernel/scheduler.h>
 
 //arch specific functions
 

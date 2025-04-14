@@ -1,6 +1,6 @@
 #include "time.h"
-#include "kernel.h"
-#include "scheduler.h"
+#include <kernel/kernel.h>
+#include <kernel/scheduler.h>
 #include "print.h"
 
 void sleep_until(struct timeval wakeup_time){

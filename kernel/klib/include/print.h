@@ -1,7 +1,7 @@
 #ifndef PRINT_H
 #define PRINT_H
 #include <stdarg.h>
-#include "vfs.h"
+#include <kernel/vfs.h>
 
 typedef void(*print_func)(const char ch,void *extra);
 

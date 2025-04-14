@@ -1,5 +1,5 @@
-#include "tmpfs.h"
-#include "kheap.h"
+#include <kernel/tmpfs.h>
+#include <kernel/kheap.h>
 #include "string.h"
 #include "print.h"
 #include "asm.h"

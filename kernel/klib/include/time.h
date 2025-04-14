@@ -2,7 +2,7 @@
 #define SLEEP_H
 
 #include <sys/time.h>
-#include "kernel.h"
+#include <kernel/kernel.h>
 
 extern struct timeval time;
 

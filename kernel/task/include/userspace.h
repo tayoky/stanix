@@ -1,8 +1,8 @@
 #ifndef USERSPACE_H
 #define USERSPACE_H
 
-#include "page.h"
-#include "paging.h"
+#include <kernel/page.h>
+#include <kernel/paging.h>
 #include <stdint.h>
 
 void jump_userspace(void *address,void *stack,int argc,const char **argv,int envc,const char **envp);

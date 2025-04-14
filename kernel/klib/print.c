@@ -1,6 +1,6 @@
 #include "print.h"
 #include "serial.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "string.h"
 #include <stdarg.h>
 #include <stdint.h>

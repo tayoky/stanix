@@ -1,8 +1,8 @@
-#include "vfs.h"
+#include <kernel/vfs.h>
 #include "print.h"
 #include "asm.h"
-#include "kheap.h"
-#include "kernel.h"
+#include <kernel/kheap.h>
+#include <kernel/kernel.h>
 #include "string.h"
 #include "ini.h"
 

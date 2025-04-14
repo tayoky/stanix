@@ -3,13 +3,13 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include "limine.h"
-#include "bootinfo.h"
-#include "bitmap.h"
-#include "kheap.h"
-#include "vfs.h"
-#include "terminal_emu.h"
-#include "scheduler.h"
-#include "arch.h"
+#include <kernel/bootinfo.h>
+#include <kernel/bitmap.h>
+#include <kernel/kheap.h>
+#include <kernel/vfs.h>
+#include <kernel/terminal_emu.h>
+#include <kernel/scheduler.h>
+#include <kernel/arch.h>
 
 typedef struct kernel_table_struct{
 	arch_specific arch;

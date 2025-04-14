@@ -1,10 +1,10 @@
 #include "idt.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "print.h"
 #include <stdint.h>
 #include "interrupt.h"
 #include "panic.h"
-#include "scheduler.h"
+#include <kernel/scheduler.h>
 #include "sys.h"
 
 void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){

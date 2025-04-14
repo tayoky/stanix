@@ -1,7 +1,7 @@
 #include "pic.h"
 #include "port.h"
 #include "irq.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "interrupt.h"
 
 #define ICW1_ICW4	0x01		/* Indicates that ICW4 will be present */

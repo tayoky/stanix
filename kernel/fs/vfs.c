@@ -1,7 +1,7 @@
-#include "vfs.h"
-#include "kernel.h"
+#include <kernel/vfs.h>
+#include <kernel/kernel.h>
 #include "print.h"
-#include "kheap.h"
+#include <kernel/kheap.h>
 #include "string.h"
 #include "time.h"
 #include <stddef.h>

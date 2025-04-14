@@ -43,7 +43,7 @@ typedef struct arch_specific {
 	uint64_t hPDP[8];
 } arch_specific ;
 
-#include "scheduler.h"
+#include <kernel/scheduler.h>
 
 //arch specific functions
 

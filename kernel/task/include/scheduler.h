@@ -2,10 +2,10 @@
 #define PROCESS_H
 
 #include <stdint.h>
-#include "vfs.h"
+#include <kernel/vfs.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include "list.h"
+#include <kernel/list.h>
 
 struct fault_frame;
 struct process_struct;

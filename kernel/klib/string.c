@@ -1,6 +1,6 @@
 #include "string.h"
 #include <stdint.h>
-#include "kheap.h"
+#include <kernel/kheap.h>
 
 char *strcpy(char *dest, const char *src){
 	size_t index = 0;

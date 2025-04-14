@@ -1,6 +1,6 @@
 #include "pipe.h"
 #include "ringbuf.h"
-#include "kheap.h"
+#include <kernel/kheap.h>
 #include "string.h"
 #include <errno.h>
 #include "print.h"

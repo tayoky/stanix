@@ -1,7 +1,7 @@
 #include "tarfs.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "string.h"
-#include "tmpfs.h"
+#include <kernel/tmpfs.h>
 #include "print.h"
 #include "asm.h"
 

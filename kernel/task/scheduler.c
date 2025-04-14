@@ -1,12 +1,12 @@
-#include "scheduler.h"
-#include "kernel.h"
+#include <kernel/scheduler.h>
+#include <kernel/kernel.h>
 #include "print.h"
-#include "kheap.h"
-#include "paging.h"
+#include <kernel/kheap.h>
+#include <kernel/paging.h>
 #include "cleaner.h"
 #include "string.h"
 #include "list.h"
-#include "arch.h"
+#include <kernel/arch.h>
 #include "time.h"
 #include "asm.h"
 

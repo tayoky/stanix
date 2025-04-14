@@ -1,8 +1,8 @@
 #include "tss.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "print.h"
 #include "string.h"
-#include "paging.h"
+#include <kernel/paging.h>
 
 void init_tss(){
 	kstatus("init tss... ");

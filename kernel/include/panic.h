@@ -1,7 +1,7 @@
 #ifndef PANIC_H
 #define PANIC_H
 #include <stdint.h>
-#include "arch.h"
+#include <kernel/arch.h>
 
 void panic(const char *error,fault_frame *fault);
 

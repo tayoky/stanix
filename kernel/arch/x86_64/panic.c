@@ -1,8 +1,8 @@
 #include "panic.h"
 #include "print.h"
 #include "asm.h"
-#include "kernel.h"
-#include "scheduler.h"
+#include <kernel/kernel.h>
+#include <kernel/scheduler.h>
 #include "serial.h"
 #include "sym.h"
 

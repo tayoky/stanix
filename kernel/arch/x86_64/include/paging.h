@@ -1,8 +1,8 @@
 #ifndef PAGING_H
 #define PAGING_H
 #include <stdint.h>
-#include "page.h"
-#include "kernel.h"
+#include <kernel/page.h>
+#include <kernel/kernel.h>
 
 void init_paging(void);
 /// @brief create an new PMLT4 and map all kernel modules and framebuffers

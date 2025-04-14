@@ -1,6 +1,6 @@
 #ifndef TMPFS_H
 #define TMPFS_H
-#include "vfs.h"
+#include <kernel/vfs.h>
 
 #include <sys/type.h>
 #include <sys/time.h>

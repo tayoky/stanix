@@ -2,8 +2,8 @@
 #define SYS_H
 
 #include <stdint.h>
-#include "arch.h"
-#include "scheduler.h"
+#include <kernel/arch.h>
+#include <kernel/scheduler.h>
 
 void init_syscall(void);
 

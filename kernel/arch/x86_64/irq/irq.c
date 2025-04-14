@@ -1,7 +1,7 @@
 #include "irq.h"
 #include "idt.h"
 #include "pic.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "print.h"
 #include "panic.h"
 

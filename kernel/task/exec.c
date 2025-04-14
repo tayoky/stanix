@@ -1,9 +1,9 @@
 #include "exec.h"
-#include "scheduler.h"
-#include "kernel.h"
+#include <kernel/scheduler.h>
+#include <kernel/kernel.h>
 #include <elf.h>
 #include "string.h"
-#include "paging.h"
+#include <kernel/paging.h>
 #include "print.h"
 #include "userspace.h"
 #include "memseg.h"

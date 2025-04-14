@@ -1,7 +1,7 @@
 #ifndef PIPE_H
 #define PIPE_H
 
-#include "vfs.h"
+#include <kernel/vfs.h>
 
 int create_pipe(vfs_node **read,vfs_node **write);
 ssize_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);

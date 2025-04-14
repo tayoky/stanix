@@ -1,7 +1,7 @@
 #include "devices.h"
-#include "vfs.h"
-#include "tmpfs.h"
-#include "kernel.h"
+#include <kernel/vfs.h>
+#include <kernel/tmpfs.h>
+#include <kernel/kernel.h>
 #include "print.h"
 #include "asm.h"
 #include "string.h"

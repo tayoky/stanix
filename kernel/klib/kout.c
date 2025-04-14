@@ -1,9 +1,9 @@
 #include "kout.h"
 #include "string.h"
-#include "kheap.h"
-#include "vfs.h"
+#include <kernel/kheap.h>
+#include <kernel/vfs.h>
 #include <stdint.h>
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "print.h"
 #include "ini.h"
 

@@ -1,11 +1,11 @@
 #include "pit.h"
 #include "print.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "irq.h"
 #include "port.h"
 #include "serial.h"
 #include "time.h"
-#include "arch.h"
+#include <kernel/arch.h>
 
 #define PIT_CHANNEL0 0x40
 #define PIT_CHANNEL1 0x41

@@ -1,7 +1,7 @@
 #include "cleaner.h"
-#include "kernel.h"
-#include "paging.h"
-#include "scheduler.h"
+#include <kernel/kernel.h>
+#include <kernel/paging.h>
+#include <kernel/scheduler.h>
 #include "print.h"
 #include "memseg.h"
 

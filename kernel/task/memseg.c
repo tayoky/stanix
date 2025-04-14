@@ -1,7 +1,7 @@
 #include "memseg.h"
 #include <stdint.h>
-#include "paging.h"
-#include "scheduler.h"
+#include <kernel/paging.h>
+#include <kernel/scheduler.h>
 #include "string.h"
 
 memseg *memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){

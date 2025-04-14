@@ -1,7 +1,7 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
-#include "vfs.h"
-#include "stdarg.h"
+#include <kernel/vfs.h>
+#include <stdarg.h>
 
 void init_frambuffer(void);
 

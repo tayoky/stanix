@@ -1,9 +1,9 @@
 #include <kernel/module.h>
 #include "print.h"
-#include "vfs.h"
+#include <kernel/vfs.h>
 #include <elf.h>
 #include "string.h"
-#include "paging.h"
+#include <kernel/paging.h>
 #include "sym.h"
 #include <errno.h>
 
@@ -122,7 +122,7 @@ int insmod(const char *pathname,const char **args,char **name){
 			}
 
 			if(!strcmp(strtab + symtab[i].st_name,"module_meta")){
-				module_meta = symtab[i].st_value;
+				module_meta = (kmodule *)symtab[i].st_value;
 			}
 			kdebugf("sym %s : %p\n",strtab + symtab[i].st_name,symtab[i].st_value);
 		}
@@ -187,7 +187,7 @@ int insmod(const char *pathname,const char **args,char **name){
 		argc++;
 	}
 
-	ret = module_meta->init(argc,args);
+	ret = module_meta->init(argc,(char **)args);
 	kdebugf("return status : %d\n",ret);
 
 	close:

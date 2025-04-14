@@ -1,9 +1,9 @@
-#include "terminal_emu.h"
+#include <kernel/terminal_emu.h>
 #include "ini.h"
 #include "print.h"
-#include "kernel.h"
+#include <kernel/kernel.h>
 #include "string.h"
-#include "vfs.h"
+#include <kernel/vfs.h>
 #include "framebuffer.h"
 
 uint32_t ANSI_color[] = {

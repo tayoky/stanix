@@ -1,7 +1,7 @@
 #ifndef TERMINAL_EMU_H
 #define TERMINAL_EMU_H
 
-#include "vfs.h"
+#include <kernel/vfs.h>
 #include <stdint.h>
 
 #define FONT_TYPE_PSF1 0x01
