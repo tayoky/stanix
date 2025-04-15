@@ -10,6 +10,7 @@ void test_export(){
 
 int init(int argc,char **argv){
 	kdebugf("hello world from kernel module !!!\n");
+	kdebugf("module loaded at address 0x%p\n",module_meta.base);
 	EXPORT(test_export);
 	return 0;
 }

@@ -11,6 +11,7 @@ typedef struct kmodule_struct {
 	char *author;
 	int (*init)(int,char **);
 	int (*fini)(void);
+	void *base;               //the base address of the module
 } kmodule;
 
 void __export_symbol(void *sym,const char *name);

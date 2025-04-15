@@ -20,6 +20,7 @@ typedef struct exported_sym {
 } exported_sym;
 
 exported_sym *exported_sym_list = NULL;
+list *loaded_modules;
 
 static int check_mod_header(Elf64_Ehdr *header){
 	if(memcmp(header->e_ident,ELFMAG,4)){
@@ -145,6 +146,9 @@ int insmod(const char *pathname,const char **args,char **name){
 		goto unmap;
 	}
 
+	//update the base address in the metadata struct
+	module_meta->base = mod;
+
 	//apply relocation
 	for(int i=0; i<header.e_shnum; i++){
 		Elf64_Shdr *sheader = get_Shdr(i);
@@ -210,6 +214,9 @@ int insmod(const char *pathname,const char **args,char **name){
 		goto unmap;
 	}
 
+	//add the module to the list
+	list_append(loaded_modules,module_meta);
+
 	close:
 	vfs_close(file);
 	return ret;
@@ -226,7 +233,10 @@ int rmmod(const char *name){
 }
 
 void init_mod(){
-	kstatus("init exported symbol list ... ");
+	kstatus("init exported symbol list and module loader ... ");
+
+	//init the list to keep track of all modules
+	loaded_modules = new_list();
 
 	//export all symbols of the core module
 	for (size_t i = 0; i < symbols_count; i++){
