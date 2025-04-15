@@ -118,16 +118,15 @@ int main(int argc,char **argv){
 		NULL
 	};
 	insmod("/mod/test.ko",kargs);
+	insmod("/mod/pci.ko",kargs);
 
 	//try launching doom
 	const char *arg[] = {
-		"/bin/doom",
-		"-iwad",
-		"/doom1.wad",
+		"/bin/term",
 		NULL
 	};
 
-	execvp("/bin/doom",arg);
+	execvp("/bin/term",arg);
 
 	//try open keayboard
 	int kbd_fd = open("/dev/kb0",O_RDONLY);

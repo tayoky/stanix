@@ -13,4 +13,8 @@ uint8_t in_byte(uint16_t port);
 /// @param data the data to out
 void out_byte(uint16_t port,uint8_t data);
 
+uint32_t in_long(uint16_t port);
+
+void out_long(uint16_t port, uint32_t data);
+
 #endif
