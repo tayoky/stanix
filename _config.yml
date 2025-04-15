@@ -16,6 +16,7 @@ minima:
     - user.md
     - syscall
     - kernel.md
+    - kernel/modules.md
     - todo.md
 
 #social media link
