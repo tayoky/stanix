@@ -11,12 +11,13 @@
 #define PIT_CHANNEL1 0x41
 #define PIT_CHANNEL2 0x42
 #define PIT_COMMAND  0x43
+#define TPS 100
 
 void pit_handler(fault_frame *frame){
 	//update the time
-	time.tv_usec += 1000;
+	time.tv_usec += 1000000/TPS;
 	if(time.tv_usec >= 1000000){
-		time.tv_usec = 0;
+		time.tv_usec -= 1000000;
 		time.tv_sec++;
 	}
 
@@ -30,8 +31,7 @@ void init_pit(void){
 	kstatus("init PIT... ");
 
 	//the tick per second is defined here
-	uint16_t tps = 1000;
-	uint16_t divider = 1193181 / tps;
+	uint16_t divider = 1193181 / TPS;
 
 	out_byte(PIT_COMMAND,0b00110100);
 	out_byte(PIT_CHANNEL0,divider & 0xFF);
