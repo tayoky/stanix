@@ -68,11 +68,15 @@ ssize_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 
 
 vfs_node *vfs_lookup(vfs_node *node,const char *name){
-	//handle .. here so wa can handle mount point
+	//handle .. here so we can handle the parent of mount point
 	if((!strcmp("..",name)) && node->parent){
-		node->parent->ref_count ++;
-		return node->parent;
+		return vfs_dup(node->parent);
 	}
+
+	if((!strcmp(".",name))){
+		return vfs_dup(node);
+	}
+
 	//first search in the directory cache
 	for(vfs_node *current = node->child; current; current = current->brother){
 		if(!strcmp(current->name,name)){
