@@ -75,7 +75,7 @@ void schedule(){
 
 	//see if we can wakeup anything
 	while(sleeping_proc){
-		if(sleeping_proc->wakeup_time.tv_sec > time.tv_sec || (sleeping_proc->wakeup_time.tv_sec == time.tv_sec && sleeping_proc->wakeup_time.tv_usec < time.tv_usec)){
+		if(sleeping_proc->wakeup_time.tv_sec < time.tv_sec || (sleeping_proc->wakeup_time.tv_sec == time.tv_sec && sleeping_proc->wakeup_time.tv_usec < time.tv_usec)){
 			break;
 		}
 		unblock_proc(sleeping_proc);

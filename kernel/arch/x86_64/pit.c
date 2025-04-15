@@ -15,7 +15,7 @@
 void pit_handler(fault_frame *frame){
 	//update the time
 	time.tv_usec += 1000;
-	if(time.tv_sec >= 1000000){
+	if(time.tv_usec >= 1000000){
 		time.tv_usec = 0;
 		time.tv_sec++;
 	}
