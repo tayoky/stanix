@@ -151,24 +151,29 @@ int insmod(const char *pathname,const char **args,char **name){
 			//let define some macro
 			kdebugf("apply relocation off : %lx\n",rela[i].r_offset);
 			#define A rela[i].r_addend
+			#define B mod
 			#define P (section->sh_addr + rela[i].r_offset)
 			#define S symtab[ELF64_R_SYM(rela[i].r_info)].st_value
 			#define Z symtab[ELF64_R_SYM(rela[i].r_info)].st_size
-			#define W64 *(uint64_t *)P
-			#define W32 *(uint32_t *)P
+
+			uint32_t w32;
+			uint64_t w64;
 
 			switch(ELF64_R_TYPE(rela[i].r_info)){
 #ifdef x86_64
 			case R_X86_64_NONE:
 				break;
 			case R_X86_64_64:
-				W64 = S + A;
+				w64 = S + A;
+				memcpy((void *)P,&w64,sizeof(uint64_t));
 				break;
 			case R_X86_64_PC32:
-				W32 = S + A - P;
+				w32 = S + A - P;
+				memcpy((void *)P,&w32,sizeof(uint32_t));
 				break;
 			case R_X86_64_32:
-				//W32 = S + A;
+				w32 = S + A;
+				memcpy((void *)P,&w32,sizeof(uint32_t));
 				break;
 #endif
 			default :
@@ -186,7 +191,7 @@ int insmod(const char *pathname,const char **args,char **name){
 	while(args[argc]){
 		argc++;
 	}
-
+	kdebugf("init func : 0x%p\n",module_meta->init);
 	ret = module_meta->init(argc,(char **)args);
 	kdebugf("return status : %d\n",ret);
 

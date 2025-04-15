@@ -5,7 +5,8 @@ CFLAGS = -Wall \
     -fno-stack-protector \
     -fno-stack-check \
     -fno-PIC \
-    -fsanitize=undefined
+    -fsanitize=undefined \
+    -mcmodel=large 
 CFLAGS += --sysroot=${SYSROOT} -isystem ${SYSROOT}/usr/include
 
 #we are going to install the modules under $PREFIX/mod/
