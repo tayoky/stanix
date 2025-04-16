@@ -20,7 +20,7 @@ typedef struct {
 	uint32_t admin_completion_queue;
 } nvme_regs;
 
-static void init_nvme(uint64_t BAR){
+static void reset_nvme(uint64_t BAR){
 	volatile nvme_regs *nvme = (nvme_regs *)(BAR + kernel->hhdm);
 	
 }

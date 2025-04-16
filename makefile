@@ -29,7 +29,9 @@ initrd_src = $(shell find ./initrd -name "*")
 all : hdd iso
 
 test : hdd
-	qemu-system-${ARCH} -drive file=${hdd_out}  -serial stdio
+	qemu-system-${ARCH} \
+	-drive file=${hdd_out},if=none,id=nvm -serial stdio \
+	-device nvme,serial=deadbeef,drive=nvm
 debug : hdd
 	objdump -D ${OUT}/boot/${KERNEL} > asm.txt
 	qemu-system-${ARCH} -drive file=${hdd_out}  -serial stdio -s -S
@@ -89,6 +91,7 @@ header :
 	${MAKE} -C kernel header SYSROOT=${SYSROOT}
 	${MAKE} -C modules header
 	${MAKE} -C tlibc header TARGET=stanix
+	cp ./limine/limine.h ${SYSROOT}/usr/include/kernel
 clean :
 	${MAKE} -C kernel clean
 	${MAKE} -C tlibc clean

@@ -11,6 +11,7 @@ ASMFLAGS =
 #all sources
 src_c = $(shell find -name "*.c" -not -path "./arch/*") $(shell find ./arch/${ARCH} -name "*.c")
 src_asm = $(shell find -name "*.s" -not -path "./arch/*") $(shell find ./arch/${ARCH} -name "*.s")
+src_h = $(shell find -name "*.h" -not -path "./arch/*") $(shell find ./arch/${ARCH} -name "*.h")
 OBJ = ${src_c:.c=.o} ${src_asm:.s=.o}
 
 #DO NOT EDIT
@@ -48,11 +49,5 @@ clean :
 	rm -f ${OBJ} ${out}
 header :
 	mkdir -p ${SYSROOT}/usr/include/kernel
-	cp ./include/*.h \
-	./fs/include/*.h \
-	./klib/include/*.h \
-	./mem/include/*.h \
-	./task/include/*.h \
-	./drivers/include/*.h \
-	./arch/${ARCH}/include/*.h \
+	cp ${src_h} \
 	${SYSROOT}/usr/include/kernel
