@@ -119,6 +119,7 @@ int main(int argc,char **argv){
 	};
 	insmod("/mod/test.ko",kargs);
 	insmod("/mod/pci.ko",kargs);
+	insmod("/mod/nvme.ko",kargs);
 
 	//try launching doom
 	const char *arg[] = {
