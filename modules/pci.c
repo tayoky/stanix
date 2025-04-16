@@ -186,4 +186,6 @@ kmodule module_meta = {
 	.fini = rm_pci,
 	.name = "pci",
 	.author = "tayoky",
+	.description = "pci driver",
+	.liscence = "GPL 3",
 };

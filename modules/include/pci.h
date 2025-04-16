@@ -9,6 +9,8 @@
 #define PCI_CONFIG_STATUS      0x06
 #define PCI_CONFIG_CLASS       0x0A
 #define PCI_CONFIG_HEADER_TYPE 0x0E
+#define PCI_CONFIG_BAR0        0x10
+#define PCI_CONFIG_BAR1        0x14
 #define PCI_CONFIG_BUS_NUMBER  0x18
 
 /// @brief read a aligned dword from a pci device configuration space
