@@ -15,12 +15,15 @@ PREFIX =
 SRC = $(shell find -name '*.c')
 MOD = ${SRC:.c=.ko}
 
-all : ${MOD}
+all : ${MOD} header
 
 %.ko : %.c
 	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^ -DMODULE
 install :
 	mkdir -p ${PREFIX}/mod
 	cp *.ko ${PREFIX}/mod/
+header :
+	mkdir -p ${SYSROOT}/usr/include/module
+	cp include/*.h ${SYSROOT}/usr/include/module
 clean :
 	rm -f *.ko

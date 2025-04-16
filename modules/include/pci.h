@@ -1,0 +1,35 @@
+#ifndef PCI_H
+#define PCI_H
+
+#include <stdint.h>
+
+#define PCI_CONFIG_VENDOR_ID   0x00
+#define PCI_CONFIG_DEVICE_ID   0x02
+#define PCI_CONFIG_COMMAND     0x04
+#define PCI_CONFIG_STATUS      0x06
+#define PCI_CONFIG_CLASS       0x0A
+#define PCI_CONFIG_HEADER_TYPE 0x0E
+#define PCI_CONFIG_BUS_NUMBER  0x18
+
+/// @brief read a aligned dword from a pci device configuration space
+/// @param bus the bus device is on
+/// @param device the slot of the device onto the bus
+/// @param function the selected function of the device
+/// @param offset address to read (inside the configuration space) MUST BE ALIGNED
+/// @return the dword read from the configuration space
+uint32_t pci_read_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset);
+
+/// @brief read a aligned word from a pci device configuration space
+/// @param bus the bus device is on
+/// @param device the slot of the device onto the bus
+/// @param function the selected function of the device
+/// @param offset address to read (inside the configuration space) MUST BE ALIGNED
+/// @return the word read from the configuration space
+uint16_t pci_read_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset);
+
+/// @brief call a function for each pci device
+/// @param func the function called for each pci device
+/// @param arg an argument pass to the function
+void pci_foreach(void (*func)(uint8_t,uint8_t,uint8_t,void *),void *arg);
+
+#endif
