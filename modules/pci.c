@@ -172,11 +172,15 @@ int init_pci(int argc,char **argv){
 	pci_foreach(create_pci_dev,NULL);
 	
 	EXPORT(pci_foreach);
+	EXPORT(pci_read_config_dword)
+	EXPORT(pci_read_config_word)
 	return 0;
 }
 
 int rm_pci(){
 	UNEXPORT(pci_foreach);
+	UNEXPORT(pci_read_config_dword)
+	UNEXPORT(pci_read_config_word)
 	return 0;
 }
 
