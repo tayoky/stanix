@@ -33,8 +33,8 @@ char have_port1 = 1;
 char have_port2 = 0;
 
 static int wait_output(){
-	for (size_t i = 0; i < 5000; i++){
-		if(!(in_byte(PS2_STATUS) & 0x01)){
+	for (size_t i = 0; i < 10000; i++){
+		if(in_byte(PS2_STATUS) & 0x01){
 			return 0;
 		}
 	}
@@ -43,7 +43,7 @@ static int wait_output(){
 }
 
 static int wait_input(){
-	for (size_t i = 0; i < 5000; i++){
+	for (size_t i = 0; i < 10000; i++){
 		if(!(in_byte(PS2_STATUS) & 0x02)){
 			return 0;
 		}
@@ -103,6 +103,10 @@ static void print_device_name(int port){
 		kdebugf("unknow device\n");
 	}
 
+	if(ps2_read() != PS2_ACK){
+		kdebugf("unknow device\n");
+	}
+
 	int c0 = ps2_read();
 	int c1 = ps2_read();
 
@@ -121,11 +125,11 @@ static void print_device_name(int port){
 		break;
 	case 0xAB:
 		switch(c1){
-		case 0x41:
+		case 0x83:
 		case 0xC1:
 			kdebugf("MF2 keybaord\n");
 			break;
-		case 0x54:
+		case 0x84:
 			kdebugf("Short Keyboard\n");
 			break;
 		case 0x85:
@@ -135,7 +139,7 @@ static void print_device_name(int port){
 			kdebugf("122-key keyboards\n");
 			break;
 		default:
-			kdebugf("unknow keyboard\n");
+			kdebugf("unknow keyboard %x:%x\n",c0,c1);
 			break;
 		}
 		break;
@@ -150,7 +154,7 @@ static void print_device_name(int port){
 		}
 		break;
 	default:
-		kdebugf("unknow device\n");
+		kdebugf("unknow device : %x:%x\n",c0,c1);
 		break;
 	}
 
