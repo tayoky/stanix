@@ -3,6 +3,7 @@
 #include <kernel/ringbuf.h>
 #include <kernel/port.h>
 #include <kernel/irq.h>
+#include <module/ps2.h>
 #include <errno.h>
 
 //driver for the 8042 ps2 controller
@@ -28,16 +29,27 @@
 #define PS2_CONTROLLER_TEST_SUCCESSED 0x55
 #define PS2_CONTROLLER_TEST_FAILED    0xFC
 
-//devices commands
+char have_port1 = 1;
+char have_port2 = 0;
 
-ring_buffer keyboard_queue;
+static int wait_output(){
+	for (size_t i = 0; i < 5000; i++){
+		if(!(in_byte(PS2_STATUS) & 0x01)){
+			return 0;
+		}
+	}
 
-static void wait_output(){
-	while(!(in_byte(PS2_STATUS) & 0x01));
+	return -1;
 }
 
-static void wait_input(){
-	while(in_byte(PS2_STATUS) & 0x02);
+static int wait_input(){
+	for (size_t i = 0; i < 5000; i++){
+		if(!(in_byte(PS2_STATUS) & 0x02)){
+			return 0;
+		}
+	}
+
+	return -1;
 }
 
 static void ps2_send_command(uint8_t command){
@@ -45,21 +57,26 @@ static void ps2_send_command(uint8_t command){
 	out_byte(PS2_COMMAND,command);
 }
 
-uint8_t ps2_read(void){
-	wait_output();
+int ps2_read(void){
+	if(wait_output()){
+		return -1;
+	}
 	return in_byte(PS2_DATA);
 }
 
-static void ps2_write(uint8_t data){
-	wait_input();
+static int ps2_write(uint8_t data){
+	if(wait_input()){
+		return -1;
+	}
 	out_byte(PS2_DATA,data);
+	return 0;
 }
 
-void ps2_send(uint8_t port,uint8_t data){
+int ps2_send(uint8_t port,uint8_t data){
 	if(port == 2){
 		ps2_send_command(PS2_SEND_PORT2);
 	}
-	ps2_write(data);
+	return ps2_write(data);
 }
 
 void ps2_register_handler(void *handler,uint8_t port){
@@ -68,11 +85,75 @@ void ps2_register_handler(void *handler,uint8_t port){
 		irq_generic_map(handler,1);
 		break;
 	case 2:
-		irq_generic_map(handler,2);
+		irq_generic_map(handler,12);
 		break;
 	default:
 		break;
 	}
+}
+
+static void print_device_name(int port){
+	if(port == 1){
+		kdebugf("ps2 : first port device : ");
+	} else {
+		kdebugf("ps2 : second port device : ");
+	}
+
+	if(ps2_send(port,PS2_IDENTIFY)){
+		kdebugf("unknow device\n");
+	}
+
+	int c0 = ps2_read();
+	int c1 = ps2_read();
+
+	switch(c0){
+	case -1: //-1 mean no byte
+		kdebugf("Ancient AT keyboard\n");
+		break;
+	case 0x00:
+		kdebugf("Standard PS/2 mouse\n");
+		break;
+	case 0x03:
+		kdebugf("Mouse with scroll wheel\n");
+		break;
+	case 0x04:
+		kdebugf("5-button mouse\n");
+		break;
+	case 0xAB:
+		switch(c1){
+		case 0x41:
+		case 0xC1:
+			kdebugf("MF2 keybaord\n");
+			break;
+		case 0x54:
+			kdebugf("Short Keyboard\n");
+			break;
+		case 0x85:
+			kdebugf("122-Key Host Connect(ed) Keyboard\n");
+			break;
+		case 0x86:
+			kdebugf("122-key keyboards\n");
+			break;
+		default:
+			kdebugf("unknow keyboard\n");
+			break;
+		}
+		break;
+	case 0xAC:
+		switch(c1){
+		case 0xA1:
+			kdebugf("NCD Sun layout keyboard\n");
+			break;
+		default:
+			kdebugf("unknow device\n");
+			break;
+		}
+		break;
+	default:
+		kdebugf("unknow device\n");
+		break;
+	}
+
 }
 
 static int init_ps2(int argc,char **argv){
@@ -91,11 +172,9 @@ static int init_ps2(int argc,char **argv){
 	}
 
 	//try to check for port 2
-	char have_port1 = 1;
-	char have_port2 = 0;
 	ps2_send_command(PS2_ENABLE_PORT2);
 	ps2_send_command(PS2_READ_CONF);
-	uint8_t conf = ps2_read();
+	uint8_t conf = (uint8_t)ps2_read();
 	if(!(conf & (1 << 5))){
 		//there is a second port
 		have_port2 = 1;
@@ -123,7 +202,7 @@ static int init_ps2(int argc,char **argv){
 
 	//setup the configuration byte
 	ps2_send_command(PS2_READ_CONF);
-	conf = ps2_read();
+	conf = (uint8_t)ps2_read();
 	//start by setting all field to 0
 	conf &= 0b00110100;
 	//then activate irq
@@ -143,6 +222,28 @@ static int init_ps2(int argc,char **argv){
 	}
 	if(have_port2){
 		ps2_send_command(PS2_ENABLE_PORT2);
+	}
+
+	//now scan the device on each port
+	if(have_port1){
+		if(ps2_send(1,PS2_DISABLE_SCANING)){
+			//no device on the port
+			have_port1 = 0;
+			kdebugf("ps2 : no device on first port\n");
+		}
+		print_device_name(1);
+		ps2_send(1,PS2_ENABLE_SCANING);
+	}
+	
+	//now scan the device on each port
+	if(have_port2){
+		if(ps2_send(2,PS2_DISABLE_SCANING)){
+			//no device on the port
+			have_port2 = 0;
+			kdebugf("ps2 : no device on second port\n");
+		}
+		print_device_name(2);
+		ps2_send(2,PS2_ENABLE_SCANING);
 	}
 
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");

@@ -17,7 +17,6 @@
 #include "string.h"
 #include "sys.h"
 #include "exec.h"
-#include "ps2.h"
 #include "module.h"
 #include <sys/time.h>
 
@@ -132,7 +131,6 @@ void kmain(){
 	init_kout();
 	init_irq();
 	init_task();
-	init_ps2();
 	init_timer();
 	init_mod();
 	
