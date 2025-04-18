@@ -50,9 +50,10 @@ int main(int argc,char **argv){
 			continue;
 		}
 
-		//put into the pipe
+		//put into the pipe and to the screen
 		if(event.ie_key.flags & IE_KEY_GRAPH){
 			write(kbd_fd,&event.ie_key.c,1);
+			putchar(event.ie_key.c);
 			continue;
 		}
 		

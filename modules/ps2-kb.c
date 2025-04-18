@@ -2,9 +2,13 @@
 #include <kernel/print.h>
 #include <kernel/ringbuf.h>
 #include <kernel/time.h>
+#include <kernel/string.h>
 #include <kernel/arch.h>
 #include <module/ps2.h>
 #include <input.h>
+#include <errno.h>
+
+#define PS2_SET_SCANCODE_SET 0xF0
 
 const char kbd_us[128] = {
 	0,0,
@@ -45,12 +49,13 @@ const char kbd_us[128] = {
 	0, /* everything else */
 };
 
-ring_buffer keyboard_queue;
+static ring_buffer keyboard_queue;
 
-void keyboard_handler(fault_frame *frame){
+static void keyboard_handler(fault_frame *frame){
 	(void)frame;
 
 	uint8_t scancode = ps2_read();
+	kdebugf("scancode : %u\n",scancode);
 	int press = 1;
 	if(scancode & 0x80){
 		scancode -= 0x80;
@@ -77,8 +82,55 @@ void keyboard_handler(fault_frame *frame){
 	ringbuffer_write(&event,&keyboard_queue,sizeof(event));
 }
 
+static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	return ringbuffer_read(buffer,node->private_inode,count);
+}
+
 static int init_ps2kb(int argc,char **argv){
-	
+	//for the moment only check on port 1
+	switch (ps2_port_id[1][0]){
+	case 0xAB:
+	case -1:
+		kdebugf("ps2 : ps2 keyboard find, create device under /dev/kb0\n");
+		break;
+	default:
+		kdebugf("ps2 : no usable ps2 keyboard found\n");
+		return -ENODEV;
+	}
+
+	keyboard_queue = new_ringbuffer(sizeof(struct input_event) * 25);
+
+	vfs_node *node = kmalloc(sizeof(vfs_node));
+	memset(node,0,sizeof(vfs_node));
+	node->read = kbd_read;
+	node->flags = VFS_DEV | VFS_CHAR;
+	node->ctime = NOW();
+	node->private_inode = &keyboard_queue;
+
+	ps2_register_handler(keyboard_handler,1);
+
+	//use scancode set 1
+	ps2_send(1,PS2_SET_SCANCODE_SET);
+	ps2_send(1,1);
+	if(ps2_read() != PS2_ACK){
+		kdebugf("ps2 : error while changing scancode\n");
+		return -EIO;
+	}
+
+	//check it's actually using scancode 1
+	ps2_send(1,PS2_SET_SCANCODE_SET),
+	ps2_send(1,0);
+	if(ps2_read() != PS2_ACK){
+		kdebugf("ps2 : error while reading scancode\n");
+		return -EIO;
+	}
+	if(ps2_read() != 1){
+		kdebugf("ps2 : device don't support scancode set 1\n");
+		return -ENODEV;
+	}
+
+	vfs_mount("/dev/kb0",node);
+
 	return 0;
 }
 

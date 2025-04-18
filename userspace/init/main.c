@@ -22,8 +22,8 @@ extern char **environ;
 int main(int argc,char **argv){
 	//init std streams
 	open("/dev/null",O_RDONLY); //stdin
-	open("/dev/console",O_WRONLY); //stdout
-	open("/dev/console",O_WRONLY); //stderr
+	open("/dev/tty0",O_WRONLY); //stdout
+	open("/dev/tty0",O_WRONLY); //stderr
 
 
 	printf("hello world !!\n");
@@ -121,6 +121,7 @@ int main(int argc,char **argv){
 	insmod("/mod/pci.ko",kargs);
 	insmod("/mod/nvme.ko",kargs);
 	insmod("/mod/8042.ko",kargs);
+	insmod("/mod/ps2-kb.ko",kargs);
 
 	//try launching doom
 	const char *arg[] = {

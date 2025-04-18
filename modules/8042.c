@@ -32,7 +32,7 @@
 char ps2_have_port1 = 1;
 char ps2_have_port2 = 0;
 
-char ps2_port_id[3][2] = {
+int ps2_port_id[3][2] = {
 	{0,0},
 	{0,0},
 	{0,0}
@@ -88,6 +88,7 @@ int ps2_send(uint8_t port,uint8_t data){
 void ps2_register_handler(void *handler,uint8_t port){
 	switch (port){
 	case 1:
+		kdebugf("registers handler for first ps2 irq\n");
 		irq_generic_map(handler,1);
 		break;
 	case 2:
@@ -276,6 +277,9 @@ static int init_ps2(int argc,char **argv){
 	EXPORT(ps2_have_port1);
 	EXPORT(ps2_have_port2);
 	EXPORT(ps2_port_id);
+	EXPORT(ps2_register_handler);
+	EXPORT(ps2_read);
+	EXPORT(ps2_send);
 
 	return 0;
 }
@@ -284,6 +288,9 @@ static int fini_ps2(){
 	UNEXPORT(ps2_have_port1);
 	UNEXPORT(ps2_have_port2);
 	UNEXPORT(ps2_port_id);
+	UNEXPORT(ps2_register_handler);
+	UNEXPORT(ps2_read);
+	UNEXPORT(ps2_send);
 	return 0;
 }
 

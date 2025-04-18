@@ -13,4 +13,9 @@ int ps2_read(void);
 int ps2_send(uint8_t port,uint8_t data);
 void ps2_register_handler(void *handler,uint8_t port);
 
+extern char ps2_have_port1;
+extern char ps2_have_port2;
+
+extern int ps2_port_id[3][2];
+
 #endif
