@@ -29,8 +29,14 @@
 #define PS2_CONTROLLER_TEST_SUCCESSED 0x55
 #define PS2_CONTROLLER_TEST_FAILED    0xFC
 
-char have_port1 = 1;
-char have_port2 = 0;
+char ps2_have_port1 = 1;
+char ps2_have_port2 = 0;
+
+char ps2_port_id[3][2] = {
+	{0,0},
+	{0,0},
+	{0,0}
+};
 
 static int wait_output(){
 	for (size_t i = 0; i < 10000; i++){
@@ -110,6 +116,9 @@ static void print_device_name(int port){
 	int c0 = ps2_read();
 	int c1 = ps2_read();
 
+	ps2_port_id[port][0] = c0;
+	ps2_port_id[port][1] = c1;
+
 	switch(c0){
 	case -1: //-1 mean no byte
 		kdebugf("Ancient AT keyboard\n");
@@ -181,25 +190,25 @@ static int init_ps2(int argc,char **argv){
 	uint8_t conf = (uint8_t)ps2_read();
 	if(!(conf & (1 << 5))){
 		//there is a second port
-		have_port2 = 1;
+		ps2_have_port2 = 1;
 	}
 	
 	//test ports
 	ps2_send_command(PS2_TEST_PORT1);
 	if(ps2_read() != 0){
-		have_port1 = 0;
+		ps2_have_port1 = 0;
 		kdebugf("ps2 : the first ps2 port didn't pass test (broken controller ?)\n");
 	}
-	if(have_port2){
+	if(ps2_have_port2){
 		ps2_send_command(PS2_TEST_PORT2);
 		if(ps2_read() != 0){
-			have_port2 = 0;
+			ps2_have_port2 = 0;
 			kdebugf("ps2 : the second ps2 port didn't pass test (broken controller ?)\n");
 		}
 	}
 
 	//if no port availible just give up
-	if(!(have_port1 || have_port2)){
+	if(!(ps2_have_port1 || ps2_have_port2)){
 		kdebugf("ps2 : both ps2 ports are not availible\n");
 		return -ENODEV;
 	}
@@ -210,10 +219,10 @@ static int init_ps2(int argc,char **argv){
 	//start by setting all field to 0
 	conf &= 0b00110100;
 	//then activate irq
-	if(have_port1){
+	if(ps2_have_port1){
 		conf |= 1;
 	}
-	if(have_port2){
+	if(ps2_have_port2){
 		conf |= 2;
 	}
 	//now write conf
@@ -221,43 +230,67 @@ static int init_ps2(int argc,char **argv){
 	ps2_write(conf);
 
 	//activate devices
-	if(have_port1){
+	if(ps2_have_port1){
 		ps2_send_command(PS2_ENABLE_PORT1);
 	}
-	if(have_port2){
+	if(ps2_have_port2){
 		ps2_send_command(PS2_ENABLE_PORT2);
 	}
 
 	//now scan the device on each port
-	if(have_port1){
+	if(ps2_have_port1){
 		if(ps2_send(1,PS2_DISABLE_SCANING)){
 			//no device on the port
-			have_port1 = 0;
+			ps2_have_port1 = 0;
 			kdebugf("ps2 : no device on first port\n");
+		} else if(ps2_read() != PS2_ACK){
+			ps2_have_port1 = 0;
+			kdebugf("ps2 : no device on first port\n");
+		} else {
+			//identify the device
+			print_device_name(1);
+			ps2_send(1,PS2_ENABLE_SCANING);
+			ps2_read();
 		}
-		print_device_name(1);
-		ps2_send(1,PS2_ENABLE_SCANING);
 	}
 	
 	//now scan the device on each port
-	if(have_port2){
+	if(ps2_have_port2){
 		if(ps2_send(2,PS2_DISABLE_SCANING)){
 			//no device on the port
-			have_port2 = 0;
+			ps2_have_port2 = 0;
 			kdebugf("ps2 : no device on second port\n");
+		} else if(ps2_read() != PS2_ACK){
+			ps2_have_port2 = 0;
+			kdebugf("ps2 : no device on second port\n");
+		} else {
+			print_device_name(2);
+			ps2_send(2,PS2_ENABLE_SCANING);
+			ps2_read();
 		}
-		print_device_name(2);
-		ps2_send(2,PS2_ENABLE_SCANING);
 	}
 
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");
 
+	//export time
+	EXPORT(ps2_have_port1);
+	EXPORT(ps2_have_port2);
+	EXPORT(ps2_port_id);
+
+	return 0;
+}
+
+static int fini_ps2(){
+	UNEXPORT(ps2_have_port1);
+	UNEXPORT(ps2_have_port2);
+	UNEXPORT(ps2_port_id);
 	return 0;
 }
 
 kmodule module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = init_ps2,
+	.fini = fini_ps2,
 	.name = "8042 ps2",
 	.author = "tayoky"
 };
