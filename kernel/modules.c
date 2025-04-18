@@ -10,7 +10,7 @@
 //dynamic module loading
 
 extern uint64_t p_kernel_end[];
-static void *ptr = (void *)((uintptr_t)&p_kernel_end) + PAGE_SIZE;
+static uintptr_t ptr = ((uintptr_t)&p_kernel_end) + PAGE_SIZE;
 
 typedef struct exported_sym {
 	const char *name;
@@ -47,11 +47,12 @@ static int check_mod_header(Elf64_Ehdr *header){
 }
 
 static void *map_mod(size_t size){
-	ptr = (void *)PAGE_ALIGN_UP((uintptr_t)ptr);
-	void *buf = ptr;
+	size = PAGE_ALIGN_UP(size);
+	ptr = PAGE_ALIGN_UP(ptr);
+	void *buf = (void *)ptr;
 	kdebugf("insmod : map module at 0x%p size : %ld\n",ptr,size);
-	while(size >= PAGE_SIZE){
-		map_page((uint64_t *)(get_addr_space() + kernel->hhdm),allocate_page(&kernel->bitmap),(uintptr_t)ptr/PAGE_SIZE,PAGING_FLAG_RW_CPL0);
+	while(size > 0){
+		map_page((uint64_t *)(get_addr_space() + kernel->hhdm),allocate_page(&kernel->bitmap),ptr/PAGE_SIZE,PAGING_FLAG_RW_CPL0);
 		size -= PAGE_SIZE;
 		ptr += PAGE_SIZE;
 	}
