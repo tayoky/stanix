@@ -69,7 +69,7 @@ void memseg_unmap(process *proc,memseg *seg){
 		unmap_page((void *)proc->cr3 + kernel->hhdm,virt_page);
 
 		//free it
-		pmm_free_page(phys_page);
+		free_page(&kernel->bitmap,phys_page);
 		
 		virt_page++;
 		size--;

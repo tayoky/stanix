@@ -308,7 +308,7 @@ uint64_t sys_sbrk(intptr_t incr){
 			uint64_t virt_page = (kernel->kheap.start + kernel->kheap.lenght)/PAGE_SIZE + i;
 			uint64_t phys_page = (uint64_t)virt2phys((void *)(virt_page*PAGE_SIZE)) / PAGE_SIZE;
 			unmap_page(PMLT4, virt_page);
-			pmm_free_page(phys_page);
+			free_page(&kernel->bitmap,phys_page);
 		}
 	} else {
 		//make heap bigger

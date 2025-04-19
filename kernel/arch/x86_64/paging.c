@@ -62,7 +62,7 @@ uint64_t *create_addr_space(){
 void delete_addr_space(uint64_t *PMLT4){
 	//first free the kernel stack
 	for (size_t cur = KERNEL_STACK_BOTTOM; cur < KERNEL_STACK_TOP; cur+= PAGE_SIZE){
-		pmm_free_page((uintptr_t)space_virt2phys(PMLT4,(void *)cur)/PAGE_SIZE);
+		free_page(&kernel->bitmap,(uintptr_t)space_virt2phys(PMLT4,(void *)cur)/PAGE_SIZE);
 	}
 	
 
@@ -82,17 +82,17 @@ void delete_addr_space(uint64_t *PMLT4){
 				if(!PD[PDi] & 1)continue;
 				uint64_t *PT = (uint64_t *)((PMLT4[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 				
-				pmm_free_page(((uint64_t)PT-kernel->hhdm)/PAGE_SIZE);
+				free_page(&kernel->bitmap,((uint64_t)PT-kernel->hhdm)/PAGE_SIZE);
 			}
 
-			pmm_free_page(((uint64_t)PD-kernel->hhdm)/PAGE_SIZE);
+			free_page(&kernel->bitmap,((uint64_t)PD-kernel->hhdm)/PAGE_SIZE);
 		}
 
-		pmm_free_page(((uint64_t)PDP-kernel->hhdm)/PAGE_SIZE);
+		free_page(&kernel->bitmap,((uint64_t)PDP-kernel->hhdm)/PAGE_SIZE);
 	}
 	
 
-	pmm_free_page(((uint64_t)PMLT4-kernel->hhdm)/PAGE_SIZE);
+	free_page(&kernel->bitmap,((uint64_t)PMLT4-kernel->hhdm)/PAGE_SIZE);
 }
 
 void *virt2phys(void *address){
@@ -193,7 +193,7 @@ void unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
 			return;
 		}
 	}
-	pmm_free_page(((uint64_t)PT-kernel->hhdm)/PAGE_SIZE);
+	free_page(&kernel->bitmap,((uint64_t)PT-kernel->hhdm)/PAGE_SIZE);
 	PD[PDi] = 0;
 	
 	for (uint16_t i = 0; i < 512; i++){
@@ -201,7 +201,7 @@ void unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
 			return;
 		}
 	}
-	pmm_free_page(((uint64_t)PD-kernel->hhdm)/PAGE_SIZE);
+	free_page(&kernel->bitmap,((uint64_t)PD-kernel->hhdm)/PAGE_SIZE);
 	PDP[PDPi] = 0;
 
 	for (uint16_t i = 0; i < 512; i++){
@@ -209,7 +209,7 @@ void unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
 			return;
 		}
 	}
-	pmm_free_page(((uint64_t)PDP-kernel->hhdm)/PAGE_SIZE);
+	free_page(&kernel->bitmap,((uint64_t)PDP-kernel->hhdm)/PAGE_SIZE);
 	PMLT4[PMLT4i] = 0;
 }
 

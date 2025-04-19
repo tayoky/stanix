@@ -41,7 +41,7 @@ void change_kheap_size(ssize_t offset){
 			uint64_t virt_page = (kernel->kheap.start + kernel->kheap.lenght)/PAGE_SIZE + i;
 			uint64_t phys_page = (uint64_t)virt2phys((void *)(virt_page*PAGE_SIZE)) / PAGE_SIZE;
 			unmap_page(addr_space,virt_page);
-			pmm_free_page(phys_page);
+			free_page(&kernel->bitmap,phys_page);
 		}
 	} else {
 		//make kheap bigger
