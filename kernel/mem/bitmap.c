@@ -44,8 +44,7 @@ uint64_t allocate_page(bitmap_meta *bitmap){
 	while (bitmap->data[index] == (uint64_t)-1){
 		index++;
 		if(index >= bitmap->size){
-			//OUT OF MEMORY
-			panic("out of memory",NULL);
+			return 0;
 		}
 	}
 
@@ -82,7 +81,34 @@ void init_bitmap(){
 	kernel->bitmap.page_count = kernel->total_memory/PAGE_SIZE;
 	kernel->bitmap.used_page_count = kernel->bitmap.page_count;
 
-	//find a good segment we can use
+	//create an bitmap on each usable region
+	for (size_t i = 0; i < kernel->memmap->entry_count; i++){
+		if(kernel->memmap->entries[i]->type != LIMINE_MEMMAP_USABLE)continue;
+
+		bitmap_meta *bitmap = (bitmap_meta *)(kernel->memmap->entries[i]->base + kernel->hhdm);
+		bitmap->size = (kernel->memmap->entries[i]->base)/(64*PAGE_SIZE)+1;
+		bitmap->data = (uint64_t*)(((uintptr_t)bitmap) + sizeof(bitmap_meta));
+
+		//fill the bitmap with 1
+		for(uint64_t index = 0;index < bitmap->size;index++){
+			bitmap->data[index] = (uint64_t)-1;
+		}
+
+		bitmap->page_count = kernel->memmap->entries[i]->length/PAGE_SIZE;
+
+		//the the usable region
+		uintptr_t end = PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->base + kernel->memmap->entries[i]->length);
+		for(uintptr_t current = PAGE_ALIGN_UP((uintptr_t)&bitmap->data[bitmap->size] - kernel->hhdm); current < end; current += PAGE_SIZE){
+			free_page(bitmap,(current - kernel->memmap->entries[i]->base)/PAGE_SIZE);
+		}
+
+		//set the acceleration as not calulated
+		bitmap->last_allocated = (uint64_t)-1;
+		kdebugf("init bitmap 0x%p : size : %ld page count : %ld\n",bitmap,bitmap->size,bitmap->page_count);
+	}
+	
+
+	/*//find a good segment we can use
 	uint64_t selected_seg=0;
 
 	while (kernel->memmap->entries[selected_seg]->type != LIMINE_MEMMAP_USABLE  || kernel->memmap->entries[selected_seg]->length < kernel->bitmap.size * sizeof(uint64_t) ){
@@ -127,13 +153,25 @@ void init_bitmap(){
 	//set the accelaration as not caculated
 	kernel->bitmap.last_allocated = (uint64_t)-1;
 	
+	*/
 	kok();
 }
 
 uint64_t pmm_allocate_page(){
-	return allocate_page(&kernel->bitmap);
+	for (size_t i = 0; i < kernel->memmap->entry_count; i++){
+		if(kernel->memmap->entries[i]->type != LIMINE_MEMMAP_USABLE)continue;
+		uint64_t page = allocate_page((bitmap_meta *)(kernel->memmap->entries[i]->base + kernel->hhdm));
+		if(page){
+			return page + (kernel->memmap->entries[i]->base)/PAGE_SIZE;
+		}
+	}
+
+	//OUT OF MEMORY
+	panic("out of memory",NULL);
+	
+	return ;
 }
 
 void pmm_free_page(uint64_t page){
-	return pmm_free_page(page);
+	//return pmm_free_page(page);
 }
