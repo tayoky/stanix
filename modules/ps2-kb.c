@@ -91,10 +91,20 @@ static int init_ps2kb(int argc,char **argv){
 	switch (ps2_port_id[1][0]){
 	case 0xAB:
 	case -1:
-		kdebugf("ps2 : ps2 keyboard find, create device under /dev/kb0\n");
+		kdebugf("ps2 : ps2 keyboard find\n");
 		break;
 	default:
 		kdebugf("ps2 : no usable ps2 keyboard found\n");
+		return -ENODEV;
+	}
+
+	//start by reset the device
+	ps2_send(1,0xFF);
+	if(ps2_read() != PS2_ACK){
+		kdebugf("ps2 : failed to reset device\n");
+	}
+	if(ps2_read() != 0xAA){
+		kdebugf("ps2 : keyboard didn't pass self test\n");
 		return -ENODEV;
 	}
 
@@ -106,8 +116,6 @@ static int init_ps2kb(int argc,char **argv){
 	node->flags = VFS_DEV | VFS_CHAR;
 	node->ctime = NOW();
 	node->private_inode = &keyboard_queue;
-
-	ps2_register_handler(keyboard_handler,1);
 
 	//use scancode set 1
 	ps2_send(1,PS2_SET_SCANCODE_SET);
@@ -129,6 +137,9 @@ static int init_ps2kb(int argc,char **argv){
 		return -ENODEV;
 	}
 
+	ps2_register_handler(keyboard_handler,1);
+
+	kdebugf("keyboard succefuly init create /dev/kb0\n");
 	vfs_mount("/dev/kb0",node);
 
 	return 0;
