@@ -4,7 +4,7 @@ title: boot process
 this is how the OS boot  
 
 > [!NOTE]  
-> this is the new boot process it isen't implemented
+> this is the new boot process it isen't fully implemented
 
 ### BIOS
 first the **BIOS**/**UEFI** load the **bootloader**

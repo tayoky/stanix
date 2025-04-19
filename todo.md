@@ -4,23 +4,22 @@ title : todo
 - getting a shell to run
 - fix scheduler
 - get doom to run
+- bring back a ps2 keyboard driver
+- change `map_page` and `unmap_page` to use physical address instead of page number
 - nanosleep syscall instead of usleep
 - implement clock
-- dynamic module loading
+- dynamic module loading (a bit buggy and no bss section)
 - ata/atapi driver
 - fat32 driver
 - iso fs driver
-- unlink and rmdir syscall
 - ext2 driver
 - ahci driver
-- nvme driver
+- nvme driver (in progress)
 - floppy driver
 - mbr driver
 - gpt driver
 - pty emulation and pty
 - userspace terminal emulator
 - tty for serial port
-- change framebuffer name
-- change dev:/console to a kernel console
-- rewrite vfs
-- new boot process
+- change /dev/console to a kernel console
+- new boot proces

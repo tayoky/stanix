@@ -10,7 +10,8 @@ creating a kernel module is simple just add your c source file into the `modules
 ## writing a kernel module
 the most simple kernel module is 
 ```c
-#include <kernel/modules.h>
+#include <kernel/module.h>
+#include <kernel/print.h>
 
 int init(int argc,char **argv){
     kdebugf("hello world !\n");
@@ -29,8 +30,8 @@ kmodule module_meta = {
 }
 ```
 
-on the first line we include `<kernel/modules.h>` , all kernel header (except arch specific one) are accessible trought `<kernel/XXX.h>`  
-`<kernel/modules.h>` define some macro and the kmodule struct to define module meta data
+on the first line we include `<kernel/module.h>` , all kernel header (except arch specific one) are accessible trought `<kernel/XXX.h>`  
+`<kernel/module.h>` define some macro and the kmodule struct to define module meta data
 
 `module_meta` all kernel module must have a kmodule struct call `module_meta` it give the module loader information about the module
 - `init` : define the function called when the module is added (here the `init` function)
