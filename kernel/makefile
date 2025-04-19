@@ -31,9 +31,6 @@ CFLAGS += --sysroot=${SYSROOT} -isystem ${SYSROOT}/usr/include
 
 ${OUT}/boot/${KERNEL} : ${OBJ} sym.o
 	${LD} ${LDFLAGS} ${OBJ} sym.o -o ${OUT}/boot/${KERNEL}
-
-${OUT}/boot/limine/limine.conf : limine.conf
-	cp limine.conf ${out}/boot/limine/limine.conf
 %.o : %.c
 	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^
 sym.o : ${OBJ}

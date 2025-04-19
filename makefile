@@ -76,9 +76,9 @@ ${OUT}/boot/initrd.tar : ${initrd_src}
 	@mkdir -p ${OUT}/boot
 	cd initrd && tar --create -f ../${OUT}/boot/initrd.tar **
 
-${OUT}/boot/limine/limine.conf : kernel/limine.conf
+${OUT}/boot/limine/limine.conf : limine.conf
 	@mkdir -p ${OUT}/boot/limine/
-	cp kernel/limine.conf ${OUT}/boot/limine/limine.conf
+	cp $^ $@
 #build!!!
 build : header ${OUT}/boot/limine/limine.conf
 	@mkdir -p ${OUT}/boot/

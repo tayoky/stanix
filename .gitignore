@@ -28,3 +28,9 @@ sysroot
 
 #config
 config.mk
+
+#compiled modules
+*.ko
+
+#objects files
+*.o
