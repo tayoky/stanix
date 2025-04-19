@@ -131,9 +131,9 @@ void init_bitmap(){
 }
 
 uint64_t pmm_allocate_page(){
-	return allocate_page(&kernel->bitmap);
+	return allocate_page(&kernel->bitmap) * PAGE_SIZE;
 }
 
 void pmm_free_page(uint64_t page){
-	return pmm_free_page(page);
+	return free_page(&kernel->bitmap,page/PAGE_SIZE);
 }

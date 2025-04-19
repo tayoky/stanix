@@ -52,7 +52,7 @@ static void *map_mod(size_t size){
 	void *buf = (void *)ptr;
 	kdebugf("insmod : map module at 0x%p size : %ld\n",ptr,size);
 	while(size > 0){
-		map_page((uint64_t *)(get_addr_space() + kernel->hhdm),pmm_allocate_page(),ptr/PAGE_SIZE,PAGING_FLAG_RW_CPL0);
+		map_page((uint64_t *)(get_addr_space() + kernel->hhdm),pmm_allocate_page(),ptr,PAGING_FLAG_RW_CPL0);
 		size -= PAGE_SIZE;
 		ptr += PAGE_SIZE;
 	}

@@ -297,7 +297,7 @@ uint64_t sys_sbrk(intptr_t incr){
 	//get proc
 	process *proc = get_current_proc();
 
-	int64_t incr_pages = PAGE_ALIGN_UP(incr) / PAGE_SIZE;
+	intptr_t incr_pages = PAGE_ALIGN_UP(incr) / PAGE_SIZE;
 
 	//get the PMLT4
 	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
@@ -305,10 +305,10 @@ uint64_t sys_sbrk(intptr_t incr){
 	if(incr < 0){
 		//make heap smaller
 		for (int64_t i = 0; i > incr_pages; i--){
-			uint64_t virt_page = (kernel->kheap.start + kernel->kheap.lenght)/PAGE_SIZE + i;
-			uint64_t phys_page = (uint64_t)virt2phys((void *)(virt_page*PAGE_SIZE)) / PAGE_SIZE;
+			uintptr_t virt_page = kernel->kheap.start + kernel->kheap.lenght + i * PAGE_SIZE;
+			uintptr_t phys_page = (uintptr_t)virt2phys((void *)virt_page);
 			unmap_page(PMLT4, virt_page);
-			free_page(&kernel->bitmap,phys_page);
+			pmm_free_page(phys_page);
 		}
 	} else {
 		//make heap bigger
