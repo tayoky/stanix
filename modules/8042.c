@@ -107,11 +107,11 @@ static void print_device_name(int port){
 	}
 
 	if(ps2_send(port,PS2_IDENTIFY)){
-		kdebugf("unknow device\n");
+		kprintf("unknow device\n");
 	}
 
 	if(ps2_read() != PS2_ACK){
-		kdebugf("unknow device\n");
+		kprintf("unknow device\n");
 	}
 
 	int c0 = ps2_read();
@@ -122,49 +122,49 @@ static void print_device_name(int port){
 
 	switch(c0){
 	case -1: //-1 mean no byte
-		kdebugf("Ancient AT keyboard\n");
+		kprintf("Ancient AT keyboard\n");
 		break;
 	case 0x00:
-		kdebugf("Standard PS/2 mouse\n");
+		kprintf("Standard PS/2 mouse\n");
 		break;
 	case 0x03:
-		kdebugf("Mouse with scroll wheel\n");
+		kprintf("Mouse with scroll wheel\n");
 		break;
 	case 0x04:
-		kdebugf("5-button mouse\n");
+		kprintf("5-button mouse\n");
 		break;
 	case 0xAB:
 		switch(c1){
 		case 0x83:
 		case 0xC1:
-			kdebugf("MF2 keybaord\n");
+			kprintf("MF2 keybaord\n");
 			break;
 		case 0x84:
-			kdebugf("Short Keyboard\n");
+			kprintf("Short Keyboard\n");
 			break;
 		case 0x85:
-			kdebugf("122-Key Host Connect(ed) Keyboard\n");
+			kprintf("122-Key Host Connect(ed) Keyboard\n");
 			break;
 		case 0x86:
-			kdebugf("122-key keyboards\n");
+			kprintf("122-key keyboards\n");
 			break;
 		default:
-			kdebugf("unknow keyboard %x:%x\n",c0,c1);
+			kprintf("unknow keyboard %x:%x\n",c0,c1);
 			break;
 		}
 		break;
 	case 0xAC:
 		switch(c1){
 		case 0xA1:
-			kdebugf("NCD Sun layout keyboard\n");
+			kprintf("NCD Sun layout keyboard\n");
 			break;
 		default:
-			kdebugf("unknow device\n");
+			kprintf("unknow device\n");
 			break;
 		}
 		break;
 	default:
-		kdebugf("unknow device : %x:%x\n",c0,c1);
+		kprintf("unknow device : %x:%x\n",c0,c1);
 		break;
 	}
 
@@ -218,7 +218,7 @@ static int init_ps2(int argc,char **argv){
 	ps2_send_command(PS2_READ_CONF);
 	conf = (uint8_t)ps2_read();
 	//start by setting all field to 0
-	conf &= 0b00110100;
+	conf &= 0b00000100;	
 	//then activate irq
 	if(ps2_have_port1){
 		conf |= 1;
