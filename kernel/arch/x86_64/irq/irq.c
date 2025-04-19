@@ -126,5 +126,8 @@ void irq_handler(fault_frame *frame){
 	if(handler){
 		handler(frame);
 	}
-	irq_eoi(frame->err_type);
+	//if the err_code is -1 then it aready send eoi
+	if(frame->err_code != (uint64_t)-1){
+		irq_eoi(frame->err_type);
+	}
 }

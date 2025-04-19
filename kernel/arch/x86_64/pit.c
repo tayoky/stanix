@@ -22,6 +22,7 @@ void pit_handler(fault_frame *frame){
 	}
 
 	irq_eoi(frame->err_code);
+	frame->err_code = (uint64_t)-1;
 
 	//yeld to next task
 	yeld();
