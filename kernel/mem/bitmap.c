@@ -129,3 +129,11 @@ void init_bitmap(){
 	
 	kok();
 }
+
+uint64_t pmm_allocate_page(){
+	return allocate_page(&kernel->bitmap);
+}
+
+void pmm_free_page(uint64_t page){
+	return pmm_free_page(page);
+}

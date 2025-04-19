@@ -308,7 +308,7 @@ uint64_t sys_sbrk(intptr_t incr){
 			uint64_t virt_page = (kernel->kheap.start + kernel->kheap.lenght)/PAGE_SIZE + i;
 			uint64_t phys_page = (uint64_t)virt2phys((void *)(virt_page*PAGE_SIZE)) / PAGE_SIZE;
 			unmap_page(PMLT4, virt_page);
-			free_page(&kernel->bitmap,phys_page);
+			pmm_free_page(phys_page);
 		}
 	} else {
 		//make heap bigger
@@ -328,6 +328,7 @@ int sys_ioctl(int fd,uint64_t request,void *arg){
 }
 
 int sys_usleep(useconds_t usec){
+	kdebugf("sleep for %ld\n",usec);
 	micro_sleep(usec);
 	return 0;
 }

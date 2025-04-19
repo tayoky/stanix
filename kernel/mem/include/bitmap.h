@@ -18,13 +18,16 @@ typedef struct bitmap_struct{
 void init_bitmap();
 
 /// @brief find an free page and allocate it
-/// @param bitmap an pointer to the bitmap
 /// @return the address of the page (multiply it by 0x1000 to get it's real address)
+uint64_t pmm_allocate_page();
+
 uint64_t allocate_page(bitmap_meta *bitmap);
 
 /// @brief mark an page as allocated
-/// @param bitmap an pointer to the bitmap
 /// @param page the page to mark as allocated
+void pmm_free_page(uint64_t page);
+
+
 void set_allocted_page(bitmap_meta *bitmap,uint64_t page);
 
 /// @brief free an specified page

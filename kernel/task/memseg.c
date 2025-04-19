@@ -23,7 +23,7 @@ memseg *memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){
 
 
 	while(size > 0){
-		map_page((void *)proc->cr3 + kernel->hhdm,allocate_page(&kernel->bitmap),address,flags);
+		map_page((void *)proc->cr3 + kernel->hhdm,pmm_allocate_page(),address,flags);
 		address++;
 		size--;
 	}
@@ -69,7 +69,7 @@ void memseg_unmap(process *proc,memseg *seg){
 		unmap_page((void *)proc->cr3 + kernel->hhdm,virt_page);
 
 		//free it
-		free_page(&kernel->bitmap,phys_page);
+		pmm_free_page(phys_page);
 		
 		virt_page++;
 		size--;

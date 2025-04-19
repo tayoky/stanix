@@ -14,7 +14,7 @@ void init_kheap(void){
 
 	//get addr space
 	uint64_t *addr_space = (uint64_t *)(get_addr_space() + kernel->hhdm);
-	map_page(addr_space,allocate_page(&kernel->bitmap),kernel->kheap.start/PAGE_SIZE,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+	map_page(addr_space,pmm_allocate_page(),kernel->kheap.start/PAGE_SIZE,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 
 	kernel->kheap.lenght = PAGE_SIZE;
 
@@ -41,12 +41,12 @@ void change_kheap_size(ssize_t offset){
 			uint64_t virt_page = (kernel->kheap.start + kernel->kheap.lenght)/PAGE_SIZE + i;
 			uint64_t phys_page = (uint64_t)virt2phys((void *)(virt_page*PAGE_SIZE)) / PAGE_SIZE;
 			unmap_page(addr_space,virt_page);
-			free_page(&kernel->bitmap,phys_page);
+			pmm_free_page(phys_page);
 		}
 	} else {
 		//make kheap bigger
 		for (int64_t i = 0; i < offset_page; i++){
-			map_page(addr_space,allocate_page(&kernel->bitmap),((kernel->kheap.start+kernel->kheap.lenght)/PAGE_SIZE)+i,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+			map_page(addr_space,pmm_allocate_page(),((kernel->kheap.start+kernel->kheap.lenght)/PAGE_SIZE)+i,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 		}
 	}
 	kernel->kheap.lenght += offset_page * PAGE_SIZE;
