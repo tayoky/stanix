@@ -1,9 +1,9 @@
-#include "pipe.h"
-#include "ringbuf.h"
+#include <kernel/pipe.h>
+#include <kernel/ringbuf.h>
 #include <kernel/kheap.h>
-#include "string.h"
+#include <kernel/string.h>
 #include <errno.h>
-#include "print.h"
+#include <kernel/print.h>
 
 struct pipe{
 	ring_buffer ring;

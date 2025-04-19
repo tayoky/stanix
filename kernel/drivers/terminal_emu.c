@@ -1,10 +1,10 @@
 #include <kernel/terminal_emu.h>
-#include "ini.h"
-#include "print.h"
+#include <kernel/ini.h>
+#include <kernel/print.h>
 #include <kernel/kernel.h>
-#include "string.h"
+#include <kernel/string.h>
 #include <kernel/vfs.h>
-#include "framebuffer.h"
+#include <kernel/framebuffer.h>
 
 uint32_t ANSI_color[] = {
 	0x000000,

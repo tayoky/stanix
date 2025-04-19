@@ -1,9 +1,9 @@
-#include "cleaner.h"
+#include <kernel/cleaner.h>
 #include <kernel/kernel.h>
 #include <kernel/paging.h>
 #include <kernel/scheduler.h>
-#include "print.h"
-#include "memseg.h"
+#include <kernel/print.h>
+#include <kernel/memseg.h>
 
 void cleaner_task(){
 	kstatus("start cleaner task\n");

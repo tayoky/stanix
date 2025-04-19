@@ -1,10 +1,10 @@
-#include "fork.h"
+#include <kernel/fork.h>
 #include <kernel/arch.h>
 #include <kernel/scheduler.h>
-#include "memseg.h"
+#include <kernel/memseg.h>
 #include <kernel/paging.h>
-#include "print.h"
-#include "string.h"
+#include <kernel/print.h>
+#include <kernel/string.h>
 
 pid_t fork(void){
 	process *parent = get_current_proc();

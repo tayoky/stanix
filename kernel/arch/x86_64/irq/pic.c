@@ -35,9 +35,9 @@ void init_pic(){
 	out_byte(PIC1_DATA, ICW4_8086);
 	out_byte(PIC2_DATA, ICW4_8086);
 
-	//at the start mask everything
-	out_byte(PIC1_DATA, 0xff);
-    out_byte(PIC2_DATA, 0xff);
+	//at the start unmask everything
+	out_byte(PIC1_DATA, 0x00);
+    out_byte(PIC2_DATA, 0x00);
 
 	//tell the kernel we use pic
 	kernel->pic_type = PIC_PIC;

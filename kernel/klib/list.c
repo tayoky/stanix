@@ -1,6 +1,6 @@
-#include "list.h"
+#include <kernel/list.h>
 #include <kernel/kheap.h>
-#include "string.h"
+#include <kernel/string.h>
 
 list *new_list(){
 	list *l = kmalloc(sizeof(list));

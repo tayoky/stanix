@@ -1,9 +1,9 @@
-#include "limine.h"
-#include "framebuffer.h"
+#include <kernel/limine.h>
+#include <kernel/framebuffer.h>
 #include <kernel/kernel.h>
-#include "string.h"
-#include "print.h"
-#include "devices.h"
+#include <kernel/string.h>
+#include <kernel/print.h>
+#include <kernel/devices.h>
 #include <kernel/bootinfo.h>
 
 ssize_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){

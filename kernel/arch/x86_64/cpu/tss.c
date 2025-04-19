@@ -1,7 +1,7 @@
 #include "tss.h"
 #include <kernel/kernel.h>
-#include "print.h"
-#include "string.h"
+#include <kernel/print.h>
+#include <kernel/string.h>
 #include <kernel/paging.h>
 
 void init_tss(){

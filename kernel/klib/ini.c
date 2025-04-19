@@ -1,10 +1,10 @@
 #include <kernel/vfs.h>
-#include "print.h"
-#include "asm.h"
+#include <kernel/print.h>
+#include <kernel/asm.h>
 #include <kernel/kheap.h>
 #include <kernel/kernel.h>
-#include "string.h"
-#include "ini.h"
+#include <kernel/string.h>
+#include <kernel/ini.h>
 
 void read_main_conf_file(void){
 	kstatus("open main conf file /conf.ini ...");

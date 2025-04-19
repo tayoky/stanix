@@ -1,8 +1,8 @@
 #include <kernel/bitmap.h>
 #include <kernel/kernel.h>
-#include "print.h"
-#include "limine.h"
-#include "panic.h"
+#include <kernel/print.h>
+#include <kernel/limine.h>
+#include <kernel/panic.h>
 #include <kernel/page.h>
 
 //TODO add out of bound check 

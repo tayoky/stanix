@@ -1,8 +1,8 @@
-#include "paging.h"
-#include "kheap.h"
-#include "print.h"
-#include "panic.h"
-#include "spinlock.h"
+#include <kernel/paging.h>
+#include <kernel/kheap.h>
+#include <kernel/print.h>
+#include <kernel/panic.h>
+#include <kernel/spinlock.h>
 
 void init_kheap(void){
 	kstatus("init kheap... ");

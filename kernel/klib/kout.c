@@ -1,11 +1,11 @@
-#include "kout.h"
-#include "string.h"
+#include <kernel/kout.h>
+#include <kernel/string.h>
 #include <kernel/kheap.h>
 #include <kernel/vfs.h>
 #include <stdint.h>
 #include <kernel/kernel.h>
-#include "print.h"
-#include "ini.h"
+#include <kernel/print.h>
+#include <kernel/ini.h>
 
 char *uint2str(uint64_t integer){
 	uint16_t digits = 1;

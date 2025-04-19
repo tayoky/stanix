@@ -2,7 +2,7 @@
 #define KERNEL_H
 #include <stdint.h>
 #include <sys/time.h>
-#include "limine.h"
+#include <kernel/limine.h>
 #include <kernel/bootinfo.h>
 #include <kernel/bitmap.h>
 #include <kernel/kheap.h>

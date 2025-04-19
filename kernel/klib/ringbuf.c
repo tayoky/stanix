@@ -1,6 +1,6 @@
-#include "ringbuf.h"
+#include <kernel/ringbuf.h>
 #include <kernel/kheap.h>
-#include "string.h"
+#include <kernel/string.h>
 
 ring_buffer new_ringbuffer(size_t buffer_size){
 	ring_buffer ring;

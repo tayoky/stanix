@@ -1,6 +1,6 @@
 #include "idt.h"
 #include <kernel/kernel.h>
-#include "print.h"
+#include <kernel/print.h>
 #include <stdint.h>
 #include "interrupt.h"
 #include "panic.h"

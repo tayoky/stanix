@@ -1,5 +1,5 @@
 #include "gdt.h"
-#include "print.h"
+#include <kernel/print.h>
 #include <kernel/kernel.h>
 #include "asm.h"
 

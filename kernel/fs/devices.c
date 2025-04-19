@@ -1,12 +1,12 @@
-#include "devices.h"
+#include <kernel/devices.h>
 #include <kernel/vfs.h>
 #include <kernel/tmpfs.h>
 #include <kernel/kernel.h>
-#include "print.h"
-#include "asm.h"
-#include "string.h"
-#include "port.h"
-#include "serial.h"
+#include <kernel/print.h>
+#include <kernel/asm.h>
+#include <kernel/string.h>
+#include <kernel/port.h>
+#include <kernel/serial.h>
 
 ssize_t zero_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	//to make compiler happy

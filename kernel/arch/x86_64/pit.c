@@ -1,5 +1,5 @@
 #include "pit.h"
-#include "print.h"
+#include <kernel/print.h>
 #include <kernel/kernel.h>
 #include "irq.h"
 #include "port.h"

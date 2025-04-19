@@ -1,7 +1,7 @@
-#include "time.h"
+#include <kernel/time.h>
 #include <kernel/kernel.h>
 #include <kernel/scheduler.h>
-#include "print.h"
+#include <kernel/print.h>
 
 void sleep_until(struct timeval wakeup_time){
 	kernel->can_task_switch = 0;

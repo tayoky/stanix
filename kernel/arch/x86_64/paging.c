@@ -1,8 +1,8 @@
 #include <kernel/kernel.h>
 #include <kernel/paging.h>
-#include "print.h"
+#include <kernel/print.h>
 #include <kernel/bitmap.h>
-#include "string.h"
+#include <kernel/string.h>
 
 extern uint64_t p_kernel_start[];
 extern uint64_t p_kernel_end[];

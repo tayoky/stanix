@@ -2,7 +2,7 @@
 #include "idt.h"
 #include "pic.h"
 #include <kernel/kernel.h>
-#include "print.h"
+#include <kernel/print.h>
 #include "panic.h"
 
 extern void irq0();
@@ -27,9 +27,6 @@ void *handlers[16];
 void init_irq(void){
 	kstatus("init irq chip... ");
 
-	//TODO : implement and use APIC if avalible
-	init_pic();
-
 	//set generic handler
 	set_idt_gate(kernel->arch.idt,32,irq0,0x8E);
 	set_idt_gate(kernel->arch.idt,33,irq1,0x8E);
@@ -47,6 +44,9 @@ void init_irq(void){
 	set_idt_gate(kernel->arch.idt,45,irq13,0x8E);
 	set_idt_gate(kernel->arch.idt,46,irq14,0x8E);
 	set_idt_gate(kernel->arch.idt,47,irq15,0x8E);
+
+	//TODO : implement and use APIC if avalible
+	init_pic();
  
 	kok();
 

@@ -1,13 +1,13 @@
-#include "exec.h"
+#include <kernel/exec.h>
 #include <kernel/scheduler.h>
 #include <kernel/kernel.h>
 #include <elf.h>
-#include "string.h"
+#include <kernel/string.h>
 #include <kernel/paging.h>
-#include "print.h"
-#include "userspace.h"
-#include "memseg.h"
-#include "sys.h"
+#include <kernel/print.h>
+#include <kernel/userspace.h>
+#include <kernel/memseg.h>
+#include <kernel/sys.h>
 #include <errno.h>
 
 int verfiy_elf(Elf64_Ehdr *header){

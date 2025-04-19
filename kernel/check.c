@@ -1,5 +1,5 @@
-#include "print.h"
-#include "panic.h"
+#include <kernel/print.h>
+#include <kernel/panic.h>
 #include <stdint.h>
 
 //undefined behaviour handler

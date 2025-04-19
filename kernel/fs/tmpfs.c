@@ -1,9 +1,9 @@
 #include <kernel/tmpfs.h>
 #include <kernel/kheap.h>
-#include "string.h"
-#include "print.h"
-#include "asm.h"
-#include "time.h"
+#include <kernel/string.h>
+#include <kernel/print.h>
+#include <kernel/asm.h>
+#include <kernel/time.h>
 
 static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	tmpfs_inode *inode = kmalloc(sizeof(tmpfs_inode));

@@ -1,23 +1,23 @@
-#include "sys.h"
+#include <kernel/sys.h>
 #include <kernel/scheduler.h>
-#include "print.h"
+#include <kernel/print.h>
 #include <kernel/kernel.h>
-#include "print.h"
+#include <kernel/print.h>
 #include <errno.h>
 #include <kernel/page.h>
 #include <kernel/paging.h>
-#include "time.h"
+#include <kernel/time.h>
 #include <sys/type.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include "pipe.h"
-#include "exec.h"
-#include "memseg.h"
-#include "fork.h"
-#include "userspace.h"
-#include "string.h"
+#include <kernel/pipe.h>
+#include <kernel/exec.h>
+#include <kernel/memseg.h>
+#include <kernel/fork.h>
+#include <kernel/userspace.h>
+#include <kernel/string.h>
 #include <kernel/arch.h>
-#include "module.h"
+#include <kernel/module.h>
 
 static int find_fd(){
 	int fd = 0;

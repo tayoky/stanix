@@ -1,7 +1,7 @@
-#include "limine.h"
+#include <kernel/limine.h>
 #include <kernel/bootinfo.h>
 #include <kernel/kernel.h>
-#include "print.h"
+#include <kernel/print.h>
 
 LIMINE_REQUESTS_START_MARKER
 

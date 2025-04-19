@@ -1,9 +1,9 @@
-#include "tarfs.h"
+#include <kernel/tarfs.h>
 #include <kernel/kernel.h>
-#include "string.h"
+#include <kernel/string.h>
 #include <kernel/tmpfs.h>
-#include "print.h"
-#include "asm.h"
+#include <kernel/print.h>
+#include <kernel/asm.h>
 
 static uint64_t octal2int(const char *octal){
 	uint64_t integer = 0;

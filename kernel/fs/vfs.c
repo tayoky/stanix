@@ -1,9 +1,9 @@
 #include <kernel/vfs.h>
 #include <kernel/kernel.h>
-#include "print.h"
+#include <kernel/print.h>
 #include <kernel/kheap.h>
-#include "string.h"
-#include "time.h"
+#include <kernel/string.h>
+#include <kernel/time.h>
 #include <stddef.h>
 #include <errno.h>
 

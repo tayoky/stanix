@@ -1,7 +1,7 @@
-#include "print.h"
-#include "serial.h"
+#include <kernel/print.h>
+#include <kernel/serial.h>
 #include <kernel/kernel.h>
-#include "string.h"
+#include <kernel/string.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stddef.h>

@@ -1,5 +1,5 @@
 #include "panic.h"
-#include "print.h"
+#include <kernel/print.h>
 #include "asm.h"
 #include <kernel/kernel.h>
 #include <kernel/scheduler.h>

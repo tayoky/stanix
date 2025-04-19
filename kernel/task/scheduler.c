@@ -1,14 +1,14 @@
 #include <kernel/scheduler.h>
 #include <kernel/kernel.h>
-#include "print.h"
+#include <kernel/print.h>
 #include <kernel/kheap.h>
 #include <kernel/paging.h>
-#include "cleaner.h"
-#include "string.h"
-#include "list.h"
+#include <kernel/cleaner.h>
+#include <kernel/string.h>
+#include <kernel/list.h>
 #include <kernel/arch.h>
-#include "time.h"
-#include "asm.h"
+#include <kernel/time.h>
+#include <kernel/asm.h>
 
 process *running_proc;
 list *proc_list;

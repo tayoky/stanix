@@ -34,7 +34,7 @@ ${OUT}/boot/${KERNEL} : ${OBJ} sym.o
 %.o : %.c
 	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^
 sym.o : ${OBJ}
-	@echo '#include "sym.h"' > sym.c
+	@echo '#include <kernel/sym.h>' > sym.c
 	@$(foreach SYM , $(shell nm ${OBJ} --defined-only -ngj --quiet ),  echo "extern void ${SYM} ();" >> sym.c ; )
 	@echo 'const sym_t symbols[] = {' >> sym.c
 	@$(foreach SYM , $(shell nm ${OBJ} --defined-only -ngj --quiet ),  echo "	{ .name = \"${SYM}\" , .value = (uintptr_t)${SYM} , .size = sizeof(${SYM})}," >> sym.c ; ) 
