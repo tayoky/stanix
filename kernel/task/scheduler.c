@@ -36,6 +36,7 @@ void init_task(){
 	
 	//init the kernel task
 	process *kernel_task = kmalloc(sizeof(process));
+	memset(kernel_task,0,sizeof(process));
 	kernel_task->parent = kernel_task;
 	kernel_task->pid = 0;
 	kernel_task->next = kernel_task;

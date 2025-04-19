@@ -7,6 +7,7 @@
 
 static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	tmpfs_inode *inode = kmalloc(sizeof(tmpfs_inode));
+	memset(inode,0,sizeof(tmpfs_inode));
 	inode->child = NULL;
 	inode->brother = NULL;
 	inode->children_count = 0;
