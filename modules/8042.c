@@ -272,6 +272,13 @@ static int init_ps2(int argc,char **argv){
 		}
 	}
 
+	//we now want to enbale translation
+	if(!have_opt(argc,argv,"--no-translation")){
+		conf |= 0x40;
+		ps2_send_command(PS2_WRITE_CONF);
+		ps2_write(conf);	
+	}
+
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");
 
 	//export time

@@ -148,7 +148,9 @@ static int init_ps2kb(int argc,char **argv){
 	//set scancode 2 and keep it if translation enable
 	CHANGE_SCANCODE(2);
 	GET_SCANCODE();
-	if(ps2_read() != 0x41){
+	if(ps2_read() == 0x41){
+		kdebugf("ps2 : using translation\n");
+	} else {
 		no_translation:
 		//tranlation not enable so set scancode 1
 		CHANGE_SCANCODE(1)
