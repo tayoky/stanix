@@ -11,6 +11,16 @@ void test_export(){
 int init(int argc,char **argv){
 	kdebugf("hello world from kernel module !!!\n");
 	kdebugf("module loaded at address 0x%p\n",module_meta.base);
+	kdebugf("args :\n");
+	for (int i = 0; i < argc; i++){
+		kdebugf("arg%d : %s\n",i,argv[i]);
+	}
+
+	//test.ko can crash kernel if needed
+	if(have_opt(argc,argv,"--crash")){
+		*(uint64_t *)0xFFF = 0x1234;
+	}
+	
 	EXPORT(test_export);
 	return 0;
 }

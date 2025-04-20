@@ -56,6 +56,12 @@ static void keyboard_handler(fault_frame *frame){
 
 	uint8_t scancode = ps2_read();
 	kdebugf("scancode : %u\n",scancode);
+
+	//if we recive an ACK for some reason just ignore it
+	if(scancode == PS2_ACK){
+		return;
+	}
+
 	int press = 1;
 	if(scancode & 0x80){
 		scancode -= 0x80;
@@ -83,6 +89,7 @@ static void keyboard_handler(fault_frame *frame){
 }
 
 static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	(void)offset;
 	return ringbuffer_read(buffer,node->private_inode,count);
 }
 
@@ -133,10 +140,16 @@ static int init_ps2kb(int argc,char **argv){
 	node->ctime = NOW();
 	node->private_inode = &keyboard_queue;
 
+	//if was maunch wwith --no-translation we don't try using translation
+	if(have_opt(argc,argv,"--no-translation")){
+		goto no_translation;
+	}
+
 	//set scancode 2 and keep it if translation enable
 	CHANGE_SCANCODE(2);
 	GET_SCANCODE();
 	if(ps2_read() != 0x41){
+		no_translation:
 		//tranlation not enable so set scancode 1
 		CHANGE_SCANCODE(1)
 

@@ -274,3 +274,13 @@ void __unexport_symbol(void *sym,const char *name){
 		current_sym = current_sym->next;
 	}
 }
+
+//a simple tool used by modules
+int have_opt(int argc,char **argv,char *option){
+	for (int i = 0; i < argc; i++){
+		if(!strcmp(argv[i],option)){
+			return 1;
+		}
+	}
+	return 0;
+}

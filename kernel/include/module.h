@@ -22,6 +22,13 @@ int rmmod(const char *name);
 
 void init_mod();
 
+/// @brief check if an module was launch with a specified argument
+/// @param argc the number of argument
+/// @param argv an pointer to the argument list
+/// @param option the option to check
+/// @return 1 if the argument is present or 0 if not
+int have_opt(int argc,char **argv,char *option);
+
 #define EXPORT(sym) __export_symbol(sym,#sym);
 #define UNEXPORT(sym) __unexport_symbol(sym,#sym);
 
