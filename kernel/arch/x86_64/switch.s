@@ -1,7 +1,6 @@
 extern kernel
 global context_switch
 context_switch:
-	cli
 
 	;save context
 	;use cr2 to store the address to return
@@ -17,6 +16,8 @@ context_switch:
 	add rax, 8
 	push rax
 	pushf
+
+	cli
 
 	;save cs
 	xor rax, rax
