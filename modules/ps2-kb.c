@@ -86,6 +86,22 @@ static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	return ringbuffer_read(buffer,node->private_inode,count);
 }
 
+//helper
+#define CHANGE_SCANCODE(set) \
+	ps2_send(1,PS2_SET_SCANCODE_SET);\
+	ps2_send(1,set);\
+	if(ps2_read() != PS2_ACK){\
+		kdebugf("ps2 : error while changing scancode\n");\
+		return -EIO;\
+	}
+#define GET_SCANCODE() \
+	ps2_send(1,PS2_SET_SCANCODE_SET);\
+	ps2_send(1,0);\
+	if(ps2_read() != PS2_ACK){\
+		kdebugf("ps2 : error while reading scancode\n");\
+		return -EIO;\
+	}
+
 static int init_ps2kb(int argc,char **argv){
 	//for the moment only check on port 1
 	switch (ps2_port_id[1][0]){
@@ -117,24 +133,25 @@ static int init_ps2kb(int argc,char **argv){
 	node->ctime = NOW();
 	node->private_inode = &keyboard_queue;
 
-	//use scancode set 1
-	ps2_send(1,PS2_SET_SCANCODE_SET);
-	ps2_send(1,1);
-	if(ps2_read() != PS2_ACK){
-		kdebugf("ps2 : error while changing scancode\n");
-		return -EIO;
+	//set scancode 2 and keep it if translation enable
+	CHANGE_SCANCODE(2);
+	GET_SCANCODE();
+	if(ps2_read() != 0x41){
+		//tranlation not enable so set scancode 1
+		CHANGE_SCANCODE(1)
+
+		//check it's actually using scancode 1
+		GET_SCANCODE();
+		if(ps2_read() != 1){
+			kdebugf("ps2 : device don't support scancode set 1\n");
+			return -ENODEV;
+		}
 	}
 
-	//check it's actually using scancode 1
-	ps2_send(1,PS2_SET_SCANCODE_SET),
-	ps2_send(1,0);
+	ps2_send(1,PS2_ENABLE_SCANING);
 	if(ps2_read() != PS2_ACK){
-		kdebugf("ps2 : error while reading scancode\n");
+		kdebugf("ps2 : error while enabling scaning\n");
 		return -EIO;
-	}
-	if(ps2_read() != 1){
-		kdebugf("ps2 : device don't support scancode set 1\n");
-		return -ENODEV;
 	}
 
 	ps2_register_handler(keyboard_handler,1);

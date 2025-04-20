@@ -563,7 +563,6 @@ int sys_chdir(const char *path){
 }
 
 int sys_waitpid(pid_t pid,int *status){
-	kdebugf("wait for %ld\n",pid);
 	if(status && !CHECK_MEM(status,sizeof(status))){
 		return -EFAULT;
 	}
@@ -580,6 +579,8 @@ int sys_waitpid(pid_t pid,int *status){
 
 	//prevent child state from changing
 	kernel->can_task_switch = 0;
+
+	kdebugf("wait for %ld\n",pid);
 
 	//wait for pid
 	process *proc = pid2proc(pid);

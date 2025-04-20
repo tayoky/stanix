@@ -193,6 +193,7 @@ static int init_ps2(int argc,char **argv){
 		//there is a second port
 		ps2_have_port2 = 1;
 	}
+	ps2_send_command(PS2_DISABLE_PORT2);
 	
 	//test ports
 	ps2_send_command(PS2_TEST_PORT1);
