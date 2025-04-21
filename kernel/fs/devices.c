@@ -69,7 +69,7 @@ ssize_t write_serial_dev(vfs_node *node,void *buffer,uint64_t offset,size_t coun
 
 vfs_node serial_dev = {
 	.write = write_serial_dev,
-	.flags = VFS_DEV | VFS_CHAR,
+	.flags = VFS_DEV | VFS_CHAR | VFS_TTY,
 };
 
 static ssize_t null_read(vfs_node *node,void *buf,uint64_t offset,size_t count){

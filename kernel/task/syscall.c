@@ -705,6 +705,18 @@ int sys_rmmod(const char *name){
 	return rmmod(name);
 }
 
+int sys_isatty(int fd){
+	if(!is_valid_fd(fd)){
+		return -EBADF;
+	}
+
+	if(FD_GET(fd).node->flags & VFS_TTY){
+		return 1;
+	} else {
+		return -ENOTTY;
+	}
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -742,6 +754,7 @@ void *syscall_table[] = {
 	(void *)sys_waitpid,
 	(void *)sys_insmod,
 	(void *)sys_rmmod,
+	(void *)sys_isatty,
 	(void *)sys_getpid,
 };
 

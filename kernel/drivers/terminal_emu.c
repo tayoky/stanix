@@ -235,7 +235,7 @@ void init_terminal_emualtor(void){
 	terminal_dev->private_inode = terminal_settings;
 	terminal_dev->ioctl =  term_ioctl;
 	terminal_dev->write = term_write;
-	terminal_dev->flags = VFS_DEV | VFS_CHAR;
+	terminal_dev->flags = VFS_DEV | VFS_CHAR | VFS_TTY;
 	if(vfs_mount("/dev/tty0",terminal_dev)){
 		kfail();
 		kinfof("terminal emulator init but can't create device /dev/tty0\n");
