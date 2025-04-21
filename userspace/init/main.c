@@ -49,7 +49,7 @@ int main(int argc,char **argv){
 	//read from pipe
 	printf("read pipe content : \n");
 
-	while(!feof(pipe_read)){
+	for(size_t i = 0; i < strlen("hello from pipe !!!\n"); i++){
 		putchar(getc(pipe_read));
 	}
 	fclose(pipe_read);

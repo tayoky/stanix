@@ -3,12 +3,14 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <kernel/list.h>
 
 typedef struct {
 	char *buffer;
 	uint64_t write_offset;
 	uint64_t read_offset;
 	size_t buffer_size;
+	list *reader_waiter;
 }ring_buffer;
 
 ring_buffer new_ringbuffer(size_t buffer_size);

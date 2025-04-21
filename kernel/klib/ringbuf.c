@@ -1,6 +1,8 @@
 #include <kernel/ringbuf.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
+#include <kernel/scheduler.h>
+#include <kernel/list.h>
 
 ring_buffer new_ringbuffer(size_t buffer_size){
 	ring_buffer ring;
@@ -8,10 +10,12 @@ ring_buffer new_ringbuffer(size_t buffer_size){
 	ring.write_offset = 0;
 	ring.read_offset = 0;
 	ring.buffer = kmalloc(buffer_size);
+	ring.reader_waiter = new_list();
 	return ring;
 }
 
 void delete_ringbuffer(ring_buffer *ring){
+	free_list(ring->reader_waiter);
 	kfree(ring->buffer);
 	kfree(ring);
 }
@@ -31,6 +35,11 @@ static size_t write_available(ring_buffer *ring){
 }
 
 size_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
+	//check if there are something to read or sleep
+	if(!read_available(ring)){
+		list_append(ring->reader_waiter,get_current_proc());
+		block_proc();
+	}
 	char *buffer = (char *)buf;
 	//cant read more that what is available
 	if(count > read_available(ring)){
@@ -72,6 +81,12 @@ size_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 	//now write the rest
 	memcpy(ring->buffer + ring->write_offset,buffer,rest_count);
 	ring->write_offset += rest_count;
+
+	//if process are waiting to read wakeup and reset the queue
+	foreach(node,ring->reader_waiter){
+		process *proc = node->value;
+		unblock_proc(proc);
+	}
 
 	return count;
 }
