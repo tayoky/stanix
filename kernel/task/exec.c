@@ -183,7 +183,6 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 		//copy saved arg to userpsace heap
 		strcpy(ptr,saved_envp[i]);
 		ptr += strlen(saved_envp[i]) + 1;
-		kdebugf("env %d : %s\n",i,saved_envp[i]);
 
 		//free the saved env in kernel space
 		kfree(saved_envp[i]);

@@ -64,7 +64,6 @@ void mount_initrd(void){
 			}
 		} else if(current_file->type == USTAR_REGTYPE){
 			//create the file
-			kdebugf("%s\n",full_path);
 			if(vfs_create(full_path,0x777,VFS_FILE)){
 				kfail();
 				kinfof("fail to create file %s\n",full_path);
