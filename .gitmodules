@@ -5,3 +5,6 @@
 [submodule "tlibc"]
 	path = tlibc
 	url = https://github.com/tayoky/tlibc.git
+[submodule "ports"]
+	path = ports
+	url = https://github.com/tayoky/ports

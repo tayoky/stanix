@@ -95,13 +95,20 @@ if [ "$LD" = "" ] ; then
 	fi
 fi
 
-#propagate configuration to tlibc
+#propagate configuration to tlibc and ports
 if [ ! -f ./tlibc/configure ] ; then
 	git submodule init
 	git submodule update tlibc
 fi
 
 (cd tlibc && ./configure --with-sysroot=$SYSROOT --with-CC=$CC --host=$HOST --prefix=$SYSROOT/usr)
+
+if [ ! -f ./ports/configure ] ; then
+	git submodule init
+	git submodule update ports
+fi
+
+(cd ports && ./configure --with-sysroot=$SYSROOT --with-CC=$CC --host=$HOST --prefix=../initrd)
 
 echo "using $CC"
 echo "using $LD"

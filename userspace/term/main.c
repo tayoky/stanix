@@ -24,13 +24,13 @@ int main(int argc,char **argv){
 
 	pid_t child = fork();
 	if(!child){
-		//launch tsh because no login
+		//launch login
 		const char *arg[] = {
-			"/bin/tsh",
+			"/bin/login",
 			NULL
 		};
 		execv(arg[0],arg);
-		perror("/bin/tsh");
+		perror("/bin/login");
 	}
 
 	for(;;){
