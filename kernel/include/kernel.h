@@ -4,7 +4,7 @@
 #include <sys/time.h>
 #include <kernel/limine.h>
 #include <kernel/bootinfo.h>
-#include <kernel/bitmap.h>
+#include <kernel/pmm.h>
 #include <kernel/kheap.h>
 #include <kernel/vfs.h>
 #include <kernel/terminal_emu.h>
@@ -21,7 +21,7 @@ typedef struct kernel_table_struct{
 	//in bytes
 	uint64_t used_memory;
 
-	bitmap_meta bitmap;
+	PMM_entry *PMM_stack_head;
 	uint64_t hhdm;
 	struct limine_memmap_response *memmap;
 	uint64_t stack_start;

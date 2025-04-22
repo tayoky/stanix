@@ -1,7 +1,8 @@
 #ifndef BITMAP_H
 #define BITMAP_H
-#include <stdint.h>
 
+#include <stdint.h>
+#include <sys/type.h>
 
 typedef struct bitmap_struct{
 	/// @brief size in uin64_t count
@@ -13,27 +14,22 @@ typedef struct bitmap_struct{
 	uint64_t *data;
 }bitmap_meta;
 
+typedef struct PMM_entry_struct {
+	struct PMM_entry_struct *next;
+	size_t size; //size of the chunk in page
+} PMM_entry;
 
-/// @brief init the bitmap
-void init_bitmap();
+/// @brief init the PMM
+void init_PMM();
 
 /// @brief find an free page and allocate it
 /// @return the address of the page (multiply it by 0x1000 to get it's real address)
-uint64_t pmm_allocate_page();
-
-uint64_t allocate_page(bitmap_meta *bitmap);
+uintptr_t pmm_allocate_page();
 
 /// @brief mark an page as allocated
 /// @param page the page to mark as allocated
-void pmm_free_page(uint64_t page);
+void pmm_free_page(uintptr_t page);
 
-
-void set_allocted_page(bitmap_meta *bitmap,uint64_t page);
-
-/// @brief free an specified page
-/// @param bitmap an pointer to the bitmap
-/// @param page the page to free
-void free_page(bitmap_meta *bitmap,uint64_t page);
 
 
 #endif

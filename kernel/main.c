@@ -3,7 +3,7 @@
 #include <kernel/kernel.h>
 #include <kernel/asm.h>
 #include <kernel/print.h>
-#include <kernel/bitmap.h>
+#include <kernel/pmm.h>
 #include <kernel/paging.h>
 #include <kernel/kheap.h>
 #include <kernel/tmpfs.h>
@@ -117,8 +117,8 @@ void kmain(){
 	print_license();
 	get_bootinfo();
 	enable_interrupt();
-	init_bitmap();
-	kprintf("used pages: 0x%lx\n",master_kernel_table.bitmap.used_page_count);
+	init_PMM();
+	kprintf("used pages: 0x%lx\n",master_kernel_table.used_memory/PAGE_SIZE);
 	init_paging();
 	init_kheap();
 	init_vfs();

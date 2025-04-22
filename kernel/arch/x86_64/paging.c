@@ -1,7 +1,7 @@
 #include <kernel/kernel.h>
 #include <kernel/paging.h>
 #include <kernel/print.h>
-#include <kernel/bitmap.h>
+#include <kernel/pmm.h>
 #include <kernel/string.h>
 
 extern uint64_t p_kernel_start[];
@@ -62,7 +62,7 @@ uint64_t *create_addr_space(){
 void delete_addr_space(uint64_t *PMLT4){
 	//first free the kernel stack
 	for (size_t cur = KERNEL_STACK_BOTTOM; cur < KERNEL_STACK_TOP; cur+= PAGE_SIZE){
-		pmm_free_page((uintptr_t)space_virt2phys(PMLT4,(void *)cur)/PAGE_SIZE);
+		pmm_free_page((uintptr_t)space_virt2phys(PMLT4,(void *)cur));
 	}
 	
 
@@ -79,20 +79,20 @@ void delete_addr_space(uint64_t *PMLT4){
 			uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 
 			for (uint16_t PDi = 0; PDi < 512; PDi++){
-				if(!PD[PDi] & 1)continue;
+				if(!(PD[PDi] & 1))continue;
 				uint64_t *PT = (uint64_t *)((PMLT4[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 				
-				pmm_free_page(((uint64_t)PT-kernel->hhdm)/PAGE_SIZE);
+				//pmm_free_page((uintptr_t)PT-kernel->hhdm);
 			}
 
-			pmm_free_page(((uint64_t)PD-kernel->hhdm)/PAGE_SIZE);
+			//pmm_free_page((uintptr_t)PD-kernel->hhdm);
 		}
 
-		pmm_free_page(((uint64_t)PDP-kernel->hhdm)/PAGE_SIZE);
+		//pmm_free_page((uintptr_t)PDP-kernel->hhdm);
 	}
 	
 
-	pmm_free_page(((uint64_t)PMLT4-kernel->hhdm)/PAGE_SIZE);
+	//pmm_free_page((uintptr_t)PMLT4-kernel->hhdm);
 }
 
 void *virt2phys(void *address){
