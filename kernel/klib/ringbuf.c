@@ -87,6 +87,8 @@ size_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 		process *proc = node->value;
 		unblock_proc(proc);
 	}
+	free_list(ring->reader_waiter);
+	ring->reader_waiter = new_list();
 
 	return count;
 }
