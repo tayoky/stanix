@@ -41,7 +41,7 @@ ssize_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	struct pipe *pipe_inode = (struct pipe *)node->private_inode;
 
 	//borken pipe check
-	if(!pipe_inode->isbroken){
+	if(pipe_inode->isbroken){
 		return 0;
 	}
 
@@ -53,7 +53,7 @@ ssize_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	struct pipe *pipe_inode = (struct pipe *)node->private_inode;
 
 	//borken pipe check
-	if(!pipe_inode->isbroken){
+	if(pipe_inode->isbroken){
 		return -EPIPE;
 	}
 
