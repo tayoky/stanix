@@ -50,6 +50,7 @@ void panic(const char *error,fault_frame *fault){
 		kprintf("================== SPECIALS REGISTERS ==================\n");
 		kprintf("cr2 : 0x%p\tcr3 : 0x%p\n",fault->cr2,fault->cr3);
 		kprintf("rip : 0x%p\n",fault->rip);
+		kprintf("cs  : 0x%p\tss  : 0x%p\n",fault->cs,fault->ss);
 		kprintf("========================= FLAG =========================\n");
 		kprintf("falgs: 0x%lx\n",fault->flags);
 		kprintf("====================== STACK TRACE =====================\n");//NOT ALIGNED!!!!!
