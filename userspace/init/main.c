@@ -117,19 +117,15 @@ int main(int argc,char **argv){
 		"second arg",
 		NULL
 	};
-	insmod("/mod/test.ko",kargs);
-	insmod("/mod/pci.ko",kargs);
-	insmod("/mod/nvme.ko",kargs);
-	insmod("/mod/8042.ko",kargs);
-	insmod("/mod/ps2-kb.ko",kargs);
 
-	//try launching doom
+	//launch tsh in the startup script
 	const char *arg[] = {
-		"/bin/term",
+		"/bin/tsh",
+		"/startup.sh",
 		NULL
 	};
 
-	execvp("/bin/term",arg);
+	execvp("/bin/tsh",arg);
 
 	//try open keayboard
 	int kbd_fd = open("/dev/kb0",O_RDONLY);
