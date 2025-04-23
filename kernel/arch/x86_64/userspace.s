@@ -1,13 +1,7 @@
 global jump_userspace
 jump_userspace:
 	xor rax, rax
-
-	;set the segment registers
 	mov ax, 0x23
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
 
 	;setup the stack frame
 	push rax       ;ss
@@ -27,7 +21,6 @@ jump_userspace:
 	mov rcx, r9 ;envp
 
 	;clear registers
-	xor rax, rax
 	xor rbx, rbx
 	xor r8, r8
 	xor r9, r9
@@ -37,6 +30,15 @@ jump_userspace:
 	xor r13, r13
 	xor r14, r14
 	xor r15, r15
+	
+	
+	;set the segment registers
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+
+	xor rax, rax
 
 	;return
 	iretq
