@@ -37,5 +37,5 @@ kmodule module_meta = {
 	.author = "tayoky",
 	.name = "test",
 	.description = "just a simple module to test",
-	.liscence = "GPL 3",
+	.license = "GPL 3",
 };

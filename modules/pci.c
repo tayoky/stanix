@@ -191,5 +191,5 @@ kmodule module_meta = {
 	.name = "pci",
 	.author = "tayoky",
 	.description = "pci driver",
-	.liscence = "GPL 3",
+	.license = "GPL 3",
 };

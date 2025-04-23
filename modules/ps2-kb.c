@@ -188,5 +188,5 @@ kmodule module_meta = {
 	.name = "ps2 keyboard",
 	.description = "driver for ps2 keyboard",
 	.author = "tayoky",
-	.liscence = "GPL 3"
+	.license = "GPL 3"
 };

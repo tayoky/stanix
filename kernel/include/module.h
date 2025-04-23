@@ -7,7 +7,7 @@ typedef struct kmodule_struct {
 	uint64_t magic;
 	char *name;
 	char *description;
-	char *liscence;
+	char *license;
 	char *author;
 	int (*init)(int,char **);
 	int (*fini)(void);

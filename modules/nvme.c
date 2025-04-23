@@ -61,5 +61,5 @@ kmodule module_meta = {
 	.author = "tayoky",
 	.name = "nvme",
 	.description = "driver for NVM Express Controller",
-	.liscence = "GPL 3"
+	.license = "GPL 3"
 };
