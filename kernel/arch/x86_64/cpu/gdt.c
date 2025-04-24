@@ -3,7 +3,7 @@
 #include <kernel/kernel.h>
 #include "asm.h"
 
-gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint8_t falgs){
+gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint8_t flags){
 	gdt_segment result;
 	result.base1 = base & 0xFFFF;
 	result.base2 = (base >> 16) & 0xFF;
@@ -11,7 +11,7 @@ gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint
 	result.limit = limit & 0xFFFF;
 	result.flags = (limit >> 16) & 0x0F;
 	result.access = access;
-	result.flags = (falgs << 4) & 0xF0;
+	result.flags = (flags << 4) & 0xF0;
 	return result;
 }
 

@@ -35,6 +35,7 @@ typedef struct kernel_table_struct{
 	pid_t created_proc_count;
 	process *current_proc;
 	char can_task_switch;
+	int PMM_lock;
 }kernel_table;
 
 extern kernel_table *kernel;

@@ -55,7 +55,7 @@ static void keyboard_handler(fault_frame *frame){
 	(void)frame;
 
 	uint8_t scancode = ps2_read();
-	kdebugf("scancode : %u\n",scancode);
+	//kdebugf("scancode : %u\n",scancode);
 
 	//if we recive an ACK for some reason just ignore it
 	if(scancode == PS2_ACK){
@@ -96,6 +96,7 @@ static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 //helper
 #define CHANGE_SCANCODE(set) \
 	ps2_send(1,PS2_SET_SCANCODE_SET);\
+	ps2_read();\
 	ps2_send(1,set);\
 	if(ps2_read() != PS2_ACK){\
 		kdebugf("ps2 : error while changing scancode\n");\
@@ -103,6 +104,7 @@ static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	}
 #define GET_SCANCODE() \
 	ps2_send(1,PS2_SET_SCANCODE_SET);\
+	ps2_read();\
 	ps2_send(1,0);\
 	if(ps2_read() != PS2_ACK){\
 		kdebugf("ps2 : error while reading scancode\n");\
