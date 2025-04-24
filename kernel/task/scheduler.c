@@ -88,9 +88,11 @@ void schedule(){
 
 process *new_proc(){
 	//init the new proc
+	kdebugf("next : %p\n",get_current_proc()->next);
 	process *proc = kmalloc(sizeof(process));
 	memset(proc,0,sizeof(process));
 	proc->pid = ++kernel->created_proc_count;
+	kdebugf("new proc 0x%p next : 0x%p pid : %ld/%ld\n",proc,get_current_proc()->next,proc->pid,kernel->created_proc_count);
 	proc->cr3 = ((uintptr_t)create_addr_space()) - kernel->hhdm;
 	proc->parent = get_current_proc();
 	proc->flags = PROC_STATE_PRESENT;
@@ -98,6 +100,12 @@ process *new_proc(){
 
 	//add it to the global process list
 	list_append(proc_list,proc);
+
+	if(!proc->cr3){
+		kdebugf("cr3 is 0 !!!\n");
+		disable_interrupt();
+		for(;;);
+	}
 
 	return proc;
 }
@@ -157,7 +165,11 @@ void yeld(){
 	//save old proc
 	process *old = get_current_proc();
 
- 	schedule();
+	schedule();
+
+	if(!get_current_proc()->cr3){
+		kdebugf("%ld/%ld : %p : cr3 is 0 !!!\n",get_current_proc()->pid,kernel->created_proc_count,old->next);
+	}
 	
 	kernel->can_task_switch = 1;
 
@@ -169,6 +181,7 @@ process *get_current_proc(){
 }
 
 void kill_proc(process *proc){
+	kernel->can_task_switch = 0;
 	//is the parent waiting ?
 	if(proc->parent && (proc->parent->flags & PROC_STATE_WAIT)){
 		//see if we can wake it up
