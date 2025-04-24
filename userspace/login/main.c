@@ -4,6 +4,8 @@
 #include <sys/wait.h>
 
 int main(int argc,char **argv){
+	//dup2(STDOUT_FILENO,STDIN_FILENO);
+	dup2(STDOUT_FILENO,STDERR_FILENO);
 	//setup an env
 	putenv("USER=root");
 	putenv("HOME=/");
@@ -11,21 +13,7 @@ int main(int argc,char **argv){
 	printf("starting login\n");
 
 	//print /motd
-	pid_t child = fork();
-	if(!child){
-		const char *arg[] = {
-			getenv("SHELL"),
-			"-c",
-			"cat /motd",
-			NULL
-		};
-		execv(getenv("SHELL"),arg);
-		perror(getenv("SHELL"));
-		return 1;
-	}
-	if(child > 0){
-		waitpid(child,NULL,0);
-	}
+	system("cat /motd");
 
 	const char *arg[] = {
 		getenv("SHELL"),
