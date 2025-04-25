@@ -54,7 +54,8 @@ vfs_node *new_tty(tty **tty){
 	
 	//create the vfs node
 	vfs_node *node = kmalloc(sizeof(vfs_node));
-	node->private_inode = tty;
+	memset(node,0,sizeof(vfs_node));
+	node->private_inode = *tty;
 	node->flags = VFS_DEV | VFS_CHAR | VFS_TTY;
 	node->read  = tty_read;
 	node->write = tty_write;

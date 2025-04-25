@@ -1,10 +1,15 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
 
 int main(int argc,char **argv){
-	//dup2(STDOUT_FILENO,STDIN_FILENO);
+	for (int i = 1; i < argc; i++){
+		if(!strcmp(argv[1],"--setup-stdin-from-stdout")){
+			dup2(STDOUT_FILENO,STDIN_FILENO);
+		}
+	}
 	dup2(STDOUT_FILENO,STDERR_FILENO);
 	//setup an env
 	putenv("USER=root");
