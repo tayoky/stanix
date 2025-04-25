@@ -123,6 +123,28 @@ int tty_input(tty *tty,char c){
 		tty_output(tty,c);
 	}
 
+	//canonical mode editing here
+	if(tty->termios.c_lflag & ICANON){
+		if(c == tty->termios.c_cc[VEOF]){
+			if(ringbuffer_write(tty->canon_buf,&tty->input_buffer,tty->canon_index) < tty->canon_index){
+				if(tty->termios.c_iflag & IMAXBEL){
+					tty_output(tty,'\a');
+				}
+			}
+			tty->canon_index = 0;
+		}
+		tty->canon_buf[tty->canon_index] = c;
+		tty->canon_index++;
+		if(c == '\n'){
+			if(ringbuffer_write(tty->canon_buf,&tty->input_buffer,tty->canon_index) < tty->canon_index){
+				if(tty->termios.c_iflag & IMAXBEL){
+					tty_output(tty,'\a');
+				}
+			}
+			tty->canon_index = 0;
+		}
+	}
+
 	//check for full ringbuffer
 	if(ringbuffer_write(&c,&tty->input_buffer,1) == 0){
 		if(tty->termios.c_iflag & IMAXBEL){
