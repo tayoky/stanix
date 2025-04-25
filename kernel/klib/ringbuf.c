@@ -20,7 +20,7 @@ void delete_ringbuffer(ring_buffer *ring){
 	kfree(ring);
 }
 
-static size_t read_available(ring_buffer *ring){
+size_t ringbuffer_read_available(ring_buffer *ring){
 	//read before write
 	if(ring->read_offset <= ring->write_offset){
 		return (size_t)ring->write_offset - ring->read_offset;
@@ -31,19 +31,19 @@ static size_t read_available(ring_buffer *ring){
 
 static size_t write_available(ring_buffer *ring){
 	//take the buffer size and take what is used
-	return ring->buffer_size - read_available(ring);
+	return ring->buffer_size - ringbuffer_read_available(ring);
 }
 
 size_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 	//check if there are something to read or sleep
-	if(!read_available(ring)){
+	if(!ringbuffer_read_available(ring)){
 		list_append(ring->reader_waiter,get_current_proc());
 		block_proc();
 	}
 	char *buffer = (char *)buf;
 	//cant read more that what is available
-	if(count > read_available(ring)){
-		count = read_available(ring);
+	if(count > ringbuffer_read_available(ring)){
+		count = ringbuffer_read_available(ring);
 	}
 
 	//if the read go farther than the end cut in two

@@ -6,6 +6,7 @@
 #include <kernel/irq.h>
 #include <kernel/arch.h>
 #include <kernel/port.h>
+#include <kernel/tty.h>
 #include <errno.h>
 
 //this is the real serial port driver
@@ -55,41 +56,26 @@ static uint16_t str2port(char *str){
 int serial_count = 1;
 
 static ssize_t serial_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	(void)offset;
-	uint16_t port = (uint16_t)node->private_inode;
+	uint16_t port = (uint16_t)(uintptr_t)((tty *)node->private_inode)->private_data;
 
-	char *str = buffer;
 	for (size_t i = 0; i < count; i++){
 		while (!(in_byte(port + SERIAL_LSR) & SERIAL_LSR_DR));
-		*str = in_byte(port);
-		if(*str == '\r'){
-			*str = '\n';
-		}
-		while (!(in_byte(port + SERIAL_LSR) & SERIAL_LSR_THRE));
-		out_byte(port,*str);
-		str++;
+		tty_input(node->private_inode,in_byte(port));
 	}
 
-	return count;
+	return tty_read(node,buffer,offset,count);
 }
 
-static ssize_t serial_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	(void)offset;
-	uint16_t port = (uint16_t)node->private_inode;
-
-	char *str = buffer;
-	for (size_t i = 0; i < count; i++){
-		while (!(in_byte(port + SERIAL_LSR) & SERIAL_LSR_THRE));
-		out_byte(port,*str);
-		str++;	
-	}
-
-	return count;
-}
 
 static void serial_handler(fault_frame *frame){
 	(void)frame;
 	kdebugf("serial handler triggerd\n");
+}
+
+static void serial_out(char c,void *arg){
+	uint16_t port = (uint16_t)(uintptr_t)arg;
+	while (!(in_byte(port + SERIAL_LSR) & SERIAL_LSR_THRE));
+	out_byte(port,c);
 }
 
 static int init_port(uint16_t port){
@@ -107,11 +93,11 @@ static int init_port(uint16_t port){
 	}
 	out_byte(port + SERIAL_MCR, SERIAL_MCR_DTR | SERIAL_MCR_RTS | SERIAL_MCR_OUT1 | SERIAL_MCR_OUT2);
 
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
+	tty *tty;
+	vfs_node *node = new_tty(&tty);
+	tty->out = serial_out;
+	tty->private_data = (void *)(uintptr_t)port;
 	node->read = serial_read;
-	node->write = serial_write;
-	node->private_inode = (void *)port;
 
 	char path[20];
 	sprintf(path,"/dev/ttyS%d",serial_count);
@@ -129,7 +115,6 @@ static int init_port(uint16_t port){
 static int init_serial(int argc,char **argv){
 	serial_count = 0;
 	if(have_opt(argc - 1,argv,"--port")){
-		int count = 0;
 		for (int i = 0; i < argc-1; i++){
 			if(!strcmp("--port",argv[i])){
 				init_port(str2port(argv[i+1]));
@@ -147,7 +132,7 @@ static int init_serial(int argc,char **argv){
 }
 
 static int fini_serial(){
-
+	return 0;
 }
 
 kmodule module_meta = {
