@@ -82,7 +82,11 @@ int ps2_send(uint8_t port,uint8_t data){
 	if(port == 2){
 		ps2_send_command(PS2_SEND_PORT2);
 	}
-	return ps2_write(data);
+	int ret = ps2_write(data);
+	if(ret < 0){
+		return ret;
+	}
+	return ps2_read();
 }
 
 void ps2_register_handler(void *handler,uint8_t port){
@@ -106,11 +110,7 @@ static void print_device_name(int port){
 		kdebugf("ps2 : second port device : ");
 	}
 
-	if(ps2_send(port,PS2_IDENTIFY)){
-		kprintf("unknow device\n");
-	}
-
-	if(ps2_read() != PS2_ACK){
+	if(ps2_send(port,PS2_IDENTIFY) != PS2_ACK){
 		kprintf("unknow device\n");
 	}
 
@@ -241,34 +241,26 @@ static int init_ps2(int argc,char **argv){
 
 	//now scan the device on each port
 	if(ps2_have_port1){
-		if(ps2_send(1,PS2_DISABLE_SCANING)){
+		if(ps2_send(1,PS2_DISABLE_SCANING) != PS2_ACK){
 			//no device on the port
-			ps2_have_port1 = 0;
-			kdebugf("ps2 : no device on first port\n");
-		} else if(ps2_read() != PS2_ACK){
 			ps2_have_port1 = 0;
 			kdebugf("ps2 : no device on first port\n");
 		} else {
 			//identify the device
 			print_device_name(1);
 			ps2_send(1,PS2_ENABLE_SCANING);
-			ps2_read();
 		}
 	}
 	
 	//now scan the device on each port
 	if(ps2_have_port2){
-		if(ps2_send(2,PS2_DISABLE_SCANING)){
+		if(ps2_send(2,PS2_DISABLE_SCANING) != PS2_ACK){
 			//no device on the port
-			ps2_have_port2 = 0;
-			kdebugf("ps2 : no device on second port\n");
-		} else if(ps2_read() != PS2_ACK){
 			ps2_have_port2 = 0;
 			kdebugf("ps2 : no device on second port\n");
 		} else {
 			print_device_name(2);
 			ps2_send(2,PS2_ENABLE_SCANING);
-			ps2_read();
 		}
 	}
 
