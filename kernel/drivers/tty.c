@@ -3,6 +3,9 @@
 #include <kernel/string.h>
 #include <kernel/kheap.h>
 #include <kernel/scheduler.h>
+#include <kernel/print.h>
+#include <sys/ioctl.h>
+#include <errno.h>
 
 ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
@@ -30,6 +33,41 @@ ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	return count;
 }
 
+int tty_ioctl(vfs_node *node,int request,void *arg){
+	struct tty *tty = (struct tty *)node->private_inode;
+	switch (request){
+	case TIOCGETA:
+		*(struct termios *)arg = tty->termios;
+		return 0;
+	case TIOCSETA:
+	case TIOCSETAF:
+	case TIOCSETAW:
+		tty->termios = *(struct termios *)arg;
+		return 0;
+	case TIOCGPGRP:
+		if(tty->fg_proc){
+			return -EINVAL;
+		}
+		return tty->fg_proc->pid;
+	case TIOCSPGRP:
+		process *proc = pid2proc((pid_t)(uintptr_t)arg);
+		if(proc){
+			tty->fg_proc = proc;
+			return 0;
+		}
+		return -ESRCH;
+	case TIOCSWINSZ:
+		tty->size = *(struct winsize *)arg;
+		return 0;
+	case TIOCGWINSZ:
+		*(struct winsize *)arg = tty->size;
+		return 0;
+	default:
+		return -EINVAL;
+		break;
+	}
+}
+
 vfs_node *new_tty(tty **tty){
 	if(!(*tty)){
 		(*tty) = kmalloc(sizeof(struct tty));
@@ -51,6 +89,7 @@ vfs_node *new_tty(tty **tty){
 	(*tty)->termios.c_lflag = ECHO;
 
 	(*tty)->canon_buf = kmalloc(512);
+	(*tty)->canon_index = 0;
 	
 	//create the vfs node
 	vfs_node *node = kmalloc(sizeof(vfs_node));
@@ -59,6 +98,7 @@ vfs_node *new_tty(tty **tty){
 	node->flags = VFS_DEV | VFS_CHAR | VFS_TTY;
 	node->read  = tty_read;
 	node->write = tty_write;
+	node->ioctl = tty_ioctl;
 
 	return node;
 }
@@ -133,6 +173,7 @@ int tty_input(tty *tty,char c){
 			}
 			tty->canon_index = 0;
 		}
+		kdebugf("index : %ld\n",tty->canon_index);
 		tty->canon_buf[tty->canon_index] = c;
 		tty->canon_index++;
 		if(c == '\n'){

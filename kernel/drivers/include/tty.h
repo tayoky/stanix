@@ -6,12 +6,14 @@
 #include <kernel/list.h>
 #include <kernel/scheduler.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 
 typedef struct tty {
 	void *private_data;
 	void (*out)(char,void *);
 	ring_buffer input_buffer;
 	struct termios termios;
+	struct winsize size;
 	list *waiter;
 	size_t column;
 	char *canon_buf;
