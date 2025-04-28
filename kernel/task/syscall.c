@@ -527,10 +527,17 @@ int sys_getcwd(char *buf,size_t size){
 		return -EFAULT;
 	}
 
+	if(!strlen(get_current_proc()->cwd_path)){
+		if(size < 2){
+			return -ERANGE;
+		}
+		strcpy(buf,"/");
+		return 0;
+	}
+
 	if(size < strlen(get_current_proc()->cwd_path) + 1){
 		return -ERANGE;
 	}
-
 	strcpy(buf,get_current_proc()->cwd_path);
 
 	return 0;
@@ -551,13 +558,32 @@ int sys_chdir(const char *path){
 		return -ENOTDIR;
 	}
 
+	char *cwd = strdup(path);
+
+	//make the cwd absolute
+	if(cwd[0] != '/'){
+		char *abs = kmalloc(strlen(cwd) + strlen(get_current_proc()->cwd_path) + 2);
+		sprintf(abs,"%s/%s",get_current_proc()->cwd_path,cwd);
+		kfree(cwd);
+		cwd = abs;
+	}
+
+	//cwd should never finish with /
+	if(cwd[strlen(cwd) - 1] == '/'){
+		char *new_path = kmalloc(strlen(cwd));
+		strcpy(new_path,cwd);
+		new_path[strlen(cwd) - 1] = '\0';
+		kfree(cwd);
+		cwd = new_path;
+	}
+
 	//free old cwd
 	kfree(get_current_proc()->cwd_path);
 	vfs_close(get_current_proc()->cwd_node);
 
 	//set new cwd
 	get_current_proc()->cwd_node = node;
-	get_current_proc()->cwd_path = strdup(path);
+	get_current_proc()->cwd_path = cwd;
 
 	return 0;
 }
