@@ -32,6 +32,8 @@ test : hdd
 	qemu-system-${ARCH} \
 	-drive file=${hdd_out},if=none,id=nvm -serial stdio \
 	-device nvme,serial=deadbeef,drive=nvm
+cdrom-test : iso
+	qemu-system-${ARCH} -cdrom stanix.iso -serial stdio  --no-shutdown --no-reboot
 debug : hdd
 	objdump -D ${OUT}/boot/${KERNEL} > asm.txt
 	qemu-system-${ARCH} -drive file=${hdd_out}  -serial stdio -s -S
