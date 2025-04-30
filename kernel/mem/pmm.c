@@ -18,9 +18,18 @@ void init_PMM(){
 	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++){
 		if(kernel->memmap->entries[i]->type != LIMINE_MEMMAP_USABLE)continue;
 		
+		//find start and end and page algign it
+		uintptr_t start =  PAGE_ALIGN_UP(kernel->memmap->entries[i]->base);
+		uintptr_t end = PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->length + kernel->memmap->entries[i]->base);
+
+		//when we page align it might become empty
+		if(start == end){
+			continue;
+		}
+
 		//create a new entry and push it to the top of the linked stack
-		PMM_entry *entry = (PMM_entry *)(PAGE_ALIGN_UP(kernel->memmap->entries[i]->base) + kernel->hhdm);
-		entry->size = PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->length)/PAGE_SIZE;
+		PMM_entry *entry = (PMM_entry *)(start  + kernel->hhdm);
+		entry->size = (end - start)/PAGE_SIZE;
 		entry->next = kernel->PMM_stack_head;
 		kernel->PMM_stack_head = entry;
 
