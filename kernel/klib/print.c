@@ -15,7 +15,7 @@ void output_char(char c,void *extra){
 	}
 	//else output to all context open in kernel.outs
 	vfs_node *current = *kernel->outs;
-	uint64_t index = 0;
+	uintmax_t index = 0;
 	while(current){
 		//out to it
 		vfs_write(current,&c,0,sizeof(char));
@@ -32,7 +32,7 @@ void kfail(void){
 	kprintf("[" COLOR_RED "FAIL" COLOR_RESET "]\n");
 }
 
-void printuint(print_func func,uint64_t integer,uint8_t base,int padding,char paddind_char,void *extra){
+void printuint(print_func func,uintmax_t integer,uint8_t base,int padding,char paddind_char,void *extra){
 	char figures[] = "0123456789ABCDEF";
 	char str[64];
 	str[63] = '\0';
@@ -42,7 +42,7 @@ void printuint(print_func func,uint64_t integer,uint8_t base,int padding,char pa
 		padding = 63;
 	}
 	
-	uint64_t index = 62;
+	uintmax_t index = 62;
 	while(index > 0){
 		char figure = figures[integer%base];
 
@@ -71,7 +71,7 @@ void printuint(print_func func,uint64_t integer,uint8_t base,int padding,char pa
 #define PAD(n) {int count = n ; while(count > 0)func(pad_char,extra);count--;}
 
 void printfunc(print_func func,const char *fmt,va_list args,void *extra){
-	uint64_t index = 0;
+	uintmax_t index = 0;
 	while (fmt[index]){
 		if(fmt[index] == '%'){
 			int padding = 0;
@@ -125,8 +125,8 @@ void printfunc(print_func func,const char *fmt,va_list args,void *extra){
 			}
 
 			//now we have only integer left 
-			//so we will convert all type in an uint64_t to make thing easier
-			uint64_t integer;
+			//so we will convert all type in an uintmax_t to make thing easier
+			uintmax_t integer;
 
 			switch(fmt[index]){
 			case 'l' :
@@ -152,7 +152,7 @@ void printfunc(print_func func,const char *fmt,va_list args,void *extra){
 				//and put an - if needed so we don't have to care about it anymore
 				if(((int64_t)integer) < 0){
 					func('-',extra);
-					integer = (uint64_t)(-(int64_t)integer);
+					integer = (uintmax_t)(-(int64_t)integer);
 				}
 				//fallthrough
 			case 'u' :

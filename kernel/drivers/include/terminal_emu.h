@@ -12,13 +12,13 @@ typedef struct {
 	char font_type;
 	char activate;
 	vfs_node *frambuffer_dev;
-	uint64_t x;
-	uint64_t y;
+	uintmax_t x;
+	uintmax_t y;
 	uint32_t font_color;
 	uint32_t back_color;
-	uint64_t width;
-	uint64_t height;
-	uint64_t ANSI_esc_mode;
+	uintmax_t width;
+	uintmax_t height;
+	uintmax_t ANSI_esc_mode;
 } terminal_emu_settings;
 
 typedef struct {

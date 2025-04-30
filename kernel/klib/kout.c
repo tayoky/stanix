@@ -7,11 +7,11 @@
 #include <kernel/print.h>
 #include <kernel/ini.h>
 
-char *uint2str(uint64_t integer){
+char *uint2str(uintmax_t integer){
 	uint16_t digits = 1;
 
 	//reprsent the maxmium number that can be represented +1
-	uint64_t digit_max = 10;
+	uintmax_t digit_max = 10;
 	while(integer >= digit_max ){
 		digits++;
 		digit_max *= 10;
@@ -30,7 +30,7 @@ char *uint2str(uint64_t integer){
 	return str;
 }
 
-static char * key_name_from_int(uint64_t index){
+static char * key_name_from_int(uintmax_t index){
 	char *num = uint2str(index);
 	char *str = kmalloc(strlen("kout") + strlen(num) + 1);
 	strcpy(str,"kout");
@@ -48,7 +48,7 @@ void init_kout(){
 	kstatus("init kout... ");
 
 	//first find the number of out
-	uint64_t kout_count = 0;
+	uintmax_t kout_count = 0;
 	
 	for(;;){
 		char *current_key = key_name_from_int(kout_count);

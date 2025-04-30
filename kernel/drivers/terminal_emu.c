@@ -25,7 +25,7 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 		terminal_settings->y += header->characterSize +1;
 		//some out of bound check
 		if(terminal_settings->y / header->characterSize + 1 >= terminal_settings->height){
-			vfs_ioctl(terminal_settings->frambuffer_dev,IOCTL_FRAMEBUFFER_SCROLL,(void *)(uint64_t)header->characterSize + 1);
+			vfs_ioctl(terminal_settings->frambuffer_dev,IOCTL_FRAMEBUFFER_SCROLL,(void *)(uintptr_t)header->characterSize + 1);
 			terminal_settings->y -= header->characterSize + 1;
 		}
 		return;
@@ -60,7 +60,7 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 
 		if(terminal_settings->ANSI_esc_mode == 5){
 			c-= '0';
-			if( (uint64_t)c >= sizeof(ANSI_color) / sizeof(uint32_t)){
+			if( (uintptr_t)c >= sizeof(ANSI_color) / sizeof(uint32_t)){
 				//out of bound
 				return;
 			}
@@ -70,7 +70,7 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 		return;
 	}
 
-	uint64_t current_byte = c * header->characterSize;
+	uintptr_t current_byte = c * header->characterSize;
 
 	//get color
 	uint32_t font_color = terminal_settings->font_color;
