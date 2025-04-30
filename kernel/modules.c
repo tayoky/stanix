@@ -120,7 +120,7 @@ int insmod(const char *pathname,const char **args,char **name){
 	//update sections address
 	for(int i=0; i<header.e_shnum; i++){
 		Elf_Shdr *sheader = get_Shdr(i);
-		sheader->sh_addr = (Elf_Shdr *)mod + sheader->sh_offset;
+		sheader->sh_addr = (Elf_Addr)mod + sheader->sh_offset;
 	}
 
 	kmodule *module_meta = NULL;
