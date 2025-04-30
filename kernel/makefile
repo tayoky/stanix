@@ -21,8 +21,8 @@ LDFLAGS += \
 	-static \
 	-z max-page-size=0x1000 \
 	-T arch/${ARCH}/linker.ld
-ASMFLAGS += -Wall \
-	-f elf64
+ASMFLAGS += -Wall
+
 include include.mk
 
 include arch/${ARCH}/arch.mk

@@ -9,8 +9,28 @@
 
 //dynamic module loading
 
-extern uint64_t p_kernel_end[];
+extern uintptr_t p_kernel_end[];
 static uintptr_t ptr = ((uintptr_t)&p_kernel_end) + PAGE_SIZE;
+
+#ifdef i386
+#define Elf_Ehdr Elf32_Ehdr
+#define Elf_Shdr Elf32_Shdr
+#define Elf_Addr Elf32_Addr
+#define Elf_Sym  Elf32_Sym
+#define Elf_Rela Elf32_Rela
+#define ELF_R_SYM(i)  ELF32_R_SYM(i)
+#define ELF_R_TYPE(i) ELF32_R_TYPE(i)
+#define ELF_R_INFO(i) ELF32_R_INFO(i)
+#else
+#define Elf_Ehdr Elf64_Ehdr
+#define Elf_Shdr Elf64_Shdr
+#define Elf_Addr Elf64_Addr
+#define Elf_Sym  Elf64_Sym
+#define Elf_Rela Elf64_Rela
+#define ELF_R_SYM(i)  ELF64_R_SYM(i)
+#define ELF_R_TYPE(i) ELF64_R_TYPE(i)
+#define ELF_R_INFO(i) ELF64_R_INFO(i)
+#endif
 
 typedef struct exported_sym {
 	const char *name;
@@ -22,7 +42,7 @@ typedef struct exported_sym {
 exported_sym *exported_sym_list = NULL;
 list *loaded_modules;
 
-static int check_mod_header(Elf64_Ehdr *header){
+static int check_mod_header(Elf_Ehdr *header){
 	if(memcmp(header->e_ident,ELFMAG,4)){
 		return 0;
 	}
@@ -52,7 +72,7 @@ static void *map_mod(size_t size){
 	void *buf = (void *)ptr;
 	kdebugf("insmod : map module at 0x%p size : %ld\n",ptr,size);
 	while(size > 0){
-		map_page((uint64_t *)(get_addr_space() + kernel->hhdm),pmm_allocate_page(),ptr,PAGING_FLAG_RW_CPL0);
+		map_page((uintptr_t *)(get_addr_space() + kernel->hhdm),pmm_allocate_page(),ptr,PAGING_FLAG_RW_CPL0);
 		size -= PAGE_SIZE;
 		ptr += PAGE_SIZE;
 	}
@@ -71,7 +91,7 @@ uintptr_t sym_lookup(const char *name){
 }
 
 #define get_Shdr(index) \
-((Elf64_Shdr *)((uintptr_t)mod + header.e_shoff + (index * header.e_shentsize)))
+((Elf_Shdr *)((uintptr_t)mod + header.e_shoff + (index * header.e_shentsize)))
 
 int insmod(const char *pathname,const char **args,char **name){
 	(void)args;
@@ -84,8 +104,8 @@ int insmod(const char *pathname,const char **args,char **name){
 		return -ENOENT;
 	}
 
-	Elf64_Ehdr header;
-	vfs_read(file,&header,0,sizeof(Elf64_Ehdr));
+	Elf_Ehdr header;
+	vfs_read(file,&header,0,sizeof(Elf_Ehdr));
 
 	if(!check_mod_header(&header)){
 		kdebugf("insmod : invalid ELF header\n");
@@ -99,24 +119,24 @@ int insmod(const char *pathname,const char **args,char **name){
 
 	//update sections address
 	for(int i=0; i<header.e_shnum; i++){
-		Elf64_Shdr *sheader = get_Shdr(i);
-		sheader->sh_addr =(Elf64_Addr)mod + sheader->sh_offset;
+		Elf_Shdr *sheader = get_Shdr(i);
+		sheader->sh_addr = (Elf_Shdr *)mod + sheader->sh_offset;
 	}
 
 	kmodule *module_meta = NULL;
 
 	//relocate and link symbols
 	for(int i=0; i<header.e_shnum; i++){
-		Elf64_Shdr *sheader = get_Shdr(i);
+		Elf_Shdr *sheader = get_Shdr(i);
 		if(sheader->sh_type != SHT_SYMTAB) continue;
 
 		//get the symbols table and the string table
-		Elf64_Sym *symtab = (Elf64_Sym *)sheader->sh_addr;
+		Elf_Sym *symtab = (Elf_Sym *)sheader->sh_addr;
 		char *strtab = (char *)get_Shdr(sheader->sh_link)->sh_addr;
 
 		//iterate trought each symbol
 		//note that we skip the first symbol ( the NULL symbol)
-		for (size_t i = 1; i < sheader->sh_size / sizeof(Elf64_Sym); i++){
+		for (size_t i = 1; i < sheader->sh_size / sizeof(Elf_Sym); i++){
 			if(symtab[i].st_shndx > SHN_UNDEF && symtab[i].st_shndx < SHN_LOPROC){
 				//symbol to relocate
 				symtab[i].st_value += get_Shdr(symtab[i].st_shndx)->sh_addr;
@@ -152,28 +172,30 @@ int insmod(const char *pathname,const char **args,char **name){
 
 	//apply relocation
 	for(int i=0; i<header.e_shnum; i++){
-		Elf64_Shdr *sheader = get_Shdr(i);
+		Elf_Shdr *sheader = get_Shdr(i);
 		if(sheader->sh_type != SHT_RELA) continue;
 
 		//find the relocation table and the symbol table and the section it apply to
-		Elf64_Rela *rela = (Elf64_Rela *)sheader->sh_addr;
-		Elf64_Sym *symtab = (Elf64_Sym *)get_Shdr(sheader->sh_link)->sh_addr;
-		Elf64_Shdr *section = get_Shdr(sheader->sh_info);
+		Elf_Rela *rela = (Elf_Rela *)sheader->sh_addr;
+		Elf_Sym *symtab = (Elf_Sym *)get_Shdr(sheader->sh_link)->sh_addr;
+		Elf_Shdr *section = get_Shdr(sheader->sh_info);
 
 		//ietarate trought each relocation
-		for (size_t i = 0; i < sheader->sh_size / sizeof(Elf64_Rela); i++){
+		for (size_t i = 0; i < sheader->sh_size / sizeof(Elf_Rela); i++){
 
 			//let define some macro
 			#define A rela[i].r_addend
 			#define B mod
 			#define P (section->sh_addr + rela[i].r_offset)
-			#define S symtab[ELF64_R_SYM(rela[i].r_info)].st_value
-			#define Z symtab[ELF64_R_SYM(rela[i].r_info)].st_size
+			#define S symtab[ELF_R_SYM(rela[i].r_info)].st_value
+			#define Z symtab[ELF_R_SYM(rela[i].r_info)].st_size
 
+#ifndef i386
 			uint32_t w32;
 			uint64_t w64;
+#endif
 
-			switch(ELF64_R_TYPE(rela[i].r_info)){
+			switch(ELF_R_TYPE(rela[i].r_info)){
 #ifdef x86_64
 			case R_X86_64_NONE:
 				break;
@@ -191,7 +213,7 @@ int insmod(const char *pathname,const char **args,char **name){
 				break;
 #endif
 			default :
-				kdebugf("insmod : unknow relocation type %d\n",ELF64_R_TYPE(rela[i].r_info));
+				kdebugf("insmod : unknow relocation type %d\n",ELF_R_TYPE(rela[i].r_info));
 				ret = -ENOEXEC;
 				goto unmap;
 			}

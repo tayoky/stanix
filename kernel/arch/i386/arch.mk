@@ -3,13 +3,12 @@ CFLAGS += \
     -mno-mmx \
     -mno-sse \
     -mno-sse2 \
-	-march=x86-64 \
-	-m64 \
-	-mno-red-zone \
-    -mcmodel=kernel
-LDFLAGS += -m elf_x86_64
+	-march=i386 \
+	-m32 \
+	-mno-red-zone
+LDFLAGS += -m elf_i386
 
-ASMFLAGS += -f elf64
+ASMFLAGS += -f elf32
 
 %.o : %.s
 	${NASM} ${ASMFLAGS} $< -o $@
