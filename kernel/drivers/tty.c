@@ -33,7 +33,7 @@ ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	return count;
 }
 
-int tty_ioctl(vfs_node *node,int request,void *arg){
+int tty_ioctl(vfs_node *node,uint64_t request,void *arg){
 	struct tty *tty = (struct tty *)node->private_inode;
 	switch (request){
 	case TIOCGETA:

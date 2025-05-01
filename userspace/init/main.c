@@ -111,12 +111,6 @@ int main(int argc,char **argv){
 	}
 	closedir(dir);
 
-	//try insmod
-	const char *kargs[] = {
-		"hello world !",
-		"second arg",
-		NULL
-	};
 
 	//launch tsh in the startup script
 	const char *arg[] = {
