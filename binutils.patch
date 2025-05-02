@@ -1,0 +1,117 @@
+diff --git a/bfd/config.bfd b/bfd/config.bfd
+index 4e5a838f..1b3c884a 100644
+--- a/bfd/config.bfd
++++ b/bfd/config.bfd
+@@ -735,6 +735,11 @@ case "${targ}" in
+     targ_selvecs="i386_elf32_vec iamcu_elf32_vec x86_64_elf32_vec"
+     want64=true
+     ;;
++  x86_64-*-stanix*)
++    targ_defvec=x86_64_elf64_vec
++    targ_selvecs=i386_elf32_vec
++    want64=true
++    ;;
+ #endif
+   i[3-7]86-*-lynxos*)
+     targ_defvec=i386_elf32_vec
+@@ -744,6 +749,11 @@ case "${targ}" in
+     targ_defvec=i386_elf32_vec
+     targ_selvecs=iamcu_elf32_vec
+     ;;
++  i[3-7]86-*-stanix*)
++    targ_defvec=i386_elf32_vec
++    targ_selvecs=
++    targ64_selvecs=x86_64_elf64_vec
++    ;;
+   i[3-7]86-*-msdos*)
+     targ_defvec=i386_aout_vec
+     targ_selvecs=i386_msdos_vec
+diff --git a/config.sub b/config.sub
+index 4aaae46f..3c19a711 100755
+--- a/config.sub
++++ b/config.sub
+@@ -2109,6 +2109,7 @@ case $os in
+ 	| solaris* \
+ 	| solidbsd* \
+ 	| sortix* \
++	| stanix* \
+ 	| storm-chaos* \
+ 	| sunos \
+ 	| sunos[34]* \
+diff --git a/gas/configure.tgt b/gas/configure.tgt
+index 7c81bffa..b87235f2 100644
+--- a/gas/configure.tgt
++++ b/gas/configure.tgt
+@@ -241,6 +241,7 @@ case ${generic_target} in
+     case ${cpu}-${os} in
+       x86_64*-linux-gnux32)		arch=x86_64:32 ;;
+     esac ;;
++  i386-*-stanix*)    fmt=elf em=linux ;;
+   i386-*-lynxos*)			fmt=elf em=lynx ;;
+   i386-*-redox*)			fmt=elf ;;
+   i386-*-solaris*)			fmt=elf em=solaris ;;
+diff --git a/ld/Makefile.am b/ld/Makefile.am
+index ccff9289..e400a356 100644
+--- a/ld/Makefile.am
++++ b/ld/Makefile.am
+@@ -281,6 +281,7 @@ ALL_EMULATION_SOURCES = \
+ 	eelf_i386_fbsd.c \
+ 	eelf_i386_haiku.c \
+ 	eelf_i386_ldso.c \
++	eelf_i386_stanix.c \
+ 	eelf_i386_sol2.c \
+ 	eelf_i386_vxworks.c \
+ 	eelf_iamcu.c \
+@@ -462,6 +463,7 @@ ALL_64_EMULATION_SOURCES = \
+ 	eelf_x86_64_cloudabi.c \
+ 	eelf_x86_64_fbsd.c \
+ 	eelf_x86_64_haiku.c \
++	eelf_x86_64_stanix.c \
+ 	eelf_x86_64_sol2.c \
+ 	ehppa64linux.c \
+ 	ei386pep.c \
+diff --git a/ld/configure.tgt b/ld/configure.tgt
+index ea01ccf9..e7bb14bd 100644
+--- a/ld/configure.tgt
++++ b/ld/configure.tgt
+@@ -384,6 +384,11 @@ i[3-7]86-*-linux-*)	targ_emul=elf_i386
+ i[3-7]86-*-redox*)	targ_emul=elf_i386
+ 			targ_extra_emuls=elf_x86_64
+ 			;;
++i[3-7]86-*-stanix*)
++			targ_emul=elf_i386_stanix
++			targ_extra_emuls=elf_i386
++			targ64_extra_emuls="elf_x86_64_stanix elf_x86_64"
++			;;
+ i[3-7]86-*-solaris2*)	targ_emul=elf_i386_sol2
+ 			targ_extra_emuls="elf_i386_ldso elf_i386 elf_iamcu elf_x86_64_sol2 elf_x86_64"
+ 			targ_extra_libpath=$targ_extra_emuls
+@@ -1019,6 +1024,10 @@ x86_64-*-linux-*)	targ_emul=elf_x86_64
+ x86_64-*-redox*)	targ_emul=elf_x86_64
+ 			targ_extra_emuls=elf_i386
+ 			;;
++x86_64-*-stanix*)
++			targ_emul=elf_x86_64_stanix
++			targ_extra_emuls="elf_i386_stanix elf_x86_64 elf_i386"
++			;;
+ x86_64-*-solaris2*)	targ_emul=elf_x86_64_sol2
+ 			targ_extra_emuls="elf_x86_64 elf_i386_sol2 elf_i386_ldso elf_i386 elf_iamcu"
+ 			targ_extra_libpath=$targ_extra_emuls
+diff --git a/ld/emulparams/elf_i386_stanix.sh b/ld/emulparams/elf_i386_stanix.sh
+new file mode 100644
+index 00000000..4915133a
+--- /dev/null
++++ b/ld/emulparams/elf_i386_stanix.sh
+@@ -0,0 +1,2 @@
++source_sh ${srcdir}/emulparams/elf_i386.sh
++TEXT_START_ADDR=0x04000000
+\ No newline at end of file
+diff --git a/ld/emulparams/elf_x86_64_stanix.sh b/ld/emulparams/elf_x86_64_stanix.sh
+new file mode 100644
+index 00000000..cb59921c
+--- /dev/null
++++ b/ld/emulparams/elf_x86_64_stanix.sh
+@@ -0,0 +1,2 @@
++source_sh ${srcdir}/emulparams/elf_x86_64.sh
++TEXT_START_ADDR=0x04000000
+\ No newline at end of file

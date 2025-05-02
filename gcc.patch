@@ -1,0 +1,119 @@
+diff --git a/config.sub b/config.sub
+index 38f3d037a78..39949f3bcfa 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1726,7 +1726,7 @@ case $os in
+ 	     | os9* | macos* | osx* | ios* \
+ 	     | mpw* | magic* | mmixware* | mon960* | lnews* \
+ 	     | amigaos* | amigados* | msdos* | newsos* | unicos* | aof* \
+-	     | aos* | aros* | cloudabi* | sortix* | twizzler* \
++	     | aos* | aros* | cloudabi* | sortix* | stanix* | twizzler* \
+ 	     | nindy* | vxsim* | vxworks* | ebmon* | hms* | mvs* \
+ 	     | clix* | riscos* | uniplus* | iris* | isc* | rtu* | xenix* \
+ 	     | mirbsd* | netbsd* | dicos* | openedition* | ose* \
+diff --git a/fixincludes/mkfixinc.sh b/fixincludes/mkfixinc.sh
+index 7112f4dcd64..f4e1ae5d2fa 100755
+--- a/fixincludes/mkfixinc.sh
++++ b/fixincludes/mkfixinc.sh
+@@ -19,7 +19,8 @@ case $machine in
+     powerpcle-*-eabisim* | \
+     powerpcle-*-eabi* | \
+     *-*-vxworks7* | \
+-    *-musl* )
++    *-musl* | \
++    *-stanix* | *-*-stanix* )
+ 	#  IF there is no include fixing,
+ 	#  THEN create a no-op fixer and exit
+ 	(echo "#! /bin/sh" ; echo "exit 0" ) > ${target}
+diff --git a/gcc/config.gcc b/gcc/config.gcc
+index a518e976b82..b93f9475e5d 100644
+--- a/gcc/config.gcc
++++ b/gcc/config.gcc
+@@ -3639,6 +3639,14 @@ m32c-*-elf*)
+ 	c_target_objs="m32c-pragma.o"
+ 	cxx_target_objs="m32c-pragma.o"
+  	;;
++*-*-stanix*)
++  tm_file="${tm_file} i386/unix.h i386/att.h elfos.h glibc-stdint.h i386/i386elf.h i386/x86-64.h stanix.h"
++  extra_options="$extra_options gnu-user.opt"
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  use_gcc_stdint=none
++  ;;
+ *)
+ 	echo "*** Configuration ${target} not supported" 1>&2
+ 	exit 1
+diff --git a/gcc/config/stanix.h b/gcc/config/stanix.h
+new file mode 100644
+index 00000000000..2775bcc5a4d
+--- /dev/null
++++ b/gcc/config/stanix.h
+@@ -0,0 +1,31 @@
++/* Useful if you wish to make target-specific GCC changes. */
++#undef TARGET_STANIX
++#define TARGET_STANIX 1
++
++/* Default arguments you want when running your
++   i686-stanix-gcc/x86_64-stanix-gcc toolchain */
++#undef LIB_SPEC
++#define LIB_SPEC "-lc" /* link against C standard library */
++
++/* Files that are linked before user code.
++   The %s tells GCC to look for these files in the library directory. */
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "crt0.o%s crti.o%s crtbegin.o%s"
++
++/* Files that are linked after user code. */
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
++
++#undef PREFERRED_DEBUGGING_TYPE
++#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
++
++/* Additional predefined macros. */
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()      \
++  do {                                \
++    builtin_define ("__stanix__");      \
++    builtin_define ("__unix__");      \
++    builtin_assert ("system=stanix");   \
++    builtin_assert ("system=unix");   \
++    builtin_assert ("system=posix");   \
++  } while(0);
+diff --git a/libgcc/config.host b/libgcc/config.host
+index 6a88ee5a2dd..75174081894 100644
+--- a/libgcc/config.host
++++ b/libgcc/config.host
+@@ -841,6 +841,14 @@ i[34567]86-*-rtems*)
+ 	tmake_file="$tmake_file i386/t-crtstuff t-softfp-sfdftf i386/32/t-softfp i386/t-softfp t-softfp"
+ 	extra_parts="$extra_parts crti.o crtn.o"
+ 	;;
++i[34567]86-*-stanix*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
++x86_64-*-stanix*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
+ i[34567]86-*-solaris2* | x86_64-*-solaris2*)
+ 	tmake_file="$tmake_file i386/t-crtpc t-crtfm i386/t-msabi"
+ 	extra_parts="$extra_parts crtprec32.o crtprec64.o crtprec80.o crtfastmath.o"
+diff --git a/libstdc++-v3/crossconfig.m4 b/libstdc++-v3/crossconfig.m4
+index b3269cb88e0..db5e5d28b72 100644
+--- a/libstdc++-v3/crossconfig.m4
++++ b/libstdc++-v3/crossconfig.m4
+@@ -219,6 +219,12 @@ case "${host}" in
+     AC_CHECK_FUNCS(timespec_get)
+     AC_CHECK_FUNCS(sockatmark)
+     ;;
++  *-stanix*)
++    GLIBCXX_CHECK_COMPILER_FEATURES
++    GLIBCXX_CHECK_LINKER_FEATURES
++    GLIBCXX_CHECK_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
+   *-qnx6.1* | *-qnx6.2*)
+     SECTION_FLAGS='-ffunction-sections -fdata-sections'
+     AC_SUBST(SECTION_FLAGS) 
