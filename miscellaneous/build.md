@@ -1,4 +1,6 @@
-# build
+---
+title: build
+---
 there are two possiblity : 
 - you are building StanixOS on itself (self building)
 - you are building StanixOS form another OS (eg linux/gnu or any other unix like OS)
@@ -99,7 +101,7 @@ all options supported by the `./configure` script
 - `--with-sysroot=XXX` precise a custom sysroot path
 - `--with-CC=XXX` use a custom c compiler
 - `--with-LD=XXX` use a custom linker
-- `--with-NASM=XXX` use a custom assembler NOTE : the assembler must use the intel syntax and make 64 buts objects files
+- `--with-NASM=XXX` use a custom assembler NOTE : the assembler must use the intel syntax and make 64 bits objects files
 
 # installing programs
 for the moment, any program you want to install must be put into `./initrd/bin/` in the repo  

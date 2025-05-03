@@ -33,7 +33,7 @@ list of all supported hardware
 - dynamic module loading
 
 ## packages
-a list of availible packages and ports can be found [here](packages)
+a list of available packages and ports can be found [here](packages)
 
 ## docs
 see [kernel docs](kernel) and [userspace docs](user)  
