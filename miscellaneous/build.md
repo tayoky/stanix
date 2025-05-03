@@ -104,4 +104,14 @@ all options supported by the `./configure` script
 # installing programs
 for the moment, any program you want to install must be put into `./initrd/bin/` in the repo  
 then redo `make all`  
-NOTE : there is currently no list of port (the only one being the very broken port of doomgeneric) the list will be made later (i will update this guide when it happen)
+
+you can install most port by going into the ports folder and then runing the build and install script
+```sh
+cd ports
+./build.sh tsh
+./install.sh tsh
+```
+
+a list of ports is available [here](../packages)
+
+NOTE : you can also use `./clean.sh` and `./info.sh` to get info about a package and clean everything after a build
