@@ -7,7 +7,7 @@
         "kernel.h": "c",
         "print.h": "c",
         "serial.h": "c",
-        "bitmap.h": "c",
+        "pmm.h": "c",
         "vfs.h": "c",
         "stdint.h": "c",
         "string.h": "c",
@@ -28,7 +28,16 @@
         "errno.h": "c",
         "cleaner.h": "c",
         "module.h": "c",
-        "syscall.h": "c"
+        "syscall.h": "c",
+        "ringbuf.h": "c",
+        "list.h": "c",
+        "type.h": "c",
+        "spinlock.h": "c",
+        "limine.h": "c",
+        "tty.h": "c",
+        "realpath.C": "cpp",
+        "cmath": "c",
+        "test.C": "cpp"
     },
     "C_Cpp.default.includePath": [
         "${workspaceFolder}/**",

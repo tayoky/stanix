@@ -11,13 +11,14 @@ ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 	struct tty *tty = (struct tty *)node->private_inode;
 
-	if(!(tty->termios.c_lflag & ICANON)){
+	/*if(!(tty->termios.c_lflag & ICANON)){
 		//wait until there enought data to read
 		if(ringbuffer_read_available(&tty->input_buffer) < (size_t)tty->termios.c_cc[VMIN]){
 			list_append(tty->waiter,get_current_proc());
 			block_proc();
 		}
-	}
+	}*/
+	kdebugf("tty : read %lu\n",count);
 	return ringbuffer_read(buffer,&tty->input_buffer,count);
 }
 
@@ -75,6 +76,7 @@ vfs_node *new_tty(tty **tty){
 	}
 
 	(*tty)->input_buffer = new_ringbuffer(4096);
+	(*tty)->waiter = new_list();
 
 	//reset termios to default value
 	memset(&(*tty)->termios,0,sizeof(struct termios));
@@ -86,7 +88,7 @@ vfs_node *new_tty(tty **tty){
 	(*tty)->termios.c_cc[VMIN] = 1;
 	(*tty)->termios.c_iflag = ICRNL | IMAXBEL;
 	(*tty)->termios.c_oflag = OPOST | ONLCR | ONLRET;
-	(*tty)->termios.c_lflag = ECHO;
+	(*tty)->termios.c_lflag = ECHO /*| ICANON*/;
 
 	(*tty)->canon_buf = kmalloc(512);
 	(*tty)->canon_index = 0;
@@ -165,23 +167,16 @@ int tty_input(tty *tty,char c){
 
 	//canonical mode editing here
 	if(tty->termios.c_lflag & ICANON){
-		if(c == tty->termios.c_cc[VEOF]){
-			if(ringbuffer_write(tty->canon_buf,&tty->input_buffer,tty->canon_index) < tty->canon_index){
-				if(tty->termios.c_iflag & IMAXBEL){
-					tty_output(tty,'\a');
-				}
-			}
-			tty->canon_index = 0;
-		}
 		kdebugf("index : %ld\n",tty->canon_index);
 		tty->canon_buf[tty->canon_index] = c;
 		tty->canon_index++;
-		if(c == '\n'){
+		if(c == '\n' || c == tty->termios.c_cc[VEOF]){
 			if(ringbuffer_write(tty->canon_buf,&tty->input_buffer,tty->canon_index) < tty->canon_index){
 				if(tty->termios.c_iflag & IMAXBEL){
 					tty_output(tty,'\a');
 				}
 			}
+			kdebugf("tty : EOL or EOF\n");
 			tty->canon_index = 0;
 		}
 	}

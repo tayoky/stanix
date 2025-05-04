@@ -36,7 +36,7 @@ static size_t write_available(ring_buffer *ring){
 
 size_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 	//check if there are something to read or sleep
-	if(!ringbuffer_read_available(ring)){
+	while(!ringbuffer_read_available(ring)){
 		list_append(ring->reader_waiter,get_current_proc());
 		block_proc();
 	}
