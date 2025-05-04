@@ -22,6 +22,8 @@ out/boot/limine/limine-uefi-cd.bin
 initrd.tar
 initrd/bin/*
 initrd/mod/*
+initrd/lib/*
+initrd/include/*
 
 #default sysroot
 sysroot
