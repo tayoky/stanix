@@ -44,7 +44,7 @@ uint8_t read_cmos(uint8_t address){
 
 extern struct timeval time;
 
-static int is_leap(uint64_t year){
+static int is_leap(uintmax_t year){
 	//not divisible by 4
 	if(year % 4){
 		return 0;
@@ -65,9 +65,9 @@ void init_cmos(void){
 	uint8_t seconds = read_cmos(0x00);
 	uint8_t minutes = read_cmos(0x02);
 	uint8_t hours   = read_cmos(0x04);
-	uint64_t day    = read_cmos(0x07);
+	uintmax_t day    = read_cmos(0x07);
 	uint8_t month   = read_cmos(0x08);
-	uint64_t years  = read_cmos(0x09);
+	uintmax_t years  = read_cmos(0x09);
 
 	//remove today day
 	day--;

@@ -57,7 +57,7 @@ void init_irq(void){
 	}
 }
 
-void irq_map(void *handler,uint64_t irq_num){
+void irq_map(void *handler,uintmax_t irq_num){
 	//first add it into the IDT
 	set_idt_gate(kernel->arch.idt,irq_num + 32,handler,0x8E);
 
@@ -75,7 +75,7 @@ void irq_map(void *handler,uint64_t irq_num){
 	}
 }
 
-void irq_generic_map(void *handler,uint64_t irq_num){
+void irq_generic_map(void *handler,uintmax_t irq_num){
 	//save the handler
 	handlers[irq_num] = handler;
 
@@ -93,7 +93,7 @@ void irq_generic_map(void *handler,uint64_t irq_num){
 	}
 }
 
-void irq_mask(uint64_t irq_num){
+void irq_mask(uintmax_t irq_num){
 	switch (kernel->pic_type)
 	{
 	case PIC_PIC:
@@ -107,7 +107,7 @@ void irq_mask(uint64_t irq_num){
 	}
 }
 
-void irq_eoi(uint64_t irq_num){
+void irq_eoi(uintmax_t irq_num){
 	switch (kernel->pic_type)
 	{
 	case PIC_PIC:
@@ -122,12 +122,15 @@ void irq_eoi(uint64_t irq_num){
 }
 
 void irq_handler(fault_frame *frame){
+	if(frame->err_code){
+		kdebugf("irq%d fired\n",frame->err_code);
+	}
 	void (*handler)(fault_frame *) = handlers[frame->err_type];
 	if(handler){
 		handler(frame);
 	}
 	//if the err_code is -1 then it aready send eoi
-	if(frame->err_code != (uint64_t)-1){
+	if(frame->err_code != (uintptr_t)-1){
 		irq_eoi(frame->err_type);
 	}
 }

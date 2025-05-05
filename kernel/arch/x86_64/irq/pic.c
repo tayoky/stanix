@@ -47,7 +47,7 @@ void init_pic(){
 	irq_map(isr_ignore,15);
 }
 
-void pic_mask(uint64_t irq_num){
+void pic_mask(uintmax_t irq_num){
 	uint8_t mask;
 	uint16_t port;
 	if(irq_num < 8){
@@ -61,7 +61,7 @@ void pic_mask(uint64_t irq_num){
 	out_byte(port,mask);
 }
 
-void pic_unmask(uint64_t irq_num){
+void pic_unmask(uintmax_t irq_num){
 	uint8_t mask;
 	uint16_t port;
 	if(irq_num < 8){
@@ -75,10 +75,9 @@ void pic_unmask(uint64_t irq_num){
 	out_byte(port,mask);
 }
 
-void pic_eoi(uint64_t irq_num){
-	if(irq_num < 8){
-		out_byte(PIC1_COMMAND,0x20);
-	} else {
-		out_byte(PIC2_COMMAND,0x20);
+void pic_eoi(uintmax_t irq_num){
+	if(irq_num >= 8){
+		out_byte(PIC2_COMMAND,0x20);	
 	}
+	out_byte(PIC1_COMMAND,0x20);
 }

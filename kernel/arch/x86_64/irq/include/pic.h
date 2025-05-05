@@ -12,8 +12,8 @@
 
 void init_pic(void);
 
-void pic_mask(uint64_t irq_num);
-void pic_unmask(uint64_t irq_num);
-void pic_eoi(uint64_t irq_num);
+void pic_mask(uintmax_t irq_num);
+void pic_unmask(uintmax_t irq_num);
+void pic_eoi(uintmax_t irq_num);
 
 #endif

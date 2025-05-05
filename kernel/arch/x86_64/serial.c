@@ -1,5 +1,5 @@
-#include "port.h"
-#include "serial.h"
+#include <kernel/port.h>
+#include <kernel/serial.h>
 #include <stdint.h>
 
 int init_serial(void){
@@ -25,10 +25,9 @@ void write_serial_char(const char data){
 }
 
 void write_serial(const char *string){
-	uint64_t i = 0;
+	uintmax_t i = 0;
 	while (string[i]){
 		write_serial_char(string[i]);
 		i ++;
 	}
-	
 }

@@ -1,10 +1,10 @@
-#include "pit.h"
+#include <kernel/pit.h>
 #include <kernel/print.h>
 #include <kernel/kernel.h>
-#include "irq.h"
-#include "port.h"
-#include "serial.h"
-#include "time.h"
+#include <kernel/irq.h>
+#include <kernel/port.h>
+#include <kernel/serial.h>
+#include <kernel/time.h>
 #include <kernel/arch.h>
 
 #define PIT_CHANNEL0 0x40
@@ -22,7 +22,7 @@ void pit_handler(fault_frame *frame){
 	}
 
 	irq_eoi(frame->err_code);
-	frame->err_code = (uint64_t)-1;
+	frame->err_code = (uintptr_t)-1;
 
 	//yeld to next task
 	yeld();
