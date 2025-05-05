@@ -176,7 +176,7 @@ static int init_ps2(int argc,char **argv){
 	ps2_send_command(PS2_DISABLE_PORT2);
 
 	//flush the output buffer
-	in_byte(PS2_DATA);
+	while (in_byte(PS2_STATUS) & 1) in_byte(PS2_DATA);
 
 	//test the controller
 	ps2_send_command(PS2_TEST_CONTROLLER);

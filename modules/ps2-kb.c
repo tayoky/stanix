@@ -120,13 +120,13 @@ static int init_ps2kb(int argc,char **argv){
 	}
 
 	//start by reset the device
-	/*if(ps2_send(1,0xFF) != PS2_ACK){
+	if(ps2_send(1,0xFF) != PS2_ACK){
 		kdebugf("ps2 : failed to reset device\n");
 	}
 	if(ps2_read() != 0xAA){
 		kdebugf("ps2 : keyboard didn't pass self test\n");
 		return -ENODEV;
-	}*/
+	}
 
 	keyboard_queue = new_ringbuffer(sizeof(struct input_event) * 25);
 
@@ -139,12 +139,12 @@ static int init_ps2kb(int argc,char **argv){
 
 	//if was maunch wwith --no-translation we don't try using translation
 	if(have_opt(argc,argv,"--no-translation")){
-		//goto no_translation;
+		goto no_translation;
 	}
 
 	//set scancode 2 and keep it if translation enable
 	CHANGE_SCANCODE(2);
-	/*GET_SCANCODE();
+	GET_SCANCODE();
 	if(ps2_read() == 0x41){
 		kdebugf("ps2 : using translation\n");
 	} else {
@@ -163,7 +163,7 @@ static int init_ps2kb(int argc,char **argv){
 	if(ps2_send(1,PS2_ENABLE_SCANING) != PS2_ACK){
 		kdebugf("ps2 : error while enabling scaning\n");
 		return -EIO;
-	}*/
+	}
 
 	ps2_register_handler(keyboard_handler,1);
 

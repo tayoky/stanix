@@ -122,9 +122,6 @@ void irq_eoi(uintmax_t irq_num){
 }
 
 void irq_handler(fault_frame *frame){
-	if(frame->err_code){
-		kdebugf("irq%d fired\n",frame->err_code);
-	}
 	void (*handler)(fault_frame *) = handlers[frame->err_type];
 	if(handler){
 		handler(frame);

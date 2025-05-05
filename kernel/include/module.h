@@ -29,8 +29,8 @@ void init_mod();
 /// @return 1 if the argument is present or 0 if not
 int have_opt(int argc,char **argv,char *option);
 
-#define EXPORT(sym) __export_symbol(sym,#sym);
-#define UNEXPORT(sym) __unexport_symbol(sym,#sym);
+#define EXPORT(sym) __export_symbol(&sym,#sym);
+#define UNEXPORT(sym) __unexport_symbol(&sym,#sym);
 
 #define MODULE_MAGIC 0x13082011
 
