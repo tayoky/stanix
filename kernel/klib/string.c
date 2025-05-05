@@ -31,13 +31,10 @@ void *memset(void *pointer,int value,uint64_t count){
 	return pointer;
 }
 
-//this implementation is from reddit :
-//https://www.reddit.com/r/C_Programming/comments/8zd888/implementing_my_own_strcmp_have_i_got_it_right/?rdt=53637
 int strcmp(const char *str1,const  char *str2) {
 	while (*str1 || *str2) 
 	{
-		if (*str1 > *str2) return 1;
-		if (*str2 > *str1) return -1;
+		if (*str1 != *str2) return *str1 - *str2;
 		str1++; str2++;
 	}
 	return 0;
