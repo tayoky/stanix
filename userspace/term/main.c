@@ -5,7 +5,7 @@
 #include <fcntl.h>
 
 //most basic terminal emumator
-int main(int argc,char **argv){
+int main(int argc,const char **argv){
 	(void)argc;
 	(void)argv;
 	printf("starting userspace terminal emulator\n");
@@ -29,7 +29,13 @@ int main(int argc,char **argv){
 			"/bin/login",
 			NULL
 		};
-		execv(arg[0],arg);
+		close(pipefd[1]);
+		//if arg launch the specified program
+		if(argc > 1){
+			execvp(argv[1],&argv[1]);
+		} else {
+			execvp(arg[0],arg);
+		}
 		perror("/bin/login");
 	}
 
@@ -52,8 +58,9 @@ int main(int argc,char **argv){
 
 		//put into the pipe and to the screen
 		if(event.ie_key.flags & IE_KEY_GRAPH){
-			write(kbd_fd,&event.ie_key.c,1);
+			write(pipefd[1],&event.ie_key.c,1);
 			putchar(event.ie_key.c);
+			fflush(stdout);
 			continue;
 		}
 		
