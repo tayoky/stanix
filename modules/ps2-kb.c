@@ -57,18 +57,14 @@ static void keyboard_handler(fault_frame *frame){
 	uint8_t scancode = ps2_read();
 	kdebugf("scancode : %u\n",scancode);
 
-	//if we recive an ACK for some reason just ignore it
-	if(scancode == PS2_ACK){
-		return;
-	}
-
 	int press = 1;
 	if(scancode & 0x80){
-		scancode -= 0x80;
+		scancode &= ~0x80;
 		press = 0;
 	}
 
 	struct input_event event;
+	memset(&event,0,sizeof(struct input_event));
 	event.timestamp = time;
 	event.ie_class = IE_CLASS_KEYBOARD;
 	event.ie_subclass = IE_SUBCLASS_PS2_KBD;
@@ -85,7 +81,7 @@ static void keyboard_handler(fault_frame *frame){
 	}
 	event.ie_key.scancode = scancode;
 
-	ringbuffer_write(&event,&keyboard_queue,sizeof(event));
+	ringbuffer_write(&event,&keyboard_queue,sizeof(struct input_event));
 }
 
 static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
@@ -122,11 +118,15 @@ static int init_ps2kb(int argc,char **argv){
 	//start by reset the device
 	if(ps2_send(1,0xFF) != PS2_ACK){
 		kdebugf("ps2 : failed to reset device\n");
+		return -ENODEV;
 	}
 	if(ps2_read() != 0xAA){
 		kdebugf("ps2 : keyboard didn't pass self test\n");
 		return -ENODEV;
 	}
+	//discard the id of the keyboard we aready know that
+	ps2_read();
+	ps2_read();
 
 	keyboard_queue = new_ringbuffer(sizeof(struct input_event) * 25);
 
