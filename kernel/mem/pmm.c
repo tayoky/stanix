@@ -10,8 +10,6 @@
 void init_PMM(){
 	kstatus("init PMM ... ");
 
-	spinlock_release(kernel->PMM_lock);
-
 	kernel->used_memory = kernel->total_memory;
 	kernel->PMM_stack_head = NULL;
 
@@ -41,7 +39,7 @@ void init_PMM(){
 }
 
 uintptr_t pmm_allocate_page(){
-	spinlock_acquire(kernel->PMM_lock);
+	spinlock_acquire(&kernel->PMM_lock);
 
 	//first : out of memory check
 	if(!kernel->PMM_stack_head){
@@ -59,12 +57,12 @@ uintptr_t pmm_allocate_page(){
 	}
 	kernel->used_memory += PAGE_SIZE;
 
-	spinlock_release(kernel->PMM_lock);
+	spinlock_release(&kernel->PMM_lock);
 	return page;
 }
 
 void pmm_free_page(uintptr_t page){
-	spinlock_acquire(kernel->PMM_lock);
+	spinlock_acquire(&kernel->PMM_lock);
 
 	kernel->used_memory -= PAGE_SIZE;
 	PMM_entry *entry = (PMM_entry *)(page +  kernel->hhdm);
@@ -72,5 +70,5 @@ void pmm_free_page(uintptr_t page){
 	entry->next = kernel->PMM_stack_head;
 	kernel->PMM_stack_head = entry;
 
-	spinlock_release(kernel->PMM_lock);
+	spinlock_release(&kernel->PMM_lock);
 }

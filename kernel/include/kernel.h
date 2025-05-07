@@ -10,6 +10,7 @@
 #include <kernel/terminal_emu.h>
 #include <kernel/scheduler.h>
 #include <kernel/arch.h>
+#include <kernel/spinlock.h>
 
 typedef struct kernel_table_struct{
 	arch_specific arch;
@@ -35,7 +36,7 @@ typedef struct kernel_table_struct{
 	pid_t created_proc_count;
 	process *current_proc;
 	char can_task_switch;
-	int PMM_lock;
+	spinlock PMM_lock; //TODO : replace with mutex
 }kernel_table;
 
 extern kernel_table *kernel;

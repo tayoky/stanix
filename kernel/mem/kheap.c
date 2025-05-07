@@ -7,8 +7,6 @@
 void init_kheap(void){
 	kstatus("init kheap... ");
 
-	spinlock_release(kernel->kheap.lock);
-
 	kernel->kheap.start = PAGE_ALIGN_DOWN(KHEAP_START);
 	kernel->kheap.changes_size = change_kheap_size;
 
@@ -70,7 +68,7 @@ void *malloc(heap_info *heap,size_t amount){
 	if(amount & 0b111)
 	amount += 8 - (amount % 8);
 	
-	spinlock_acquire(heap->lock);
+	spinlock_acquire(&heap->lock);
 	heap_segment *current_seg = heap->first_seg;
 
 	while (current_seg->lenght < amount || current_seg->magic != HEAP_SEG_MAGIC_FREE){
@@ -119,25 +117,25 @@ void *malloc(heap_info *heap,size_t amount){
 	}
 
 	current_seg->magic = HEAP_SEG_MAGIC_ALLOCATED;
-	spinlock_release(heap->lock);
+	spinlock_release(&heap->lock);
 	return (void *)current_seg + sizeof(heap_segment);
 }
 
 void free(heap_info *heap,void *ptr){
 	if(!ptr)return;
 
-	spinlock_acquire(heap->lock);
+	spinlock_acquire(&heap->lock);
 	
 	heap_segment *current_seg = (heap_segment *)((uintptr_t)ptr - sizeof(heap_segment));
 	if(current_seg->magic != HEAP_SEG_MAGIC_ALLOCATED){
 		if(current_seg->magic == HEAP_SEG_MAGIC_FREE){
 			kdebugf("try to free aready free segement\n");
-			spinlock_release(heap->lock);
+			spinlock_release(&heap->lock);
 			return;
 		}
 		kdebugf("try to free not allocated heap seg at %p\n",current_seg);
 		panic("heap error",NULL);
-		spinlock_release(heap->lock);
+		spinlock_release(&heap->lock);
 		return;
 	}
 
@@ -162,7 +160,7 @@ void free(heap_info *heap,void *ptr){
 		}
 		current_seg->prev->next = current_seg->next;
 	}
-	spinlock_release(heap->lock);
+	spinlock_release(&heap->lock);
 }
 
 void *kmalloc(size_t amount){
