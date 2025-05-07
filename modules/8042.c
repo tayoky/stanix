@@ -248,7 +248,6 @@ static int init_ps2(int argc,char **argv){
 		} else {
 			//identify the device
 			print_device_name(1);
-			ps2_send(1,PS2_ENABLE_SCANING);
 		}
 	}
 	
@@ -260,7 +259,6 @@ static int init_ps2(int argc,char **argv){
 			kdebugf("ps2 : no device on second port\n");
 		} else {
 			print_device_name(2);
-			ps2_send(2,PS2_ENABLE_SCANING);
 		}
 	}
 
@@ -272,6 +270,9 @@ static int init_ps2(int argc,char **argv){
 	}
 
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");
+
+	//NOTE : at this point scanning is disable
+	//the driver specfic to the device as to enable scaning itself
 
 	//export time
 	EXPORT(ps2_have_port1);
