@@ -23,6 +23,8 @@ int create_pipe(vfs_node **read,vfs_node **write){
 	//reset
 	memset(*read ,0,sizeof(vfs_node));
 	memset(*write,0,sizeof(vfs_node));
+	(*read)->ref_count  = 1;
+	(*write)->ref_count = 1;
 	
 	//set the inodes
 	(*read)->private_inode  = pipe_inode;
