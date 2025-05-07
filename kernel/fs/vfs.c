@@ -129,7 +129,7 @@ void vfs_close(vfs_node *node){
 
 	//we can finaly close
 	//but before remove the node from the directories cache
-	if(node->parent != node){
+	if(node->parent && node->parent != node){
 		if(node->parent->child == node){
 			//special case for the first child
 			node->parent->child = node->brother;
