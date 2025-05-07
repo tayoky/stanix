@@ -11,14 +11,14 @@ ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 	struct tty *tty = (struct tty *)node->private_inode;
 
-	/*if(!(tty->termios.c_lflag & ICANON)){
-		//wait until there enought data to read
-		if(ringbuffer_read_available(&tty->input_buffer) < (size_t)tty->termios.c_cc[VMIN]){
-			list_append(tty->waiter,get_current_proc());
-			block_proc();
+	if(tty->termios.c_lflag & ICANON){
+		size_t rsize = ringbuffer_read(buffer,&tty->input_buffer,count);
+		if(((char *)buffer)[rsize - 1] == tty->termios.c_cc[VEOF]){
+			rsize--;
 		}
-	}*/
-	kdebugf("tty : read %lu\n",count);
+		return (ssize_t)rsize;
+	}
+
 	return ringbuffer_read(buffer,&tty->input_buffer,count);
 }
 
@@ -76,19 +76,18 @@ vfs_node *new_tty(tty **tty){
 	}
 
 	(*tty)->input_buffer = new_ringbuffer(4096);
-	(*tty)->waiter = new_list();
 
 	//reset termios to default value
 	memset(&(*tty)->termios,0,sizeof(struct termios));
 	(*tty)->termios.c_cc[VEOF] = 0x04;
-	(*tty)->termios.c_cc[VERASE] = '\b';
+	(*tty)->termios.c_cc[VERASE] = 127;
 	(*tty)->termios.c_cc[VINTR] = 0x03;
 	(*tty)->termios.c_cc[VQUIT] = 0x22;
 	(*tty)->termios.c_cc[VSUSP] = 0x20;
 	(*tty)->termios.c_cc[VMIN] = 1;
 	(*tty)->termios.c_iflag = ICRNL | IMAXBEL;
 	(*tty)->termios.c_oflag = OPOST | ONLCR | ONLRET;
-	(*tty)->termios.c_lflag = ECHO /*| ICANON*/;
+	(*tty)->termios.c_lflag = ECHONL | ECHOK | ECHOE | ECHO | ICANON | IEXTEN;
 
 	(*tty)->canon_buf = kmalloc(512);
 	(*tty)->canon_index = 0;
@@ -161,24 +160,49 @@ int tty_input(tty *tty,char c){
 		c &= 0x7F;
 	}
 
-	if(tty->termios.c_lflag & ECHO){
-		tty_output(tty,c);
-	}
-
-	//canonical mode editing here
+	//canonical mode here
 	if(tty->termios.c_lflag & ICANON){
-		kdebugf("index : %ld\n",tty->canon_index);
+		if(c == tty->termios.c_cc[VERASE] && tty->termios.c_lflag & ECHOE){
+			if(tty->canon_index > 0){
+				tty_output(tty,'\b');
+				tty_output(tty,' ');
+				tty_output(tty,'\b');
+			}
+		} else if(c == '\n' && (tty->termios.c_lflag & ECHONL)){
+			tty_output(tty,'\n');
+		} else if(tty->termios.c_lflag & ECHO){
+			tty_output(tty,c);
+		}
+
+		//line editing stuff
+		if((tty->termios.c_lflag & IEXTEN)){
+			if(tty->termios.c_cc[VERASE] == c){
+				if(tty->canon_index > 0){
+					tty->canon_index--;
+				}
+				return 0;
+			}
+			if(tty->termios.c_cc[VKILL] == c){
+				tty->canon_index = 0;
+				return 0;
+			}
+		}
+
 		tty->canon_buf[tty->canon_index] = c;
 		tty->canon_index++;
-		if(c == '\n' || c == tty->termios.c_cc[VEOF]){
+		if(c == '\n' || c == tty->termios.c_cc[VEOL] || c == tty->termios.c_cc[VEOF]){
 			if(ringbuffer_write(tty->canon_buf,&tty->input_buffer,tty->canon_index) < tty->canon_index){
 				if(tty->termios.c_iflag & IMAXBEL){
 					tty_output(tty,'\a');
 				}
 			}
-			kdebugf("tty : EOL or EOF\n");
 			tty->canon_index = 0;
 		}
+		return 0;
+	}
+
+	if(tty->termios.c_lflag & ECHO){
+		tty_output(tty,c);
 	}
 
 	//check for full ringbuffer

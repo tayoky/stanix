@@ -54,22 +54,13 @@ static uint16_t str2port(char *str){
 }
 
 int serial_count = 1;
-
-static ssize_t serial_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	uint16_t port = (uint16_t)(uintptr_t)((tty *)node->private_inode)->private_data;
-
-	for (size_t i = 0; i < count; i++){
-		while (!(in_byte(port + SERIAL_LSR) & SERIAL_LSR_DR));
-		tty_input(node->private_inode,in_byte(port));
-	}
-
-	return tty_read(node,buffer,offset,count);
-}
+tty *serial_ports = NULL;
 
 
 static void serial_handler(fault_frame *frame){
-	(void)frame;
-	kdebugf("serial handler triggerd\n");
+	//TODO : add support for multiple serial ports
+	uint16_t port = (uint16_t)(uintptr_t)serial_ports->private_data;
+	tty_input(serial_ports,in_byte(port));
 }
 
 static void serial_out(char c,void *arg){
@@ -79,12 +70,12 @@ static void serial_out(char c,void *arg){
 }
 
 static int init_port(uint16_t port){
-	out_byte(port + SERIAL_IER, 0x00);
+	out_byte(port + SERIAL_IER, 0x01);
 	out_byte(port + 3, 0x80);
 	out_byte(port + SERIAL_DATA, 0x03);
 	out_byte(port + SERIAL_IER, 0x00);
 	out_byte(port + 3, 0x03);
-	out_byte(port + 2, 0xC7);
+	out_byte(port + 2, 0b111);
 	out_byte(port + SERIAL_MCR, SERIAL_MCR_DTR | SERIAL_MCR_RTS | SERIAL_MCR_OUT2);
 	out_byte(port + SERIAL_MCR, SERIAL_MCR_LOOP | SERIAL_MCR_OUT1 | SERIAL_MCR_OUT2 | SERIAL_MCR_RTS);
 	out_byte(port + SERIAL_DATA, 0xAE);
@@ -97,7 +88,6 @@ static int init_port(uint16_t port){
 	vfs_node *node = new_tty(&tty);
 	tty->out = serial_out;
 	tty->private_data = (void *)(uintptr_t)port;
-	node->read = serial_read;
 
 	char path[20];
 	sprintf(path,"/dev/ttyS%d",serial_count);
@@ -105,7 +95,8 @@ static int init_port(uint16_t port){
 	if(vfs_mount(path,node)){
 		return -EIO;
 	}
-
+	
+	serial_ports = tty;
 	irq_generic_map(serial_handler,4);
 
 	serial_count++;

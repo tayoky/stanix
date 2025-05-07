@@ -218,7 +218,7 @@ process *pid2proc(pid_t pid){
 }
 
 void block_proc(){
-	kdebugf("block %ld\n",get_current_proc()->pid);
+	//kdebugf("block %ld\n",get_current_proc()->pid);
 	//if this is the last process unblock the idle task
 	if(get_current_proc()->next == get_current_proc()){
 		unblock_proc(idle);
@@ -243,7 +243,7 @@ void unblock_proc(process *proc){
 	if(proc->flags & PROC_STATE_RUN){
 		return;
 	}
-	kdebugf("unblock %ld\n",proc->pid);
+	//kdebugf("unblock %ld\n",proc->pid);
 	proc->flags |= PROC_STATE_RUN;
 
 	kernel->can_task_switch = 0;
