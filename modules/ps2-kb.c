@@ -55,7 +55,6 @@ static void keyboard_handler(fault_frame *frame){
 	(void)frame;
 
 	uint8_t scancode = ps2_read();
-	kdebugf("scancode : %u\n",scancode);
 
 	int press = 1;
 	if(scancode & 0x80){
