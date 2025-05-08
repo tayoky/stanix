@@ -129,5 +129,11 @@ void init_devices(void){
 		halt();
 	}
 
+	if(vfs_mkdir("/dev/pts",0x555)){
+		kfail();
+		kinfof("fail to mkdir /dev/pts\n");
+		halt();
+	}
+
 	kok();
 }

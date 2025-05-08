@@ -18,6 +18,9 @@
 #include <kernel/string.h>
 #include <kernel/arch.h>
 #include <kernel/module.h>
+#include <kernel/tty.h>
+#include <termios.h>
+#include <limits.h>
 
 static int find_fd(){
 	int fd = 0;
@@ -743,6 +746,49 @@ int sys_isatty(int fd){
 	}
 }
 
+int sys_openpty(int *amaster, int *aslave, char *name,const struct termios *termp,const struct winsize *winp){
+	if((termp && !CHECK_STRUCT(termp)) || (winp && !CHECK_STRUCT(winp)) || (name && !CHECK_MEM(name,PATH_MAX))){
+		return -EFAULT;
+	}
+	if((!CHECK_STRUCT(amaster)) || (!CHECK_STRUCT(aslave))){
+		return -EFAULT;
+	}
+
+	int master = find_fd();
+	if(master == -1){
+		return -ENXIO;
+	}
+	FD_GET(master).present = 1;
+	FD_GET(master).flags = FD_WRITE | FD_READ;
+
+	int slave = find_fd();
+	if(slave == -1){
+		FD_GET(master).present = 0;
+		return -ENXIO;
+	}
+	FD_GET(slave).flags = FD_WRITE |FD_READ;
+	FD_GET(slave).present = 1;
+
+	tty *tty;
+
+	int ret = new_pty(&FD_GET(master).node,&FD_GET(slave).node,&tty);
+	if(ret < 0){
+		return ret;
+	}
+
+	if(termp){
+		tty->termios = *termp;
+	}
+	if(winp){
+		tty->size = *winp;
+	}
+	if(name){
+		sprintf(name,"/dev/pts/%d",ret);
+	}
+
+	return -ENOSYS;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -781,6 +827,7 @@ void *syscall_table[] = {
 	(void *)sys_insmod,
 	(void *)sys_rmmod,
 	(void *)sys_isatty,
+	(void *)sys_openpty,
 	(void *)sys_getpid,
 };
 

@@ -37,6 +37,7 @@ typedef struct kernel_table_struct{
 	process *current_proc;
 	char can_task_switch;
 	spinlock PMM_lock; //TODO : replace with mutex
+	int pty_count;
 }kernel_table;
 
 extern kernel_table *kernel;

@@ -21,6 +21,10 @@ typedef struct tty {
 	process *fg_proc;
 } tty;
 
+typedef struct pty {
+	ring_buffer output_buffer;
+}pty;
+
 /// @brief give a char to the input of a tty
 /// @param tty 
 /// @param c 
@@ -35,7 +39,7 @@ int tty_output(tty *tty,char c);
 vfs_node *new_tty(tty **tyy);
 
 
-int new_pty(vfs_node **master,vfs_node **slave);
+int new_pty(vfs_node **master,vfs_node **slave,tty **);
 
 ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);

@@ -4,8 +4,68 @@
 #include <kernel/kheap.h>
 #include <kernel/scheduler.h>
 #include <kernel/print.h>
+#include <kernel/kernel.h>
 #include <sys/ioctl.h>
 #include <errno.h>
+
+void pty_output(char c,void *data){
+	pty *pty = (struct pty*)data;
+	ringbuffer_write(&c,&pty->output_buffer,1);
+}
+
+ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	(void)offset;
+
+	tty *tty = (struct tty *)node->private_inode;
+	pty *pty = (struct pty *)tty->private_data;
+
+	return ringbuffer_read(buffer,&pty->output_buffer,count);
+}
+
+ssize_t pty_master_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	(void)offset;
+
+	tty *tty = (struct tty *)node->private_inode;
+	for(size_t i=0;i<count;i++){
+		tty_input(tty,*(char *)buffer);
+		(char *)buffer++;
+	}
+	return (ssize_t)count;
+}
+
+int new_pty(vfs_node **master,vfs_node **slave,tty **rep){
+	pty *pty = kmalloc(sizeof(struct pty));
+	memset(pty,0,sizeof(struct pty));
+	pty->output_buffer = new_ringbuffer(4096);
+
+	tty *tty = NULL;
+	*rep = tty;
+	*slave = new_tty(&tty);
+	tty->private_data = pty;
+	tty->out = pty_output;
+
+	//create the master
+	*master = kmalloc(sizeof(vfs_node));
+	memset(*master,0,sizeof(vfs_node));
+	(*master)->read  = pty_master_read;
+	(*master)->write = pty_master_write;
+	(*master)->private_inode = tty;
+	(*master)->ref_count = 1;
+
+	//mount the slave
+	char path[32];
+	sprintf(path,"/dev/pts/%d",kernel->pty_count);
+	if(vfs_mount(path,*slave)){
+		vfs_close(*master);
+		vfs_close(*slave);
+		//TODO : delete tty
+		return -ENOENT;
+	}
+	//mounting reset refcount to 1
+	(*slave)->ref_count++;
+
+	return kernel->pty_count++;
+}
 
 ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
