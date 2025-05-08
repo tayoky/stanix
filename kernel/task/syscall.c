@@ -768,6 +768,8 @@ int sys_openpty(int *amaster, int *aslave, char *name,const struct termios *term
 	}
 	FD_GET(slave).flags = FD_WRITE |FD_READ;
 	FD_GET(slave).present = 1;
+	*amaster = master;
+	*aslave = slave;
 
 	tty *tty;
 

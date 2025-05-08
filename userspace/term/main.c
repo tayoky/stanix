@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
+#include <pty.h>
 
 const char kbd_us[128] = {
 	0,0,
@@ -101,11 +102,17 @@ int main(int argc,const char **argv){
 
 	printf("starting userspace terminal emulator\n");
 
-	int pipefd[2];
+	int master;
+	int slave;
+	openpty(&master,&slave,NULL,NULL,NULL);
+	dup2(slave,STDIN_FILENO);
+	close(slave);
+
+	/*int pipefd[2];
 	pipe(pipefd);
 
 	dup2(pipefd[0],STDIN_FILENO);
-	close(pipefd[0]);
+	close(pipefd[0]);*/
 
 	//try open keyboard
 	int kbd_fd = open("/dev/kb0",O_RDONLY);
@@ -116,7 +123,7 @@ int main(int argc,const char **argv){
 
 	pid_t child = fork();
 	if(!child){
-		close(pipefd[1]);
+		close(master);
 
 		//launch login
 		const char *arg[] = {
@@ -149,7 +156,7 @@ int main(int argc,const char **argv){
 		//put into the pipe and to the screen
 		char c = layout[event.ie_key.scancode];
 		if(c){
-			if(write(pipefd[1],&c,1)){
+			if(write(master,&c,1)){
 				//if broken pipe that mean the child probably exited
 				//nobody need us now
 				if(errno == EPIPE){
