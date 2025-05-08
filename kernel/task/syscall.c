@@ -841,6 +841,6 @@ void syscall_handler(fault_frame *context){
 
 	get_current_proc()->syscall_frame = context;
 
-	long (*syscall)(long,long,long,long) = syscall_table[ARG0_REG(*context)];
-	RET_REG(*context) = syscall(ARG1_REG(*context),ARG2_REG(*context),ARG3_REG(*context),ARG4_REG(*context));
+	long (*syscall)(long,long,long,long,long) = syscall_table[ARG0_REG(*context)];
+	RET_REG(*context) = syscall(ARG1_REG(*context),ARG2_REG(*context),ARG3_REG(*context),ARG4_REG(*context),ARG5_REG(*context));
 }

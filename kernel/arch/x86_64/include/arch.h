@@ -56,6 +56,7 @@ void init_timer();
 #define ARG2_REG(frame) ( frame ).rsi
 #define ARG3_REG(frame) ( frame ).rdx
 #define ARG4_REG(frame) ( frame ).rcx
+#define ARG5_REG(frame) ( frame ).r8
 #define RET_REG(frame)  ( frame ).rax
 #define SP_REG(frame)   ( frame ).rsp
 
