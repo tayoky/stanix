@@ -84,7 +84,7 @@ static int init_port(uint16_t port){
 	}
 	out_byte(port + SERIAL_MCR, SERIAL_MCR_DTR | SERIAL_MCR_RTS | SERIAL_MCR_OUT1 | SERIAL_MCR_OUT2);
 
-	tty *tty;
+	tty *tty = NULL;
 	vfs_node *node = new_tty(&tty);
 	tty->out = serial_out;
 	tty->private_data = (void *)(uintptr_t)port;
