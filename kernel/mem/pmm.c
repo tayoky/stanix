@@ -16,7 +16,8 @@ void init_PMM(){
 	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++){
 		if(kernel->memmap->entries[i]->type != LIMINE_MEMMAP_USABLE)continue;
 		
-		//find start and end and page algign it
+		//find start and end and page align it
+		kernel->memmap->entries[i]->length = PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->length);
 		uintptr_t start =  PAGE_ALIGN_UP(kernel->memmap->entries[i]->base);
 		uintptr_t end = PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->length + kernel->memmap->entries[i]->base);
 
