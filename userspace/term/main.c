@@ -136,6 +136,8 @@ int main(int argc,const char **argv){
 		exit(EXIT_FAILURE);
 	}
 
+	int crtl = 0;
+
 	for(;;){
 		struct input_event event;
 
@@ -148,6 +150,16 @@ int main(int argc,const char **argv){
 			continue;
 		}
 
+		//special case for crtl
+		if(event.ie_key.scancode == 0x1D){
+			if(event.ie_key.flags & IE_KEY_RELEASE){
+				crtl = 0;
+			} else {
+				crtl = 1;
+			}
+			continue;
+		}
+
 		//ignore key release
 		if(event.ie_key.flags & IE_KEY_RELEASE){
 			continue;
@@ -156,6 +168,10 @@ int main(int argc,const char **argv){
 		//put into the pipe and to the screen
 		char c = layout[event.ie_key.scancode];
 		if(c){
+			//if crtl is pressed send special crtl + XXX char
+			if(crtl){
+				c -= 'a' - 1;
+			}
 			if(write(master,&c,1)){
 				//if broken pipe that mean the child probably exited
 				//nobody need us now
