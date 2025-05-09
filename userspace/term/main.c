@@ -46,16 +46,55 @@ const char kbd_us[128] = {
 	0, /* everything else */
 };
 
+const char kbd_us_shift[128] = {
+	0, 27,
+	'!','@','#','$','%','^','&','*','(',')',
+	'_','+','\b',
+	'\t', /* tab */
+	'Q','W','E','R','T','Y','U','I','O','P','{','}','\n',
+	0, /* control */
+	'A','S','D','F','G','H','J','K','L',':','"', '~',
+	0, /* left shift */
+	'|','Z','X','C','V','B','N','M','<','>','?',
+	0, /* right shift */
+	'*',
+	0, /* alt */
+	' ', /* space */
+	0, /* caps lock */
+	0, /* F1 [59] */
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, /* ... F10 */
+	0, /* 69 num lock */
+	0, /* scroll lock */
+	0, /* home */
+	0, /* up */
+	0, /* page up */
+	'-',
+	0, /* left arrow */
+	0,
+	0, /* right arrow */
+	'+',
+	0, /* 79 end */
+	0, /* down */
+	0, /* page down */
+	0, /* insert */
+	0, /* delete */
+	0, 0, 0,
+	0, /* F11 */
+	0, /* F12 */
+	0, /* everything else */
+};
+
 const char kbd_fr[128] = {
 	0,0,
-	'1','2','3','4','5','6','7','8','9','0',
-	'-','=','\b',
+	'&','?' /*é*/,'"','\'','(','-',' ' /*è*/,'_',' '/*ç*/,' ' /*à*/,
+	')','=','\b',
 	'\t', /* tab */
 	'a','e','e','r','t','y','u','i','o','p','^','$','\n',
 	0, /* control */
 	'q','s','d','f','g','h','j','k','l','m','\'', '`',
 	0, /* left shift */
-	'\\','w','x','c','v','b','n',',',';','/','!',
+	'<','w','x','c','v','b','n',',',';','/','!',
 	0, /* right shift */
 	'*',
 	0, /* alt */
@@ -85,16 +124,58 @@ const char kbd_fr[128] = {
 	0, /* everything else */
 };
 
+const char kbd_fr_shift[128] = {
+	0, 27,
+	'1','2','3','4','5','6','7','8','9','0',
+	' ' /*°*/,'+','\b',
+	'\t', /* tab */
+	'A','E','Z','R','T','Y','U','I','O','P','{','}','\n',
+	0, /* control */
+	'Q','S','D','F','G','H','J','K','L','M','%', '~',
+	0, /* left shift */
+	'>','W','X','C','V','B','N','?','.','/',' ' /*§*/,
+	0, /* right shift */
+	'*',
+	0, /* alt */
+	' ', /* space */
+	0, /* caps lock */
+	0, /* F1 [59] */
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, /* ... F10 */
+	0, /* 69 num lock */
+	0, /* scroll lock */
+	0, /* home */
+	0, /* up */
+	0, /* page up */
+	'-',
+	0, /* left arrow */
+	0,
+	0, /* right arrow */
+	'+',
+	0, /* 79 end */
+	0, /* down */
+	0, /* page down */
+	0, /* insert */
+	0, /* delete */
+	0, 0, 0,
+	0, /* F11 */
+	0, /* F12 */
+	0, /* everything else */
+};
+
 //most basic terminal emumator
 int main(int argc,const char **argv){
 	const char *layout = kbd_us;
-	for (size_t i = 1; i < argc-1; i++){
+	const char *layout_shift = kbd_us_shift;
+	for (int i = 1; i < argc-1; i++){
 		if((!strcmp(argv[i],"--layout")) || !strcmp(argv[i],"-i")){
 			i++;
 			if((!stricmp(argv[i],"azerty")) || !stricmp(argv[i],"french")){
 				layout = kbd_fr;
+				layout_shift = kbd_fr_shift;
 			} else if((!stricmp(argv[i],"qwerty")) || !stricmp(argv[i],"english")){
 				layout = kbd_us;
+				layout = kbd_us_shift;
 			}
 		}
 	}
@@ -137,6 +218,7 @@ int main(int argc,const char **argv){
 	}
 
 	int crtl = 0;
+	int shift = 0;
 
 	for(;;){
 		struct input_event event;
@@ -150,13 +232,17 @@ int main(int argc,const char **argv){
 			continue;
 		}
 
-		//special case for crtl
+		//special case for crtl and shift
 		if(event.ie_key.scancode == 0x1D){
 			if(event.ie_key.flags & IE_KEY_RELEASE){
 				crtl = 0;
 			} else {
 				crtl = 1;
 			}
+			continue;
+		}
+		if(event.ie_key.scancode == 0x2A || (event.ie_key.scancode == 0x3A && event.ie_key.flags & IE_KEY_PRESS)){
+			shift = 1 - shift;
 			continue;
 		}
 
@@ -166,7 +252,12 @@ int main(int argc,const char **argv){
 		}
 
 		//put into the pipe and to the screen
-		char c = layout[event.ie_key.scancode];
+		char c;
+		if(shift){
+			c = layout_shift[event.ie_key.scancode];
+		} else {
+			c = layout[event.ie_key.scancode];
+		}
 		if(c){
 			//if crtl is pressed send special crtl + XXX char
 			if(crtl){
