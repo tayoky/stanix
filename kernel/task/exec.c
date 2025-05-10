@@ -195,7 +195,8 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	kfree(saved_envp);
 
 	//now jump into the program !!
-	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP - 8,argc,argv,envc,envp);
+	kdebugf("exec entry : %p\n",header.e_entry);
+	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP,argc,argv,envc,envp);
 
 	return 0;
 }

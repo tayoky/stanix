@@ -36,3 +36,5 @@ config.mk
 
 #objects files
 *.o
+#dump
+*.dump

@@ -63,7 +63,7 @@ void exception_handler(fault_frame *fault){
 	}
 	if(fault->cs == 0x1B){
 		if(fault->err_type == 14){
-			kprintf("segmentation fault (core dumped)\n");
+			kprintf("%p : segmentation fault (core dumped)\n",fault->rip);
 			page_fault_info(fault);
 			kill_proc(get_current_proc());
 		}
