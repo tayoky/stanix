@@ -813,7 +813,7 @@ void *syscall_table[] = {
 	(void *)sys_usleep,
 	(void *)sys_sleepuntil,
 	(void *)sys_gettimeofday,
-	(void *)sys_stub, //settimeoftheday
+	(void *)sys_stub, //settimeofday
 	(void *)sys_pipe,
 	(void *)sys_execve,
 	(void *)sys_fork,
@@ -830,6 +830,7 @@ void *syscall_table[] = {
 	(void *)sys_rmmod,
 	(void *)sys_isatty,
 	(void *)sys_openpty,
+	(void *)sys_stub, //poll
 	(void *)sys_getpid,
 };
 
