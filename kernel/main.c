@@ -97,8 +97,7 @@ void spawn_init(){
 
 //the entry point
 void kmain(){
-	disable_interrupt();
-	init_serial();
+	enable_interrupt();
 	kinfof("\n"
 		"███████╗████████╗ █████╗ ███╗   ██╗██╗██╗  ██╗    \n"
 		"██╔════╝╚══██╔══╝██╔══██╗████╗  ██║██║╚██╗██╔╝    \n"
@@ -116,7 +115,6 @@ void kmain(){
 	);
 	print_license();
 	get_bootinfo();
-	enable_interrupt();
 	init_PMM();
 	kprintf("used pages: 0x%lx\n",master_kernel_table.used_memory/PAGE_SIZE);
 	init_paging();
