@@ -9,9 +9,6 @@ jump_userspace:
 	pushf          ;flags
 	push 0x1B      ;cs
 	push rdi       ;return address
-	
-	;setup rbp
-	mov rbp, rsi
 
 	;setup argc and argv
 	mov rdi, rdx ;argc
@@ -30,6 +27,7 @@ jump_userspace:
 	xor r13, r13
 	xor r14, r14
 	xor r15, r15
+	xor rbp, rbp
 	
 	
 	;set the segment registers

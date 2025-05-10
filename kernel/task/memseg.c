@@ -4,10 +4,11 @@
 #include <kernel/scheduler.h>
 #include <kernel/string.h>
 
-memseg *memseg_map(process *proc, uint64_t address,size_t size,uint64_t flags){
+memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
 	//first convert all of that into pages
+	uintptr_t end = PAGE_ALIGN_UP(address + size);
 	address = PAGE_ALIGN_DOWN(address);
-	size = PAGE_ALIGN_UP(size) / PAGE_SIZE;
+	size = (PAGE_ALIGN_UP(end - address) + 1) / PAGE_SIZE;
 
 	memseg *new_memseg = kmalloc(sizeof(memseg));
 	if(proc->first_memseg){
