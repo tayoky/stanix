@@ -6,6 +6,7 @@
 #include <kernel/time.h>
 #include <stddef.h>
 #include <errno.h>
+#include <poll.h>
 
 //TODO : make this process specific
 vfs_node *root;
@@ -70,9 +71,9 @@ int vfs_wait_check(vfs_node *node,short type){
 	if(node->wait_check){
 		return node->wait_check(node,type);
 	} else {
-		//by default report as ready
+		//by default report as ready for all request actions
 		//so that stuff such as files are alaways ready
-		return 1;
+		return type;
 	}
 }
 

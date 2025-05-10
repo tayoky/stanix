@@ -21,6 +21,7 @@
 #include <kernel/tty.h>
 #include <termios.h>
 #include <limits.h>
+#include <poll.h>
 
 static int find_fd(){
 	int fd = 0;
@@ -783,6 +784,35 @@ int sys_openpty(int *amaster, int *aslave, char *name,const struct termios *term
 	return -ENOSYS;
 }
 
+int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout){
+	if(!CHECK_MEM(fds,sizeof(struct pollfd) * nfds)){
+		return -EFAULT;
+	}
+
+	int ready_count = 0;
+	for(unsigned int i=0;i<nfds;i++){
+		if(!is_valid_fd(fds[i].fd)){
+			fds[i].revents = POLLNVAL;
+			return -EBADF;
+		}
+		int r = vfs_wait_check(FD_GET(fds[i].fd).node,fds[i].events);
+		if(r){
+			//it's ready !!!!
+			fds[i].revents = r;
+			ready_count++;
+		}
+	}
+
+	if(ready_count)return ready_count;
+
+	if(!timeout){
+		return 0;
+	}
+
+	//TODO wait on each fd and block
+	return -ENOSYS;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -822,7 +852,7 @@ void *syscall_table[] = {
 	(void *)sys_rmmod,
 	(void *)sys_isatty,
 	(void *)sys_openpty,
-	(void *)sys_stub, //poll
+	(void *)sys_poll,
 	(void *)sys_getpid,
 };
 
