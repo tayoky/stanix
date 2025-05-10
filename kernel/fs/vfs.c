@@ -66,6 +66,26 @@ ssize_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	}
 }
 
+int vfs_wait_check(vfs_node *node,short type){
+	if(node->wait_check){
+		return node->wait_check(node,type);
+	} else {
+		//by default report as ready
+		//so that stuff such as files are alaways ready
+		return 1;
+	}
+}
+
+int vfs_wait(vfs_node *node,short type){
+	if(node->wait){
+		return node->wait(node,type);
+	} else {
+		//mmmm...
+		//how we land here ??
+		return -EINVAL;
+	}
+}
+
 
 vfs_node *vfs_lookup(vfs_node *node,const char *name){
 	//handle .. here so we can handle the parent of mount point

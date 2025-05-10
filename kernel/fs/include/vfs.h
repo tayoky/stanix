@@ -43,7 +43,9 @@ typedef struct vfs_node_struct {
 	int (* chmod)(struct vfs_node_struct*,mode_t perm);
 	int (* chown)(struct vfs_node_struct*,uid_t owner,gid_t group_owner);
 	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
-	int(* sync)(struct vfs_node_struct *);
+	int (* sync)(struct vfs_node_struct *);
+	int (* wait_check)(struct vfs_node_struct *,short);
+	int (* wait)(struct vfs_node_struct *,short);
 	time_t atime;
 	time_t ctime;
 	time_t mtime;
@@ -146,6 +148,19 @@ vfs_node *vfs_dup(vfs_node *node);
 /// @param node the node to syncronise
 /// @return 
 int vfs_sync(vfs_node *node);
+
+/// @brief check if a vfs_node is ready for write/read
+/// @param node the node to check
+/// @param type the type to check (read and/or write)
+/// @return 1 if is ready or 0 if not
+int vfs_wait_check(vfs_node *node,short type);
+
+/// @brief wait on a file for read/write
+/// @param node the node to wait for
+/// @param type the type of action (write and/or read)
+/// @return 0 or -INVAL
+/// @note vfs_wait don't block the wait start only after calling block_brock()
+int vfs_wait(vfs_node *node,short type);
 
 //flags
 #define VFS_READONLY     0x01 //readonly
