@@ -106,15 +106,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 			vfs_close(node);
 			return -ENOTDIR;
 		}
-	} else {
-		//the user don't want a dir but got one
-		//not good
-		if(node->flags & VFS_DIR){
-			vfs_close(node);
-			return -EISDIR;
-		}
 	}
-	
 
 	//simple check for writing on directory
 	if((flags & O_WRONLY || flags & O_RDWR || flags & O_TRUNC) && node->flags & VFS_DIR){
