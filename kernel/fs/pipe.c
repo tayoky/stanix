@@ -4,6 +4,7 @@
 #include <kernel/string.h>
 #include <errno.h>
 #include <kernel/print.h>
+#include <poll.h>
 
 struct pipe{
 	ring_buffer ring;
@@ -31,10 +32,12 @@ int create_pipe(vfs_node **read,vfs_node **write){
 	(*write)->private_inode = pipe_inode;
 
 	//set functions
-	(*read)->close  = pipe_close;
-	(*write)->close = pipe_close;
-	(*read)->read   = pipe_read;
-	(*write)->write = pipe_write;
+	(*read)->close       = pipe_close;
+	(*write)->close      = pipe_close;
+	(*read)->read        = pipe_read;
+	(*write)->write      = pipe_write;
+	(*read)->wait_check  = pipe_wait_check;
+	(*write)->wait_check = pipe_wait_check;
 	return 0;
 }
 
@@ -60,6 +63,25 @@ ssize_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	}
 
 	return ringbuffer_write(buffer,&pipe_inode->ring,count);
+}
+
+int pipe_wait_check(vfs_node *node,short type){
+	struct pipe *pipe_inode = (struct pipe *)node->private_inode;
+	int events = 0;
+	if(pipe_inode->isbroken){
+		events |= POLLHUP;
+		//if we are the write end set POLLERR
+		if(node->write){
+			events |= POLLERR;
+		}
+	}
+	if((type & POLLIN) && ringbuffer_read_available(&pipe_inode->ring)){
+		type |= POLLIN;
+	}
+	if((type & POLLOUT) && ringbuffer_write_available(&pipe_inode->ring)){
+		type |= POLLOUT;
+	}
+	return type;
 }
 
 void pipe_close(vfs_node *node){

@@ -29,7 +29,7 @@ size_t ringbuffer_read_available(ring_buffer *ring){
 	}
 }
 
-static size_t write_available(ring_buffer *ring){
+size_t ringbuffer_write_available(ring_buffer *ring){
 	//take the buffer size and take what is used
 	return ring->buffer_size - ringbuffer_read_available(ring);
 }
@@ -65,8 +65,8 @@ size_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 size_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 	char *buffer = (char *)buf;
 	//cant write more that what is available
-	if(count > write_available(ring)){
-		count = write_available(ring);
+	if(count > ringbuffer_write_available(ring)){
+		count = ringbuffer_write_available(ring);
 	}
 
 	//if the write go farther than the end cut in two

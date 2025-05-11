@@ -18,5 +18,6 @@ void delete_ringbuffer(ring_buffer *ring);
 size_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count);
 size_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count);
 size_t ringbuffer_read_available(ring_buffer *ring);
+size_t ringbuffer_write_available(ring_buffer *ring);
 
 #endif
