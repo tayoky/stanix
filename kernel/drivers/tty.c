@@ -19,6 +19,11 @@ ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	tty *tty = (struct tty *)node->private_inode;
 	pty *pty = (struct pty *)tty->private_data;
 
+	if(pty->slave->ref_count == 1){
+		//nobody as open the slave
+		return -EIO;
+	}
+
 	return ringbuffer_read(buffer,&pty->output_buffer,count);
 }
 
@@ -52,7 +57,8 @@ int new_pty(vfs_node **master,vfs_node **slave,tty **rep){
 	(*master)->private_inode = tty;
 	(*master)->ref_count = 1;
 
-	//mount the slave
+	//mount and save the slave
+	pty->slave = *slave;
 	char path[32];
 	sprintf(path,"/dev/pts/%d",kernel->pty_count);
 	if(vfs_mount(path,*slave)){

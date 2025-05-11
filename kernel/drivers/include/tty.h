@@ -23,6 +23,7 @@ typedef struct tty {
 
 typedef struct pty {
 	ring_buffer output_buffer;
+	vfs_node *slave;
 }pty;
 
 /// @brief give a char to the input of a tty
