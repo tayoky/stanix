@@ -6,6 +6,7 @@
 #include <string.h>
 #include <errno.h>
 #include <pty.h>
+#include <poll.h>
 
 const char kbd_us[128] = {
 	0,0,
@@ -205,6 +206,8 @@ int main(int argc,const char **argv){
 	pid_t child = fork();
 	if(!child){
 		close(master);
+		dup2(STDIN_FILENO,STDOUT_FILENO);
+		dup2(STDOUT_FILENO,STDERR_FILENO);
 
 		//launch login
 		const char *arg[] = {
@@ -221,58 +224,79 @@ int main(int argc,const char **argv){
 	int shift = 0;
 
 	for(;;){
-		struct input_event event;
+		struct pollfd wait[] = {
+			{.fd = master,.events = POLLIN,.revents = 0},
+			{.fd = kbd_fd,.events = POLLIN,.revents = 0}
+		};
 
-		if(read(kbd_fd,&event,sizeof(event)) < 1){
-			continue;
+		if(poll(wait,2,-1) < 0){
+			perror("poll");
+			return 1;
 		}
 
-		//ignore not key event
-		if(event.ie_type != IE_KEY_EVENT){
-			continue;
-		}
+		if(wait[1].revents & POLLIN){
+			//there keyboard data to read
+			struct input_event event;
 
-		//special case for crtl and shift
-		if(event.ie_key.scancode == 0x1D){
-			if(event.ie_key.flags & IE_KEY_RELEASE){
-				crtl = 0;
-			} else {
-				crtl = 1;
+			if(read(kbd_fd,&event,sizeof(event)) < 1){
+				goto ignore;
 			}
-			continue;
-		}
-		if(event.ie_key.scancode == 0x2A || (event.ie_key.scancode == 0x3A && event.ie_key.flags & IE_KEY_PRESS)){
-			shift = 1 - shift;
-			continue;
-		}
 
-		//ignore key release
-		if(event.ie_key.flags & IE_KEY_RELEASE){
-			continue;
-		}
-
-		//put into the pipe and to the screen
-		char c;
-		if(shift){
-			c = layout_shift[event.ie_key.scancode];
-		} else {
-			c = layout[event.ie_key.scancode];
-		}
-		if(c){
-			//if crtl is pressed send special crtl + XXX char
-			if(crtl){
-				c -= 'a' - 1;
+			//ignore not key event
+			if(event.ie_type != IE_KEY_EVENT){
+				goto ignore;
 			}
-			if(write(master,&c,1)){
-				//if broken pipe that mean the child probably exited
-				//nobody need us now
-				if(errno == EPIPE){
-					return EXIT_SUCCESS;
+
+			//special case for crtl and shift
+			if(event.ie_key.scancode == 0x1D){
+				if(event.ie_key.flags & IE_KEY_RELEASE){
+					crtl = 0;
+				} else {
+					crtl = 1;
 				}
+				goto ignore;
+			}
+			if(event.ie_key.scancode == 0x2A || (event.ie_key.scancode == 0x3A && event.ie_key.flags & IE_KEY_PRESS)){
+				shift = 1 - shift;
+				goto ignore;
+			}
+
+			//ignore key release
+			if(event.ie_key.flags & IE_KEY_RELEASE){
+				goto ignore;
+			}
+
+			//put into the pipe and to the screen
+			char c;
+			if(shift){
+				c = layout_shift[event.ie_key.scancode];
+			} else {
+				c = layout[event.ie_key.scancode];
+			}
+			if(c){
+				//if crtl is pressed send special crtl + XXX char
+				if(crtl){
+					c -= 'a' - 1;
+				}
+				if(write(master,&c,1)){
+					//if broken pipe that mean the child probably exited
+					//nobody need us now
+					if(errno == EPIPE){
+						return EXIT_SUCCESS;
+					}
+				}
+				ignore:
+			}
+		}
+
+		if(wait[0].revents & POLLIN){
+			//there data to print
+			char c;
+			if(read(master,&c,1) < 0){
+				//read error ???
+				continue;
 			}
 			putchar(c);
-			fflush(stdout);
-			continue;
 		}
 	}
 }
