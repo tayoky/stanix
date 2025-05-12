@@ -809,8 +809,48 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout){
 		return 0;
 	}
 
-	//TODO wait on each fd and block
-	return -ENOSYS;
+	struct timeval end;
+	if(timeout > 0){
+		end.tv_usec = time.tv_usec;
+		end.tv_sec  = time.tv_sec;
+
+		end.tv_sec = timeout / 1000;
+		timeout %= 1000;
+		
+		end.tv_usec += timeout * 1000;
+
+		if(end.tv_usec > 1000000){
+			end.tv_usec -= 1000000;
+			end.tv_sec++;
+		}
+	}
+
+	for(;;){
+		ready_count = 0;
+		for(unsigned int i=0;i<nfds;i++){
+			if(!is_valid_fd(fds[i].fd)){
+				fds[i].revents = POLLNVAL;
+				return -EBADF;
+			}
+			int r = vfs_wait_check(FD_GET(fds[i].fd).node,fds[i].events);
+			if(r){
+				//it's ready !!!!
+				fds[i].revents = r;
+				ready_count++;
+			}
+		}
+		if(ready_count){
+			return ready_count;
+		}
+
+		//if timeout expire exit
+		if(timeout > 0 && (time.tv_sec < end.tv_sec || (time.tv_sec == end.tv_sec && time.tv_usec <= end.tv_usec))){
+			break;
+		}
+		yeld();
+	}
+	
+	return 0;
 }
 
 pid_t sys_getpid(){
