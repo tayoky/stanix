@@ -19,6 +19,7 @@ typedef struct tty {
 	char *canon_buf;
 	size_t canon_index;
 	process *fg_proc;
+	int unconnected;
 } tty;
 
 typedef struct pty {
@@ -44,5 +45,6 @@ int new_pty(vfs_node **master,vfs_node **slave,tty **);
 
 ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
+int tty_wait_check(vfs_node *node,short type);
 
 #endif

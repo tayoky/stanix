@@ -7,6 +7,7 @@
 #include <kernel/kernel.h>
 #include <sys/ioctl.h>
 #include <errno.h>
+#include <poll.h>
 
 void pty_output(char c,void *data){
 	pty *pty = (struct pty*)data;
@@ -19,8 +20,8 @@ ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	tty *tty = (struct tty *)node->private_inode;
 	pty *pty = (struct pty *)tty->private_data;
 
-	if(pty->slave->ref_count == 1){
-		//nobody as open the slave
+	if(pty->slave->ref_count == 1 && !ringbuffer_read_available(&pty->output_buffer)){
+		//nobody as open the slave and there no data
 		return -EIO;
 	}
 
@@ -38,6 +39,24 @@ ssize_t pty_master_write(vfs_node *node,void *buffer,uint64_t offset,size_t coun
 	return (ssize_t)count;
 }
 
+int pty_master_wait_check(vfs_node *node,short type){
+	tty *tty = (struct tty *)node->private_inode;
+	pty *pty = (struct pty *)tty->private_data;
+	int events = 0;
+	if((type & POLLHUP) && pty->slave->ref_count == 1){
+		events |= POLLHUP;
+	}
+	if((type & POLLIN) && ringbuffer_read_available(&pty->output_buffer)){
+		events |= POLLIN;
+	}
+	if(type & POLLOUT){
+		//we can alaway write to master pty
+		events |= POLLOUT;
+	}
+
+	return events;
+}
+
 int new_pty(vfs_node **master,vfs_node **slave,tty **rep){
 	pty *pty = kmalloc(sizeof(struct pty));
 	memset(pty,0,sizeof(struct pty));
@@ -52,10 +71,11 @@ int new_pty(vfs_node **master,vfs_node **slave,tty **rep){
 	//create the master
 	*master = kmalloc(sizeof(vfs_node));
 	memset(*master,0,sizeof(vfs_node));
-	(*master)->read  = pty_master_read;
-	(*master)->write = pty_master_write;
+	(*master)->read          = pty_master_read;
+	(*master)->write         = pty_master_write;
+	(*master)->wait_check    = pty_master_wait_check;
 	(*master)->private_inode = tty;
-	(*master)->ref_count = 1;
+	(*master)->ref_count     = 1;
 
 	//mount and save the slave
 	pty->slave = *slave;
@@ -98,6 +118,24 @@ ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 		count--;
 	}
 	return count;
+}
+
+int tty_wait_check(vfs_node *node,short type){
+	struct tty *tty = (struct tty *)node->private_inode;
+	int events = 0;
+	if((type & POLLHUP) && tty->unconnected){
+		events |= POLLHUP;
+	}
+
+	if((type & POLLIN) && ringbuffer_read_available(&tty->input_buffer)){
+		events |= POLLIN;
+	}
+
+	if(type & POLLOUT){
+		events |= POLLOUT;
+	}
+
+	return events;
 }
 
 int tty_ioctl(vfs_node *node,uint64_t request,void *arg){
@@ -162,10 +200,11 @@ vfs_node *new_tty(tty **tty){
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
 	node->private_inode = *tty;
-	node->flags = VFS_DEV | VFS_CHAR | VFS_TTY;
-	node->read  = tty_read;
-	node->write = tty_write;
-	node->ioctl = tty_ioctl;
+	node->flags         = VFS_DEV | VFS_CHAR | VFS_TTY;
+	node->read          = tty_read;
+	node->write         = tty_write;
+	node->ioctl         = tty_ioctl;
+	node->wait_check    = tty_wait_check;
 
 	return node;
 }
