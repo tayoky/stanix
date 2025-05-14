@@ -22,6 +22,7 @@
 #include <termios.h>
 #include <limits.h>
 #include <poll.h>
+#include <fcntl.h>
 
 static int find_fd(){
 	int fd = 0;
@@ -126,9 +127,6 @@ int sys_open(const char *path,int flags,mode_t mode){
 			node->size = 0;
 		}
 	}
-	if(flags & O_APPEND){
-		file->offset = node->size;
-	}
 
 	//now apply the flags on the fd
 	file->flags = 0;
@@ -143,9 +141,11 @@ int sys_open(const char *path,int flags,mode_t mode){
 	if(flags & O_APPEND){
 		file->flags |= FD_APPEND;
 	}
-
 	if(flags & O_CLOEXEC){
 		file->flags |= FD_CLOEXEC;
+	}
+	if(flags & O_NONBLOCK){
+		file->flags |= FD_NONBLOCK;
 	}
 
 	return fd;
@@ -171,8 +171,12 @@ ssize_t sys_write(int fd,void *buffer,size_t count){
 		return -EBADF;
 	}
 
-
 	file_descriptor *file = &FD_GET(fd);
+
+	//if non blocking mode check that write won't block
+	if(FD_CHECK(fd,FD_NONBLOCK) && !(vfs_wait_check(file->node,POLLOUT) & POLLOUT)){
+		return -EWOULDBLOCK;
+	}
 
 	//if append go to the end
 	if(FD_CHECK(fd,FD_APPEND)){
@@ -196,7 +200,14 @@ ssize_t sys_read(int fd,void *buffer,size_t count){
 	if((!is_valid_fd(fd) || (!FD_CHECK(fd,FD_READ)))){
 		return -EBADF;
 	}
+
 	file_descriptor *file = &FD_GET(fd);
+	
+	//if non blocking mode check that read won't block
+	if(FD_CHECK(fd,FD_NONBLOCK) && !(vfs_wait_check(file->node,POLLIN) & POLLIN)){
+		return -EWOULDBLOCK;
+	}
+
 	int64_t rsize = vfs_read(file->node,buffer,file->offset,count);
 
 	if(rsize > 0){
