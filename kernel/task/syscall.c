@@ -781,7 +781,7 @@ int sys_openpty(int *amaster, int *aslave, char *name,const struct termios *term
 		sprintf(name,"/dev/pts/%d",ret);
 	}
 
-	return -ENOSYS;
+	return 0;
 }
 
 int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout){
@@ -789,28 +789,8 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout){
 		return -EFAULT;
 	}
 
-	int ready_count = 0;
-	for(unsigned int i=0;i<nfds;i++){
-		if(!is_valid_fd(fds[i].fd)){
-			fds[i].revents = POLLNVAL;
-			return -EBADF;
-		}
-		int r = vfs_wait_check(FD_GET(fds[i].fd).node,fds[i].events);
-		if(r){
-			//it's ready !!!!
-			fds[i].revents = r;
-			ready_count++;
-		}
-	}
-
-	if(ready_count)return ready_count;
-
-	if(!timeout){
-		return 0;
-	}
-
 	struct timeval end;
-	if(timeout > 0){
+	if(timeout >= 0){
 		end.tv_usec = time.tv_usec;
 		end.tv_sec  = time.tv_sec;
 
@@ -824,10 +804,11 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout){
 			end.tv_sec++;
 		}
 	}
-
+	
 	for(;;){
-		ready_count = 0;
-		for(unsigned int i=0;i<nfds;i++){
+		int ready_count = 0;
+		for(nfds_t i=0; i<nfds; i++){
+			fds[i].revents = 0;
 			if(!is_valid_fd(fds[i].fd)){
 				fds[i].revents = POLLNVAL;
 				return -EBADF;
@@ -844,7 +825,7 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout){
 		}
 
 		//if timeout expire exit
-		if(timeout > 0 && (time.tv_sec < end.tv_sec || (time.tv_sec == end.tv_sec && time.tv_usec <= end.tv_usec))){
+		if(timeout >= 0 && (time.tv_sec < end.tv_sec || (time.tv_sec == end.tv_sec && time.tv_usec <= end.tv_usec))){
 			break;
 		}
 		yeld();
