@@ -5,6 +5,7 @@
 #include <kernel/string.h>
 #include <kernel/arch.h>
 #include <module/ps2.h>
+#include <poll.h>
 #include <input.h>
 #include <errno.h>
 
@@ -88,6 +89,14 @@ static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	return ringbuffer_read(buffer,node->private_inode,count);
 }
 
+static int kbd_wait_check(vfs_node *node,short type){
+	int events = 0;
+	if((type & POLLIN) && ringbuffer_read_available(node->private_inode)){
+		events |= POLLIN;
+	}
+	return events;
+}
+
 //helper
 #define CHANGE_SCANCODE(set) \
 	ps2_send(1,PS2_SET_SCANCODE_SET);\
@@ -131,9 +140,10 @@ static int init_ps2kb(int argc,char **argv){
 
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
-	node->read = kbd_read;
-	node->flags = VFS_DEV | VFS_CHAR;
-	node->ctime = NOW();
+	node->read          = kbd_read;
+	node->wait_check    = kbd_wait_check;
+	node->flags         = VFS_DEV | VFS_CHAR;
+	node->ctime         = NOW();
 	node->private_inode = &keyboard_queue;
 
 	//if was maunch wwith --no-translation we don't try using translation
