@@ -184,32 +184,30 @@ int main(int argc,const char **argv){
 
 	printf("starting userspace terminal emulator\n");
 
+	//create a new pty
 	int master;
 	int slave;
-	openpty(&master,&slave,NULL,NULL,NULL);
-	dup2(slave,STDIN_FILENO);
-	close(slave);
-
-	/*int pipefd[2];
-	pipe(pipefd);
-
-	dup2(pipefd[0],STDIN_FILENO);
-	close(pipefd[0]);*/
+	if(openpty(&master,&slave,NULL,NULL,NULL)){
+		perror("openpty");
+		return EXIT_FAILURE;
+	}
 
 	//try open keyboard
 	int kbd_fd = open("/dev/kb0",O_RDONLY);
 	if(kbd_fd < 0){
 		perror("/dev/kb0");
-		exit(1);
+		return EXIT_FAILURE;
 	}
 
+	//fork and launch login with std stream set to the slave
 	pid_t child = fork();
 	if(!child){
+		dup2(slave,STDIN_FILENO);
+		dup2(slave,STDOUT_FILENO);
+		dup2(slave,STDERR_FILENO);
 		close(master);
-		dup2(STDIN_FILENO,STDOUT_FILENO);
-		dup2(STDOUT_FILENO,STDERR_FILENO);
+		close(slave);
 
-		//launch login
 		const char *arg[] = {
 			"/bin/login",
 			NULL
@@ -219,6 +217,8 @@ int main(int argc,const char **argv){
 
 		exit(EXIT_FAILURE);
 	}
+
+	close(slave);
 
 	int crtl = 0;
 	int shift = 0;
@@ -231,7 +231,18 @@ int main(int argc,const char **argv){
 
 		if(poll(wait,2,-1) < 0){
 			perror("poll");
-			return 1;
+			return EXIT_FAILURE;
+		}
+
+		if(wait[0].revents & POLLIN){
+			//there data to print
+			char c;
+			if(read(master,&c,1) < 0){
+				//read error ???
+				perror("read");
+			} else {
+				putchar(c);
+			}
 		}
 
 		if(wait[1].revents & POLLIN){
@@ -287,16 +298,6 @@ int main(int argc,const char **argv){
 				}
 				ignore:
 			}
-		}
-
-		if(wait[0].revents & POLLIN){
-			//there data to print
-			char c;
-			if(read(master,&c,1) < 0){
-				//read error ???
-				continue;
-			}
-			putchar(c);
 		}
 	}
 }
