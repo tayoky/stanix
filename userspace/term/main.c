@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <pty.h>
 #include <poll.h>
+#include <termios.h>
 
 const char kbd_us[128] = {
 	0,0,
@@ -190,6 +191,18 @@ int main(int argc,const char **argv){
 	if(openpty(&master,&slave,NULL,NULL,NULL)){
 		perror("openpty");
 		return EXIT_FAILURE;
+	}
+
+	//disable NL to NL CR converstion and other termios stuff
+	struct termios attr;
+	if(tcgetattr(slave,&attr)){
+		perror("tcgetattr");
+	}
+	attr.c_oflag &= ~ONLCR;
+	//basicly we handle <CR> <CR NL> and <NL CR> and convert back to just <NL>
+	attr.c_oflag |= OPOST | ONOCR | ONLRET | OCRNL;
+	if(tcsetattr(slave,TCSANOW,&attr)){
+		perror("tcsetattr");
 	}
 
 	//try open keyboard
