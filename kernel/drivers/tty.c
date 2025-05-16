@@ -267,16 +267,18 @@ int tty_input(tty *tty,char c){
 
 	//canonical mode here
 	if(tty->termios.c_lflag & ICANON){
-		if(c == tty->termios.c_cc[VERASE] && tty->termios.c_lflag & ECHOE){
-			if(tty->canon_index > 0){
-				tty_output(tty,'\b');
-				tty_output(tty,' ');
-				tty_output(tty,'\b');
+		if(tty->termios.c_lflag & ECHO){
+			if(c == tty->termios.c_cc[VERASE] && tty->termios.c_lflag & ECHOE){
+				if(tty->canon_index > 0){
+					tty_output(tty,'\b');
+					tty_output(tty,' ');
+					tty_output(tty,'\b');
+				}
+			} else {
+				tty_output(tty,c);
 			}
 		} else if(c == '\n' && (tty->termios.c_lflag & ECHONL)){
-			tty_output(tty,'\n');
-		} else if(tty->termios.c_lflag & ECHO){
-			tty_output(tty,c);
+				tty_output(tty,'\n');
 		}
 
 		//line editing stuff
