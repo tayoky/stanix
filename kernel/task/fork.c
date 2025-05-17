@@ -23,6 +23,7 @@ pid_t fork(void){
 	child->rsp = KERNEL_STACK_TOP;
 	child->heap_end = parent->heap_end;
 	child->heap_start = parent->heap_start;
+	child->sig_mask = parent->sig_mask;
 
 	//clone fd
 	for(int i = 0;i<MAX_FD;i++){

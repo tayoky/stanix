@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <kernel/list.h>
+#include <sys/signal.h>
 
 struct fault_frame;
 struct process_struct;
@@ -53,6 +54,7 @@ typedef struct process_struct{
 	pid_t waitfor;
 	long exit_status;
 	list *child;
+	sigset_t sig_mask;
 } process;
 
 #define PROC_STATE_PRESENT 0x01

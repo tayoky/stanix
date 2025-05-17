@@ -3,13 +3,9 @@
 #include <kernel/print.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
-#include <errno.h>
 #include <kernel/page.h>
 #include <kernel/paging.h>
 #include <kernel/time.h>
-#include <sys/type.h>
-#include <dirent.h>
-#include <sys/stat.h>
 #include <kernel/pipe.h>
 #include <kernel/exec.h>
 #include <kernel/memseg.h>
@@ -19,8 +15,13 @@
 #include <kernel/arch.h>
 #include <kernel/module.h>
 #include <kernel/tty.h>
+#include <sys/type.h>
+#include <sys/stat.h>
+#include <sys/signal.h>
 #include <termios.h>
+#include <dirent.h>
 #include <limits.h>
+#include <errno.h>
 #include <poll.h>
 #include <fcntl.h>
 
@@ -845,6 +846,39 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout){
 	return 0;
 }
 
+int sys_sigprocmask(int how, const sigset_t * restrict set, sigset_t *oldset){
+	if(set && !CHECK_STRUCT(set)){
+		return -EFAULT;
+	}
+	if(oldset && !CHECK_STRUCT(oldset)){
+		return -EFAULT;
+	}
+
+	if(oldset){
+		*oldset = get_current_proc()->sig_mask;
+	}
+
+	//if set is null then we have finished our jobs
+	if(!set){
+		return 0;
+	}
+
+	switch(how){
+	case SIG_BLOCK:
+		get_current_proc()->sig_mask |= *set;
+		break;
+	case SIG_UNBLOCK:
+		get_current_proc()->sig_mask &= ~*set;
+		break;
+	case SIG_SETMASK:
+		get_current_proc()->sig_mask = *set;
+		break;
+	default :
+		return -EINVAL;
+	}
+	return 0;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -885,6 +919,12 @@ void *syscall_table[] = {
 	(void *)sys_isatty,
 	(void *)sys_openpty,
 	(void *)sys_poll,
+	(void *)sys_sigprocmask,
+	(void *)sys_stub, //sys_sigaction
+	(void *)sys_stub, //sys_wait
+	(void *)sys_stub, //sys_suspend
+	(void *)sys_stub, //sys_pending
+	(void *)sys_stub, //sys_kill
 	(void *)sys_getpid,
 };
 
