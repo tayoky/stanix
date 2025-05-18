@@ -194,6 +194,9 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	//and envp too
 	kfree(saved_envp);
 
+	//reset signal handling
+	memset(get_current_proc()->sig_handling,0,sizeof(get_current_proc()->sig_handling));
+
 	//now jump into the program !!
 	kdebugf("exec entry : %p\n",header.e_entry);
 	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP,argc,argv,envc,envp);

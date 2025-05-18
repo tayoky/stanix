@@ -55,6 +55,8 @@ typedef struct process_struct{
 	long exit_status;
 	list *child;
 	sigset_t sig_mask;
+	sigset_t pending_sig;
+	struct sigaction sig_handling[32];
 } process;
 
 #define PROC_STATE_PRESENT 0x01

@@ -15,6 +15,7 @@
 #include <kernel/arch.h>
 #include <kernel/module.h>
 #include <kernel/tty.h>
+#include <kernel/signal.h>
 #include <sys/type.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
@@ -879,6 +880,57 @@ int sys_sigprocmask(int how, const sigset_t * restrict set, sigset_t *oldset){
 	return 0;
 }
 
+int sys_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact){
+	if(act && !CHECK_STRUCT(act)){
+		return -EFAULT;
+	}
+	if(oldact && !CHECK_STRUCT(oldact)){
+		return -EFAULT;
+	}
+
+	if(signum >= _NSIG || signum <= 0){
+		return -EINVAL;
+	}
+
+	if(oldact){
+		*oldact = get_current_proc()->sig_handling[signum];
+	}
+
+	//can't change handling for SIGKILL and SIGSTOP
+	if(signum == SIGKILL || signum == SIGSTOP){
+		return 0;
+	}
+
+	if(act){
+		get_current_proc()->sig_handling[signum] = *act;
+	}
+
+	return 0;
+}
+
+int sys_sigpending(sigset_t *set){
+	if(!CHECK_STRUCT(set)){
+		return -EFAULT;
+	}
+
+	*set = get_current_proc()->pending_sig;
+
+	return 0;
+}
+
+int sys_kill(pid_t pid,int sig){
+	process *proc = pid2proc(pid);
+	if(!proc){
+		return -ESRCH;
+	}
+
+	//TODO : permission checks
+
+	send_sig(proc,sig);
+
+	return 0;
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -920,11 +972,11 @@ void *syscall_table[] = {
 	(void *)sys_openpty,
 	(void *)sys_poll,
 	(void *)sys_sigprocmask,
-	(void *)sys_stub, //sys_sigaction
-	(void *)sys_stub, //sys_wait
-	(void *)sys_stub, //sys_suspend
-	(void *)sys_stub, //sys_pending
-	(void *)sys_stub, //sys_kill
+	(void *)sys_sigaction,
+	(void *)sys_stub, //sys_sigwait
+	(void *)sys_stub, //sys_sigsuspend
+	(void *)sys_sigpending,
+	(void *)sys_kill,
 	(void *)sys_getpid,
 };
 

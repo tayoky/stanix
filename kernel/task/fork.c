@@ -24,6 +24,7 @@ pid_t fork(void){
 	child->heap_end = parent->heap_end;
 	child->heap_start = parent->heap_start;
 	child->sig_mask = parent->sig_mask;
+	memcpy(child->sig_handling,parent->sig_handling,sizeof(parent->sig_handling));
 
 	//clone fd
 	for(int i = 0;i<MAX_FD;i++){
