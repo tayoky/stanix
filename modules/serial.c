@@ -58,6 +58,8 @@ tty *serial_ports = NULL;
 
 
 static void serial_handler(fault_frame *frame){
+	(void)frame;
+	
 	//TODO : add support for multiple serial ports
 	uint16_t port = (uint16_t)(uintptr_t)serial_ports->private_data;
 	tty_input(serial_ports,in_byte(port));

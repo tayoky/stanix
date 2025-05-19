@@ -23,7 +23,7 @@ static const char default_handling[32] = {
 
 int send_sig(process *proc,int signum){
 	//if the process ignore just skip
-	if(proc->sig_handling[signum].sa_handler == SIG_IGN || proc->sig_handling[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN){
+	if(proc->sig_handling[signum].sa_handler == SIG_IGN || (proc->sig_handling[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN)){
 		return 0;
 	}
 

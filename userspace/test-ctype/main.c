@@ -14,7 +14,7 @@ test tests[] = {
 	{.func = NULL}
 };
 
-int main(int argc,char **argv){
+int main(){
 	int i = 0;
 	while(tests[i].func){
 		if(tests[i].func(tests[i].c) != tests[i].result){

@@ -45,7 +45,7 @@ void init_task(){
 	kernel_task->child = new_list();
 
 	//setup a new stack
-	kernel_task->kernel_stack = kmalloc(KERNEL_STACK_SIZE) - KERNEL_STACK_SIZE;
+	kernel_task->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE) - KERNEL_STACK_SIZE;
 	kernel_task->kernel_stack &= ~0xFUL;
 
 	//get the address space
