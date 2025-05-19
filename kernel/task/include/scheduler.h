@@ -1,12 +1,13 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#include <stdint.h>
+#include <kernel/list.h>
+#include <kernel/paging.h>
 #include <kernel/vfs.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <kernel/list.h>
 #include <sys/signal.h>
+#include <stdint.h>
 
 struct fault_frame;
 struct process_struct;
@@ -35,9 +36,10 @@ typedef struct memseg_struct {
 }memseg;
 
 typedef struct process_struct{
-	uint64_t cr3;            //WARNING !!!!
-	uint64_t rsp;            //this first two value are reference in switch.s
-	struct fault_frame *syscall_frame; //any change here must be also done in this file
+	addrspace_t addrspace;
+	uintptr_t rsp;
+	uintptr_t kernel_stack;
+	struct fault_frame *syscall_frame;
 	pid_t pid;
 	struct process_struct *snext; //next field used in sleep
 	struct process_struct *next;

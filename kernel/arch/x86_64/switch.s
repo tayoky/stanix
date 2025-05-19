@@ -50,10 +50,8 @@ context_switch:
 
 	;first save rsp
 
-	mov qword[rdi + 8], rsp
-	mov rax, qword[rsi]
-	mov cr3,rax
-	mov rsp, qword[rsi + 8]
+	mov qword[rsi], rsp
+	mov rsp, rdi
 
 	add rsp, 16 ;skip cr2 ad cr3
 	pop rax

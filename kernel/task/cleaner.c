@@ -22,7 +22,7 @@ void cleaner_task(){
 
 void free_proc(process *proc){
 	//now free the paging tables
-	delete_addr_space((uint64_t *)(proc->cr3 + kernel->hhdm));
+	delete_addr_space(proc->addrspace);
 
 	//close every open fd
 	for (size_t i = 0; i < MAX_FD; i++){

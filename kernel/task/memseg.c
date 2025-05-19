@@ -1,8 +1,9 @@
 #include <kernel/memseg.h>
-#include <stdint.h>
 #include <kernel/paging.h>
 #include <kernel/scheduler.h>
 #include <kernel/string.h>
+#include <kernel/kernel.h>
+#include <stdint.h>
 
 memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
 	//first convert all of that into pages
@@ -24,7 +25,7 @@ memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
 
 
 	while(size > 0){
-		map_page((void *)proc->cr3 + kernel->hhdm,pmm_allocate_page(),address,flags);
+		map_page(proc->addrspace,pmm_allocate_page(),address,flags);
 		address += PAGE_SIZE;
 		size--;
 	}
@@ -36,10 +37,9 @@ void memeseg_chflag(process *proc,memseg *seg,uint64_t flags){
 	
 	size_t size = seg->size;
 	uintptr_t address = (uintptr_t)seg->offset;
-	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
 	seg->flags = flags;
 	while(size > 0){
-		map_page(PMLT4,(uintptr_t)space_virt2phys(PMLT4,(void *)address),address,flags);
+		map_page(proc->addrspace,(uintptr_t)space_virt2phys(proc->addrspace,(void *)address),address,flags);
 		address += PAGE_SIZE;
 		size--;
 	}
@@ -60,15 +60,14 @@ void memseg_unmap(process *proc,memseg *seg){
 	}
 
 	//unmap
-	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
 	size_t size = seg->size;
 	uintptr_t virt_page = (uintptr_t)seg->offset;
 	while(size > 0){
 		//get the phys page
-		uintptr_t phys_page = (uintptr_t)space_virt2phys((void *)proc->cr3 + kernel->hhdm,(void *)virt_page);
+		uintptr_t phys_page = (uintptr_t)space_virt2phys(proc->addrspace,(void *)virt_page);
 
 		//unmap it
-		unmap_page(PMLT4,virt_page);
+		unmap_page(proc->addrspace,virt_page);
 
 		//free it
 		pmm_free_page(phys_page);
@@ -89,7 +88,7 @@ void memseg_clone(process *parent,process *child,memseg *seg){
 	uintptr_t virt_addr = (uintptr_t)new_seg->offset;
 	while(size > 0){
 		//get the phys page
-		void * phys_addr = space_virt2phys((void *)child->cr3 + kernel->hhdm,(void *)virt_addr);
+		void * phys_addr = space_virt2phys(child->addrspace,(void *)virt_addr);
 
 		memcpy((void *)((uintptr_t)phys_addr + kernel->hhdm), (void *)virt_addr ,PAGE_SIZE);
 		

@@ -44,8 +44,12 @@ void init_task(){
 	kernel_task->flags = PROC_STATE_PRESENT | PROC_STATE_RUN;
 	kernel_task->child = new_list();
 
+	//setup a new stack
+	kernel_task->kernel_stack = kmalloc(KERNEL_STACK_SIZE) - KERNEL_STACK_SIZE;
+	kernel_task->kernel_stack &= ~0xFUL;
+
 	//get the address space
-	kernel_task->cr3 = get_addr_space();
+	kernel_task->addrspace = get_addr_space();
 	
 	//let just the boot kernel task start with a cwd at initrd root
 	kernel_task->cwd_node = vfs_open("/",VFS_READONLY);
@@ -93,15 +97,21 @@ process *new_proc(){
 	memset(proc,0,sizeof(process));
 	proc->pid = ++kernel->created_proc_count;
 	kdebugf("new proc 0x%p next : 0x%p pid : %ld/%ld\n",proc,get_current_proc()->next,proc->pid,kernel->created_proc_count);
-	proc->cr3 = ((uintptr_t)create_addr_space()) - kernel->hhdm;
+	proc->addrspace = create_addr_space();
 	proc->parent = get_current_proc();
 	proc->flags = PROC_STATE_PRESENT;
 	proc->child = new_list();
 
+	//setup a new kernel stack
+	proc->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+	proc->kernel_stack &= ~0xFUL;
+	proc->rsp = proc->kernel_stack;
+	kdebugf("current rsp :%p\n",proc->rsp);
+
 	//add it to the global process list
 	list_append(proc_list,proc);
 
-	if(!proc->cr3){
+	if(!proc->addrspace){
 		kdebugf("cr3 is 0 !!!\n");
 		disable_interrupt();
 		for(;;);
@@ -113,21 +123,20 @@ process *new_proc(){
 //TODO argv don't work
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]){
 	process *proc = new_proc();
-	proc->rsp = KERNEL_STACK_TOP;
 
 	fault_frame context;
 	memset(&context,0,sizeof(fault_frame));
 	ARG1_REG(context) = argc;
-	ARG2_REG(context) = (uint64_t)argv;
+	ARG2_REG(context) = (uintptr_t)argv;
 	#ifdef x86_64
 	context.flags = 0x208;
 	context.cs = 0x08;
 	context.ss = 0x10;
 	context.rip = (uint64_t)func;
-	context.rsp = KERNEL_STACK_TOP;
+	context.rsp = proc->kernel_stack;
 	#endif
 	proc_push(proc,&context,sizeof(fault_frame));
-	kdebugf("%p %p\n",proc->cr3,proc->rsp);
+	kdebugf("%p %p\n",proc->addrspace,proc->rsp);
 
 	//just copy the cwd of the current task
 	proc->cwd_node = vfs_dup(get_current_proc()->cwd_node);
@@ -145,10 +154,9 @@ void proc_push(process *proc,void *value,size_t size){
 
 	char *buffer = value;
 
-	uint64_t *PMLT4 = (uint64_t *)(proc->cr3 + kernel->hhdm);
 	for(size_t i=0; i<size; i++){
 		//find the address to write to
-		char *address = (char *) (((uintptr_t) space_virt2phys(PMLT4,(void *)(proc->rsp + i))) + kernel->hhdm);
+		char *address = (char *) (((uintptr_t) space_virt2phys(proc->addrspace,(void *)(proc->rsp + i))) + kernel->hhdm);
 
 		//and write to it
 		*address = buffer[i];
@@ -167,13 +175,22 @@ void yeld(){
 
 	schedule();
 
-	if(!get_current_proc()->cr3){
+	if(!get_current_proc()->addrspace){
 		kdebugf("%ld/%ld : %p : cr3 is 0 !!!\n",get_current_proc()->pid,kernel->created_proc_count,old->next);
 	}
-	
-	kernel->can_task_switch = 1;
 
-	context_switch(old,get_current_proc());
+	if(old->addrspace != get_current_proc()->addrspace){
+		set_addr_space(get_current_proc()->addrspace);
+	}
+
+	set_kernel_stack(get_current_proc()->kernel_stack);
+
+	//kdebugf("rsp : %p\n",get_current_proc()->rsp);
+
+	kernel->can_task_switch = 1;
+	if(get_current_proc() != old){
+		context_switch(get_current_proc()->rsp,&old->rsp);
+	}
 }
 
 process *get_current_proc(){

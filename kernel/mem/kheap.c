@@ -3,6 +3,7 @@
 #include <kernel/print.h>
 #include <kernel/panic.h>
 #include <kernel/spinlock.h>
+#include <kernel/kernel.h>
 
 void init_kheap(void){
 	kstatus("init kheap... ");
@@ -10,9 +11,8 @@ void init_kheap(void){
 	kernel->kheap.start = PAGE_ALIGN_DOWN(KHEAP_START);
 	kernel->kheap.changes_size = change_kheap_size;
 
-	//get addr space
-	uint64_t *addr_space = (uint64_t *)(get_addr_space() + kernel->hhdm);
-	map_page(addr_space,pmm_allocate_page(),kernel->kheap.start,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+	//map a page
+	map_page(get_addr_space(),pmm_allocate_page(),kernel->kheap.start,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 
 	kernel->kheap.lenght = PAGE_SIZE;
 
@@ -31,7 +31,7 @@ void change_kheap_size(ssize_t offset){
 	int64_t offset_page = offset / PAGE_SIZE;
 
 	//get the addr space
-	uint64_t *addr_space = (uint64_t *)(get_addr_space() + kernel->hhdm);
+	addrspace_t addr_space = get_addr_space();
 
 	if(offset < 0){
 		//make kheap smaller

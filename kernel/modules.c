@@ -1,11 +1,12 @@
 #include <kernel/module.h>
+#include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/vfs.h>
-#include <elf.h>
 #include <kernel/string.h>
 #include <kernel/paging.h>
 #include <kernel/sym.h>
 #include <errno.h>
+#include <elf.h>
 
 //dynamic module loading
 

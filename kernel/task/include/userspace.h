@@ -4,6 +4,7 @@
 #include <kernel/page.h>
 #include <kernel/paging.h>
 #include <stdint.h>
+#include <stddef.h>
 
 void jump_userspace(void *address,void *stack,int argc,const char **argv,int envc,const char **envp);
 

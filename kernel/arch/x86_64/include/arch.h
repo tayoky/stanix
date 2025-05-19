@@ -46,8 +46,8 @@ typedef struct arch_specific {
 #include <kernel/scheduler.h>
 
 //arch specific functions
-
-void context_switch(process *old,process *new);
+void set_kernel_stack(uintptr_t stack);
+void context_switch(uintptr_t new_rsp,uintptr_t *old_rsp);
 
 void init_timer();
 

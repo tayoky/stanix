@@ -8,10 +8,14 @@ extern uint64_t p_kernel_start[];
 extern uint64_t p_kernel_end[];
 extern uint64_t p_kernel_text_end[];
 
-uint64_t get_addr_space(){
+addrspace_t get_addr_space(){
 	uint64_t cr3;
 	asm("mov %%cr3, %%rax" : "=a" (cr3));
-	return cr3;
+	return (addrspace_t)(cr3 + kernel->hhdm);
+}
+
+void set_addr_space(addrspace_t new_addrspace){
+	asm volatile ("movq %0, %%cr3" : :  "r" ((uintptr_t)new_addrspace - kernel->hhdm) );
 }
 
 void init_paging(void){
@@ -25,17 +29,17 @@ void init_paging(void){
 		memset((void *)kernel->arch.hPDP[i] + kernel->hhdm,0,PAGE_SIZE);
 	}
 	
-	uint64_t *PMLT4 = create_addr_space();
+	addrspace_t PMLT4 = create_addr_space();
 
 	//map kernel in it
 	map_kernel(PMLT4);
 
-	uint64_t cr3 = (uint64_t)PMLT4 - kernel->hhdm;
-	asm volatile ("movq %0, %%cr3" : :  "r" (cr3) );
+	set_addr_space(PMLT4);
+
 	kok();
 }
 
-uint64_t *create_addr_space(){
+addrspace_t create_addr_space(){
 	//allocate place for the PMLT4
 	uint64_t *PMLT4 = (uint64_t *)(pmm_allocate_page() + kernel->hhdm);
 
@@ -48,24 +52,10 @@ uint64_t *create_addr_space(){
 	//map the hhdm
 	map_hhdm(PMLT4);
 
-	//map the stack
-	uint64_t kernel_stack_page = KERNEL_STACK_SIZE / PAGE_SIZE;
-	uint64_t virt_page = PAGE_ALIGN_DOWN(KERNEL_STACK_BOTTOM);
-	for (size_t i = 0; i < kernel_stack_page; i++){
-		map_page(PMLT4,pmm_allocate_page(),virt_page,PAGING_FLAG_NO_EXE | PAGING_FLAG_RW_CPL0);
-		virt_page += PAGE_SIZE;
-	}
-
 	return PMLT4;
 }
 
-void delete_addr_space(uint64_t *PMLT4){
-	//first free the kernel stack
-	for (size_t cur = KERNEL_STACK_BOTTOM; cur < KERNEL_STACK_TOP; cur+= PAGE_SIZE){
-		pmm_free_page((uintptr_t)space_virt2phys(PMLT4,(void *)cur));
-	}
-	
-
+void delete_addr_space(addrspace_t PMLT4){
 	//recusively free everythings
 	//EXCEPT THE HIGHER PDP
 
@@ -105,7 +95,7 @@ void *virt2phys(void *address){
 	return space_virt2phys(PMLT4,address);
 }
 
-void *space_virt2phys(uint64_t *PMLT4, void *address){
+void *space_virt2phys(addrspace_t PMLT4, void *address){
 	uint64_t PMLT4i= ((uint64_t)address >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)address >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)address >> 21) & 0x1FF;
@@ -133,7 +123,7 @@ void *space_virt2phys(uint64_t *PMLT4, void *address){
 	return (void *) ((PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF));
 }
 
-void map_page(uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint64_t falgs){
+void map_page(addrspace_t PMLT4,uintptr_t physical_page,uintptr_t virtual_page,uint64_t falgs){
 	uint64_t PMLT4i= ((uint64_t)virtual_page >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)virtual_page >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)virtual_page >> 21) & 0x1FF;
@@ -160,7 +150,7 @@ void map_page(uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint6
 	PT[PTi] = (physical_page & ~0xFFFUL) | falgs;
 }
 
-void unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
+void unmap_page(addrspace_t PMLT4,uintptr_t virtual_page){
 	uint64_t PMLT4i= ((uint64_t)virtual_page >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)virtual_page >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)virtual_page >> 21) & 0x1FF;
