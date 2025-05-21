@@ -1,7 +1,6 @@
 #include <kernel/exec.h>
 #include <kernel/scheduler.h>
 #include <kernel/kernel.h>
-#include <elf.h>
 #include <kernel/string.h>
 #include <kernel/paging.h>
 #include <kernel/print.h>
@@ -9,6 +8,7 @@
 #include <kernel/memseg.h>
 #include <kernel/sys.h>
 #include <errno.h>
+#include <elf.h>
 
 int verfiy_elf(Elf64_Ehdr *header){
 	if(memcmp(header,ELFMAG,4)){
@@ -19,9 +19,15 @@ int verfiy_elf(Elf64_Ehdr *header){
 		return 0;
 	}
 
+	#ifdef __i386__
+	if(header->e_ident[EI_CLASS] != ELFCLASS32){
+		return 0;
+	}
+	#else
 	if(header->e_ident[EI_CLASS] != ELFCLASS64){
 		return 0;
 	}
+	#endif
 
 	return 1;
 }
@@ -113,7 +119,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 
 		//convert elf header to paging header
 		uint64_t flags = PAGING_FLAG_READONLY_CPL3;
-		if(!prog_header[i].p_flags & PF_X){
+		if((!prog_header[i].p_flags & PF_X)){
 			flags |= PAGING_FLAG_NO_EXE;
 		}
 		if(prog_header[i].p_flags & PF_W){
@@ -154,7 +160,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	//make place for argv
 	argv = (const char **)get_current_proc()->heap_start;
 	sys_sbrk(PAGE_ALIGN_UP(total_arg_size));
-	char *ptr = (char *)(((uint64_t)argv) + (argc + 1) * sizeof(char *));
+	char *ptr = (char *)(((uintptr_t)argv) + (argc + 1) * sizeof(char *));
 	
 
 	//restore argv
@@ -197,8 +203,13 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	//reset signal handling
 	memset(get_current_proc()->sig_handling,0,sizeof(get_current_proc()->sig_handling));
 
+
+	//reset the kernel stack entry just in case the context swicht didn't
+	set_kernel_stack(get_current_proc()->kernel_stack);
+
 	//now jump into the program !!
 	kdebugf("exec entry : %p\n",header.e_entry);
+
 	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP,argc,argv,envc,envp);
 
 	return 0;

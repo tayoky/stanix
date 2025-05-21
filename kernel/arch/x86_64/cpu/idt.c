@@ -52,7 +52,7 @@ void page_fault_info(fault_frame *fault){
 	else if(fault->err_code & 0x02)kprintf("write");
 	else kprintf("read");
 	kprintf(" a ");
-	if(!fault->err_code & 0x01)kprintf("non ");
+	if(!(fault->err_code & 0x01))kprintf("non ");
 	kprintf("present page\n");
 }
 
