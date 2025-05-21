@@ -129,7 +129,8 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 	ARG1_REG(context) = argc;
 	ARG2_REG(context) = (uintptr_t)argv;
 	#ifdef x86_64
-	context.flags = 0x208;
+	asm volatile("pushfq\n"
+		"pop %0" : "=r" (context.flags));
 	context.cs = 0x08;
 	context.ss = 0x10;
 	context.rip = (uint64_t)func;
