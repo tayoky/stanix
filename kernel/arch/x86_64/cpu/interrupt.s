@@ -42,6 +42,8 @@ isr_err_stub_base:
     mov rax, cr2
     push rax
     mov rdi, rsp
+    mov rax, 0x10
+    mov ss, ax
     call exception_handler
     pop rax
     pop rax
