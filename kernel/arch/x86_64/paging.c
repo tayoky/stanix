@@ -123,11 +123,11 @@ void *space_virt2phys(addrspace_t PMLT4, void *address){
 	return (void *) ((PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF));
 }
 
-void map_page(addrspace_t PMLT4,uintptr_t physical_page,uintptr_t virtual_page,uint64_t falgs){
-	uint64_t PMLT4i= ((uint64_t)virtual_page >> 39) & 0x1FF;
-	uint64_t PDPi  = ((uint64_t)virtual_page >> 30) & 0x1FF;
-	uint64_t PDi   = ((uint64_t)virtual_page >> 21) & 0x1FF;
-	uint64_t PTi   = ((uint64_t)virtual_page >> 12) & 0x1FF;
+void map_page(addrspace_t PMLT4,uintptr_t physical_page,uintptr_t virtual_addr,uint64_t falgs){
+	uint64_t PMLT4i= ((uint64_t)virtual_addr >> 39) & 0x1FF;
+	uint64_t PDPi  = ((uint64_t)virtual_addr >> 30) & 0x1FF;
+	uint64_t PDi   = ((uint64_t)virtual_addr >> 21) & 0x1FF;
+	uint64_t PTi   = ((uint64_t)virtual_addr >> 12) & 0x1FF;
 	
 	if(!(PMLT4[PMLT4i] & 1)){
 		PMLT4[PMLT4i] = pmm_allocate_page() | PAGING_FLAG_RW_CPL3;
@@ -148,13 +148,15 @@ void map_page(addrspace_t PMLT4,uintptr_t physical_page,uintptr_t virtual_page,u
 
 	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	PT[PTi] = (physical_page & ~0xFFFUL) | falgs;
+
+	asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
 }
 
-void unmap_page(addrspace_t PMLT4,uintptr_t virtual_page){
-	uint64_t PMLT4i= ((uint64_t)virtual_page >> 39) & 0x1FF;
-	uint64_t PDPi  = ((uint64_t)virtual_page >> 30) & 0x1FF;
-	uint64_t PDi   = ((uint64_t)virtual_page >> 21) & 0x1FF;
-	uint64_t PTi   = ((uint64_t)virtual_page >> 12) & 0x1FF;
+void unmap_page(addrspace_t PMLT4,uintptr_t virtual_addr){
+	uint64_t PMLT4i= ((uint64_t)virtual_addr >> 39) & 0x1FF;
+	uint64_t PDPi  = ((uint64_t)virtual_addr >> 30) & 0x1FF;
+	uint64_t PDi   = ((uint64_t)virtual_addr >> 21) & 0x1FF;
+	uint64_t PTi   = ((uint64_t)virtual_addr >> 12) & 0x1FF;
 
 	if(!PMLT4[PMLT4i] & 1){
 		return;
@@ -201,6 +203,8 @@ void unmap_page(addrspace_t PMLT4,uintptr_t virtual_page){
 	}
 	pmm_free_page((uintptr_t)PDP-kernel->hhdm);
 	PMLT4[PMLT4i] = 0;
+
+	asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
 }
 
 void map_kernel(uint64_t *PMLT4){
