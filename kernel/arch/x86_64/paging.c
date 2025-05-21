@@ -60,19 +60,19 @@ void delete_addr_space(addrspace_t PMLT4){
 	//EXCEPT THE HIGHER PDP
 
 	for (uint16_t PMLT4i = 0; PMLT4i < (512 - 8); PMLT4i++){
-		if(!PMLT4[PMLT4i] & 1)continue;
+		if(!(PMLT4[PMLT4i] & 1))continue;
 
 		uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 
 		for (uint16_t PDPi = 0; PDPi < 512; PDPi++){
-			if(!PDP[PDPi] & 1)continue;
+			if(!(PDP[PDPi] & 1))continue;
 			uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 
 			for (uint16_t PDi = 0; PDi < 512; PDi++){
 				if(!(PD[PDi] & 1))continue;
 				uint64_t *PT = (uint64_t *)((PMLT4[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 				
-				//pmm_free_page((uintptr_t)PT-kernel->hhdm);
+				//pmm_free_page(((uintptr_t)PT)-kernel->hhdm);
 			}
 
 			//pmm_free_page((uintptr_t)PD-kernel->hhdm);
@@ -81,8 +81,7 @@ void delete_addr_space(addrspace_t PMLT4){
 		//pmm_free_page((uintptr_t)PDP-kernel->hhdm);
 	}
 	
-
-	//pmm_free_page((uintptr_t)PMLT4-kernel->hhdm);
+	//pmm_free_page(((uintptr_t)PMLT4)-kernel->hhdm);
 }
 
 void *virt2phys(void *address){
@@ -101,22 +100,22 @@ void *space_virt2phys(addrspace_t PMLT4, void *address){
 	uint64_t PDi   = ((uint64_t)address >> 21) & 0x1FF;
 	uint64_t PTi   = ((uint64_t)address >> 12) & 0x1FF;
 	
-	if(!PMLT4[PMLT4i] & 1){
+	if(!(PMLT4[PMLT4i] & 1)){
 		return NULL;
 	}
 
 	uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!PDP[PDPi] & 1){
+	if(!(PDP[PDPi] & 1)){
 		return NULL;
 	}
 
 	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!PD[PDi] & 1){
+	if(!(PD[PDi] & 1)){
 		return NULL;
 	}
 
 	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!PT[PTi] & 1){
+	if(!(PT[PTi] & 1)){
 		return NULL;
 	}
 
@@ -158,22 +157,22 @@ void unmap_page(addrspace_t PMLT4,uintptr_t virtual_addr){
 	uint64_t PDi   = ((uint64_t)virtual_addr >> 21) & 0x1FF;
 	uint64_t PTi   = ((uint64_t)virtual_addr >> 12) & 0x1FF;
 
-	if(!PMLT4[PMLT4i] & 1){
+	if(!(PMLT4[PMLT4i] & 1)){
 		return;
 	}
 
 	uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!PDP[PDPi] & 1){
+	if(!(PDP[PDPi] & 1)){
 		return;
 	}
 
 	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!PD[PDi] & 1){
+	if(!(PD[PDi] & 1)){
 		return;
 	}
 
 	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	if(!PT[PTi] & 1){
+	if(!(PT[PTi] & 1)){
 		return;
 	}
 	
