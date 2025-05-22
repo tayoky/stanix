@@ -1,5 +1,4 @@
 #include <fcntl.h>
-#include <syscall.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
@@ -9,7 +8,6 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/module.h>
-#include <syscall.h>
 #include <ctype.h>
 #include <input.h>
 #include <dirent.h>

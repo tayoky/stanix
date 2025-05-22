@@ -19,7 +19,7 @@ ASMFLAGS += -Wall \
 #cc flags
 CFLAGS = -Wall \
 	-Wextra \
-	-std=gnu11 \
+	-std=c11\
 	-ffreestanding \
 	-fno-stack-protector \
 	-fno-stack-check \
