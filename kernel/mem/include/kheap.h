@@ -2,7 +2,7 @@
 #define KHEAP_H
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/spinlock.h>
+#include <kernel/mutex.h>
 
 struct heap_segment_struct;
 
@@ -20,7 +20,7 @@ typedef struct {
 	uint64_t start;
 	uint64_t lenght;
 	heap_segment *first_seg;
-	atomic_flag lock;
+	mutex_t mutex;
 	void (*changes_size)(ssize_t);
 }heap_info;
 
