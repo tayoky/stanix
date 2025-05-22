@@ -4,16 +4,6 @@
 #include <stdint.h>
 #include <sys/type.h>
 
-typedef struct bitmap_struct{
-	/// @brief size in uin64_t count
-	uint64_t size;
-	/// @brief the first free page (-1 if not caculated)
-	uint64_t last_allocated;
-	uint64_t page_count;
-	uint64_t used_page_count;
-	uint64_t *data;
-}bitmap_meta;
-
 typedef struct PMM_entry_struct {
 	struct PMM_entry_struct *next;
 	size_t size; //size of the chunk in page
