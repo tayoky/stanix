@@ -237,11 +237,15 @@ void map_hhdm(uint64_t *PMLT4){
 			type == LIMINE_MEMMAP_USABLE
 			){
 				//map all the section
-				uint64_t section_size = PAGE_DIV_UP(kernel->memmap->entries[index]->length);
-				uint64_t phys_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base);
-				uint64_t virt_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base + kernel->hhdm);
+				uint64_t flags = PAGING_FLAG_RW_CPL0;
+				if(type == LIMINE_MEMMAP_FRAMEBUFFER){
+					flags |= PAGING_FLAG_WRITE_COMBINE;
+				}
+				size_t    section_size = PAGE_DIV_UP(kernel->memmap->entries[index]->length);
+				uintptr_t phys_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base);
+				uintptr_t virt_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base + kernel->hhdm);
 				for (uint64_t i = 0; i < section_size; i++){
-					map_page(PMLT4,phys_page,virt_page,PAGING_FLAG_RW_CPL0);
+					map_page(PMLT4,phys_page,virt_page,flags);
 					virt_page += PAGE_SIZE;
 					phys_page += PAGE_SIZE;
 				}

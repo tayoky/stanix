@@ -63,7 +63,8 @@ void set_addr_space(addrspace_t new_addrspace);
 #define PAGING_FLAG_RW_CPL0 0x03
 #define PAGING_FLAG_READONLY_CPL3 0x05
 #define PAGING_FLAG_RW_CPL3 0x07
-#define PAGING_FLAG_NO_EXE ((uint64_t)1 << 61)
+#define PAGING_FLAG_WRITE_COMBINE (1UL << 7) 
+#define PAGING_FLAG_NO_EXE        (1UL << 61)
 
 #define KERNEL_STACK_SIZE (64 * 1024)
 #define KERNEL_STACK_TOP 0xfffffffffffff000UL - (10UL * 512UL * 512UL * 512UL * PAGE_SIZE)
