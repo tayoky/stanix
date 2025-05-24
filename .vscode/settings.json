@@ -35,6 +35,8 @@
         "spinlock.h": "c",
         "limine.h": "c",
         "tty.h": "c",
+        "mutex.h": "c",
+        "panic.h": "c"
     },
     "C_Cpp.default.includePath": [
         "${workspaceFolder}/**",

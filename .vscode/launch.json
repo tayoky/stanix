@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "debug stanix",
+            "gdbpath": "/usr/bin/gdb",
+            "executable": "${workspaceFolder}/out/boot/stanix.elf",
+            "target": "localhost:1234",
+            "remote": true,
+            "printCalls": true,
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "parseText"
+        }
+    ]
+}
