@@ -29,14 +29,16 @@ void panic(const char *error,fault_frame *fault){
 		halt();
 	}
 	pid_t pid = 0;
+	uintptr_t stack_top = 0;
 	if(kernel->can_task_switch){
 		pid = get_current_proc()->pid;
+		stack_top = get_current_proc()->kernel_stack;
 	}
 	kprintf(COLOR_RED "================= ERROR : KERNEL PANIC =================\n");
 	kprintf("error : %s\n",error);
 	if(fault)kprintf("code : 0x%lx\n",fault->err_code);
 	kprintf("========================= INFO =========================\n");
-	kprintf("pid : %ld\n",pid);
+	kprintf("pid : %ld\tstack top : 0x%p\n",pid,stack_top);
 	kprintf("==================== REGISTERS DUMP ====================\n");
 	if(fault){
 		kprintf("rax : 0x%p\tr8  : 0x%p\n",fault->rax,fault->r8);
