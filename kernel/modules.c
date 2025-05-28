@@ -33,17 +33,12 @@ static uintptr_t ptr = ((uintptr_t)&p_kernel_end) + PAGE_SIZE;
 #define ELF_R_INFO(i) ELF64_R_INFO(i)
 #endif
 
-typedef struct exported_sym {
-	const char *name;
-	uintptr_t value;
-	size_t size;
-	struct exported_sym *next;
-} exported_sym;
+
 
 exported_sym *exported_sym_list = NULL;
 list *loaded_modules;
 
-static int check_mod_header(Elf_Ehdr *header){
+int check_mod_header(Elf_Ehdr *header){
 	if(memcmp(header->e_ident,ELFMAG,4)){
 		return 0;
 	}
@@ -67,13 +62,13 @@ static int check_mod_header(Elf_Ehdr *header){
 	return 1;
 }
 
-static void *map_mod(size_t size){
+void *map_mod(size_t size){
 	size = PAGE_ALIGN_UP(size);
 	ptr = PAGE_ALIGN_UP(ptr);
 	void *buf = (void *)ptr;
 	kdebugf("insmod : map module at 0x%p size : %ld\n",ptr,size);
 	while(size > 0){
-		map_page((uint64_t *)(get_addr_space() + kernel->hhdm),pmm_allocate_page(),ptr,PAGING_FLAG_RW_CPL0);
+		map_page(get_addr_space(),pmm_allocate_page(),ptr,PAGING_FLAG_RW_CPL0);
 		size -= PAGE_SIZE;
 		ptr += PAGE_SIZE;
 	}

@@ -1,20 +1,35 @@
-#include "panic.h"
 #include <kernel/print.h>
-#include "asm.h"
 #include <kernel/kernel.h>
 #include <kernel/scheduler.h>
-#include "serial.h"
+#include <kernel/serial.h>
+#include <kernel/module.h>
 #include "sym.h"
+#include "asm.h"
+#include "panic.h"
 
 int panic_count = 0;
 
-static char *get_func_name(uintptr_t addr){
+extern uint64_t p_kernel_end[];
+
+static const char *get_func_name(uintptr_t addr){
 	uintptr_t best_match = (uintptr_t)0;
-	char * name = "";
+	const char * name = "";
 	for (size_t i = 0; i < symbols_count; i++){
 		if(symbols[i].value <= addr && symbols[i].value > best_match){
 			best_match = symbols[i].value;
 			name = symbols[i].name;
+		}
+	}
+
+	//search in the sym list of modules and after kernel end
+	if(addr > (uintptr_t)&p_kernel_end && exported_sym_list){
+		exported_sym *current = exported_sym_list;
+		while(current){
+			if(current->value <= addr && current->value > best_match){
+				best_match = current->value;
+				name = current->name;
+			}
+			current = current->next;
 		}
 	}
 	

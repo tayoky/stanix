@@ -2,6 +2,7 @@
 #define MODULE_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 typedef struct kmodule_struct {
 	uint64_t magic;
@@ -31,6 +32,17 @@ int have_opt(int argc,char **argv,char *option);
 
 #define EXPORT(sym) __export_symbol(&sym,#sym);
 #define UNEXPORT(sym) __unexport_symbol(&sym,#sym);
+
+typedef struct exported_sym {
+	const char *name;
+	uintptr_t value;
+	size_t size;
+	struct exported_sym *next;
+} exported_sym;
+
+extern exported_sym *exported_sym_list;
+
+uintptr_t sym_lookup(const char *name);
 
 #define MODULE_MAGIC 0x13082011
 
