@@ -28,6 +28,10 @@ initrd/include/*
 #default sysroot
 sysroot
 
+#build toolchain
+toolchain
+add-to-path.sh
+
 #config
 config.mk
 

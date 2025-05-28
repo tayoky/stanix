@@ -1,33 +1,36 @@
 #!/bin/sh
 
-#build a the gcc/binutils toolchain
+#build a the tcc toolchain
 
-#first make sure the sanix stuff is configured
-if [ ! -f config.mk ] ; then
-	./configure --with-sysroot=$SYSROOT
+#save the path to the top and some files
+TOP=$PWD
+PATCH="$PWD/ports/ports/tcc/tcc.patch"
+mkdir -p toolchain
+cd toolchain
+
+git clone https://github.com/tinycc/tinycc.git --depth 1 --single-branch
+cd tinycc
+
+#make sure the ports subomdules is here
+if [ ! -e "$PATCH" ] ; then
+	git submodule init
+	git submodule update ports
 fi
 
-#copy the header
-make header
+git apply $PATCH
 
-mkdir toolchain && cd toolchain
-
-#tdownload the source code
-curl "https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz" > binutils.tar.xz
-tar -xf bintuils.tar.xz
-
-cd binutils
-
-#apply patch
-git apply ../../binutils.patch
-
-#run automake in the ld directory
-(cd ld && automake ) 
-
-./configure --target=$TARGET --prefix=$PREFIX --with-sysroot=$SYSROOT --disable-nls --disable-werror
+./configure --prefix=$TOP/toolchain --targetos=stanix --sysroot=$1 --enable-static
 make
 make install
-cd ..
 
-cd ..
-./configure --host=$TAGRET --with-CC=$PREFIX/$TARGET-gcc --with-ld=$PREFIX/$TARGET-ld
+cd $TOP
+
+echo "#generated automaticly by ./build-toolchain.sh" > add-to-path.sh
+echo "export PATH=$TOP/toolchain/bin\$PATH" >> add-to-path.sh
+echo "export CC=tcc" >> add-to-path.sh
+echo "export LD=tcc" >> add-to-path.sh
+echo "export AR=\"tcc -ar\"" >> add-to-path.sh
+
+chmod +x add-to-path.sh
+
+echo "please run '''. add-to-path.sh''' before compiling anything"
