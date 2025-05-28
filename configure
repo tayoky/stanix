@@ -7,10 +7,7 @@ rm -f $(dirname $0)/config.mk
 SYSROOT=$(dirname $(realpath $0))/sysroot
 
 #default host
-#HOST="x86_64-stanix"
-
-##for the moment use linux toolchain cause stanix gcc don't work
-HOST="x86_64-linux-gnu"
+HOST="$(uname -m)-stanix"
 
 for i in "$@"; do
   case $i in
@@ -18,7 +15,7 @@ for i in "$@"; do
       SYSROOT="${i#*=}"
       shift # past argument=value
       ;;
-    --c=*)
+    --cc=*)
       CC="${i#*=}"
       shift # past argument=value
       ;;
@@ -38,12 +35,16 @@ for i in "$@"; do
       HOST="${i#*=}"
       shift # past argument=value
       ;;
-	--build-toolchain)
-		export HOST
-		export ARCH=${HOST%%-*}
-		./build-toolchain.sh $SYSROOT
-		. add-to-path
-		;;
+    --help)
+      echo "./configure [OPTIONS]"
+      echo "options :"
+      echo "--cc : define the C compiler to use"
+      echo "--as : define the assembler to use"
+      echo "--nasm : define a x86 assembler (with intel syntax) to use"
+      echo "--sysroot : path to the system root , used for library/include path, installing binary, and generating images [$SYSROOT]"
+      echo "--host : target triplet to compile for [$HOST]"
+      exit
+      ;;
     -*|--*)
       echo "Unknown option $i"
       exit 1
@@ -65,8 +66,10 @@ if [ "$CC" = "" ] ; then
 		CC="$HOST-gcc"
 	elif $HOST-clang --version > /dev/null 2>/dev/null ; then
 		CC="$HOST-clang"
+	elif $HOST-tcc --version > /dev/null 2>/dev/null ; then
+		CC="$HOST-tcc"
 	else
-		echo "error : no c compilator found"
+		echo "error : no C compilator found"
 		exit 1
 	fi
 fi
@@ -86,7 +89,7 @@ else
 		if $HOST-as --version > /dev/null ; then
 			AS="$HOST-as"
 		else
-			echo "error : no assembleur found"
+			echo "error : no assembler found"
 			exit 1
 		fi
 	fi
@@ -95,8 +98,12 @@ fi
 if [ "$LD" = "" ] ; then
 	if $HOST-ld --version > /dev/null 2>/dev/null ; then
 		LD="$HOST-ld"
+	elif $HOST-tcc --version > /dev/null 2>/dev/null ; then
+		#using TCC as a linker ???
+		#should not make any problem
+		LD="$HOST-tcc"
 	else
-		echo "error : ld not found"
+		echo "error : no linker found"
 		exit 1
 	fi
 fi
