@@ -10,6 +10,7 @@ cd toolchain
 
 git clone https://github.com/tinycc/tinycc.git --depth 1 --single-branch
 cd tinycc
+git checkout release_0_9_27 #else we DONT4 HAVE THE FUCKING STDINT !!!!!!!
 
 #make sure the ports subomdules is here
 if [ ! -e "$PATCH" ] ; then
@@ -23,10 +24,14 @@ git apply $PATCH
 make
 make install
 
+#make symlink for x86_64-stanix-
+cd $TOP/toolchain/bin
+ln -s tcc $HOST-tcc
+
 cd $TOP
 
 echo "#generated automaticly by ./build-toolchain.sh" > add-to-path.sh
-echo "export PATH=$TOP/toolchain/bin\$PATH" >> add-to-path.sh
+echo "export PATH=$TOP/toolchain/bin:\$PATH" >> add-to-path.sh
 echo "export CC=tcc" >> add-to-path.sh
 echo "export LD=tcc" >> add-to-path.sh
 echo "export AR=\"tcc -ar\"" >> add-to-path.sh

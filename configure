@@ -14,23 +14,23 @@ HOST="x86_64-linux-gnu"
 
 for i in "$@"; do
   case $i in
-    --with-sysroot=*)
+    --sysroot=*)
       SYSROOT="${i#*=}"
       shift # past argument=value
       ;;
-    --with-CC=*)
+    --c=*)
       CC="${i#*=}"
       shift # past argument=value
       ;;
-    --with-LD=*)
+    --ld=*)
       LD="${i#*=}"
       shift # past argument=value
       ;;
-    --with-AS=*)
+    --as=*)
       AS="${i#*=}"
       shift # past argument=value
       ;;
-   --with-NASM=*)
+   --nasm=*)
       NASM="${i#*=}"
       shift # past argument=value
       ;;
@@ -38,6 +38,12 @@ for i in "$@"; do
       HOST="${i#*=}"
       shift # past argument=value
       ;;
+	--build-toolchain)
+		export HOST
+		export ARCH=${HOST%%-*}
+		./build-toolchain.sh $SYSROOT
+		. add-to-path
+		;;
     -*|--*)
       echo "Unknown option $i"
       exit 1
