@@ -51,7 +51,7 @@ index a518e976b82..39e9ad14c53 100644
 +  gas=yes
 +  gnu_ld=yes
 +  default_use_cxa_atexit=yes
-+  use_gcc_stdint=none
++  use_gcc_stdint=provide
 +  ;;
  *)
  	echo "*** Configuration ${target} not supported" 1>&2

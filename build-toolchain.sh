@@ -45,45 +45,91 @@ done
 
 ARCH=${TARGET%%-*}
 
-#save the path to the top and some files
+#save the path to the top
 TOP=$PWD
-PATCH="$PWD/ports/ports/tcc/tcc.patch"
 
-#make sure the ports subomdules is here
-if [ ! -e "$PATCH" ] ; then
-	git submodule init
-	git submodule update ports
-fi
+PREFIX=$TOP/toolchain
 
-#clone the repo
+#put everything inside toolchain
 mkdir -p toolchain
 cd toolchain
-git clone https://github.com/tinycc/tinycc.git --depth 1 --single-branch
-cd tinycc
 
-git apply $PATCH
+#download the archive
+if wget --version > /dev/null 2> /dev/null ; then
+  WGET="wget"
+elif curl --version > /dev/null 2> /dev/null ; then
+  WGET="curl"
+else
+  echo "error : curl and wget are not installed, please install one of the two"
+  exit 1
+fi
 
-./configure --prefix=$TOP/toolchain --targetos=stanix --cpu=$ARCH --sysroot=$SYSROOT --enable-static
+
+BINUTILS_VERSION=2.44
+GCC_VERSION=15.1.0
+if [ ! -e binutils.tar.xz ] ; then
+  $WGET -Obinutils.tar.xz "https://ftp.gnu.org/gnu/binutils/binutils-$BINUTILS_VERSION.tar.xz"
+fi
+if [ ! -e gcc.tar.xz ] ; then
+  $WGET -Ogcc.tar.xz "https://ftp.gnu.org/gnu/gcc/gcc-$GCC_VERSION/gcc-$GCC_VERSION.tar.xz"
+fi
+if [ ! -d binutils-$BINUTILS_VERSION ] ; then
+  tar xf binutils.tar.xz
+fi
+if [ ! -d gcc-$GCC_VERSION ] ; then
+  tar xf gcc.tar.xz
+fi
+
+#put your autoconf version below
+AUTOCONF_VERSION=2.71
+
+#now apply the patch and run automake if not aready done
+if [ ! -e gcc-$GCC_VERSION/gcc/config/stanix.h ] ; then
+  patch -ruN -p1 -d gcc-$GCC_VERSION -i $TOP/gcc.patch
+  sed -i -e "s/2.69/$AUTOCONF_VERSION/g" gcc-$GCC_VERSION/config/override.m4
+  cd gcc-$GCC_VERSION/libstdc++-v3
+  autoreconf
+  automake
+  cd ../..
+fi
+if [ ! -e binutils-$BINUTILS_VERSION/ld/emulparams/elf_x86_64_stanix.sh ] ; then
+  patch -ruN -p1 -d binutils-$BINUTILS_VERSION -i $TOP/binutils.patch
+  sed -i -e "s/2.69/$AUTOCONF_VERSION/g" binutils-$BINUTILS_VERSION/config/override.m4
+  cd binutils-$BINUTILS_VERSION/ld
+  autoreconf
+  automake
+  cd ../..
+fi
+
+#we are going to need the header
+if [ ! -e ../tlibc/configure ] ; then
+  git submodule init
+  git submodule update ../tlibc
+fi
+make -C ../tlibc header PREFIX=$SYSROOT/usr TARGET=stanix ARCH=$ARCH
+
+#now compile all the shit
+cd binutils-$BINUTILS_VERSION
+./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot=$SYSROOT --disable-nls --disable-werror
 make
 make install
-
-#make symlink for XXX-stanix-tcc and stuff
-cd $TOP/toolchain/bin
-ln -s tcc $TARGET-tcc
-
-#we make XXX-stanix-as and ld
-#so that configure script that search will find it
-ln -s tcc $TARGET-as
-ln -s tcc $TARGET-ld
+cd ..
+cd gcc-$GCC_VERSION
+./configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --disable-hosted-libstdcxx
+make all-gcc
+make all-target-libgcc
+make install-gcc
+make install-target-libgcc
+cd ..
 
 cd $TOP
 
 echo "#generated automaticly by ./build-toolchain.sh" > add-to-path.sh
 echo "export PATH=$TOP/toolchain/bin:\$PATH" >> add-to-path.sh
-echo "export CC=$TARGET-tcc" >> add-to-path.sh
-echo "export LD=$TARGET-tcc" >> add-to-path.sh
-echo "export AS=$TARGET-tcc" >> add-to-path.sh
-echo "export AR=\"$TARGET-tcc -ar\"" >> add-to-path.sh
+echo "export CC=$TARGET-gcc" >> add-to-path.sh
+echo "export LD=$TARGET-ld" >> add-to-path.sh
+echo "export AS=$TARGET-as" >> add-to-path.sh
+echo "export AR=$TARGET-ar" >> add-to-path.sh
 
 chmod +x add-to-path.sh
 
