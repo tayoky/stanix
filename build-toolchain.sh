@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#build a the tcc toolchain
+#build the gcc/binutils toolchain
 
 #default
 SYSROOT="./sysroot"
