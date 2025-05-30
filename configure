@@ -3,6 +3,11 @@
 #delete any old conf file
 rm -f $(dirname $0)/config.mk
 
+#automacly add toolchain/bin to path
+if [ -d "$(dirname $0)/toolchain/bin" ] ; then
+  export PATH="$(realpath $(dirname $0))/toolchain/bin:$PATH"
+fi
+
 #default sysroot
 SYSROOT=$(dirname $(realpath $0))/sysroot
 
