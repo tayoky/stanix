@@ -5,6 +5,7 @@
 #default
 SYSROOT="./sysroot"
 TARGET="$(uname -m)-stanix"
+NPROC=$(nproc)
 
 for i in "$@"; do
   case $i in
@@ -24,6 +25,10 @@ for i in "$@"; do
       HOST="${i#*=}"
       shift # past argument=value
       ;;
+    --nproc=*)
+      NPROC="${i#*=}"
+      shift # past argument=value
+      ;;
     --help)
       echo "./build-toolchain.sh [OPTIONS]"
       echo "options :"
@@ -32,6 +37,7 @@ for i in "$@"; do
       echo "--cc : C compiler to compile the toolchain"
       echo "--ar : archiver to use to compile the toolchain"
       echo "--sysroot : path to sysroot for include/libray path [$SYSROOT]"
+      echo "--nproc : -j option for makefile [$NPROC]"
       exit
       ;;
     -*|--*)
@@ -51,8 +57,12 @@ TOP=$PWD
 PREFIX=$TOP/toolchain
 
 #put everything inside toolchain
-mkdir -p toolchain
+mkdir -p toolchain/bin
 cd toolchain
+
+#pre export the toolchain/bin in PATH
+#as gcc might require binutils stuff to be in the PATH
+export PATH="$PWD/bin:$PATH"
 
 #download the archive
 if wget --version > /dev/null 2> /dev/null ; then
@@ -109,18 +119,23 @@ fi
 make -C ../tlibc header PREFIX=$SYSROOT/usr TARGET=stanix ARCH=$ARCH
 
 #now compile all the shit
-cd binutils-$BINUTILS_VERSION
-./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot=$SYSROOT --disable-nls --disable-werror
-make
-make install
-cd ..
-cd gcc-$GCC_VERSION
-./configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --disable-hosted-libstdcxx
-make all-gcc
-make all-target-libgcc
-make install-gcc
-make install-target-libgcc
-cd ..
+#don't compile if aready done
+if [ -e bin/$TARGET-ld ] ; then
+  cd binutils-$BINUTILS_VERSION
+  ./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot=$SYSROOT --disable-nls --disable-werror
+  make -j$NPROC
+  make install
+  cd ..
+fi
+if [ -e bin/$TARGET-gcc ] ; then
+  cd gcc-$GCC_VERSION
+  ./configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --disable-hosted-libstdcxx
+  make all-gcc -j$NPROC
+  make all-target-libgcc -j$NPROC
+  make install-gcc
+  make install-target-libgcc
+  cd ..
+fi
 
 cd $TOP
 
