@@ -7,11 +7,6 @@ MAKEFLAGS += --no-builtin-rules
 
 include config.mk
 
-#automatilcy add toolchain/bin to path
-ifneq ($(wildcard ./toolchain/bin),)
-export PATH="${PWD}/toolchain/bin:${PATH}"
-endif
-
 #tools
 export CC
 export LD

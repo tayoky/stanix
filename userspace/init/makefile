@@ -23,17 +23,13 @@ CFLAGS = -Wall \
     -ffreestanding \
     -fno-stack-protector \
     -fno-stack-check \
-    -fno-PIC \
-    --sysroot=${SYSROOT}\
-    -isystem=${SYSROOT}/usr/include
+    -fno-PIC
 CFLAGS += -I ./
-
-include ../${ARCH}.mk
 
 all : ${OUT}
 
 ${OUT} : ${OBJ}
-	${LD} ${LDFLAGS} -o ${OUT} ${OBJ} ${SYSROOT}/usr/lib/crt0.o -L ${SYSROOT}/usr/lib -lc
+	${CC} ${LDFLAGS} -o ${OUT} ${OBJ}
 
 %.o : %.c
 	${CC} ${CFLAGS} -o $@ -c $^

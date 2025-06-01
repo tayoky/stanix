@@ -31,7 +31,7 @@ CFLAGS += -I ./
 all : ${OUT}
 
 ${OUT} : ${OBJ}
-	${LD} ${LDFLAGS} -o ${OUT} ${OBJ} ${SYSROOT}/usr/lib/crt0.o -L ${SYSROOT}/usr/lib -lc
+	${CC} ${LDFLAGS} -o ${OUT} ${OBJ}
 
 %.o : %.c
 	${CC} ${CFLAGS} -o $@ -c $^
