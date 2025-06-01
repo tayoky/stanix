@@ -122,14 +122,14 @@ make -C ../tlibc header PREFIX=$SYSROOT/usr TARGET=stanix ARCH=$ARCH
 #don't compile if aready done
 if [ ! -e bin/$TARGET-ld ] ; then
   cd binutils-$BINUTILS_VERSION
-  ./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot=$SYSROOT --disable-nls --disable-werror
+  ./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror
   make -j$NPROC
   make install
   cd ..
 fi
 if [ ! -e bin/$TARGET-gcc ] ; then
   cd gcc-$GCC_VERSION
-  ./configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --disable-hosted-libstdcxx
+  ./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-hosted-libstdcxx --disable-multilib
   make all-gcc -j$NPROC
   make all-target-libgcc -j$NPROC
   make install-gcc
