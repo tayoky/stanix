@@ -132,12 +132,13 @@ if [ ! -e bin/$TARGET-ld ] ; then
 fi
 if [ ! -e bin/$TARGET-gcc ] ; then
   cd gcc-$GCC_VERSION
-  ./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-hosted-libstdcxx --disable-multilib
+  mkdir -p build && cd build
+  ../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-hosted-libstdcxx --disable-multilib
   make all-gcc -j$NPROC
   make all-target-libgcc -j$NPROC
   make install-gcc
   make install-target-libgcc
-  cd ..
+  cd ../..
 fi
 
 cd $TOP
