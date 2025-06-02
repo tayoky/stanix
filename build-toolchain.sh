@@ -36,7 +36,7 @@ for i in "$@"; do
       echo "--target : target of the toolchain [$TARGET]"
       echo "--cc : C compiler to compile the toolchain"
       echo "--ar : archiver to use to compile the toolchain"
-      echo "--sysroot : path to sysroot for include/libray path [$SYSROOT]"
+      echo "--sysroot : path to sysroot for include/libray path [$(realpath $SYSROOT)]"
       echo "--nproc : -j option for makefile [$NPROC]"
       exit
       ;;
@@ -48,6 +48,9 @@ for i in "$@"; do
       ;;
   esac
 done
+
+#make absolute path
+SYSROOT="$(realpath "$SYSROOT")"
 
 ARCH=${TARGET%%-*}
 

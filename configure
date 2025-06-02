@@ -46,7 +46,7 @@ for i in "$@"; do
       echo "--cc : define the C compiler to use"
       echo "--as : define the assembler to use"
       echo "--nasm : define a x86 assembler (with intel syntax) to use"
-      echo "--sysroot : path to the system root , used for library/include path, installing binary, and generating images [$SYSROOT]"
+      echo "--sysroot : path to the system root , used for library/include path, installing binary, and generating images [$(realpath $SYSROOT)]"
       echo "--host : target triplet to compile for [$HOST]"
       exit
       ;;
