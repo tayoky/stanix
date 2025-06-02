@@ -230,7 +230,7 @@ void tmpfs_close(vfs_node *node){
 }
 
 
-int tmpfs_create(vfs_node *node,const char *name,int perm,uint64_t flags){
+int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	//turn vfs flag into tmpfs flags

@@ -27,7 +27,6 @@ include include.mk
 
 include arch/${ARCH}/arch.mk
 
-CFLAGS += --sysroot=${SYSROOT} -isystem ${SYSROOT}/usr/include
 
 ${OUT}/boot/${KERNEL} : ${OBJ} sym.o
 	${LD} ${LDFLAGS} ${OBJ} sym.o -o ${OUT}/boot/${KERNEL}

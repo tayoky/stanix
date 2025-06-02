@@ -2,7 +2,7 @@
 #define TMPFS_H
 #include <kernel/vfs.h>
 
-#include <sys/type.h>
+#include <sys/types.h>
 #include <sys/time.h>
 
 void init_tmpfs();
@@ -31,7 +31,7 @@ vfs_node *tmpfs_lookup(vfs_node *node,const char *name);
 ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 void tmpfs_close(vfs_node *node);
-int tmpfs_create(vfs_node *node,const char *name,int perm,uint64_t flags);
+int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags);
 int tmpfs_unlink(vfs_node *node,const char *name);
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index);
 int tmpfs_truncate(vfs_node *node,size_t size);

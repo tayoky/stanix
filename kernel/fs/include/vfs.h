@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <sys/type.h>
+#include <sys/types.h>
 #include <dirent.h>
 #include <sys/time.h>
 
@@ -32,11 +32,11 @@ typedef struct vfs_node_struct {
 	uint64_t flags;
 	uint64_t size;
 	uint64_t ref_count;
-	int64_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
-	int64_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
+	ssize_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
+	ssize_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	void (* close)(struct vfs_node_struct *);
 	struct vfs_node_struct *(* lookup)(struct vfs_node_struct *,const char *name);
-	int (* create)(struct vfs_node_struct*,const char *name,mode_t perm,uint64_t);
+	int (* create)(struct vfs_node_struct*,const char *name,mode_t perm,long);
 	int (* unlink)(struct vfs_node_struct*,const char *);
 	struct dirent *(* readdir)(struct vfs_node_struct*,uint64_t index);
 	int (* truncate)(struct vfs_node_struct*,size_t);
