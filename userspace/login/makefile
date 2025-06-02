@@ -18,7 +18,6 @@ ASMFLAGS += -Wall \
 CFLAGS = -Wall \
 	-Wextra \
 	-std=c11\
-	-ffreestanding \
 	-fno-stack-protector \
 	-fno-stack-check \
 	-fno-PIC
