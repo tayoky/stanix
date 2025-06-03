@@ -7,7 +7,6 @@ CFLAGS = -Wall \
     -fno-PIC \
     -fsanitize=undefined \
     -mcmodel=large 
-CFLAGS += --sysroot=${SYSROOT} -isystem ${SYSROOT}/usr/include
 
 #we are going to install the modules under $PREFIX/mod/
 PREFIX = 

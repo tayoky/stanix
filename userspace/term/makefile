@@ -9,9 +9,7 @@ PWD = $(shell pwd)
 OUT = $(shell basename ${PWD})
 
 #ld flags
-LDFLAGS += \
-    -nostdlib \
-    -static \
+LDFLAGS += -static
 #nasm flags
 ASMFLAGS += -Wall \
     -f elf64
@@ -20,12 +18,9 @@ ASMFLAGS += -Wall \
 CFLAGS = -Wall \
     -Wextra \
     -std=c11 \
-    -ffreestanding \
     -fno-stack-protector \
     -fno-stack-check \
-    -fno-PIC \
-    --sysroot=${SYSROOT}\
-    -isystem=${SYSROOT}/usr/include
+    -fno-PIC
 CFLAGS += -I ./
 
 all : ${OUT}
