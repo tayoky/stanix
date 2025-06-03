@@ -37,14 +37,16 @@ int vfs_mount(const char *name,vfs_node *local_root){
 	}
 
 	mount_point->linked_node = local_root;
-	//make a ref to the local root to prevent it from being close
-	local_root->ref_count = 1;
+
+	//make a new ref to the local root to prevent it from being close
+	local_root->ref_count++;
 
 	mount_point->flags |= VFS_MOUNT;
 
 	local_root->parent = mount_point->parent;
 	return 0;
 }
+
 ssize_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
 	if(node->read){
 		return node->read(node,(void *)buffer,offset,count);
@@ -352,10 +354,11 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
 	}
 
 	//we are going to modify it
-	char *new_path = strdup(path);
+	char new_path[strlen(path) + 1];
+	strcpy(new_path,path);
 
 	//first parse the path
-	uint64_t path_depth = 0;
+	int path_depth = 0;
 	char last_is_sep = 1;
 	char *path_array[64]; //hardcoded maximum identation level
 
@@ -385,8 +388,8 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
 
 	vfs_node *current_node = at;
 
-	for (uint64_t i = 0; i < path_depth; i++){
-		if(!current_node)goto open_error;
+	for (int i = 0; i < path_depth; i++){
+		if(!current_node)return NULL;
 		
 		vfs_node *next_node = vfs_lookup(current_node,path_array[i]);
 		//folow mount points
@@ -399,9 +402,7 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
 		current_node = next_node;
 	}
 	
-	if(!current_node)goto open_error;
-
-	kfree(new_path);
+	if(!current_node)return NULL;
 
 	///update modify / access time
 	if((flags & VFS_WRITEONLY) || (flags & VFS_READWRITE)){
@@ -412,8 +413,4 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
 	}
 	
 	return current_node;
-
-	open_error:
-	kfree(new_path);
-	return NULL;
 }
