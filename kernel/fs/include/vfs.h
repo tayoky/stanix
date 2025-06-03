@@ -1,15 +1,18 @@
 #ifndef VFS_H
 #define VFS_H
 
+#include <sys/types.h>
+#include <sys/time.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <sys/types.h>
 #include <dirent.h>
-#include <sys/time.h>
+#include <limits.h>
 
-#define VFS_MAX_NODE_NAME_LEN 256
-#define VFS_MAX_MOUNT_POINT_NAME_LEN 128
-#define VFS_MAX_PATH_LEN 256
+
+//just in case we use a weird limits.h
+#ifndef PATH_MAX
+#define PATH_MAX 256
+#endif
 
 #define VFS_FILE  0x01
 #define VFS_DIR   0x02
@@ -51,7 +54,7 @@ typedef struct vfs_node_struct {
 	time_t mtime;
 
 	//used for directories cache
-	char name[256];
+	char name[PATH_MAX];
 	struct vfs_node_struct *parent;
 	struct vfs_node_struct *brother;
 	struct vfs_node_struct *child;
@@ -61,7 +64,7 @@ typedef struct vfs_node_struct {
 }vfs_node;
 
 typedef struct vfs_mount_point_struct{
-	char name[VFS_MAX_MOUNT_POINT_NAME_LEN];
+	char name[PATH_MAX];
 	struct vfs_mount_point_struct *prev;
 	struct vfs_mount_point_struct *next;
 	vfs_node *root;
@@ -161,6 +164,8 @@ int vfs_wait_check(vfs_node *node,short type);
 /// @return 0 or -INVAL
 /// @note vfs_wait don't block the wait start only after calling block_brock()
 int vfs_wait(vfs_node *node,short type);
+
+int vfs_unmount(const char *path);
 
 //flags
 #define VFS_READONLY     0x01 //readonly

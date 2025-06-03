@@ -38,12 +38,49 @@ int vfs_mount(const char *name,vfs_node *local_root){
 
 	mount_point->linked_node = local_root;
 
-	//make a new ref to the local root to prevent it from being close
+	//make a new ref to the local root and mount point to prevent it from being close
 	local_root->ref_count++;
+	mount_point->ref_count++;
 
 	mount_point->flags |= VFS_MOUNT;
 
 	local_root->parent = mount_point->parent;
+	return 0;
+}
+
+
+//TODO : we don't handle the case where a parent of the mount point get closed
+//the local_root stay open but somebody try to open it's parent
+int vfs_unmount(const char *path){
+	vfs_node *parent = vfs_open(path,VFS_PARENT);
+	if(!parent){
+		return -ENOENT;
+	}
+
+	const char *child = path + strlen(path) - 1;
+	//path of directory might finish with '/' like /tmp/dir/
+	if(*child == '/')child--;
+	while(*child != '/'){
+		child--;
+		if(child < path){
+			break;
+		}
+	}
+	child++;
+	
+	//we can use vfs_lookup cause it don't folow mount point (only vfs_openat does)
+	vfs_node *mount_point = vfs_lookup(parent,path);
+	vfs_close(parent);
+	if(!(mount_point->flags & VFS_MOUNT)){
+		//not even a mount point
+		return -EINVAL;
+	}
+	vfs_node *local_root = mount_point->linked_node;
+
+	mount_point->flags  &= ~VFS_MOUNT;
+
+	vfs_close(local_root);
+	vfs_close(mount_point);
 	return 0;
 }
 
