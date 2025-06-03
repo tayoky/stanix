@@ -15,6 +15,7 @@ void _start(){
 	init_gdt();
 	init_idt();
 	init_tss();
+	enable_sse();
 
 	kmain();
 }

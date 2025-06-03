@@ -49,7 +49,8 @@ typedef struct arch_specific {
 void set_kernel_stack(uintptr_t stack);
 void context_switch(uintptr_t new_rsp,uintptr_t *old_rsp);
 
-void init_timer();
+void init_timer(void);
+void enable_sse(void);
 
 #define ARG0_REG(frame) ( frame ).rax
 #define ARG1_REG(frame) ( frame ).rdi
