@@ -932,6 +932,17 @@ pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
 
+int sys_mount(const char *source, const char *target,const char *filesystemtype, unsigned long mountflags,const void *data){
+	if((!CHECK_STR(source)) || (!CHECK_STR(target)) || (!CHECK_STR(filesystemtype))){
+		return -EFAULT;
+	}
+	if(data && !CHECK_PTR(data)){
+		return -EFAULT;
+	}
+
+	return vfs_auto_mount(source,target,filesystemtype,mountflags,data);
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -975,6 +986,8 @@ void *syscall_table[] = {
 	(void *)sys_sigpending,
 	(void *)sys_kill,
 	(void *)sys_getpid,
+	(void *)sys_mount,
+	(void *)sys_stub, //sys_umount
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
