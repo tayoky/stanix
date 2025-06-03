@@ -1,8 +1,10 @@
 #ifndef KHEAP_H
 #define KHEAP_H
+
+#include <kernel/mutex.h>
+#include <sys/types.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/mutex.h>
 
 struct heap_segment_struct;
 

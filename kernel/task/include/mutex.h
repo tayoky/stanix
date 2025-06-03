@@ -2,12 +2,13 @@
 #define MUTEX_H
 
 #include <kernel/spinlock.h>
-#include <kernel/list.h>
+#include <stddef.h>
 
 typedef struct mutex {
 	spinlock lock;
-	list waiter;
 	int locked;
+	struct process_struct *waiter[32];
+	size_t waiter_count;
 } mutex_t;
 
 void init_mutex(mutex_t *mutex);

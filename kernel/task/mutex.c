@@ -2,6 +2,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/mutex.h>
+#include <kernel/panic.h>
 
 void init_mutex(mutex_t *mutex){
 	memset(mutex,0,sizeof(mutex_t));
@@ -10,8 +11,15 @@ void init_mutex(mutex_t *mutex){
 int acquire_mutex(mutex_t *mutex){
 	spinlock_acquire(mutex->lock);
 	if(mutex->locked){
+		if(mutex->waiter_count >= 32){
+			//we can't wait
+			//that mean there 32 waiter just trigger a panic at this point
+			panic("too much waiter on mutex",NULL);
+		}
+		//register on waiter list and wait
+		mutex->waiter[mutex->waiter_count] = get_current_proc();
+		mutex->waiter_count++;
 		spinlock_release(mutex->lock);
-		list_append(&mutex->waiter,get_current_proc());
 		block_proc();
 		spinlock_acquire(mutex->lock);
 	}
@@ -34,9 +42,12 @@ int try_acquire_mutex(mutex_t *mutex){
 void release_mutex(mutex_t *mutex){
 	spinlock_acquire(mutex->lock);
 	mutex->locked = 0;
-	if(mutex->waiter.node_count > 0){
-		unblock_proc(mutex->waiter.frist_node->value);
-		list_remove(&mutex->waiter,mutex->waiter.frist_node->value);
+
+	//this mutex use a LIFO which mean that if there multiples waiter the last to acquire get the mutex
+	//this is very bad
+	if(mutex->waiter_count > 0){
+		mutex->waiter_count--;
+		unblock_proc(mutex->waiter[mutex->waiter_count]);
 	}
 	spinlock_release(mutex->lock);
 }
