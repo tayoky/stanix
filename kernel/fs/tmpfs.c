@@ -56,12 +56,28 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 	return node;
 }
 
+int tmpfs_mount(const char *source,const char *target,unsigned long flags,const void *data){
+	(void)data;
+	(void)source;
+	(void)flags;
+
+	return vfs_mount(target,new_tmpfs());
+}
+
+vfs_filesystem tmpfs = {
+	.name = "tmpfs",
+	.mount = tmpfs_mount,
+};
+
 void init_tmpfs(){
 	kstatus("init tmpfs... ");
 	if(vfs_mount("/tmp",new_tmpfs())){
 		kfail();
 		halt();
 	}
+
+	vfs_register_fs(&tmpfs);
+	
 	kok();
 	vfs_node *tmp_root = vfs_open("/tmp/",VFS_READONLY);
 	
