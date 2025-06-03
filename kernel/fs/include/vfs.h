@@ -71,6 +71,11 @@ typedef struct vfs_mount_point_struct{
 	uint64_t flags;
 }vfs_mount_point;
 
+typedef struct vfs_filesystem_struct {
+	char name[16];
+	int (*mount)(const char *source,const char *target,unsigned long flags,const void *data);
+} vfs_filesystem;
+
 struct kernel_table_struct;
 void init_vfs(void);
 
@@ -166,6 +171,10 @@ int vfs_wait_check(vfs_node *node,short type);
 int vfs_wait(vfs_node *node,short type);
 
 int vfs_unmount(const char *path);
+
+void vfs_register_fs(vfs_filesystem *fs);
+void vfs_unregister_fs(vfs_filesystem *fs);
+int vfs_auto_mount(const char *source,const char *target,const char *filesystemtype,unsigned long mountflags,const void *data);
 
 //flags
 #define VFS_READONLY     0x01 //readonly

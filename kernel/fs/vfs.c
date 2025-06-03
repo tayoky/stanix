@@ -4,6 +4,7 @@
 #include <kernel/kheap.h>
 #include <kernel/string.h>
 #include <kernel/time.h>
+#include <kernel/list.h>
 #include <stddef.h>
 #include <errno.h>
 #include <poll.h>
@@ -11,12 +12,36 @@
 //TODO : make this process specific
 vfs_node *root;
 
+list *fs_types;
+
 void init_vfs(void){
 	kstatus("init vfs... ");
 	root = NULL;
+	fs_types  = new_list();
 	kok();
 }
 
+void vfs_register_fs(vfs_filesystem *fs){
+	list_append(fs_types,fs);
+}
+
+void vfs_unregister_fs(vfs_filesystem *fs){
+	list_remove(fs_types,fs);
+}
+
+int vfs_auto_mount(const char *source,const char *target,const char *filesystemtype,unsigned long mountflags,const void *data){
+	foreach(node,fs_types){
+		vfs_filesystem *fs = node->value;
+		if(!strcmp(fs->name,filesystemtype)){
+			if(!fs->mount){
+				return -ENODEV;
+			}
+			return fs->mount(source,target,mountflags,data);
+		}
+	}
+
+	return -ENODEV;
+}
 
 int vfs_mount(const char *name,vfs_node *local_root){
 	//first open the mount point or create it
