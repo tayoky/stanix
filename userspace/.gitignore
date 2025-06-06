@@ -1,6 +1,2 @@
 *.o
-out/*
-
-#this one are installed by tlibc
-lib/*
-include/*
+bin/*

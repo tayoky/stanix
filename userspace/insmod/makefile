@@ -1,37 +1,23 @@
 
 #first get all the src
-SRC_C = $(shell find -name "*.c")
-SRC_ASM = $(shell find -name "*.s")
-OBJ = ${SRC_C:.c=.o} ${SRC_ASM:.s=.o}
+SRC = $(shell find -name "*.c")
+OBJ = ${SRC:.c=.o}
 
 #find bin name
 PWD = $(shell pwd)
 OUT = $(shell basename ${PWD})
 
-#ld flags
-LDFLAGS += -static
-#nasm flags
-ASMFLAGS += -Wall \
-	-f elf64
-
 #cc flags
-CFLAGS = -Wall \
-	-Wextra \
-	-std=c11\
-	-fno-stack-protector \
-	-fno-stack-check \
-	-fno-PIC
+CFLAGS += -Wall -Wextra -std=c99
 CFLAGS += -I ./
 
-all : ${OUT}
+all : ../bin/${OUT}
 
-${OUT} : ${OBJ}
-	${CC} ${LDFLAGS} -o ${OUT} ${OBJ}
+../bin/${OUT} : ${OBJ}
+	${CC} ${LDFLAGS} -o $@ $^
 
 %.o : %.c
 	${CC} ${CFLAGS} -o $@ -c $^
-%.o : %.s
-	${NASM} ${ASMFLAGS} $< -o $@
 
 clean : 
 	rm -f ${OBJ}

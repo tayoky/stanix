@@ -1,8 +1,7 @@
 
 #first get all the src
-SRC_C = $(shell find -name "*.c")
-SRC_ASM = $(shell find -name "*.s")
-OBJ = ${SRC_C:.c=.o} ${SRC_ASM:.s=.o}
+SRC = $(shell find -name "*.c")
+OBJ = ${SRC:.c=.o}
 
 #find bin name
 PWD = $(shell pwd)
@@ -12,10 +11,10 @@ OUT = $(shell basename ${PWD})
 CFLAGS += -Wall -Wextra -std=c99
 CFLAGS += -I ./
 
-all : ${OUT}
+all : ../bin/${OUT}
 
-${OUT} : ${OBJ}
-	${CC} ${LDFLAGS} -o ${OUT} ${OBJ}
+../bin/${OUT} : ${OBJ}
+	${CC} ${LDFLAGS} -o $@ $^
 
 %.o : %.c
 	${CC} ${CFLAGS} -o $@ -c $^
