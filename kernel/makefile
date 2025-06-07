@@ -31,12 +31,12 @@ include arch/${ARCH}/arch.mk
 ${OUT}/boot/${KERNEL} : ${OBJ} sym.o
 	${LD} ${LDFLAGS} ${OBJ} sym.o -o ${OUT}/boot/${KERNEL}
 %.o : %.c
-	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^
+	${CC} -D${ARCH} ${CFLAGS} -o $@ -g -c $^
 sym.o : ${OBJ}
 	@echo '#include <kernel/sym.h>' > sym.c
-	@$(foreach SYM , $(shell nm ${OBJ} --defined-only -ngj --quiet ),  echo "extern void ${SYM} ();" >> sym.c ; )
+	@$(foreach SYM , $(shell ${NM} ${OBJ} --defined-only -ngj --quiet ),  echo "extern void ${SYM} ();" >> sym.c ; )
 	@echo 'const sym_t symbols[] = {' >> sym.c
-	@$(foreach SYM , $(shell nm ${OBJ} --defined-only -ngj --quiet ),  echo "	{ .name = \"${SYM}\" , .value = (uintptr_t)${SYM} , .size = sizeof(${SYM})}," >> sym.c ; ) 
+	@$(foreach SYM , $(shell ${NM} ${OBJ} --defined-only -ngj --quiet ),  echo "	{ .name = \"${SYM}\" , .value = (uintptr_t)${SYM} , .size = sizeof(${SYM})}," >> sym.c ; ) 
 	@echo '};' >> sym.c
 	@echo 'const size_t symbols_count = sizeof(symbols) / sizeof(sym_t);' >> sym.c
 	${CC} ${CFLAGS} -o sym.o -c sym.c 

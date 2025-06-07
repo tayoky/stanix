@@ -32,6 +32,14 @@ for i in "$@"; do
       AS="${i#*=}"
       shift # past argument=value
       ;;
+    --ar=*)
+      AR="${i#*=}"
+      shift # past argument=value
+      ;;
+    --nm=*)
+      NM="${i#*=}"
+      shift # past argument=value
+      ;;
    --nasm=*)
       NASM="${i#*=}"
       shift # past argument=value
@@ -45,6 +53,8 @@ for i in "$@"; do
       echo "options :"
       echo "--cc : define the C compiler to use"
       echo "--as : define the assembler to use"
+      echo "--ar : define the archiver to use"
+      echo "--nm : define the nm to use"
       echo "--nasm : define a x86 assembler (with intel syntax) to use"
       echo "--sysroot : path to the system root , used for library/include path, installing binary, and generating images [$(realpath $SYSROOT)]"
       echo "--host : target triplet to compile for [$HOST]"
@@ -82,7 +92,7 @@ fi
 
 if [ "$ARCH" = "x86_64" ] ; then
 	if [ "$NASM" = "" ] ; then
-		if nasm --version > /dev/null ; then
+		if nasm --version > /dev/null 2>/dev/null ; then
 			NASM="nasm"
 		else
 			echo "error : nasm not found"
@@ -91,7 +101,7 @@ if [ "$ARCH" = "x86_64" ] ; then
 	fi
 else
 	if [ "$AS" = "" ] ; then
-		if $HOST-as --version > /dev/null ; then
+		if $HOST-as --version > /dev/null 2>/dev/null ; then
 			AS="$HOST-as"
 		else
 			echo "error : no assembler found"
@@ -113,24 +123,44 @@ if [ "$LD" = "" ] ; then
 	fi
 fi
 
+if [ "$AR" = "" ] ; then
+	if $HOST-ar --version > /dev/null 2>/dev/null ; then
+		AR="$HOST-ar"
+else
+		echo "error : no archiver found"
+		exit 1
+	fi
+fi
+
+if [ "$NM" = "" ] ; then
+	if $HOST-nm --version > /dev/null 2>/dev/null ; then
+		NM="$HOST-nm"
+else
+		echo "error : no nm found"
+		exit 1
+	fi
+fi
+
 #propagate configuration to tlibc and ports
 if [ ! -f ./tlibc/configure ] ; then
 	git submodule init
 	git submodule update tlibc
 fi
 
-(cd tlibc && ./configure --with-sysroot=$SYSROOT --with-CC=$CC --host=$HOST --prefix=$SYSROOT/usr)
+(cd tlibc && ./configure --with-sysroot=$SYSROOT --cc=$CC --ar=$AR --ld=$LD --as=$AS --host=$HOST --prefix=$SYSROOT/usr)
 
 if [ ! -f ./ports/configure ] ; then
 	git submodule init
 	git submodule update ports
 fi
 
-(cd ports && ./configure --with-sysroot=$SYSROOT --with-CC=$CC --host=$HOST --prefix=../initrd)
+(cd ports && ./configure --with-sysroot=$SYSROOT --cc=$CC --ar=$AR --ld=$LD --as=$AS --nm=$NM --host=$HOST --prefix=../initrd)
 
 echo "using $CC"
 echo "using $LD"
-echo "using $NASM$AS"
+echo "using $AR"
+echo "using $NM"
+echo "using $NASM and $AS"
 echo "using $SYSROOT as sysroot"
 
 echo "#generated automatically by configure.sh" > config.mk
@@ -138,6 +168,8 @@ echo "SYSROOT=$SYSROOT" >> config.mk
 echo "LD=$LD" >> config.mk
 echo "CC=$CC" >> config.mk
 echo "AS=$AS" >> config.mk
+echo "AR=$AR" >> config.mk
+echo "NM=$NM" >> config.mk
 echo "NASM=$NASM" >> config.mk
 echo "HOST=$HOST" >> config.mk
 echo "ARCH=$ARCH" >> config.mk

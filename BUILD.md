@@ -63,13 +63,14 @@ if you are compiling from sanix (or using the cross toolchain) follow these step
 
 ### required software
 - git
-- gcc and ld (tcc might also work but is untested)
+- gcc ld ar and as (tcc might also work but is untested)
 - make
 - nasm
 - coreutil
 - gdisk (for hdd images)
 - mtools (for hdd imaages)
 - xorriso (for iso images)
+- pkg-config
 
 ### configure
 first configure, this will detect the compiler and linker

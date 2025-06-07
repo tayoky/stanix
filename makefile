@@ -11,6 +11,8 @@ include config.mk
 export CC
 export LD
 export AS
+export AR
+export NM
 export NASM
 export ARCH
 export SYSROOT
