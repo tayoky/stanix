@@ -46,5 +46,8 @@ void free_proc(process *proc){
 	//free child list
 	free_list(proc->child);
 
+	//free kernel stack
+	kfree((void *)proc->kernel_stack);
+
 	kfree(proc);
 }
