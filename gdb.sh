@@ -1,0 +1,1 @@
+gdb -symbols=out/boot/stanix.elf --eval-command="target remote :1234"
