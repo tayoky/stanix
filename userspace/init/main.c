@@ -18,6 +18,13 @@
 extern char **environ;
 
 int main(int argc,char **argv){
+	//simple security
+	if(getpid() != 0){
+		fprintf(stderr,"error : not runned as init process\n");
+		fprintf(stderr,"running two init process might crash the system\n");
+		return 1;
+	}
+
 	//init std streams
 	open("/dev/null",O_RDONLY); //stdin
 	open("/dev/tty0",O_WRONLY); //stdout
