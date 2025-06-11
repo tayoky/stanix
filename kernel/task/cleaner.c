@@ -24,17 +24,6 @@ void free_proc(process *proc){
 	//now free the paging tables
 	delete_addr_space(proc->addrspace);
 
-	//close every open fd
-	for (size_t i = 0; i < MAX_FD; i++){
-		if(proc->fds[i].present){
-			vfs_close(proc->fds[i].node);
-		}
-	}
-
-	//close cwd
-	vfs_close(proc->cwd_node);
-	kfree(proc->cwd_path);
-
 	//free the used space
 	memseg *current_memseg = proc->first_memseg;
 	while(current_memseg){
@@ -42,9 +31,6 @@ void free_proc(process *proc){
 		memseg_unmap(proc,current_memseg);
 		current_memseg = next;
 	}
-
-	//free child list
-	free_list(proc->child);
 
 	kfree(proc);
 }

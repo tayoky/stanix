@@ -17,6 +17,7 @@ list *to_clean_proc;
 
 process *idle;
 process *cleaner;
+process *init;
 
 static void idle_task(){
 	for(;;){
@@ -61,6 +62,9 @@ void init_task(){
 	list_append(proc_list,kernel_task);
 
 	running_proc = kernel_task;
+
+	//the first task will be the init task
+	init = get_current_proc();
 
 	//activate task switch
 	kernel->can_task_switch = 1;
@@ -107,6 +111,9 @@ process *new_proc(){
 	proc->kernel_stack &= ~0xFUL;
 	proc->rsp = proc->kernel_stack;
 	kdebugf("current rsp :%p\n",proc->rsp);
+
+	//add it the the list of the childreen of the parent
+	list_append(proc->parent->child,proc);
 
 	//add it to the global process list
 	list_append(proc_list,proc);
@@ -199,7 +206,30 @@ process *get_current_proc(){
 }
 
 void kill_proc(process *proc){
+	list_remove(proc_list,proc);
+
+	//all the childreen become orphelan
+	//the parent of orphelan is init
+	foreach(node,proc->child){
+		process *child = node->value;
+		child->parent = init;
+	}
+	free_list(proc->child);
+
+	//close every open fd
+	for (size_t i = 0; i < MAX_FD; i++){
+		if(proc->fds[i].present){
+			vfs_close(proc->fds[i].node);
+		}
+	}
+
+	//close cwd
+	vfs_close(proc->cwd_node);
+	kfree(proc->cwd_path);
+
+	//the tricky part begin
 	kernel->can_task_switch = 0;
+
 	//is the parent waiting ?
 	if(proc->parent && (proc->parent->flags & PROC_STATE_WAIT)){
 		//see if we can wake it up
@@ -217,6 +247,7 @@ void kill_proc(process *proc){
 		yeld();
 		for(;;);
 	}
+	kernel->can_task_switch = 1;
 }
 
 process *pid2proc(pid_t pid){
