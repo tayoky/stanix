@@ -1,10 +1,11 @@
-#include "idt.h"
+#include <kernel/scheduler.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
+#include <kernel/signal.h>
 #include <stdint.h>
+#include "idt.h"
 #include "interrupt.h"
 #include "panic.h"
-#include <kernel/scheduler.h>
 #include "sys.h"
 
 void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){
@@ -63,11 +64,14 @@ void exception_handler(fault_frame *fault){
 	}
 	if(fault->cs == 0x1B){
 		if(fault->err_type == 14){
+			if(fault->cr2 == MAGIC_SIGRETURN){
+				restore_signal_handler(fault);
+			}
 			kprintf("%p : segmentation fault (core dumped)\n",fault->rip);
 			page_fault_info(fault);
 			kill_proc(get_current_proc());
 		}
-		kprintf("fault %lu (core dumped)\n",fault->err_type);
+		kprintf("%p : fault %lu (core dumped)\n",fault->rip,fault->err_type);
 		kill_proc(get_current_proc());
 	}
 	kprintf("error : 0x%lx\n",fault->err_type);
