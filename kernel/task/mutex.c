@@ -19,9 +19,12 @@ int acquire_mutex(mutex_t *mutex){
 		//register on waiter list and wait
 		mutex->waiter[mutex->waiter_count] = get_current_proc();
 		mutex->waiter_count++;
-		spinlock_release(mutex->lock);
-		block_proc();
-		spinlock_acquire(mutex->lock);
+		while(mutex->locked){
+			//if wwe get intterupted just reblock
+			spinlock_release(mutex->lock);
+			block_proc();
+			pinlock_acquire(mutex->lock);
+		}
 	}
 	mutex->locked = 1;
 	spinlock_release(mutex->lock);

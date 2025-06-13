@@ -43,7 +43,11 @@ int send_sig(process *proc,int signum){
 	//from here we don't the state of the task to change during this procedure
 	kernel->can_task_switch = 0;
 
-	
+	//if the task is blocked interrupt it
+	if(proc->flags & PROC_FLAG_BLOCKED){
+		proc->flags |= PROC_FLAG_INTR;
+		unblock_proc(proc);
+	}
 
 	kernel->can_task_switch = 1;
 

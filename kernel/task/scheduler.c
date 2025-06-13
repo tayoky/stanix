@@ -9,6 +9,7 @@
 #include <kernel/arch.h>
 #include <kernel/time.h>
 #include <kernel/asm.h>
+#include <errno.h>
 
 process *running_proc;
 list *proc_list;
@@ -42,7 +43,7 @@ void init_task(){
 	kernel_task->pid = 0;
 	kernel_task->next = kernel_task;
 	kernel_task->prev = kernel_task;
-	kernel_task->flags = PROC_STATE_PRESENT | PROC_STATE_RUN;
+	kernel_task->flags = PROC_FLAG_PRESENT | PROC_FLAG_RUN;
 	kernel_task->child = new_list();
 
 	//setup a new stack
@@ -103,7 +104,7 @@ process *new_proc(){
 	kdebugf("new proc 0x%p next : 0x%p pid : %ld/%ld\n",proc,get_current_proc()->next,proc->pid,kernel->created_proc_count);
 	proc->addrspace = create_addr_space();
 	proc->parent = get_current_proc();
-	proc->flags = PROC_STATE_PRESENT;
+	proc->flags = PROC_FLAG_PRESENT;
 	proc->child = new_list();
 
 	//setup a new kernel stack
@@ -231,14 +232,14 @@ void kill_proc(process *proc){
 	kernel->can_task_switch = 0;
 
 	//is the parent waiting ?
-	if(proc->parent && (proc->parent->flags & PROC_STATE_WAIT)){
+	if(proc->parent && (proc->parent->flags & PROC_FLAG_WAIT)){
 		//see if we can wake it up
 		if(proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1){
 			unblock_proc(proc->parent);
 		}
 	}
 	
-	proc->flags |= PROC_STATE_ZOMBIE;
+	proc->flags |= PROC_FLAG_ZOMBIE;
 	block_proc(proc);
 	
 	//if the proc is it self
@@ -266,7 +267,10 @@ process *pid2proc(pid_t pid){
 	return NULL;
 }
 
-void block_proc(){
+int block_proc(){
+	//clear the intterupt flags
+	get_current_proc()->flags &= ~PROC_FLAG_INTR;
+
 	//kdebugf("block %ld\n",get_current_proc()->pid);
 	//if this is the last process unblock the idle task
 	if(get_current_proc()->next == get_current_proc()){
@@ -276,7 +280,8 @@ void block_proc(){
 	kernel->can_task_switch = 0;
 
 	//block ourself
-	get_current_proc()->flags &= ~(uint64_t)PROC_STATE_RUN;
+	get_current_proc()->flags &= ~(uint64_t)PROC_FLAG_RUN;
+	get_current_proc()->flags |= PROC_FLAG_BLOCKED;
 
 	//remove us from the list
 	get_current_proc()->prev->next = get_current_proc()->next;
@@ -285,15 +290,23 @@ void block_proc(){
 	kernel->can_task_switch = 1;
 	//apply
 	yeld();
+
+	//if we were interrupted return -EINTR
+	if(get_current_proc()->flags & PROC_FLAG_INTR){
+		return -EINTR;
+	}
+
+	return 0;
 }
 
 void unblock_proc(process *proc){
-	//aready unblock ?
-	if(proc->flags & PROC_STATE_RUN){
+	//aready unblocked ?
+	if(proc->flags & PROC_FLAG_RUN){
 		return;
 	}
 	//kdebugf("unblock %ld\n",proc->pid);
-	proc->flags |= PROC_STATE_RUN;
+	proc->flags |= PROC_FLAG_RUN;
+	proc->flags &= ~PROC_FLAG_BLOCKED;
 
 	kernel->can_task_switch = 0;
 

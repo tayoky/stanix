@@ -49,8 +49,8 @@ typedef struct process_struct{
 	file_descriptor fds[MAX_FD];
 	vfs_node *cwd_node; //TODO use this instead of making an asbolut path require vfs_openat
 	char *cwd_path;
-	uint64_t heap_start;
-	uint64_t heap_end;
+	uintptr_t heap_start;
+	uintptr_t heap_end;
 	struct timeval wakeup_time;
 	memseg *first_memseg;
 	pid_t waitfor;
@@ -61,13 +61,15 @@ typedef struct process_struct{
 	struct sigaction sig_handling[32];
 } process;
 
-#define PROC_STATE_PRESENT 0x01
-#define PROC_STATE_ZOMBIE  0x02
-#define PROC_STATE_TOCLEAN 0x04
-#define PROC_STATE_DEAD    0x08
-#define PROC_STATE_RUN     0x10
-#define PROC_STATE_SLEEP   0x20
-#define PROC_STATE_WAIT    0x40
+#define PROC_FLAG_PRESENT 0x001UL
+#define PROC_FLAG_ZOMBIE  0x002UL
+#define PROC_FLAG_TOCLEAN 0x004UL
+#define PROC_FLAG_DEAD    0x008UL
+#define PROC_FLAG_RUN     0x010UL
+#define PROC_FLAG_SLEEP   0x020UL
+#define PROC_FLAG_WAIT    0x040UL
+#define PROC_FLAG_INTR    0x080UL
+#define PROC_FLAG_BLOCKED 0x100UL
 
 void init_task();
 process *get_current_proc();
@@ -76,7 +78,7 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 void kill_proc(process *proc);
 void proc_push(process *proc,void *value,size_t size);
 process *pid2proc(pid_t pid);
-void block_proc();
+int block_proc();
 void unblock_proc(process *proc);
 
 void yeld();

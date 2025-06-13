@@ -624,11 +624,11 @@ int sys_waitpid(pid_t pid,int *status){
 	}
 
 	//don't wait for zombie
-	if(proc->flags & PROC_STATE_ZOMBIE){
+	if(proc->flags & PROC_FLAG_ZOMBIE){
 		if(status){
 			*status = proc->exit_status;
 		}
-		proc->flags |= PROC_STATE_DEAD;
+		proc->flags |= PROC_FLAG_DEAD;
 		list_append(to_clean_proc,proc);
 		unblock_proc(cleaner);
 		kernel->can_task_switch = 1;
@@ -636,18 +636,20 @@ int sys_waitpid(pid_t pid,int *status){
 	}
 
 	get_current_proc()->waitfor = pid;
-	get_current_proc()->flags |= PROC_STATE_WAIT;
+	get_current_proc()->flags |= PROC_FLAG_WAIT;
 	
 	//block, when we wake up the process is now a zombie
 	kernel->can_task_switch = 1;
-	block_proc();
+	if(block_proc() == -EINTR){
+		return -EINTR;
+	}
 
 	//get the exit status
 	if(status){
 		*status = proc->exit_status;
 	}
 
-	proc->flags |= PROC_STATE_DEAD;
+	proc->flags |= PROC_FLAG_DEAD;
 	list_append(to_clean_proc,proc);
 	unblock_proc(cleaner);
 

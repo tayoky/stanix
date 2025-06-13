@@ -7,7 +7,7 @@ void sleep_until(struct timeval wakeup_time){
 	kernel->can_task_switch = 0;
 	kdebugf("wait until : %ld:%ld\n",wakeup_time.tv_sec,wakeup_time.tv_usec);
 	get_current_proc()->wakeup_time = wakeup_time;
-	get_current_proc()->flags |= PROC_STATE_SLEEP;
+	get_current_proc()->flags |= PROC_FLAG_SLEEP;
 
 	//add us to the list
 	//keep the list orgnazie from first awake to last
