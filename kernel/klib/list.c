@@ -59,6 +59,8 @@ void list_add_after(list *l,list_node *node,void *value){
 		node->next = new_node;
 		if(new_node->next){
 			new_node->next->prev = new_node;
+		} else {
+			l->last_node = new_node;
 		}
 	} else {
 		list_node *new_node = kmalloc(sizeof(list_node));
