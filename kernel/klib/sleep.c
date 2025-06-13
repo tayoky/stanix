@@ -3,7 +3,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/print.h>
 
-void sleep_until(struct timeval wakeup_time){
+int sleep_until(struct timeval wakeup_time){
 	kernel->can_task_switch = 0;
 	kdebugf("wait until : %ld:%ld\n",wakeup_time.tv_sec,wakeup_time.tv_usec);
 	get_current_proc()->wakeup_time = wakeup_time;
@@ -30,16 +30,16 @@ void sleep_until(struct timeval wakeup_time){
 		get_current_proc()->snext = sleeping_proc;
 		sleeping_proc = get_current_proc();
 	}
-	block_proc();
+	return block_proc();
 }
 
-void sleep(long seconds){
+int sleep(long seconds){
 	return micro_sleep(seconds * 1000000);
 }
 
-void micro_sleep(suseconds_t micro_second){
+int micro_sleep(suseconds_t micro_second){
 	if(micro_second < 100){
-		return;
+		return 0;
 	}
 	//caclulate new time val
 	struct timeval new_timeval = time;
@@ -55,5 +55,5 @@ void micro_sleep(suseconds_t micro_second){
 		new_timeval.tv_usec = micro_second % 1000000;
 	}
 
-	sleep_until(new_timeval);
+	return sleep_until(new_timeval);
 }

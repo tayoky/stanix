@@ -23,7 +23,7 @@ int acquire_mutex(mutex_t *mutex){
 			//if wwe get intterupted just reblock
 			spinlock_release(mutex->lock);
 			block_proc();
-			pinlock_acquire(mutex->lock);
+			spinlock_acquire(mutex->lock);
 		}
 	}
 	mutex->locked = 1;

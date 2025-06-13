@@ -6,9 +6,9 @@
 
 extern struct timeval time;
 
-void sleep_until(struct timeval wakeup_time);
-void sleep(long second);
-void micro_sleep(suseconds_t micro_second);
+int sleep_until(struct timeval wakeup_time);
+int sleep(long second);
+int micro_sleep(suseconds_t micro_second);
 
 #define NOW() time.tv_sec
 

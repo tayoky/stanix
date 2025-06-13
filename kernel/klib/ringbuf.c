@@ -3,6 +3,7 @@
 #include <kernel/string.h>
 #include <kernel/scheduler.h>
 #include <kernel/list.h>
+#include <errno.h>
 
 ring_buffer new_ringbuffer(size_t buffer_size){
 	ring_buffer ring;
@@ -34,12 +35,15 @@ size_t ringbuffer_write_available(ring_buffer *ring){
 	return ring->buffer_size - ringbuffer_read_available(ring);
 }
 
-size_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
+ssize_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 	//check if there are something to read or sleep
-	while(!ringbuffer_read_available(ring)){
+	if(ringbuffer_read_available(ring) == 0){
 		list_append(ring->reader_waiter,get_current_proc());
-		block_proc();
+		if(block_proc() == -EINTR){
+			return -EINTR;
+		}
 	}
+
 	char *buffer = (char *)buf;
 	//cant read more that what is available
 	if(count > ringbuffer_read_available(ring)){
@@ -62,7 +66,7 @@ size_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 	return count;
 }
 
-size_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
+ssize_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 	char *buffer = (char *)buf;
 	//cant write more that what is available
 	if(count > ringbuffer_write_available(ring)){
@@ -82,13 +86,11 @@ size_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 	memcpy(ring->buffer + ring->write_offset,buffer,rest_count);
 	ring->write_offset += rest_count;
 
-	//if process are waiting to read wakeup and reset the queue
-	foreach(node,ring->reader_waiter){
-		process *proc = node->value;
-		unblock_proc(proc);
+	//if a process is waiting to read wakeup
+	if(ring->reader_waiter->frist_node){
+		unblock_proc(ring->reader_waiter->frist_node->value);
+		list_remove(ring->reader_waiter,ring->reader_waiter->frist_node->value);
 	}
-	free_list(ring->reader_waiter);
-	ring->reader_waiter = new_list();
 
 	return count;
 }

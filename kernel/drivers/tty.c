@@ -98,11 +98,14 @@ ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	struct tty *tty = (struct tty *)node->private_inode;
 
 	if(tty->termios.c_lflag & ICANON){
-		size_t rsize = ringbuffer_read(buffer,&tty->input_buffer,count);
+		ssize_t rsize = ringbuffer_read(buffer,&tty->input_buffer,count);
+		if(rsize < 0){
+			return rsize;
+		}
 		if(((char *)buffer)[rsize - 1] == tty->termios.c_cc[VEOF]){
 			rsize--;
 		}
-		return (ssize_t)rsize;
+		return rsize;
 	}
 
 	return ringbuffer_read(buffer,&tty->input_buffer,count);
@@ -298,7 +301,7 @@ int tty_input(tty *tty,char c){
 		tty->canon_buf[tty->canon_index] = c;
 		tty->canon_index++;
 		if(c == '\n' || c == tty->termios.c_cc[VEOL] || c == tty->termios.c_cc[VEOF]){
-			if(ringbuffer_write(tty->canon_buf,&tty->input_buffer,tty->canon_index) < tty->canon_index){
+			if((size_t)ringbuffer_write(tty->canon_buf,&tty->input_buffer,tty->canon_index) < tty->canon_index){
 				if(tty->termios.c_iflag & IMAXBEL){
 					tty_output(tty,'\a');
 				}
