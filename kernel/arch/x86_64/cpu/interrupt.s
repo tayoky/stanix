@@ -53,7 +53,7 @@ isr_err_stub_base:
     pop rdx
     pop rsi
     pop rdi
-    pop r15
+    pop rbp
     pop r8
     pop r9
     pop r10

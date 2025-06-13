@@ -44,22 +44,21 @@ jump_userspace:
 global load_context
 load_context:
 	mov rsp, rdi
+	add rsp, 16 ;skip cr2 ad cr3
 	pop rax
-    pop rax
-    pop rax
-    pop rbx
-    pop rcx
-    pop rdx
-    pop rsi
-    pop rdi
-    pop r15
-    pop r8
-    pop r9
-    pop r10
-    pop r11
-    pop r12
-    pop r13
-    pop r14
-    pop r15
-    add rsp,16
+	pop rbx
+	pop rcx
+	pop rdx
+	pop rsi
+	pop rdi
+	pop rbp
+	pop r8
+	pop r9
+	pop r10
+	pop r11
+	pop r12
+	pop r13
+	pop r14
+	pop r15
+	add rsp, 16 ;skip err code and type
 	iretq
