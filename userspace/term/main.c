@@ -172,10 +172,10 @@ int main(int argc,const char **argv){
 	for (int i = 1; i < argc-1; i++){
 		if((!strcmp(argv[i],"--layout")) || !strcmp(argv[i],"-i")){
 			i++;
-			if((!stricmp(argv[i],"azerty")) || !stricmp(argv[i],"french")){
+			if((!strcasecmp(argv[i],"azerty")) || !strcasecmp(argv[i],"french")){
 				layout = kbd_fr;
 				layout_shift = kbd_fr_shift;
-			} else if((!stricmp(argv[i],"qwerty")) || !stricmp(argv[i],"english")){
+			} else if((!strcasecmp(argv[i],"qwerty")) || !strcasecmp(argv[i],"english")){
 				layout = kbd_us;
 				layout = kbd_us_shift;
 			}

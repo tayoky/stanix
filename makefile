@@ -87,6 +87,7 @@ rd : ${OUT}/boot/initrd.tar
 ${OUT}/boot/initrd.tar : ${initrd_src}
 	@echo "[creating init ramdisk]"
 	@mkdir -p ${OUT}/boot
+	@mkdir -p initrd/dev initrd/tmp
 	@cd initrd && tar --create -f ../${OUT}/boot/initrd.tar **
 
 ${OUT}/boot/limine/limine.conf : limine.conf

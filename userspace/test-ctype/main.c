@@ -25,7 +25,7 @@ int main(){
 	}
 
 	//now test strx function
-	if(stricmp("HEllO","hello")){
+	if(strcasecmp("HEllO","hello")){
 		printf("test stricmp  failed\n");
 		return 1;
 	}
