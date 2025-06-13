@@ -7,7 +7,7 @@
 
 volatile int flag = 0;
 
-void handler(int signum){
+void handler(){
 	printf("SIGUSR1\n");
 	flag = 1;
 	return;

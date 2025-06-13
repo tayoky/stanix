@@ -88,6 +88,7 @@ void yeld();
 #define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)
 
 extern list *to_clean_proc;
+extern list *proc_list;
 extern process *cleaner;
 extern process *sleeping_proc;
 

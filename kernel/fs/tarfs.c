@@ -5,7 +5,7 @@
 #include <kernel/print.h>
 #include <kernel/asm.h>
 
-static uint64_t octal2int(const char *octal){
+static inline uint64_t octal2int(const char *octal){
 	uint64_t integer = 0;
 	while(*octal){
 		integer *= 8;
@@ -15,20 +15,6 @@ static uint64_t octal2int(const char *octal){
 	return integer;
 }
 
-static void ls(const char *path){
-	vfs_node *node = vfs_open(path,VFS_READONLY);
-
-	struct dirent *ret;
-	uint64_t index = 0;
-	while(1){
-		ret = vfs_readdir(node,index);
-		if(!ret)break;
-		kprintf("%s\n",ret->d_name);
-		index++;
-	}
-
-	vfs_close(node);
-}
 
 void mount_initrd(void){
 	kstatus("unpack initrd ...");
@@ -46,12 +32,11 @@ void mount_initrd(void){
 		ustar_header *current_file = (ustar_header *)addr;
 
 		//find the full path of the file
-		char *full_path = kmalloc(strlen(current_file->name) + strlen("/") + 1);
-		strcpy(full_path,"/");
-		strcat(full_path,current_file->name);
+		char full_path[strlen(current_file->name) + strlen("/") + 1];
+		sprintf(full_path,"/%s",current_file->name);
 
 		//find file size
-		uint64_t file_size = octal2int(current_file->file_size);
+		size_t file_size = octal2int(current_file->file_size);
 
 		if(current_file->type == USTAR_DIRTYPE){
 			full_path[strlen(full_path)-1] = '\0';
@@ -71,7 +56,6 @@ void mount_initrd(void){
 			}
 
 			//open the file
-			kdebugf("%s\n",full_path);
 			vfs_node *file = vfs_open(full_path,VFS_WRITEONLY);
 			if(!file){
 				kfail();
@@ -83,8 +67,8 @@ void mount_initrd(void){
 			vfs_chown(file,0,0);
 
 			//copy the files content
-			int64_t write_size = vfs_write(file,addr + 512,0,file_size);
-			if((uint64_t)write_size != file_size){
+			ssize_t write_size = vfs_write(file,addr + 512,0,file_size);
+			if((size_t)write_size != file_size){
 				kfail();
 				kinfof("%s\n",current_file->name);
 				kinfof("fail to write to file %s, can only write %luKB/%luKB\n",full_path,write_size/1024,file_size/1024);
@@ -94,10 +78,8 @@ void mount_initrd(void){
 			//now close and free
 			vfs_close(file);
 		};
-		kfree(full_path);
 
 		addr += (((uint64_t)file_size + 1023) / 512) * 512;
 	}
 	kok();
-	ls("/");
 }

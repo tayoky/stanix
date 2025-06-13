@@ -651,6 +651,7 @@ int sys_waitpid(pid_t pid,int *status){
 
 	proc->flags |= PROC_FLAG_DEAD;
 	list_append(to_clean_proc,proc);
+	list_remove(proc_list,proc);
 	unblock_proc(cleaner);
 
 	return pid;

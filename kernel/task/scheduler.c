@@ -207,8 +207,6 @@ process *get_current_proc(){
 }
 
 void kill_proc(process *proc){
-	list_remove(proc_list,proc);
-
 	//all the childreen become orphelan
 	//the parent of orphelan is init
 	foreach(node,proc->child){
