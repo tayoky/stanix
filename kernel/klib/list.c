@@ -57,7 +57,7 @@ void list_add_after(list *l,list_node *node,void *value){
 		new_node->prev = node;
 		new_node->next = node->next;
 		node->next = new_node;
-		if(new_node->next->prev){
+		if(new_node->next){
 			new_node->next->prev = new_node;
 		}
 	} else {
