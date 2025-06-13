@@ -7,7 +7,7 @@
 
 volatile int flag = 0;
 
-void handler(){
+void handler(int signum){
 	printf("SIGUSR1\n");
 	flag = 1;
 	return;
@@ -27,7 +27,10 @@ int main(){
 	}
 	
 	//spin until flags is set
-	while(!flag);
+	if(!flag){
+		printf("raise and signal test failed\n");
+		return 1;
+	}
 	printf("raise and signal test succed\n");
 
 	sigset_t usr1;
@@ -50,7 +53,11 @@ int main(){
 		perror("sigprocmask");
 		return 1;
 	}
-	while(!flag);
+	//spin until flags is set
+	if(!flag){
+		printf("rblock/unblock test failed\n");
+		return 1;
+	}
 	printf("block/unblock test succed\n");
 
 	return 0;
