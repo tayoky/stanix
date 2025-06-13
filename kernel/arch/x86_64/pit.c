@@ -34,11 +34,11 @@ void init_pit(void){
 	//the tick per second is defined here
 	uint16_t divider = 1193181 / TPS;
 
+	irq_generic_map(pit_handler,0);
+
 	out_byte(PIT_COMMAND,0b00110100);
 	out_byte(PIT_CHANNEL0,divider & 0xFF);
 	out_byte(PIT_CHANNEL0,(divider >> 8) & 0xFF);
-
-	irq_generic_map(pit_handler,0);
 	
 	//just wait to make sure PIT work
 	micro_sleep(100000);
