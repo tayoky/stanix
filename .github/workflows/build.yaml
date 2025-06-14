@@ -20,4 +20,7 @@ jobs:
         git clone https://github.com/tayoky/tlibc.git
 
     - name: Build stanix
-      run: bash build-toolchain.sh
+      run: |
+        ls # I NEED TO SEE THIS.
+        chmod +x build-toolchain.sh
+        ./build-toolchain.sh
