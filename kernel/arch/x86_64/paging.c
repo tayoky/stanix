@@ -70,18 +70,18 @@ void delete_addr_space(addrspace_t PMLT4){
 
 			for (uint16_t PDi = 0; PDi < 512; PDi++){
 				if(!(PD[PDi] & 1))continue;
-				uint64_t *PT = (uint64_t *)((PMLT4[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+				uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 				
-				//pmm_free_page(((uintptr_t)PT)-kernel->hhdm);
+				pmm_free_page((uintptr_t)PT-kernel->hhdm);
 			}
 
-			//pmm_free_page((uintptr_t)PD-kernel->hhdm);
+			pmm_free_page((uintptr_t)PD-kernel->hhdm);
 		}
 
-		//pmm_free_page((uintptr_t)PDP-kernel->hhdm);
+		pmm_free_page((uintptr_t)PDP-kernel->hhdm);
 	}
 	
-	//pmm_free_page(((uintptr_t)PMLT4)-kernel->hhdm);
+	pmm_free_page((uintptr_t)PMLT4-kernel->hhdm);
 }
 
 void *virt2phys(void *address){
