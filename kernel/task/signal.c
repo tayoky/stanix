@@ -25,6 +25,22 @@ static const char default_handling[32] = {
 	[SIGCONT] = CONT,
 };
 
+static void handle_default(process *proc,int signum){
+	switch(default_handling[signum]){
+	case CORE:
+	case KILL:
+		kdebugf("process killed by signal %d\n",signum);
+		get_current_proc()->exit_status = ((uint64_t)1 << 33) | signum;
+		kill_proc(proc);
+		break;
+	case IGN:
+		break;
+	case STOP:
+		kdebugf("process should have stoped\n");
+		break;
+	}
+}
+
 int send_sig(process *proc,int signum){
 	//if the process ignore just skip
 	if(proc->sig_handling[signum].sa_handler == SIG_IGN || (proc->sig_handling[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN)){
@@ -38,11 +54,24 @@ int send_sig(process *proc,int signum){
 
 	}
 
-	proc->pending_sig |= sigmask(signum);
-
 	//from here we don't the state of the task to change during this procedure
 	kernel->can_task_switch = 0;
 
+	//if the task is in usermode we can do our job right now
+	if(is_userspace(proc)){
+		if(proc->sig_handling[signum].sa_handler == SIG_DFL){
+			handle_default(proc,signum);
+			kernel->can_task_switch = 1;
+			return 0;
+		} else {
+			//TODO : remotly start the signal handler
+		}
+	}
+	
+	//if it's not we have to wait until it return to usermode
+	proc->pending_sig |= sigmask(signum);
+
+	
 	//if the task is blocked interrupt it
 	if(proc->flags & PROC_FLAG_BLOCKED){
 		proc->flags |= PROC_FLAG_INTR;
@@ -62,7 +91,10 @@ void handle_signal(fault_frame *context){
 				get_current_proc()->pending_sig &= ~sigmask(signum);
 				if(get_current_proc()->sig_handling[signum].sa_handler == SIG_IGN){
 					continue;
-				} else if(get_current_proc()->sig_handling[signum].sa_handler){
+				} else if(get_current_proc()->sig_handling[signum].sa_handler == SIG_DFL){
+					handle_default(get_current_proc(),signum);
+					continue;
+				} else {
 					//this is the tricky part
 
 					uintptr_t sp = SP_REG(*context);
@@ -84,20 +116,6 @@ void handle_signal(fault_frame *context){
 
 					//then we can jump to the signal handler
 					jump_userspace((void *)get_current_proc()->sig_handling[signum].sa_handler,(void *)sp,signum,0,(uintptr_t)ucontext,0);
-				} else {
-					switch(default_handling[signum]){
-					case CORE:
-					case KILL:
-						kdebugf("process killed by signal %d\n",signum);
-						get_current_proc()->exit_status = ((uint64_t)1 << 33) | signum;
-						kill_proc(get_current_proc());
-						break;
-					case IGN:
-						continue;
-					case STOP:
-						kdebugf("process should have stoped\n");
-						continue;
-					}
 				}
 			}
 		}		

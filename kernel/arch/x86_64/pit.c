@@ -21,6 +21,14 @@ void pit_handler(fault_frame *frame){
 		time.tv_sec++;
 	}
 
+	//update the kernel flags
+	//just in case it didn't already
+	if(frame->cs == 0x08){
+		get_current_proc()->flags |= PROC_FLAG_KERNEL;
+	} else {
+		get_current_proc()->flags &= ~PROC_FLAG_KERNEL;
+	}
+
 	irq_eoi(frame->err_code);
 	frame->err_code = (uintptr_t)-1;
 

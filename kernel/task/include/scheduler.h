@@ -70,10 +70,11 @@ typedef struct process_struct{
 #define PROC_FLAG_WAIT    0x040UL
 #define PROC_FLAG_INTR    0x080UL
 #define PROC_FLAG_BLOCKED 0x100UL
+#define PROC_FLAG_KERNEL  0x200UL
 
-void init_task();
-process *get_current_proc();
-process *new_proc();
+void init_task(void);
+process *get_current_proc(void);
+process *new_proc(void);
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
 void kill_proc(process *proc);
 void proc_push(process *proc,void *value,size_t size);
@@ -82,6 +83,7 @@ int block_proc();
 void unblock_proc(process *proc);
 
 void yeld();
+int is_userspace(process *);
 
 #define FD_GET(fd) get_current_proc()->fds[fd]
 #define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))

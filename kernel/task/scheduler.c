@@ -316,3 +316,7 @@ void unblock_proc(process *proc){
 
 	kernel->can_task_switch = 1;
 }
+
+int is_userspace(process *proc){
+	return !(proc->flags & PROC_FLAG_KERNEL);
+}
