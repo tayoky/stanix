@@ -14,16 +14,14 @@ jobs:
         
     - name: Fix depencies
       run: |
-        rm -rf limine ports tlibc
-        git clone https://github.com/limine-bootloader/limine.git
-        git clone https://github.com/tayoky/ports.git
-        git clone https://github.com/tayoky/tlibc.git
+        git submodule init
+        git submodule update
 
     - name: Build stanix
       run: |
+        ./build-toolchain.sh
         . add-to-path.sh
         ./configure
         make
         ./essential-ports.sh
         make
-        ./build-toolchain.sh
