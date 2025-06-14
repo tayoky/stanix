@@ -106,8 +106,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 		}
 	}
 	
-
-	//set the heap start to 0
+	//set the heap start to 0 for future comparaison
 	get_current_proc()->heap_start = 0;
 
 	//then iterate trought each prog header
@@ -119,7 +118,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 
 		//convert elf header to paging header
 		uint64_t flags = PAGING_FLAG_READONLY_CPL3;
-		if((!prog_header[i].p_flags & PF_X)){
+		if(!(prog_header[i].p_flags & PF_X)){
 			flags |= PAGING_FLAG_NO_EXE;
 		}
 		if(prog_header[i].p_flags & PF_W){
@@ -153,6 +152,9 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 
 	//map stack
 	memseg_map(get_current_proc(),USER_STACK_BOTTOM,USER_STACK_SIZE,PAGING_FLAG_RW_CPL3  | PAGING_FLAG_NO_EXE);
+
+	//keep a one page guard between the executable and the heap
+	get_current_proc()->heap_start += PAGE_SIZE;
 
 	//set the heap end
 	get_current_proc()->heap_end = get_current_proc()->heap_start;
