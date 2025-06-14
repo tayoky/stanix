@@ -13,4 +13,4 @@ jobs:
       run: sudo apt install build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf -y
         
     - name: Build stanix
-      run: bash build-toolchain.sh
+      run: bash build.sh
