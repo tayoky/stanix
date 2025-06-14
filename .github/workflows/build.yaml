@@ -12,5 +12,12 @@ jobs:
     - name: Set up depencies
       run: sudo apt install build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf -y
         
+    - name: Fix depencies
+      run: |
+        rm -rf limine ports tlibc
+        git clone https://github.com/limine-bootloader/limine.git
+        git clone https://github.com/tayoky/ports.git
+        git clone https://github.com/tayoky/tlibc.git
+
     - name: Build stanix
-      run: bash build.sh
+      run: bash build-toolchain.sh
