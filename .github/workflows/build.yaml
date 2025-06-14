@@ -1,0 +1,16 @@
+name: 'TBuild StanixOS test'
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build-stanix:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up depencies
+      run: sudo apt install build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf -y
+        
+    - name: Build stanix
+      run: bash build-toolchain.sh --target=x86_64-stanix
