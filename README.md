@@ -21,5 +21,7 @@ clone the submodules :
 git submodule init
 git submodule update
 ```
+### screenshots
+![stanix.png](stanix.png)
 ### building
 see the [build docs](BUILD.md)
