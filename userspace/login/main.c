@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 
 int main(int argc,char **argv){
+	printf("starting login\n");
 	for (int i = 1; i < argc; i++){
 		if(!strcmp(argv[1],"--setup-stdin-from-stdout")){
 			dup2(STDOUT_FILENO,STDIN_FILENO);
@@ -15,7 +16,7 @@ int main(int argc,char **argv){
 	putenv("USER=root");
 	putenv("HOME=/");
 	putenv("SHELL=/bin/tsh");
-	printf("starting login\n");
+	chdir(getenv("HOME"));
 
 	//print /motd
 	system("cat /motd");

@@ -17,7 +17,7 @@
 
 extern char **environ;
 
-int main(int argc,char **argv){
+int main(){
 	//simple security
 	if(getpid() != 0){
 		fprintf(stderr,"error : not runned as init process\n");
