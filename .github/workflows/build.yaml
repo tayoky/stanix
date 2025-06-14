@@ -10,7 +10,7 @@ jobs:
 
     steps:
     - name: Set up depencies
-      run: sudo apt install build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf -y
+      run: sudo apt install build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf gdisk mtools xorriso nasm -y
         
     - name: Fix depencies
       run: |
@@ -21,6 +21,9 @@ jobs:
 
     - name: Build stanix
       run: |
-        ls # I NEED TO SEE THIS.
-        chmod +x build-toolchain.sh
+        . add-to-path.sh
+        ./configure
+        make
+        ./essential-ports.sh
+        make
         ./build-toolchain.sh
