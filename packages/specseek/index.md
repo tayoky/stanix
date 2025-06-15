@@ -21,7 +21,7 @@ precompiled are currently not available
 [package source](https://github.com/tayoky/ports/tree/main/ports/specseek)  
 
 ### manifest
-```ini
+```bash
 GIT=https://github.com/Mellurboo/SpecSeek/
 COMMIT="47f51c62de8e8142a8ecb47b65b19cc7fd60b2c7"
 

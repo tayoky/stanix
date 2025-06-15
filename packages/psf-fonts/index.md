@@ -21,7 +21,7 @@ precompiled are currently not available
 [package source](https://github.com/tayoky/ports/tree/main/ports/psf-fonts)  
 
 ### manifest
-```ini
+```bash
 GIT=https://github.com/ercanersoy/PSF-Fonts
 
 install() {

@@ -21,7 +21,7 @@ precompiled are currently not available
 [package source](https://github.com/tayoky/ports/tree/main/ports/binutils)  
 
 ### manifest
-```ini
+```bash
 TAR=https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
 WEBSITE=https://www.gnu.org/software/binutils/
 

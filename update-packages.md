@@ -61,7 +61,7 @@ for port in data:
     index.write("\n## packages source\n")
     index.write(f"[package source]({port['html_url']})  \n")
     index.write("\n### manifest\n")
-    index.write(f"```ini\n{manifest}```\n")
+    index.write(f"```bash\n{manifest}```\n")
     index.write("\nthis page was generated using a [script](../../update-packages.md)\n")
     index.close()
 

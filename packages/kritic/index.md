@@ -21,7 +21,7 @@ precompiled are currently not available
 [package source](https://github.com/tayoky/ports/tree/main/ports/kritic)  
 
 ### manifest
-```ini
+```bash
 GIT=https://github.com/Wrench56/KritiC
 
 build() {
