@@ -1,4 +1,6 @@
 #!/bin/tsh
+echo "mounting /tmp"
+mount -t tmpfs -S / -T /tmp
 echo "loading modules"
 insmod /mod/test.ko
 insmod /mod/pci.ko

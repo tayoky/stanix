@@ -75,7 +75,11 @@ int main(int argc,char **argv){
 		return ret;
 	}
 
-	printf("mount : mounting the device %s under %s , type : %s",source,target,type);
+	printf("mount : mounting the device %s under %s , type : %s\n",source,target,type);
 
-	return mount(source,target,type,0,NULL);
+	ret = mount(source,target,type,0,NULL);
+	if(ret < 0){
+		perror("mount");
+	}
+	return ret;
 }

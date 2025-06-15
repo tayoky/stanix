@@ -71,23 +71,8 @@ vfs_filesystem tmpfs = {
 
 void init_tmpfs(){
 	kstatus("init tmpfs... ");
-	if(vfs_mount("/tmp",new_tmpfs())){
-		kfail();
-		halt();
-	}
-
 	vfs_register_fs(&tmpfs);
-	
 	kok();
-	vfs_node *tmp_root = vfs_open("/tmp/",VFS_READONLY);
-	
-	vfs_mkdir("/tmp/sys",000);
-	vfs_close(tmp_root);
-	vfs_create("/tmp/sys/log",0x777,VFS_FILE);
-	vfs_node *sys_log_file = vfs_open("/tmp/sys/log",VFS_WRITEONLY);
-	char test[] = "tmpfs succefull init";
-	vfs_write(sys_log_file,test,0,strlen(test)+1);
-	vfs_close(sys_log_file);
 }
 vfs_node *new_tmpfs(){
 	return inode2node(new_inode("root",TMPFS_FLAGS_DIR));
