@@ -1,27 +1,22 @@
-![](https://tokei.rs/b1/github/tayoky/FOS2) ![GitHub top language](https://img.shields.io/github/languages/top/tayoky/FOS2)
-   
-# StanixOS
-An 64 bit OS made from scratch  
-this os use the stanix kernel an 64 bit monolic higher half kernel  
-[credit here](CREDITS.md)
-## build
-to build an image of the os you first need to make sure to have all of this :  
-- git
-- mtools (only for hdd images)
-- nasm
-- gcc
-- ld
-- xorriso (only for iso images)
-- qemu (for testing in vm ot any other vm)
-- make
-### submodule
-the repo as two submodules : limine and tlibc   
-clone the submodules :  
-```sh
-git submodule init
-git submodule update
-```
-### screenshots
-![stanix.png](stanix.png)
-### building
+![](https://tokei.rs/b1/github/tayoky/stanix) ![GitHub top language](https://img.shields.io/github/languages/top/tayoky/stanix)
+
+# stanix
+stanix is a 64bit made from sratch operating system for the x86\_64 architecture (aarch64 is wrok in progress)
+with its own kernel libc shell and userspace
+more info on [the webiste](https://tayoky.github.io/stanix)
+
+## screenshots
+![a stanix screenshot with ls runnning](https://tayoky.github.io/stanix/assets/screenshot1.png)
+
+## building
 see the [build docs](BUILD.md)
+
+## contributing
+before doing any pull request ask in an issue  
+as i do this mostly as a learning project i mostly do everything myself  
+all commit name must be in the style `part : change` eg
+- `vfs : fix vfs_mount memory leak`
+- `login : ask for password before launching shell`
+
+## thanks
+special thanks to [techdude](https://github.com/sasdallas) who helped me a lot fixing a bunch of big issues

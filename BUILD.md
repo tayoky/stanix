@@ -62,15 +62,15 @@ then you can follow the guide same as [self building](#self-building)
 if you are compiling from sanix (or using the cross toolchain) follow these steps
 
 ### required software
-- git
-- gcc ld ar and as (tcc might also work but is untested)
-- make
-- nasm
-- coreutil
-- gdisk (for hdd images)
-- mtools (for hdd imaages)
-- xorriso (for iso images)
-- pkg-config
+- `git`
+- `gcc` `ld` `ar` and `as` (`tcc` might also work but is untested)
+- `make`
+- `nasm`
+- `coreutil`
+- `gdisk` (for hdd images)
+- `mtools` (for hdd imaages)
+- `xorriso` (for iso images)
+- `pkg-config`
 
 ### configure
 first configure, this will detect the compiler and linker
@@ -83,7 +83,8 @@ first configure, this will detect the compiler and linker
 see [configuration option](#configuration-options) for all supported options  
 
 ### compiling
-just run `make all` for all images or
+first run `make` and then `./essential-ports.sh` to build tsh and tutils 
+then just run `make all` for all images or
 - `make hdd` for hdd image
 - `make iso` for iso image
 `make test` create an hdd image  and automaticly launch it with qemu
