@@ -70,29 +70,21 @@ void panic(const char *error,fault_frame *fault){
 		kprintf("cs  : 0x%p\tss  : 0x%p\n",fault->cs,fault->ss);
 		kprintf("========================= FLAG =========================\n");
 		kprintf("falgs: 0x%lx\n",fault->flags);
-		kprintf("====================== STACK TRACE =====================\n");//NOT ALIGNED!!!!!
-		kprintf("most recent call\n");
-		kprintf("<0x%lx> %s\n",fault->rip,get_func_name(fault->rip));
-		uint64_t *rbp = (uint64_t *)fault->rbp;
-		while (rbp && *rbp && *(rbp+1)){
-			kprintf("<0x%lx> %s\n",*(rbp+1),get_func_name(*(rbp+1)));
-			rbp = (uint64_t *)(*rbp);
-		}
 		
-		kprintf("older call\n");
 
 	}else{
 		kprintf("unavalible\n");
-		kprintf("===================== STACK TRACE ====================\n");//NOT ALIGNED!!!!!
-		kprintf("most recent call\n");
-		uint64_t *rbp;
-		asm("mov %%rbp , %%rax" : "=a" (rbp));
-		while (rbp && *rbp && *(rbp+1)){
-			kprintf("<0x%lx> %s\n",*(rbp+1),get_func_name(*(rbp+1)));
-			rbp = (uint64_t *)(*rbp);
-		}
-		kprintf("older call\n");
 	}
+	kprintf("====================== STACK TRACE =====================\n");//NOT ALIGNED!!!!!
+	kprintf("most recent call\n");
+	kprintf("<0x%lx> %s\n",fault->rip,get_func_name(fault->rip));
+	uint64_t *rbp = (uint64_t *)fault->rbp;
+	while (rbp && *rbp && *(rbp+1)){
+		kprintf("<0x%lx> %s\n",*(rbp+1),get_func_name(*(rbp+1)));
+		rbp = (uint64_t *)(*rbp);
+	}
+	
+	kprintf("older call\n");
 	kprintf(COLOR_RESET);
 	halt();
 }
