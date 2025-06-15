@@ -38,7 +38,7 @@ for port in data:
     os.mkdir(path)
 
     #try to get the manifest
-    req = requests.get(f"https://raw.githubusercontent.com/{repo}/main/ports/{name}/{name}.ini") 
+    req = requests.get(f"https://raw.githubusercontent.com/{repo}/main/ports/{name}/{name}.sh") 
     manifest = req.text
 
     index = open(f"{path}/index.md","w")

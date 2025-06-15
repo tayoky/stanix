@@ -22,13 +22,28 @@ precompiled are currently not available
 
 ### manifest
 ```ini
-git=https://github.com/TinyCC/tinycc
-build="make"
-install="make install"
-configure=". ${SRC}/configure.sh"
-info=info.txt
-dependencies=dependencies.txt
-patch="tcc.patch"
+GIT=https://github.com/TinyCC/tinycc
+
+configure() {
+	./configure --prefix=$PREFIX --sysroot=$SYSROOT --targetos=stanix --enable-static --cc=$CC --triplet=x86_64-stanix --extra-cflags='-Wall
+    -Wextra
+    -std=gnu11
+    -fno-stack-protector
+    -fno-stack-check
+    -fno-PIC
+    -static' 
+
+	echo '#define CONFIG_TCC_STATIC 1
+	#define CONFIG_TCC_SEMLOCK 0' >> config.h
+}
+
+build() {
+	make
+}
+
+install() {
+	make install
+}
 ```
 
 this page was generated using a [script](../../update-packages.md)

@@ -6,7 +6,9 @@ there are some packages and port for stanix, some comes with precompiled
 ## list
 [binutils](binutils)  
 [doomgeneric](doomgeneric)  
+[kritic](kritic)  
 [psf-fonts](psf-fonts)  
+[specseek](specseek)  
 [tcc](tcc)  
 [tsh](tsh)  
 [tutils](tutils)  

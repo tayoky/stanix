@@ -1,5 +1,5 @@
 ---
-title: psf-fonts
+title: kritic
 comment: this file was generated automaticly DO NOT EDIT
 ---
 ## description
@@ -9,27 +9,27 @@ to build and install this package use the ports submodule in the stanix repo
 after having making stanix
 ```sh
 cd ports
-./clean.sh psf-fonts
-./build.sh psf-fonts
-./install.sh psf-fonts
+./clean.sh kritic
+./build.sh kritic
+./install.sh kritic
 ```
 
 ## precompiled
 precompiled are currently not available
 
 ## packages source
-[package source](https://github.com/tayoky/ports/tree/main/ports/psf-fonts)  
+[package source](https://github.com/tayoky/ports/tree/main/ports/kritic)  
 
 ### manifest
 ```ini
-GIT=https://github.com/ercanersoy/PSF-Fonts
+GIT=https://github.com/Wrench56/KritiC
+
+build() {
+	make static CC=$CC LD=$LD CFLAGS=-DKRITIC_DISABLE_REDIRECT PLATFORM=stanix
+}
 
 install() {
-	#first setup directory
-	mkdir -p ${PREFIX}/local/share/consolefonts
-
-	#copy all psf font
-	cp ./*.psf ${PREFIX}/local/share/consolefonts/
+	mkdir -p $PREFIX/lib && cp build/libkritic.a $PREFIX/lib
 }
 ```
 
