@@ -38,7 +38,7 @@ cd stanix
 ### building cross toolchain
 then you can run the script to build the toolchain
 ```sh
-./build-toochain.sh --target=x86_64-stanix
+./build-toolchain.sh --target=x86_64-stanix
 ```
 > [!NOTE]  
 > do `./build-toolchain.sh --help`  
