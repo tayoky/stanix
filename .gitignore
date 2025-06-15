@@ -1,22 +1,14 @@
 #out things
-out/boot/limine/*.conf
+out
 
 #build of stanix kernel
 stanix.elf
 
 #images build
-FOS25.*
 stanix.iso
 stanix.hdd
 OVMF-img.bin
 
-#limine build
-limine-bios.sys
-BOOTIA32.EFI
-BOOTX64.EFI
-BOOTAA64.EFI
-out/boot/limine/limine-bios-cd.bin
-out/boot/limine/limine-uefi-cd.bin
 
 #ramdisk
 initrd.tar
