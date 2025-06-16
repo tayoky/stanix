@@ -1,8 +1,5 @@
 #!/bin/sh
 
-#delete any old conf file
-rm -f $(dirname $0)/config.mk
-
 #automacly add toolchain/bin to path
 if [ -d "$(dirname $0)/toolchain/bin" ] ; then
   export PATH="$(realpath $(dirname $0))/toolchain/bin:$PATH"
@@ -51,6 +48,7 @@ for i in "$@"; do
     --help)
       echo "./configure [OPTIONS]"
       echo "options :"
+      echo "--ld : define the linker to use"
       echo "--cc : define the C compiler to use"
       echo "--as : define the assembler to use"
       echo "--ar : define the archiver to use"
@@ -68,6 +66,9 @@ for i in "$@"; do
       ;;
   esac
 done
+
+#delete any old conf file
+rm -f $(dirname $0)/config.mk
 
 #alaways use absolute path
 SYSROOT=$(realpath $SYSROOT)

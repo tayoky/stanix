@@ -25,7 +25,7 @@ if you are building from another OS you will first have to make an **cross toolc
 
 on ubuntu you can get everything by
 ```sh
-sudo apt install build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf
+sudo apt git install build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf
 ```
 
 ### cloning
@@ -38,7 +38,7 @@ cd stanix
 ### building cross toolchain
 then you can run the script to build the toolchain
 ```sh
-./build-toochain.sh --target=x86_64-stanix
+./build-toolchain.sh --target=x86_64-stanix
 ```
 > [!NOTE]  
 > do `./build-toolchain.sh --help`  
@@ -78,7 +78,7 @@ first configure, this will detect the compiler and linker
 ./configure --host=x86_64-stanix
 ```
 > [!NOTE]  
-> supportted values for `--host` are `x86_64-stanix`, `i386-stanix` and `aarch64-stanix` 
+> supported values for `--host` are `x86_64-stanix`, `i386-stanix` and `aarch64-stanix` 
 
 see [configuration option](#configuration-options) for all supported options  
 
@@ -87,18 +87,22 @@ first run `make` and then `./essential-ports.sh` to build tsh and tutils
 then just run `make all` for all images or
 - `make hdd` for hdd image
 - `make iso` for iso image
-`make test` create an hdd image  and automaticly launch it with qemu
+- `make test` to create an hdd image and automaticly launch it with qemu
+- `make cdrom-test` to create an iso image and automaticly launch it with qemu
 
 ## configuration options
 all options supported by the `./configure` script
-- `--host=XXX` precise the host for finding the compiler this should always be `x86_64-stanix` or not present
+- `--host=XXX` precise the host for finding the compiler this should always be `XXX-stanix` or not present
 - `--sysroot=XXX` custom sysroot path
 - `--cc=XXX` use a custom c compiler
 - `--ld=XXX` use a custom linker
-- `--nasm=XXX` use a custom assembler (must use the intel syntax and produce 64-bit objects files)
+- `--ar=XXX` use a custom archiver
+- `--as=XXX` use a custom AT&T syntax assembler
+- `--nm=XXX` use a custom nm (usefull if it try tu use llvm-nm for some reason)
+- `--nasm=XXX` use a custom intel syntax assembler (must produce 64-bit objects files)
 
 # installing programs
-for the moment, any program you want to install must be put into `./initrd/bin/` in the repo  
+for the moment, any program you want to install must be put into `initrd/bin/` in the repo  
 then redo `make all`  
 
 you can install port by going into the ports folder then running `./build.sh XXX` and `./install.sh XXX`
