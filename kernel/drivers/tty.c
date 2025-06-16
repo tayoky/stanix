@@ -273,10 +273,19 @@ int tty_input(tty *tty,char c){
 		if(tty->termios.c_lflag & ECHO){
 			if(c == tty->termios.c_cc[VERASE] && tty->termios.c_lflag & ECHOE){
 				if(tty->canon_index > 0){
+					if(tty->canon_buf[tty->canon_index -1] && tty->canon_buf[tty->canon_index -1] <= 31 && tty->canon_buf[tty->canon_index -1] != '\n'){
+						//if last is a control char we need to earse both the char and the ^
+						tty_output(tty,'\b');
+						tty_output(tty,' ');
+						tty_output(tty,'\b');
+					}
 					tty_output(tty,'\b');
 					tty_output(tty,' ');
 					tty_output(tty,'\b');
 				}
+			} else if(c && c <= 31 && c != '\n'){
+				tty_output(tty,'^');
+				tty_output(tty,c + 'A' - 1);
 			} else {
 				tty_output(tty,c);
 			}
