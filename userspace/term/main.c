@@ -8,6 +8,7 @@
 #include <pty.h>
 #include <poll.h>
 #include <termios.h>
+#include <stdint.h>
 
 const char kbd_us[128] = {
 	0,27,
@@ -165,7 +166,48 @@ const char kbd_fr_shift[128] = {
 	0, /* everything else */
 };
 
+typedef struct {
+    uint16_t magic; // Magic bytes for identification.
+    uint8_t font_mode; // PSF font mode.
+    uint8_t character_size; // PSF character size.
+} PSF1_Header;
+
+int x = 1;
+int y = 1;
+int width;
+int fb;
+char *font_data;
+PSF1_Header font_header;
+uint32_t front_color = 0xFFFFFF;
+uint32_t back_color = 0x000000;
+
 //most basic terminal emumator
+void draw_char(char c){
+	if(c == '\n'){
+		x = 1;
+		y++;
+		return;
+	}
+
+	char *current_byte = &font_data[c * font_header.character_size];
+	for (uint16_t i = 0; i < font_header.character_size; i++){
+		uint32_t line[8];
+		for (uint8_t j = 0; j < 8; j++){
+			if(((*current_byte) >> (7 - j)) & 0x01){
+				line[j] = front_color;
+			} else {
+				line[j] = back_color;
+			}
+		}
+		lseek(fb,(((y - 1) * font_header.character_size + i) * width + ((x - 1) * 8)) * sizeof(uint32_t),SEEK_SET);
+		write(fb,line,sizeof(line));
+		current_byte++;
+	}
+
+	x++;
+}
+
+
 int main(int argc,const char **argv){
 	const char *layout = kbd_us;
 	const char *layout_shift = kbd_us_shift;
@@ -211,6 +253,36 @@ int main(int argc,const char **argv){
 		perror("/dev/kb0");
 		return EXIT_FAILURE;
 	}
+	
+	//try open framebuffer
+	fb = open("/dev/fb0",O_WRONLY);
+	if(fb < 0){
+		perror("/dev/fb0");
+		return EXIT_FAILURE;
+	}
+	width = ioctl(fb,1,0);
+	printf("framebuffer width : %d\n",width);
+
+	//load font
+	int font_file = open("zap-light16.psf",O_RDONLY);
+	if(font_file < 0){
+		perror("/zap-light16.psf");
+		return EXIT_FAILURE;
+	}
+	off_t font_size = lseek(font_file,0,SEEK_END);
+	if(font_size < 0){
+		perror("lseek");
+	}
+	font_data = malloc(font_size - sizeof(PSF1_Header));
+	lseek(font_file,0,SEEK_SET);
+	if(read(font_file,&font_header,sizeof(font_header)) < 0){
+		perror("read");
+	}
+	if(read(font_file,font_data,font_size - sizeof(PSF1_Header)) < 0){
+		perror("read");
+	}
+	close(font_file);
+	printf("load font of size %ld\n",font_size);
 
 	//fork and launch login with std stream set to the slave
 	pid_t child = fork();
@@ -221,6 +293,7 @@ int main(int argc,const char **argv){
 		close(master);
 		close(slave);
 		close(kbd_fd);
+		close(fb);
 
 		const char *arg[] = {
 			"/bin/login",
@@ -255,7 +328,7 @@ int main(int argc,const char **argv){
 				//read error ???
 				perror("read");
 			} else {
-				putchar(c);
+				draw_char(c);
 			}
 		}
 
