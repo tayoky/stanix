@@ -220,6 +220,7 @@ int main(int argc,const char **argv){
 		dup2(slave,STDERR_FILENO);
 		close(master);
 		close(slave);
+		close(kbd_fd);
 
 		const char *arg[] = {
 			"/bin/login",
