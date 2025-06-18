@@ -5,6 +5,7 @@
 #include <kernel/print.h>
 #include <kernel/devices.h>
 #include <kernel/bootinfo.h>
+#include <sys/fb.h>
 
 ssize_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	struct limine_framebuffer *inode = node->private_inode;
@@ -41,6 +42,18 @@ int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 	
 	//implent basic ioctl : width hight ...
 	switch (request){
+	case IOCTL_GET_FB_INFO:
+		struct fb *fb = arg;
+		fb->width = inode->width;
+		fb->height = inode->height;
+		fb->pitch = inode->pitch;
+		fb->red_mask_size    = inode->red_mask_size;
+		fb->red_mask_shift   = inode->red_mask_shift;
+		fb->green_mask_size  = inode->green_mask_size;
+		fb->green_mask_shift = inode->green_mask_shift;
+		fb->blue_mask_size   = inode->blue_mask_size;
+		fb->blue_mask_shift  = inode->blue_mask_shift;
+		return 0;
 	case IOCTL_FRAMEBUFFER_HEIGHT:
 		return inode->height;
 		break;
