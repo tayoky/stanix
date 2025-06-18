@@ -10,6 +10,8 @@
 #include <termios.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <sys/fb.h>
+#include <sys/ioctl.h>
 
 const char kbd_us[128] = {
 	0,27,
@@ -94,7 +96,7 @@ const char kbd_fr[128] = {
 	'&','?' /*é*/,'"','\'','(','-',' ' /*è*/,'_',' '/*ç*/,' ' /*à*/,
 	')','=',127,
 	'\t', /* tab */
-	'a','e','e','r','t','y','u','i','o','p','^','$','\n',
+	'a','z','e','r','t','y','u','i','o','p','^','$','\n',
 	0, /* control */
 	'q','s','d','f','g','h','j','k','l','m','\'', '`',
 	0, /* left shift */
@@ -133,7 +135,7 @@ const char kbd_fr_shift[128] = {
 	'1','2','3','4','5','6','7','8','9','0',
 	' ' /*°*/,'+',127,
 	'\t', /* tab */
-	'A','E','Z','R','T','Y','U','I','O','P','{','}','\n',
+	'A','Z','E','R','T','Y','U','I','O','P','{','}','\n',
 	0, /* control */
 	'Q','S','D','F','G','H','J','K','L','M','%', '~',
 	0, /* left shift */
@@ -175,7 +177,7 @@ typedef struct {
 
 int x = 1;
 int y = 1;
-int width;
+struct fb fb_info;
 int fb;
 char *font_data;
 PSF1_Header font_header;
@@ -220,19 +222,35 @@ void draw_char(char c){
 			ansi_escape_count++;
 			return;
 		} else {
+			ansi_escape_count-=1;
 			switch(c){
 			case 'H':
 				x = 1;
 				y = 1;
 				return;
 			case 'J':
+				lseek(fb,0,SEEK_SET);
+				for (long i = 0; i < fb_info.width * fb_info.height; i++){
+					write(fb,&back_color,sizeof(back_color));
+				}
 				return;
 			case 'f':
 				x = ansi_escape_args[1];
 				y = ansi_escape_args[0];
 				return;	
 			case 'm':
-				for(int i = 0; i<ansi_escape_count-1;i++){
+				if(ansi_escape_count == 1 && ansi_escape_args[0] == 0){
+					back_color = 0x000000;
+					front_color = 0xFFFFFF;
+				} else if(ansi_escape_count >= 3 && ansi_escape_args[0] == 48){
+					if(ansi_escape_args[2] < 16){
+						back_color = ansi_colours[ansi_escape_args[2]%8];
+					} else if(ansi_escape_args[2] <= 232) {
+
+					} else if (ansi_escape_args[2] <= 255){
+						//grey scale
+					}
+				} for(int i = 0; i<ansi_escape_count;i++){
 					if(ansi_escape_args[i] >= 30 && ansi_escape_args[i] <= 37){
 						front_color = ansi_colours[ansi_escape_args[i] - 30];
 					} else if(ansi_escape_args[i] >= 40 && ansi_escape_args[i] <= 47){
@@ -265,7 +283,7 @@ void draw_char(char c){
 				line[j] = back_color;
 			}
 		}
-		lseek(fb,(((y - 1) * font_header.character_size + i) * width + ((x - 1) * 8)) * sizeof(uint32_t),SEEK_SET);
+		lseek(fb,(((y - 1) * font_header.character_size + i) * fb_info.width + ((x - 1) * 8)) * sizeof(uint32_t),SEEK_SET);
 		write(fb,line,sizeof(line));
 		current_byte++;
 	}
@@ -326,8 +344,11 @@ int main(int argc,const char **argv){
 		perror("/dev/fb0");
 		return EXIT_FAILURE;
 	}
-	width = ioctl(fb,1,0);
-	printf("framebuffer width : %d\n",width);
+	if(ioctl(fb,IOCTL_GET_FB_INFO,&fb_info) < 0){
+		perror("ioctl");
+		return EXIT_FAILURE;
+	}
+	printf("framebuffer %ldx%ld \n",fb_info.width,fb_info.height);
 
 	//load font
 	int font_file = open("zap-light16.psf",O_RDONLY);
