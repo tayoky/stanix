@@ -9,6 +9,7 @@
 #include <poll.h>
 #include <termios.h>
 #include <stdint.h>
+#include <ctype.h>
 
 const char kbd_us[128] = {
 	0,27,
@@ -180,12 +181,77 @@ char *font_data;
 PSF1_Header font_header;
 uint32_t front_color = 0xFFFFFF;
 uint32_t back_color = 0x000000;
+int ansi_escape_count = 0;
+int ansi_escape_args[8];
+
+uint32_t ansi_colours[] = {
+	0xFFFFFF, //black
+	0xFF0000, //red
+	0x00FF00, //green
+	0xFFFF00, //yellow
+	0x0000FF, //blue
+	0xFF00FF, //magenta
+	0x00FFFF, //cyan
+	0xFFFFFF, //white
+};
 
 //most basic terminal emumator
 void draw_char(char c){
-	if(c == '\n'){
+	if(c == '\e'){
+		memset(ansi_escape_args,0,sizeof(ansi_escape_args));
+		ansi_escape_count = 1;
+		return ;
+	}
+	if(ansi_escape_count == 1){
+		if(c == '['){
+			ansi_escape_count++;
+			return;
+		} else {
+			ansi_escape_count = 0;
+		}
+	}
+	
+	if(ansi_escape_count){
+		if(isdigit((unsigned char)c)){
+			ansi_escape_args[ansi_escape_count-2] *= 10;
+			ansi_escape_args[ansi_escape_count-2] += c - '0';
+			return;
+		} else if(c == ';'){
+			ansi_escape_count++;
+			return;
+		} else {
+			switch(c){
+			case 'H':
+				x = 1;
+				y = 1;
+				return;
+			case 'J':
+				return;
+			case 'f':
+				x = ansi_escape_args[1];
+				y = ansi_escape_args[0];
+				return;	
+			case 'm':
+				for(int i = 0; i<ansi_escape_count-1;i++){
+					if(ansi_escape_args[i] >= 30 && ansi_escape_args[i] <= 37){
+						front_color = ansi_colours[ansi_escape_args[i] - 30];
+					} else if(ansi_escape_args[i] >= 40 && ansi_escape_args[i] <= 47){
+						back_color = ansi_colours[ansi_escape_args[i] - 40];
+					}
+				}
+				return;
+			}
+			ansi_escape_count = 0;
+		}
+	}
+	
+	switch(c){
+	case '\n':
 		x = 1;
 		y++;
+		return;
+	case '\b':
+		x--;
 		return;
 	}
 
