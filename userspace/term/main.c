@@ -197,6 +197,26 @@ uint32_t ansi_colours[] = {
 	0xFFFFFF, //white
 };
 
+uint32_t parse_color(int id){
+	if(ansi_escape_count >= 3 && ansi_escape_args[0] == id + 8){
+		if(ansi_escape_args[2] < 16){
+			return ansi_colours[ansi_escape_args[2]%8];
+		} else if(ansi_escape_args[2] <= 232) {
+			uint8_t r = (ansi_escape_args[2] - 16) / 36 % 6 * 40 + 55;
+			uint8_t g = (ansi_escape_args[2] - 16) /  6 % 6 * 40 + 55;
+			uint8_t b = (ansi_escape_args[2] - 16) /  1 % 6 * 40 + 55;
+			return r << 16 | g << 8 | b;
+		} else if (ansi_escape_args[2] <= 255){
+			//grey scale
+		}
+	} for(int i = 0; i<ansi_escape_count;i++){
+		if(ansi_escape_args[i] >= id && ansi_escape_args[i] <= id + 7){
+			return ansi_colours[ansi_escape_args[i] - id];
+		}
+	}
+	return id == 30 ? 0xFFFFFF : 0x000000;
+}
+
 //most basic terminal emumator
 void draw_char(char c){
 	if(c == '\e'){
@@ -242,24 +262,14 @@ void draw_char(char c){
 				if(ansi_escape_count == 1 && ansi_escape_args[0] == 0){
 					back_color = 0x000000;
 					front_color = 0xFFFFFF;
-				} else if(ansi_escape_count >= 3 && ansi_escape_args[0] == 48){
-					if(ansi_escape_args[2] < 16){
-						back_color = ansi_colours[ansi_escape_args[2]%8];
-					} else if(ansi_escape_args[2] <= 232) {
-
-					} else if (ansi_escape_args[2] <= 255){
-						//grey scale
-					}
-				} for(int i = 0; i<ansi_escape_count;i++){
-					if(ansi_escape_args[i] >= 30 && ansi_escape_args[i] <= 37){
-						front_color = ansi_colours[ansi_escape_args[i] - 30];
-					} else if(ansi_escape_args[i] >= 40 && ansi_escape_args[i] <= 47){
-						back_color = ansi_colours[ansi_escape_args[i] - 40];
-					}
+				} else if (ansi_escape_args[0] >= 40 && ansi_escape_args[0]<= 49){
+					back_color = parse_color(40);
+				} else if (ansi_escape_args[0] >= 30 && ansi_escape_args[0]<= 39){
+					front_color = parse_color(30);
 				}
-				return;
-			}
 			ansi_escape_count = 0;
+			return;
+			}
 		}
 	}
 	
@@ -441,7 +451,7 @@ int main(int argc,const char **argv){
 				}
 				goto ignore;
 			}
-			if(event.ie_key.scancode == 0x2A || (event.ie_key.scancode == 0x3A && event.ie_key.flags & IE_KEY_PRESS)){
+			if(event.ie_key.scancode == 0x2A || event.ie_key.scancode == 0x36 || (event.ie_key.scancode == 0x3A && event.ie_key.flags & IE_KEY_PRESS)){
 				shift = 1 - shift;
 				goto ignore;
 			}
