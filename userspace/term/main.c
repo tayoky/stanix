@@ -194,13 +194,21 @@ uint32_t ansi_colours[] = {
 	0x0000FF, //blue
 	0xFF00FF, //magenta
 	0x00FFFF, //cyan
-	0xFFFFFF, //white
+	0xFFFFFF, //light white
+	0x808080, //light black
+	0x800000, //light red
+	0x008000, //light green
+	0x808000, //light yellow
+	0x000080, //light blue
+	0x800080, //light magenta
+	0x008080, //light cyan
+	0x808080, //light white
 };
 
 uint32_t parse_color(int id){
 	if(ansi_escape_count >= 3 && ansi_escape_args[0] == id + 8){
 		if(ansi_escape_args[2] < 16){
-			return ansi_colours[ansi_escape_args[2]%8];
+			return ansi_colours[ansi_escape_args[2]];
 		} else if(ansi_escape_args[2] <= 232) {
 			uint8_t r = (ansi_escape_args[2] - 16) / 36 % 6 * 40 + 55;
 			uint8_t g = (ansi_escape_args[2] - 16) /  6 % 6 * 40 + 55;
@@ -208,6 +216,9 @@ uint32_t parse_color(int id){
 			return r << 16 | g << 8 | b;
 		} else if (ansi_escape_args[2] <= 255){
 			//grey scale
+			uint32_t color = (ansi_escape_args[2] - 232) * 10 + 8;
+			color |= color << 16 | color << 8;
+			return color;
 		}
 	} for(int i = 0; i<ansi_escape_count;i++){
 		if(ansi_escape_args[i] >= id && ansi_escape_args[i] <= id + 7){
@@ -247,17 +258,17 @@ void draw_char(char c){
 			case 'H':
 				x = 1;
 				y = 1;
-				return;
+				break;
 			case 'J':
 				lseek(fb,0,SEEK_SET);
 				for (long i = 0; i < fb_info.width * fb_info.height; i++){
 					write(fb,&back_color,sizeof(back_color));
 				}
-				return;
+				break;
 			case 'f':
 				x = ansi_escape_args[1];
 				y = ansi_escape_args[0];
-				return;	
+				break;
 			case 'm':
 				if(ansi_escape_count == 1 && ansi_escape_args[0] == 0){
 					back_color = 0x000000;
@@ -267,9 +278,10 @@ void draw_char(char c){
 				} else if (ansi_escape_args[0] >= 30 && ansi_escape_args[0]<= 39){
 					front_color = parse_color(30);
 				}
+				break;
+			}
 			ansi_escape_count = 0;
 			return;
-			}
 		}
 	}
 	
