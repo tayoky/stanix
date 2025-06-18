@@ -194,7 +194,7 @@ uint32_t ansi_colours[] = {
 	0x0000FF, //blue
 	0xFF00FF, //magenta
 	0x00FFFF, //cyan
-	0xFFFFFF, //light white
+	0xFFFFFF, //white
 	0x808080, //light black
 	0x800000, //light red
 	0x008000, //light green
@@ -209,7 +209,7 @@ uint32_t parse_color(int id){
 	if(ansi_escape_count >= 3 && ansi_escape_args[0] == id + 8){
 		if(ansi_escape_args[2] < 16){
 			return ansi_colours[ansi_escape_args[2]];
-		} else if(ansi_escape_args[2] <= 232) {
+		} else if(ansi_escape_args[2] < 232) {
 			uint8_t r = (ansi_escape_args[2] - 16) / 36 % 6 * 40 + 55;
 			uint8_t g = (ansi_escape_args[2] - 16) /  6 % 6 * 40 + 55;
 			uint8_t b = (ansi_escape_args[2] - 16) /  1 % 6 * 40 + 55;
