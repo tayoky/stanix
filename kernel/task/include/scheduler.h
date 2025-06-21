@@ -1,8 +1,8 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#include <kernel/list.h>
 #include <kernel/paging.h>
+#include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -27,15 +27,7 @@ typedef struct {
 #define FD_NONBLOCK 0x08
 #define FD_CLOEXEC  0x10
 
-typedef struct memseg_struct {
-	void *offset;
-	size_t size;
-	struct memseg_struct *next;
-	struct memseg_struct *prev;
-	uint64_t flags;
-}memseg;
-
-typedef struct process_struct{
+typedef struct process_struct {
 	addrspace_t addrspace;
 	uintptr_t rsp;
 	uintptr_t kernel_stack;
@@ -52,7 +44,7 @@ typedef struct process_struct{
 	uintptr_t heap_start;
 	uintptr_t heap_end;
 	struct timeval wakeup_time;
-	memseg *first_memseg;
+	struct memseg_struct *first_memseg;
 	pid_t waitfor;
 	long exit_status;
 	list *child;
