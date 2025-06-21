@@ -99,8 +99,9 @@ void handle_signal(fault_frame *context){
 
 					uintptr_t sp = SP_REG(*context);
 					kdebugf("sp : %p\n",sp);
-
-					//we first need make the ucontext on the userspace stack
+					//align the stack
+					sp &= ~0xfUL;
+					//we need make the ucontext on the userspace stack
 					sp -= sizeof(ucontext_t);
 					ucontext_t *ucontext = (ucontext_t *)sp;
 					memset(ucontext,0,sizeof(ucontext_t));
