@@ -74,13 +74,13 @@ memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
 	return new_memseg;
 }
 
-void memeseg_chflag(process *proc,memseg *seg,uint64_t flags){
+void memseg_chflag(process *proc,memseg *seg,uint64_t flags){
 	seg->flags = flags;
 	
 	uintptr_t addr = seg->addr;
 	uintptr_t end = seg->addr + seg->size;
 	while(addr < end){
-		map_page(proc->addrspace,pmm_allocate_page(),addr,flags);
+		map_page(proc->addrspace,(uintptr_t)space_virt2phys(proc->addrspace,(void *)addr),addr,flags);
 		addr += PAGE_SIZE;
 	}
 }

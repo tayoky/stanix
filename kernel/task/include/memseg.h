@@ -17,6 +17,6 @@ typedef struct memseg_struct {
 memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags);
 void memseg_unmap(process *proc,memseg *seg);
 void memseg_clone(process *parent,process *child,memseg *seg);
-void memeseg_chflag(process *proc,memseg *seg,uint64_t flags);
+void memseg_chflag(process *proc,memseg *seg,uint64_t flags);
 
 #endif

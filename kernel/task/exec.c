@@ -144,7 +144,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 		}
 
 		//set the flags
-		memeseg_chflag(get_current_proc(),seg,flags);
+		memseg_chflag(get_current_proc(),seg,flags);
 	}
 	kfree(prog_header);
 
