@@ -108,5 +108,20 @@ void memseg_unmap(process *proc,memseg *seg){
 }
 
 void memseg_clone(process *parent,process *child,memseg *seg){
-	
+	(void)parent;
+	memseg *new_seg = memseg_map(child,seg->addr,seg->size,PAGING_FLAG_RW_CPL0);
+	if(!new_seg){
+		return;
+	}
+
+	//copy content
+	char *addr = (char *)seg->addr;
+	char *end = (char *)seg->addr + seg->size;
+	while(addr < end){
+		uintptr_t phys = (uintptr_t)space_virt2phys(child->addrspace,addr);
+		memcpy((void *)kernel->hhdm + phys,addr,PAGE_SIZE);
+		addr += PAGE_SIZE;
+	}
+
+	memseg_chflag(child,new_seg,seg->flags);
 }
