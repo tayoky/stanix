@@ -86,7 +86,25 @@ void memseg_chflag(process *proc,memseg *seg,uint64_t flags){
 }
 
 void memseg_unmap(process *proc,memseg *seg){
-	
+	uintptr_t addr = seg->addr;
+	uintptr_t end = seg->addr + seg->size;
+	while(addr < end){
+		pmm_free_page((uintptr_t)space_virt2phys(proc->addrspace,(void *)addr));
+		unmap_page(proc->addrspace,addr);
+		addr += PAGE_SIZE;
+	}
+
+	//relink the list
+	if(seg->next){
+		seg->next->prev = seg->prev;
+	}
+	if(seg->prev){
+		seg->prev->next = seg->next;
+	} else {
+		proc->first_memseg = seg->next;
+	}
+
+	kfree(seg);
 }
 
 void memseg_clone(process *parent,process *child,memseg *seg){
