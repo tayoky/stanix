@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <kernel/print.h>
 
-memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
+memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t flags){
 	memseg *prev = NULL;
 	if(address){
 		//we need to page align everything
@@ -45,7 +45,6 @@ memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
 		}
 	}
 
-	kdebugf("map %p size : %lx\n",address,size);
 	memseg *new_memseg = kmalloc(sizeof(memseg));
 	memset(new_memseg,0,sizeof(memseg));
 	new_memseg->addr = address;
@@ -65,6 +64,17 @@ memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
 		new_memseg->next->prev = new_memseg;
 	}
 
+	return new_memseg;
+}
+
+memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
+	memseg *new_memseg = memseg_create(proc,address,size,flags);
+	if(!new_memseg) return NULL;
+	
+	address = new_memseg->addr;
+
+	kdebugf("map %p size : %lx\n",address,size);
+	
 	uintptr_t end = address + size;
 	while(address < end){
 		map_page(proc->addrspace,pmm_allocate_page(),address,flags);
@@ -86,12 +96,16 @@ void memseg_chflag(process *proc,memseg *seg,uint64_t flags){
 }
 
 void memseg_unmap(process *proc,memseg *seg){
-	uintptr_t addr = seg->addr;
-	uintptr_t end = seg->addr + seg->size;
-	while(addr < end){
-		pmm_free_page((uintptr_t)space_virt2phys(proc->addrspace,(void *)addr));
-		unmap_page(proc->addrspace,addr);
-		addr += PAGE_SIZE;
+	if(seg->unmap){
+		seg->unmap(seg);
+	} else {
+		uintptr_t addr = seg->addr;
+		uintptr_t end = seg->addr + seg->size;
+		while(addr < end){
+			pmm_free_page((uintptr_t)space_virt2phys(proc->addrspace,(void *)addr));
+			unmap_page(proc->addrspace,addr);
+			addr += PAGE_SIZE;
+		}
 	}
 
 	//relink the list

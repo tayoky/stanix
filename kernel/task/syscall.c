@@ -962,10 +962,10 @@ void *sys_mmap(uintptr_t addr,size_t length,int prot,int flags,int fd,off_t offs
 	}
 
 	uint64_t pflags = PAGING_FLAG_READONLY_CPL3;
-	if(flags & PROT_WRITE){
+	if(prot & PROT_WRITE){
 		pflags |= PAGING_FLAG_RW_CPL3;
 	}
-	if(!(flags & PROT_EXEC)){
+	if(!(prot & PROT_EXEC)){
 		pflags |= PAGING_FLAG_NO_EXE;
 	}
 
@@ -980,7 +980,7 @@ void *sys_mmap(uintptr_t addr,size_t length,int prot,int flags,int fd,off_t offs
 		if(!FD_GET(fd).present){
 			return (void *)-EBADF;
 		}
-		return vfs_mmap(FD_GET(fd).node,(void *)addr,length,prot,flags,offset);
+		return vfs_mmap(FD_GET(fd).node,(void *)addr,length,pflags,flags,offset);
 	}
 }
 

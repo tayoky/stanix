@@ -380,7 +380,7 @@ int vfs_ioctl(vfs_node *node,uint64_t request,void *arg){
 }
 
 
-void *vfs_mmap(vfs_node *node,void *addr,size_t lenght,int prot,int flags,off_t offset){
+void *vfs_mmap(vfs_node *node,void *addr,size_t lenght,uint64_t prot,int flags,off_t offset){
 	if(node->mmap){
 		return node->mmap(node,addr,lenght,prot,flags,offset);
 	} else {

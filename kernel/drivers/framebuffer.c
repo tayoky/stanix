@@ -5,7 +5,10 @@
 #include <kernel/print.h>
 #include <kernel/devices.h>
 #include <kernel/bootinfo.h>
+#include <kernel/memseg.h>
+#include <sys/mman.h>
 #include <sys/fb.h>
+#include <errno.h>
 
 ssize_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	struct limine_framebuffer *inode = node->private_inode;
@@ -85,10 +88,36 @@ int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 		return framebuffer_scroll(inode,(uint64_t) arg);
 		break;
 	default:
-		//invalid
-		return -1;
+		return -EINVAL;
 		break;
 	}
+}
+
+void *frambuffer_mmap(vfs_node *node,void *addr,size_t lenght,uint64_t prot,int flags,off_t offset){
+	if(!(flags & MAP_SHARED)){
+		return (void *)-EINVAL;
+	}
+
+	struct limine_framebuffer *inode = node->private_inode;
+	offset = PAGE_ALIGN_DOWN(offset);
+	lenght = PAGE_ALIGN_DOWN(lenght);
+	if(lenght == 0)return (void *)-EINVAL;
+
+	memseg *seg = memseg_create(get_current_proc(),(uintptr_t)addr,lenght,PAGING_FLAG_RW_CPL0);
+	if(!seg)return (void *)-EEXIST;
+
+	uintptr_t vaddr = seg->addr;
+	uintptr_t paddr = (uintptr_t)inode->address - kernel->hhdm + offset;
+	uintptr_t end   = paddr + lenght;
+
+	while(paddr < end){
+		map_page(get_current_proc()->addrspace,paddr,vaddr,flags);
+		paddr += PAGE_SIZE;
+	}
+
+	memseg_chflag(get_current_proc(),seg,prot);
+
+	return (void *)seg->addr;
 }
 
 void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color){
@@ -116,6 +145,7 @@ void init_frambuffer(void){
 		memset(framebuffer_dev,0,sizeof(vfs_node));
 		framebuffer_dev->flags = VFS_DEV | VFS_BLOCK;
 		framebuffer_dev->write = framebuffer_write;
+		framebuffer_dev->mmap  = frambuffer_mmap;
 		framebuffer_dev->ioctl = framebuffer_ioctl;
 		framebuffer_dev->private_inode = frambuffer_request.response->framebuffers[i];
 
