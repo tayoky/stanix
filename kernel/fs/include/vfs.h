@@ -49,6 +49,7 @@ typedef struct vfs_node_struct {
 	int (* sync)(struct vfs_node_struct *);
 	int (* wait_check)(struct vfs_node_struct *,short);
 	int (* wait)(struct vfs_node_struct *,short);
+	void *(* mmap)(struct vfs_node_struct *,void *,size_t,int,int,off_t);
 	time_t atime;
 	time_t ctime;
 	time_t mtime;
@@ -171,6 +172,8 @@ int vfs_wait_check(vfs_node *node,short type);
 int vfs_wait(vfs_node *node,short type);
 
 int vfs_unmount(const char *path);
+
+void *vfs_mmap(vfs_node *node,void *addr,size_t lenght,int prot,int flags,off_t offset);
 
 void vfs_register_fs(vfs_filesystem *fs);
 void vfs_unregister_fs(vfs_filesystem *fs);

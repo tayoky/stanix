@@ -375,7 +375,17 @@ int vfs_ioctl(vfs_node *node,uint64_t request,void *arg){
 	if(node->ioctl){
 		return node->ioctl(node,request,arg);
 	} else {
-		return -1;
+		return -EINVAL;
+	}
+}
+
+
+void *vfs_mmap(vfs_node *node,void *addr,size_t lenght,int prot,int flags,off_t offset){
+	if(node->mmap){
+		return node->mmap(node,addr,lenght,prot,flags,offset);
+	} else {
+		//TODO : general mapping
+		return (void *)-EINVAL;
 	}
 }
 

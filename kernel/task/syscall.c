@@ -19,6 +19,7 @@
 #include <sys/type.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
+#include <sys/mman.h>
 #include <termios.h>
 #include <dirent.h>
 #include <limits.h>
@@ -946,6 +947,43 @@ int sys_mount(const char *source, const char *target,const char *filesystemtype,
 	return vfs_auto_mount(source,target,filesystemtype,mountflags,data);
 }
 
+void *sys_mmap(uintptr_t addr,size_t length,int prot,int flags,int fd,off_t offset){
+	if((flags & MAP_PRIVATE) && (flags & MAP_SHARED)){
+		return (void *)-EINVAL;
+	}
+	if(!length){
+		return (void *)-EINVAL;
+	}
+	if(flags & MAP_FIXED){
+		if(!CHECK_PTR_INRANGE(addr + length))return (void *)-EEXIST;
+		if(addr % PAGE_SIZE || length % PAGE_SIZE) return (void *)-EINVAL;
+	} else {
+		addr = 0;
+	}
+
+	uint64_t pflags = PAGING_FLAG_READONLY_CPL3;
+	if(flags & PROT_WRITE){
+		pflags |= PAGING_FLAG_RW_CPL3;
+	}
+	if(!(flags & PROT_EXEC)){
+		pflags |= PAGING_FLAG_NO_EXE;
+	}
+
+	if(flags & MAP_ANONYMOUS){
+		memseg *seg = memseg_map(get_current_proc(),addr,length,pflags);
+		if(seg){
+			return (void *)seg->addr;
+		} else {
+			return (void *)-EEXIST;
+		}
+	} else {
+		if(!FD_GET(fd).present){
+			return (void *)-EBADF;
+		}
+		return vfs_mmap(FD_GET(fd).node,(void *)addr,length,prot,flags,offset);
+	}
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -991,6 +1029,10 @@ void *syscall_table[] = {
 	(void *)sys_getpid,
 	(void *)sys_mount,
 	(void *)sys_stub, //sys_umount
+	(void *)sys_mmap, //sys_mmap
+	(void *)sys_stub, //sys_munmap
+	(void *)sys_stub, //sys_mprotect
+	(void *)sys_stub, //sys_msync
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
