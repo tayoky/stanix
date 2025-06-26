@@ -44,7 +44,7 @@ typedef struct process_struct {
 	uintptr_t heap_start;
 	uintptr_t heap_end;
 	struct timeval wakeup_time;
-	struct memseg_struct *first_memseg;
+	list *memseg;
 	pid_t waitfor;
 	long exit_status;
 	list *child;

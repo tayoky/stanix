@@ -21,14 +21,6 @@ void cleaner_task(){
 }
 
 void free_proc(process *proc){
-	//free the used space
-	memseg *current_memseg = proc->first_memseg;
-	while(current_memseg){
-		memseg *next = current_memseg->next;
-		memseg_unmap(proc,current_memseg);
-		current_memseg = next;
-	}
-
 	//now free the paging tables
 	delete_addr_space(proc->addrspace);
 

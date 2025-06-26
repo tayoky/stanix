@@ -93,10 +93,8 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	saved_envp[envc] = NULL; // last NULL entry at the end
 	
 	//unmap everything;
-	memseg *current_memseg = get_current_proc()->first_memseg;
-	while(current_memseg){
-		memseg_unmap(get_current_proc(),current_memseg);
-		current_memseg = current_memseg->next;
+	foreach(node,get_current_proc()->memseg){
+		memseg_unmap(get_current_proc(),node->value);
 	}
 
 	//cose fd with CLOEXEC flags

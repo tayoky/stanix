@@ -93,6 +93,10 @@ int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 	}
 }
 
+void framebuffer_unmap(memseg *seg){
+	(void)seg;
+}
+
 void *frambuffer_mmap(vfs_node *node,void *addr,size_t lenght,uint64_t prot,int flags,off_t offset){
 	if(!(flags & MAP_SHARED)){
 		return (void *)-EINVAL;
@@ -103,19 +107,21 @@ void *frambuffer_mmap(vfs_node *node,void *addr,size_t lenght,uint64_t prot,int 
 	lenght = PAGE_ALIGN_DOWN(lenght);
 	if(lenght == 0)return (void *)-EINVAL;
 
-	memseg *seg = memseg_create(get_current_proc(),(uintptr_t)addr,lenght,PAGING_FLAG_RW_CPL0);
+	memseg *seg = memseg_create(get_current_proc(),(uintptr_t)addr,lenght,prot);
 	if(!seg)return (void *)-EEXIST;
+	seg->flags = flags;
+	seg->unmap = framebuffer_unmap;
 
 	uintptr_t vaddr = seg->addr;
 	uintptr_t paddr = (uintptr_t)inode->address - kernel->hhdm + offset;
 	uintptr_t end   = paddr + lenght;
 
+	kdebugf("map framebuffer at %p\n",vaddr);
+
 	while(paddr < end){
-		map_page(get_current_proc()->addrspace,paddr,vaddr,flags);
+		map_page(get_current_proc()->addrspace,paddr,vaddr,prot);
 		paddr += PAGE_SIZE;
 	}
-
-	memseg_chflag(get_current_proc(),seg,prot);
 
 	return (void *)seg->addr;
 }

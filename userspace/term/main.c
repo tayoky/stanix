@@ -12,6 +12,7 @@
 #include <ctype.h>
 #include <sys/fb.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 
 const char kbd_us[128] = {
 	0,27,
@@ -178,6 +179,7 @@ typedef struct {
 int x = 1;
 int y = 1;
 struct fb fb_info;
+uint32_t *framebuffer;
 int fb;
 char *font_data;
 PSF1_Header font_header;
@@ -260,9 +262,8 @@ void draw_char(char c){
 				y = 1;
 				break;
 			case 'J':
-				lseek(fb,0,SEEK_SET);
 				for (long i = 0; i < fb_info.width * fb_info.height; i++){
-					write(fb,&back_color,sizeof(back_color));
+					framebuffer[i] = back_color;
 				}
 				break;
 			case 'f':
@@ -297,16 +298,14 @@ void draw_char(char c){
 
 	char *current_byte = &font_data[c * font_header.character_size];
 	for (uint16_t i = 0; i < font_header.character_size; i++){
-		uint32_t line[8];
 		for (uint8_t j = 0; j < 8; j++){
 			if(((*current_byte) >> (7 - j)) & 0x01){
-				line[j] = front_color;
+				framebuffer[((y - 1) * font_header.character_size + i) * fb_info.width + ((x - 1) * 8) + j] = front_color;
 			} else {
-				line[j] = back_color;
+				framebuffer[((y - 1) * font_header.character_size + i) * fb_info.width + ((x - 1) * 8) + j] = back_color;
 			}
 		}
-		lseek(fb,(((y - 1) * font_header.character_size + i) * fb_info.width + ((x - 1) * 8)) * sizeof(uint32_t),SEEK_SET);
-		write(fb,line,sizeof(line));
+		
 		current_byte++;
 	}
 
@@ -360,7 +359,7 @@ int main(int argc,const char **argv){
 		return EXIT_FAILURE;
 	}
 	
-	//try open framebuffer
+	//try open and map framebuffer
 	fb = open("/dev/fb0",O_WRONLY);
 	if(fb < 0){
 		perror("/dev/fb0");
@@ -371,6 +370,12 @@ int main(int argc,const char **argv){
 		return EXIT_FAILURE;
 	}
 	printf("framebuffer %ldx%ld \n",fb_info.width,fb_info.height);
+	size_t fb_lenght = fb_info.pitch * fb_info.height;
+	framebuffer = mmap(NULL,fb_lenght,PROT_WRITE,MAP_SHARED,fb,0);
+	if(framebuffer == map_failed){
+		perror("mmap");
+		return EXIT_FAILURE;
+	}
 
 	//load font
 	int font_file = open("zap-light16.psf",O_RDONLY);

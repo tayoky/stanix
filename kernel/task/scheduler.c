@@ -9,6 +9,7 @@
 #include <kernel/arch.h>
 #include <kernel/time.h>
 #include <kernel/asm.h>
+#include <kernel/memseg.h>
 #include <errno.h>
 
 process *running_proc;
@@ -45,6 +46,7 @@ void init_task(){
 	kernel_task->prev = kernel_task;
 	kernel_task->flags = PROC_FLAG_PRESENT | PROC_FLAG_RUN;
 	kernel_task->child = new_list();
+	kernel_task->memseg = new_list();
 
 	//setup a new stack
 	kernel_task->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
@@ -106,6 +108,7 @@ process *new_proc(){
 	proc->parent = get_current_proc();
 	proc->flags = PROC_FLAG_PRESENT;
 	proc->child = new_list();
+	proc->memseg = new_list();
 
 	//setup a new kernel stack
 	proc->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
@@ -225,6 +228,11 @@ void kill_proc(process *proc){
 	//close cwd
 	vfs_close(proc->cwd_node);
 	kfree(proc->cwd_path);
+
+	//unmap everything
+	foreach(node,proc->memseg){
+		memseg_unmap(proc,node->value);
+	}
 
 	//the tricky part begin
 	kernel->can_task_switch = 0;

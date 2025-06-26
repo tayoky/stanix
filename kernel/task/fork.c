@@ -13,10 +13,8 @@ pid_t fork(void){
 
 	kdebugf("forking child : %ld\n",child->pid);
 
-	memseg *current_seg = parent->first_memseg;
-	while(current_seg){
-		memseg_clone(parent,child,current_seg);
-		current_seg = current_seg->next;
+	foreach(node,parent->memseg){
+		memseg_clone(parent,child,node->value);
 	}
 
 	//clone metadata

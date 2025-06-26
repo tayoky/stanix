@@ -3,39 +3,36 @@
 #include <kernel/paging.h>
 #include <kernel/string.h>
 #include <kernel/kernel.h>
+#include <kernel/list.h>
+#include <kernel/print.h>
+#include <sys/mman.h>
 #include <stdint.h>
 #include <stddef.h>
-#include <kernel/print.h>
 
-memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t flags){
-	memseg *prev = NULL;
+memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot){
+	list_node *prev = NULL;
 	if(address){
 		//we need to page align everything
 		uintptr_t end = PAGE_ALIGN_UP(address + size);
 		address = PAGE_ALIGN_DOWN(address);
 		size = end - address;
-		memseg *current = proc->first_memseg;
-		while(current){
-			if(current->addr < end && current->addr + current->size > address){
-				//we are trying to map an already mapped region
-				return NULL;
-			}
-			if(!current->next || current->next->addr > end){
-				prev = current;
+		foreach(node,proc->memseg){
+			memseg *current = node->value;
+			if(current->addr > end){
 				break;
 			}
-			current = current->next;
+			prev = node;
 		}
 	} else {
 		//no address ? we need to find one ourself
-		memseg *current = proc->first_memseg;
-		while(current){
-			if(!current->next || current->next->addr - current->addr - current->size > size){
+		foreach(node,proc->memseg){
+			memseg *current = node->value;
+			memseg *next = node->next ? node->next->value : NULL;
+			if(!next || next->addr - (current->addr + current->size) >= size){
 				address = current->addr + current->size;
-				prev = current;
+				prev = node;
 				break;
 			}
-			current = current->next;
 		}
 
 		if(!address){
@@ -49,26 +46,16 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t flags
 	memset(new_memseg,0,sizeof(memseg));
 	new_memseg->addr = address;
 	new_memseg->size = size;
-	new_memseg->flags = flags;
+	new_memseg->prot = prot;
+	new_memseg->ref_count = 1;
 
-	//now link the node
-	new_memseg->prev = prev;
-	if(prev){
-		new_memseg->next = prev->next;
-		prev->next = new_memseg;
-	} else {
-		new_memseg->next = proc->first_memseg;
-		proc->first_memseg = new_memseg;
-	}
-	if(new_memseg->next){
-		new_memseg->next->prev = new_memseg;
-	}
+	list_add_after(proc->memseg,prev,new_memseg);
 
 	return new_memseg;
 }
 
-memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
-	memseg *new_memseg = memseg_create(proc,address,size,flags);
+memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot){
+	memseg *new_memseg = memseg_create(proc,address,size,prot);
 	if(!new_memseg) return NULL;
 	
 	address = new_memseg->addr;
@@ -77,52 +64,78 @@ memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t flags){
 	
 	uintptr_t end = address + size;
 	while(address < end){
-		map_page(proc->addrspace,pmm_allocate_page(),address,flags);
+		map_page(proc->addrspace,pmm_allocate_page(),address,prot);
 		address += PAGE_SIZE;
 	}
 
 	return new_memseg;
 }
 
-void memseg_chflag(process *proc,memseg *seg,uint64_t flags){
-	seg->flags = flags;
+void memseg_chflag(process *proc,memseg *seg,uint64_t prot){
+	seg->prot = prot;
 	
 	uintptr_t addr = seg->addr;
 	uintptr_t end = seg->addr + seg->size;
 	while(addr < end){
-		map_page(proc->addrspace,(uintptr_t)space_virt2phys(proc->addrspace,(void *)addr),addr,flags);
+		map_page(proc->addrspace,(uintptr_t)space_virt2phys(proc->addrspace,(void *)addr),addr,prot);
 		addr += PAGE_SIZE;
 	}
 }
 
 void memseg_unmap(process *proc,memseg *seg){
-	if(seg->unmap){
-		seg->unmap(seg);
-	} else {
-		uintptr_t addr = seg->addr;
-		uintptr_t end = seg->addr + seg->size;
-		while(addr < end){
-			pmm_free_page((uintptr_t)space_virt2phys(proc->addrspace,(void *)addr));
-			unmap_page(proc->addrspace,addr);
-			addr += PAGE_SIZE;
+	list_remove(proc->memseg,seg);
+
+	seg->ref_count--;
+	if(seg->ref_count == 0){
+		if(seg->flags & MAP_SHARED){
+			kdebugf("unmap framebuffer\n");
+		}
+		if(seg->unmap){
+			seg->unmap(seg);
+		} else {
+			uintptr_t addr = seg->addr;
+			uintptr_t end = seg->addr + seg->size;
+			while(addr < end){
+				kdebugf("free %p\n",(uintptr_t)space_virt2phys(proc->addrspace,(void *)addr));
+				pmm_free_page((uintptr_t)space_virt2phys(proc->addrspace,(void *)addr));
+				addr += PAGE_SIZE;
+			}
 		}
 	}
 
-	//relink the list
-	if(seg->next){
-		seg->next->prev = seg->prev;
-	}
-	if(seg->prev){
-		seg->prev->next = seg->next;
-	} else {
-		proc->first_memseg = seg->next;
+	uintptr_t addr = seg->addr;
+	uintptr_t end = seg->addr + seg->size;
+	while(addr < end){
+		unmap_page(proc->addrspace,addr);
+		addr += PAGE_SIZE;
 	}
 
 	kfree(seg);
 }
 
 void memseg_clone(process *parent,process *child,memseg *seg){
-	(void)parent;
+	if(seg->flags & MAP_SHARED){
+		seg->ref_count++;
+		list_node *prev = NULL;
+		foreach(node,child->memseg){
+			memseg *current = node->value;
+			if(current->addr > seg->addr + seg->size){
+				break;
+			}
+			prev = node;
+		}
+		list_add_after(child->memseg,prev,seg);
+
+		//now remap in child
+		char *addr = (char *)seg->addr;
+		char *end = (char *)seg->addr + seg->size;
+		while(addr < end){
+			uintptr_t phys = (uintptr_t)space_virt2phys(parent->addrspace,addr);
+			map_page(child->addrspace,phys,(uintptr_t)addr,seg->prot);
+			addr += PAGE_SIZE;
+		}
+		return;
+	}
 	memseg *new_seg = memseg_map(child,seg->addr,seg->size,PAGING_FLAG_RW_CPL0);
 	if(!new_seg){
 		return;
@@ -137,5 +150,5 @@ void memseg_clone(process *parent,process *child,memseg *seg){
 		addr += PAGE_SIZE;
 	}
 
-	memseg_chflag(child,new_seg,seg->flags);
+	memseg_chflag(child,new_seg,seg->prot);
 }
