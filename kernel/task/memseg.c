@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot){
+memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,int flags){
 	list_node *prev = NULL;
 	if(address){
 		//we need to page align everything
@@ -18,6 +18,10 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot)
 		size = end - address;
 		foreach(node,proc->memseg){
 			memseg *current = node->value;
+			if(current->addr < end && current->addr + current->size > address){
+				//there already a seg here
+				return NULL;
+			}
 			if(current->addr > end){
 				break;
 			}
@@ -47,6 +51,7 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot)
 	new_memseg->addr = address;
 	new_memseg->size = size;
 	new_memseg->prot = prot;
+	new_memseg->flags = flags;
 	new_memseg->ref_count = 1;
 
 	list_add_after(proc->memseg,prev,new_memseg);
@@ -54,8 +59,8 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot)
 	return new_memseg;
 }
 
-memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot){
-	memseg *new_memseg = memseg_create(proc,address,size,prot);
+memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot,int flags){
+	memseg *new_memseg = memseg_create(proc,address,size,prot,flags);
 	if(!new_memseg) return NULL;
 	
 	address = new_memseg->addr;
@@ -93,6 +98,8 @@ void memseg_unmap(process *proc,memseg *seg){
 		if(seg->unmap){
 			seg->unmap(seg);
 		} else {
+				kdebugf("unmap %p\n",seg->addr);
+				kdebugf("%p\n",seg);
 			uintptr_t addr = seg->addr;
 			uintptr_t end = seg->addr + seg->size;
 			while(addr < end){
@@ -115,6 +122,7 @@ void memseg_unmap(process *proc,memseg *seg){
 
 void memseg_clone(process *parent,process *child,memseg *seg){
 	if(seg->flags & MAP_SHARED){
+		kdebugf("duplicate shared seg\n");
 		seg->ref_count++;
 		list_node *prev = NULL;
 		foreach(node,child->memseg){
@@ -136,7 +144,7 @@ void memseg_clone(process *parent,process *child,memseg *seg){
 		}
 		return;
 	}
-	memseg *new_seg = memseg_map(child,seg->addr,seg->size,PAGING_FLAG_RW_CPL0);
+	memseg *new_seg = memseg_map(child,seg->addr,seg->size,PAGING_FLAG_RW_CPL0,seg->flags);
 	if(!new_seg){
 		return;
 	}

@@ -319,7 +319,7 @@ uint64_t sys_sbrk(intptr_t incr){
 		}
 	} else {
 		//make heap bigger
-		memseg_map(get_current_proc(),proc->heap_end,PAGE_SIZE * incr_pages,PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE);
+		memseg_map(get_current_proc(),proc->heap_end,PAGE_SIZE * incr_pages,PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE,MAP_PRIVATE);
 	}
 	proc->heap_end += incr_pages * PAGE_SIZE;
 	return proc->heap_end;
@@ -970,7 +970,7 @@ void *sys_mmap(uintptr_t addr,size_t length,int prot,int flags,int fd,off_t offs
 	}
 
 	if(flags & MAP_ANONYMOUS){
-		memseg *seg = memseg_map(get_current_proc(),addr,length,pflags);
+		memseg *seg = memseg_map(get_current_proc(),addr,length,pflags,flags);
 		if(seg){
 			return (void *)seg->addr;
 		} else {
