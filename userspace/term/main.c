@@ -294,6 +294,10 @@ void draw_char(char c){
 	case '\b':
 		x--;
 		return;
+	case '\t':
+		x += 8;
+		x = (x + 7) / 8 * 8;
+		return;
 	}
 
 	char *current_byte = &font_data[c * font_header.character_size];
