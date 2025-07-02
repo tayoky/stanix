@@ -25,7 +25,7 @@ if you are building from another OS you will first have to make an **cross toolc
 
 on ubuntu you can get everything by
 ```sh
-sudo apt git install build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf
+sudo apt install git build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf
 ```
 
 ### cloning

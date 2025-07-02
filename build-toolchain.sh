@@ -21,7 +21,7 @@ for i in "$@"; do
       AR="${i#*=}"
       shift # past argument=value
       ;;
-    --host=*)
+    --target=*)
       HOST="${i#*=}"
       shift # past argument=value
       ;;
