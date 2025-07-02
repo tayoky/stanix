@@ -5,7 +5,6 @@
 #include <sys/wait.h>
 
 int main(int argc,char **argv){
-	printf("starting login\n");
 	for (int i = 1; i < argc; i++){
 		if(!strcmp(argv[1],"--setup-stdin-from-stdout")){
 			dup2(STDOUT_FILENO,STDIN_FILENO);
