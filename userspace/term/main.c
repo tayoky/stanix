@@ -332,33 +332,6 @@ int main(int argc,const char **argv){
 
 	printf("starting userspace terminal emulator\n");
 
-	//create a new pty
-	int master;
-	int slave;
-	if(openpty(&master,&slave,NULL,NULL,NULL)){
-		perror("openpty");
-		return EXIT_FAILURE;
-	}
-
-	//disable NL to NL CR converstion and other termios stuff
-	struct termios attr;
-	if(tcgetattr(slave,&attr)){
-		perror("tcgetattr");
-	}
-	attr.c_oflag &= ~ONLCR;
-	//basicly we handle <CR> <CR NL> and <NL CR> and convert back to just <NL>
-	attr.c_oflag |= OPOST | ONOCR | ONLRET | OCRNL;
-	if(tcsetattr(slave,TCSANOW,&attr)){
-		perror("tcsetattr");
-	}
-
-	//try open keyboard
-	int kbd_fd = open("/dev/kb0",O_RDONLY);
-	if(kbd_fd < 0){
-		perror("/dev/kb0");
-		return EXIT_FAILURE;
-	}
-	
 	//try open and map framebuffer
 	fb = open("/dev/fb0",O_WRONLY);
 	if(fb < 0){
@@ -397,6 +370,41 @@ int main(int argc,const char **argv){
 	}
 	close(font_file);
 	printf("load font of size %ld\n",font_size);
+
+	//create a new pty
+	struct winsize size = {
+		.ws_xpixel = fb_info.width,
+		.ws_ypixel = fb_info.height,
+		.ws_col = fb_info.width / 8,
+		.ws_row = fb_info.height / font_header.character_size,
+	};
+
+	int master;
+	int slave;
+	if(openpty(&master,&slave,NULL,NULL,&size)){
+		perror("openpty");
+		return EXIT_FAILURE;
+	}
+
+	//disable NL to NL CR converstion and other termios stuff
+	struct termios attr;
+	if(tcgetattr(slave,&attr)){
+		perror("tcgetattr");
+	}
+	attr.c_oflag &= ~ONLCR;
+	//basicly we handle <CR> <CR NL> and <NL CR> and convert back to just <NL>
+	attr.c_oflag |= OPOST | ONOCR | ONLRET | OCRNL;
+	if(tcsetattr(slave,TCSANOW,&attr)){
+		perror("tcsetattr");
+	}
+
+	//try open keyboard
+	int kbd_fd = open("/dev/kb0",O_RDONLY);
+	if(kbd_fd < 0){
+		perror("/dev/kb0");
+		return EXIT_FAILURE;
+	}
+
 
 	//fork and launch login with std stream set to the slave
 	pid_t child = fork();

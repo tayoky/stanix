@@ -63,8 +63,8 @@ int new_pty(vfs_node **master,vfs_node **slave,tty **rep){
 	pty->output_buffer = new_ringbuffer(4096);
 
 	tty *tty = NULL;
-	*rep = tty;
 	*slave = new_tty(&tty);
+	*rep = tty;
 	tty->private_data = pty;
 	tty->out = pty_output;
 
