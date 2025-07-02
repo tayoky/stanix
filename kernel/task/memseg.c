@@ -90,24 +90,21 @@ void memseg_chflag(process *proc,memseg *seg,uint64_t prot){
 void memseg_unmap(process *proc,memseg *seg){
 	list_remove(proc->memseg,seg);
 
+	kdebugf("unmap %p %p\n",seg->addr,seg->size);
+
 	seg->ref_count--;
 	if(seg->ref_count == 0){
-		if(seg->flags & MAP_SHARED){
-			kdebugf("unmap framebuffer\n");
-		}
 		if(seg->unmap){
 			seg->unmap(seg);
 		} else {
-				kdebugf("unmap %p\n",seg->addr);
-				kdebugf("%p\n",seg);
 			uintptr_t addr = seg->addr;
 			uintptr_t end = seg->addr + seg->size;
 			while(addr < end){
-				kdebugf("free %p\n",(uintptr_t)space_virt2phys(proc->addrspace,(void *)addr));
 				pmm_free_page((uintptr_t)space_virt2phys(proc->addrspace,(void *)addr));
 				addr += PAGE_SIZE;
 			}
 		}
+		kfree(seg);
 	}
 
 	uintptr_t addr = seg->addr;
@@ -116,13 +113,10 @@ void memseg_unmap(process *proc,memseg *seg){
 		unmap_page(proc->addrspace,addr);
 		addr += PAGE_SIZE;
 	}
-
-	kfree(seg);
 }
 
 void memseg_clone(process *parent,process *child,memseg *seg){
 	if(seg->flags & MAP_SHARED){
-		kdebugf("duplicate shared seg\n");
 		seg->ref_count++;
 		list_node *prev = NULL;
 		foreach(node,child->memseg){
