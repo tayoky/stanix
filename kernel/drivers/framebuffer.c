@@ -115,11 +115,12 @@ void *frambuffer_mmap(vfs_node *node,void *addr,size_t lenght,uint64_t prot,int 
 	uintptr_t paddr = (uintptr_t)inode->address - kernel->hhdm + offset;
 	uintptr_t end   = paddr + lenght;
 
-	kdebugf("map framebuffer at %p in %p\n",vaddr,seg);
+	kdebugf("map framebuffer at %p in %p lenght : %p\n",vaddr,seg,lenght);
 
 	while(paddr < end){
 		map_page(get_current_proc()->addrspace,paddr,vaddr,prot);
 		paddr += PAGE_SIZE;
+		vaddr += PAGE_SIZE;
 	}
 
 	return (void *)seg->addr;

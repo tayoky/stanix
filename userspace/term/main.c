@@ -421,6 +421,11 @@ int main(int argc,const char **argv){
 
 	close(slave);
 
+	//start by clearing screen
+	for(long i =0; i<fb_info.width * fb_info.height; i++){
+		framebuffer[i] = back_color;
+	}
+
 	int crtl = 0;
 	int shift = 0;
 
