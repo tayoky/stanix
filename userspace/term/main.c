@@ -272,9 +272,9 @@ void draw_char(char c){
 				if(ansi_escape_count == 1 && ansi_escape_args[0] == 0){
 					back_color = 0x000000;
 					front_color = 0xFFFFFF;
-				} else if (ansi_escape_args[0] >= 40 && ansi_escape_args[0]<= 49){
+				} else if ((ansi_escape_args[0] >= 40 && ansi_escape_args[0]<= 49) || (ansi_escape_count >= 2 && ansi_escape_args[1] >= 40 && ansi_escape_args[1]<= 49)){
 					back_color = parse_color(40);
-				} else if (ansi_escape_args[0] >= 30 && ansi_escape_args[0]<= 39){
+				} else if ((ansi_escape_args[0] >= 30 && ansi_escape_args[0]<= 39) || (ansi_escape_count >= 2 && ansi_escape_args[1] >= 30 && ansi_escape_args[1]<= 39)){
 					front_color = parse_color(30);
 				}
 				break;
@@ -293,8 +293,7 @@ void draw_char(char c){
 		x--;
 		return;
 	case '\t':
-		x += 8;
-		x = (x + 7) / 8 * 8;
+		x += 8 - (x % 8);
 		return;
 	}
 
