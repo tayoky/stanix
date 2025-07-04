@@ -50,6 +50,7 @@ int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 		fb->width = inode->width;
 		fb->height = inode->height;
 		fb->pitch = inode->pitch;
+		fb->bpp = inode->bpp;
 		fb->red_mask_size    = inode->red_mask_size;
 		fb->red_mask_shift   = inode->red_mask_shift;
 		fb->green_mask_size  = inode->green_mask_size;

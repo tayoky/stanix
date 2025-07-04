@@ -19,4 +19,4 @@ all commit name must be in the style `part : change` eg
 - `login : ask for password before launching shell`
 
 ## thanks
-special thanks to [techdude](https://github.com/sasdallas) who helped me a lot fixing a bunch of big issues
+special thanks to [sasdallas](https://github.com/sasdallas) who helped me a lot fixing a bunch of big issues
