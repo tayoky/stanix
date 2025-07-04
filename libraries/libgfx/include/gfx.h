@@ -7,6 +7,7 @@
 typedef struct gfx_context {
 	void *framebuffer;
 	void *backbuffer;
+	void *buffer;
 	long width;
 	long height;
 	long pitch;
@@ -25,10 +26,14 @@ gfx_t *gfx_open_framebuffer(const char *path);
 gfx_t *gfx_create(void *framebuffer,struct fb *);
 void gfx_free(gfx_t *gfx);
 void gfx_push_buffer(gfx_t *gfx);
+void gfx_enable_backbuffer(gfx_t *gfx);
+void gfx_disable_backbuffer(gfx_t *gfx);
 color_t gfx_color(gfx_t *gfx,uint8_t r,uint8_t g,uint8_t b);
 
 void gfx_draw_pixel(gfx_t *gfx,color_t color,long x,long y);
 void gfx_draw_rect(gfx_t *gfx,color_t color,long x,long y,long width,long height);
 void gfx_clear(gfx_t *gfx,color_t color);
+
+#define gfx_draw_pixel(gfx,color,x,y) {*(color_t *)((uintptr_t)gfx->buffer +  (x) * (gfx->bpp / 8) + (y) * gfx->pitch) = (color);}
 
 #endif

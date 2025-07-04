@@ -6,6 +6,7 @@
 #include <string.h>
 #include <errno.h>
 #include <pty.h>
+#include <gfx.h>
 #include <poll.h>
 #include <termios.h>
 #include <stdint.h>
@@ -176,15 +177,13 @@ typedef struct {
     uint8_t character_size; // PSF character size.
 } PSF1_Header;
 
+gfx_t *fb;
 int x = 1;
 int y = 1;
-struct fb fb_info;
-uint32_t *framebuffer;
-int fb;
 char *font_data;
 PSF1_Header font_header;
-uint32_t front_color = 0xFFFFFF;
-uint32_t back_color = 0x000000;
+color_t front_color;
+color_t back_color;
 int ansi_escape_count = 0;
 int ansi_escape_args[8];
 
@@ -207,27 +206,28 @@ uint32_t ansi_colours[] = {
 	0x808080, //light white
 };
 
-uint32_t parse_color(int id){
+#define ansi2gfx(col) gfx_color(fb,(col >> 16) & 0xff,(col >> 8) & 0xff,col & 0xff)
+
+color_t parse_color(int id){
 	if(ansi_escape_count >= 3 && ansi_escape_args[0] == id + 8){
 		if(ansi_escape_args[2] < 16){
-			return ansi_colours[ansi_escape_args[2]];
+			return ansi2gfx(ansi_colours[ansi_escape_args[2]]);
 		} else if(ansi_escape_args[2] < 232) {
 			uint8_t r = (ansi_escape_args[2] - 16) / 36 % 6 * 40 + 55;
 			uint8_t g = (ansi_escape_args[2] - 16) /  6 % 6 * 40 + 55;
 			uint8_t b = (ansi_escape_args[2] - 16) /  1 % 6 * 40 + 55;
-			return r << 16 | g << 8 | b;
+			return gfx_color(fb,r,g,b);
 		} else if (ansi_escape_args[2] <= 255){
 			//grey scale
 			uint32_t color = (ansi_escape_args[2] - 232) * 10 + 8;
-			color |= color << 16 | color << 8;
-			return color;
+			return gfx_color(fb,color,color,color);
 		}
 	} for(int i = 0; i<ansi_escape_count;i++){
 		if(ansi_escape_args[i] >= id && ansi_escape_args[i] <= id + 7){
-			return ansi_colours[ansi_escape_args[i] - id];
+			return ansi2gfx(ansi_colours[ansi_escape_args[i] - id]);
 		}
 	}
-	return id == 30 ? 0xFFFFFF : 0x000000;
+	return id == 30 ? gfx_color(fb,255,255,255) : gfx_color(fb,0,0,0);
 }
 
 //most basic terminal emumator
@@ -262,9 +262,7 @@ void draw_char(char c){
 				y = 1;
 				break;
 			case 'J':
-				for (long i = 0; i < fb_info.width * fb_info.height; i++){
-					framebuffer[i] = back_color;
-				}
+				gfx_clear(fb,back_color);
 				break;
 			case 'f':
 				x = ansi_escape_args[1];
@@ -304,9 +302,9 @@ void draw_char(char c){
 	for (uint16_t i = 0; i < font_header.character_size; i++){
 		for (uint8_t j = 0; j < 8; j++){
 			if(((*current_byte) >> (7 - j)) & 0x01){
-				framebuffer[((y - 1) * font_header.character_size + i) * fb_info.width + ((x - 1) * 8) + j] = front_color;
+				gfx_draw_pixel(fb,front_color,(x - 1) * 8 + j,(y - 1) * font_header.character_size + i);
 			} else {
-				framebuffer[((y - 1) * font_header.character_size + i) * fb_info.width + ((x - 1) * 8) + j] = back_color;
+				gfx_draw_pixel(fb,back_color,(x - 1) * 8 + j,(y - 1) * font_header.character_size + i);
 			}
 		}
 		
@@ -334,23 +332,12 @@ int main(int argc,const char **argv){
 	}
 	
 
-	printf("starting userspace terminal emulator\n");
+	printf("starting userspace terminal emulator...\n");
 
-	//try open and map framebuffer
-	fb = open("/dev/fb0",O_WRONLY);
-	if(fb < 0){
-		perror("/dev/fb0");
-		return EXIT_FAILURE;
-	}
-	if(ioctl(fb,IOCTL_GET_FB_INFO,&fb_info) < 0){
-		perror("ioctl");
-		return EXIT_FAILURE;
-	}
-	printf("framebuffer %ldx%ld \n",fb_info.width,fb_info.height);
-	size_t fb_lenght = fb_info.pitch * fb_info.height;
-	framebuffer = mmap(NULL,fb_lenght,PROT_WRITE,MAP_SHARED,fb,0);
-	if(framebuffer == map_failed){
-		perror("mmap");
+	//open gtx context
+	fb = gfx_open_framebuffer("/dev/fb0");
+	if(!fb){
+		perror("open gfx context");
 		return EXIT_FAILURE;
 	}
 
@@ -373,14 +360,13 @@ int main(int argc,const char **argv){
 		perror("read");
 	}
 	close(font_file);
-	printf("load font of size %ld\n",font_size);
 
 	//create a new pty
 	struct winsize size = {
-		.ws_xpixel = fb_info.width,
-		.ws_ypixel = fb_info.height,
-		.ws_col = fb_info.width / 8,
-		.ws_row = fb_info.height / font_header.character_size,
+		.ws_xpixel = fb->width,
+		.ws_ypixel = fb->height,
+		.ws_col = fb->width / 8,
+		.ws_row = fb->height / font_header.character_size,
 	};
 
 	int master;
@@ -419,7 +405,7 @@ int main(int argc,const char **argv){
 		close(master);
 		close(slave);
 		close(kbd_fd);
-		close(fb);
+		gfx_free(fb);
 
 		const char *arg[] = {
 			"/bin/login",
@@ -433,10 +419,12 @@ int main(int argc,const char **argv){
 
 	close(slave);
 
-	//start by clearing screen
-	for(long i =0; i<fb_info.width * fb_info.height; i++){
-		framebuffer[i] = back_color;
-	}
+	//clear screen and init color
+	front_color = gfx_color(fb,255,255,255);
+	back_color  = gfx_color(fb,0,0,0);
+	gfx_clear(fb,back_color);
+	gfx_push_buffer(fb);
+	gfx_disable_backbuffer(fb);
 
 	int crtl = 0;
 	int shift = 0;

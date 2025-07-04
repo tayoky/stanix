@@ -31,6 +31,7 @@ gfx_t *gfx_create(void *framebuffer,struct fb *fb_info){
 	if(!gfx)return NULL;
 
 	gfx->backbuffer = malloc(fb_info->height * fb_info->pitch);
+	gfx->buffer = gfx->backbuffer;
 	if(!gfx->backbuffer){
 		free(gfx);
 		return NULL;
@@ -59,5 +60,19 @@ void gfx_free(gfx_t *gfx){
 
 
 void gfx_push_buffer(gfx_t *gfx){
+	if(gfx->backbuffer)
 	memcpy(gfx->framebuffer,gfx->backbuffer,gfx->height * gfx->pitch);
+}
+
+
+void gfx_enable_backbuffer(gfx_t *gfx){
+	if(gfx->backbuffer)return;
+	gfx->backbuffer = malloc(gfx->height * gfx->pitch);
+	gfx->buffer = gfx->backbuffer;
+}
+
+void gfx_disable_backbuffer(gfx_t *gfx){
+	free(gfx->backbuffer);
+	gfx->backbuffer = NULL;
+	gfx->buffer = gfx->framebuffer;
 }

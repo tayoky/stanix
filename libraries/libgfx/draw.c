@@ -1,14 +1,16 @@
 #include <stdint.h>
 #include "gfx.h"
 
+#undef gfx_draw_pixel
+
 void gfx_draw_pixel(gfx_t *gfx,color_t color,long x,long y){
-	*(color_t *)((uintptr_t)gfx->backbuffer +  x * (gfx->bpp / 8) + y * gfx->pitch) = color;
+	*(color_t *)((uintptr_t)gfx->buffer +  x * (gfx->bpp / 8) + y * gfx->pitch) = color;
 }
 
 
 void gfx_draw_rect(gfx_t *gfx,color_t color,long x,long y,long width,long height){
 	uintptr_t ydiff = gfx->pitch - (x + width) * (gfx->bpp / 8);
-	uintptr_t ptr = (uintptr_t)gfx->backbuffer + x * (gfx->bpp / 8) + y *gfx->pitch;
+	uintptr_t ptr = (uintptr_t)gfx->buffer + x * (gfx->bpp / 8) + y *gfx->pitch;
 
 	for(int i = 0;i < height;i++){
 		for(long j = 0;j < width;j++){
