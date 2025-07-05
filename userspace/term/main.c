@@ -312,8 +312,10 @@ void draw_char(char c){
 			ansi_escape_count-=1;
 			switch(c){
 			case 'H':
+				redraw(x,y);
 				x = 1;
 				y = 1;
+				redraw_cursor(x,y);
 				break;
 			case 'J':
 				for(int i =0;i < width * height; i++){
@@ -324,8 +326,12 @@ void draw_char(char c){
 				gfx_clear(fb,back_color);
 				break;
 			case 'f':
+				redraw(x,y);
 				x = ansi_escape_args[1];
 				y = ansi_escape_args[0];
+				if(x > width) x = width;
+				if(y > height) y = height;
+				redraw_cursor(x,y);
 				break;
 			case 'm':
 				parse_color();
