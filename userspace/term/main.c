@@ -283,7 +283,8 @@ void draw_char(char c){
 			case 'J':
 				for(int i =0;i < width * height; i++){
 					grid[i].c = ' ';
-					grid[i].c = back_color;
+					grid[i].back_color = back_color;
+					grid[i].front_color = front_color;
 				}
 				gfx_clear(fb,back_color);
 				break;
