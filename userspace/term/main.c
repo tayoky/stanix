@@ -15,6 +15,8 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
+//most basic terminal emumator
+
 const char kbd_us[128] = {
 	0,27,
 	'1','2','3','4','5','6','7','8','9','0',
@@ -238,7 +240,16 @@ color_t parse_color(int id){
 	return id == 30 ? gfx_color(fb,255,255,255) : gfx_color(fb,0,0,0);
 }
 
-//most basic terminal emumator
+void redraw(int cx,int cy){
+	struct cell cell = grid[(cy - 1) * width +  cx - 1];
+	gfx_draw_char(fb,font,cell.back_color,cell.front_color,(cx-1) * gfx_char_width(font,' '),(cy-1) * gfx_char_height(font,' '),cell.c);
+}
+
+void redraw_cursor(int cx,int cy){
+	struct cell cell = grid[(cy - 1) * width +  cx - 1];
+	gfx_draw_char(fb,font,cell.front_color,cell.back_color,(cx-1) * gfx_char_width(font,' '),(cy-1) * gfx_char_height(font,' '),cell.c);
+}
+
 void draw_char(char c){
 	if(c == '\e'){
 		memset(ansi_escape_args,0,sizeof(ansi_escape_args));
@@ -298,14 +309,20 @@ void draw_char(char c){
 	
 	switch(c){
 	case '\n':
+		redraw(x,y);
 		x = 1;
 		y++;
+		redraw_cursor(x,y);
 		return;
 	case '\b':
+		redraw(x,y);
 		x--;
+		redraw_cursor(x,y);
 		return;
 	case '\t':
+		redraw(x,y);
 		x += 8 - (x % 8);
+		redraw_cursor(x,y);
 		return;
 	}
 
@@ -313,10 +330,9 @@ void draw_char(char c){
 	grid[(y - 1) * width +  x - 1].c = (unsigned char) c;
 	grid[(y - 1) * width +  x - 1].back_color = back_color;
 	grid[(y - 1) * width +  x - 1].front_color = front_color;
-
-	gfx_draw_char(fb,font,back_color,front_color,(x-1) * gfx_char_width(font,' '),(y-1) * gfx_char_height(font,' '),(unsigned char)c);
-
+	redraw(x,y);
 	x++;
+	redraw_cursor(x,y);
 }
 
 
@@ -412,21 +428,22 @@ int main(int argc,const char **argv){
 
 	close(slave);
 
-	//create an empty grid
-	width = fb->width / gfx_char_width(font,' ');
-	height = fb->height / gfx_char_height(font,' ');
-	grid = malloc(sizeof(struct cell) * width * height);
-	for(int i = 0;i < width * height; i++){
-			grid[i].c = ' ';
-			grid[i].c = back_color;
-	}
-
 	//clear screen and init color
 	front_color = gfx_color(fb,255,255,255);
 	back_color  = gfx_color(fb,0,0,0);
 	gfx_clear(fb,back_color);
 	gfx_push_buffer(fb);
 	gfx_disable_backbuffer(fb);
+
+	//create an empty grid
+	width = fb->width / gfx_char_width(font,' ');
+	height = fb->height / gfx_char_height(font,' ');
+	grid = malloc(sizeof(struct cell) * width * height);
+	for(int i = 0;i < width * height; i++){
+			grid[i].c = ' ';
+			grid[i].back_color = back_color;
+			grid[i].front_color = front_color;
+	}
 
 	int crtl = 0;
 	int shift = 0;
