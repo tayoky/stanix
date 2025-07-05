@@ -198,46 +198,74 @@ int ansi_escape_count = 0;
 int ansi_escape_args[8];
 
 uint32_t ansi_colours[] = {
-	0xFFFFFF, //black
-	0xFF0000, //red
-	0x00FF00, //green
-	0xFFFF00, //yellow
-	0x0000FF, //blue
-	0xFF00FF, //magenta
-	0x00FFFF, //cyan
-	0xFFFFFF, //white
+	0x000000, //black
+	0xC00000, //red
+	0x00C000, //green
+	0xC0C000, //yellow
+	0x0000C0, //blue
+	0xC000C0, //magenta
+	0x00C0C0, //cyan
+	0xC0C0C0, //white
 	0x808080, //light black
-	0x800000, //light red
-	0x008000, //light green
-	0x808000, //light yellow
-	0x000080, //light blue
-	0x800080, //light magenta
-	0x008080, //light cyan
-	0x808080, //light white
+	0xFF0000, //light red
+	0x00FF00, //light green
+	0xFFFF00, //light yellow
+	0x0000FF, //light blue
+	0xFF00FF, //light magenta
+	0x00FFFF, //light cyan
+	0xFFFFFF, //light white
 };
 
 #define ansi2gfx(col) gfx_color(fb,(col >> 16) & 0xff,(col >> 8) & 0xff,col & 0xff)
 
-color_t parse_color(int id){
-	if(ansi_escape_count >= 3 && ansi_escape_args[0] == id + 8){
-		if(ansi_escape_args[2] < 16){
-			return ansi2gfx(ansi_colours[ansi_escape_args[2]]);
-		} else if(ansi_escape_args[2] < 232) {
-			uint8_t r = (ansi_escape_args[2] - 16) / 36 % 6 * 40 + 55;
-			uint8_t g = (ansi_escape_args[2] - 16) /  6 % 6 * 40 + 55;
-			uint8_t b = (ansi_escape_args[2] - 16) /  1 % 6 * 40 + 55;
-			return gfx_color(fb,r,g,b);
-		} else if (ansi_escape_args[2] <= 255){
-			//grey scale
-			uint32_t color = (ansi_escape_args[2] - 232) * 10 + 8;
-			return gfx_color(fb,color,color,color);
+color_t parse_complex(int i){
+	if(ansi_escape_args[i + 1] < 16){
+		return ansi2gfx(ansi_colours[ansi_escape_args[i + 1]]);
+	} else if(ansi_escape_args[i + 1] < 232) {
+		uint8_t r = (ansi_escape_args[i + 1] - 16) / 36 % 6 * 40 + 55;
+		uint8_t g = (ansi_escape_args[i + 1] - 16) /  6 % 6 * 40 + 55;
+		uint8_t b = (ansi_escape_args[i + 1] - 16) /  1 % 6 * 40 + 55;
+		return gfx_color(fb,r,g,b);
+	} else if (ansi_escape_args[i + 1] <= 255){
+		//grey scale
+		uint32_t color = (ansi_escape_args[i + 1] - 232) * 10 + 8;
+		return gfx_color(fb,color,color,color);
+	}
+
+	return 0x808080;
+}
+
+void parse_color(void){
+	for(int i = 0; i<ansi_escape_count;i++){
+		switch(ansi_escape_args[i]){
+		case 0:
+			back_color = gfx_color(fb,0,0,0);
+			front_color = gfx_color(fb,255,255,255);
+			continue;
+		case 38:
+			i++;
+			if(ansi_escape_count - i >= 2)
+			front_color = parse_complex(i);
+			continue;
+		case 39:
+			front_color = gfx_color(fb,255,255,255);
+			continue;
+		case 48:
+			i++;
+			if(ansi_escape_count - i >= 2)
+			back_color = parse_complex(i);
+			continue;
+		case 49:
+			back_color = gfx_color(fb,0,0,0);
+			continue;
 		}
-	} for(int i = 0; i<ansi_escape_count;i++){
-		if(ansi_escape_args[i] >= id && ansi_escape_args[i] <= id + 7){
-			return ansi2gfx(ansi_colours[ansi_escape_args[i] - id]);
+		if(ansi_escape_args[i] >= 30 && ansi_escape_args[i] <= 37){
+			front_color = ansi2gfx(ansi_colours[ansi_escape_args[i] - 30]);
+		}
+		if(ansi_escape_args[i] >= 40 && ansi_escape_args[i] <= 47){
+			back_color = ansi2gfx(ansi_colours[ansi_escape_args[i] - 40]);
 		}
 	}
-	return id == 30 ? gfx_color(fb,255,255,255) : gfx_color(fb,0,0,0);
 }
 
 void redraw(int cx,int cy){
@@ -293,14 +321,7 @@ void draw_char(char c){
 				y = ansi_escape_args[0];
 				break;
 			case 'm':
-				if(ansi_escape_count == 1 && ansi_escape_args[0] == 0){
-					back_color = 0x000000;
-					front_color = 0xFFFFFF;
-				} else if ((ansi_escape_args[0] >= 40 && ansi_escape_args[0]<= 49) || (ansi_escape_count >= 2 && ansi_escape_args[1] >= 40 && ansi_escape_args[1]<= 49)){
-					back_color = parse_color(40);
-				} else if ((ansi_escape_args[0] >= 30 && ansi_escape_args[0]<= 39) || (ansi_escape_count >= 2 && ansi_escape_args[1] >= 30 && ansi_escape_args[1]<= 39)){
-					front_color = parse_color(30);
-				}
+				parse_color();
 				break;
 			}
 			ansi_escape_count = 0;
