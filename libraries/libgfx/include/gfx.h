@@ -4,6 +4,8 @@
 #include <sys/fb.h>
 #include <stdint.h>
 
+typedef uint32_t color_t;
+
 typedef struct gfx_context {
 	void *framebuffer;
 	void *backbuffer;
@@ -20,7 +22,14 @@ typedef struct gfx_context {
 	int blue_mask_size;
 } gfx_t;
 
-typedef uint32_t color_t;
+typedef struct gfx_font {
+	int type;
+	void *private;
+	void (*draw_char)(gfx_t *,struct gfx_font*,color_t,color_t,long,long,int);
+	long (*char_width)(struct gfx_font *,int c);
+	long (*char_height)(struct gfx_font *,int c);
+	void (*free)(struct gfx_font *);
+} font_t;
 
 gfx_t *gfx_open_framebuffer(const char *path);
 gfx_t *gfx_create(void *framebuffer,struct fb *);
@@ -33,6 +42,13 @@ color_t gfx_color(gfx_t *gfx,uint8_t r,uint8_t g,uint8_t b);
 void gfx_draw_pixel(gfx_t *gfx,color_t color,long x,long y);
 void gfx_draw_rect(gfx_t *gfx,color_t color,long x,long y,long width,long height);
 void gfx_clear(gfx_t *gfx,color_t color);
+
+font_t *gfx_load_font(const char *path);
+void gfx_free_font(font_t *font);
+void gfx_draw_char(gfx_t *gfx,font_t *font,color_t back,color_t front,long x,long y,int c);
+void gfx_draw_string(gfx_t *gfx,font_t *font,color_t back,color_t front,long x,long y,const char *str);
+long gfx_char_width(font_t *font,int c);
+long gfx_char_height(font_t *font,int c);
 
 #define gfx_draw_pixel(gfx,color,x,y) {*(color_t *)((uintptr_t)gfx->buffer +  (x) * (gfx->bpp / 8) + (y) * gfx->pitch) = (color);}
 

@@ -177,13 +177,21 @@ typedef struct {
     uint8_t character_size; // PSF character size.
 } PSF1_Header;
 
+struct cell {
+	int c;
+	color_t back_color;
+	color_t front_color;
+};
+
 gfx_t *fb;
 int x = 1;
 int y = 1;
-char *font_data;
-PSF1_Header font_header;
+int width;
+int height;
+struct cell *grid;
 color_t front_color;
 color_t back_color;
+font_t *font;
 int ansi_escape_count = 0;
 int ansi_escape_args[8];
 
@@ -262,6 +270,10 @@ void draw_char(char c){
 				y = 1;
 				break;
 			case 'J':
+				for(int i =0;i < width * height; i++){
+					grid[i].c = ' ';
+					grid[i].c = back_color;
+				}
 				gfx_clear(fb,back_color);
 				break;
 			case 'f':
@@ -297,18 +309,12 @@ void draw_char(char c){
 		return;
 	}
 
-	char *current_byte = &font_data[c * font_header.character_size];
-	for (uint16_t i = 0; i < font_header.character_size; i++){
-		for (uint8_t j = 0; j < 8; j++){
-			if(((*current_byte) >> (7 - j)) & 0x01){
-				gfx_draw_pixel(fb,front_color,(x - 1) * 8 + j,(y - 1) * font_header.character_size + i);
-			} else {
-				gfx_draw_pixel(fb,back_color,(x - 1) * 8 + j,(y - 1) * font_header.character_size + i);
-			}
-		}
-		
-		current_byte++;
-	}
+	//put into grid
+	grid[(y - 1) * width +  x - 1].c = (unsigned char) c;
+	grid[(y - 1) * width +  x - 1].back_color = back_color;
+	grid[(y - 1) * width +  x - 1].front_color = front_color;
+
+	gfx_draw_char(fb,font,back_color,front_color,(x-1) * gfx_char_width(font,' '),(y-1) * gfx_char_height(font,' '),(unsigned char)c);
 
 	x++;
 }
@@ -341,31 +347,19 @@ int main(int argc,const char **argv){
 	}
 
 	//load font
-	int font_file = open("zap-light16.psf",O_RDONLY);
-	if(font_file < 0){
+	font = gfx_load_font("/zap-light16.psf");
+	if(!font){
 		perror("/zap-light16.psf");
 		return EXIT_FAILURE;
 	}
-	off_t font_size = lseek(font_file,0,SEEK_END);
-	if(font_size < 0){
-		perror("lseek");
-	}
-	font_data = malloc(font_size - sizeof(PSF1_Header));
-	lseek(font_file,0,SEEK_SET);
-	if(read(font_file,&font_header,sizeof(font_header)) < 0){
-		perror("read");
-	}
-	if(read(font_file,font_data,font_size - sizeof(PSF1_Header)) < 0){
-		perror("read");
-	}
-	close(font_file);
+	
 
 	//create a new pty
 	struct winsize size = {
 		.ws_xpixel = fb->width,
 		.ws_ypixel = fb->height,
-		.ws_col = fb->width / 8,
-		.ws_row = fb->height / font_header.character_size,
+		.ws_col = fb->width / gfx_char_width(font,' '),
+		.ws_row = fb->height / gfx_char_height(font,' '),
 	};
 
 	int master;
@@ -417,6 +411,15 @@ int main(int argc,const char **argv){
 	}
 
 	close(slave);
+
+	//create an empty grid
+	width = fb->width / gfx_char_width(font,' ');
+	height = fb->height / gfx_char_height(font,' ');
+	grid = malloc(sizeof(struct cell) * width * height);
+	for(int i = 0;i < width * height; i++){
+			grid[i].c = ' ';
+			grid[i].c = back_color;
+	}
 
 	//clear screen and init color
 	front_color = gfx_color(fb,255,255,255);
