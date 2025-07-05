@@ -185,6 +185,10 @@ struct cell {
 	color_t front_color;
 };
 
+int flags;
+#define FLAG_CURSOR 0x01
+#define FLAG_INVERT 0x02
+
 gfx_t *fb;
 int x = 1;
 int y = 1;
@@ -274,6 +278,7 @@ void redraw(int cx,int cy){
 }
 
 void redraw_cursor(int cx,int cy){
+	if(!(flags & FLAG_CURSOR))return redraw(cx,cy);
 	struct cell cell = grid[(cy - 1) * width +  cx - 1];
 	gfx_draw_char(fb,font,cell.front_color,cell.back_color,(cx-1) * gfx_char_width(font,' '),(cy-1) * gfx_char_height(font,' '),cell.c);
 }
@@ -297,6 +302,8 @@ void draw_char(char c){
 		if(isdigit((unsigned char)c)){
 			ansi_escape_args[ansi_escape_count-2] *= 10;
 			ansi_escape_args[ansi_escape_count-2] += c - '0';
+			return;
+		} else if(c == '?'){
 			return;
 		} else if(c == ';'){
 			ansi_escape_count++;
@@ -322,6 +329,22 @@ void draw_char(char c){
 				break;
 			case 'm':
 				parse_color();
+				break;
+			case 'l':
+				if(ansi_escape_count < 1)break;
+				switch(ansi_escape_args[0]){
+				case 25:
+					flags &= ~FLAG_CURSOR;
+					break;
+				}
+				break;
+			case 'h':
+				if(ansi_escape_count < 1)break;
+				switch(ansi_escape_args[0]){
+				case 25:
+					flags |= FLAG_CURSOR;
+					break;
+				}
 				break;
 			}
 			ansi_escape_count = 0;
@@ -457,7 +480,8 @@ int main(int argc,const char **argv){
 	gfx_push_buffer(fb);
 	gfx_disable_backbuffer(fb);
 
-	//create an empty grid
+	//create an empty grid and init flags
+	flags = FLAG_CURSOR;
 	width = fb->width / gfx_char_width(font,' ');
 	height = fb->height / gfx_char_height(font,' ');
 	grid = malloc(sizeof(struct cell) * width * height);
