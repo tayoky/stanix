@@ -50,7 +50,7 @@ int main(){
 	}
 
 	//launch tsh in the startup script
-	const char *arg[] = {
+	static const char *arg[] = {
 		"/bin/tsh",
 		"/startup.sh",
 		NULL

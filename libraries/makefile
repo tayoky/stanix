@@ -1,6 +1,9 @@
 MAKEFLAGS += --no-builtin-rules
 PREFIX = ${SYSROOT}/usr
+
+CFLAGS += -O2
 export PREFIX
+export CFLAGS
 
 #first get all the sub directory
 libs = $(shell find -name "*" -not -path "." -type d -maxdepth 1)
