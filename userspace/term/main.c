@@ -132,6 +132,7 @@ const char kbd_fr[128] = {
 	0, /* F11 */
 	0, /* F12 */
 	0, /* everything else */
+	[0x56] = '<',
 };
 
 const char kbd_fr_shift[128] = {
@@ -171,6 +172,7 @@ const char kbd_fr_shift[128] = {
 	0, /* F11 */
 	0, /* F12 */
 	0, /* everything else */
+	[0x56] = '>',
 };
 
 typedef struct {
@@ -406,6 +408,9 @@ void draw_char(char c){
 	redraw_cursor(x,y);
 }
 
+void writestr(int fd,const char *str){
+	write(fd,str,strlen(str));
+}
 
 int main(int argc,const char **argv){
 	const char *layout = kbd_us;
@@ -576,7 +581,9 @@ int main(int argc,const char **argv){
 
 			//put into the pipe and to the screen
 			char c;
-			if(shift){
+			if(event.ie_key.scancode >= 0x80){
+				c = 0;
+			} else if(shift){
 				c = layout_shift[event.ie_key.scancode];
 			} else {
 				c = layout[event.ie_key.scancode];
@@ -594,6 +601,25 @@ int main(int argc,const char **argv){
 					}
 				}
 				ignore:
+			} else {
+				switch(event.ie_key.scancode){
+				//up arrow
+				case 0x48 + 0x80:
+					writestr(master,"\e[A");
+					break;
+				//down arrow
+				case 0x50 + 0x80:
+					writestr(master,"\e[B");
+					break;
+				//right arrow
+				case 0x4D + 0x80:
+					writestr(master,"\e[C");
+					break;
+				//left arrow
+				case 0x4B + 0x80:
+					writestr(master,"\e[D");
+					break;
+				}
 			}
 		}
 	}
