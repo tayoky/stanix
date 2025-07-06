@@ -283,6 +283,23 @@ void redraw_cursor(int cx,int cy){
 	gfx_draw_char(fb,font,cell.front_color,cell.back_color,(cx-1) * gfx_char_width(font,' '),(cy-1) * gfx_char_height(font,' '),cell.c);
 }
 
+void scroll(int s){
+	memmove(grid,&grid[s * width],(height - s) * width * sizeof(struct cell));
+	for(int i=(height - s) * width;i < width * height; i++){
+		grid[i].c = ' ';
+		grid[i].back_color = back_color;
+		grid[i].front_color = front_color;
+	}
+
+	//redraw everything
+	for (int x = 1; x <= width; x++){
+		for (int y = 1; y <= height; y++){
+			redraw(x,y);
+		}
+	}
+	y -= s;
+}
+
 void draw_char(char c){
 	if(c == '\e'){
 		memset(ansi_escape_args,0,sizeof(ansi_escape_args));
@@ -363,6 +380,9 @@ void draw_char(char c){
 		redraw(x,y);
 		x = 1;
 		y++;
+		if(y > height){
+			scroll(y - height);
+		}
 		redraw_cursor(x,y);
 		return;
 	case '\b':
