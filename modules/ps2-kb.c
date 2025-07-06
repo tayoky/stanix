@@ -57,6 +57,12 @@ static void keyboard_handler(fault_frame *frame){
 
 	uint8_t scancode = ps2_read();
 
+	int extended = 0;
+	if(scancode == 0xE0){
+		extended = 1;
+		scancode = ps2_read();
+	}
+
 	int press = 1;
 	if(scancode & 0x80){
 		scancode &= ~0x80;
@@ -75,12 +81,12 @@ static void keyboard_handler(fault_frame *frame){
 		event.ie_key.flags = IE_KEY_RELEASE;
 	}
 
-	if(kbd_us[scancode]){
+	if(!extended && kbd_us[scancode]){
 		event.ie_key.c = kbd_us[scancode];
 		event.ie_key.flags |= IE_KEY_GRAPH;
 	}
-	event.ie_key.scancode = scancode;
-
+	event.ie_key.scancode = extended ? scancode + 0x80 : scancode;
+	extended = 0;
 	ringbuffer_write(&event,&keyboard_queue,sizeof(struct input_event));
 }
 
