@@ -15,6 +15,27 @@ static inline uint64_t octal2int(const char *octal){
 	return integer;
 }
 
+#define CHECK(o,m) if(i & o)mode |= m
+
+static mode_t octal2mode(const char *octal){
+	int i = octal2int(octal);
+
+	mode_t mode = 0;
+
+	CHECK(TOEXEC ,0x1);
+	CHECK(TOWRITE,0x2);
+	CHECK(TOREAD ,0x4);
+	CHECK(TGEXEC ,0x10);
+	CHECK(TGWRITE,0x20);
+	CHECK(TGREAD ,0x40);
+	CHECK(TSGID,  0x80);
+	CHECK(TUEXEC ,0x100);
+	CHECK(TUWRITE,0x200);
+	CHECK(TUREAD ,0x400);
+	CHECK(TSUID,  0x800);
+
+	return mode;
+}
 
 void mount_initrd(void){
 	kstatus("unpack initrd ...");
@@ -65,6 +86,9 @@ void mount_initrd(void){
 
 			//set the owner to root
 			vfs_chown(file,0,0);
+
+			//set mode
+			vfs_chmod(file,octal2mode(current_file->file_mode));
 
 			//copy the files content
 			ssize_t write_size = vfs_write(file,addr + 512,0,file_size);
