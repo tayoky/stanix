@@ -48,6 +48,8 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 	}
 
 	node->close = tmpfs_close;
+	node->chmod = tmpfs_chmod;
+	node->chown = tmpfs_chown;
 
 	//copy metadata
 	node->perm        = inode->perm;
@@ -258,6 +260,7 @@ int tmpfs_chmod(vfs_node *node,mode_t perm){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	inode->perm = perm;
+	node->perm = perm;
 	return 0;
 }
 int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
