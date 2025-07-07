@@ -631,8 +631,10 @@ int sys_waitpid(pid_t pid,int *status){
 			*status = proc->exit_status;
 		}
 		proc->flags |= PROC_FLAG_DEAD;
-		list_append(to_clean_proc,proc);
-		unblock_proc(cleaner);
+		//now free the paging tables
+		list_remove(proc_list,proc);
+		delete_addr_space(proc->addrspace);
+		kfree(proc);
 		kernel->can_task_switch = 1;
 		return pid;
 	}
@@ -651,10 +653,10 @@ int sys_waitpid(pid_t pid,int *status){
 		*status = proc->exit_status;
 	}
 
-	proc->flags |= PROC_FLAG_DEAD;
-	list_append(to_clean_proc,proc);
+	//now free the paging tables
 	list_remove(proc_list,proc);
-	unblock_proc(cleaner);
+	delete_addr_space(proc->addrspace);
+	kfree(proc);
 
 	return pid;
 }

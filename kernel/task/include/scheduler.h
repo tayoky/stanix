@@ -89,9 +89,7 @@ int is_userspace(process *);
 #define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))
 #define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)
 
-extern list *to_clean_proc;
 extern list *proc_list;
-extern process *cleaner;
 extern process *sleeping_proc;
 
 #define EUID_ROOT 0

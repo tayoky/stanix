@@ -15,10 +15,8 @@
 process *running_proc;
 list *proc_list;
 process *sleeping_proc;
-list *to_clean_proc;
 
 process *idle;
-process *cleaner;
 process *init;
 
 static void idle_task(){
@@ -34,7 +32,6 @@ void init_task(){
 	kstatus("init kernel task... ");
 	//init the scheduler first
 	proc_list     = new_list();
-	to_clean_proc = new_list();
 	sleeping_proc = NULL;
 	
 	//init the kernel task
@@ -73,9 +70,6 @@ void init_task(){
 	kernel->can_task_switch = 1;
 
 	kok();
-
-	//start the cleaner task
-	cleaner = new_kernel_task(cleaner_task,0,NULL);
 
 	//start idle task
 	idle = new_kernel_task(idle_task,0,NULL);
