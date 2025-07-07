@@ -34,15 +34,13 @@ static long psf1_char_height(font_t *font,int c){
 	return data->header.character_size;
 }
 
-static void psf1_draw_char(gfx_t *gfx,font_t *font,color_t back,color_t front,long x,long y,int c){
+static void psf1_draw_char(gfx_t *gfx,font_t *font,color_t color,long x,long y,int c){
 	PSF1_data *data = font->private;
 	char *current_byte = &data->data[c * data->header.character_size];
 	for (uint16_t i = 0; i < data->header.character_size; i++){
 		for (uint8_t j = 0; j < 8; j++){
-			if(((*current_byte) >> (7 - j)) & 0x01){
-				gfx_draw_pixel(gfx,front,x + j,y + i);
-			} else {
-				gfx_draw_pixel(gfx,back,x + j,y + i);
+			if(((*current_byte) >> (7 - j)) & 1){
+				gfx_draw_pixel(gfx,color,x + j,y + i);
 			}
 		}
 		

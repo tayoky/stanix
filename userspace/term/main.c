@@ -196,6 +196,8 @@ int x = 1;
 int y = 1;
 int width;
 int height;
+int c_width;
+int c_height;
 struct cell *grid;
 color_t front_color;
 color_t back_color;
@@ -276,13 +278,15 @@ void parse_color(void){
 
 void redraw(int cx,int cy){
 	struct cell cell = grid[(cy - 1) * width +  cx - 1];
-	gfx_draw_char(fb,font,cell.back_color,cell.front_color,(cx-1) * gfx_char_width(font,' '),(cy-1) * gfx_char_height(font,' '),cell.c);
+	gfx_draw_rect(fb,cell.back_color,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
+	gfx_draw_char(fb,font,cell.front_color,(cx-1) * c_width,(cy-1) * c_height,cell.c);
 }
 
 void redraw_cursor(int cx,int cy){
 	if(!(flags & FLAG_CURSOR))return redraw(cx,cy);
 	struct cell cell = grid[(cy - 1) * width +  cx - 1];
-	gfx_draw_char(fb,font,cell.front_color,cell.back_color,(cx-1) * gfx_char_width(font,' '),(cy-1) * gfx_char_height(font,' '),cell.c);
+	gfx_draw_rect(fb,cell.front_color,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
+	gfx_draw_char(fb,font,cell.back_color,(cx-1) * c_width,(cy-1) * c_height,cell.c);
 }
 
 void scroll(int s){
@@ -444,14 +448,16 @@ int main(int argc,const char **argv){
 		perror("/zap-light16.psf");
 		return EXIT_FAILURE;
 	}
+	c_width  = gfx_char_width(font,' ');
+	c_height = gfx_char_height(font,' ');
 	
 
 	//create a new pty
 	struct winsize size = {
 		.ws_xpixel = fb->width,
 		.ws_ypixel = fb->height,
-		.ws_col = fb->width / gfx_char_width(font,' '),
-		.ws_row = fb->height / gfx_char_height(font,' '),
+		.ws_col = fb->width / c_width,
+		.ws_row = fb->height / c_height,
 	};
 
 	int master;
@@ -513,8 +519,8 @@ int main(int argc,const char **argv){
 
 	//create an empty grid and init flags
 	flags = FLAG_CURSOR;
-	width = fb->width / gfx_char_width(font,' ');
-	height = fb->height / gfx_char_height(font,' ');
+	width = fb->width / c_width;
+	height = fb->height / c_height;
 	grid = malloc(sizeof(struct cell) * width * height);
 	for(int i = 0;i < width * height; i++){
 			grid[i].c = ' ';

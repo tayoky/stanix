@@ -9,15 +9,13 @@ void gfx_draw_pixel(gfx_t *gfx,color_t color,long x,long y){
 
 
 void gfx_draw_rect(gfx_t *gfx,color_t color,long x,long y,long width,long height){
-	uintptr_t ydiff = gfx->pitch - (x + width) * (gfx->bpp / 8);
-	uintptr_t ptr = (uintptr_t)gfx->buffer + x * (gfx->bpp / 8) + y *gfx->pitch;
-
 	for(int i = 0;i < height;i++){
+		uintptr_t ptr = (uintptr_t)gfx->buffer + x * (gfx->bpp / 8) + y *gfx->pitch;
 		for(long j = 0;j < width;j++){
 			*(color_t *)ptr = color;
 			ptr += gfx->bpp / 8;
 		}
-		ptr += ydiff;
+		y++;
 	}
 }
 

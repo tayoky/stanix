@@ -25,7 +25,7 @@ typedef struct gfx_context {
 typedef struct gfx_font {
 	int type;
 	void *private;
-	void (*draw_char)(gfx_t *,struct gfx_font*,color_t,color_t,long,long,int);
+	void (*draw_char)(gfx_t *,struct gfx_font*,color_t,long,long,int);
 	long (*char_width)(struct gfx_font *,int c);
 	long (*char_height)(struct gfx_font *,int c);
 	void (*free)(struct gfx_font *);
@@ -45,8 +45,8 @@ void gfx_clear(gfx_t *gfx,color_t color);
 
 font_t *gfx_load_font(const char *path);
 void gfx_free_font(font_t *font);
-void gfx_draw_char(gfx_t *gfx,font_t *font,color_t back,color_t front,long x,long y,int c);
-void gfx_draw_string(gfx_t *gfx,font_t *font,color_t back,color_t front,long x,long y,const char *str);
+void gfx_draw_char(gfx_t *gfx,font_t *font,color_t color,long x,long y,int c);
+void gfx_draw_string(gfx_t *gfx,font_t *font,color_t color,long x,long y,const char *str);
 long gfx_char_width(font_t *font,int c);
 long gfx_char_height(font_t *font,int c);
 

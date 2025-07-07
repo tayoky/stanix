@@ -26,13 +26,13 @@ void gfx_free_font(font_t *font){
 	free(font);
 }
 
-void gfx_draw_char(gfx_t *gfx,font_t *font,color_t back,color_t front,long x,long y,int c){
-	return font->draw_char(gfx,font,back,front,x,y,c);
+void gfx_draw_char(gfx_t *gfx,font_t *font,color_t color,long x,long y,int c){
+	return font->draw_char(gfx,font,color,x,y,c);
 }
 
-void gfx_draw_string(gfx_t *gfx,font_t *font,color_t back,color_t front,long x,long y,const char *str){
+void gfx_draw_string(gfx_t *gfx,font_t *font,color_t color,long x,long y,const char *str){
 	while(*str){
-		gfx_draw_char(gfx,font,back,front,x,y,*(unsigned char *)str);
+		gfx_draw_char(gfx,font,color,x,y,*(unsigned char *)str);
 		x += gfx_char_width(font,*(unsigned char *)str);
 		str++;
 	}
