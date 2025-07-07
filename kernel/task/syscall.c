@@ -718,6 +718,10 @@ int sys_insmod(const char *pathname,const char **arg){
 		return -EFAULT;
 	}
 
+	if(get_current_proc()->euid != EUID_ROOT){
+		return -EPERM;
+	}
+
 	//check arg
 	int argc = 0;
 	while(arg[argc]){
@@ -736,6 +740,10 @@ int sys_insmod(const char *pathname,const char **arg){
 int sys_rmmod(const char *name){
 	if(!CHECK_STR(name)){
 		return -EFAULT;
+	}
+
+	if(get_current_proc()->euid != EUID_ROOT){
+		return -EPERM;
 	}
 
 	return rmmod(name);
@@ -944,6 +952,10 @@ int sys_mount(const char *source, const char *target,const char *filesystemtype,
 		return -EFAULT;
 	}
 
+	if(get_current_proc()->euid != EUID_ROOT){
+		return -EPERM;
+	}
+
 	return vfs_auto_mount(source,target,filesystemtype,mountflags,data);
 }
 
@@ -982,6 +994,60 @@ void *sys_mmap(uintptr_t addr,size_t length,int prot,int flags,int fd,off_t offs
 		}
 		return vfs_mmap(FD_GET(fd).node,(void *)addr,length,pflags,flags,offset);
 	}
+}
+
+int sys_setuid(uid_t uid){
+	if(get_current_proc()->euid == EUID_ROOT){
+		get_current_proc()->uid = uid;
+		get_current_proc()->euid = uid;
+		get_current_proc()->suid = uid;
+		return 0;
+	} else if(uid == get_current_proc()->uid || uid == get_current_proc()->suid){
+		get_current_proc()->euid = uid;
+		return 0;
+	} else {
+		return -EPERM;
+	}
+}
+int sys_seteuid(uid_t uid){
+	if(get_current_proc()->euid == EUID_ROOT || uid == get_current_proc()->uid || uid == get_current_proc()->suid){
+		get_current_proc()->euid = uid;
+		return 0;
+	}
+	return -EPERM;
+}
+uid_t sys_getuid(void){
+	return get_current_proc()->uid;
+}
+uid_t sys_geteuid(void){
+	return get_current_proc()->euid;
+}
+
+int sys_setgid(gid_t gid){
+	if(get_current_proc()->euid == EUID_ROOT){
+		get_current_proc()->gid = gid;
+		get_current_proc()->egid = gid;
+		get_current_proc()->sgid = gid;
+		return 0;
+	} else if(gid == get_current_proc()->gid || gid == get_current_proc()->sgid){
+		get_current_proc()->egid = gid;
+		return 0;
+	} else {
+		return -EPERM;
+	}
+}
+int sys_setegid(gid_t gid){
+	if(get_current_proc()->euid == EUID_ROOT || gid == get_current_proc()->gid || gid == get_current_proc()->sgid){
+		get_current_proc()->egid = gid;
+		return 0;
+	}
+	return -EPERM;
+}
+uid_t sys_getgid(void){
+	return get_current_proc()->gid;
+}
+uid_t sys_getegid(void){
+	return get_current_proc()->egid;
 }
 
 int sys_stub(void){
@@ -1033,6 +1099,14 @@ void *syscall_table[] = {
 	(void *)sys_stub, //sys_munmap
 	(void *)sys_stub, //sys_mprotect
 	(void *)sys_stub, //sys_msync
+	(void *)sys_setuid,
+	(void *)sys_seteuid,
+	(void *)sys_getuid,
+	(void *)sys_geteuid,
+	(void *)sys_setgid,
+	(void *)sys_setegid,
+	(void *)sys_getgid,
+	(void *)sys_getegid,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

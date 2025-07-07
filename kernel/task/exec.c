@@ -149,6 +149,18 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	}
 	kfree(prog_header);
 
+	//check setuid /setgid bit
+	if(file->perm & 0x800){
+		get_current_proc()->suid =get_current_proc()->euid;
+		get_current_proc()->uid = file->owner;
+		get_current_proc()->euid = file->owner;
+	}
+	if(file->perm & 0x080){
+		get_current_proc()->sgid = get_current_proc()->egid;
+		get_current_proc()->gid = file->owner;
+		get_current_proc()->egid = file->owner;
+	}
+
 	vfs_close(file);
 
 	//map stack
@@ -212,6 +224,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 
 	//now jump into the program !!
 	kdebugf("exec entry : %p\n",header.e_entry);
+
 
 	jump_userspace((void *)header.e_entry,(void *)USER_STACK_TOP,(uintptr_t)argc,(uintptr_t)argv,(uintptr_t)envc,(uintptr_t)envp);
 

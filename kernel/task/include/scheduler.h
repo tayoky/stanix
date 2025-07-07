@@ -51,6 +51,14 @@ typedef struct process_struct {
 	sigset_t sig_mask;
 	sigset_t pending_sig;
 	struct sigaction sig_handling[32];
+	pid_t group;
+	pid_t sid;
+	uid_t uid;
+	uid_t euid;
+	uid_t suid;
+	gid_t gid;
+	gid_t egid;
+	gid_t sgid;
 } process;
 
 #define PROC_FLAG_PRESENT 0x001UL
@@ -85,5 +93,7 @@ extern list *to_clean_proc;
 extern list *proc_list;
 extern process *cleaner;
 extern process *sleeping_proc;
+
+#define EUID_ROOT 0
 
 #endif

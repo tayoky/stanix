@@ -109,6 +109,12 @@ process *new_proc(){
 	proc->flags = PROC_FLAG_PRESENT;
 	proc->child = new_list();
 	proc->memseg = new_list();
+	proc->uid = get_current_proc()->uid;
+	proc->euid = get_current_proc()->euid;
+	proc->suid = get_current_proc()->suid;
+	proc->gid = get_current_proc()->gid;
+	proc->egid = get_current_proc()->egid;
+	proc->sgid = get_current_proc()->sgid;
 
 	//setup a new kernel stack
 	proc->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;

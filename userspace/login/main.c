@@ -5,6 +5,11 @@
 #include <sys/wait.h>
 
 int main(int argc,char **argv){
+	if(getuid() != 0){
+		fprintf(stderr,"login must be run as root !\n");
+		return 1;
+	}
+	
 	for (int i = 1; i < argc; i++){
 		if(!strcmp(argv[1],"--setup-stdin-from-stdout")){
 			dup2(STDOUT_FILENO,STDIN_FILENO);
