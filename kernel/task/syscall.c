@@ -97,6 +97,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 			}
 
 			node = vfs_open(path,vfs_flags);
+			vfs_chown(node,get_current_proc()->euid,get_current_proc()->egid);
 		}
 	}
 
