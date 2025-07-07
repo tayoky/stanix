@@ -1050,6 +1050,58 @@ uid_t sys_getegid(void){
 	return get_current_proc()->egid;
 }
 
+static int chmod_node(vfs_node *node,mode_t mode){
+	if(node->owner != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT){
+		return -EPERM;
+	}
+	node->perm = mode & 0xFFFF;
+	return 0;
+}
+
+int sys_chmod(const char *pathname, mode_t mode){
+	vfs_node *node = vfs_open(pathname,VFS_WRITEONLY);
+	if(!node)return -ENOENT;
+
+	int ret = chmod_node(node,mode);
+	vfs_close(node);
+
+	return ret;
+}
+
+int sys_fchmod(int fd, mode_t mode){
+	if(!is_valid_fd(fd)){
+		return -EBADF;
+	}
+
+	return chmod_node(FD_GET(fd).node,mode);
+}
+
+static int chown_node(vfs_node *node,uid_t owner,gid_t group){
+	if(node->owner != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT){
+		return -EPERM;
+	}
+	node->owner = owner;
+	node->group_owner = group;
+	return 0;
+}
+
+int sys_chown(const char *pathname, uid_t owner, gid_t group){
+	vfs_node *node = vfs_open(pathname,VFS_WRITEONLY);
+	if(!node)return -ENOENT;
+
+	int ret = chown_node(node,owner,group);
+	vfs_close(node);
+
+	return ret;
+}
+int sys_fchown(int fd, uid_t owner, gid_t group){
+	if(!is_valid_fd(fd)){
+		return -EBADF;
+	}
+
+	return chown_node(FD_GET(fd).node,owner,group);
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1107,6 +1159,10 @@ void *syscall_table[] = {
 	(void *)sys_setegid,
 	(void *)sys_getgid,
 	(void *)sys_getegid,
+	(void *)sys_chmod,
+	(void *)sys_fchmod,
+	(void *)sys_chown,
+	(void *)sys_fchown,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
