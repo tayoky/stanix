@@ -5,8 +5,9 @@ title: open
 int open(const char *path,int flags,... /*mode_t mode*/);
 ```
 ## use
-`open` open a file descriptor to the specified pathname  
-the flags argument allow to open for specific operation and set flags on the file decsriptor
+`open` open a file descriptor to the specified pathname.  
+The flags argument allow to open for specific operation and set flags on the file decsriptor.
+
 ## avalibles flags
 - `O_READONLY`  
    open in readonly
