@@ -999,6 +999,18 @@ void *sys_mmap(uintptr_t addr,size_t length,int prot,int flags,int fd,off_t offs
 	}
 }
 
+int sys_munmap(void *addr, size_t len){
+	if(!len)return -EINVAL;
+	if(!CHECK_PTR_INRANGE((uintptr_t)addr + len))return -EINVAL;
+	foreach(node,get_current_proc()->memseg){
+		memseg *seg = node->value;
+		if(seg->addr >= (uintptr_t)addr && seg->addr + seg->addr <= (uintptr_t)addr + len){
+			memseg_unmap(get_current_proc(),seg);
+		}
+	}
+	return 0;
+}
+
 int sys_setuid(uid_t uid){
 	if(get_current_proc()->euid == EUID_ROOT){
 		get_current_proc()->uid = uid;
@@ -1150,8 +1162,8 @@ void *syscall_table[] = {
 	(void *)sys_getpid,
 	(void *)sys_mount,
 	(void *)sys_stub, //sys_umount
-	(void *)sys_mmap, //sys_mmap
-	(void *)sys_stub, //sys_munmap
+	(void *)sys_mmap,
+	(void *)sys_munmap,
 	(void *)sys_stub, //sys_mprotect
 	(void *)sys_stub, //sys_msync
 	(void *)sys_setuid,
