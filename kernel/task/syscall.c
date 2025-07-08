@@ -931,6 +931,20 @@ int sys_sigpending(sigset_t *set){
 }
 
 int sys_kill(pid_t pid,int sig){
+	if(pid < 0){
+		int found = 0;
+		foreach(node,proc_list){
+			process *proc = node->value;
+			if(proc->group == -pid){
+				send_sig(proc,sig);
+				found = 1;
+			}
+		}
+		if(!found){
+			return -ESRCH;
+		}
+		return 0;
+	}
 	process *proc = pid2proc(pid);
 	if(!proc){
 		return -ESRCH;
@@ -1117,6 +1131,31 @@ int sys_fchown(int fd, uid_t owner, gid_t group){
 	return chown_node(FD_GET(fd).node,owner,group);
 }
 
+//TODO : check if group exist
+int sys_setpgid(pid_t pid, pid_t pgid){
+	if(pid == 0)pid = get_current_proc()->pid;
+	if(pgid == 0)pgid = get_current_proc()->pid;
+	if(pgid < 0){
+		return -EINVAL;
+	}
+	process *proc = pid2proc(pid);
+	if(!proc || (proc->parent != get_current_proc() && proc != get_current_proc())){
+		return -ESRCH;
+	}
+	if(proc->sgid != get_current_proc()->sid){
+		return -EPERM;
+	}
+	return 0;
+}
+
+pid_t sys_getpgid(pid_t pid){
+	process *proc = pid2proc(pid);
+	if(!proc || (proc->parent != get_current_proc() && proc != get_current_proc())){
+		return -ESRCH;
+	}
+	return proc->group;
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1178,6 +1217,8 @@ void *syscall_table[] = {
 	(void *)sys_fchmod,
 	(void *)sys_chown,
 	(void *)sys_fchown,
+	(void *)sys_setpgid,
+	(void *)sys_getpgid,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
