@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/signal.h>
 #include <stdint.h>
+#include <fcntl.h>
 
 struct fault_frame;
 struct process_struct;
@@ -25,7 +26,6 @@ typedef struct {
 #define FD_WRITE    0x02
 #define FD_APPEND   0x04
 #define FD_NONBLOCK 0x08
-#define FD_CLOEXEC  0x10
 
 typedef struct process_struct {
 	addrspace_t addrspace;

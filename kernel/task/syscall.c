@@ -1150,6 +1150,25 @@ pid_t sys_getpgid(pid_t pid){
 	return proc->group;
 }
 
+int sys_fcntl(int fd, int op, int arg){
+	if(!is_valid_fd(fd)){
+		return -EBADF;
+	}
+
+	switch(op){
+	case F_DUPFD:
+		//TODO respect arg
+		return sys_dup(fd);
+	case F_GETFD:
+		return FD_GET(fd).flags & ~0xFUL;
+	case F_SETFD:
+		FD_GET(fd).flags = (FD_GET(fd).flags & 0xFUL) | (arg & ~0xFUL);
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1213,6 +1232,7 @@ void *syscall_table[] = {
 	(void *)sys_fchown,
 	(void *)sys_setpgid,
 	(void *)sys_getpgid,
+	(void *)sys_fcntl,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
