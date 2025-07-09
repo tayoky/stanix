@@ -52,7 +52,7 @@ int main(){
 	//launch tsh in the startup script
 	static const char *arg[] = {
 		"/bin/tsh",
-		"/startup.sh",
+		"/etc/init.d/startup.sh",
 		NULL
 	};
 

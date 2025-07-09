@@ -18,12 +18,12 @@ int main(int argc,char **argv){
 	dup2(STDOUT_FILENO,STDERR_FILENO);
 	//setup an env
 	putenv("USER=root");
-	putenv("HOME=/");
+	putenv("HOME=/home");
 	putenv("SHELL=/bin/tsh");
 	chdir(getenv("HOME"));
 
 	//print /motd
-	system("cat /motd");
+	system("cat /etc/motd");
 
 	const char *arg[] = {
 		getenv("SHELL"),
