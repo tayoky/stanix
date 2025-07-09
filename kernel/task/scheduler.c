@@ -44,6 +44,7 @@ void init_task(){
 	kernel_task->flags = PROC_FLAG_PRESENT | PROC_FLAG_RUN;
 	kernel_task->child = new_list();
 	kernel_task->memseg = new_list();
+	kernel_task->umask = 0xffff;
 
 	//setup a new stack
 	kernel_task->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
@@ -103,12 +104,13 @@ process *new_proc(){
 	proc->flags = PROC_FLAG_PRESENT;
 	proc->child = new_list();
 	proc->memseg = new_list();
-	proc->uid = get_current_proc()->uid;
-	proc->euid = get_current_proc()->euid;
-	proc->suid = get_current_proc()->suid;
-	proc->gid = get_current_proc()->gid;
-	proc->egid = get_current_proc()->egid;
-	proc->sgid = get_current_proc()->sgid;
+	proc->uid   = get_current_proc()->uid;
+	proc->euid  = get_current_proc()->euid;
+	proc->suid  = get_current_proc()->suid;
+	proc->gid   = get_current_proc()->gid;
+	proc->egid  = get_current_proc()->egid;
+	proc->sgid  = get_current_proc()->sgid;
+	proc->umask = get_current_proc()->umask;
 
 	//setup a new kernel stack
 	proc->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;

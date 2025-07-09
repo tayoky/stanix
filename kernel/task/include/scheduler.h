@@ -59,6 +59,7 @@ typedef struct process_struct {
 	gid_t gid;
 	gid_t egid;
 	gid_t sgid;
+	mode_t umask;
 } process;
 
 #define PROC_FLAG_PRESENT 0x001UL

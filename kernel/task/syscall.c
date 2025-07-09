@@ -89,7 +89,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 		
 		if(!node){
 			//the user want to create the file
-			int result = vfs_create(path,mode,VFS_FILE);
+			int result = vfs_create(path,mode & get_current_proc()->umask,VFS_FILE);
 
 			if(result){
 				//vfs_create failed
@@ -436,7 +436,7 @@ int sys_mkdir(const char *path,mode_t mode){
 		return -EFAULT;
 	}
 
-	return vfs_mkdir(path,mode);
+	return vfs_mkdir(path,mode & get_current_proc()->umask);
 }
 
 int sys_readdir(int fd,struct dirent *ret,long int index){
@@ -1169,6 +1169,12 @@ int sys_fcntl(int fd, int op, int arg){
 	}
 }
 
+mode_t sys_umask(mode_t mask){
+	mode_t old = get_current_proc()->umask;
+	get_current_proc()->umask = mask;
+	return old;
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1233,6 +1239,7 @@ void *syscall_table[] = {
 	(void *)sys_setpgid,
 	(void *)sys_getpgid,
 	(void *)sys_fcntl,
+	(void *)sys_umask,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
