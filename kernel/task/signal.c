@@ -41,7 +41,20 @@ static void handle_default(process *proc,int signum){
 	}
 }
 
+int send_sig_pgrp(pid_t pgrp,int signum){
+	int ret = -1;
+	foreach(node,proc_list){
+		process *proc = node->value;
+		if(proc->group == pgrp){
+			send_sig(proc,signum);
+			ret = 0;
+		}
+	}
+	return ret;
+}
+
 int send_sig(process *proc,int signum){
+	kdebugf("send %d to %ld\n",signum,proc->pid);
 	//if the process ignore just skip
 	if(proc->sig_handling[signum].sa_handler == SIG_IGN || (proc->sig_handling[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN)){
 		return 0;

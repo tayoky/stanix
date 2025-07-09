@@ -18,7 +18,7 @@ typedef struct tty {
 	size_t column;
 	char *canon_buf;
 	size_t canon_index;
-	process *fg_proc;
+	pid_t fg_pgrp;
 	int unconnected;
 } tty;
 

@@ -5,6 +5,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/print.h>
 #include <kernel/kernel.h>
+#include <kernel/signal.h>
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <poll.h>
@@ -153,17 +154,13 @@ int tty_ioctl(vfs_node *node,uint64_t request,void *arg){
 		tty->termios = *(struct termios *)arg;
 		return 0;
 	case TIOCGPGRP:
-		if(tty->fg_proc){
-			return -EINVAL;
-		}
-		return tty->fg_proc->pid;
+		*(pid_t *)arg =  tty->fg_pgrp;
+		return 0;
 	case TIOCSPGRP:
-		process *proc = pid2proc((pid_t)(uintptr_t)arg);
-		if(proc){
-			tty->fg_proc = proc;
-			return 0;
-		}
-		return -ESRCH;
+		//TODO : check if group exist
+		kdebugf("set fgpgrp to %ld\n",*(pid_t *)arg);
+		tty->fg_pgrp = *(pid_t *)arg;
+		return 0;
 	case TIOCSWINSZ:
 		tty->size = *(struct winsize *)arg;
 		return 0;
@@ -190,11 +187,11 @@ vfs_node *new_tty(tty **tty){
 	(*tty)->termios.c_cc[VERASE] = 127;
 	(*tty)->termios.c_cc[VINTR] = 0x03;
 	(*tty)->termios.c_cc[VQUIT] = 0x22;
-	(*tty)->termios.c_cc[VSUSP] = 0x20;
+	(*tty)->termios.c_cc[VSUSP] = 0x1A;
 	(*tty)->termios.c_cc[VMIN] = 1;
 	(*tty)->termios.c_iflag = ICRNL | IMAXBEL;
 	(*tty)->termios.c_oflag = OPOST | ONLCR | ONLRET;
-	(*tty)->termios.c_lflag = ECHONL | ECHOK | ECHOE | ECHO | ICANON | IEXTEN;
+	(*tty)->termios.c_lflag = ECHONL | ECHOK | ECHOE | ECHO | ICANON | IEXTEN | ISIG;
 
 	(*tty)->canon_buf = kmalloc(512);
 	(*tty)->canon_index = 0;
@@ -266,6 +263,28 @@ int tty_input(tty *tty,char c){
 	if(tty->termios.c_iflag & ISTRIP){
 		//strip off eighth bit
 		c &= 0x7F;
+	}
+
+	//signal support here
+	if(tty->termios.c_lflag & ISIG){
+		if(c == tty->termios.c_cc[VINTR]){
+			if(tty->fg_pgrp){
+				send_sig_pgrp(tty->fg_pgrp,SIGINT);
+			}
+			return 0;
+		}
+		if(c == tty->termios.c_cc[VQUIT]){
+			if(tty->fg_pgrp){
+				send_sig_pgrp(tty->fg_pgrp,SIGQUIT);
+			}
+			return 0;
+		}
+		if(c == tty->termios.c_cc[VSUSP]){
+			if(tty->fg_pgrp){
+				send_sig_pgrp(tty->fg_pgrp,SIGTSTP);
+			}
+			return 0;
+		}
 	}
 
 	//canonical mode here

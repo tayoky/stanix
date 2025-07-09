@@ -932,15 +932,7 @@ int sys_sigpending(sigset_t *set){
 
 int sys_kill(pid_t pid,int sig){
 	if(pid < 0){
-		int found = 0;
-		foreach(node,proc_list){
-			process *proc = node->value;
-			if(proc->group == -pid){
-				send_sig(proc,sig);
-				found = 1;
-			}
-		}
-		if(!found){
+		if(send_sig_pgrp(-pid,sig) < 0){
 			return -ESRCH;
 		}
 		return 0;
@@ -1133,6 +1125,7 @@ int sys_fchown(int fd, uid_t owner, gid_t group){
 
 //TODO : check if group exist
 int sys_setpgid(pid_t pid, pid_t pgid){
+	kdebugf("setpgid %ld %ld\n",pid,pgid);
 	if(pid == 0)pid = get_current_proc()->pid;
 	if(pgid == 0)pgid = get_current_proc()->pid;
 	if(pgid < 0){
@@ -1145,6 +1138,7 @@ int sys_setpgid(pid_t pid, pid_t pgid){
 	if(proc->sgid != get_current_proc()->sid){
 		return -EPERM;
 	}
+	proc->group = pgid;
 	return 0;
 }
 
