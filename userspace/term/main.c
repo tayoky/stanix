@@ -335,9 +335,58 @@ void draw_char(char c){
 			ansi_escape_count-=1;
 			switch(c){
 			case 'H':
+				if(ansi_escape_count < 2){
+					redraw(x,y);
+					x = 1;
+					y = 1;
+					redraw_cursor(x,y);
+					break;
+				}
+				//fallthrough
+			case 'f':
 				redraw(x,y);
-				x = 1;
-				y = 1;
+				x = ansi_escape_args[1];
+				y = ansi_escape_args[0];
+				if(x > width) x = width;
+				if(y > height) y = height;
+				redraw_cursor(x,y);
+				break;
+			case 'G':
+				redraw(x,y);
+				y = ansi_escape_args[0];
+				if(y > height)y = height;
+				redraw_cursor(x,y);
+				break;
+			case 'F':
+				redraw(x,y);
+				x = 0;
+				//fallthrough
+			case 'A':
+				redraw(x,y);
+				y -= ansi_escape_args[0];
+				if(y < 1)y = 1;
+				redraw_cursor(x,y);
+				break;
+			case 'E':
+				redraw(x,y);
+				x = 0;
+				//fallthrough
+			case 'B':
+				redraw(x,y);
+				y += ansi_escape_args[0];
+				if(y > height)y = height;
+				redraw_cursor(x,y);
+				break;
+			case 'D':
+				redraw(x,y);
+				x -= ansi_escape_args[0];
+				if(x < 1)x = 1;
+				redraw_cursor(x,y);
+				break;
+			case 'C':
+				redraw(x,y);
+				x += ansi_escape_args[0];
+				if(x > width)x = width;
 				redraw_cursor(x,y);
 				break;
 			case 'J':
@@ -347,14 +396,6 @@ void draw_char(char c){
 					grid[i].front_color = front_color;
 				}
 				gfx_clear(fb,back_color);
-				break;
-			case 'f':
-				redraw(x,y);
-				x = ansi_escape_args[1];
-				y = ansi_escape_args[0];
-				if(x > width) x = width;
-				if(y > height) y = height;
-				redraw_cursor(x,y);
 				break;
 			case 'm':
 				parse_color();
