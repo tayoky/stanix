@@ -22,7 +22,7 @@ void init_PMM(){
 		uintptr_t end = PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->length + kernel->memmap->entries[i]->base);
 
 		//when we page align it might become empty
-		if(start == end){
+		if(start >= end){
 			continue;
 		}
 
