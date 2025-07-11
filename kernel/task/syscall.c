@@ -1175,6 +1175,15 @@ mode_t sys_umask(mode_t mask){
 	return old;
 }
 
+int sys_access(const char *pathname, int mode){
+	uint64_t flags = VFS_READONLY;
+	if(mode & W_OK)flags |= VFS_WRITEONLY;
+	vfs_node *node = vfs_open(pathname,flags);
+	if(!node)return -ENOENT;
+	vfs_close(node);
+	return 0;
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1240,6 +1249,8 @@ void *syscall_table[] = {
 	(void *)sys_getpgid,
 	(void *)sys_fcntl,
 	(void *)sys_umask,
+	(void *)sys_access,
+	(void *)sys_stub,   //sys_utimes
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
