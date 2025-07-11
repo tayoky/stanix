@@ -252,7 +252,7 @@ int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
 	child_inode->brother = inode->child;
 	inode->child = child_inode;
 
-	inode->perm = perm;
+	child_inode->perm = perm;
 	return 0;
 }
 
