@@ -105,5 +105,15 @@ void mount_initrd(void){
 
 		addr += (((uint64_t)file_size + 1023) / 512) * 512;
 	}
+	uintptr_t start =  PAGE_ALIGN_UP((uintptr_t)kernel->initrd->address);
+	uintptr_t end = PAGE_ALIGN_DOWN((uintptr_t)kernel->initrd->address + kernel->initrd->size);
+
+	//when we page align it might become empty
+	while(start < end){
+		pmm_free_page((uintptr_t)virt2phys((void *)start));
+		start += PAGE_SIZE;
+	}
+	
+	//now free the tar archive
 	kok();
 }
