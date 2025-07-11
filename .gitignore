@@ -12,10 +12,13 @@ OVMF-img.bin
 
 #ramdisk
 initrd.tar
-initrd/bin/*
-initrd/mod/*
-initrd/lib/*
-initrd/include/*
+initrd/bin/
+initrd/mod/
+initrd/lib/
+initrd/include/
+initrd/usr/
+initrd/share/
+initrd/*-*
 
 #default sysroot
 sysroot

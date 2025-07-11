@@ -5,6 +5,8 @@ OUT = out
 KERNEL = stanix.elf
 MAKEFLAGS += --no-builtin-rules
 
+export TOP = ${PWD}
+
 include config.mk
 
 #tools
@@ -16,6 +18,8 @@ export NM
 export NASM
 export ARCH
 export SYSROOT
+export CFLAGS
+export LDFLAGS
 
 out_files = ${OUT}/boot/limine/limine-bios.sys \
 ${OUT}/EFI/BOOT/BOOTX64.EFI \
@@ -43,7 +47,7 @@ hdd : build ${hdd_out}
 ${hdd_out} : ${kernel_src} ${out_files} 
 	@echo "[creating hdd image]"
 	@rm -f ${hdd_out}
-	@dd if=/dev/zero bs=1M count=0 seek=64 of=${hdd_out}
+	@dd if=/dev/zero bs=5M count=0 seek=64 of=${hdd_out}
 	sgdisk ${hdd_out} -n 1:2048 -t 1:ef00 
 	@make -C limine
 # Format the image as fat32.

@@ -1,3 +1,4 @@
+#we force flags cause -O2 cause a crash
 CFLAGS = -Wall \
     -Wextra \
     -std=gnu11 \

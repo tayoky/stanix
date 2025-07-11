@@ -1,9 +1,11 @@
 MAKEFLAGS += --no-builtin-rules
 PREFIX = ../initrd
 
+ifeq (${TOP},)
 CFLAGS += -O2 -g
-
+LDFLAGS += -g
 export CFLAGS
+endif
 
 #first get all the sub directory
 apps = $(shell find -name "*" -not -name "bin" -not -path "." -type d -exec basename \{} \;)

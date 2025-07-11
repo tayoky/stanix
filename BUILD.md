@@ -100,6 +100,7 @@ all options supported by the `./configure` script
 - `--as=XXX` use a custom AT&T syntax assembler
 - `--nm=XXX` use a custom nm (usefull if it try tu use llvm-nm for some reason)
 - `--nasm=XXX` use a custom intel syntax assembler (must produce 64-bit objects files)
+- `--debug` enable debug option (like compiling with -g)
 
 # installing programs
 for the moment, any program you want to install must be put into `initrd/bin/` in the repo  

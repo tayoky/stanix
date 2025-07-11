@@ -11,6 +11,10 @@ SYSROOT=$(dirname $(realpath $0))/sysroot
 #default host
 HOST="$(uname -m)-stanix"
 
+DEBUG=no
+CFLAGS=-O2
+LDFLAGS=
+
 for i in "$@"; do
   case $i in
     --sysroot=*)
@@ -45,6 +49,10 @@ for i in "$@"; do
       HOST="${i#*=}"
       shift # past argument=value
       ;;
+    --debug)
+      DEBUG=yes
+      shift # past argument=value
+      ;;
     --help)
       echo "./configure [OPTIONS]"
       echo "options :"
@@ -56,6 +64,7 @@ for i in "$@"; do
       echo "--nasm : define a x86 assembler (with intel syntax) to use"
       echo "--sysroot : path to the system root , used for library/include path, installing binary, and generating images [$(realpath $SYSROOT)]"
       echo "--host : target triplet to compile for [$HOST]"
+      echo "--debug : enable debug option (such as compiling with -g)"
       exit
       ;;
     -*|--*)
@@ -74,6 +83,10 @@ rm -f $(dirname $0)/config.mk
 SYSROOT=$(realpath $SYSROOT)
 
 ARCH=${HOST%%-*}
+if [ "$DEBUG" = "yes" ] ; then
+  CFLAGS="$CFLAGS -g"
+  LDFLAGS="$LDFLAGS -g"
+fi
 
 #check tools
 
@@ -148,7 +161,7 @@ if [ ! -f ./tlibc/configure ] ; then
 	git submodule update tlibc
 fi
 
-(cd tlibc && ./configure --with-sysroot=$SYSROOT --cflags=-O2 --cc=$CC --ar=$AR --ld=$LD --as=$AS --host=$HOST --prefix=$SYSROOT/usr)
+(cd tlibc && ./configure --with-sysroot=$SYSROOT --cflags="$CFLAGS" --cc=$CC --ar=$AR --ld=$LD --as=$AS --host=$HOST --prefix=$SYSROOT/usr)
 
 if [ ! -f ./ports/configure ] ; then
 	git submodule init
@@ -174,3 +187,6 @@ echo "NM=$NM" >> config.mk
 echo "NASM=$NASM" >> config.mk
 echo "HOST=$HOST" >> config.mk
 echo "ARCH=$ARCH" >> config.mk
+echo "CFLAGS=$CFLAGS" >> config.mk
+echo "LDFLAGS=$LDFLAGS" >> config.mk
+echo "DEBUG=$DEBUG" >> config.mk
