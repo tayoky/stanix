@@ -89,7 +89,7 @@ int sys_open(const char *path,int flags,mode_t mode){
 		
 		if(!node){
 			//the user want to create the file
-			int result = vfs_create(path,mode & get_current_proc()->umask,VFS_FILE);
+			int result = vfs_create(path,mode & ~get_current_proc()->umask,VFS_FILE);
 
 			if(result){
 				//vfs_create failed
@@ -436,7 +436,7 @@ int sys_mkdir(const char *path,mode_t mode){
 		return -EFAULT;
 	}
 
-	return vfs_mkdir(path,mode & get_current_proc()->umask);
+	return vfs_mkdir(path,mode & ~get_current_proc()->umask);
 }
 
 int sys_readdir(int fd,struct dirent *ret,long int index){
