@@ -280,6 +280,7 @@ void redraw(int cx,int cy){
 	struct cell cell = grid[(cy - 1) * width +  cx - 1];
 	gfx_draw_rect(fb,cell.back_color,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
 	gfx_draw_char(fb,font,cell.front_color,(cx-1) * c_width,(cy-1) * c_height,cell.c);
+	gfx_push_rect(fb,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
 }
 
 void redraw_cursor(int cx,int cy){
@@ -287,6 +288,7 @@ void redraw_cursor(int cx,int cy){
 	struct cell cell = grid[(cy - 1) * width +  cx - 1];
 	gfx_draw_rect(fb,cell.front_color,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
 	gfx_draw_char(fb,font,cell.back_color,(cx-1) * c_width,(cy-1) * c_height,cell.c);
+	gfx_push_rect(fb,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
 }
 
 void scroll(int s){
@@ -297,12 +299,9 @@ void scroll(int s){
 		grid[i].front_color = front_color;
 	}
 
-	//redraw everything
-	for (int x = 1; x <= width; x++){
-		for (int y = 1; y <= height; y++){
-			redraw(x,y);
-		}
-	}
+	memcpy(fb->backbuffer,(char *)fb->backbuffer + fb->pitch * s * c_height,fb->pitch * (fb->height - s * c_height));
+	gfx_draw_rect(fb,back_color,0,fb->height - s * c_height,fb->width,s * c_height);
+	gfx_push_buffer(fb);
 	y -= s;
 }
 
@@ -396,6 +395,7 @@ void draw_char(char c){
 					grid[i].front_color = front_color;
 				}
 				gfx_clear(fb,back_color);
+				gfx_push_buffer(fb);
 				break;
 			case 'm':
 				parse_color();
@@ -556,7 +556,6 @@ int main(int argc,const char **argv){
 	back_color  = gfx_color(fb,0,0,0);
 	gfx_clear(fb,back_color);
 	gfx_push_buffer(fb);
-	gfx_disable_backbuffer(fb);
 
 	//create an empty grid and init flags
 	flags = FLAG_CURSOR;
