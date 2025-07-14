@@ -64,6 +64,14 @@ void gfx_push_buffer(gfx_t *gfx){
 	memcpy(gfx->framebuffer,gfx->backbuffer,gfx->height * gfx->pitch);
 }
 
+void gfx_push_rect(gfx_t *gfx,long x,long y,long width,long height){
+	if(!gfx->backbuffer)return;
+	for(int i = 0;i < height;i++){
+		uintptr_t ptr =  x * (gfx->bpp / 8) + y *gfx->pitch;
+		memcpy((char *)gfx->framebuffer + ptr,(char *)gfx->backbuffer + ptr,width * gfx->bpp / 8);
+		y++;
+	}
+}
 
 void gfx_enable_backbuffer(gfx_t *gfx){
 	if(gfx->backbuffer)return;

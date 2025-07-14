@@ -35,6 +35,7 @@ gfx_t *gfx_open_framebuffer(const char *path);
 gfx_t *gfx_create(void *framebuffer,struct fb *);
 void gfx_free(gfx_t *gfx);
 void gfx_push_buffer(gfx_t *gfx);
+void gfx_push_rect(gfx_t *gfx,long x,long y,long width,long height);
 void gfx_enable_backbuffer(gfx_t *gfx);
 void gfx_disable_backbuffer(gfx_t *gfx);
 color_t gfx_color(gfx_t *gfx,uint8_t r,uint8_t g,uint8_t b);
