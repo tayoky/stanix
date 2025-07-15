@@ -539,8 +539,10 @@ int main(int argc,const char **argv){
 		close(kbd_fd);
 		gfx_free(fb);
 
-		const char *arg[] = {
+		//skip login with -f
+		static const char *arg[] = {
 			"/bin/login",
+			"-f",
 			NULL
 		};
 		execvp(arg[0],arg);
