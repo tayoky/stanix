@@ -76,8 +76,8 @@ int main(int argc,char **argv){
 	putenv(shell);
 	putenv("PATH=/bin;/usr/bin");
 
-	setegid(pwd->pw_gid);
-	seteuid(pwd->pw_uid);
+	setgid(pwd->pw_gid);
+	setuid(pwd->pw_uid);
 
 	chdir(pwd->pw_dir);
 
