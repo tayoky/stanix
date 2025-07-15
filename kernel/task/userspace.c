@@ -7,14 +7,11 @@ int check_mem(void *ptr,size_t count){
 	uintptr_t start = PAGE_ALIGN_DOWN((uintptr_t)ptr);
 	uintptr_t end   = PAGE_ALIGN_UP((uintptr_t)ptr + count);
 
-	count = end / PAGE_SIZE - start / PAGE_SIZE + 1;
-
-	while(count > 0){
+	while(start < end){
 		if(!CHECK_PTR(start)){
 			return 0;
 		}
 		start += PAGE_SIZE;
-		count --;
 	}
 	return 1;
 }
