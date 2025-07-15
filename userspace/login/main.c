@@ -1,7 +1,8 @@
-#include <stdio.h>
+#include <termios.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <pwd.h>
 
 int main(int argc,char **argv){
@@ -26,7 +27,7 @@ int main(int argc,char **argv){
 		}
 	} else {
 		for(;;){
-			printf("username : ");
+			fprintf(stderr,"username : ");
 			fflush(stdout);
 			char username[256];
 			fgets(username,sizeof(username),stdin);
@@ -36,11 +37,25 @@ int main(int argc,char **argv){
 				//no password
 				break;
 			}
-			printf("password : ");
+
+			fprintf(stderr,"password : ");
 			fflush(stdout);
+			//disable echo
+			static struct termios old,new;
+			if(isatty(STDIN_FILENO) == 1){
+				tcgetattr(STDIN_FILENO,&old);
+				new = old;
+				new.c_lflag &= ~ECHO;
+				tcsetattr(STDIN_FILENO,TCSANOW,&new);
+			}
 			char password[256];
 			fgets(password,sizeof(password),stdin);
+			if(isatty(STDIN_FILENO) == 1){
+				tcsetattr(STDIN_FILENO,TCSANOW,&old);
+			}
+			putchar('\n');
 			if(strrchr(password,'\n'))*strrchr(password,'\n') = '\0';
+
 			if(!pwd || strcmp(pwd->pw_passwd,password)){
 				fprintf(stderr,"wrong username or password\n");
 				sleep(2);
