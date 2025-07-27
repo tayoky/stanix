@@ -214,8 +214,8 @@ void kprintf(const char *fmt,...){
 	va_end(args);
 }
 
-void kdebugf(const char *fmt,...){
-	kprintf("["COLOR_BLUE"debug"COLOR_RESET"] ");
+void __kdebugf(const char*file,int line,const char *fmt,...){
+	kprintf("["COLOR_BLUE"debug"COLOR_RESET"] %s:%d ",file,line);
 	va_list args;
 	va_start(args,fmt);
 	printfunc(output_char,fmt,args,NULL);

@@ -11,10 +11,12 @@ void kfprintf(vfs_node *node,const char *fmt,...);
 void sprintf(char *buf,const char *fmt,...);
 void kprintf(const char *fmt,...);
 void kstatus(const char *status);
-void kdebugf(const char *fmt,...);
+void __kdebugf(const char *file,int line,const char *fmt,...);
 void kinfof(const char *fmt,...);
 void kok(void);
 void kfail(void);
+
+#define kdebugf(...) __kdebugf(__FILE__,__LINE__,__VA_ARGS__)
 
 //colors
 
