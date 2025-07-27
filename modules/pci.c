@@ -130,7 +130,7 @@ static ssize_t pci_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 		count = 256 - offset;
 	}
 
-	for (size_t i = 0; i * 2 < count; i++){
+	for (size_t i = 0; i * sizeof(uint16_t) < count; i++){
 		*(uint16_t *)buffer = pci_read_config_word(inode->bus,inode->device,inode->function,offset);
 		offset += 2;
 		(uint16_t *)buffer++;
@@ -146,7 +146,7 @@ static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg
 	kdebugf("pci : find bus %d device %d function %d vendorID : %lx deviceID : %lx\n",bus,device,function,vendorID,deviceID);
 
 	char path[32];
-	sprintf(path,"/dev/pci/%d:%d:%d",bus,device,function);
+	sprintf(path,"/dev/pci/%02d:%d:%d",bus,device,function);
 
 	//setup the vnode
 	vfs_node *node = kmalloc(sizeof(vfs_node));
@@ -157,6 +157,10 @@ static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg
 	//setup inode
 	pci_inode *inode = kmalloc(sizeof(pci_inode));
 	memset(inode,0,sizeof(pci_inode));
+	inode->bus      = bus;
+	inode->device   = device;
+	inode->function = function;
+	node->private_inode = inode;
 
 	if(vfs_mount(path,node)){
 		kdebugf("pci : fail to mount %s\n",path);
