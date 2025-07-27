@@ -1,8 +1,10 @@
 #ifndef MODULE_H
 #define MODULE_H
 
+#include <kernel/list.h>
 #include <stdint.h>
 #include <stddef.h>
+
 
 typedef struct kmodule_struct {
 	uint64_t magic;
@@ -14,6 +16,17 @@ typedef struct kmodule_struct {
 	int (*fini)(void);
 	void *base;               //the base address of the module
 } kmodule;
+
+
+typedef struct kmodule_section_struct {
+	void *base;
+	size_t size;
+} kmodule_section;
+
+typedef struct loaded_module_struct {
+	list *sections;
+	kmodule *meta;
+} loaded_module;
 
 void __export_symbol(void *sym,const char *name);
 void __unexport_symbol(void *sym,const char *name);

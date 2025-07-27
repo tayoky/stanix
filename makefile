@@ -38,6 +38,9 @@ test : hdd
 	qemu-system-${ARCH} \
 	-drive file=${hdd_out},if=none,id=nvm -serial stdio \
 	-device nvme,serial=deadbeef,drive=nvm
+ata-test : hdd
+	qemu-system-${ARCH} \
+	-hda ${hdd_out} -serial stdio
 cdrom-test : iso
 	qemu-system-${ARCH} -cdrom stanix.iso -serial stdio  --no-shutdown --no-reboot
 debug : hdd

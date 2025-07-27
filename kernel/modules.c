@@ -34,9 +34,8 @@ static uintptr_t ptr = ((uintptr_t)&p_kernel_end) + PAGE_SIZE;
 #endif
 
 
-
 exported_sym *exported_sym_list = NULL;
-list *loaded_modules;
+list *loaded_mods;
 
 int check_mod_header(Elf_Ehdr *header){
 	if(memcmp(header->e_ident,ELFMAG,4)){
@@ -113,10 +112,30 @@ int insmod(const char *pathname,const char **args,char **name){
 	char *mod = map_mod(PAGE_ALIGN_UP(file->size));
 	vfs_read(file,mod,0,file->size);
 
-	//update sections address
+	loaded_module *module = kmalloc(sizeof(loaded_module));
+	memset(module,0,sizeof(loaded_module));
+	kmodule_section *main_section = kmalloc(sizeof(kmodule_section));
+	memset(main_section,0,sizeof(kmodule_section));
+
+	module->sections = new_list();
+	list_append(module->sections,main_section);
+	main_section->base = mod;
+	main_section->size = PAGE_ALIGN_UP(file->size);
+
+	//update sections address and allocate no bits
 	for(int i=0; i<header.e_shnum; i++){
 		Elf_Shdr *sheader = get_Shdr(i);
-		sheader->sh_addr = (Elf_Addr)mod + sheader->sh_offset;
+		if(sheader->sh_type == SHT_NOBITS && sheader->sh_flags & SHF_ALLOC){
+			kmodule_section *section = kmalloc(sizeof(kmodule_section));
+			memset(section,0,sizeof(kmodule_section));
+			section->base = map_mod(sheader->sh_size);
+			section->size = sheader->sh_size;
+			memset(section->base,0,section->size);
+			sheader->sh_addr = (Elf_Addr)section->base;
+			list_append(module->sections,section);
+		} else {
+			sheader->sh_addr = (Elf_Addr)mod + sheader->sh_offset;
+		}
 	}
 
 	kmodule *module_meta = NULL;
@@ -234,7 +253,8 @@ int insmod(const char *pathname,const char **args,char **name){
 	}
 
 	//add the module to the list
-	list_append(loaded_modules,module_meta);
+	module->meta = module_meta;
+	list_append(loaded_mods,module);
 
 	close:
 	vfs_close(file);
@@ -255,7 +275,7 @@ void init_mod(){
 	kstatus("init exported symbol list and module loader ... ");
 
 	//init the list to keep track of all modules
-	loaded_modules = new_list();
+	loaded_mods = new_list();
 
 	//export all symbols of the core module
 	for (size_t i = 0; i < symbols_count; i++){
