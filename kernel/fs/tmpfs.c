@@ -277,5 +277,8 @@ int tmpfs_sync(vfs_node *node){
 	node->perm        = inode->perm;
 	node->owner       = inode->owner;
 	node->group_owner = inode->group_owner;
+	node->atime       = inode->atime;
+	node->mtime       = inode->mtime;
+	node->ctime       = inode->ctime;
 	return 0;
 }

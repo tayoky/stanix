@@ -458,7 +458,7 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
 		path_depth--;
 	}
 
-	vfs_node *current_node = at;
+	vfs_node *current_node = vfs_dup(at);
 
 	for (int i = 0; i < path_depth; i++){
 		if(!current_node)return NULL;
