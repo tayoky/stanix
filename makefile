@@ -40,7 +40,8 @@ test : hdd
 	-device nvme,serial=deadbeef,drive=nvm
 ata-test : hdd
 	qemu-system-${ARCH} \
-	-hda ${hdd_out} -serial stdio
+	-hda ${hdd_out} -serial stdio 
+#--trace "ide_*"
 cdrom-test : iso
 	qemu-system-${ARCH} -cdrom stanix.iso -serial stdio  --no-shutdown --no-reboot
 debug : hdd
