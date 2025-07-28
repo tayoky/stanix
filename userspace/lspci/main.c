@@ -28,8 +28,8 @@ void print_pci(const char *name){
 		exit(1);
 	}
 	printf("%s ",name);
-	uint8_t base_class = (read_word(f,PCI_CONFIG_CLASS) >> 8) & 0xFF;
-	uint8_t sub_class = read_word(f,PCI_CONFIG_CLASS) & 0xFF;
+	uint8_t base_class = read_word(f,PCI_CONFIG_BASE_CLASS);
+	uint8_t sub_class = read_word(f,PCI_CONFIG_SUB_CLASS);
 	printf("class : %x  subclass : %x ",base_class,sub_class);
 	putchar('\n');
 	fclose(f);

@@ -40,6 +40,16 @@ uint16_t pci_read_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_
 	return (uint16_t)((in_long(CONFIG_DATA) >> ((offset & 2) * 8)) & 0xFFFF);
 }
 
+uint8_t pci_read_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset){
+	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+
+	//write the address with the two last bit alaways 0
+	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
+
+	//shift to get the good word
+	return (uint8_t)((in_long(CONFIG_DATA) >> ((offset & 0b11) * 8)) & 0xFF);
+}
+
 static void check_bus(uint8_t bus,void (*func)(uint8_t,uint8_t,uint8_t,void *),void *);
 
 static void check_function(uint8_t bus, uint8_t device, uint8_t function,void (*func)(uint8_t,uint8_t,uint8_t,void *),void *arg){
@@ -117,11 +127,6 @@ typedef struct {
 static ssize_t pci_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	pci_inode *inode = node->private_inode;
 
-	//everything must be word-aligned
-	if((offset & 1) || (count & 1) || ((uintptr_t)buffer & 1)){
-		return 0;
-	}
-
 	//config space is 256 bytes
 	if(offset >= 256){
 		return 0;
@@ -130,10 +135,10 @@ static ssize_t pci_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 		count = 256 - offset;
 	}
 
-	for (size_t i = 0; i * sizeof(uint16_t) < count; i++){
-		*(uint16_t *)buffer = pci_read_config_word(inode->bus,inode->device,inode->function,offset);
-		offset += 2;
-		(uint16_t *)buffer++;
+	for (size_t i = 0; i < count; i++){
+		*(uint8_t *)buffer = pci_read_config_byte(inode->bus,inode->device,inode->function,offset);
+		offset ++;
+		(uint8_t *)buffer++;
 	}
 
 	return count;
@@ -178,6 +183,7 @@ int init_pci(int argc,char **argv){
 	EXPORT(pci_foreach);
 	EXPORT(pci_read_config_dword)
 	EXPORT(pci_read_config_word)
+	EXPORT(pci_read_config_byte)
 	return 0;
 }
 
@@ -185,6 +191,7 @@ int rm_pci(){
 	UNEXPORT(pci_foreach);
 	UNEXPORT(pci_read_config_dword)
 	UNEXPORT(pci_read_config_word)
+	UNEXPORT(pci_read_config_byte)
 	return 0;
 }
 
