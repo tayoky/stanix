@@ -104,7 +104,7 @@ const char kbd_fr[128] = {
 	0, /* control */
 	'q','s','d','f','g','h','j','k','l','m','\'', '`',
 	0, /* left shift */
-	'<','w','x','c','v','b','n',',',';','/','!',
+	'<','w','x','c','v','b','n',',',';',':','!',
 	0, /* right shift */
 	'*',
 	0, /* alt */
@@ -513,9 +513,8 @@ int main(int argc,const char **argv){
 	if(tcgetattr(slave,&attr)){
 		perror("tcgetattr");
 	}
-	attr.c_oflag &= ~ONLCR;
-	//basicly we handle <CR> <CR NL> and <NL CR> and convert back to just <NL>
-	attr.c_oflag |= OPOST | ONOCR | ONLRET | OCRNL;
+	attr.c_oflag &= ~(ONLCR | OCRNL | ONOCR);
+	attr.c_oflag |= OPOST;
 	if(tcsetattr(slave,TCSANOW,&attr)){
 		perror("tcsetattr");
 	}
