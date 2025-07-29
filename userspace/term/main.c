@@ -207,13 +207,13 @@ int ansi_escape_args[8];
 
 uint32_t ansi_colours[] = {
 	0x000000, //black
-	0xC00000, //red
-	0x00C000, //green
-	0xC0C000, //yellow
-	0x0000C0, //blue
-	0xC000C0, //magenta
-	0x00C0C0, //cyan
-	0xC0C0C0, //white
+	0xD00000, //red
+	0x00D000, //green
+	0xD0D000, //yellow
+	0x0000D0, //blue
+	0xD000D0, //magenta
+	0x00D0D0, //cyan
+	0xD0D0D0, //white
 	0x808080, //light black
 	0xFF0000, //light red
 	0x00FF00, //light green
@@ -247,8 +247,8 @@ void parse_color(void){
 	for(int i = 0; i<ansi_escape_count;i++){
 		switch(ansi_escape_args[i]){
 		case 0:
-			back_color = gfx_color(fb,0,0,0);
-			front_color = gfx_color(fb,255,255,255);
+			back_color = ansi2gfx(ansi_colours[0]);
+			front_color = ansi2gfx(ansi_colours[7]);
 			continue;
 		case 38:
 			i++;
@@ -256,7 +256,7 @@ void parse_color(void){
 			front_color = parse_complex(i);
 			continue;
 		case 39:
-			front_color = gfx_color(fb,255,255,255);
+			front_color = ansi2gfx(ansi_colours[7]);
 			continue;
 		case 48:
 			i++;
@@ -264,7 +264,7 @@ void parse_color(void){
 			back_color = parse_complex(i);
 			continue;
 		case 49:
-			back_color = gfx_color(fb,0,0,0);
+			back_color = ansi2gfx(ansi_colours[0]);
 			continue;
 		}
 		if(ansi_escape_args[i] >= 30 && ansi_escape_args[i] <= 37){
@@ -554,8 +554,8 @@ int main(int argc,const char **argv){
 	close(slave);
 
 	//clear screen and init color
-	front_color = gfx_color(fb,255,255,255);
-	back_color  = gfx_color(fb,0,0,0);
+	front_color = ansi2gfx(ansi_colours[7]);
+	back_color  = ansi2gfx(ansi_colours[0]);
 	gfx_clear(fb,back_color);
 	gfx_push_buffer(fb);
 
