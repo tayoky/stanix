@@ -643,7 +643,6 @@ int sys_waitpid(pid_t pid,int *status){
 	get_current_proc()->flags |= PROC_FLAG_WAIT;
 	
 	//block, when we wake up the process is now a zombie
-	kernel->can_task_switch = 1;
 	if(block_proc() == -EINTR){
 		return -EINTR;
 	}

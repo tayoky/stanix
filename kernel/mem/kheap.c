@@ -96,6 +96,9 @@ void *malloc(heap_info *heap,size_t amount){
 			}
 			break;
 		}
+		if((uintptr_t)current_seg->next % 8){
+			kdebugf("found non aligned kheap seg at %p after %p(%p:%ld)\n",current_seg->next,current_seg,(uintptr_t)current_seg + sizeof(heap_segment),current_seg->lenght);
+		}
 		current_seg = current_seg->next;
 	}
 
@@ -142,7 +145,7 @@ void free(heap_info *heap,void *ptr){
 
 	current_seg->magic = HEAP_SEG_MAGIC_FREE;
 
-	if(current_seg->next && current_seg->next->magic == HEAP_SEG_MAGIC_FREE){
+	/*if(current_seg->next && current_seg->next->magic == HEAP_SEG_MAGIC_FREE){
 		//merge with next
 		current_seg->lenght += current_seg->next->lenght + sizeof(heap_segment);
 
@@ -150,7 +153,7 @@ void free(heap_info *heap,void *ptr){
 			current_seg->next->next->prev = current_seg;
 		}
 		current_seg->next = current_seg->next->next;
-	}
+	}*/
 
 	if(current_seg->prev && current_seg->prev->magic == HEAP_SEG_MAGIC_FREE){
 		//merge with prev

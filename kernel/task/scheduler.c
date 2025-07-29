@@ -217,6 +217,7 @@ void kill_proc(process *proc){
 	foreach(node,proc->child){
 		process *child = node->value;
 		child->parent = init;
+		list_append(init->child,child);
 	}
 	free_list(proc->child);
 
@@ -242,21 +243,13 @@ void kill_proc(process *proc){
 	//is the parent waiting ?
 	if(proc->parent && (proc->parent->flags & PROC_FLAG_WAIT)){
 		//see if we can wake it up
-		if(proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1){
+		if(proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1 || proc->parent->waitfor == -proc->group){
 			unblock_proc(proc->parent);
 		}
 	}
 	
 	proc->flags |= PROC_FLAG_ZOMBIE;
 	block_proc(proc);
-	
-	//if the proc is it self
-	//then we have to yeld
-	if(proc == get_current_proc()){
-		yeld();
-		for(;;);
-	}
-	kernel->can_task_switch = 1;
 }
 
 process *pid2proc(pid_t pid){
@@ -308,6 +301,7 @@ int block_proc(){
 }
 
 void unblock_proc(process *proc){
+	char old = kernel->can_task_switch;
 	//aready unblocked ?
 	if(proc->flags & PROC_FLAG_RUN){
 		return;
@@ -324,7 +318,7 @@ void unblock_proc(process *proc){
 	proc->prev->next = proc;
 	get_current_proc()->prev = proc;
 
-	kernel->can_task_switch = 1;
+	kernel->can_task_switch = old;
 }
 
 int is_userspace(process *proc){

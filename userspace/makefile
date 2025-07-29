@@ -8,7 +8,7 @@ export CFLAGS
 endif
 
 #first get all the sub directory
-apps = $(shell find -name "*" -not -name "bin" -not -path "." -type d -exec basename \{} \;)
+apps = $(shell find -name "*" -not -name "bin" -not -path "." -type d -maxdepth 1 -exec basename \{} \;)
 
 all :
 	@mkdir -p bin
