@@ -44,17 +44,14 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 		node->write      = tmpfs_write;
 		node->truncate   = tmpfs_truncate;
 		node->flags |= VFS_FILE;
-		node->size = inode->buffer_size;
 	}
 
 	node->close = tmpfs_close;
 	node->chmod = tmpfs_chmod;
 	node->chown = tmpfs_chown;
+	node->sync  = tmpfs_sync;
 
-	//copy metadata
-	node->perm        = inode->perm;
-	node->owner       = inode->owner;
-	node->group_owner = inode->group_owner;
+	tmpfs_sync(node);
 	return node;
 }
 
@@ -120,7 +117,7 @@ ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	//update atime
 	inode->atime = NOW();
 
-	memcpy(buffer,(void *)((uint64_t)inode->buffer) + offset,count);
+	memcpy(buffer,(void *)((uintptr_t)inode->buffer + offset),count);
 
 	return count;
 }
@@ -135,18 +132,19 @@ ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	//update mtime
 	inode->mtime = NOW();
 
-	memcpy((void *)((uint64_t)inode->buffer) + offset,buffer,count);
+	memcpy((void *)((uintptr_t)inode->buffer + offset),buffer,count);
 	return count;
 }
 
 int tmpfs_truncate(vfs_node *node,size_t size){
+	kdebugf("truncate %s to %ld\n",node->name,size);
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	char *new_buffer = kmalloc(size);
 
 	if(inode->buffer_size > size){
-		memcpy(new_buffer,inode->buffer,inode->buffer_size);
-	} else {
 		memcpy(new_buffer,inode->buffer,size);
+	} else {
+		memcpy(new_buffer,inode->buffer,inode->buffer_size);
 	}
 
 	kfree(inode->buffer);
