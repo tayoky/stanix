@@ -137,7 +137,6 @@ ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 }
 
 int tmpfs_truncate(vfs_node *node,size_t size){
-	kdebugf("truncate %s to %ld\n",node->name,size);
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	char *new_buffer = kmalloc(size);
 

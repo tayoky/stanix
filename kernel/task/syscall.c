@@ -125,11 +125,9 @@ int sys_open(const char *path,int flags,mode_t mode){
 	file->present = 1;
 	file->offset = 0;
 
-	//apply append and trunc if needed
+	//apply runc if needed
 	if(flags & O_TRUNC){
-		if(!vfs_truncate(node,0)){
-			node->size = 0;
-		}
+		vfs_truncate(node,0);
 	}
 
 	//now apply the flags on the fd
@@ -263,6 +261,7 @@ int sys_dup2(int oldfd, int newfd){
 	new_file->node = vfs_dup(old_file->node);
 	if(new_file->node){
 		new_file->present = 1;
+		new_file->offset = old_file->offset;
 	} else {
 		return -EIO;
 	}
@@ -280,6 +279,8 @@ off_t sys_seek(int fd,int64_t offset,int whence){
 
 	//get the fd
 	file_descriptor *file = &FD_GET(fd);
+
+	vfs_sync(file->node);
 
 	switch (whence)
 	{
