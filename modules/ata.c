@@ -27,27 +27,35 @@ typedef struct {
 	ata_device devices[4];
 } ide_controller;
 
+static void io_wait_ata(ata_device *device){
+	for (size_t i = 0; i < 4; i++){in_byte(device->bar + ATA_REG_ALTSTATUS);}
+}
+
 static void reset_ata(ata_device *device){
 	//soft reset
 	out_byte(device->bar + ATA_REG_CONTROL,0x4);
-	for (size_t i = 0; i < 4; i++){in_byte(device->bar + ATA_REG_ALTSTATUS);}
+	io_wait_ata(device);
 	out_byte(device->bar + ATA_REG_CONTROL,0x0);
 }
 
 static void init_ata(ata_device *device){
 	//identify
 	out_byte(device->bar + ATA_REG_DRV_SELECT,device->drive);
+	io_wait_ata(device);
+	while(in_byte(device->bar + ATA_REG_STATUS) & ATA_SR_BSY);
 	out_byte(device->bar + ATA_REG_SECCOUNT0,0);
 	out_byte(device->bar + ATA_REG_LBA0,0);
 	out_byte(device->bar + ATA_REG_LBA1,0);
 	out_byte(device->bar + ATA_REG_LBA2,0);
 	out_byte(device->bar + ATA_REG_COMMAND,ATA_CMD_IDENTIFY);
+	io_wait_ata(device);
 	if(in_byte(device->bar + ATA_REG_STATUS) == 0){
 		//no drive
 		device->exist = 0;
 		return;
 	}
 	device->exist = 1;
+	kdebugf("start polling\n");
 	while(in_byte(device->bar + ATA_REG_STATUS) & ATA_SR_BSY);
 	if(in_byte(device->bar + ATA_REG_LBA1) || in_byte(device->bar + ATA_REG_LBA2)){
 		//atapi
@@ -103,12 +111,12 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 
 	controller->devices[0].bar = bar;
 	controller->devices[1].bar = bar;
+	controller->devices[2].bar = bar + 8;
 	controller->devices[3].bar = bar + 8;
-	controller->devices[4].bar = bar + 8;
 	controller->devices[0].drive = ATA_DRIVE_MASTER;
 	controller->devices[1].drive = ATA_DRIVE_SLAVE;
-	controller->devices[3].drive = ATA_DRIVE_MASTER;
-	controller->devices[4].drive = ATA_DRIVE_SLAVE;
+	controller->devices[2].drive = ATA_DRIVE_MASTER;
+	controller->devices[3].drive = ATA_DRIVE_SLAVE;
 	//soft reset reset the two devices on the bus
 	for (size_t i = 0; i < 4; i+=2){
 		reset_ata(&controller->devices[i]);
