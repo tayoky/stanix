@@ -12,7 +12,7 @@ void out_byte(uint16_t port,uint8_t data){
 }
 
 uint16_t in_word(uint16_t port){
-    uint8_t data;
+    uint16_t data;
     asm("inw %%dx, %%ax": "=a" (data) : "d"(port) );
     return data;
 }

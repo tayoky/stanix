@@ -2,12 +2,14 @@
 #include <kernel/print.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
+#include <kernel/list.h>
 #include <kernel/port.h>
 #include <module/ata.h>
 #include <module/pci.h>
+#include <kernel/vfs.h>
 #include <errno.h>
 
-static size_t ide_count = 0;
+static list *ide_controllers;
 
 typedef struct {
 	int exist;
@@ -17,6 +19,7 @@ typedef struct {
 	uint32_t ctrl;
 	uint32_t bmide;
 	size_t size;
+	vfs_node *node;
 } ide_device;
 
 #define ATA_DRIVE_MASTER 0xA0
@@ -132,11 +135,19 @@ static void ide_init_device(ide_device *device){
 		}
 	}
 
-	uint16_t buf[256];
-	for (size_t i = 0; i < 256; i++){
-		buf[i] = in_word(device->base + ATA_REG_DATA);
-	}
+	//we want this shit to be aligned
+	uint32_t buf[128];
 	uint8_t *ident = (uint8_t *)buf;
+	for (size_t i = 0; i < 512; i+=2){
+		uint16_t data = in_word(device->base + ATA_REG_DATA);
+		ident[i] = (uint8_t)(data >> 8) & 0xFF;
+		ident[i+ 1] = (uint8_t)data & 0xFF;
+	}
+	uint32_t commandsets   = *(uint32_t *)&ident[ATA_IDENT_COMMANDSETS];
+	uint32_t sectors       = *(uint32_t *)&ident[ATA_IDENT_MAX_LBA];
+	uint32_t sectors_lba48 = *(uint32_t *)&ident[ATA_IDENT_MAX_LBA_EXT];
+
+	kdebugf("model : %s commandsets : %x max lba : %ld\n",&ident[ATA_IDENT_MODEL],commandsets,sectors);
 	kdebugf("find usable ata drive on channel %s drive %s\n",device->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
 }
 
@@ -189,16 +200,25 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	for (size_t i = 0; i < 4; i++){
 		ide_init_device(&controller->devices[i]);
 	}
+
+	//if no device on controller just ignore it
+	for(size_t i=0; i<5; i++){
+		if(i == 5){
+			kfree(controller);
+			return;
+		}
+		if(controller->devices[i].exist)break;
+	}
 	
-	
-	ide_count++;
+	list_append(ide_controllers,controller);
 }
 
 int ide_init(int argc,char **argv){
 	(void)argc;
 	(void)argv;
+	ide_controllers = new_list();
 	pci_foreach(check_dev,NULL);
-	if(!ide_count){
+	if(!ide_controllers->node_count){
 		kdebugf("no ata disk found\n");
 		//return an error
 		// so the module loader remove us
@@ -208,6 +228,7 @@ int ide_init(int argc,char **argv){
 }
 
 int ide_fini(){
+	free_list(ide_controllers);
 	return 0;
 }
 
