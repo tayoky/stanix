@@ -9,6 +9,32 @@
 #include <kernel/vfs.h>
 #include <errno.h>
 
+//thanks sasdallas for this
+typedef struct ata_ident {
+    uint16_t flags;             // If bit 15 is cleared, valid drive. If bit 7 is set to one, this is removable.
+    uint16_t obsolete;          // Obsolete
+    uint16_t specifics;         // 7.17.7.3 in specification
+    uint16_t obsolete2[6];      // Obsolete
+    uint16_t obsolete3;         // Obsolete
+    char serial[20];            // Serial number
+    uint16_t obsolete4[3];      // Obsolete
+    char firmware[8];           // Firmware revision
+    char model[40];             // Model number
+    uint16_t rw_multiple;       // R/W multiple support (<=16 is SATA)
+    uint16_t obsolete5;         // Obsolete
+    uint32_t capabilities;      // Capabilities of the IDE device
+    uint16_t obsolete6[2];      // Obsolete
+    uint16_t field_validity;    // If 1, the values reported in _ - _ are valid
+    uint16_t obsolete7[5];      // Obsolete
+    uint16_t multi_sector;      // Multiple sector setting
+    uint32_t sectors;           // Total addressible sectors
+    uint16_t obsolete8[20];     // Technically these aren't obsolete, but they contain nothing really useful
+    uint32_t command_sets;      // Command/feature sets
+    uint16_t obsolete9[16];     // Contain nothing really useful
+    uint64_t sectors_lba48;     // LBA48 maximum sectors, AND by 0000FFFFFFFFFFFF for validity
+    uint16_t obsolete10[152];   // Contain nothing really useful
+} __attribute__((packed)) __attribute__((aligned(8))) ata_ident;
+
 static list *ide_controllers;
 
 typedef struct {
@@ -136,18 +162,16 @@ static void ide_init_device(ide_device *device){
 	}
 
 	//we want this shit to be aligned
-	uint32_t buf[128];
-	uint8_t *ident = (uint8_t *)buf;
+	ata_ident ident;
+	uint8_t *buf = (uint8_t *)&ident;
 	for (size_t i = 0; i < 512; i+=2){
 		uint16_t data = in_word(device->base + ATA_REG_DATA);
-		ident[i] = (uint8_t)(data >> 8) & 0xFF;
-		ident[i+ 1] = (uint8_t)data & 0xFF;
+		buf[i] = (uint8_t)(data >> 8) & 0xFF;
+		buf[i+ 1] = (uint8_t)data & 0xFF;
 	}
-	uint32_t commandsets   = *(uint32_t *)&ident[ATA_IDENT_COMMANDSETS];
-	uint32_t sectors       = *(uint32_t *)&ident[ATA_IDENT_MAX_LBA];
-	uint32_t sectors_lba48 = *(uint32_t *)&ident[ATA_IDENT_MAX_LBA_EXT];
 
-	kdebugf("model : %s commandsets : %x max lba : %ld\n",&ident[ATA_IDENT_MODEL],commandsets,sectors);
+	uint64_t sectors = ident.command_sets & (1 << 26) ? ident.sectors_lba48 : ident.sectors;
+	kdebugf("model : %s commandsets : %x support lba48 : %s max lba : %ld\n",ident.model,ident.command_sets,ident.command_sets & (1 << 26) ? "true" : "false",sectors);
 	kdebugf("find usable ata drive on channel %s drive %s\n",device->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
 }
 
