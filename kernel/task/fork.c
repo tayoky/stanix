@@ -26,7 +26,10 @@ pid_t fork(void){
 	//clone fd
 	for(int i = 0;i<MAX_FD;i++){
 		child->fds[i] = parent->fds[i];
-		if(child->fds[i].present) child->fds[i].node  = vfs_dup(parent->fds[i].node);
+		if(child->fds[i].present){
+			child->fds[i].node   = vfs_dup(parent->fds[i].node);
+			child->fds[i].offset = parent->fds[i].offset;
+		}
 	}
 
 	child->cwd_node = vfs_dup(parent->cwd_node);
