@@ -7,15 +7,17 @@
 #include <module/pci.h>
 #include <errno.h>
 
-static size_t ata_count = 0;
+static size_t ide_count = 0;
 
 typedef struct {
 	int exist;
 	int drive;
 	int class;
-	uint32_t bar;
+	uint32_t base;
+	uint32_t ctrl;
+	uint32_t bmide;
 	size_t size;
-} ata_device;
+} ide_device;
 
 #define ATA_DRIVE_MASTER 0xA0
 #define ATA_DRIVE_SLAVE  0xB0
@@ -24,46 +26,101 @@ typedef struct {
 #define ATA_CLASS_ATAPI  1
 
 typedef struct {
-	ata_device devices[4];
+	ide_device devices[4];
 } ide_controller;
 
-static void io_wait_ata(ata_device *device){
-	for (size_t i = 0; i < 4; i++){in_byte(device->bar + ATA_REG_ALTSTATUS);}
+static uint32_t reg2port(ide_device *device,uint32_t reg){
+	if(reg <= ATA_REG_STATUS){
+		return device->base + reg;
+	} else if (reg <= ATA_REG_DEVADDRESS){
+
+		return device->base + reg - ATA_REG_ALTSTATUS + 0x2;
+	} else {
+		return device->bmide + reg; //idk
+	}
 }
 
-static void reset_ata(ata_device *device){
+static void ide_write(ide_device *device,uint32_t reg,uint8_t data){
+	//set HOB
+	if (reg > 0x07 && reg < 0x0C){
+		ide_write(device,ATA_REG_CONTROL,0x80);
+	}
+	out_byte(reg2port(device,reg),data);
+
+	if (reg > 0x07 && reg < 0x0C){
+		ide_write(device,ATA_REG_CONTROL,0x00);
+	}
+}
+
+static uint8_t ide_read(ide_device *device,uint32_t reg){
+	if (reg > 0x07 && reg < 0x0C){
+		ide_write(device,ATA_REG_CONTROL,0x80);
+	}
+	uint8_t data = in_byte(reg2port(device,reg));
+	if (reg > 0x07 && reg < 0x0C){
+		ide_write(device,ATA_REG_CONTROL,0x00);
+	}
+	return data;
+}
+
+static void ide_io_wait(ide_device *device){
+	for (size_t i = 0; i < 4; i++){ide_read(device,ATA_REG_ALTSTATUS);}
+}
+
+static int ide_poll(ide_device *device,uint8_t mask,uint8_t value){
+	size_t timeout = 1000;
+	while((ide_read(device,ATA_REG_STATUS) & mask) != value){
+		if(--timeout <= 0){
+			kdebugf("timeout expired\n");
+			return -1;
+		};
+	}
+	return 0;
+}
+
+static void ide_reset(ide_device *device){
 	//soft reset
-	out_byte(device->bar + ATA_REG_CONTROL,0x4);
-	io_wait_ata(device);
-	out_byte(device->bar + ATA_REG_CONTROL,0x0);
+	ide_write(device,ATA_REG_CONTROL,0x4);
+	ide_io_wait(device);
+	ide_write(device,ATA_REG_CONTROL,0x0);
 }
 
-static void init_ata(ata_device *device){
+static void ide_init_device(ide_device *device){
 	//identify
-	out_byte(device->bar + ATA_REG_DRV_SELECT,device->drive);
-	io_wait_ata(device);
-	while(in_byte(device->bar + ATA_REG_STATUS) & ATA_SR_BSY);
-	out_byte(device->bar + ATA_REG_SECCOUNT0,0);
-	out_byte(device->bar + ATA_REG_LBA0,0);
-	out_byte(device->bar + ATA_REG_LBA1,0);
-	out_byte(device->bar + ATA_REG_LBA2,0);
-	out_byte(device->bar + ATA_REG_COMMAND,ATA_CMD_IDENTIFY);
-	io_wait_ata(device);
-	if(in_byte(device->bar + ATA_REG_STATUS) == 0){
+	ide_write(device,ATA_REG_DRV_SELECT,device->drive);
+	ide_io_wait(device);
+
+	if(ide_poll(device,ATA_SR_BSY,0) < 0){
+		device->exist = 0;
+		return;
+	}
+
+	ide_write(device,ATA_REG_SECCOUNT0,0);
+	ide_write(device,ATA_REG_LBA0,0);
+	ide_write(device,ATA_REG_LBA1,0);
+	ide_write(device,ATA_REG_LBA2,0);
+	ide_write(device,ATA_REG_COMMAND,ATA_CMD_IDENTIFY);
+	ide_io_wait(device);
+	if(ide_read(device,ATA_REG_STATUS) == 0){
 		//no drive
 		device->exist = 0;
 		return;
 	}
 	device->exist = 1;
-	kdebugf("start polling\n");
-	while(in_byte(device->bar + ATA_REG_STATUS) & ATA_SR_BSY);
-	if(in_byte(device->bar + ATA_REG_LBA1) || in_byte(device->bar + ATA_REG_LBA2)){
+	
+	if(ide_poll(device,ATA_SR_BSY,0) < 0){
+		device->exist = 0;
+		return;
+	}
+
+	if(ide_read(device,ATA_REG_LBA1) || ide_read(device,ATA_REG_LBA2)){
 		//atapi
 		device->class = ATA_CLASS_ATAPI;
+		kdebugf("find usable atapi drive on channel %s drive %s\n",device->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
 		return;
 	}
 	for(;;){
-		uint8_t status = in_byte(device->bar + ATA_REG_STATUS);
+		uint8_t status = ide_read(device,ATA_REG_STATUS);
 		if(status & ATA_SR_DRQ){
 			break;
 		}
@@ -77,10 +134,10 @@ static void init_ata(ata_device *device){
 
 	uint16_t buf[256];
 	for (size_t i = 0; i < 256; i++){
-		buf[i] = in_word(device->bar + ATA_REG_DATA);
+		buf[i] = in_word(device->base + ATA_REG_DATA);
 	}
-	uint8_t *ident = (uint8_t)buf;
-	kdebugf("find usable ata drive on base %p drive %S\n",device->bar,device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
+	uint8_t *ident = (uint8_t *)buf;
+	kdebugf("find usable ata drive on channel %s drive %s\n",device->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
 }
 
 static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
@@ -88,7 +145,6 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	uint8_t base_class = pci_read_config_byte(bus,device,function,PCI_CONFIG_BASE_CLASS);
 	uint8_t sub_class  = pci_read_config_byte(bus,device,function,PCI_CONFIG_SUB_CLASS);
 	uint8_t prog_if    = pci_read_config_byte(bus,device,function,PCI_CONFIG_PROG_IF);
-	uint32_t bar       = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR4);
 	
 
 	if(!((base_class == 1) && ((sub_class == 5) || (sub_class == 1)))){
@@ -99,41 +155,50 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 		kdebugf("ata disk don't support compatibility mode\n");
 		return;
 	}
-	if(!(bar & 0x01)){
-		kdebugf("bar4 isen't a io port address\n");
-		return;
-	}
-	bar &= ~0x3;
-	kdebugf("bar4 : %lx\n",bar);
+
+	uint32_t bar0 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR0) & ~0x3;
+	uint32_t bar1 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR1) & ~0x3;
+	uint32_t bar2 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR2) & ~0x3;
+	uint32_t bar3 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR3) & ~0x3;
+	uint32_t bar4 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR4) & ~0x3;
 
 	ide_controller *controller = kmalloc(sizeof(ide_controller));
 	memset(controller,0,sizeof(ide_controller));
 
-	controller->devices[0].bar = bar;
-	controller->devices[1].bar = bar;
-	controller->devices[2].bar = bar + 8;
-	controller->devices[3].bar = bar + 8;
+	controller->devices[0].base  = bar0 ? bar0 : 0x1f0;
+	controller->devices[1].base  = bar0 ? bar0 : 0x1f0;
+	controller->devices[2].base  = bar2 ? bar2 : 0x170;
+	controller->devices[3].base  = bar2 ? bar2 : 0x170;
+	controller->devices[0].ctrl  = bar1 ? bar1 : 0x3f6;
+	controller->devices[1].ctrl  = bar1 ? bar1 : 0x3f6;
+	controller->devices[2].ctrl  = bar3 ? bar3 : 0x376;
+	controller->devices[3].ctrl  = bar3 ? bar3 : 0x376;
+	controller->devices[0].bmide = bar4;
+	controller->devices[1].bmide = bar4;
+	controller->devices[2].bmide = bar4 + 8;
+	controller->devices[3].bmide = bar4 + 8;
 	controller->devices[0].drive = ATA_DRIVE_MASTER;
 	controller->devices[1].drive = ATA_DRIVE_SLAVE;
 	controller->devices[2].drive = ATA_DRIVE_MASTER;
 	controller->devices[3].drive = ATA_DRIVE_SLAVE;
+	
 	//soft reset reset the two devices on the bus
 	for (size_t i = 0; i < 4; i+=2){
-		reset_ata(&controller->devices[i]);
+		ide_reset(&controller->devices[i]);
 	}
 	for (size_t i = 0; i < 4; i++){
-		init_ata(&controller->devices[i]);
+		ide_init_device(&controller->devices[i]);
 	}
 	
 	
-	ata_count++;
+	ide_count++;
 }
 
-int ata_init(int argc,char **argv){
+int ide_init(int argc,char **argv){
 	(void)argc;
 	(void)argv;
 	pci_foreach(check_dev,NULL);
-	if(!ata_count){
+	if(!ide_count){
 		kdebugf("no ata disk found\n");
 		//return an error
 		// so the module loader remove us
@@ -142,14 +207,14 @@ int ata_init(int argc,char **argv){
 	return 0;
 }
 
-int ata_fini(){
+int ide_fini(){
 	return 0;
 }
 
 kmodule module_meta = {
 	.magic = MODULE_MAGIC,
-	.init = ata_init,
-	.fini = ata_fini,
+	.init = ide_init,
+	.fini = ide_fini,
 	.author = "tayoky",
 	.name = "ata",
 	.description = "ata pio driver",
