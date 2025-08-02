@@ -1,7 +1,8 @@
 #include <kernel/module.h>
+#include <kernel/string.h>
 #include <kernel/print.h>
 #include <kernel/kheap.h>
-#include <kernel/string.h>
+#include <kernel/mutex.h>
 #include <kernel/time.h>
 #include <kernel/list.h>
 #include <kernel/port.h>
@@ -120,9 +121,54 @@ static void ide_reset(ide_device *device){
 
 static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	ide_device *device = node->private_inode;
+
+	if(offset >= node->size){
+		return 0;
+	}
+	if(offset + count >= node->size){
+		count = node->size - offset;
+	}
+
+	uint64_t lba = offset / 512;
+	uint64_t end = offset + count;
+	size_t   sectors_count = (end + 511) / 512 - (offset / 512);
+	if(!sectors_count)return 0;
+
+	//select the drive
+	//TODO : don't reselect if is was already selected
+	ide_write(device,ATA_REG_DRV_SELECT,(device->drive == ATA_DRIVE_MASTER ? 0xE0 : 0xF0) | ((lba >> 24) & 0x0F));
+	ide_io_wait(device);
+	if(ide_poll(device,ATA_SR_BSY,0) < 0){
+		return -EIO;
+	}
+
+	//send lba
+	ide_write(device,ATA_REG_SECCOUNT0,sectors_count);
+	ide_write(device,ATA_REG_LBA0,(uint8_t)lba);
+	ide_write(device,ATA_REG_LBA1,(uint8_t)(lba >> 8));
+	ide_write(device,ATA_REG_LBA2,(uint8_t)(lba >> 16));
+	ide_write(device,ATA_REG_COMMAND,ATA_CMD_READ_PIO);
+	
+	for(size_t i=0; i<sectors_count; i++){
+		//TODO : error handling ?
+		if(ide_poll(device,ATA_SR_BSY,0) < 0){
+			return -EIO;
+		}
+		if(i == 0){
+			for(size_t i=0; i<offset%512; i+=2)in_word(device->base + ATA_REG_DATA);
+		}
+		uint16_t data = in_word(device->base + ATA_REG_DATA);
+		*(uint8_t *)buffer++ = (uint8_t)data;
+		*(uint8_t *)buffer++ = (uint8_t)(data >> 8);
+		if(i == sectors_count-1 && end % 512){
+			for(size_t i=end % 512; i<512; i+=2)in_word(device->base + ATA_REG_DATA);
+		}
+	}
+
+	return count;
 }
 
-static int ide_ioctl(vfs_node *node,unsigned long req,void *arg){
+static int ide_ioctl(vfs_node *node,uint64_t req,void *arg){
 	ide_device *device = node->private_inode;
 	switch(req){
 	case I_MODEL:
@@ -210,6 +256,8 @@ static void ide_init_device(ide_device *device){
 	node->atime = node->ctime = node->mtime = NOW();
 	node->private_inode = device;
 	node->ioctl = ide_ioctl;
+	node->read  = ata_read;
+	node->size = sectors * 512;
 	vfs_mount(path,node);
 }
 
