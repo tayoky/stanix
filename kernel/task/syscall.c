@@ -608,44 +608,56 @@ int sys_waitpid(pid_t pid,int *status){
 		return -EFAULT;
 	}
 
-	//wait for group : not supported
-	if(pid < 1 || pid == 0){
-		return -ENOTSUP;
-	}
-
-	//wait for any
-	if(pid == -1){
-		return -ENOTSUP;
-	}
+	if(pid == 0) pid = -get_current_proc()->group;
 
 	//prevent child state from changing
 	kernel->can_task_switch = 0;
 
 	kdebugf("wait for %ld\n",pid);
 
-	//wait for pid
-	process *proc = pid2proc(pid);
-
-	//make sure it exist and is a child
-	if((!proc) || proc->parent != get_current_proc()){
-		kernel->can_task_switch = 1;
-		return -ECHILD;
-	}
-
-	//don't wait for zombie
-	if(proc->flags & PROC_FLAG_ZOMBIE){
-		if(status){
-			*status = proc->exit_status;
+	if(pid == -1){
+		//wait for any
+		foreach(node,get_current_proc()->child){
+			//don't wait for zombie
+			process *proc = node->value;
+			if(proc->flags & PROC_FLAG_ZOMBIE){
+				if(status){
+					*status = proc->exit_status;
+				}
+				proc->flags |= PROC_FLAG_DEAD;
+				//now free the paging tables
+				list_remove(proc_list,proc);
+				delete_addr_space(proc->addrspace);
+				kfree(proc);
+				kernel->can_task_switch = 1;
+				return pid;
+			}
 		}
-		proc->flags |= PROC_FLAG_DEAD;
-		//now free the paging tables
-		list_remove(proc_list,proc);
-		delete_addr_space(proc->addrspace);
-		kfree(proc);
-		kernel->can_task_switch = 1;
-		return pid;
-	}
+	} else {
+		//wait for pid
+		process *proc = pid2proc(pid);
 
+		//make sure it exist and is a child
+		if((!proc) || proc->parent != get_current_proc()){
+			kernel->can_task_switch = 1;
+			return -ECHILD;
+		}
+
+		//don't wait for zombie
+		if(proc->flags & PROC_FLAG_ZOMBIE){
+			if(status){
+				*status = proc->exit_status;
+			}
+			proc->flags |= PROC_FLAG_DEAD;
+			//now free the paging tables
+			list_remove(proc_list,proc);
+			delete_addr_space(proc->addrspace);
+			kfree(proc);
+			kernel->can_task_switch = 1;
+			return pid;
+		}
+	}
+	
 	get_current_proc()->waitfor = pid;
 	get_current_proc()->flags |= PROC_FLAG_WAIT;
 	
@@ -653,6 +665,8 @@ int sys_waitpid(pid_t pid,int *status){
 	if(block_proc() == -EINTR){
 		return -EINTR;
 	}
+
+	process *proc = get_current_proc()->waker;
 
 	//get the exit status
 	if(status){

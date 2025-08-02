@@ -316,6 +316,7 @@ void unblock_proc(process *proc){
 	proc->next = get_current_proc();
 	proc->prev = get_current_proc()->prev;
 	proc->prev->next = proc;
+	proc->waker = get_current_proc();
 	get_current_proc()->prev = proc;
 
 	kernel->can_task_switch = old;
