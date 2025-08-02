@@ -2,11 +2,13 @@
 #include <kernel/print.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
+#include <kernel/time.h>
 #include <kernel/list.h>
 #include <kernel/port.h>
 #include <module/ata.h>
 #include <module/pci.h>
 #include <kernel/vfs.h>
+#include <sys/ioctl.h>
 #include <errno.h>
 
 //thanks sasdallas for this
@@ -36,6 +38,7 @@ typedef struct ata_ident {
 } __attribute__((packed)) __attribute__((aligned(8))) ata_ident;
 
 static list *ide_controllers;
+static int hdx = 'a';
 
 typedef struct {
 	int exist;
@@ -46,6 +49,7 @@ typedef struct {
 	uint32_t bmide;
 	size_t size;
 	vfs_node *node;
+	char model[40];
 } ide_device;
 
 #define ATA_DRIVE_MASTER 0xA0
@@ -114,6 +118,21 @@ static void ide_reset(ide_device *device){
 	ide_write(device,ATA_REG_CONTROL,0x0);
 }
 
+static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	ide_device *device = node->private_inode;
+}
+
+static int ide_ioctl(vfs_node *node,unsigned long req,void *arg){
+	ide_device *device = node->private_inode;
+	switch(req){
+	case I_MODEL:
+		strcpy(arg,device->model);
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
 static void ide_init_device(ide_device *device){
 	//identify
 	ide_write(device,ATA_REG_DRV_SELECT,device->drive);
@@ -148,6 +167,7 @@ static void ide_init_device(ide_device *device){
 		kdebugf("find usable atapi drive on channel %s drive %s\n",device->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
 		return;
 	}
+	device->class = ATA_CLASS_ATA;
 	for(;;){
 		uint8_t status = ide_read(device,ATA_REG_STATUS);
 		if(status & ATA_SR_DRQ){
@@ -163,16 +183,34 @@ static void ide_init_device(ide_device *device){
 
 	//we want this shit to be aligned
 	ata_ident ident;
-	uint8_t *buf = (uint8_t *)&ident;
-	for (size_t i = 0; i < 512; i+=2){
-		uint16_t data = in_word(device->base + ATA_REG_DATA);
-		buf[i] = (uint8_t)(data >> 8) & 0xFF;
-		buf[i+ 1] = (uint8_t)data & 0xFF;
+	uint16_t *buf = (uint16_t *)&ident;
+	for (size_t i = 0; i < 256; i++){
+		buf[i] = in_word(device->base + ATA_REG_DATA);
 	}
 
 	uint64_t sectors = ident.command_sets & (1 << 26) ? ident.sectors_lba48 : ident.sectors;
-	kdebugf("model : %s commandsets : %x support lba48 : %s max lba : %ld\n",ident.model,ident.command_sets,ident.command_sets & (1 << 26) ? "true" : "false",sectors);
+	for(size_t i=0; i<sizeof(ident.model); i+= 2){
+		device->model[i + 1] = ident.model[i];
+		device->model[i]     = ident.model[i + 1];
+	}
+	for(size_t i=sizeof(device->model)-1; i>0 && device->model[i] == ' '; i--){
+		device->model[i] = '\0';
+	}
+
+	kdebugf("model : %s commandsets : %x support lba48 : %s max lba : %ld\n",device->model,ident.command_sets,ident.command_sets & (1 << 26) ? "true" : "false",sectors);
 	kdebugf("find usable ata drive on channel %s drive %s\n",device->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
+
+
+	char path[256];
+	sprintf(path,"/dev/sd%c",hdx++);
+	vfs_node *node = kmalloc(sizeof(vfs_node));
+	memset(node,0,sizeof(vfs_node));
+	device->node = node;
+	node->flags = VFS_BLOCK | VFS_DEV;
+	node->atime = node->ctime = node->mtime = NOW();
+	node->private_inode = device;
+	node->ioctl = ide_ioctl;
+	vfs_mount(path,node);
 }
 
 static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){

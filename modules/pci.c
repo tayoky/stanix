@@ -156,7 +156,7 @@ static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg
 	//setup the vnode
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
-	node->flags = VFS_DEV;
+	node->flags = VFS_DEV | VFS_BLOCK;
 	node->read = pci_read;
 
 	//setup inode

@@ -483,8 +483,14 @@ void node_stat(vfs_node *node,struct stat *st){
 		st->st_mode |= S_IFDIR;
 	}
 	if(node->flags & VFS_DEV){
-		st->st_mode |= S_IFBLK; //well dev type don't exist let just say 
-		st->st_mode |= S_IFCHR; //it is a block and char dev
+		if(node->flags & VFS_BLOCK){
+			st->st_mode |= S_IFBLK;
+		} else if(node->flags & VFS_CHAR){
+			st->st_mode |= S_IFCHR;
+		} else {
+			st->st_mode |= S_IFBLK;
+			st->st_mode |= S_IFCHR;
+		}
 	}
 	if(node->flags & VFS_LINK){
 		st->st_mode |= S_IFLNK;
