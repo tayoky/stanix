@@ -51,6 +51,7 @@ typedef struct {
 	size_t size;
 	vfs_node *node;
 	char model[40];
+	uint32_t command_sets;
 } ide_device;
 
 #define ATA_DRIVE_MASTER 0xA0
@@ -134,23 +135,41 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	size_t   sectors_count = (end + 511) / 512 - (offset / 512);
 	if(!sectors_count)return 0;
 
-	kdebugf("read %ld sectors at lba %lx\n",sectors_count,lba);
-
 	//select the drive
 	//TODO : don't reselect if is was already selected
-	ide_write(device,ATA_REG_DRV_SELECT,(device->drive == ATA_DRIVE_MASTER ? 0xE0 : 0xF0) | ((lba >> 24) & 0x0F));
+	if(device->command_sets & (1 << 26)){
+		//lba48
+		ide_write(device,ATA_REG_DRV_SELECT,(device->drive == ATA_DRIVE_MASTER ? 0x40 : 0x50));
+	} else {
+		//lba28
+		ide_write(device,ATA_REG_DRV_SELECT,(device->drive == ATA_DRIVE_MASTER ? 0xE0 : 0xF0) | ((lba >> 24) & 0x0F));
+	}
 	ide_io_wait(device);
 	if(ide_poll(device,ATA_SR_BSY,0) < 0){
 		return -EIO;
 	}
 
 	//send lba
-	ide_write(device,ATA_REG_SECCOUNT0,sectors_count);
-	ide_write(device,ATA_REG_LBA0,(uint8_t)lba);
-	ide_write(device,ATA_REG_LBA1,(uint8_t)(lba >> 8));
-	ide_write(device,ATA_REG_LBA2,(uint8_t)(lba >> 16));
-	ide_write(device,ATA_REG_COMMAND,ATA_CMD_READ_PIO);
-	
+	if(device->command_sets & (1 << 26)){
+		///lba 48
+		ide_write(device,ATA_REG_SECCOUNT0,(uint8_t)(sectors_count >> 8));
+		ide_write(device,ATA_REG_LBA3,(uint8_t)(lba >> 24));
+		ide_write(device,ATA_REG_LBA4,(uint8_t)(lba >> 32));
+		ide_write(device,ATA_REG_LBA5,(uint8_t)(lba >> 40));
+		ide_write(device,ATA_REG_SECCOUNT0,(uint8_t)sectors_count);
+		ide_write(device,ATA_REG_LBA0,(uint8_t)lba);
+		ide_write(device,ATA_REG_LBA1,(uint8_t)(lba >> 8));
+		ide_write(device,ATA_REG_LBA2,(uint8_t)(lba >> 16));
+		ide_write(device,ATA_REG_COMMAND,ATA_CMD_READ_PIO_EXT);
+	} else {
+		//lba 28
+		ide_write(device,ATA_REG_SECCOUNT0,(uint8_t)sectors_count);
+		ide_write(device,ATA_REG_LBA0,(uint8_t)lba);
+		ide_write(device,ATA_REG_LBA1,(uint8_t)(lba >> 8));
+		ide_write(device,ATA_REG_LBA2,(uint8_t)(lba >> 16));
+		ide_write(device,ATA_REG_COMMAND,ATA_CMD_READ_PIO);
+	}
+
 	for(size_t i=0; i<sectors_count; i++){
 		//TODO : error handling ?
 		ide_io_wait(device);
@@ -249,6 +268,7 @@ static void ide_init_device(ide_device *device){
 	for(size_t i=sizeof(device->model)-1; i>0 && device->model[i] == ' '; i--){
 		device->model[i] = '\0';
 	}
+	device->command_sets = ident.command_sets;
 
 	kdebugf("model : %s commandsets : %x support lba48 : %s max lba : %ld\n",device->model,ident.command_sets,ident.command_sets & (1 << 26) ? "true" : "false",sectors);
 	kdebugf("find usable ata drive on channel %s drive %s\n",device->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
