@@ -134,6 +134,8 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	size_t   sectors_count = (end + 511) / 512 - (offset / 512);
 	if(!sectors_count)return 0;
 
+	kdebugf("read %ld sectors at lba %lx\n",sectors_count,lba);
+
 	//select the drive
 	//TODO : don't reselect if is was already selected
 	ide_write(device,ATA_REG_DRV_SELECT,(device->drive == ATA_DRIVE_MASTER ? 0xE0 : 0xF0) | ((lba >> 24) & 0x0F));
@@ -151,15 +153,20 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	
 	for(size_t i=0; i<sectors_count; i++){
 		//TODO : error handling ?
+		ide_io_wait(device);
 		if(ide_poll(device,ATA_SR_BSY,0) < 0){
 			return -EIO;
 		}
-		if(i == 0){
-			for(size_t i=0; i<offset%512; i+=2)in_word(device->base + ATA_REG_DATA);
+		for(size_t j=0; j<512; j+=2){
+			
+			uint16_t data = in_word(device->base + ATA_REG_DATA);
+			if(i == 0 && j < offset%512)continue;
+			if(i == sectors_count -1 && j < end % 512)continue;
+			*(uint8_t *)buffer++ = (uint8_t)data;
+			*(uint8_t *)buffer++ = (uint8_t)(data >> 8);
 		}
-		uint16_t data = in_word(device->base + ATA_REG_DATA);
-		*(uint8_t *)buffer++ = (uint8_t)data;
-		*(uint8_t *)buffer++ = (uint8_t)(data >> 8);
+	
+		
 		if(i == sectors_count-1 && end % 512){
 			for(size_t i=end % 512; i<512; i+=2)in_word(device->base + ATA_REG_DATA);
 		}
@@ -248,7 +255,7 @@ static void ide_init_device(ide_device *device){
 
 
 	char path[256];
-	sprintf(path,"/dev/sd%c",hdx++);
+	sprintf(path,"/dev/hd%c",hdx++);
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
 	device->node = node;
