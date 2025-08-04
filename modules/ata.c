@@ -170,26 +170,22 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 		ide_write(device,ATA_REG_COMMAND,ATA_CMD_READ_PIO);
 	}
 
+	uint16_t *buf = kmalloc(sectors_count * 512);
+
 	for(size_t i=0; i<sectors_count; i++){
 		//TODO : error handling ?
 		ide_io_wait(device);
 		if(ide_poll(device,ATA_SR_BSY,0) < 0){
+			kfree(buf);
 			return -EIO;
 		}
-		for(size_t j=0; j<512; j+=2){
-			
-			uint16_t data = in_word(device->base + ATA_REG_DATA);
-			if(i == 0 && j < offset%512)continue;
-			if(i == sectors_count -1 && j < end % 512)continue;
-			*(uint8_t *)buffer++ = (uint8_t)data;
-			*(uint8_t *)buffer++ = (uint8_t)(data >> 8);
-		}
-	
-		
-		if(i == sectors_count-1 && end % 512){
-			for(size_t i=end % 512; i<512; i+=2)in_word(device->base + ATA_REG_DATA);
+		for(size_t j=0; j<256; j++){
+			buf[i * 256 + j] = in_word(device->base + ATA_REG_DATA);
 		}
 	}
+
+	memcpy(buffer,((char *)buf) + offset % 512,count);
+	kfree(buf);
 
 	return count;
 }
