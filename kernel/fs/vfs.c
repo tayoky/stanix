@@ -109,7 +109,7 @@ int vfs_unmount(const char *path){
 	return 0;
 }
 
-ssize_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
+ssize_t vfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	if(node->read){
 		return node->read(node,(void *)buffer,offset,count);
 	} else {
@@ -120,7 +120,7 @@ ssize_t vfs_read(vfs_node *node,const void *buffer,uint64_t offset,size_t count)
 	}
 }
 
-ssize_t vfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t vfs_write(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
 	if(node->write){
 		return node->write(node,(void *)buffer,offset,count);
 	} else {
