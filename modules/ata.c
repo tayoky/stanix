@@ -42,16 +42,22 @@ static list *ide_controllers;
 static int hdx = 'a';
 
 typedef struct {
-	int exist;
-	int drive;
-	int class;
+	mutex_t lock;
+	uint8_t nIEN;
 	uint32_t base;
 	uint32_t ctrl;
 	uint32_t bmide;
+} ide_channel;
+
+typedef struct {
+	int exist;
+	int drive;
+	int class;
 	size_t size;
 	vfs_node *node;
 	char model[40];
 	uint32_t command_sets;
+	ide_channel *channel;
 } ide_device;
 
 #define ATA_DRIVE_MASTER 0xA0
@@ -62,38 +68,39 @@ typedef struct {
 
 typedef struct {
 	ide_device devices[4];
+	ide_channel channel[2];
 } ide_controller;
 
 static uint32_t reg2port(ide_device *device,uint32_t reg){
 	if(reg <= ATA_REG_STATUS){
-		return device->base + reg;
+		return device->channel->base + reg;
 	} else if (reg <= ATA_REG_DEVADDRESS){
 
-		return device->base + reg - ATA_REG_ALTSTATUS + 0x2;
+		return device->channel->base + reg - ATA_REG_ALTSTATUS + 0x2;
 	} else {
-		return device->bmide + reg; //idk
+		return device->channel->bmide + reg; //idk
 	}
 }
 
 static void ide_write(ide_device *device,uint32_t reg,uint8_t data){
 	//set HOB
 	if (reg > 0x07 && reg < 0x0C){
-		ide_write(device,ATA_REG_CONTROL,0x80);
+		ide_write(device,ATA_REG_CONTROL,0x80 | device->channel->nIEN);
 	}
 	out_byte(reg2port(device,reg),data);
 
 	if (reg > 0x07 && reg < 0x0C){
-		ide_write(device,ATA_REG_CONTROL,0x00);
+		ide_write(device,ATA_REG_CONTROL,device->channel->nIEN);
 	}
 }
 
 static uint8_t ide_read(ide_device *device,uint32_t reg){
 	if (reg > 0x07 && reg < 0x0C){
-		ide_write(device,ATA_REG_CONTROL,0x80);
+		ide_write(device,ATA_REG_CONTROL,0x80 | device->channel->nIEN);
 	}
 	uint8_t data = in_byte(reg2port(device,reg));
 	if (reg > 0x07 && reg < 0x0C){
-		ide_write(device,ATA_REG_CONTROL,0x00);
+		ide_write(device,ATA_REG_CONTROL,device->channel->nIEN);
 	}
 	return data;
 }
@@ -115,9 +122,9 @@ static int ide_poll(ide_device *device,uint8_t mask,uint8_t value){
 
 static void ide_reset(ide_device *device){
 	//soft reset
-	ide_write(device,ATA_REG_CONTROL,0x4);
+	ide_write(device,ATA_REG_CONTROL,0x4 | device->channel->nIEN);
 	ide_io_wait(device);
-	ide_write(device,ATA_REG_CONTROL,0x0);
+	ide_write(device,ATA_REG_CONTROL,device->channel->nIEN);
 }
 
 static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
@@ -135,6 +142,8 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	size_t   sectors_count = (offset + end + 511) / 512;
 	if(!sectors_count)return 0;
 
+	acquire_mutex(&device->channel->lock);
+
 	//select the drive
 	//TODO : don't reselect if is was already selected
 	if(device->command_sets & (1 << 26)){
@@ -146,6 +155,7 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	}
 	ide_io_wait(device);
 	if(ide_poll(device,ATA_SR_BSY,0) < 0){
+		release_mutex(&device->channel->lock);
 		return -EIO;
 	}
 
@@ -177,12 +187,14 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 		ide_io_wait(device);
 		if(ide_poll(device,ATA_SR_BSY,0) < 0){
 			kfree(buf);
+			release_mutex(&device->channel->lock);
 			return -EIO;
 		}
 		for(size_t j=0; j<256; j++){
-			buf[i * 256 + j] = in_word(device->base + ATA_REG_DATA);
+			buf[i * 256 + j] = in_word(device->channel->base + ATA_REG_DATA);
 		}
 	}
+	release_mutex(&device->channel->lock);
 
 	memcpy(buffer,((char *)buf) + offset % 512,count);
 	kfree(buf);
@@ -232,7 +244,7 @@ static void ide_init_device(ide_device *device){
 	if(ide_read(device,ATA_REG_LBA1) || ide_read(device,ATA_REG_LBA2)){
 		//atapi
 		device->class = ATA_CLASS_ATAPI;
-		kdebugf("find usable atapi drive on channel %s drive %s\n",device->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
+		kdebugf("find usable atapi drive on channel %s drive %s\n",device->channel->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
 		return;
 	}
 	device->class = ATA_CLASS_ATA;
@@ -253,7 +265,7 @@ static void ide_init_device(ide_device *device){
 	ata_ident ident;
 	uint16_t *buf = (uint16_t *)&ident;
 	for (size_t i = 0; i < 256; i++){
-		buf[i] = in_word(device->base + ATA_REG_DATA);
+		buf[i] = in_word(device->channel->base + ATA_REG_DATA);
 	}
 
 	uint64_t sectors = ident.command_sets & (1 << 26) ? ident.sectors_lba48 : ident.sectors;
@@ -267,7 +279,7 @@ static void ide_init_device(ide_device *device){
 	device->command_sets = ident.command_sets;
 
 	kdebugf("model : %s commandsets : %x support lba48 : %s max lba : %ld\n",device->model,ident.command_sets,ident.command_sets & (1 << 26) ? "true" : "false",sectors);
-	kdebugf("find usable ata drive on channel %s drive %s\n",device->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
+	kdebugf("find usable ata drive on channel %s drive %s\n",device->channel->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
 
 
 	char path[256];
@@ -309,25 +321,28 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	ide_controller *controller = kmalloc(sizeof(ide_controller));
 	memset(controller,0,sizeof(ide_controller));
 
-	controller->devices[0].base  = bar0 ? bar0 : 0x1f0;
-	controller->devices[1].base  = bar0 ? bar0 : 0x1f0;
-	controller->devices[2].base  = bar2 ? bar2 : 0x170;
-	controller->devices[3].base  = bar2 ? bar2 : 0x170;
-	controller->devices[0].ctrl  = bar1 ? bar1 : 0x3f6;
-	controller->devices[1].ctrl  = bar1 ? bar1 : 0x3f6;
-	controller->devices[2].ctrl  = bar3 ? bar3 : 0x376;
-	controller->devices[3].ctrl  = bar3 ? bar3 : 0x376;
-	controller->devices[0].bmide = bar4;
-	controller->devices[1].bmide = bar4;
-	controller->devices[2].bmide = bar4 + 8;
-	controller->devices[3].bmide = bar4 + 8;
+	controller->channel[0].base  = bar0 ? bar0 : 0x1f0;
+	controller->channel[1].base  = bar2 ? bar2 : 0x170;
+	controller->channel[0].ctrl  = bar1 ? bar1 : 0x3f6;
+	controller->channel[1].ctrl  = bar3 ? bar3 : 0x376;
+	controller->channel[0].bmide = bar4;
+	controller->channel[1].bmide = bar4 + 8;
+	controller->channel[0].nIEN  = 0x2;
+	controller->channel[1].nIEN  = 0x2;
+	init_mutex(&controller->channel[0].lock);
+	init_mutex(&controller->channel[1].lock);
+
+	controller->devices[0].channel = &controller->channel[0];
+	controller->devices[1].channel = &controller->channel[0];
+	controller->devices[2].channel = &controller->channel[1];
+	controller->devices[3].channel = &controller->channel[1];
 	controller->devices[0].drive = ATA_DRIVE_MASTER;
 	controller->devices[1].drive = ATA_DRIVE_SLAVE;
 	controller->devices[2].drive = ATA_DRIVE_MASTER;
 	controller->devices[3].drive = ATA_DRIVE_SLAVE;
 	
-	//soft reset reset the two devices on the bus
-	for (size_t i = 0; i < 4; i+=2){
+	//soft reset the devices first
+	for (size_t i = 0; i < 4; i++){
 		ide_reset(&controller->devices[i]);
 	}
 	for (size_t i = 0; i < 4; i++){
