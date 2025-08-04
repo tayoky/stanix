@@ -74,11 +74,12 @@ typedef struct {
 static uint32_t reg2port(ide_device *device,uint32_t reg){
 	if(reg <= ATA_REG_STATUS){
 		return device->channel->base + reg;
+	} else if (reg <= ATA_REG_LBA5){
+		return device->channel->base + reg - 0x06;
 	} else if (reg <= ATA_REG_DEVADDRESS){
-
-		return device->channel->base + reg - ATA_REG_ALTSTATUS + 0x2;
+		return device->channel->ctrl + reg - 0x0A;
 	} else {
-		return device->channel->bmide + reg; //idk
+		return device->channel->bmide + reg - 0xE; //idk
 	}
 }
 
@@ -194,6 +195,7 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 			buf[i * 256 + j] = in_word(device->channel->base + ATA_REG_DATA);
 		}
 	}
+	ide_io_wait(device);
 	release_mutex(&device->channel->lock);
 
 	memcpy(buffer,((char *)buf) + offset % 512,count);
