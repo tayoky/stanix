@@ -132,7 +132,7 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 
 	uint64_t lba = offset / 512;
 	uint64_t end = offset + count;
-	size_t   sectors_count = (end + 511) / 512 - (offset / 512);
+	size_t   sectors_count = (offset + end + 511) / 512;
 	if(!sectors_count)return 0;
 
 	//select the drive
