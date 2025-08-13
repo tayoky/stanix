@@ -30,7 +30,7 @@ static void handle_default(process *proc,int signum){
 	case CORE:
 	case KILL:
 		kdebugf("process killed by signal %d\n",signum);
-		get_current_proc()->exit_status = ((uint64_t)1 << 33) | signum;
+		get_current_proc()->exit_status = ((uint64_t)1 << 17) | signum;
 		kill_proc(proc);
 		break;
 	case IGN:

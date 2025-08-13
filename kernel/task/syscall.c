@@ -221,7 +221,7 @@ ssize_t sys_read(int fd,void *buffer,size_t count){
 
 void sys_exit(int error_code){
 	//set that we exited normally
-	get_current_proc()->exit_status = ((uint64_t)1 << 32) | error_code;
+	get_current_proc()->exit_status = (1UL << 16) | error_code;
 	kdebugf("exit with code : %ld\n",error_code);
 	kill_proc(get_current_proc());
 }
