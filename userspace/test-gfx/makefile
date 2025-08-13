@@ -15,7 +15,7 @@ LDFLAGS += -lgfx
 
 all : ../bin/${OUT}
 
-../bin/${OUT} : ${OBJ} ${SYSROOT}/usr/lib/libgfx.a
+../bin/${OUT} : ${OBJ}
 	${CC} -o $@ $^ ${LDFLAGS}
 
 %.o : %.c

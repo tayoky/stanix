@@ -112,6 +112,10 @@ build : header ${OUT}/boot/limine/limine.conf
 	@${MAKE} -C userspace install SYSROOT=${SYSROOT}
 	@${MAKE} -C modules
 	@${MAKE} -C modules install PREFIX=$(shell realpath ./initrd)
+	@cd ports && ./build.sh tutils
+	@cd ports && ./build.sh tsh
+	@cd ports && ./install.sh tutils
+	@cd ports && ./install.sh tsh
 header : 
 	@${MAKE} -C kernel header SYSROOT=${SYSROOT}
 	@${MAKE} -C modules header
@@ -123,5 +127,7 @@ clean :
 	@${MAKE} -C tlibc clean
 	@${MAKE} -C userspace clean
 	@${MAKE} -C modules clean
+	@cd ports && ./clean.sh tutils
+	@cd ports && ./clean.sh tsh
 config.mk :
 	$(error "run ./configure before runing make")

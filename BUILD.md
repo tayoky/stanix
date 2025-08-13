@@ -83,8 +83,7 @@ first configure, this will detect the compiler and linker
 see [configuration option](#configuration-options) for all supported options  
 
 ### compiling
-first run `make` and then `./essential-ports.sh` to build tsh and tutils 
-then just run `make all` for all images or
+just run `make all` for all images or
 - `make hdd` for hdd image
 - `make iso` for iso image
 - `make test` to create an hdd image and automaticly launch it with qemu
