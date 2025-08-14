@@ -209,6 +209,8 @@ vfs_node *new_tty(tty **tty){
 	return node;
 }
 
+//tty_output and tty_input based on TorauOS's tty system
+
 int tty_output(tty *tty,char c){
 	if(tty->termios.c_oflag & OPOST){
 		//enable output processing

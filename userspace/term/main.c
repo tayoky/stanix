@@ -227,6 +227,7 @@ uint32_t ansi_colours[] = {
 #define ansi2gfx(col) gfx_color(fb,(col >> 16) & 0xff,(col >> 8) & 0xff,col & 0xff)
 
 color_t parse_complex(int i){
+	//thanks bananymous for the calculation of colors
 	if(ansi_escape_args[i + 1] < 16){
 		return ansi2gfx(ansi_colours[ansi_escape_args[i + 1]]);
 	} else if(ansi_escape_args[i + 1] < 232) {
