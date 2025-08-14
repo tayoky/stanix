@@ -31,6 +31,12 @@ typedef struct gfx_font {
 	void (*free)(struct gfx_font *);
 } font_t;
 
+typedef struct gfx_texture {
+	size_t width;
+	size_t height;
+	color_t *bitmap;
+} texture_t;
+
 gfx_t *gfx_open_framebuffer(const char *path);
 gfx_t *gfx_create(void *framebuffer,struct fb *);
 void gfx_free(gfx_t *gfx);
@@ -50,6 +56,10 @@ void gfx_draw_char(gfx_t *gfx,font_t *font,color_t color,long x,long y,int c);
 void gfx_draw_string(gfx_t *gfx,font_t *font,color_t color,long x,long y,const char *str);
 long gfx_char_width(font_t *font,int c);
 long gfx_char_height(font_t *font,int c);
+
+
+texture_t *gfx_load_texture(gfx_t *gfx,const char *path);
+void gfx_draw_texture(gfx_t *gfx,texture_t *textutre,long x,long y);
 
 #define gfx_draw_pixel(gfx,color,x,y) {*(color_t *)((uintptr_t)gfx->buffer +  (x) * (gfx->bpp / 8) + (y) * gfx->pitch) = (color);}
 
