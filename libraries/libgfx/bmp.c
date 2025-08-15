@@ -77,9 +77,9 @@ int bmp_load(gfx_t *gfx,texture_t *texture,FILE *file){
 		color_table = malloc(sizeof(color_t) * num_colors);
 		if(!color_table)return -1;
 		for (size_t i = 0; i < num_colors; i++){
-			uint8_t bgra[4];
-			fread(bgra,sizeof(bgra),1,file);
-			color_table[i] = gfx_color(gfx,bgra[2],bgra[1],bgra[0]);
+			uint8_t rgba[4];
+			fread(rgba,sizeof(rgba),1,file);
+			color_table[i] = gfx_color(gfx,rgba[2],rgba[1],rgba[0]);
 		}
 	}
 
@@ -95,10 +95,7 @@ int bmp_load(gfx_t *gfx,texture_t *texture,FILE *file){
 					fread(&rgba[3],sizeof(uint8_t),1,file);
 				}
 				fread(rgba,sizeof(uint8_t),3,file);
-				uint8_t tmp = rgba[0];
-				rgba[0] = rgba[2];
-				rgba[2] = tmp;
-				texture->bitmap[(texture->height - y - 1) * texture->width + x] = gfx_color(gfx,rgba[0],rgba[1],rgba[2]);
+				texture->bitmap[(texture->height - y - 1) * texture->width + x] = gfx_color(gfx,rgba[2],rgba[1],rgba[0]);
 				row_size += info_header.bpp / CHAR_BIT;
 			} else {
 				//TODO
