@@ -47,11 +47,8 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 	}
 
 	node->close = tmpfs_close;
-	node->chmod = tmpfs_chmod;
-	node->chown = tmpfs_chown;
-	node->sync  = tmpfs_sync;
-
-	tmpfs_sync(node);
+	node->getattr  = tmpfs_getattr;
+	node->setattr  = tmpfs_setattr;
 	return node;
 }
 
@@ -253,29 +250,29 @@ int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
 	return 0;
 }
 
-int tmpfs_chmod(vfs_node *node,mode_t perm){
+int tmpfs_setattr(vfs_node *node,struct stat *st){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-
-	inode->perm = perm;
-	node->perm = perm;
+	inode->perm         = st->st_mode & 0xffff;
+	inode->owner        = st->st_uid;   
+	inode->group_owner  = st->st_gid;
+	inode->atime        = st->st_atime;
+	inode->mtime        = st->st_mtime;
+	inode->ctime        = st->st_ctime;
 	return 0;
 }
-int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
+int tmpfs_getattr(vfs_node *node,struct stat *st){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-
-	inode->owner = owner;
-	inode->group_owner = group_owner;
-	return 0;
-}
-
-int tmpfs_sync(vfs_node *node){
-	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-	node->size        = inode->buffer_size;
-	node->perm        = inode->perm;
-	node->owner       = inode->owner;
-	node->group_owner = inode->group_owner;
-	node->atime       = inode->atime;
-	node->mtime       = inode->mtime;
-	node->ctime       = inode->ctime;
+	st->st_size        = inode->buffer_size;
+	st->st_mode        = inode->perm;
+	st->st_uid         = inode->owner;
+	st->st_gid         = inode->group_owner;
+	st->st_atime       = inode->atime;
+	st->st_mtime       = inode->mtime;
+	st->st_ctime       = inode->ctime;
+	
+	//simulate fake blocks of 512 bytes
+	//because blocks don't exist on tmpfs
+	st->st_blksize = 512;
+	st->st_blocks = (st->st_size + st->st_blksize - 1) / st->st_blksize;
 	return 0;
 }

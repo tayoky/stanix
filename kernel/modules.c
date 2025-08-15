@@ -109,8 +109,10 @@ int insmod(const char *pathname,const char **args,char **name){
 	}
 
 	//load the entire things into memory
-	char *mod = map_mod(PAGE_ALIGN_UP(file->size));
-	vfs_read(file,mod,0,file->size);
+	struct stat st;
+	vfs_getattr(file,&st);
+	char *mod = map_mod(PAGE_ALIGN_UP(st.st_size));
+	vfs_read(file,mod,0,st.st_size);
 
 	loaded_module *module = kmalloc(sizeof(loaded_module));
 	memset(module,0,sizeof(loaded_module));
@@ -120,7 +122,7 @@ int insmod(const char *pathname,const char **args,char **name){
 	module->sections = new_list();
 	list_append(module->sections,main_section);
 	main_section->base = mod;
-	main_section->size = PAGE_ALIGN_UP(file->size);
+	main_section->size = PAGE_ALIGN_UP(st.st_size);
 
 	//update sections address and allocate no bits
 	for(int i=0; i<header.e_shnum; i++){

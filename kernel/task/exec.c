@@ -114,6 +114,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	for (size_t i = 0; i < header.e_phnum; i++){
 		//only load porgram header with PT_LOAD
 		if(prog_header[i].p_type != PT_LOAD){
+			kdebugf("ignored header of type\n",prog_header[i].p_type);
 			continue;
 		}
 
@@ -150,15 +151,18 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	kfree(prog_header);
 
 	//check setuid /setgid bit
-	if(file->perm & 0x800){
-		get_current_proc()->suid =get_current_proc()->euid;
-		get_current_proc()->uid = file->owner;
-		get_current_proc()->euid = file->owner;
-	}
-	if(file->perm & 0x080){
-		get_current_proc()->sgid = get_current_proc()->egid;
-		get_current_proc()->gid = file->owner;
-		get_current_proc()->egid = file->owner;
+	struct stat st;
+	if(vfs_getattr(file,&st) >= 0){
+		if(st.st_mode & 0x800){
+			get_current_proc()->suid =get_current_proc()->euid;
+			get_current_proc()->uid  = st.st_uid;
+			get_current_proc()->euid = st.st_uid;
+		}
+		if(st.st_mode & 0x080){
+			get_current_proc()->sgid = get_current_proc()->egid;
+			get_current_proc()->gid  = st.st_gid;
+			get_current_proc()->egid = st.st_gid;
+		}
 	}
 
 	vfs_close(file);

@@ -349,26 +349,20 @@ int vfs_truncate(vfs_node *node,size_t size){
 }
 
 int vfs_chmod(vfs_node *node,mode_t perm){
-	if(!node->chmod){
-		return -1;
-	}
-	int ret = node->chmod(node,perm);
-	if(!ret){
-		node->perm = perm;
-	}
-	return ret;
+	struct stat st;
+	int ret = vfs_getattr(node,&st);
+	if(ret < 0)return ret;
+	st.st_mode = perm;
+	return vfs_setattr(node,&st);
 }
 
 int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
-	if(!node->chown){
-		return -1;
-	}
-	int ret = node->chown(node,owner,group_owner);
-	if(!ret){
-		node->owner = owner;
-		node->group_owner = group_owner;
-	}
-	return ret;
+	struct stat st;
+	int ret = vfs_getattr(node,&st);
+	if(ret < 0)return ret;
+	st.st_uid = owner;
+	st.st_gid = group_owner;
+	return vfs_setattr(node,&st);
 }
 
 int vfs_ioctl(vfs_node *node,uint64_t request,void *arg){
@@ -397,12 +391,44 @@ vfs_node *vfs_dup(vfs_node *node){
 	return node;
 }
 
-int vfs_sync(vfs_node *node){
+int vfs_getattr(vfs_node *node,struct stat *st){
+	memset(st,0,sizeof(struct stat));
+	st->st_nlink = 1; //in case a driver forgot to set :D
 	//make sure we can actually sync
-	if(!node->sync){
+	if(node->getattr){
+		int ret = node->getattr(node,st);
+		if(ret < 0)return ret;
+	}
+	
+	//file type to mode
+	if(node->flags & VFS_FILE){
+		st->st_mode |= S_IFREG;
+	}
+	if(node->flags & VFS_DIR){
+		st->st_mode |= S_IFDIR;
+	}
+	if(node->flags & VFS_DEV){
+		if(node->flags & VFS_BLOCK){
+			st->st_mode |= S_IFBLK;
+		} else if(node->flags & VFS_CHAR){
+			st->st_mode |= S_IFCHR;
+		} else {
+			st->st_mode |= S_IFBLK;
+			st->st_mode |= S_IFCHR;
+		}
+	}
+	if(node->flags & VFS_LINK){
+		st->st_mode |= S_IFLNK;
+	}
+	return 0;
+}
+
+int vfs_setattr(vfs_node *node,struct stat *st){
+	//make sure we can actually sync
+	if(!node->setattr){
 		return -EIO; //should be another error ... but what ???
 	}
-	return node->sync(node);
+	return node->setattr(node,st);
 }
 
 int vfs_chroot(vfs_node *new_root){
@@ -477,12 +503,15 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
 	if(!current_node)return NULL;
 
 	///update modify / access time
+	struct stat st;
+	vfs_getattr(current_node,&st);
 	if((flags & VFS_WRITEONLY) || (flags & VFS_READWRITE)){
-		current_node->mtime = NOW();
+		st.st_mtime = NOW();
 	}
 	if((flags & VFS_READONLY) || (flags & VFS_READWRITE)){
-		current_node->atime = NOW();
+		st.st_atime = NOW();
 	}
+	vfs_setattr(current_node,&st);
 	
 	return current_node;
 }

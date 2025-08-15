@@ -71,7 +71,6 @@ int init_mouse(int argc,char **argv){
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
 	node->read = mouse_read;
-	node->ctime = NOW();
 	if(ps2_send(2,PS2_ENABLE_SCANING) != PS2_ACK){
 		kdebugf("ps2 : error while enable scanning\n");
 		return -EIO;

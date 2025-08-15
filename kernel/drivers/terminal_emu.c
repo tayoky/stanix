@@ -188,8 +188,10 @@ void init_terminal_emualtor(void){
 	}
 
 	//and read it
-	char *font = kmalloc(font_file->size);
-	if(vfs_read(font_file,font,0,font_file->size) != (int64_t)font_file->size){
+	struct stat st;
+	vfs_getattr(font_file,&st);
+	char *font = kmalloc(st.st_size);
+	if(vfs_read(font_file,font,0,st.st_size) != (ssize_t)st.st_size){
 		kfail();
 		kinfof("fail to read from file %s\n",font_path);
 		return;

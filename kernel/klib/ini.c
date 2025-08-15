@@ -25,14 +25,16 @@ void read_main_conf_file(void){
 	}
 
 	//now read it
-	char *buffer = kmalloc(conf_file->size + 1);
+	struct stat st;
+	vfs_getattr(conf_file,&st);
+	char *buffer = kmalloc(st.st_size + 1);
 
-	if(vfs_read(conf_file,buffer,0,conf_file->size) != (int64_t)conf_file->size){
+	if(vfs_read(conf_file,buffer,0,st.st_size) != (ssize_t)st.st_size){
 		kfail();
 		kdebugf("fail to read from conf file\n");
 		halt();
 	}
-	buffer[conf_file->size] = '\0';
+	buffer[st.st_size] = '\0';
 
 	kernel->conf_file = buffer;
 

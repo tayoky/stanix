@@ -131,17 +131,18 @@ static void ide_reset(ide_device *device){
 static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	ide_device *device = node->private_inode;
 
-	if(offset >= node->size){
+	if(offset >= device->size){
 		return 0;
 	}
-	if(offset + count >= node->size){
-		count = node->size - offset;
+	if(offset + count >= device->size){
+		count = device->size - offset;
 	}
 
 	uint64_t lba = offset / 512;
 	uint64_t end = offset + count;
 	size_t   sectors_count = (offset + end + 511) / 512;
 	if(!sectors_count)return 0;
+	kdebugf("read lba %lx sectors count : %ld\n",lba,sectors_count);
 
 	acquire_mutex(&device->channel->lock);
 
@@ -213,6 +214,17 @@ static int ide_ioctl(vfs_node *node,uint64_t req,void *arg){
 	default:
 		return -EINVAL;
 	}
+}
+
+static int ide_getattr(vfs_node *node,struct stat *st){
+	ide_device *device = node->private_inode;
+	//ata devices belong to root i guess ..
+	st->st_uid = 0;
+	st->st_gid = 0;
+	st->st_size = device->size;
+	st->st_blksize = 512;
+	st->st_blocks = (st->st_size + st->st_blksize - 1) / st->st_blksize;
+	return 0;
 }
 
 static void ide_init_device(ide_device *device){
@@ -289,12 +301,12 @@ static void ide_init_device(ide_device *device){
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
 	device->node = node;
+	device->size = sectors * 512;
 	node->flags = VFS_BLOCK | VFS_DEV;
-	node->atime = node->ctime = node->mtime = NOW();
 	node->private_inode = device;
-	node->ioctl = ide_ioctl;
-	node->read  = ata_read;
-	node->size = sectors * 512;
+	node->ioctl   = ide_ioctl;
+	node->getattr = ide_getattr;
+	node->read    = ata_read;
 	vfs_mount(path,node);
 }
 

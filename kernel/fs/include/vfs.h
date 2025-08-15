@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <dirent.h>
@@ -29,11 +30,7 @@ struct vfs_mount_point_struct;
 typedef struct vfs_node_struct {
 	void *private_inode;
 	struct vfs_mount_point_struct *mount_point;
-	uid_t owner;
-	gid_t group_owner;
-	mode_t perm;
 	uint64_t flags;
-	uint64_t size;
 	uint64_t ref_count;
 	ssize_t (* read)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	ssize_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
@@ -43,16 +40,12 @@ typedef struct vfs_node_struct {
 	int (* unlink)(struct vfs_node_struct*,const char *);
 	struct dirent *(* readdir)(struct vfs_node_struct*,uint64_t index);
 	int (* truncate)(struct vfs_node_struct*,size_t);
-	int (* chmod)(struct vfs_node_struct*,mode_t perm);
-	int (* chown)(struct vfs_node_struct*,uid_t owner,gid_t group_owner);
 	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
-	int (* sync)(struct vfs_node_struct *);
+	int (* getattr)(struct vfs_node_struct *,struct stat *);
+	int (* setattr)(struct vfs_node_struct *,struct stat *);
 	int (* wait_check)(struct vfs_node_struct *,short);
 	int (* wait)(struct vfs_node_struct *,short);
 	void *(* mmap)(struct vfs_node_struct *,void *,size_t,uint64_t,int,off_t);
-	time_t atime;
-	time_t ctime;
-	time_t mtime;
 
 	//used for directories cache
 	char name[PATH_MAX];
@@ -153,11 +146,6 @@ int vfs_ioctl(vfs_node *node,uint64_t request,void *arg);
 /// @return the new vfs_node
 vfs_node *vfs_dup(vfs_node *node);
 
-/// @brief syncronize the node metadata with the filesystem metadata
-/// @param node the node to syncronise
-/// @return 
-int vfs_sync(vfs_node *node);
-
 /// @brief check if a vfs_node is ready for write/read
 /// @param node the node to check
 /// @param type the type to check (read and/or write)
@@ -170,6 +158,10 @@ int vfs_wait_check(vfs_node *node,short type);
 /// @return 0 or -INVAL
 /// @note vfs_wait don't block the wait start only after calling block_brock()
 int vfs_wait(vfs_node *node,short type);
+
+
+int vfs_getattr(vfs_node *node,struct stat *st);
+int vfs_setattr(vfs_node *node,struct stat *st);
 
 int vfs_unmount(const char *path);
 

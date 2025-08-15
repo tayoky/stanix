@@ -182,7 +182,9 @@ ssize_t sys_write(int fd,void *buffer,size_t count){
 
 	//if append go to the end
 	if(FD_CHECK(fd,FD_APPEND)){
-		file->offset = file->node->size;
+		struct stat st;
+		vfs_getattr(file->node,&st);
+		file->offset = st.st_size;
 	}
 
 	int64_t wsize = vfs_write(file->node,buffer,file->offset,count);
@@ -280,7 +282,8 @@ off_t sys_seek(int fd,int64_t offset,int whence){
 	//get the fd
 	file_descriptor *file = &FD_GET(fd);
 
-	vfs_sync(file->node);
+	struct stat st;
+	vfs_getattr(file->node,&st);
 
 	switch (whence)
 	{
@@ -291,7 +294,7 @@ off_t sys_seek(int fd,int64_t offset,int whence){
 		file->offset += offset;
 		break;
 	case SEEK_END:
-		file->offset = file->node->size + offset;
+		file->offset = st.st_size + offset;
 		break;
 	default:
 		break;
@@ -460,54 +463,6 @@ int sys_readdir(int fd,struct dirent *ret,long int index){
 	return 0;
 }
 
-void node_stat(vfs_node *node,struct stat *st){
-	//first get lasted info from filesystem
-	vfs_sync(node);
-
-	//then copy metadata
-	st->st_size  = node->size;
-	st->st_uid   = node->owner;
-	st->st_gid   = node->group_owner;
-	st->st_ctime = node->ctime;
-	st->st_atime = node->atime;
-	st->st_mtime = node->mtime;
-	st->st_mode  = node->perm;
-
-	st->st_nlink = 1;
-
-	//file type to mode
-	if(node->flags & VFS_FILE){
-		st->st_mode |= S_IFREG;
-	}
-	if(node->flags & VFS_DIR){
-		st->st_mode |= S_IFDIR;
-	}
-	if(node->flags & VFS_DEV){
-		if(node->flags & VFS_BLOCK){
-			st->st_mode |= S_IFBLK;
-		} else if(node->flags & VFS_CHAR){
-			st->st_mode |= S_IFCHR;
-		} else {
-			st->st_mode |= S_IFBLK;
-			st->st_mode |= S_IFCHR;
-		}
-	}
-	if(node->flags & VFS_LINK){
-		st->st_mode |= S_IFLNK;
-	}
-
-	//simulate fake blocks of 512 bytes
-	//because blocks don't exist on stanix
-	st->st_blksize = 512;
-	st->st_blocks = (st->st_size + st->st_blksize - 1) / st->st_blksize;
-
-	//set to 0 all the bloat that don't exist on stanix
-	//and can't be emulated
-	st->st_dev = 0;
-	st->st_rdev = 0;
-	st->st_ino = 0;
-}
-
 int sys_stat(const char *pathname,struct stat *st){
 	if(!CHECK_STRUCT(st)){
 		return -EFAULT;
@@ -518,9 +473,10 @@ int sys_stat(const char *pathname,struct stat *st){
 		return -ENOENT;
 	}
 
-	node_stat(node,st);
+	int ret = vfs_getattr(node,st);
 
-	return 0;
+	vfs_close(node);
+	return ret;
 }
 
 int sys_fstat(int fd,struct stat *st){
@@ -532,7 +488,7 @@ int sys_fstat(int fd,struct stat *st){
 		return -EBADF;
 	}
 
-	node_stat(FD_GET(fd).node,st);
+	vfs_getattr(FD_GET(fd).node,st);
 
 	return 0;
 }
@@ -1092,11 +1048,12 @@ uid_t sys_getegid(void){
 }
 
 static int chmod_node(vfs_node *node,mode_t mode){
-	if(node->owner != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT){
+	struct stat st;
+	vfs_getattr(node,&st);
+	if(st.st_uid != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT){
 		return -EPERM;
 	}
-	node->perm = mode & 0xFFFF;
-	return 0;
+	return vfs_chmod(node,mode);
 }
 
 int sys_chmod(const char *pathname, mode_t mode){
@@ -1118,12 +1075,12 @@ int sys_fchmod(int fd, mode_t mode){
 }
 
 static int chown_node(vfs_node *node,uid_t owner,gid_t group){
-	if(node->owner != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT){
+	struct stat st;
+	vfs_getattr(node,&st);
+	if(st.st_uid != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT){
 		return -EPERM;
 	}
-	node->owner = owner;
-	node->group_owner = group;
-	return 0;
+	return vfs_chown(node,owner,group);
 }
 
 int sys_chown(const char *pathname, uid_t owner, gid_t group){

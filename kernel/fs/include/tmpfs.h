@@ -35,9 +35,8 @@ int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags);
 int tmpfs_unlink(vfs_node *node,const char *name);
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index);
 int tmpfs_truncate(vfs_node *node,size_t size);
-int tmpfs_chmod(vfs_node *node,mode_t perm);
-int tmpfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
-int tmpfs_sync(vfs_node *node);
+int tmpfs_getattr(vfs_node *node,struct stat *st);
+int tmpfs_setattr(vfs_node *node,struct stat *st);
 
 #define TMPFS_FLAGS_FILE 0x01
 #define TMPFS_FLAGS_DIR  0x02

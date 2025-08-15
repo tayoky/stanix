@@ -149,7 +149,6 @@ static int init_ps2kb(int argc,char **argv){
 	node->read          = kbd_read;
 	node->wait_check    = kbd_wait_check;
 	node->flags         = VFS_DEV | VFS_CHAR;
-	node->ctime         = NOW();
 	node->private_inode = &keyboard_queue;
 
 	//if was maunch wwith --no-translation we don't try using translation
