@@ -1161,6 +1161,23 @@ int sys_access(const char *pathname, int mode){
 	return 0;
 }
 
+int sys_truncate(const char *path, off_t length){
+	vfs_node *node = vfs_open(path,VFS_WRITEONLY);
+	if(!node)return -ENOENT;
+	int ret = vfs_truncate(node,(size_t)length);
+	vfs_close(node);
+	return ret;
+}
+
+int sys_ftruncate(int fd, off_t length){
+	//must be open for writing
+	if(!is_valid_fd(fd) ||!FD_CHECK(fd,VFS_WRITEONLY)){
+		return -EBADF;
+	}
+
+	return vfs_truncate(FD_GET(fd).node,(size_t)length);
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1228,6 +1245,8 @@ void *syscall_table[] = {
 	(void *)sys_umask,
 	(void *)sys_access,
 	(void *)sys_stub,   //sys_utimes
+	(void *)sys_truncate,
+	(void *)sys_ftruncate,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
