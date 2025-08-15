@@ -57,15 +57,21 @@ int bmp_load(gfx_t *gfx,texture_t *texture,FILE *file){
 	for(size_t y=0; y<texture->height; y++){
 		size_t row_size = 0; // in bits
 		for(size_t x=0; x<texture->width; x++){
-			uint8_t rgb[3];
-			if(info_header.bpp >= 24){
+			uint8_t rgba[3];
+			if(info_header.bpp == 24 || info_header.bpp == 32){
 				// no color pallete
 				//TODO : padding ?
-				fread(rgb,sizeof(rgb),1,file);
+				fread(rgba,sizeof(uint8_t),3,file);
+				if(info_header.bpp == 32){
+					fread(&rgba[3],sizeof(uint8_t),1,file);
+				}
+				uint8_t tmp = rgba[0];
+				rgba[0] = rgba[2];
+				rgba[2] = tmp;
 			} else {
 				//TODO
 			}
-			texture->bitmap[x + y * texture->width] = gfx_color(gfx,rgb[0],rgb[1],rgb[2]);
+			texture->bitmap[(texture->height - y - 1) * texture->width + x] = gfx_color(gfx,rgba[0],rgba[1],rgba[2]);
 			row_size += info_header.bpp;
 		}
 		row_size /= 8;
