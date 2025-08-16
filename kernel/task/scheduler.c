@@ -194,8 +194,6 @@ void yeld(){
 
 	set_kernel_stack(get_current_proc()->kernel_stack);
 
-	//kdebugf("rsp : %p\n",get_current_proc()->rsp);
-	kdebugf("s %ld\n",get_current_proc()->pid);
 	kernel->can_task_switch = 1;
 	if(get_current_proc() != old){
 		context_switch(&old->context,&get_current_proc()->context);
