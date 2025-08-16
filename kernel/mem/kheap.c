@@ -67,8 +67,8 @@ void show_memseg(){
 
 void *malloc(heap_info *heap,size_t amount){
 	//make amount aligned
-	if(amount & 0b111)
-	amount += 8 - (amount % 8);
+	if(amount & 0b1111)
+	amount += 16 - (amount % 16);
 	
 	acquire_mutex(&heap->mutex);
 	heap_segment *current_seg = heap->first_seg;
@@ -82,12 +82,12 @@ void *malloc(heap_info *heap,size_t amount){
 
 			//if last is free make it bigger else create a new seg from scratch
 			if(current_seg->magic == HEAP_SEG_MAGIC_FREE){
-				heap->changes_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(heap_segment) + 8));
-				current_seg->lenght += PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(heap_segment) + 8);
+				heap->changes_size(PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(heap_segment) + 16));
+				current_seg->lenght += PAGE_ALIGN_UP(amount - current_seg->lenght + sizeof(heap_segment) + 16);
 			} else {
-				heap->changes_size(PAGE_ALIGN_UP(amount + sizeof(heap_segment) * 2  + 8));
+				heap->changes_size(PAGE_ALIGN_UP(amount + sizeof(heap_segment) * 2  + 16));
 				heap_segment *new_seg = (heap_segment *)((uintptr_t)current_seg + current_seg->lenght + sizeof(heap_segment));
-				new_seg->lenght = PAGE_ALIGN_UP(amount + sizeof(heap_segment) * 2 + 8) - sizeof(heap_segment);
+				new_seg->lenght = PAGE_ALIGN_UP(amount + sizeof(heap_segment) * 2 + 16) - sizeof(heap_segment);
 				new_seg->magic = HEAP_SEG_MAGIC_FREE;
 				new_seg->next = NULL;
 				new_seg->prev = current_seg;
@@ -96,7 +96,7 @@ void *malloc(heap_info *heap,size_t amount){
 			}
 			break;
 		}
-		if((uintptr_t)current_seg->next % 8){
+		if((uintptr_t)current_seg->next % 16){
 			kdebugf("found non aligned kheap seg at %p after %p(%p:%ld)\n",current_seg->next,current_seg,(uintptr_t)current_seg + sizeof(heap_segment),current_seg->lenght);
 		}
 		current_seg = current_seg->next;
@@ -105,7 +105,7 @@ void *malloc(heap_info *heap,size_t amount){
 	//we find a good segment
 
 	//if big enougth cut it
-	if(current_seg->lenght >= amount + sizeof(heap_segment) + 8){
+	if(current_seg->lenght >= amount + sizeof(heap_segment) + 16){
 		//big enougth
 		heap_segment *new_seg = (heap_segment *)((uintptr_t)current_seg + amount + sizeof(heap_segment));
 		new_seg->lenght = current_seg->lenght - (sizeof(heap_segment) + amount);
@@ -145,7 +145,7 @@ void free(heap_info *heap,void *ptr){
 
 	current_seg->magic = HEAP_SEG_MAGIC_FREE;
 
-	/*if(current_seg->next && current_seg->next->magic == HEAP_SEG_MAGIC_FREE){
+	if(current_seg->next && current_seg->next->magic == HEAP_SEG_MAGIC_FREE){
 		//merge with next
 		current_seg->lenght += current_seg->next->lenght + sizeof(heap_segment);
 
@@ -153,7 +153,7 @@ void free(heap_info *heap,void *ptr){
 			current_seg->next->next->prev = current_seg;
 		}
 		current_seg->next = current_seg->next->next;
-	}*/
+	}
 
 	if(current_seg->prev && current_seg->prev->magic == HEAP_SEG_MAGIC_FREE){
 		//merge with prev
