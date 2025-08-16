@@ -133,24 +133,19 @@ process *new_proc(){
 	return proc;
 }
 
-//TODO argv don't work
+//TODO arg don't work
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]){
 	process *proc = new_proc();
+	(void)argc;(void)argv;
 
-	fault_frame context;
-	memset(&context,0,sizeof(fault_frame));
-	ARG1_REG(context) = argc;
-	ARG2_REG(context) = (uintptr_t)argv;
-	#ifdef x86_64
+	#ifdef __x86_64__
 	asm volatile("pushfq\n"
-		"pop %0" : "=r" (context.flags));
-	context.cs = 0x08;
-	context.ss = 0x10;
-	context.rip = (uint64_t)func;
-	context.rsp = proc->kernel_stack;
+		"pop %0" : "=r" (proc->context.frame.flags));
+	proc->context.frame.cs = 0x08;
+	proc->context.frame.ss = 0x10;
+	proc->context.frame.rip = (uint64_t)func;
+	proc->context.frame.rsp = proc->kernel_stack;
 	#endif
-	proc_push(proc,&context,sizeof(fault_frame));
-	kdebugf("%p %p\n",proc->addrspace,proc->rsp);
 
 	//just copy the cwd of the current task
 	proc->cwd_node = vfs_dup(get_current_proc()->cwd_node);
@@ -200,10 +195,10 @@ void yeld(){
 	set_kernel_stack(get_current_proc()->kernel_stack);
 
 	//kdebugf("rsp : %p\n",get_current_proc()->rsp);
-
+	kdebugf("s %ld\n",get_current_proc()->pid);
 	kernel->can_task_switch = 1;
 	if(get_current_proc() != old){
-		context_switch(get_current_proc()->rsp,&old->rsp);
+		context_switch(&old->context,&get_current_proc()->context);
 	}
 }
 

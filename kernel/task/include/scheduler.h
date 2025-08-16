@@ -9,6 +9,7 @@
 #include <sys/signal.h>
 #include <stdint.h>
 #include <fcntl.h>
+#include <arch.h>
 
 struct fault_frame;
 struct process_struct;
@@ -28,6 +29,7 @@ typedef struct {
 #define FD_NONBLOCK 0x08
 
 typedef struct process_struct {
+	acontext context;
 	addrspace_t addrspace;
 	uintptr_t rsp;
 	uintptr_t kernel_stack;

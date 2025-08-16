@@ -1,85 +1,76 @@
 extern kernel
+
+;FIXME : race conditon if switch happend between start of this func
+;and the cli
 global context_switch
 context_switch:
-
-	;save context
-	;use cr2 to store the address to return
-	pop rax
-	mov cr2, rax
-
-	;save ss
-	xor rax, rax
-	mov ax, ss
-	push rax ;ss
-
-	mov rax, rsp
-	add rax, 8
-	push rax
-	pushf
-
+	;save eflags first
+	pushfq
 	cli
+	pop rax
+	mov [rdi + 512 + 8 * 21], rax
 
-	;save cs
-	xor rax, rax
-	mov ax, cs
-	push rax ;cs
-
-	;save rip
 	mov rax, cr2
-	push rax ;rip
-
-	push 0
-	push 0
-	push r15
-	push r14
-	push r13
-	push r12
-	push r11
-	push r10
-	push r9
-	push r8
-	push rbp
-	push rdi
-	push rsi
-	push rdx
-	push rcx
-	push rbx
-	push rax
-	push 0 ;cr3
-	push 0 ;cr2
-
-	;first save rsp
-
-	mov qword[rsi], rsp
-	mov rsp, rdi
-
-	add rsp, 16 ;skip cr2 ad cr3
+	mov [rdi + 512 + 8 * 0 ], rax
+	;no need for cr3
+	mov [rdi + 512 + 8 * 2], rax
+	mov [rdi + 512 + 8 * 3 ], rbx
+	mov [rdi + 512 + 8 * 4 ], rcx
+	mov [rdi + 512 + 8 * 5 ], rdx
+	mov [rdi + 512 + 8 * 6 ], rsi
+	mov [rdi + 512 + 8 * 7 ], rdi
+	mov [rdi + 512 + 8 * 8 ], rbp
+	mov [rdi + 512 + 8 * 9 ], r8
+	mov [rdi + 512 + 8 * 10], r9
+	mov [rdi + 512 + 8 * 11], r10
+	mov [rdi + 512 + 8 * 12], r11
+	mov [rdi + 512 + 8 * 13], r12
+	mov [rdi + 512 + 8 * 14], r13
+	mov [rdi + 512 + 8 * 15], r14
+	mov [rdi + 512 + 8 * 16], r15
+	;return address
 	pop rax
-	pop rbx
-	pop rcx
-	pop rdx
-	pop rsi
-	pop rdi
-	pop rbp
-	pop r8
-	pop r9
-	pop r10
-	pop r11
-	pop r12
-	pop r13
-	pop r14
-	pop r15
-	add rsp, 16 ;skip err code and type
+	mov [rdi + 512 + 8 * 19], rax
+	mov [rdi + 512 + 8 * 20], cs
+	;already saved flags
+	mov [rdi + 512 + 8 * 22], rsp
+	mov [rdi + 512 + 8 * 23], ss
 
-	;restore ds and other segment
-	push rax
-	mov rax, qword[rsp + 40]
+	fxsave [rdi]
 
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-
-	pop rax
+	;load new context
+	;load rsi and flags/seg last
+	fxrstor [rsi]
 	
+	mov rax, [rdi + 512 + 8 * 0 ]
+	mov cr2, rax
+	mov rax, [rsi + 512 + 8 * 2 ]
+	mov rbx, [rsi + 512 + 8 * 3 ]
+	mov rcx, [rsi + 512 + 8 * 4 ]
+	mov rdx, [rsi + 512 + 8 * 5 ]
+	;load rsi at the end
+	mov rdi, [rsi + 512 + 8 * 7 ]
+	mov rbp, [rsi + 512 + 8 * 8 ]
+	mov r8 , [rsi + 512 + 8 * 9 ]
+	mov r9 , [rsi + 512 + 8 * 10]
+	mov r10, [rsi + 512 + 8 * 11]
+	mov r11, [rsi + 512 + 8 * 12]
+	mov r12, [rsi + 512 + 8 * 13]
+	mov r13, [rsi + 512 + 8 * 14]
+	mov r14, [rsi + 512 + 8 * 15]
+	mov r15, [rsi + 512 + 8 * 16]
+
+	mov rsp, rsi
+	add rsp, 512 + 8 * 19
+
+	;todo proper fs for tls
+	mov ds, [rsi + 512 + 8 * 23]
+	mov es, [rsi + 512 + 8 * 23]
+	mov fs, [rsi + 512 + 8 * 23]
+	mov gs, [rsi + 512 + 8 * 23]
+
+	;we don't need rsi anymore
+	;use ss since we loaded the new ds
+	mov rsi, [ss:rsi + 512 + 8 * 6]
+
 	iretq

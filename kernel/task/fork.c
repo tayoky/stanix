@@ -35,14 +35,12 @@ pid_t fork(void){
 	child->cwd_node = vfs_dup(parent->cwd_node);
 	child->cwd_path = strdup(parent->cwd_path);
 
-	//setup the return frame for the child
-	fault_frame frame = *(get_current_proc()->syscall_frame);
+	//copy context parent to child but overload regs with userspace context
+	child->context = parent->context;
+	child->context.frame = *parent->syscall_frame;
 	
 	//return 0 to the child
-	RET_REG(frame) = 0;
-
-	//push the context to the child
-	proc_push(child,&frame,sizeof(frame));
+	RET_REG(child->context.frame) = 0;
 
 	//make it ruuuunnnnn !!!
 	unblock_proc(child);

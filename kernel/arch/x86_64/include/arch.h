@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+//any change here must be replicataed in interrupt handler
+//and context switch
 typedef struct fault_frame{
 	uint64_t cr2;
 	uint64_t cr3;
@@ -43,11 +45,14 @@ typedef struct arch_specific {
 	uint64_t hPDP[8];
 } arch_specific ;
 
-#include <kernel/scheduler.h>
+typedef struct acontext {
+	char sse[512];
+	fault_frame frame;
+} acontext;
 
 //arch specific functions
 void set_kernel_stack(uintptr_t stack);
-void context_switch(uintptr_t new_rsp,uintptr_t *old_rsp);
+void context_switch(acontext *old,acontext *new);
 
 void init_timer(void);
 void enable_sse(void);
