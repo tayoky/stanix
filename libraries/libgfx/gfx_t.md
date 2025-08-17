@@ -1,5 +1,5 @@
 ---
-title:gfx_t
+title: gfx_t
 ---
 ```c
 typedef struct gfx_context {
