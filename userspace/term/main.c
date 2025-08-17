@@ -217,7 +217,7 @@ void scroll(int s){
 		grid[i].front_color = front_color;
 	}
 
-	memcpy(fb->backbuffer,(char *)fb->backbuffer + fb->pitch * s * c_height,fb->pitch * (fb->height - s * c_height));
+	memmove(fb->backbuffer,(char *)fb->backbuffer + fb->pitch * s * c_height,fb->pitch * (fb->height - s * c_height));
 	gfx_draw_rect(fb,back_color,0,fb->height - s * c_height,fb->width,s * c_height);
 	gfx_push_buffer(fb);
 	y -= s;
@@ -359,6 +359,9 @@ void draw_char(char c){
 		redraw(x,y);
 		x += 8 - (x % 8);
 		redraw_cursor(x,y);
+		return;
+	case '\a':
+		//TODO : beep
 		return;
 	}
 
