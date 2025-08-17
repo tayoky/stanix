@@ -634,7 +634,7 @@ int sys_waitpid(pid_t pid,int *status){
 	delete_addr_space(proc->addrspace);
 	kfree(proc);
 
-	return pid;
+	return proc->pid;
 }
 
 int sys_unlink(const char *pathname){
