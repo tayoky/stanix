@@ -51,14 +51,14 @@ int main(){
 
 	//launch tsh in the startup script
 	static const char *arg[] = {
-		"/bin/tsh",
+		"/bin/tash",
 		"/etc/init.d/startup.sh",
 		NULL
 	};
 
-	execvp("/bin/tsh",arg);
+	execvp("/bin/tash",arg);
 
-	perror("/bin/tsh");
-	printf("make sure tsh in installed then reboot the system\n");
+	perror("/bin/tash");
+	printf("make sure tash is installed then reboot the system\n");
 	return 1;
 }
