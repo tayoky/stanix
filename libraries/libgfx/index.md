@@ -8,9 +8,9 @@ title: libgfx
 - `gfx_free`
 - [`gfx_color`](gfx_color)
 - `gfx_draw_pixel`
-- `gfx_draw_rect`
-- `gfx_clear`
-- `gfx_push_buffer`
+- [`gfx_draw_rect`](gfx_draw_rect)
+- [`gfx_clear`](gfx_clear)
+- [`gfx_push_buffer`](gfx_push_buffer)
 - `gfx_push_rect`
 - `gfx_enable_backbuffer`
 - `gfx_disable_backbuffer`
