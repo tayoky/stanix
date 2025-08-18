@@ -4,6 +4,7 @@
 #include <kernel/print.h>
 #include <kernel/asm.h>
 #include <kernel/time.h>
+#include <errno.h>
 
 static tmpfs_inode *new_inode(const char *name,uint64_t flags){
 	tmpfs_inode *inode = kmalloc(sizeof(tmpfs_inode));
@@ -160,14 +161,14 @@ int tmpfs_unlink(vfs_node *node,const char *name){
 	tmpfs_inode *prev_inode = NULL;
 
 	for (uint64_t i = 0; i < inode->children_count; i++){
-		if(current_inode == NULL)return -1;
-		if(!strcmp(inode->name,name)){
+		if(current_inode == NULL)return -ENOENT;
+		if(!strcmp(current_inode->name,name)){
 			break;
 		}
 		prev_inode = current_inode;
 		current_inode = current_inode->brother;
 	}
-	if(current_inode == NULL)return -1;
+	if(current_inode == NULL)return -ENOENT;
 
 	if(prev_inode){
 		prev_inode->brother = current_inode->brother;
