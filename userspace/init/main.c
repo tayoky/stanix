@@ -38,7 +38,7 @@ int main(){
 	printf("current unix timestamp : %ld\n",time.tv_sec);
 
 	//setup fake env
-	putenv("PATH=/:/bin");
+	putenv("PATH=/:/bin:/usr/bin");
 	putenv("USER=root");
 
 	//env test
@@ -51,14 +51,14 @@ int main(){
 
 	//launch tsh in the startup script
 	static const char *arg[] = {
-		"/bin/tash",
+		"tash",
 		"/etc/init.d/startup.sh",
 		NULL
 	};
 
-	execvp("/bin/tash",arg);
+	execvp("tash",arg);
 
-	perror("/bin/tash");
+	perror("tash");
 	printf("make sure tash is installed then reboot the system\n");
 	return 1;
 }

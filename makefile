@@ -97,6 +97,8 @@ ${OUT}/boot/initrd.tar : ${initrd_src}
 	@mkdir -p ${OUT}/boot
 	@mkdir -p initrd/dev initrd/tmp
 	@chmod +s  initrd/bin/login initrd/bin/sudo
+#temporary until real sysroot, copy sysroot to initrd
+	@cp -r ${SYSROOT}/* initrd/
 	@cd initrd && tar --create -f ../${OUT}/boot/initrd.tar **
 
 ${OUT}/boot/limine/limine.conf : limine.conf
