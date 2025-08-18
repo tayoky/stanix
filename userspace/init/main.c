@@ -38,7 +38,7 @@ int main(){
 	printf("current unix timestamp : %ld\n",time.tv_sec);
 
 	//setup fake env
-	putenv("PATH=/;/bin");
+	putenv("PATH=/:/bin");
 	putenv("USER=root");
 
 	//env test

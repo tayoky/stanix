@@ -74,7 +74,7 @@ int main(int argc,char **argv){
 	putenv(logname);
 	putenv(home);
 	putenv(shell);
-	putenv("PATH=/bin;/usr/bin");
+	putenv("PATH=/bin:/usr/bin");
 
 	setgid(pwd->pw_gid);
 	setuid(pwd->pw_uid);
