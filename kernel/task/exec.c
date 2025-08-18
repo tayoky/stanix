@@ -219,9 +219,12 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	//and envp too
 	kfree(saved_envp);
 
-	//reset signal handling
-	memset(get_current_proc()->sig_handling,0,sizeof(get_current_proc()->sig_handling));
-
+	//reset signal handling of handled signals
+	for(size_t i=0; i< sizeof(get_current_proc()->sig_handling)/sizeof(*get_current_proc()->sig_handling); i++){
+		if(get_current_proc()->sig_handling[i].sa_handler != SIG_IGN){
+			get_current_proc()->sig_handling[i].sa_handler = SIG_DFL;
+		}
+	}
 
 	//reset the kernel stack entry just in case the context swicht didn't
 	set_kernel_stack(get_current_proc()->kernel_stack);
