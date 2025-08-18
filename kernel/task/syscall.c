@@ -645,7 +645,6 @@ int sys_unlink(const char *pathname){
 	//unlink don't work on dir while vfs_unlink work on dir
 	vfs_node *node = vfs_open(pathname,VFS_READONLY);
 	if(!node){
-		vfs_close(node);
 		return -ENOENT;
 	}
 	if(node->flags & VFS_DIR){
@@ -665,7 +664,6 @@ int sys_rmdir(const char *pathname){
 	//check for dir and empty
 	vfs_node *node = vfs_open(pathname,VFS_READONLY);
 	if(!node){
-		vfs_close(node);
 		return -ENOENT;
 	}
 	if(!(node->flags & VFS_DIR)){
