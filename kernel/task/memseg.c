@@ -64,6 +64,7 @@ memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot,in
 	if(!new_memseg) return NULL;
 	
 	address = new_memseg->addr;
+	size    = new_memseg->size;
 
 	kdebugf("map %p size : %lx\n",address,size);
 	
