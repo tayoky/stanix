@@ -3,7 +3,6 @@
 #include <kernel/print.h>
 #include <kernel/kheap.h>
 #include <kernel/paging.h>
-#include <kernel/cleaner.h>
 #include <kernel/string.h>
 #include <kernel/list.h>
 #include <kernel/arch.h>
