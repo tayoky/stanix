@@ -1,6 +1,7 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+#include <kernel/arch.h>
 #include <kernel/paging.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
@@ -9,7 +10,6 @@
 #include <sys/signal.h>
 #include <stdint.h>
 #include <fcntl.h>
-#include <arch.h>
 
 struct fault_frame;
 struct process_struct;
