@@ -53,6 +53,12 @@ typedef struct acontext {
 //arch specific functions
 void set_kernel_stack(uintptr_t stack);
 void context_switch(acontext *old,acontext *new);
+uintptr_t get_ptr_context(fault_frame *fault);
+
+/// @brief check if a specfied context is in userspace
+/// @param frame the context to check
+/// @return 1 of if userspace 0 if kernel space
+int is_userspace(fault_frame *frame);
 
 void init_timer(void);
 void enable_sse(void);

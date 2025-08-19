@@ -12,17 +12,39 @@
 #define STOP 3
 #define CONT 4
 
-static const char default_handling[32] = {
-	[SIGHUP]  = KILL,
-	[SIGINT]  = KILL,
-	[SIGQUIT] = KILL,
-	[SIGILL]  = CORE,
-	[SIGTRAP] = IGN,
-	[SIGFPE]  = CORE,
-	[SIGKILL] = KILL,
-	[SIGTERM] = KILL,
-	[SIGSTOP] = STOP,
-	[SIGCONT] = CONT,
+static const char default_handling[] = {
+	[SIGHUP]    = KILL,
+	[SIGINT]    = KILL,
+	[SIGQUIT]   = CORE,
+	[SIGILL]    = CORE,
+	[SIGTRAP]   = CORE,
+	[SIGABRT]   = CORE,
+	[SIGCAT]    = IGN,
+	[SIGFPE]    = CORE,
+	[SIGKILL]   = KILL,
+	[SIGBUS]    = CORE,
+	[SIGSEGV]   = CORE, 
+	[SIGSYS]    = CORE,
+	[SIGPIPE]   = KILL,
+	[SIGALRM]   = KILL,
+	[SIGTERM]   = KILL,
+	[SIGURG]    = IGN,
+	[SIGSTOP]   = STOP,
+	[SIGTSTP]   = STOP,
+	[SIGCONT]   = CONT,
+	[SIGCHLD]   = IGN,
+	[SIGTTIN]   = STOP,
+	[SIGTTOU]   = STOP,
+	[SIGPOLL]   = KILL,
+	[SIGXCPU]   = CORE,
+	[SIGXFSZ]   = CORE,
+	[SIGVTALRM] = KILL,
+	[SIGPROF]   = KILL,
+	[SIGWINCH]  = IGN,
+	[SIGINFO]   = IGN,
+	[SIGUSR1]   = IGN,
+	[SIGUSR2]   = IGN,
+	[SIGTHR]    = IGN,
 };
 
 static void handle_default(process *proc,int signum){
@@ -34,6 +56,7 @@ static void handle_default(process *proc,int signum){
 		kill_proc(proc);
 		break;
 	case IGN:
+	case CONT:
 		break;
 	case STOP:
 		kdebugf("process should have stoped\n");
@@ -67,20 +90,8 @@ int send_sig(process *proc,int signum){
 
 	}
 
-	//from here we don't the state of the task to change during this procedure
-	kernel->can_task_switch = 0;
+	//TODO locks here ?
 
-	//if the task is in usermode we can do our job right now
-	if(is_userspace(proc)){
-		if(proc->sig_handling[signum].sa_handler == SIG_DFL){
-			handle_default(proc,signum);
-			kernel->can_task_switch = 1;
-			return 0;
-		} else {
-			//TODO : remotly start the signal handler
-		}
-	}
-	
 	//if it's not we have to wait until it return to usermode
 	proc->pending_sig |= sigmask(signum);
 
@@ -90,8 +101,6 @@ int send_sig(process *proc,int signum){
 		proc->flags |= PROC_FLAG_INTR;
 		unblock_proc(proc);
 	}
-
-	kernel->can_task_switch = 1;
 
 	return 0;
 }

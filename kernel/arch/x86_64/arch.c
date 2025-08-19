@@ -24,3 +24,11 @@ void init_timer(){
 	init_cmos();
 	init_pit();
 }
+
+int is_userspace(fault_frame *frame){
+	return frame->cs == 0x1b;
+}
+
+uintptr_t get_ptr_context(fault_frame *fault){
+	return fault->cr2;
+}

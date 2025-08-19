@@ -6,6 +6,7 @@
 #include <kernel/serial.h>
 #include <kernel/time.h>
 #include <kernel/arch.h>
+#include <kernel/interrupt.h>
 
 #define PIT_CHANNEL0 0x40
 #define PIT_CHANNEL1 0x41
@@ -21,19 +22,10 @@ void pit_handler(fault_frame *frame){
 		time.tv_sec++;
 	}
 
-	//update the kernel flags
-	//just in case it didn't already
-	if(frame->cs == 0x08){
-		get_current_proc()->flags |= PROC_FLAG_KERNEL;
-	} else {
-		get_current_proc()->flags &= ~PROC_FLAG_KERNEL;
-	}
-
 	irq_eoi(frame->err_code);
 	frame->err_code = (uintptr_t)-1;
 
-	//yeld to next task
-	yeld();
+	timer_handler(frame);
 }
 
 void init_pit(void){

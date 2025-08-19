@@ -2,9 +2,10 @@
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/signal.h>
+#include <kernel/interrupt.h>
 #include <stdint.h>
 #include "idt.h"
-#include "interrupt.h"
+#include "isr.h"
 #include "panic.h"
 #include "sys.h"
 
@@ -62,17 +63,13 @@ void exception_handler(fault_frame *fault){
 	if(fault->err_type == 0x80){
 		return syscall_handler(fault);
 	}
-	if(fault->cs == 0x1B){
-		if(fault->err_type == 14){
-			if(fault->cr2 == MAGIC_SIGRETURN){
-				restore_signal_handler(fault);
-			}
+	if(is_userspace(fault)){
+		if(fault->err_type == 14 && fault->cr2 != MAGIC_SIGRETURN){
 			kprintf("%p : segmentation fault (core dumped)\n",fault->rip);
 			page_fault_info(fault);
-			kill_proc(get_current_proc());
 		}
-		kprintf("%p : fault %lu (core dumped)\n",fault->rip,fault->err_type);
-		kill_proc(get_current_proc());
+		fault_handler(fault);
+		return;
 	}
 	kprintf("error : 0x%lx\n",fault->err_type);
 	if(fault->err_type < (sizeof(error_msg) / sizeof(char *))){

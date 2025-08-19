@@ -1,5 +1,5 @@
-#ifndef INTERRUPT_H
-#define INTERRUPT_H
+#ifndef ISR_H
+#define ISR_H
 
 void divide_exception();
 void overflow_exception();
