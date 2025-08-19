@@ -273,19 +273,16 @@ int tty_input(tty *tty,char c){
 			if(tty->fg_pgrp){
 				send_sig_pgrp(tty->fg_pgrp,SIGINT);
 			}
-			return 0;
 		}
 		if(c == tty->termios.c_cc[VQUIT]){
 			if(tty->fg_pgrp){
 				send_sig_pgrp(tty->fg_pgrp,SIGQUIT);
 			}
-			return 0;
 		}
 		if(c == tty->termios.c_cc[VSUSP]){
 			if(tty->fg_pgrp){
 				send_sig_pgrp(tty->fg_pgrp,SIGTSTP);
 			}
-			return 0;
 		}
 	}
 
