@@ -74,6 +74,7 @@ typedef struct process_struct {
 #define PROC_FLAG_WAIT    0x040UL
 #define PROC_FLAG_INTR    0x080UL
 #define PROC_FLAG_BLOCKED 0x100UL
+#define PROC_FLAG_STOPPED 0x200UL
 
 void init_task(void);
 process *get_current_proc(void);

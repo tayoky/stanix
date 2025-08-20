@@ -2,9 +2,10 @@
 #include <kernel/signal.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
-#include <signal.h>
-#include <ucontext.h>
 #include <kernel/string.h>
+#include <ucontext.h>
+#include <signal.h>
+#include <errno.h>
 
 #define IGN  0
 #define KILL 1
@@ -59,7 +60,30 @@ static void handle_default(process *proc,int signum){
 	case CONT:
 		break;
 	case STOP:
-		kdebugf("process should have stoped\n");
+		kdebugf("process stopped\n");
+		int ret = 0;
+		//block until recive a continue signals or kill
+		get_current_proc()->flags |= PROC_FLAG_STOPPED;
+		while(ret = block_proc()){
+			if(ret != EINTR){
+				//uh
+				kdebugf("signal bug\n");
+				get_current_proc()->flags &= ~PROC_FLAG_STOPPED;
+				return;
+			}
+			for(int i=0; i<NSIG; i++){
+				if((sigmask(i) & get_current_proc()->pending_sig) && !(sigmask(i) & get_current_proc()->sig_mask) 
+				&& get_current_proc()->sig_handling[i].sa_flags == SIG_DFL && default_handling[i] != IGN){
+					if(default_handling[i] == STOP){
+						//ignore other stop
+						get_current_proc()->pending_sig &= ~sigmask(i);
+						break;
+					}
+					get_current_proc()->flags &= ~PROC_FLAG_STOPPED;
+					return;
+				}
+			}
+		}
 		break;
 	}
 }
