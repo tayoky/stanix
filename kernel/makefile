@@ -42,7 +42,7 @@ sym.o : ${OBJ}
 	${CC} ${CFLAGS} -o sym.o -c sym.c 
 	@rm sym.c
 clean :
-	rm -f ${OBJ} ${out}
+	rm  ${OBJ} ${out}
 header :
 	mkdir -p ${SYSROOT}/usr/include/kernel
 	cp ${src_h} \
