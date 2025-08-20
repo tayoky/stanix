@@ -2,11 +2,14 @@
 
 # stanix
 stanix is a 64bit made from sratch operating system for the x86\_64 architecture (aarch64 is wrok in progress)
-with its own kernel libc shell and userspace
+with its own kernel libc shell and userspace capable of running programs such as tcc or doom
 more info on [the webiste](https://tayoky.github.io/stanix)
 
 ## screenshots
 ![a stanix screenshot with ls runnning](https://tayoky.github.io/stanix/assets/screenshot1.png)
+
+### doom !
+![doom running under stanix](https://tayoky.github.io/stanix/assets/doom.png)
 
 ## building
 see the [build docs](BUILD.md)
