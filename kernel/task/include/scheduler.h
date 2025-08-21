@@ -35,7 +35,7 @@ typedef struct process_struct {
 	uintptr_t kernel_stack;
 	struct fault_frame *syscall_frame;
 	pid_t pid;
-	struct process_struct *snext; //next field used in sleep
+	struct process_struct *snext; //next field used in sleep/mutex
 	struct process_struct *next;
 	struct process_struct *prev;
 	struct process_struct *parent;
