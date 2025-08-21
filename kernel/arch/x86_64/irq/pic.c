@@ -2,7 +2,7 @@
 #include "port.h"
 #include "irq.h"
 #include <kernel/kernel.h>
-#include "interrupt.h"
+#include "isr.h"
 
 #define ICW1_ICW4	0x01		/* Indicates that ICW4 will be present */
 #define ICW1_SINGLE	0x02		/* Single (cascade) mode */
