@@ -38,6 +38,7 @@ typedef struct vfs_node_struct {
 	struct vfs_node_struct *(* lookup)(struct vfs_node_struct *,const char *name);
 	int (* create)(struct vfs_node_struct*,const char *name,mode_t perm,long);
 	int (* unlink)(struct vfs_node_struct*,const char *);
+	int (* link)(struct vfs_node_struct*,const char*,struct vfs_node_struct*,const char*);
 	struct dirent *(* readdir)(struct vfs_node_struct*,uint64_t index);
 	int (* truncate)(struct vfs_node_struct*,size_t);
 	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
@@ -108,6 +109,9 @@ void vfs_close(vfs_node *node);
 /// @param path the path to unlink
 /// @return 0 on success else error code
 int vfs_unlink(const char *path);
+
+
+int vfs_link(const char *src,const char *dest);
 
 /// @brief read an entry in a directory at a specifed index
 /// @param node context of the dir

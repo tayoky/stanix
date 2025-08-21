@@ -2,41 +2,46 @@
 #include <kernel/kheap.h>
 #include <kernel/string.h>
 #include <kernel/print.h>
-#include <kernel/asm.h>
 #include <kernel/time.h>
+#include <kernel/list.h>
 #include <errno.h>
 
-static tmpfs_inode *new_inode(const char *name,uint64_t flags){
+static tmpfs_inode *new_inode(uint64_t flags){
 	tmpfs_inode *inode = kmalloc(sizeof(tmpfs_inode));
 	memset(inode,0,sizeof(tmpfs_inode));
-	inode->child = NULL;
-	inode->brother = NULL;
-	inode->children_count = 0;
 	inode->buffer_size = 0;
 	inode->buffer = kmalloc(0);
 	inode->flags = flags;
 	inode->parent = NULL;
+	inode->entries = new_list();
 
 	//set times
 	inode->atime = NOW();
 	inode->ctime = NOW();
 	inode->mtime = NOW();
-
-	strcpy(inode->name,name);
+	kdebugf("create inode %lx\n",inode);
 	return inode;
 }
 
-static vfs_node*inode2node(tmpfs_inode *inode){
+static void free_inode(tmpfs_inode *inode){
+	kfree(inode->buffer);
+	free_list(inode->entries);
+	kfree(inode);
+}
+
+static vfs_node *inode2node(tmpfs_inode *inode){
+	kdebugf("%lx\n",inode);
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
 	node->private_inode = (void *)inode;
 	node->flags = 0;
 
 	if(inode->flags & TMPFS_FLAGS_DIR){
-		node->lookup    = tmpfs_lookup;
+		node->lookup     = tmpfs_lookup;
 		node->readdir    = tmpfs_readdir;
 		node->create     = tmpfs_create;
 		node->unlink     = tmpfs_unlink;
+		node->link       = tmpfs_link;
 		node->flags |= VFS_DIR;
 	}
 
@@ -47,9 +52,10 @@ static vfs_node*inode2node(tmpfs_inode *inode){
 		node->flags |= VFS_FILE;
 	}
 
-	node->close = tmpfs_close;
+	node->close    = tmpfs_close;
 	node->getattr  = tmpfs_getattr;
 	node->setattr  = tmpfs_setattr;
+	inode->open_count++;
 	return node;
 }
 
@@ -72,13 +78,13 @@ void init_tmpfs(){
 	kok();
 }
 vfs_node *new_tmpfs(){
-	return inode2node(new_inode("root",TMPFS_FLAGS_DIR));
+	return inode2node(new_inode(TMPFS_FLAGS_DIR));
 }
 
 
 vfs_node *tmpfs_lookup(vfs_node *node,const char *name){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-
+	kdebugf("lookup %s\n",name);
 	if(!strcmp(name,".")){
 		return inode2node(inode);
 	}
@@ -88,18 +94,20 @@ vfs_node *tmpfs_lookup(vfs_node *node,const char *name){
 		return inode2node(inode->parent);
 		return inode2node(inode);
 	}
-	
-	tmpfs_inode *current_inode = inode->child;
-	for (uint64_t i = 0; i < inode->children_count + 1; i++){
-		if(current_inode == NULL)return NULL;
-		if(!strcmp(current_inode->name,name)){
-			break;
+
+	foreach(node,inode->entries){
+		tmpfs_dirent *entry = node->value;
+		kdebugf("cur : %s : %lx\n",entry->name,entry->inode);
+		if(!strcmp(name,entry->name)){
+			kdebugf("lookup finish\n");
+			kdebugf("lookup on inode %lx\n",entry->inode);
+			vfs_node *node = inode2node(entry->inode);
+			kdebugf("lookup on inode %lx\n",entry->inode);
+			return node;
 		}
-		current_inode = current_inode->brother;
 	}
 
-	if(current_inode == NULL)return NULL;
-	return inode2node(current_inode);
+	return NULL;
 }
 ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
@@ -119,6 +127,7 @@ ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 
 	return count;
 }
+
 ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
@@ -157,33 +166,31 @@ int tmpfs_truncate(vfs_node *node,size_t size){
 
 int tmpfs_unlink(vfs_node *node,const char *name){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-	tmpfs_inode *current_inode = inode->child;
-	tmpfs_inode *prev_inode = NULL;
-
-	for (uint64_t i = 0; i < inode->children_count; i++){
-		if(current_inode == NULL)return -ENOENT;
-		if(!strcmp(current_inode->name,name)){
+	
+	tmpfs_dirent *entry = NULL;
+	foreach(node,inode->entries){
+		tmpfs_dirent *cur_entry = node->value;
+		if(!strcmp(cur_entry->name,name)){
+			entry = cur_entry;
 			break;
 		}
-		prev_inode = current_inode;
-		current_inode = current_inode->brother;
 	}
-	if(current_inode == NULL)return -ENOENT;
 
-	if(prev_inode){
-		prev_inode->brother = current_inode->brother;
-	} else {
-		inode->child = current_inode->brother;
+	if(!entry)return ENOENT;
+
+	list_remove(inode->entries,entry);
+	if((--entry->inode->link_count) == 0 && entry->inode->open_count == 0){
+		//nobody uses it we can free
+		free_inode(entry->inode);
 	}
-	
-	kfree(current_inode->buffer);
-	kfree(current_inode);
+	kfree(entry);
 
-	inode->children_count--;
-	
 	return 0;
 }
 
+int tmpfs_link(vfs_node *,const char*,vfs_node*,const char*){
+	return 0;
+}
 
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
@@ -204,29 +211,26 @@ struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
 	}
 
 	index -=2;
-	if(index >= inode->children_count){
-		//out of bound LOL
-		return NULL;
-	}
-	tmpfs_inode *current_inode = inode->child;
-	for (uint64_t i = 0; i < index; i++){
-		if(!current_inode){
-			//weird error should nerver happen
-			return NULL;
+	foreach(node,inode->entries){
+		if(!index){
+			tmpfs_dirent *entry = node->value;
+			struct dirent *ret = kmalloc(sizeof(struct dirent));
+			strcpy(ret->d_name,entry->name);
+			return ret;
 		}
-		current_inode = current_inode->brother;
+		index--;
 	}
-
-	struct dirent *ret = kmalloc(sizeof(struct dirent));
-	strcpy(ret->d_name,current_inode->name);
-
-	return ret;
+	return NULL;
 }
 
 void tmpfs_close(vfs_node *node){
-	(void)node;
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	inode->open_count--;
+	if(inode->open_count == 0 && inode->link_count == 0){
+		//nobody use it
+		free_inode(inode);
+	}
 }
-
 
 int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
@@ -241,13 +245,19 @@ int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
 	}
 
 	//create new inode
-	tmpfs_inode *child_inode = new_inode(name,inode_flag);
+	tmpfs_inode *child_inode = new_inode(inode_flag);
+	child_inode->link_count = 1;
 	child_inode->parent = inode;
-	inode->children_count++;
-	child_inode->brother = inode->child;
-	inode->child = child_inode;
-
 	child_inode->perm = perm;
+
+	//create new entry
+	tmpfs_dirent *entry = kmalloc(sizeof(sizeof(tmpfs_dirent)));
+	memset(entry,0,sizeof(tmpfs_dirent));
+	strcpy(entry->name,name);
+	entry->inode = child_inode;
+	list_append(inode->entries,entry);
+	kdebugf("create entry(%lx) with inode %lx\n",entry,child_inode);
+
 	return 0;
 }
 
@@ -261,6 +271,7 @@ int tmpfs_setattr(vfs_node *node,struct stat *st){
 	inode->ctime        = st->st_ctime;
 	return 0;
 }
+
 int tmpfs_getattr(vfs_node *node,struct stat *st){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	st->st_size        = inode->buffer_size;
@@ -270,6 +281,7 @@ int tmpfs_getattr(vfs_node *node,struct stat *st){
 	st->st_atime       = inode->atime;
 	st->st_mtime       = inode->mtime;
 	st->st_ctime       = inode->ctime;
+	st->st_nlink       = inode->link_count;
 	
 	//simulate fake blocks of 512 bytes
 	//because blocks don't exist on tmpfs

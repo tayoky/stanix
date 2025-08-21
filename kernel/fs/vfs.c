@@ -249,6 +249,21 @@ void vfs_close(vfs_node *node){
 	}
 }
 
+//basename without modyfing anything
+static const char *vfs_basename(const char *path){
+	const char *base = path + strlen(path) - 1;
+	//path of directory might finish with '/' like /tmp/dir/
+	if(*base == '/')base--;
+	while(*base != '/'){
+		base--;
+		if(base < path){
+			break;
+		}
+	}
+	base++;
+	return base;
+}
+
 int vfs_create(const char *path,int perm,uint64_t flags){
 	//first check if aready exist
 	vfs_node *node = vfs_open(path,VFS_READONLY);
@@ -263,16 +278,7 @@ int vfs_create(const char *path,int perm,uint64_t flags){
 		return -ENOENT;
 	}
 
-	const char *child = path + strlen(path) - 1;
-	//path of directory might finish with '/' like /tmp/dir/
-	if(*child == '/')child--;
-	while(*child != '/'){
-		child--;
-		if(child < path){
-			break;
-		}
-	}
-	child++;
+	const char *child = vfs_basename(path);
 	
 	//call create on the parent
 	int ret;
@@ -292,29 +298,13 @@ int vfs_mkdir(const char *path,int perm){
 }
 
 int vfs_unlink(const char *path){
-	//first check if exist
-	vfs_node *node = vfs_open(path,VFS_READONLY);
-	if(!node){
-		return -ENOENT;
-	}
-	vfs_close(node);
-
 	//open parent
 	vfs_node *parent = vfs_open(path,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
 
-	const char *child = path + strlen(path) - 1;
-	//path of directory might finish with '/' like /tmp/dir/
-	if(*child == '/')child--;
-	while(*child != '/'){
-		child--;
-		if(child < path){
-			break;
-		}
-	}
-	child++;
+	const char *child = vfs_basename(path);
 
 	//call unlink on the parent
 	int ret;
@@ -326,6 +316,42 @@ int vfs_unlink(const char *path){
 	
 	//cleanup
 	vfs_close(parent);
+	return ret;
+}
+
+
+int vfs_link(const char *src,const char *dest){
+	//first check if exist
+	vfs_node *node = vfs_open(src,VFS_READONLY);
+	if(!node){
+		return -ENOENT;
+	}
+	vfs_close(node);
+
+	//open parent
+	vfs_node *parent_src = vfs_open(src,VFS_WRITEONLY | VFS_PARENT);
+	if(!parent_src){
+		return -ENOENT;
+	}
+	vfs_node *parent_dest = vfs_open(dest,VFS_WRITEONLY | VFS_PARENT);
+	if(!parent_dest){
+		return -ENOENT;
+	}
+
+	const char *child_src  = vfs_basename(src);
+	const char *child_dest = vfs_basename(dest);
+
+	//call link on the parents
+	int ret;
+	if(parent_src->link){
+		ret = parent_src->link(parent_src,child_src,parent_dest,child_dest);
+	} else {
+		ret = -ENOTDIR;
+	}
+	
+	//cleanup
+	vfs_close(parent_src);
+	vfs_close(parent_dest);
 	return ret;
 }
 
