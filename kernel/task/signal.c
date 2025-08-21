@@ -64,7 +64,7 @@ static void handle_default(process *proc,int signum){
 		int ret = 0;
 		//block until recive a continue signals or kill
 		get_current_proc()->flags |= PROC_FLAG_STOPPED;
-		while(ret = block_proc()){
+		while((ret = block_proc())){
 			if(ret != EINTR){
 				//uh
 				kdebugf("signal bug\n");
@@ -73,7 +73,7 @@ static void handle_default(process *proc,int signum){
 			}
 			for(int i=0; i<NSIG; i++){
 				if((sigmask(i) & get_current_proc()->pending_sig) && !(sigmask(i) & get_current_proc()->sig_mask) 
-				&& get_current_proc()->sig_handling[i].sa_flags == SIG_DFL && default_handling[i] != IGN){
+				&& get_current_proc()->sig_handling[i].sa_handler == SIG_DFL && default_handling[i] != IGN){
 					if(default_handling[i] == STOP){
 						//ignore other stop
 						get_current_proc()->pending_sig &= ~sigmask(i);
