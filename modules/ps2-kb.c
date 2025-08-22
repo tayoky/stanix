@@ -9,6 +9,11 @@
 #include <input.h>
 #include <errno.h>
 
+struct keyboard {
+	ring_buffer queue;
+	process *controller;
+};
+
 #define PS2_SET_SCANCODE_SET 0xF0
 
 const char kbd_us[128] = {
@@ -50,8 +55,7 @@ const char kbd_us[128] = {
 	0, /* everything else */
 };
 
-static ring_buffer keyboard_queue;
-process *controller;
+static struct keyboard keyboard;
 
 static void keyboard_handler(fault_frame *frame){
 	(void)frame;
@@ -88,26 +92,31 @@ static void keyboard_handler(fault_frame *frame){
 	}
 	event.ie_key.scancode = extended ? scancode + 0x80 : scancode;
 	extended = 0;
-	ringbuffer_write(&event,&keyboard_queue,sizeof(struct input_event));
+	ringbuffer_write(&event,&keyboard.queue,sizeof(struct input_event));
 }
 
 static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
-	if(!controller)controller = get_current_proc();
+	struct keyboard *kb = node->private_inode;
+	if(!kb->controller)kb->controller = get_current_proc();
+
 	//must be the controller process
 	//return EOF so process don't stop because of an error
-	if(get_current_proc() != controller) return 0;
-	return ringbuffer_read(buffer,node->private_inode,count);
+	if(get_current_proc() != kb->controller) return 0;
+	return ringbuffer_read(buffer,&kb->queue,count);
 }
 
-static int kbd_ioctl(vfs_node *,uint64_t req,void *arg){
+static int kbd_ioctl(vfs_node *node,uint64_t req,void *arg){
 	(void)arg;
+	struct keyboard *kb = node->private_inode;
 	switch(req){
 	case I_INPUT_GET_CONTROL:
-		controller = get_current_proc();
+		kdebugf("process %d take control\n",get_current_proc()->pid);
+		kb->controller = get_current_proc();
 		return 0;
 	case I_INPUT_DROP_CONTROL:
-		controller = NULL;
+		kdebugf("process %d drop control\n",get_current_proc()->pid);
+		kb->controller = NULL;
 		return 0;
 	default:
 		return -EINVAL;
@@ -115,9 +124,10 @@ static int kbd_ioctl(vfs_node *,uint64_t req,void *arg){
 }
 
 static int kbd_wait_check(vfs_node *node,short type){
-	if(!controller)controller = get_current_proc();
+	struct keyboard *kb = node->private_inode;
+	if(!kb->controller)kb->controller = get_current_proc();
 	int events = 0;
-	if((type & POLLIN) && ringbuffer_read_available(node->private_inode) && get_current_proc() == controller){
+	if((type & POLLIN) && ringbuffer_read_available(node->private_inode) && get_current_proc() == kb->controller){
 		events |= POLLIN;
 	}
 	return events;
@@ -162,8 +172,8 @@ static int init_ps2kb(int argc,char **argv){
 	ps2_read();
 	ps2_read();
 
-	keyboard_queue = new_ringbuffer(sizeof(struct input_event) * 25);
-	controller = NULL;
+	keyboard.queue = new_ringbuffer(sizeof(struct input_event) * 25);
+	keyboard.controller = NULL;
 
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
@@ -171,7 +181,7 @@ static int init_ps2kb(int argc,char **argv){
 	node->ioctl         = kbd_ioctl;
 	node->wait_check    = kbd_wait_check;
 	node->flags         = VFS_DEV | VFS_CHAR;
-	node->private_inode = &keyboard_queue;
+	node->private_inode = &keyboard;
 
 	//if was maunch wwith --no-translation we don't try using translation
 	if(have_opt(argc,argv,"--no-translation")){
