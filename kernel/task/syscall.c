@@ -1176,6 +1176,25 @@ int sys_ftruncate(int fd, off_t length){
 	return vfs_truncate(FD_GET(fd).node,(size_t)length);
 }
 
+int sys_link(const char *oldpath, const char *newpath){
+	if(!CHECK_STR(oldpath) || !CHECK_STR(newpath)){
+		return -EFAULT;
+	}
+
+	return vfs_link(oldpath,newpath);
+}
+
+int sys_rename(const char *oldpath, const char *newpath){
+	if(!CHECK_STR(oldpath) || !CHECK_STR(newpath)){
+		return -EFAULT;
+	}
+	//only supprot rename inside same fs sadly
+	//TODO/FIXME : need to check if inside same fs
+	int ret = vfs_link(oldpath,newpath);
+	if(ret < 0)return ret;
+	return vfs_unlink(oldpath);
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1245,6 +1264,8 @@ void *syscall_table[] = {
 	(void *)sys_stub,   //sys_utimes
 	(void *)sys_truncate,
 	(void *)sys_ftruncate,
+	(void *)sys_link,
+	(void *)sys_rename,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

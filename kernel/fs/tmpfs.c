@@ -102,6 +102,7 @@ vfs_node *tmpfs_lookup(vfs_node *node,const char *name){
 
 	return NULL;
 }
+
 ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
@@ -158,6 +159,7 @@ int tmpfs_truncate(vfs_node *node,size_t size){
 }
 
 int tmpfs_unlink(vfs_node *node,const char *name){
+	kdebugf("unlink %s\n",name);
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	
 	tmpfs_dirent *entry = NULL;
@@ -181,7 +183,25 @@ int tmpfs_unlink(vfs_node *node,const char *name){
 	return 0;
 }
 
-int tmpfs_link(vfs_node *,const char*,vfs_node*,const char*){
+int tmpfs_link(vfs_node *parent_src,const char *src,vfs_node *parent_dest,const char *dest){
+	kdebugf("link %s %s\n",src,dest);
+	tmpfs_inode *parent_src_inode  = (tmpfs_inode *)parent_src->private_inode;
+	tmpfs_inode *parent_dest_inode = (tmpfs_inode *)parent_dest->private_inode;
+	tmpfs_inode *src_inode = NULL;
+	foreach(node,parent_src_inode->entries){
+		tmpfs_dirent *entry = node->value;
+		if(!strcmp(entry->name,src)){
+			src_inode = entry->inode;
+			break;
+		}
+	}
+
+	//create new entry
+	src_inode->link_count++;
+	tmpfs_dirent *entry = kmalloc(sizeof(tmpfs_dirent));
+	strcpy(entry->name,dest);
+	entry->inode = src_inode;
+	list_append(parent_dest_inode->entries,entry);
 	return 0;
 }
 
