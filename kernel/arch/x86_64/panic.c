@@ -77,8 +77,13 @@ void panic(const char *error,fault_frame *fault){
 	}
 	kprintf("====================== STACK TRACE =====================\n");//NOT ALIGNED!!!!!
 	kprintf("most recent call\n");
-	kprintf("<0x%lx> %s\n",fault->rip,get_func_name(fault->rip));
-	uint64_t *rbp = (uint64_t *)fault->rbp;
+	if(fault)kprintf("<0x%lx> %s\n",fault->rip,get_func_name(fault->rip));
+	uint64_t *rbp;
+	if(fault){
+		rbp = (uint64_t *)fault->rbp;
+	} else {
+		asm("movq %%rbp, %0" : "=r" (rbp));
+	}
 	while (rbp && *rbp && *(rbp+1)){
 		kprintf("<0x%lx> %s\n",*(rbp+1),get_func_name(*(rbp+1)));
 		rbp = (uint64_t *)(*rbp);
