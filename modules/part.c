@@ -1,6 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/string.h>
 #include <kernel/print.h>
+#include <kernel/kheap.h>
 #include <kernel/vfs.h>
 #include <stdint.h>
 #include <errno.h>
@@ -58,6 +59,46 @@ typedef struct part {
 	off_t offset;
 } part;
 
+static ssize_t part_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
+	part *partition = node->private_inode;
+	if(offset > partition->size){
+		return 0;
+	}
+	if(offset + count > partition->size){
+		count = partition->size - offset;
+	}
+	return partition->dev->read(node,buf,offset + partition->offset,count);
+}
+
+static ssize_t part_write(vfs_node *node,void *buf,uint64_t offset,size_t count){
+	part *partition = node->private_inode;
+	if(offset > partition->size){
+		return 0;
+	}
+	if(offset + count > partition->size){
+		count = partition->size - offset;
+	}
+	return partition->dev->write(node,buf,offset + partition->offset,count);
+}
+
+static void create_part(vfs_node *dev,const char *target,off_t offset,size_t size,int *count){
+	kdebugf("find partition offset : %lx size : %ld\n",offset,size);
+	char path[strlen(target) + 16];
+	sprintf(path,"%s%d",count++);
+
+	part *p = kmalloc(sizeof(part));
+	p->dev    = vfs_dup(dev);
+	p->offset = offset;
+	p->size   = size;
+	vfs_node *node = kmalloc(sizeof(vfs_node));
+	memset(node,0,sizeof(vfs_node));
+	node->private_inode = node;
+	node->flags = VFS_DEV | VFS_BLOCK;
+	node->read  = part_read;
+	node->write = part_write;
+	vfs_mount(path,node);
+}
+
 int init_gpt(off_t offset,vfs_node *dev,const char *target){
 	gpt_header gpt;
 	vfs_read(dev,&gpt,offset,sizeof(gpt));
@@ -68,12 +109,13 @@ int init_gpt(off_t offset,vfs_node *dev,const char *target){
 	//TODO : check the checksum
 
 	off_t off = offset + 512;
+	int counter = 0;
 	for (size_t i = 0; i < gpt.part_count; i++,off += gpt.part_ent_size){
 		gpt_entry entry;
 		vfs_read(dev,&entry,off,sizeof(entry));
 		//ignore empty partitions
 		if(!entry.guid[0] && !entry.guid[1])continue;
-		kdebugf("find of type %lx-%lx partition at %lx size %ld\n",entry.type[0],entry.type[1],entry.lba_start * 512,(entry.lba_end - entry.lba_start * 512));
+		create_part(dev,target,entry.lba_start * 512,(entry.lba_end - entry.lba_start)*512,&counter);
 	}
 	
 	return 0;
@@ -99,11 +141,12 @@ int part_mount(const char *source,const char *target,unsigned long flags,const v
 		}
 	}
 
+	int counter = 0;
 	for (size_t i = 0; i < 4; i++){
 		if(!mbr.entries[i].sectors_count)continue;
-		kdebugf("find of type %x partition at %lx size %ld\n",mbr.entries[i].type,mbr.entries[i].lba_start * 512,mbr.entries[i].sectors_count * 512);
+		create_part(dev,target,mbr.entries[i].lba_start * 512,mbr.entries[i].lba_start * 512,&counter);
 	}
-	
+	vfs_close(dev);
 
 	return 0;
 }
