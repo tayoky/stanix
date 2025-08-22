@@ -111,7 +111,7 @@ static void ide_io_wait(ide_device *device){
 }
 
 static int ide_poll(ide_device *device,uint8_t mask,uint8_t value){
-	size_t timeout = 1000;
+	size_t timeout = 10000;
 	while((ide_read(device,ATA_REG_STATUS) & mask) != value){
 		if(--timeout <= 0){
 			kdebugf("timeout expired\n");
@@ -140,9 +140,8 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 
 	uint64_t lba = offset / 512;
 	uint64_t end = offset + count;
-	size_t   sectors_count = (offset + end + 511) / 512;
+	size_t   sectors_count = (end + 511) / 512 - lba;
 	if(!sectors_count)return 0;
-	kdebugf("read lba %lx sectors count : %ld\n",lba,sectors_count);
 
 	acquire_mutex(&device->channel->lock);
 
