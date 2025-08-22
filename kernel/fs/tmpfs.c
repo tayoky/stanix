@@ -14,12 +14,12 @@ static tmpfs_inode *new_inode(uint64_t flags){
 	inode->flags = flags;
 	inode->parent = NULL;
 	inode->entries = new_list();
+	inode->link_count = 1;
 
 	//set times
 	inode->atime = NOW();
 	inode->ctime = NOW();
 	inode->mtime = NOW();
-	kdebugf("create inode %lx\n",inode);
 	return inode;
 }
 
@@ -30,7 +30,6 @@ static void free_inode(tmpfs_inode *inode){
 }
 
 static vfs_node *inode2node(tmpfs_inode *inode){
-	kdebugf("%lx\n",inode);
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
 	node->private_inode = (void *)inode;
@@ -84,7 +83,6 @@ vfs_node *new_tmpfs(){
 
 vfs_node *tmpfs_lookup(vfs_node *node,const char *name){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
-	kdebugf("lookup %s\n",name);
 	if(!strcmp(name,".")){
 		return inode2node(inode);
 	}
@@ -97,13 +95,8 @@ vfs_node *tmpfs_lookup(vfs_node *node,const char *name){
 
 	foreach(node,inode->entries){
 		tmpfs_dirent *entry = node->value;
-		kdebugf("cur : %s : %lx\n",entry->name,entry->inode);
 		if(!strcmp(name,entry->name)){
-			kdebugf("lookup finish\n");
-			kdebugf("lookup on inode %lx\n",entry->inode);
-			vfs_node *node = inode2node(entry->inode);
-			kdebugf("lookup on inode %lx\n",entry->inode);
-			return node;
+			return inode2node(entry->inode);
 		}
 	}
 
@@ -251,12 +244,11 @@ int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
 	child_inode->perm = perm;
 
 	//create new entry
-	tmpfs_dirent *entry = kmalloc(sizeof(sizeof(tmpfs_dirent)));
+	tmpfs_dirent *entry = kmalloc(sizeof(tmpfs_dirent));
 	memset(entry,0,sizeof(tmpfs_dirent));
 	strcpy(entry->name,name);
 	entry->inode = child_inode;
 	list_append(inode->entries,entry);
-	kdebugf("create entry(%lx) with inode %lx\n",entry,child_inode);
 
 	return 0;
 }

@@ -122,7 +122,7 @@ void *malloc(heap_info *heap,size_t amount){
 
 	current_seg->magic = HEAP_SEG_MAGIC_ALLOCATED;
 	release_mutex(&heap->mutex);
-	return (void *)current_seg + sizeof(heap_segment);
+	return (char *)current_seg + sizeof(heap_segment);
 }
 
 void free(heap_info *heap,void *ptr){
