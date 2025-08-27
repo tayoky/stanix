@@ -67,7 +67,7 @@ static ssize_t part_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
 	if(offset + count > partition->size){
 		count = partition->size - offset;
 	}
-	return partition->dev->read(node,buf,offset + partition->offset,count);
+	return vfs_read(partition->dev,buf,offset + partition->offset,count);
 }
 
 static ssize_t part_write(vfs_node *node,void *buf,uint64_t offset,size_t count){
@@ -78,7 +78,7 @@ static ssize_t part_write(vfs_node *node,void *buf,uint64_t offset,size_t count)
 	if(offset + count > partition->size){
 		count = partition->size - offset;
 	}
-	return partition->dev->write(node,buf,offset + partition->offset,count);
+	return vfs_write(partition->dev,buf,offset + partition->offset,count);
 }
 
 static void create_part(vfs_node *dev,const char *target,off_t offset,size_t size,int *count){
@@ -92,7 +92,7 @@ static void create_part(vfs_node *dev,const char *target,off_t offset,size_t siz
 	p->size   = size;
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
-	node->private_inode = node;
+	node->private_inode = p;
 	node->flags = VFS_DEV | VFS_BLOCK;
 	node->read  = part_read;
 	node->write = part_write;
@@ -173,7 +173,7 @@ kmodule module_meta = {
 	.init = part_init,
 	.fini = part_fini,
 	.author = "tayoky",
-	.name = "test",
-	.description = "just a simple module to test",
+	.name = "part",
+	.description = "partiton system for GPT/MBR",
 	.license = "GPL 3",
 };
