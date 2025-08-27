@@ -84,7 +84,7 @@ static ssize_t part_write(vfs_node *node,void *buf,uint64_t offset,size_t count)
 static void create_part(vfs_node *dev,const char *target,off_t offset,size_t size,int *count){
 	kdebugf("find partition offset : %lx size : %ld\n",offset,size);
 	char path[strlen(target) + 16];
-	sprintf(path,"%s%d",count++);
+	sprintf(path,"%s%d",target,(*count)++);
 
 	part *p = kmalloc(sizeof(part));
 	p->dev    = vfs_dup(dev);
