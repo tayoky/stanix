@@ -80,6 +80,7 @@ int main(int argc,char **argv){
 	ret = mount(source,target,type,0,NULL);
 	if(ret < 0){
 		perror("mount");
+		return 1;
 	}
-	return ret;
+	return 0;
 }
