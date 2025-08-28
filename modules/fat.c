@@ -89,15 +89,11 @@ typedef struct fat_inode {
 	fat_entry entry;
 	uint32_t first_cluster;
 	int fat_type;
-} fat_inode;
-
-typedef struct fat16_root {
-	vfs_node *dev;
+	//used for fat16/12 root
+	int is_fat16_root;
 	uint64_t start;
 	uint16_t entries_count;
-	int fat_type;
-} fat16_root;
-
+} fat_inode;
 
 static vfs_node *fat_entry2node(fat_entry *entry,vfs_node *dev,int fat_type){
 	fat_inode *inode = kmalloc(sizeof(fat_inode));
@@ -119,27 +115,28 @@ static vfs_node *fat_entry2node(fat_entry *entry,vfs_node *dev,int fat_type){
 }
 
 
-struct dirent *fat_readdir(vfs_node *node,uint64_t index){
-	fat_inode *inode = node->private_inode;
-	return NULL;
-}
 
 vfs_node *fat_lookup(vfs_node *node,const char *name){
 	fat_inode *inode = node->private_inode;
 	return NULL;
 }
 
-struct dirent *fat16_root_readdir(vfs_node *node,uint64_t index){
-	fat16_root *inode = node->private_inode;
+struct dirent *fat_readdir(vfs_node *node,uint64_t index){
+	fat_inode *inode = node->private_inode;
 	uint64_t offset = inode->start;
 	uint32_t remaning = inode->entries_count;
 	while (index > 0){
 		if(!remaning)return NULL;
-		//skip everything with VOLUME_ID attr
+		//skip everything with VOLUME_ID attr or free
 		for(;;){
 			fat_entry entry;
 			vfs_read(inode->dev,&entry,offset,sizeof(entry));
-			if(!(entry.attribute & ATTR_VOLUME_ID))break;
+			if(entry.name[0] == 0x00){
+				//everything is free after that
+				//we hit last
+				return NULL;
+			}
+			if(!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5))break;
 			offset += sizeof(fat_entry);
 			remaning--;
 			if(!remaning)return NULL;
@@ -155,12 +152,18 @@ struct dirent *fat16_root_readdir(vfs_node *node,uint64_t index){
 	for(;;){
 		fat_entry entry;
 		vfs_read(inode->dev,&entry,offset,sizeof(entry));
-		if(!(entry.attribute & ATTR_VOLUME_ID))break;
+		if(entry.name[0] == 0x00){
+			//everything is free after that
+			//we hit last
+			return NULL;
+		}
+		if(!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5))break;
 		offset += sizeof(fat_entry);
 		remaning--;
 		if(!remaning)return NULL;
 	}
 
+	//now parse the entry
 	fat_entry entry;
 	vfs_read(inode->dev,&entry,offset,sizeof(entry));
 	
@@ -170,7 +173,10 @@ struct dirent *fat16_root_readdir(vfs_node *node,uint64_t index){
 		if(entry.name[i] == ' ')break;
 		ent->d_name[j++] = entry.name[i];
 	}
-	ent->d_name[j++] = '.';
+	//don't add . for directories without extention
+	if(!((entry.attribute & ATTR_DIRECTORY) && entry.name[8] == ' ')){
+		ent->d_name[j++] = '.';
+	}
 	for(int i=8; i<11; i++){
 		if(entry.name[i] == ' ')break;
 		ent->d_name[j++] = entry.name[i];
@@ -244,17 +250,18 @@ int fat_mount(const char *source,const char *target,unsigned long flags,const vo
 		local_root = fat_entry2node(&root_entry,dev,fat_type);
 	} else {
 		//root of fat12/16 is really stupid
-		fat16_root *root = kmalloc(sizeof(fat16_root));
+		fat_inode *root = kmalloc(sizeof(fat_inode));
 		root->dev = dev;
 		root->entries_count = bpb.root_entires_count;
 		root->fat_type = fat_type;
 		root->start = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector;
+		root->is_fat16_root = 1;
 
 		local_root = kmalloc(sizeof(vfs_node));
 		memset(local_root,0,sizeof(vfs_node));
 		local_root->private_inode = root;
 		local_root->flags = VFS_DIR;
-		local_root->readdir = fat16_root_readdir;
+		local_root->readdir = fat_readdir;
 	}
 
 	
