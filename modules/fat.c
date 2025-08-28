@@ -3,134 +3,75 @@
 #include <kernel/kheap.h>
 #include <kernel/print.h>
 #include <kernel/vfs.h>
+#include <module/fat.h>
 #include <stdint.h>
 #include <errno.h>
 
-#define FAT12 1
-#define FAT16 2
-#define FAT32 3
+static int fat_getattr(vfs_node *node,struct stat *st){
+	fat_inode *inode = node->private_inode;
+	//no meta data on root (emulated on fat 32 root)
+	if(inode->is_fat16_root)return 0;
 
-#define ATTR_READ_ONLY 0x01
-#define ATTR_HIDDEN    0x02
-#define ATTR_SYSTEM    0x04
-#define ATTR_VOLUME_ID 0x08
-#define ATTR_DIRECTORY 0x10
-#define ATTR_ARCHIVE   0x20
-
-//also for fat12
-typedef struct fat16_bpb {
-	uint8_t drive_num;
-	uint8_t reserved;
-	uint8_t boot_signature;
-	uint32_t volume_id;
-	char volume_label[11];
-	char fs_type[8];
-	uint8_t reserved1[448];
-	uint16_t signature;
-} __attribute__((packed)) fat16_bpb;
-
-typedef struct fat32_bpb {
-	uint32_t sectors_per_fat32;
-	uint16_t ext_flags;
-	uint16_t version;      //must be 0
-	uint32_t root_cluster; //first cluster of root
-	uint16_t fs_info;
-	uint16_t bk_boot_sector;
-	char reserved[12];
-	uint8_t drive_num;
-	uint8_t reserved1;
-	uint8_t boot_signature;
-	uint32_t volume_id;
-	char volume_label[11];
-	char fs_type[8];
-	char reserved2[420];
-	uint16_t signature;
-} __attribute__((packed)) fat32_bpb;
-
-typedef struct fat_bpb {
-	char jmp_boot[3];
-	char oem_name[8];
-	uint16_t byte_per_sector;
-	uint8_t sector_per_cluster;
-	uint16_t reserved_sectors; //count
-	uint8_t fat_count;
-	uint16_t root_entires_count; //only fat12/16
-	uint16_t sectors_count16;    //16 bits version of total sectors count (must be 0 for fat32)
-	uint8_t media;
-	uint16_t sectors_per_fat16;  //only fat12/16
-	uint16_t sectors_per_track;
-	uint16_t head_count;
-	uint32_t hidden_sectors;
-	uint32_t sectors_count32;    //32 bits version of total sectors count (must be not 0 if 16bits version is 0 or fat32)
-	union {
-		fat32_bpb fat32;
-		fat16_bpb fat16;
-	} extended;
-} __attribute__((packed)) fat_bpb;
-
-typedef struct fat_entry {
-	char name[11];
-	uint8_t attribute;
-	uint8_t reserved;
-	uint8_t creation_time_tenth;
-	uint16_t creation_time;
-	uint16_t creation_date;
-	uint16_t access_date;
-	uint16_t cluster_higher; //high 16 bits of first cluser MUST BE 0 on fat 12/16
-	uint16_t write_time;
-	uint16_t write_date;
-	uint16_t cluster_lower;  //low 16 bits of first cluser
-	uint32_t file_size;
-} __attribute__((packed)) fat_entry;
-
-//in memory inode
-typedef struct fat_inode {
-	vfs_node *dev;
-	fat_entry entry;
-	uint32_t first_cluster;
-	int fat_type;
-	//used for fat16/12 root
-	int is_fat16_root;
-	uint64_t start;
-	uint16_t entries_count;
-} fat_inode;
-
-static vfs_node *fat_entry2node(fat_entry *entry,vfs_node *dev,int fat_type){
-	fat_inode *inode = kmalloc(sizeof(fat_inode));
-	memset(inode,0,sizeof(fat_inode));
-	inode->dev = dev;
-	inode->fat_type = fat_type;
-	inode->entry = *entry;
-	inode->first_cluster = (entry->cluster_higher << 8) | entry->cluster_lower;
-
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
-	node->private_inode = inode;
-	if(entry->attribute & ATTR_DIRECTORY){
-		node->flags |= VFS_DIR;
-	} else {
-		node->flags |= VFS_FILE;
-	}
-	return node;
+	//TODO : parse times
+	st->st_size = inode->entry.file_size;
+	st->st_mode = 0x777;
+	return 0;
 }
 
+static size_t fat_cluster2offset(fat *fat_info,uint32_t cluster){
+	return cluster * fat_info->cluster_size + fat_info->data_start;
+}
 
-
-vfs_node *fat_lookup(vfs_node *node,const char *name){
-	fat_inode *inode = node->private_inode;
-	return NULL;
+static uint32_t fat_get_next_cluster(fat *fat_info,uint32_t cluster){
+	//check oob first
+	size_t ent_size; //one unit = half a byte
+	switch(fat_info->fat_type){
+	case FAT12:
+		ent_size = 3;
+		break;
+	case FAT16:
+		ent_size = 4;
+		break;
+	case FAT32:
+		ent_size = 8;
+		break;
+	}
+	if(cluster > fat_info->sectors_per_fat * fat_info->sector_size * 2 / ent_size)return 0;
+	off_t offset = fat_info->reserved_sectors * fat_info->sector_size + cluster * ent_size / 2;
+	uint32_t ent;
+	switch(fat_info->fat_type){
+	case FAT12:;
+		uint16_t ent16;
+		vfs_read(fat_info->dev,&ent16,offset,sizeof(ent16));
+		ent = ent16 >> (cluster % 2) * 8; //not sure might be the inverse
+		if(ent == 0xFFF)ent = 0xFFFFFFFF;
+		break;
+	case FAT16:
+		vfs_read(fat_info->dev,&ent16,offset,sizeof(ent16));
+		ent = ent16;
+		if(ent == 0xFFFF)ent = 0xFFFFFFFF;
+		break;
+	case FAT32:
+		vfs_read(fat_info->dev,&ent,offset,sizeof(ent));
+		break;
+	}
+	ent &= 0xFFFFFFFF;
+	return ent;
 }
 
 struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 	fat_inode *inode = node->private_inode;
-	uint64_t offset = inode->start;
-	uint32_t remaning = inode->entries_count;
+
+	uint64_t offset   = inode->is_fat16_root ? inode->start         : fat_cluster2offset(&inode->fat_info,inode->first_cluster);
+	uint32_t remaning = inode->is_fat16_root ? inode->entries_count : UINT32_MAX;
+	uint32_t cluster  = inode->first_cluster;
+	kdebugf("readdir on %s , first cluster is %lx\n",inode->is_fat16_root ? "root" : "not root",cluster);
 	while (index > 0){
 		if(!remaning)return NULL;
 		//skip everything with VOLUME_ID attr or free
 		for(;;){
 			fat_entry entry;
-			vfs_read(inode->dev,&entry,offset,sizeof(entry));
+			vfs_read(inode->fat_info.dev,&entry,offset,sizeof(entry));
 			if(entry.name[0] == 0x00){
 				//everything is free after that
 				//we hit last
@@ -138,11 +79,25 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 			}
 			if(!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5))break;
 			offset += sizeof(fat_entry);
+			if(!inode->is_fat16_root && !(offset % inode->fat_info.cluster_size)){
+				//end of cluster
+				//jump to next
+				cluster = fat_get_next_cluster(&inode->fat_info,cluster);
+				if(cluster == FAT_EOF)return NULL;
+				offset = fat_cluster2offset(&inode->fat_info,cluster);
+			}
 			remaning--;
 			if(!remaning)return NULL;
 		}
 		index--;
 		offset += sizeof(fat_entry);
+		if(!inode->is_fat16_root && !(offset % inode->fat_info.cluster_size)){
+			//end of cluster
+			//jump to next
+			cluster = fat_get_next_cluster(&inode->fat_info,cluster);
+			if(cluster == FAT_EOF)return NULL;
+			offset = fat_cluster2offset(&inode->fat_info,cluster);
+		}
 		remaning--;
 	}
 	if(!remaning)return NULL;
@@ -151,7 +106,7 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 	//TODO : handle long name
 	for(;;){
 		fat_entry entry;
-		vfs_read(inode->dev,&entry,offset,sizeof(entry));
+		vfs_read(inode->fat_info.dev,&entry,offset,sizeof(entry));
 		if(entry.name[0] == 0x00){
 			//everything is free after that
 			//we hit last
@@ -159,13 +114,20 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 		}
 		if(!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5))break;
 		offset += sizeof(fat_entry);
+		if(!inode->is_fat16_root && !(offset % inode->fat_info.cluster_size)){
+			//end of cluster
+			//jump to next
+			cluster = fat_get_next_cluster(&inode->fat_info,cluster);
+			if(cluster == FAT_EOF)return NULL;
+			offset = fat_cluster2offset(&inode->fat_info,cluster);
+		}
 		remaning--;
 		if(!remaning)return NULL;
 	}
 
 	//now parse the entry
 	fat_entry entry;
-	vfs_read(inode->dev,&entry,offset,sizeof(entry));
+	vfs_read(inode->fat_info.dev,&entry,offset,sizeof(entry));
 	
 	struct dirent *ent = kmalloc(sizeof(struct dirent));
 	size_t j=0;
@@ -183,6 +145,68 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 	}
 	ent->d_name[j] = '\0';
 	return ent;
+}
+
+static vfs_node *fat_entry2node(fat_entry *entry,fat *fat_info){
+	fat_inode *inode = kmalloc(sizeof(fat_inode));
+	memset(inode,0,sizeof(fat_inode));
+	inode->fat_info = *fat_info;
+	inode->entry    = *entry;
+	inode->first_cluster = (entry->cluster_higher << 16) | entry->cluster_lower;
+
+	vfs_node *node = kmalloc(sizeof(vfs_node));
+	memset(node,0,sizeof(vfs_node));
+	node->private_inode = inode;
+	node->getattr       = fat_getattr;
+	if(entry->attribute & ATTR_DIRECTORY){
+		node->flags |= VFS_DIR;
+		node->readdir = fat_readdir;
+	} else {
+		node->flags |= VFS_FILE;
+	}
+	return node;
+}
+
+static vfs_node *fat_lookup(vfs_node *node,const char *name){
+	fat_inode *inode = node->private_inode;
+	uint32_t remaning = inode->is_fat16_root ? inode->entries_count : UINT32_MAX;
+	uint64_t offset = inode->start;
+
+	while(remaning > 0){
+		fat_entry entry;
+		vfs_read(inode->fat_info.dev,&entry,offset,sizeof(entry));
+		offset += sizeof(fat_entry);
+		remaning--;
+
+		if(entry.name[0] == 0x00){
+			//everything is free after that
+			//we hit last
+			return NULL;
+		}
+		//TODO : long name support
+		if((entry.attribute & ATTR_VOLUME_ID) || (entry.name[0] == (char)0xe5))cont: continue;
+
+		size_t j = 0;
+		for(int i=0; i<8; i++){
+			if(entry.name[i] == ' ')break;
+			//broken entry check
+			if(entry.name[i] < 0x20)goto cont;
+			if(name[j++] != entry.name[i])goto cont;
+		}
+		if(name[j] == '.')j++;
+		for(int i=8; i<11; i++){
+			if(entry.name[i] == ' ')break;
+			//broken entry check
+			if(entry.name[i] < 0x20)goto cont;
+			if(name[j++] != entry.name[i])goto cont;
+		}
+		if(name[j])continue;
+
+		//we found it
+		return fat_entry2node(&entry,&inode->fat_info);
+	}
+
+	return NULL;
 }
 
 int fat_mount(const char *source,const char *target,unsigned long flags,const void *data){
@@ -238,6 +262,14 @@ int fat_mount(const char *source,const char *target,unsigned long flags,const vo
 		//TODO : fat12/16 check
 	}
 
+	fat fat_info = {
+		.dev              =  dev,
+		.fat_type         = fat_type,
+		.reserved_sectors = bpb.reserved_sectors,
+		.sector_size      = bpb.byte_per_sector,
+		.cluster_size     = bpb.byte_per_sector * bpb.sector_per_cluster,
+		.data_start       = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector,
+	};
 	vfs_node *local_root;
 	if(fat_type == FAT32){
 		//build a fake entry for root
@@ -247,14 +279,13 @@ int fat_mount(const char *source,const char *target,unsigned long flags,const vo
 		root_entry.cluster_lower  =  bpb.extended.fat32.root_cluster & 0xf;
 		root_entry.cluster_higher =  (bpb.extended.fat32.root_cluster >> 8) & 0xf;
 		//how do we get size ?
-		local_root = fat_entry2node(&root_entry,dev,fat_type);
+		local_root = fat_entry2node(&root_entry,&fat_info);
 	} else {
 		//root of fat12/16 is really stupid
 		fat_inode *root = kmalloc(sizeof(fat_inode));
-		root->dev = dev;
+		root->fat_info      = fat_info;
 		root->entries_count = bpb.root_entires_count;
-		root->fat_type = fat_type;
-		root->start = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector;
+		root->start         = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector;
 		root->is_fat16_root = 1;
 
 		local_root = kmalloc(sizeof(vfs_node));
@@ -262,6 +293,7 @@ int fat_mount(const char *source,const char *target,unsigned long flags,const vo
 		local_root->private_inode = root;
 		local_root->flags = VFS_DIR;
 		local_root->readdir = fat_readdir;
+		local_root->lookup  = fat_lookup;
 	}
 
 	
@@ -282,14 +314,14 @@ vfs_filesystem fat_fs = {
 	.name = "fat",
 };
 
-int part_init(int argc,char **argv){
+int fat_init(int argc,char **argv){
 	(void)argc;
 	(void)argv;
 	vfs_register_fs(&fat_fs);
 	return 0;
 }
 
-int part_fini(){
+int fat_fini(){
 	//TODO : make sure no partition is mounted
 	vfs_unregister_fs(&fat_fs);
 	return 0;
@@ -297,8 +329,8 @@ int part_fini(){
 
 kmodule module_meta = {
 	.magic = MODULE_MAGIC,
-	.init = part_init,
-	.fini = part_fini,
+	.init = fat_init,
+	.fini = fat_fini,
 	.author = "tayoky",
 	.name = "fat",
 	.description = "fat12/16/32 drivers",
