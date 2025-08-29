@@ -7,6 +7,9 @@
 #include <stdint.h>
 #include <errno.h>
 
+#undef min
+#define min(a,b) (a < b ? a : b)
+
 static int fat_getattr(vfs_node *node,struct stat *st){
 	fat_inode *inode = node->private_inode;
 	//no meta data on root (emulated on fat 32 root)
@@ -36,7 +39,7 @@ static uint32_t fat_get_next_cluster(fat *fat_info,uint32_t cluster){
 		ent_size = 8;
 		break;
 	}
-	if(cluster > fat_info->sectors_per_fat * fat_info->sector_size * 2 / ent_size)return 0;
+	if(cluster > fat_info->sectors_per_fat * fat_info->sector_size * 2 / ent_size)return FAT_EOF;
 	off_t offset = fat_info->reserved_sectors * fat_info->sector_size + cluster * ent_size / 2;
 	uint32_t ent;
 	switch(fat_info->fat_type){
@@ -57,6 +60,80 @@ static uint32_t fat_get_next_cluster(fat *fat_info,uint32_t cluster){
 	}
 	ent &= 0xFFFFFFFF;
 	return ent;
+}
+
+static vfs_node *fat_entry2node(fat_entry *entry,fat *fat_info){
+	fat_inode *inode = kmalloc(sizeof(fat_inode));
+	memset(inode,0,sizeof(fat_inode));
+	inode->fat_info = *fat_info;
+	inode->entry    = *entry;
+	inode->first_cluster = (entry->cluster_higher << 16) | entry->cluster_lower;
+
+	vfs_node *node = kmalloc(sizeof(vfs_node));
+	memset(node,0,sizeof(vfs_node));
+	node->private_inode = inode;
+	node->getattr       = fat_getattr;
+	if(entry->attribute & ATTR_DIRECTORY){
+		node->flags |= VFS_DIR;
+		node->readdir = fat_readdir;
+		node->lookup  = fat_lookup;
+	} else {
+		node->flags |= VFS_FILE;
+		node->read  = fat_read;
+	}
+	return node;
+}
+
+ssize_t fat_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
+	fat_inode *inode = node->private_inode;
+
+	if(offset > inode->entry.file_size){
+		return 0;
+	} else if(offset + count > inode->entry.file_size){
+		count = inode->entry.file_size - offset;
+	}
+
+	uint32_t start = offset / inode->fat_info.cluster_size;
+	uint32_t end   = (offset + count + inode->fat_info.cluster_size - 1) / inode->fat_info.cluster_size;
+	uint32_t cluster = inode->first_cluster;
+
+	//amount of data read
+	size_t data_read = 0;
+	
+	//start by going to the first cluster
+	for(size_t i=0; i<start; i++){
+		//early EOF ??? probably corrupted fat fs
+		if(cluster == FAT_EOF)return -EIO;
+		cluster = fat_get_next_cluster(&inode->fat_info,cluster);
+	}
+	for(size_t i=start; i<end; i++){
+		//early EOF ??? probably corrupted fat fs
+		if(cluster == FAT_EOF)return -EIO;
+
+		size_t off = fat_cluster2offset(&inode->fat_info,cluster);
+		size_t read_size = min(count,inode->fat_info.cluster_size);
+		if(i == start){
+			//allow unaligned read
+			off += offset % inode->fat_info.cluster_size;
+
+			if(read_size + offset % inode->fat_info.cluster_size > inode->fat_info.cluster_size){
+				read_size = inode->fat_info.cluster_size = offset % inode->fat_info.cluster_size;
+			}
+		}
+
+
+		ssize_t r = vfs_read(inode->fat_info.dev,buf,off,read_size);
+
+		if(r < 0)return r;
+		data_read += r;
+		if((size_t)r < min(count,inode->fat_info.cluster_size))return data_read;
+		buf = (char *)buf + r;
+		count -= r;
+
+		cluster = fat_get_next_cluster(&inode->fat_info,cluster);
+	}
+
+	return data_read;
 }
 
 struct dirent *fat_readdir(vfs_node *node,uint64_t index){
@@ -147,36 +224,25 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 	return ent;
 }
 
-static vfs_node *fat_entry2node(fat_entry *entry,fat *fat_info){
-	fat_inode *inode = kmalloc(sizeof(fat_inode));
-	memset(inode,0,sizeof(fat_inode));
-	inode->fat_info = *fat_info;
-	inode->entry    = *entry;
-	inode->first_cluster = (entry->cluster_higher << 16) | entry->cluster_lower;
-
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
-	node->private_inode = inode;
-	node->getattr       = fat_getattr;
-	if(entry->attribute & ATTR_DIRECTORY){
-		node->flags |= VFS_DIR;
-		node->readdir = fat_readdir;
-	} else {
-		node->flags |= VFS_FILE;
-	}
-	return node;
-}
-
 static vfs_node *fat_lookup(vfs_node *node,const char *name){
 	fat_inode *inode = node->private_inode;
+
 	uint32_t remaning = inode->is_fat16_root ? inode->entries_count : UINT32_MAX;
-	uint64_t offset = inode->start;
+	uint64_t offset   = inode->is_fat16_root ? inode->start         : fat_cluster2offset(&inode->fat_info,inode->first_cluster);
+	uint32_t cluster  = inode->first_cluster;
 
 	while(remaning > 0){
 		fat_entry entry;
 		vfs_read(inode->fat_info.dev,&entry,offset,sizeof(entry));
 		offset += sizeof(fat_entry);
-		remaning--;
+		if(!inode->is_fat16_root && !(offset % inode->fat_info.cluster_size)){
+			//end of cluster
+			//jump to next
+			cluster = fat_get_next_cluster(&inode->fat_info,cluster);
+			if(cluster == FAT_EOF)return NULL;
+			offset = fat_cluster2offset(&inode->fat_info,cluster);
+		}
+		if(inode->is_fat16_root)remaning--;
 
 		if(entry.name[0] == 0x00){
 			//everything is free after that
