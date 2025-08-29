@@ -51,7 +51,8 @@ ssize_t port_write(vfs_node *node,void *buffer,uint64_t port,size_t count){
 
 vfs_node port_dev = {
 	.read = port_read,
-	.write = port_write
+	.write = port_write,
+	.flags = VFS_DEV | VFS_BLOCK,
 };
 #endif
 ssize_t write_serial_dev(vfs_node *node,void *buffer,uint64_t offset,size_t count){
