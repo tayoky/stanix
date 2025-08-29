@@ -127,7 +127,7 @@ uint32_t ansi_colours[] = {
 	0xD00000, //red
 	0x00D000, //green
 	0xD0D000, //yellow
-	0x0000D0, //blue
+	0x0050D0, //blue  we put a bit of green otherwise it'ws not readable
 	0xD000D0, //magenta
 	0x00D0D0, //cyan
 	0xD0D0D0, //white
@@ -135,7 +135,7 @@ uint32_t ansi_colours[] = {
 	0xFF0000, //light red
 	0x00FF00, //light green
 	0xFFFF00, //light yellow
-	0x0000FF, //light blue
+	0x0050FF, //light blue we put a bit of green for same reason as dark blue
 	0xFF00FF, //light magenta
 	0x00FFFF, //light cyan
 	0xFFFFFF, //light white
