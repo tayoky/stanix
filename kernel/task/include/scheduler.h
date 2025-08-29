@@ -41,7 +41,7 @@ typedef struct process_struct {
 	struct process_struct *parent;
 	uint64_t flags;
 	file_descriptor fds[MAX_FD];
-	vfs_node *cwd_node; //TODO use this instead of making an asbolut path require vfs_openat
+	vfs_node *cwd_node;
 	char *cwd_path;
 	uintptr_t heap_start;
 	uintptr_t heap_end;

@@ -207,13 +207,13 @@ int insmod(const char *pathname,const char **args,char **name){
 			#define S symtab[ELF_R_SYM(rela[i].r_info)].st_value
 			#define Z symtab[ELF_R_SYM(rela[i].r_info)].st_size
 
-#ifndef i386
+#ifndef __i386__
 			uint32_t w32;
 			uint64_t w64;
 #endif
 
 			switch(ELF_R_TYPE(rela[i].r_info)){
-#ifdef x86_64
+#ifdef __x86_64__
 			case R_X86_64_NONE:
 				break;
 			case R_X86_64_64:

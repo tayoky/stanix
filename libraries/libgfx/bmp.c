@@ -98,7 +98,6 @@ int bmp_load(gfx_t *gfx,texture_t *texture,FILE *file){
 				texture->bitmap[(texture->height - y - 1) * texture->width + x] = gfx_color(gfx,rgba[2],rgba[1],rgba[0]);
 				row_size += info_header.bpp / CHAR_BIT;
 			} else {
-				//TODO
 				uint8_t byte;
 				fread(&byte,sizeof(byte),1,file);
 				uint8_t mask = ((uint16_t)((1 << info_header.bpp) - 1));
