@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <sys/signal.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <termios.h>
 #include <dirent.h>
 #include <limits.h>
@@ -559,7 +560,7 @@ int sys_chdir(const char *path){
 	return 0;
 }
 
-int sys_waitpid(pid_t pid,int *status){
+int sys_waitpid(pid_t pid,int *status,int options){
 	if(status && !CHECK_MEM(status,sizeof(status))){
 		return -EFAULT;
 	}
@@ -612,6 +613,10 @@ int sys_waitpid(pid_t pid,int *status){
 			kernel->can_task_switch = 1;
 			return pid;
 		}
+	}
+
+	if(options & WNOHANG){
+		return -ECHILD;
 	}
 	
 	get_current_proc()->waitfor = pid;
