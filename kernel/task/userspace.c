@@ -24,9 +24,7 @@ int check_str(char *str){
 	}
 
 	last_valid_page = PAGE_ALIGN_DOWN((uintptr_t)str);
-	if(!CHECK_PTR(str)){
-		return 0;
-	}
+	
 	while(*str){
 		str++;
 		if(PAGE_ALIGN_DOWN((uintptr_t)str) != last_valid_page){

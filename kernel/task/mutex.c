@@ -19,11 +19,10 @@ int acquire_mutex(mutex_t *mutex){
 		mutex->waiter_head = get_current_proc();
 		if(!mutex->waiter_tail)mutex->waiter_tail = mutex->waiter_head;
 		mutex->waiter_count++;
+		spinlock_release(mutex->lock);
 		while(mutex->locked){
 			//if we get intterupted just reblock
-			spinlock_release(mutex->lock);
 			block_proc(); //TODO : maybee block_proc should realse the spinlock ?
-			spinlock_acquire(mutex->lock);
 		}
 	}
 	mutex->locked = 1;
@@ -42,6 +41,8 @@ void release_mutex(mutex_t *mutex){
 		if(!mutex->waiter_tail)mutex->waiter_head = NULL;
 		mutex->waiter_count--;
 		unblock_proc(proc);
+		//the unblocked process will release the spinlock
+		return;
 	}
 	spinlock_release(mutex->lock);
 }
