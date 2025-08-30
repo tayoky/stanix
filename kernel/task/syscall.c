@@ -465,6 +465,9 @@ int sys_readdir(int fd,struct dirent *ret,long int index){
 }
 
 int sys_stat(const char *pathname,struct stat *st){
+	if(!CHECK_STR(pathname)){
+		return -EFAULT;
+	}
 	if(!CHECK_STRUCT(st)){
 		return -EFAULT;
 	}
