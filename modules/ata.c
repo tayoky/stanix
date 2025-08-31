@@ -346,6 +346,9 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	uint32_t bar3 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR3) & ~0x3;
 	uint32_t bar4 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR4) & ~0x3;
 
+	//TODO : native mode support
+	bar0 = bar1 = bar2 = bar3 = 0;
+
 	ide_controller *controller = kmalloc(sizeof(ide_controller));
 	memset(controller,0,sizeof(ide_controller));
 
