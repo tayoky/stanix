@@ -25,8 +25,11 @@
 #include <dirent.h>
 #include <limits.h>
 #include <errno.h>
-#include <poll.h>
 #include <fcntl.h>
+#include <poll.h>
+
+//we can't include stdlib
+char *realpath(const char *path,char *res);
 
 static int find_fd(){
 	int fd = 0;
@@ -533,23 +536,13 @@ int sys_chdir(const char *path){
 		return -ENOTDIR;
 	}
 
-	char *cwd = strdup(path);
 
 	//make the cwd absolute
-	if(cwd[0] != '/'){
-		char *abs = kmalloc(strlen(cwd) + strlen(get_current_proc()->cwd_path) + 2);
-		sprintf(abs,"%s/%s",get_current_proc()->cwd_path,cwd);
-		kfree(cwd);
-		cwd = abs;
-	}
+	char *cwd = realpath(path,NULL);
 
 	//cwd should never finish with /
 	if(cwd[strlen(cwd) - 1] == '/'){
-		char *new_path = kmalloc(strlen(cwd));
-		strcpy(new_path,cwd);
-		new_path[strlen(cwd) - 1] = '\0';
-		kfree(cwd);
-		cwd = new_path;
+		cwd[strlen(cwd) - 1] = '\0';
 	}
 
 	//free old cwd

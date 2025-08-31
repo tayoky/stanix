@@ -14,6 +14,8 @@ int main(int argc,char **argv){
 		perror(argv[1]);
 		return 1;
 	}
+	font_t *font = gfx_load_font("/zap-light16.psf");
+	gfx_draw_string(gfx,font,gfx_color(gfx,255,255,255),0,tex->height,argv[1]);
 	gfx_draw_texture(gfx,tex,0,0);
 	gfx_push_buffer(gfx);
 
