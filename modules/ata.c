@@ -320,10 +320,25 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 		return;
 	}
 	kdebugf("find ata disk on %d:%d:%d\n",bus,device,function);
-	if((prog_if & 0x1) || (prog_if & 0x2)){
-		kdebugf("ata disk don't support compatibility mode\n");
-		return;
+	if(prog_if & 0x1){
+		//primary channel pci native mode
+		//can we switch ?
+		if(!(prog_if & 0x02)){
+			kdebugf("ide controller don't support compatibility mode\n");
+			return;
+		}
+		prog_if &= ~0x1;
 	}
+	if(prog_if & 0x4){
+		//primary channel pci native mode
+		//can we switch ?
+		if(!(prog_if & 0x08)){
+			kdebugf("ide controller don't support compatibility mode\n");
+			return;
+		}
+		prog_if &= ~0x4;
+	}
+	pci_write_config_byte(bus,device,function,PCI_CONFIG_PROG_IF,prog_if);
 
 	uint32_t bar0 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR0) & ~0x3;
 	uint32_t bar1 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR1) & ~0x3;
@@ -344,6 +359,9 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	controller->channel[1].nIEN  = 0x2;
 	init_mutex(&controller->channel[0].lock);
 	init_mutex(&controller->channel[1].lock);
+	kdebugf("           base  crtl bmide\n");
+	kdebugf("channel 0  %-4x  %-4x  %-4x\n",controller->channel[0].base,controller->channel[0].ctrl,controller->channel[0].bmide);
+	kdebugf("channel 1  %-4x  %-4x  %-4x\n",controller->channel[1].base,controller->channel[1].ctrl,controller->channel[1].bmide);
 
 	controller->devices[0].channel = &controller->channel[0];
 	controller->devices[1].channel = &controller->channel[0];

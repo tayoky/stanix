@@ -30,6 +30,15 @@ uint32_t pci_read_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8
 	return in_long(CONFIG_DATA);
 }
 
+void pci_write_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint32_t data){
+	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+
+	//write the address with the two last bit alaways 0
+	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
+
+	out_long(CONFIG_DATA,data);
+}
+
 uint16_t pci_read_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset){
 	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
 
@@ -40,6 +49,21 @@ uint16_t pci_read_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_
 	return (uint16_t)((in_long(CONFIG_DATA) >> ((offset & 2) * 8)) & 0xFFFF);
 }
 
+
+void pci_write_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint16_t data){
+	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+
+	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
+
+	uint32_t dword = in_long(CONFIG_DATA);
+	dword &= (0xffff << ((offset & 2) * 8));
+	dword |= data << ((offset & 2) * 8);
+	
+	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
+
+	out_long(CONFIG_DATA,data);
+}
+
 uint8_t pci_read_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset){
 	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
 
@@ -48,6 +72,20 @@ uint8_t pci_read_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t
 
 	//shift to get the good word
 	return (uint8_t)((in_long(CONFIG_DATA) >> ((offset & 0b11) * 8)) & 0xFF);
+}
+
+void pci_write_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint8_t data){
+	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+
+	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
+
+	uint32_t dword = in_long(CONFIG_DATA);
+	dword &= (0xff << ((offset & 2) * 8));
+	dword |= data << ((offset & 2) * 8);
+	
+	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
+
+	out_long(CONFIG_DATA,data);
 }
 
 static void check_bus(uint8_t bus,void (*func)(uint8_t,uint8_t,uint8_t,void *),void *);
@@ -184,6 +222,9 @@ int init_pci(int argc,char **argv){
 	EXPORT(pci_read_config_dword)
 	EXPORT(pci_read_config_word)
 	EXPORT(pci_read_config_byte)
+	EXPORT(pci_write_config_dword)
+	EXPORT(pci_write_config_word)
+	EXPORT(pci_write_config_byte)
 	return 0;
 }
 
@@ -192,6 +233,9 @@ int rm_pci(){
 	UNEXPORT(pci_read_config_dword)
 	UNEXPORT(pci_read_config_word)
 	UNEXPORT(pci_read_config_byte)
+	UNEXPORT(pci_write_config_dword)
+	UNEXPORT(pci_write_config_word)
+	UNEXPORT(pci_write_config_byte)
 	return 0;
 }
 

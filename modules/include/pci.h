@@ -46,9 +46,14 @@ uint16_t pci_read_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_
 /// @param bus the bus device is on
 /// @param device the slot of the device onto the bus
 /// @param function the selected function of the device
-/// @param offset address to read (inside the configuration space) MUST BE ALIGNED
+/// @param offset address to read (inside the configuration space)
 /// @return the word read from the configuration space
 uint8_t pci_read_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset);
+
+
+void pci_write_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint32_t data);
+void pci_write_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint16_t data);
+void pci_write_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint8_t data);
 
 /// @brief call a function for each pci device
 /// @param func the function called for each pci device
