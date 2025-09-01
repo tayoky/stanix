@@ -5,6 +5,7 @@
 #include <kernel/paging.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
+#include <kernel/mutex.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/signal.h>
@@ -50,6 +51,7 @@ typedef struct process_struct {
 	pid_t waitfor;
 	long exit_status;
 	list *child;
+	mutex_t sig_lock;
 	sigset_t sig_mask;
 	sigset_t pending_sig;
 	struct sigaction sig_handling[32];

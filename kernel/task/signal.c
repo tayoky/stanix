@@ -3,6 +3,7 @@
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
+#include <stdatomic.h>
 #include <ucontext.h>
 #include <signal.h>
 #include <errno.h>
@@ -52,6 +53,7 @@ static void handle_default(process *proc,int signum){
 	switch(default_handling[signum]){
 	case CORE:
 	case KILL:
+		release_mutex(&get_current_proc()->sig_lock);
 		kdebugf("process killed by signal %d\n",signum);
 		get_current_proc()->exit_status = ((uint64_t)1 << 17) | signum;
 		kill_proc(proc);
@@ -60,6 +62,7 @@ static void handle_default(process *proc,int signum){
 	case CONT:
 		break;
 	case STOP:
+		release_mutex(&get_current_proc()->sig_lock);
 		kdebugf("process stopped\n");
 		int ret = 0;
 		//block until recive a continue signals or kill
@@ -72,6 +75,7 @@ static void handle_default(process *proc,int signum){
 				return;
 			}
 			for(int i=0; i<NSIG; i++){
+				acquire_mutex(&get_current_proc()->sig_lock);
 				if((sigmask(i) & get_current_proc()->pending_sig) && !(sigmask(i) & get_current_proc()->sig_mask) 
 				&& get_current_proc()->sig_handling[i].sa_handler == SIG_DFL && default_handling[i] != IGN){
 					if(default_handling[i] == STOP){
@@ -79,9 +83,11 @@ static void handle_default(process *proc,int signum){
 						get_current_proc()->pending_sig &= ~sigmask(i);
 						break;
 					}
+					release_mutex(&get_current_proc()->sig_lock);
 					get_current_proc()->flags &= ~PROC_FLAG_STOPPED;
 					return;
 				}
+				release_mutex(&get_current_proc()->sig_lock);
 			}
 		}
 		break;
@@ -102,34 +108,34 @@ int send_sig_pgrp(pid_t pgrp,int signum){
 
 int send_sig(process *proc,int signum){
 	kdebugf("send %d to %ld\n",signum,proc->pid);
+
+	acquire_mutex(&proc->sig_lock);
 	//if the process ignore just skip
 	if(proc->sig_handling[signum].sa_handler == SIG_IGN || (proc->sig_handling[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN)){
+		release_mutex(&proc->sig_lock);
 		return 0;
 	}
 
-	//if blocked the signal become pending
-	if(proc->sig_mask & sigmask(signum)){
-		proc->pending_sig |= sigmask(signum);
-		return 0;
-
-	}
-
-	//TODO locks here ?
-
-	//if it's not we have to wait until it return to usermode
 	proc->pending_sig |= sigmask(signum);
 
+	//if blocked don't handle
+	if(proc->sig_mask & sigmask(signum)){
+		release_mutex(&proc->sig_lock);
+		return 0;
+	}
 	
 	//if the task is blocked interrupt it
 	if(proc->flags & PROC_FLAG_BLOCKED){
-		proc->flags |= PROC_FLAG_INTR;
+		__sync_or_and_fetch(&proc->flags,PROC_FLAG_INTR);
 		unblock_proc(proc);
 	}
 
+	release_mutex(&proc->sig_lock);
 	return 0;
 }
 
 void handle_signal(fault_frame *context){
+	acquire_mutex(&get_current_proc()->sig_lock);
 	if(get_current_proc()->pending_sig & ~get_current_proc()->sig_mask){
 		for (int signum = 1; signum < NSIG; signum++){
 			if((get_current_proc()->pending_sig & sigmask(signum)) && !(get_current_proc()->sig_mask & sigmask(signum))){
@@ -161,12 +167,15 @@ void handle_signal(fault_frame *context){
 					//apply the new mask
 					get_current_proc()->sig_mask |= get_current_proc()->sig_handling[signum].sa_mask;
 
+					release_mutex(&get_current_proc()->sig_lock);
+
 					//then we can jump to the signal handler
 					jump_userspace((void *)get_current_proc()->sig_handling[signum].sa_handler,(void *)sp,signum,0,(uintptr_t)ucontext,0);
 				}
 			}
 		}		
 	}
+	release_mutex(&get_current_proc()->sig_lock);
 }
 
 void restore_signal_handler(fault_frame *context){

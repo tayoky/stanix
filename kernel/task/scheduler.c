@@ -9,6 +9,7 @@
 #include <kernel/time.h>
 #include <kernel/asm.h>
 #include <kernel/memseg.h>
+#include <stdatomic.h>
 #include <errno.h>
 
 process *running_proc;
@@ -96,8 +97,10 @@ process *new_proc(){
 	kdebugf("next : %p\n",get_current_proc()->next);
 	process *proc = kmalloc(sizeof(process));
 	memset(proc,0,sizeof(process));
-	proc->pid = ++kernel->created_proc_count;
+	proc->pid =  __sync_fetch_and_add(&kernel->created_proc_count,1);
+
 	kdebugf("new proc 0x%p next : 0x%p pid : %ld/%ld\n",proc,get_current_proc()->next,proc->pid,kernel->created_proc_count);
+	init_mutex(&proc->sig_lock);
 	proc->addrspace = create_addr_space();
 	proc->parent = get_current_proc();
 	proc->flags = PROC_FLAG_PRESENT;
