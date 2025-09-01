@@ -354,8 +354,8 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 
 	controller->channel[0].base  = bar0 ? bar0 : 0x1f0;
 	controller->channel[1].base  = bar2 ? bar2 : 0x170;
-	controller->channel[0].ctrl  = bar1 ? bar1 : 0x3f6;
-	controller->channel[1].ctrl  = bar3 ? bar3 : 0x376;
+	controller->channel[0].ctrl  = bar1 ? bar1 : 0x3f0;
+	controller->channel[1].ctrl  = bar3 ? bar3 : 0x370;
 	controller->channel[0].bmide = bar4;
 	controller->channel[1].bmide = bar4 + 8;
 	controller->channel[0].nIEN  = 0x2;
