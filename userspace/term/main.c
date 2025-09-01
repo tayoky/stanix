@@ -365,6 +365,10 @@ void draw_char(char c){
 		return;
 	}
 
+	if(x == width){
+		draw_char('\n');
+	}
+
 	//put into grid
 	grid[(y - 1) * width +  x - 1].c = (unsigned char) c;
 	grid[(y - 1) * width +  x - 1].back_color = back_color;
