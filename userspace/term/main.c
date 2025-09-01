@@ -26,6 +26,7 @@ struct cell {
 struct layout {
 	char *keys[256];
 	char *shift[256];
+	char *altgr[256];
 };
 
 
@@ -101,7 +102,10 @@ struct layout kbd_fr = {
 		[0x4B + 0x80] = "\e[D", //left arrow
 		[0x4F + 0x80] = "\e[F", //end
 		[0x56] = ">",
-	}
+	},
+	.altgr = {
+		0,0,0,"~","#","{","[","|","`","\\","^","@","]","}",0,
+	},
 };
 
 int flags;
@@ -461,7 +465,7 @@ int main(int argc,const char **argv){
 		gfx_free(fb);
 
 		//skip login with -f
-		static const char *arg[] = {
+		static char *arg[] = {
 			"/bin/login",
 			"-f",
 			NULL
@@ -493,6 +497,7 @@ int main(int argc,const char **argv){
 
 	int crtl = 0;
 	int shift = 0;
+	int altgr = 0;
 
 	for(;;){
 		struct pollfd wait[] = {
@@ -538,6 +543,15 @@ int main(int argc,const char **argv){
 				}
 				goto ignore;
 			}
+			//alt gr
+			if(event.ie_key.scancode == 0x80 + 0x38){
+				if(event.ie_key.flags & IE_KEY_RELEASE){
+					altgr = 0;
+				} else {
+					altgr = 1;
+				}
+				goto ignore;
+			}
 			if(event.ie_key.scancode == 0x2A || event.ie_key.scancode == 0x36 || (event.ie_key.scancode == 0x3A && event.ie_key.flags & IE_KEY_PRESS)){
 				shift = 1 - shift;
 				goto ignore;
@@ -550,10 +564,14 @@ int main(int argc,const char **argv){
 
 			//put into the pipe and to the screen
 			char *str;
-			if(shift){
-				str = layout->shift[event.ie_key.scancode];
+			if(altgr && layout->altgr[event.ie_key.scancode]){
+				str = layout->altgr[event.ie_key.scancode];
 			} else {
-				str = layout->keys[event.ie_key.scancode];
+				if(shift){
+					str = layout->shift[event.ie_key.scancode];
+				} else {
+					str = layout->keys[event.ie_key.scancode];
+				}
 			}
 			if(str){
 				//if crtl is pressed send special crtl + XXX char
