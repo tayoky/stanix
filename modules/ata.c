@@ -128,7 +128,7 @@ static void ide_reset(ide_device *device){
 	ide_write(device,ATA_REG_CONTROL,device->channel->nIEN);
 }
 
-static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+static ssize_t ata_access(vfs_node *node,void *buffer,uint64_t offset,size_t count,int write){
 	ide_device *device = node->private_inode;
 
 	if(offset >= device->size){
@@ -142,6 +142,24 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	uint64_t end = offset + count;
 	size_t   sectors_count = (end + 511) / 512 - lba;
 	if(!sectors_count)return 0;
+
+	//lba28 has a lower limit
+	if(lba >= 0x10000000 && !(device->command_sets & (1 << 26))){
+		//hight lba but no lba28 support... uh ?
+		return -EIO;
+	}
+	
+	uint16_t *buf = kmalloc(sectors_count * 512);
+
+	//for write we need to fill first and last sectors
+	if(write){
+		if(offset % 512){
+			ata_access(node,buf,lba * 512,512,0);
+		}
+		if(sectors_count > 1 && end % 512){
+			ata_access(node,&buf[256*(sectors_count - 1)],(lba + sectors_count - 1) * 512,512,0);
+		}
+	}
 
 	acquire_mutex(&device->channel->lock);
 
@@ -157,11 +175,12 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	ide_io_wait(device);
 	if(ide_poll(device,ATA_SR_BSY,0) < 0){
 		release_mutex(&device->channel->lock);
+		kfree(buf);
 		return -EIO;
 	}
 
 	//send lba
-	if(device->command_sets & (1 << 26)){
+	if(lba >= 0x10000000){
 		///lba 48
 		ide_write(device,ATA_REG_SECCOUNT0,(uint8_t)(sectors_count >> 8));
 		ide_write(device,ATA_REG_LBA3,(uint8_t)(lba >> 24));
@@ -171,17 +190,15 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 		ide_write(device,ATA_REG_LBA0,(uint8_t)lba);
 		ide_write(device,ATA_REG_LBA1,(uint8_t)(lba >> 8));
 		ide_write(device,ATA_REG_LBA2,(uint8_t)(lba >> 16));
-		ide_write(device,ATA_REG_COMMAND,ATA_CMD_READ_PIO_EXT);
+		ide_write(device,ATA_REG_COMMAND,write ? ATA_CMD_WRITE_PIO_EXT : ATA_CMD_READ_PIO_EXT);
 	} else {
 		//lba 28
 		ide_write(device,ATA_REG_SECCOUNT0,(uint8_t)sectors_count);
 		ide_write(device,ATA_REG_LBA0,(uint8_t)lba);
 		ide_write(device,ATA_REG_LBA1,(uint8_t)(lba >> 8));
 		ide_write(device,ATA_REG_LBA2,(uint8_t)(lba >> 16));
-		ide_write(device,ATA_REG_COMMAND,ATA_CMD_READ_PIO);
+		ide_write(device,ATA_REG_COMMAND,write ? ATA_CMD_WRITE_PIO : ATA_CMD_READ_PIO);
 	}
-
-	uint16_t *buf = kmalloc(sectors_count * 512);
 
 	for(size_t i=0; i<sectors_count; i++){
 		//TODO : error handling ?
@@ -192,16 +209,35 @@ static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 			return -EIO;
 		}
 		for(size_t j=0; j<256; j++){
-			buf[i * 256 + j] = in_word(device->channel->base + ATA_REG_DATA);
+			if(write){
+				out_word(device->channel->base + ATA_REG_DATA,buf[i * 256 + j]);
+			} else {
+				buf[i * 256 + j] = in_word(device->channel->base + ATA_REG_DATA);
+			}
 		}
 	}
 	ide_io_wait(device);
+
+	//we need to send cache flush on write
+	if(write){
+		ide_write(device,ATA_REG_COMMAND,lba >= 0x10000000 ? ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH);
+		ide_io_wait(device);
+	}
+
 	release_mutex(&device->channel->lock);
 
 	memcpy(buffer,((char *)buf) + offset % 512,count);
 	kfree(buf);
 
 	return count;
+}
+
+
+static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	return ata_access(node,buffer,offset,count,0);
+}
+static ssize_t ata_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+	return ata_access(node,buffer,offset,count,1);
 }
 
 static int ide_ioctl(vfs_node *node,uint64_t req,void *arg){
@@ -306,6 +342,7 @@ static void ide_init_device(ide_device *device){
 	node->ioctl   = ide_ioctl;
 	node->getattr = ide_getattr;
 	node->read    = ata_read;
+	node->write   = ata_write;
 	vfs_mount(path,node);
 }
 
