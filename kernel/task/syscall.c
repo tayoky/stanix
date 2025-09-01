@@ -583,7 +583,7 @@ int sys_waitpid(pid_t pid,int *status,int options){
 				delete_addr_space(proc->addrspace);
 				kfree(proc);
 				kernel->can_task_switch = 1;
-				return pid;
+				return proc->pid;
 			}
 		}
 	} else {
