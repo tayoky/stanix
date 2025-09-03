@@ -155,7 +155,7 @@ else
 	fi
 fi
 
-#propagate configuration to tlibc libttf and ports
+#propagate configuration to tlibc and ports
 if [ ! -f ./tlibc/configure ] ; then
 	git submodule init
 	git submodule update tlibc
@@ -169,13 +169,6 @@ if [ ! -f ./ports/configure ] ; then
 fi
 
 (cd ports && ./configure --with-sysroot=$SYSROOT --cc=$CC --ar=$AR --ld=$LD --as=$AS --nm=$NM --host=$HOST --prefix=../initrd/usr)
-
-if [ ! -f ./libraries/libttf/configure ] ; then
-	git submodule init
-	git submodule update libraries/libttf
-fi
-
-(cd libraries/libttf && ./configure --with-sysroot=$SYSROOT --cc=$CC --ar=$AR --host=$HOST --prefix=$SYSROOT/usr)
 
 echo "using $CC"
 echo "using $LD"
