@@ -79,7 +79,7 @@ void check(const char *prefix){
 				}
 			} else {
 				for(size_t i=0; i<arraylen(fs_types); i++){
-					if(!memcmp(&info.gpt.part_uuid,&fs_types[i].gpt_uuid,sizeof(info.gpt.disk_uuid))){
+					if(!memcmp(&info.gpt.type,&fs_types[i].gpt_uuid,sizeof(info.gpt.type))){
 						fs = &fs_types[i];
 						break;
 					}
@@ -90,7 +90,7 @@ void check(const char *prefix){
 				if(info.type == PART_TYPE_MBR){
 					fprintf(stderr,"unknow fs type %#x (mbr)\n",info.mbr.type);
 				} else {
-					fprintf(stderr,"unknow fs type %llx-%llx (gpt)\n",info.gpt.part_uuid[0],info.gpt.part_uuid[1]);
+					fprintf(stderr,"unknow fs type %llx-%llx (gpt)\n",info.gpt.type[0],info.gpt.type[1]);
 				}
 				ret = 1;
 				goto cont;
