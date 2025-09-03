@@ -345,6 +345,11 @@ void draw_char(char c){
 	}
 	
 	switch(c){
+	case '\r':
+		redraw(x,y);
+		x = 1;
+		redraw_cursor(x,y);
+		return;
 	case '\n':
 		redraw(x,y);
 		x = 1;
