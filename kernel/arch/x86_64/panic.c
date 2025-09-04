@@ -47,7 +47,7 @@ void panic(const char *error,fault_frame *fault){
 	uintptr_t stack_top = 0;
 	if(kernel->can_task_switch){
 		pid = get_current_proc()->pid;
-		stack_top = get_current_proc()->kernel_stack;
+		stack_top = get_current_proc()->kernel_stack_top;
 	}
 	kprintf(COLOR_RED "================= ERROR : KERNEL PANIC =================\n");
 	kprintf("error : %s\n",error);

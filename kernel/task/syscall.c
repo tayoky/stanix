@@ -578,12 +578,10 @@ int sys_waitpid(pid_t pid,int *status,int options){
 					*status = proc->exit_status;
 				}
 				proc->flags |= PROC_FLAG_DEAD;
-				//now free the paging tables
-				list_remove(proc_list,proc);
-				delete_addr_space(proc->addrspace);
-				kfree(proc);
 				kernel->can_task_switch = 1;
-				return proc->pid;
+				pid = proc->pid;
+				final_proc_cleanup(proc);
+				return pid;
 			}
 		}
 	} else {
@@ -602,11 +600,8 @@ int sys_waitpid(pid_t pid,int *status,int options){
 				*status = proc->exit_status;
 			}
 			proc->flags |= PROC_FLAG_DEAD;
-			//now free the paging tables
-			list_remove(proc_list,proc);
-			delete_addr_space(proc->addrspace);
-			kfree(proc);
 			kernel->can_task_switch = 1;
+			final_proc_cleanup(proc);
 			return pid;
 		}
 	}
@@ -630,12 +625,11 @@ int sys_waitpid(pid_t pid,int *status,int options){
 		*status = proc->exit_status;
 	}
 
-	//now free the paging tables
-	list_remove(proc_list,proc);
-	delete_addr_space(proc->addrspace);
-	kfree(proc);
+	pid = proc->pid;
 
-	return proc->pid;
+	final_proc_cleanup(proc);
+
+	return pid;
 }
 
 int sys_unlink(const char *pathname){

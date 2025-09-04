@@ -47,8 +47,8 @@ void init_task(){
 	kernel_task->umask = 0x2;
 
 	//setup a new stack
-	kernel_task->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	kernel_task->kernel_stack &= ~0xFUL;
+	kernel_task->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
+	kernel_task->kernel_stack_top = (kernel_task->kernel_stack + KERNEL_STACK_SIZE) & ~0xFUL;
 
 	//get the address space
 	kernel_task->addrspace = get_addr_space();
@@ -66,9 +66,13 @@ void init_task(){
 
 	//the first task will be the init task
 	init = get_current_proc();
+	kernel->created_proc_count = 1;
+
+	set_kernel_stack(kernel_task->kernel_stack_top);
 
 	//activate task switch
 	kernel->can_task_switch = 1;
+
 
 	kok();
 
@@ -115,10 +119,12 @@ process *new_proc(){
 	proc->umask = get_current_proc()->umask;
 
 	//setup a new kernel stack
-	proc->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
-	proc->kernel_stack &= ~0xFUL;
-	proc->rsp = proc->kernel_stack;
-	kdebugf("current rsp :%p\n",proc->rsp);
+	proc->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
+	proc->kernel_stack_top = (proc->kernel_stack + KERNEL_STACK_SIZE) & ~0xFUL;
+	
+	
+	SP_REG(proc->context.frame) = proc->kernel_stack;
+	kdebugf("current rsp :%p\n",SP_REG(proc->context.frame));
 
 	//add it the the list of the childreen of the parent
 	list_append(proc->parent->child,proc);
@@ -159,20 +165,6 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 	return proc;
 }
 
-void proc_push(process *proc,void *value,size_t size){
-	//update the stack pointer
-	proc->rsp -= size;
-
-	char *buffer = value;
-
-	for(size_t i=0; i<size; i++){
-		//find the address to write to
-		char *address = (char *) (((uintptr_t) space_virt2phys(proc->addrspace,(void *)(proc->rsp + i))) + kernel->hhdm);
-
-		//and write to it
-		*address = buffer[i];
-	}
-}
 
 void yeld(){
 	if(!kernel->can_task_switch){
@@ -194,7 +186,7 @@ void yeld(){
 		set_addr_space(get_current_proc()->addrspace);
 	}
 
-	set_kernel_stack(get_current_proc()->kernel_stack);
+	set_kernel_stack(get_current_proc()->kernel_stack_top);
 
 	kernel->can_task_switch = 1;
 	if(get_current_proc() != old){
@@ -315,4 +307,12 @@ void unblock_proc(process *proc){
 	get_current_proc()->prev = proc;
 
 	kernel->can_task_switch = old;
+}
+
+void final_proc_cleanup(process *proc){
+	//now we can free the paging tables
+	list_remove(proc_list,proc);
+	delete_addr_space(proc->addrspace);
+	kfree((void*)proc->kernel_stack);
+	kfree(proc);
 }

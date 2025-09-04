@@ -32,8 +32,8 @@ typedef struct {
 typedef struct process_struct {
 	acontext context;
 	addrspace_t addrspace;
-	uintptr_t rsp;
 	uintptr_t kernel_stack;
+	uintptr_t kernel_stack_top;
 	struct fault_frame *syscall_frame;
 	pid_t pid;
 	struct process_struct *snext; //next field used in sleep/mutex
@@ -83,7 +83,7 @@ process *get_current_proc(void);
 process *new_proc(void);
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
 void kill_proc(process *proc);
-void proc_push(process *proc,void *value,size_t size);
+void final_proc_cleanup(process *proc);
 process *pid2proc(pid_t pid);
 int block_proc();
 void unblock_proc(process *proc);
