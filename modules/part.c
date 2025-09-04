@@ -38,7 +38,7 @@ typedef struct gpt_struct {
 	uint64_t lba_alt_header;
 	uint64_t lba_start;
 	uint64_t lba_end;
-	uint64_t guid[2];
+	struct gpt_guid guid;
 	uint64_t lba_guid;
 	uint32_t part_count;
 	uint32_t part_ent_size;
@@ -46,8 +46,8 @@ typedef struct gpt_struct {
 } __attribute__((packed)) gpt_header;
 
 typedef struct gpt_entry {
-	uint64_t type[2];
-	uint64_t guid[2];
+	struct gpt_guid type;
+	struct gpt_guid guid;
 	uint64_t lba_start;
 	uint64_t lba_end;
 	uint64_t attribute;
@@ -95,10 +95,8 @@ static ssize_t part_write(vfs_node *node,void *buf,uint64_t offset,size_t count)
 	return vfs_write(partition->dev,buf,offset + partition->offset,count);
 }
 
-//uuid are in little endian
-static void swap_uuid(uint64_t uuid[2]){
-	uuid[0] = ((uuid[0] & 0xffffffff) << 32) | ((uuid[0] >> 32) & 0xffffffff);
-	uuid[1] = ((uuid[1] & 0xffffffff) << 32) | ((uuid[1] >> 32) & 0xffffffff);
+void swap_guid(struct gpt_guid *guid){
+	guid->e4 = ((guid->e4 & 0xff) << 8) | ((guid->e4 >> 8) & 0xff);
 }
 
 static void create_part(vfs_node *dev,const char *target,off_t offset,size_t size,int *count,struct part_info *info){
@@ -136,18 +134,20 @@ int init_gpt(off_t offset,vfs_node *dev,const char *target){
 		.type = PART_TYPE_GPT,
 	};
 	memcpy(&info.gpt.disk_uuid,&gpt.guid,sizeof(gpt.guid));
-	swap_uuid(info.gpt.disk_uuid);
+	swap_guid(&info.gpt.disk_uuid);
 	for (size_t i = 0; i < gpt.part_count; i++,off += gpt.part_ent_size){
 		gpt_entry entry;
 		vfs_read(dev,&entry,off,sizeof(entry));
 
 		//ignore empty partitions
-		if(!entry.guid[0] && !entry.guid[1])continue;
+		struct gpt_guid zero;
+		memset(&zero,0,sizeof(zero));
+		if(!memcmp(&entry.guid,&zero,sizeof(struct gpt_guid)))continue;
 
 		memcpy(&info.gpt.part_uuid,&entry.guid,sizeof(entry.guid));
 		memcpy(&info.gpt.type     ,&entry.type,sizeof(entry.type));
-		swap_uuid(info.gpt.part_uuid);
-		swap_uuid(info.gpt.type);
+		swap_guid(&info.gpt.part_uuid);
+		swap_guid(&info.gpt.type);
 
 		create_part(dev,target,entry.lba_start * 512,(entry.lba_end - entry.lba_start)*512,&counter,&info);
 	}

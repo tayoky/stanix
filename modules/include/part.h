@@ -3,13 +3,21 @@
 
 #include <stdint.h>
 
-struct gpt_uuid {
-    uint64_t disk_uuid[2];
-    uint64_t part_uuid[2];
-    uint64_t type[2];
+struct gpt_guid {
+    uint32_t e1;
+    uint16_t e2;
+    uint16_t e3;
+    uint16_t e4;
+    uint8_t  e5[6];
 };
 
-struct mbr_uuid {
+struct gpt_info {
+    struct gpt_guid disk_uuid;
+    struct gpt_guid part_uuid;
+    struct gpt_guid type;
+};
+
+struct mbr_info {
     uint32_t disk_uuid;
     uint8_t type;
 };
@@ -17,8 +25,8 @@ struct mbr_uuid {
 struct part_info {
     int type;
     union {
-        struct gpt_uuid gpt;
-        struct mbr_uuid mbr;
+        struct gpt_info gpt;
+        struct mbr_info mbr;
     };
 };
 

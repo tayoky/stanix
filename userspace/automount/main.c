@@ -9,20 +9,21 @@
 #include <fcntl.h>
 
 struct fs_type {
-	uint64_t gpt_uuid[2];
+	struct gpt_guid gpt_uuid;
 	uint8_t  mbr_uuid;
 	char *name;
 	char *mount_type;
 };
 
 #define arraylen(array) sizeof(array)/sizeof(*array)
-#define FS(n,m,mbr,gpt1,gpt2) {.name = n, .mount_type = m, .mbr_uuid = mbr, .gpt_uuid = {gpt1,gpt2}}
+#define GUID(...) {__VA_ARGS__}
+#define FS(n,m,mbr,gpt) {.name = n, .mount_type = m, .mbr_uuid = mbr, .gpt_uuid = gpt}
 
 struct fs_type fs_types[] = {
-	FS("EFI system","fat",0x00,0x024DEE4133E711D3L,0x9D690008C781F39FL),
-	FS("FAT16"     ,"fat",0x01,0,0),
-	FS("FAT32"     ,"fat",0x0b,0,0),
-	FS("FAT32"     ,"fat",0x0c,0,0),
+	FS("EFI system","fat",0x00,GUID(0xC12A7328,0xF81F,0x11D2,0xBA4B,{0x00,0xA0,0xC9,0x3E,0xC9,0x3B})),
+	FS("FAT16"     ,"fat",0x01,GUID(0)),
+	FS("FAT32"     ,"fat",0x0b,GUID(0)),
+	FS("FAT32"     ,"fat",0x0c,GUID(0)),
 };
 
 int ret = 0;
@@ -90,7 +91,11 @@ void check(const char *prefix){
 				if(info.type == PART_TYPE_MBR){
 					fprintf(stderr,"unknow fs type %#x (mbr)\n",info.mbr.type);
 				} else {
-					fprintf(stderr,"unknow fs type %llx-%llx (gpt)\n",info.gpt.type[0],info.gpt.type[1]);
+					fprintf(stderr,"unknow fs type %08x-%04hx-%04hx-%04hx-",info.gpt.type.e1,info.gpt.type.e2,info.gpt.type.e3,info.gpt.type.e4);
+					for(int i=0; i<6; i++){
+						printf("%02hhx",info.gpt.type.e5[i]);
+					}
+					fprintf(stderr," (gpt)\n");
 				}
 				ret = 1;
 				goto cont;
