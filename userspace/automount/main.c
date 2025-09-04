@@ -18,6 +18,8 @@ struct fs_type {
 #define arraylen(array) sizeof(array)/sizeof(*array)
 #define GUID(...) {__VA_ARGS__}
 #define FS(n,m,mbr,gpt) {.name = n, .mount_type = m, .mbr_uuid = mbr, .gpt_uuid = gpt}
+#define DEV_PATH "/dev/"
+#define MNT_PATH "/mnt/"
 
 struct fs_type fs_types[] = {
 	FS("EFI system","fat",0x00,GUID(0xC12A7328,0xF81F,0x11D2,0xBA4B,{0x00,0xA0,0xC9,0x3E,0xC9,0x3B})),
@@ -31,13 +33,13 @@ int ret = 0;
 void check(const char *prefix){
 	char path[PATH_MAX];
 	for(char letter = 'a'; letter <= 'z'; letter++){
-		sprintf(path,"%s%c",prefix,letter);
+		sprintf(path,DEV_PATH"%s%c",prefix,letter);
 		FILE *f = fopen(path,"r");
 		if(!f)continue;
 		fclose(f);
 
 		//is it already mounted ?
-		sprintf(path,"%s%c0",prefix,letter);
+		sprintf(path,DEV_PATH"%s%c0",prefix,letter);
 		f = fopen(path,"r");
 		if(f){
 			//already mounted, ignore
@@ -45,13 +47,13 @@ void check(const char *prefix){
 			continue;
 		}
 
-		fprintf(stderr,"try to mount device %s%c : ...",prefix,letter);
+		fprintf(stderr,"try to mount device "DEV_PATH"%s%c : ...",prefix,letter);
 
 		//we can find partitons
-		sprintf(path,"%s%c",prefix,letter);
+		sprintf(path,DEV_PATH"%s%c",prefix,letter);
 		if(mount(path,path,"part",0,NULL) < 0){
 			fail:
-			fprintf(stderr,"\rtry to mount device %s%c : [fail]\n",prefix,letter);
+			fprintf(stderr,"\rtry to mount device "DEV_PATH"%s%c : [fail]\n",prefix,letter);
 			fprintf(stderr,"%s\n",strerror(errno));
 			ret = 1;
 			continue;
@@ -61,7 +63,7 @@ void check(const char *prefix){
 
 		//TODO : mount the loaded partions
 		for(int i = 0;;i++){
-			sprintf(path,"%s%c%d",prefix,letter,i);
+			sprintf(path,DEV_PATH"%s%c%d",prefix,letter,i);
 			int fd = open(path,O_WRONLY);
 			if(fd < 0)break;
 			
@@ -87,7 +89,7 @@ void check(const char *prefix){
 				}
 			}
 			if(!fs){
-				fprintf(stderr,"\rtry to mount device %s%c : [fail]\n",prefix,letter);
+				fprintf(stderr,"\rtry to mount device "DEV_PATH"%s%c : [fail]\n",prefix,letter);
 				if(info.type == PART_TYPE_MBR){
 					fprintf(stderr,"unknow fs type %#x (mbr)\n",info.mbr.type);
 				} else {
@@ -100,10 +102,15 @@ void check(const char *prefix){
 				ret = 1;
 				goto cont;
 			}
+			char target[PATH_MAX];
+			sprintf(target,MNT_PATH"%s%c%d",prefix,letter,i);
+			if(mount(path,target,fs->mount_type,0,NULL) < 0){
+				goto fail;
+			}
 		}
 
 
-		fprintf(stderr,"\rtry to mount device %s%c : [ok]\n",prefix,letter);
+		fprintf(stderr,"\rtry to mount device "DEV_PATH"%s%c : [ok]\n",prefix,letter);
 		cont:
 		continue;
 	}
@@ -114,9 +121,9 @@ int main(int argc,char **argv){
 		fprintf(stderr,"automount : not run as root\n");
 		return 1;
 	}
-	check("/dev/hd");
-	check("/dev/cdrom");
-	check("/dev/nvme");
+	check("hd");
+	check("cdrom");
+	check("nvme");
 
 	return ret;
 }
