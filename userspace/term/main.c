@@ -123,8 +123,9 @@ struct cell *grid;
 color_t front_color;
 color_t back_color;
 font_t *font;
-int ansi_escape_count = 0;
-int ansi_escape_args[8];
+int escape_state = 0;
+int escape_arg_start;
+int escape_args[8];
 
 uint32_t ansi_colours[] = {
 	0x000000, //black
@@ -149,16 +150,16 @@ uint32_t ansi_colours[] = {
 
 color_t parse_complex(int i){
 	//thanks bananymous for the calculation of colors
-	if(ansi_escape_args[i + 1] < 16){
-		return ansi2gfx(ansi_colours[ansi_escape_args[i + 1]]);
-	} else if(ansi_escape_args[i + 1] < 232) {
-		uint8_t r = (ansi_escape_args[i + 1] - 16) / 36 % 6 * 40 + 55;
-		uint8_t g = (ansi_escape_args[i + 1] - 16) /  6 % 6 * 40 + 55;
-		uint8_t b = (ansi_escape_args[i + 1] - 16) /  1 % 6 * 40 + 55;
+	if(escape_args[i + 1] < 16){
+		return ansi2gfx(ansi_colours[escape_args[i + 1]]);
+	} else if(escape_args[i + 1] < 232) {
+		uint8_t r = (escape_args[i + 1] - 16) / 36 % 6 * 40 + 55;
+		uint8_t g = (escape_args[i + 1] - 16) /  6 % 6 * 40 + 55;
+		uint8_t b = (escape_args[i + 1] - 16) /  1 % 6 * 40 + 55;
 		return gfx_color(fb,r,g,b);
-	} else if (ansi_escape_args[i + 1] <= 255){
+	} else if (escape_args[i + 1] <= 255){
 		//grey scale
-		uint32_t color = (ansi_escape_args[i + 1] - 232) * 10 + 8;
+		uint32_t color = (escape_args[i + 1] - 232) * 10 + 8;
 		return gfx_color(fb,color,color,color);
 	}
 
@@ -166,15 +167,15 @@ color_t parse_complex(int i){
 }
 
 void parse_color(void){
-	for(int i = 0; i<ansi_escape_count;i++){
-		switch(ansi_escape_args[i]){
+	for(int i = 0; i<escape_state - 2;i++){
+		switch(escape_args[i]){
 		case 0:
 			back_color = ansi2gfx(ansi_colours[0]);
 			front_color = ansi2gfx(ansi_colours[7]);
 			continue;
 		case 38:
 			i++;
-			if(ansi_escape_count - i >= 2)
+			if(escape_state - i >= 2)
 			front_color = parse_complex(i);
 			continue;
 		case 39:
@@ -182,18 +183,18 @@ void parse_color(void){
 			continue;
 		case 48:
 			i++;
-			if(ansi_escape_count - i >= 2)
+			if(escape_state - i >= 2)
 			back_color = parse_complex(i);
 			continue;
 		case 49:
 			back_color = ansi2gfx(ansi_colours[0]);
 			continue;
 		}
-		if(ansi_escape_args[i] >= 30 && ansi_escape_args[i] <= 37){
-			front_color = ansi2gfx(ansi_colours[ansi_escape_args[i] - 30]);
+		if(escape_args[i] >= 30 && escape_args[i] <= 37){
+			front_color = ansi2gfx(ansi_colours[escape_args[i] - 30]);
 		}
-		if(ansi_escape_args[i] >= 40 && ansi_escape_args[i] <= 47){
-			back_color = ansi2gfx(ansi_colours[ansi_escape_args[i] - 40]);
+		if(escape_args[i] >= 40 && escape_args[i] <= 47){
+			back_color = ansi2gfx(ansi_colours[escape_args[i] - 40]);
 		}
 	}
 }
@@ -228,35 +229,37 @@ void scroll(int s){
 }
 
 void draw_char(char c){
-	if(c == '\e'){
-		memset(ansi_escape_args,0,sizeof(ansi_escape_args));
-		ansi_escape_count = 1;
-		return ;
-	}
-	if(ansi_escape_count == 1){
+	if(escape_state == 1){
 		if(c == '['){
-			ansi_escape_count++;
+			memset(escape_args,0,sizeof(escape_args));
+			escape_state = 2;
+			escape_arg_start = 1;
 			return;
 		} else {
-			ansi_escape_count = 0;
+			//not ainsi TODO
+			escape_state = 0;
 		}
 	}
 	
-	if(ansi_escape_count){
+	if(escape_state >= 2){
 		if(isdigit((unsigned char)c)){
-			ansi_escape_args[ansi_escape_count-2] *= 10;
-			ansi_escape_args[ansi_escape_count-2] += c - '0';
+			if(escape_arg_start){
+				escape_state++;
+				escape_arg_start = 0;
+			}
+			escape_args[escape_state-3] *= 10;
+			escape_args[escape_state-3] += c - '0';
 			return;
 		} else if(c == '?'){
 			return;
 		} else if(c == ';'){
-			ansi_escape_count++;
+			escape_arg_start = 1;
 			return;
 		} else {
-			ansi_escape_count-=1;
+			int escape_args_count = escape_state - 2;
 			switch(c){
 			case 'H':
-				if(ansi_escape_count < 2){
+				if(escape_args_count < 2){
 					redraw(x,y);
 					x = 1;
 					y = 1;
@@ -266,15 +269,15 @@ void draw_char(char c){
 				//fallthrough
 			case 'f':
 				redraw(x,y);
-				x = ansi_escape_args[1];
-				y = ansi_escape_args[0];
+				x = escape_args[1];
+				y = escape_args[0];
 				if(x > width) x = width;
 				if(y > height) y = height;
 				redraw_cursor(x,y);
 				break;
 			case 'G':
 				redraw(x,y);
-				y = ansi_escape_args[0];
+				y = escape_args[0];
 				if(y > height)y = height;
 				redraw_cursor(x,y);
 				break;
@@ -283,8 +286,9 @@ void draw_char(char c){
 				x = 0;
 				//fallthrough
 			case 'A':
+				if(escape_args_count < 1)break;
 				redraw(x,y);
-				y -= ansi_escape_args[0];
+				y -= escape_args[0];
 				if(y < 1)y = 1;
 				redraw_cursor(x,y);
 				break;
@@ -293,20 +297,23 @@ void draw_char(char c){
 				x = 0;
 				//fallthrough
 			case 'B':
+				if(escape_args_count < 1)break;
 				redraw(x,y);
-				y += ansi_escape_args[0];
+				y += escape_args[0];
 				if(y > height)y = height;
 				redraw_cursor(x,y);
 				break;
 			case 'D':
+				if(escape_args_count < 1)break;
 				redraw(x,y);
-				x -= ansi_escape_args[0];
+				x -= escape_args[0];
 				if(x < 1)x = 1;
 				redraw_cursor(x,y);
 				break;
 			case 'C':
+				if(escape_args_count < 1)break;
 				redraw(x,y);
-				x += ansi_escape_args[0];
+				x += escape_args[0];
 				if(x > width)x = width;
 				redraw_cursor(x,y);
 				break;
@@ -323,23 +330,23 @@ void draw_char(char c){
 				parse_color();
 				break;
 			case 'l':
-				if(ansi_escape_count < 1)break;
-				switch(ansi_escape_args[0]){
+				if(escape_state < 1)break;
+				switch(escape_args[0]){
 				case 25:
 					flags &= ~FLAG_CURSOR;
 					break;
 				}
 				break;
 			case 'h':
-				if(ansi_escape_count < 1)break;
-				switch(ansi_escape_args[0]){
+				if(escape_state < 1)break;
+				switch(escape_args[0]){
 				case 25:
 					flags |= FLAG_CURSOR;
 					break;
 				}
 				break;
 			}
-			ansi_escape_count = 0;
+			escape_state = 0;
 			return;
 		}
 	}
@@ -371,6 +378,9 @@ void draw_char(char c){
 		return;
 	case '\a':
 		//TODO : beep
+		return;
+	case '\e':
+		escape_state = 1;
 		return;
 	}
 
