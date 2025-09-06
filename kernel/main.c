@@ -18,6 +18,7 @@
 #include <kernel/sys.h>
 #include <kernel/exec.h>
 #include <kernel/module.h>
+#include <kernel/proc.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -131,6 +132,7 @@ void kmain(){
 	init_task();
 	init_timer();
 	init_mod();
+	init_proc();
 	
 	//just to debug
 	ls("/dev/");
