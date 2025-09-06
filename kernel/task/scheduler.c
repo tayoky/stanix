@@ -47,8 +47,8 @@ void init_task(){
 	kernel_task->umask = 0x2;
 
 	//setup a new stack
-	kernel_task->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
-	kernel_task->kernel_stack_top = (kernel_task->kernel_stack + KERNEL_STACK_SIZE) & ~0xFUL;
+	kernel_task->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
+	set_kernel_stack(KSTACK_TOP(kernel_task->kernel_stack));
 
 	//get the address space
 	kernel_task->addrspace = get_addr_space();
@@ -67,8 +67,6 @@ void init_task(){
 	//the first task will be the init task
 	init = get_current_proc();
 	kernel->created_proc_count = 1;
-
-	set_kernel_stack(kernel_task->kernel_stack_top);
 
 	//activate task switch
 	kernel->can_task_switch = 1;
@@ -120,10 +118,9 @@ process *new_proc(){
 
 	//setup a new kernel stack
 	proc->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
-	proc->kernel_stack_top = (proc->kernel_stack + KERNEL_STACK_SIZE) & ~0xFUL;
 	
 	
-	SP_REG(proc->context.frame) = proc->kernel_stack;
+	SP_REG(proc->context.frame) = KSTACK_TOP(proc->kernel_stack);
 	kdebugf("current rsp :%p\n",SP_REG(proc->context.frame));
 
 	//add it the the list of the childreen of the parent
@@ -152,7 +149,6 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 	proc->context.frame.cs = 0x08;
 	proc->context.frame.ss = 0x10;
 	proc->context.frame.rip = (uint64_t)func;
-	proc->context.frame.rsp = proc->kernel_stack;
 	#endif
 
 	//just copy the cwd of the current task
@@ -186,7 +182,7 @@ void yeld(){
 		set_addr_space(get_current_proc()->addrspace);
 	}
 
-	set_kernel_stack(get_current_proc()->kernel_stack_top);
+	set_kernel_stack(KSTACK_TOP(get_current_proc()->kernel_stack));
 
 	kernel->can_task_switch = 1;
 	if(get_current_proc() != old){

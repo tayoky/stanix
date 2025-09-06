@@ -33,7 +33,6 @@ typedef struct process_struct {
 	acontext context;
 	addrspace_t addrspace;
 	uintptr_t kernel_stack;
-	uintptr_t kernel_stack_top;
 	struct fault_frame *syscall_frame;
 	pid_t pid;
 	struct process_struct *snext; //next field used in sleep/mutex
@@ -98,5 +97,6 @@ extern list *proc_list;
 extern process *sleeping_proc;
 
 #define EUID_ROOT 0
+#define KSTACK_TOP(kstack) (((kstack) + KERNEL_STACK_SIZE) & ~0xFUL)
 
 #endif
