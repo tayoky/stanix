@@ -96,7 +96,7 @@ void *malloc(heap_info *heap,size_t amount){
 			}
 			break;
 		}
-		if((uintptr_t)current_seg->next % 16){
+		if((uintptr_t)current_seg->next % 16 || current_seg->lenght % 16){
 			kdebugf("found non aligned kheap seg at %p after %p(%p:%ld)\n",current_seg->next,current_seg,(uintptr_t)current_seg + sizeof(heap_segment),current_seg->lenght);
 		}
 		current_seg = current_seg->next;

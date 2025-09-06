@@ -226,9 +226,6 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 		}
 	}
 
-	//reset the kernel stack entry just in case the context swicht didn't
-	set_kernel_stack(get_current_proc()->kernel_stack);
-
 	//now jump into the program !!
 	kdebugf("exec entry : %p\n",header.e_entry);
 
