@@ -67,8 +67,6 @@ void set_addr_space(addrspace_t new_addrspace);
 #define PAGING_FLAG_NO_EXE        (1UL << 61)
 
 #define KERNEL_STACK_SIZE (64 * 1024)
-#define KERNEL_STACK_TOP 0xfffffffffffff000UL - (10UL * 512UL * 512UL * 512UL * PAGE_SIZE)
-#define KERNEL_STACK_BOTTOM (KERNEL_STACK_TOP - KERNEL_STACK_SIZE)
 
 #define USER_STACK_TOP 0x80000000000
 #define USER_STACK_SIZE 64 *PAGE_SIZE

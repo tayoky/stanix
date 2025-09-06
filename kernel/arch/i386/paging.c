@@ -48,24 +48,10 @@ uint64_t *create_addr_space(){
 	//map the hhdm
 	map_hhdm(PMLT4);
 
-	//map the stack
-	uint64_t kernel_stack_page = KERNEL_STACK_SIZE / PAGE_SIZE;
-	uint64_t virt_page = PAGE_ALIGN_DOWN(KERNEL_STACK_BOTTOM);
-	for (size_t i = 0; i < kernel_stack_page; i++){
-		map_page(PMLT4,pmm_allocate_page(),virt_page,PAGING_FLAG_NO_EXE | PAGING_FLAG_RW_CPL0);
-		virt_page += PAGE_SIZE;
-	}
-
 	return PMLT4;
 }
 
 void delete_addr_space(uint64_t *PMLT4){
-	//first free the kernel stack
-	for (size_t cur = KERNEL_STACK_BOTTOM; cur < KERNEL_STACK_TOP; cur+= PAGE_SIZE){
-		pmm_free_page((uintptr_t)space_virt2phys(PMLT4,(void *)cur));
-	}
-	
-
 	//recusively free everythings
 	//EXCEPT THE HIGHER PDP
 

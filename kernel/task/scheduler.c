@@ -306,8 +306,8 @@ void unblock_proc(process *proc){
 }
 
 void final_proc_cleanup(process *proc){
-	//now we can free the paging tables
 	list_remove(proc_list,proc);
+	//now we can free the paging tables
 	delete_addr_space(proc->addrspace);
 	kfree((void*)proc->kernel_stack);
 	kfree(proc);

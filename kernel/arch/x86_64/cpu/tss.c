@@ -14,7 +14,6 @@ void init_tss(){
 
 	//just set the tss
 	memset(&kernel->arch.tss,0,sizeof(TSS));
-	set_kernel_stack(KERNEL_STACK_TOP);
 
 	//and load it
 	asm("mov $0x28, %%ax\nltr %%ax" : : : "rax");
