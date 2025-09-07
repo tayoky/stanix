@@ -80,7 +80,8 @@ void get_bootinfo(void){
 	//cacul the total amount of memory
 	kernel->total_memory = 0;
 	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++){
-		if(kernel->memmap->entries[i]->type != LIMINE_MEMMAP_RESERVED){
+		int type = kernel->memmap->entries[i]->type;
+		if(type == LIMINE_MEMMAP_USABLE || type == LIMINE_MEMMAP_KERNEL_AND_MODULES || type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE){
 			kernel->total_memory += kernel->memmap->entries[i]->length;
 		}
 	}
