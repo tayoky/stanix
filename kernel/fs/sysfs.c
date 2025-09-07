@@ -3,7 +3,7 @@
 #include <kernel/string.h>
 #include <kernel/sysfs.h>
 #include <kernel/print.h>
-
+#include <kernel/kernel.h>
 
 static vfs_node *sysfs_inode2vnode(sysfs_inode *inode);
 
@@ -86,8 +86,10 @@ vfs_filesystem sys_fs = {
     .mount = sysfs_mount,
 };
 
-ssize_t hello_read(vfs_node *node,void *buf,uint64_t off,size_t count){
-    static char str[] = "hello from sysfs !\n";
+ssize_t mem_read(vfs_node *node,void *buf,uint64_t off,size_t count){
+    (void)node;
+    char str[512];
+    sprintf(str,"total : %ld\nused  : %ld\n",kernel->total_memory,kernel->used_memory);
     if(off > strlen(str))return 0;
     if(off + count > strlen(str))count = strlen(str) - off;
     memcpy(buf,&str[off],count);
@@ -98,13 +100,13 @@ void init_sysfs(void){
     kstatus("init sysfs ... ");
     sysfs_root = sysfs_inode2vnode(new_sysfs_inode());
 
-    // test with /sys/hello
-    vfs_node *node = kmalloc(sizeof(vfs_node));
-    memset(node,0,sizeof(vfs_node));
-    node->flags = VFS_BLOCK;
-    node->read  = hello_read;
-    node->ref_count = 1;
-    sysfs_register("hello",node);
+    // simple /sys/mem
+    vfs_node *mem = kmalloc(sizeof(vfs_node));
+    memset(mem,0,sizeof(vfs_node));
+    mem->flags = VFS_DEV | VFS_BLOCK;
+    mem->read  = mem_read;
+    mem->ref_count = 1;
+    sysfs_register("mem",mem);
 
     vfs_register_fs(&sys_fs);
     kok();
