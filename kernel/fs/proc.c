@@ -42,6 +42,21 @@ int proc_getattr(vfs_node *node,struct stat *st){
     return 0;
 }
 
+struct dirent *proc_readdir(vfs_node *node,uint64_t index){
+    (void)node;
+    static char *content[] = {
+        ".",
+        "..",
+        "cwd",
+    };
+
+    if(index >= sizeof(content)/sizeof(*content))return NULL;
+
+    struct dirent *ret = kmalloc(sizeof(struct dirent));
+    strcpy(ret->d_name,content[index]);
+    return ret;
+}
+
 vfs_node *proc_root_lookup(vfs_node *root,const char *name){
     (void)root;
     char *end;
@@ -55,6 +70,7 @@ vfs_node *proc_root_lookup(vfs_node *root,const char *name){
     node->private_inode = proc;
     node->flags   = VFS_DIR;
     node->getattr = proc_getattr;
+    node->readdir = proc_readdir;
     return node;
 }
 
