@@ -178,7 +178,7 @@ vfs_node *vfs_lookup(vfs_node *node,const char *name){
 		if(!child){
 			return NULL;
 		}
-		child->ref_count = 1;
+		if(!child->ref_count)child->ref_count = 1;
 		
 		//link it in the directories cache
 		child->parent = node;

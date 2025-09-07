@@ -95,7 +95,7 @@ rd : ${OUT}/boot/initrd.tar
 ${OUT}/boot/initrd.tar : ${initrd_src}
 	@echo "[creating init ramdisk]"
 	@mkdir -p ${OUT}/boot
-	@mkdir -p initrd/dev initrd/tmp initrd/mnt initrd/proc
+	@mkdir -p initrd/dev initrd/tmp initrd/mnt initrd/proc initrd/sys
 	@chmod +s  initrd/bin/login initrd/bin/sudo
 #temporary until real sysroot, copy sysroot to initrd
 	@cp -r ${SYSROOT}/* initrd/

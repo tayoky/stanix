@@ -3,6 +3,8 @@ echo "mounting /tmp"
 mount -t tmpfs -S / -T /tmp
 echo "mounting /proc"
 mount -t proc -S / -T /proc
+echo "mounting /sys"
+mount -t sysfs -S / -T /sys
 echo "loading modules"
 insmod /mod/test.ko
 insmod /mod/pci.ko
