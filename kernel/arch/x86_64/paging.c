@@ -113,7 +113,6 @@ void *space_virt2phys(addrspace_t PMLT4, void *address){
 	if(!(PT[PTi] & 1)){
 		return NULL;
 	}
-	kdebugf("valid\n");
 	return (void *) ((PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF));
 }
 
