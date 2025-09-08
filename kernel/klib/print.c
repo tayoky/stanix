@@ -36,6 +36,7 @@ void kfail(void){
 void printfunc(print_func func,const char *fmt,va_list args,void *extra){
 	char buf[4096];
 	int count = vsnprintf(buf,sizeof(buf),fmt,args);
+	if(count > (int)sizeof(buf) - 1)count = sizeof(buf) - 1;
 	char *ptr = buf;
 	while(count > 0){
 		count--;
