@@ -12,7 +12,7 @@ void load_context(fault_frame *context);
 
 //some macro to check ptr
 #define CHECK_PTR_INRANGE(ptr) ((uintptr_t)ptr <= USERSPACE_LIMIT)
-#define CHECK_PTR(ptr) CHECK_PTR_INRANGE(ptr) && virt2phys((void *)ptr)
+#define CHECK_PTR(ptr) (CHECK_PTR_INRANGE(ptr) && virt2phys((void *)ptr))
 
 
 int check_mem(void *ptr,size_t count);

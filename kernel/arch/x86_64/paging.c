@@ -85,13 +85,8 @@ void delete_addr_space(addrspace_t PMLT4){
 }
 
 void *virt2phys(void *address){
-	//find the PMLT4 of the current address space
-	uint64_t cr3;
-	asm volatile("mov %%cr3, %0" : "=r" (cr3));
-	uint64_t *PMLT4 = (uint64_t *)(cr3 + kernel->hhdm);
-
-	//and then just wrap arround space_virt2phys
-	return space_virt2phys(PMLT4,address);
+	//ust wrap arround space_virt2phys
+	return space_virt2phys(get_addr_space(),address);
 }
 
 void *space_virt2phys(addrspace_t PMLT4, void *address){
@@ -118,7 +113,7 @@ void *space_virt2phys(addrspace_t PMLT4, void *address){
 	if(!(PT[PTi] & 1)){
 		return NULL;
 	}
-
+	kdebugf("valid\n");
 	return (void *) ((PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF));
 }
 
