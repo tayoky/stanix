@@ -505,14 +505,6 @@ int sys_getcwd(char *buf,size_t size){
 		return -EFAULT;
 	}
 
-	if(!strlen(get_current_proc()->cwd_path)){
-		if(size < 2){
-			return -ERANGE;
-		}
-		strcpy(buf,"/");
-		return 0;
-	}
-
 	if(size < strlen(get_current_proc()->cwd_path) + 1){
 		return -ERANGE;
 	}

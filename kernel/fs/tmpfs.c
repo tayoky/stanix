@@ -183,10 +183,23 @@ int tmpfs_unlink(vfs_node *node,const char *name){
 	return 0;
 }
 
+static int tmpfs_exist(tmpfs_inode *inode,const char *name){
+	foreach(node,inode->entries){
+		tmpfs_dirent *entry = node->value;
+		if(!strcmp(name,entry->name)){
+			return 1;
+		}
+	}
+	return 0;
+}
+
 int tmpfs_link(vfs_node *parent_src,const char *src,vfs_node *parent_dest,const char *dest){
 	kdebugf("link %s %s\n",src,dest);
 	tmpfs_inode *parent_src_inode  = (tmpfs_inode *)parent_src->private_inode;
 	tmpfs_inode *parent_dest_inode = (tmpfs_inode *)parent_dest->private_inode;
+
+	if(tmpfs_exist(parent_dest_inode,dest))return -EEXIST;
+
 	tmpfs_inode *src_inode = NULL;
 	foreach(node,parent_src_inode->entries){
 		tmpfs_dirent *entry = node->value;
@@ -195,6 +208,7 @@ int tmpfs_link(vfs_node *parent_src,const char *src,vfs_node *parent_dest,const 
 			break;
 		}
 	}
+	if(!src_inode)return -ENOENT;
 
 	//create new entry
 	src_inode->link_count++;
