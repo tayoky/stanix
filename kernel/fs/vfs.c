@@ -5,6 +5,7 @@
 #include <kernel/string.h>
 #include <kernel/time.h>
 #include <kernel/list.h>
+#include <limits.h>
 #include <stddef.h>
 #include <errno.h>
 #include <poll.h>
@@ -529,16 +530,40 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
 	}
 
 	vfs_node *current_node = vfs_dup(at);
+	int loop_max = SYMLOOP_MAX;
 
 	for (int i = 0; i < path_depth; i++){
 		if(!current_node)return NULL;
 		
 		vfs_node *next_node = vfs_lookup(current_node,path_array[i]);
-		//folow mount points
-		if(next_node && (next_node->flags & VFS_MOUNT)){
-			vfs_node *mount_point = next_node;
-			next_node = vfs_dup(next_node->linked_node);
-			vfs_close(mount_point);
+		//folow mount points and symlink
+		while(next_node){
+			if(next_node->flags & VFS_MOUNT){
+				vfs_node *mount_point = next_node;
+				next_node = vfs_dup(next_node->linked_node);
+				vfs_close(mount_point);
+				continue;
+			}
+			if((next_node->flags & VFS_LINK) && (!(flags & VFS_NOFOLOW) || i < path_depth - 1)){
+				//TODO : maybee cache linked node ?
+				vfs_node *symlink = next_node;
+				if(loop_max-- <= 0){
+					vfs_close(symlink);
+					return NULL;
+				}
+				char linkpath[PATH_MAX];
+				ssize_t size;
+				if((size = vfs_readlink(symlink,linkpath,sizeof(linkpath))) < 0){
+					vfs_close(symlink);
+					return NULL;
+				}
+				linkpath[size] = '\0';
+				
+				//TODO : prevent infinite recursion
+				next_node = vfs_open(linkpath,flags);
+				vfs_close(symlink);
+			}
+			break;
 		}
 		vfs_close(current_node);
 		current_node = next_node;

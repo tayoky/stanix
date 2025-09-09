@@ -186,5 +186,6 @@ int vfs_auto_mount(const char *source,const char *target,const char *filesystemt
 #define VFS_WRITEONLY    0x02 //write only
 #define VFS_READWRITE    0x03 //write and read
 #define VFS_PARENT       0x04 //open the parent
+#define VFS_NOFOLOW      0x08 //don't folow symlinks
 
 #endif
