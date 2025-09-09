@@ -131,6 +131,17 @@ ssize_t vfs_write(vfs_node *node,const void *buffer,uint64_t offset,size_t count
 	}
 }
 
+ssize_t vfs_readlink(vfs_node *node,char *buf,size_t bufsiz){
+	if(node->readlink){
+		return node->readlink(node,buf,bufsiz);
+	} else {
+		if(node->flags & VFS_LINK){
+			return -EIO;
+		}
+		return -ENOLINK;
+	}
+}
+
 int vfs_wait_check(vfs_node *node,short type){
 	if(node->wait_check){
 		return node->wait_check(node,type);
@@ -265,13 +276,6 @@ static const char *vfs_basename(const char *path){
 }
 
 int vfs_create(const char *path,int perm,uint64_t flags){
-	//first check if aready exist
-	vfs_node *node = vfs_open(path,VFS_READONLY);
-	if(node){
-		vfs_close(node);
-		return -EEXIST;
-	}
-
 	//open the parent
 	vfs_node *parent = vfs_open(path,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent){
@@ -320,14 +324,28 @@ int vfs_unlink(const char *path){
 }
 
 
-int vfs_link(const char *src,const char *dest){
-	//first check if exist
-	vfs_node *node = vfs_open(src,VFS_READONLY);
-	if(!node){
+int vfs_symlink(const char *target, const char *linkpath){
+	//open parent
+	vfs_node *parent = vfs_open(target,VFS_WRITEONLY | VFS_PARENT);
+	if(!parent){
 		return -ENOENT;
 	}
-	vfs_close(node);
 
+	const char *child  = vfs_basename(target);
+	int ret;
+	if(parent->symlink){
+		ret = parent->symlink(parent,child,linkpath);
+	} else if(parent->flags & VFS_DIR){
+		ret = -EIO;
+	} else {
+		ret = -ENOTDIR;
+	}
+
+	vfs_close(parent);
+	return ret;
+}
+
+int vfs_link(const char *src,const char *dest){
 	//open parent
 	vfs_node *parent_src = vfs_open(src,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent_src){

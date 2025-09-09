@@ -41,6 +41,7 @@ static vfs_node *inode2node(tmpfs_inode *inode){
 		node->create     = tmpfs_create;
 		node->unlink     = tmpfs_unlink;
 		node->link       = tmpfs_link;
+		node->symlink    = tmpfs_symlink;
 		node->flags |= VFS_DIR;
 	}
 
@@ -49,6 +50,11 @@ static vfs_node *inode2node(tmpfs_inode *inode){
 		node->write      = tmpfs_write;
 		node->truncate   = tmpfs_truncate;
 		node->flags |= VFS_FILE;
+	}
+
+	if(inode->flags & TMPFS_FLAGS_LINK){
+		node->readlink   = tmpfs_readlink;
+		node->flags |= VFS_LINK;
 	}
 
 	node->close    = tmpfs_close;
@@ -216,6 +222,34 @@ int tmpfs_link(vfs_node *parent_src,const char *src,vfs_node *parent_dest,const 
 	strcpy(entry->name,dest);
 	entry->inode = src_inode;
 	list_append(parent_dest_inode->entries,entry);
+	return 0;
+}
+
+
+int tmpfs_symlink(vfs_node *node,const char *name,const char *linkpath){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+
+	if(tmpfs_exist(inode,name))return -EEXIST;
+
+	tmpfs_inode *symlink = new_inode(TMPFS_FLAGS_LINK);
+	kfree(symlink->buffer);
+	symlink->buffer_size = strlen(linkpath);
+	symlink->buffer = strdup(linkpath);
+
+	//create new entry
+	tmpfs_dirent *entry = kmalloc(sizeof(tmpfs_dirent));
+	strcpy(entry->name,name);
+	entry->inode = symlink;
+	list_append(inode->entries,entry);
+
+	return 0;
+}
+
+ssize_t tmpfs_readlink(vfs_node *node,char *buf,size_t bufsize){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	if(bufsize > inode->buffer_size)bufsize = inode->buffer_size;
+
+	memcpy(buf,inode->buffer,bufsize);
 	return 0;
 }
 

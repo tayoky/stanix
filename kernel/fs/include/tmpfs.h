@@ -43,11 +43,14 @@ int tmpfs_unlink(vfs_node *node,const char *name);
 int tmpfs_link(vfs_node *,const char*,vfs_node*,const char*);
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index);
 int tmpfs_truncate(vfs_node *node,size_t size);
+int tmpfs_symlink(vfs_node *node,const char *name,const char *linkpath);
+ssize_t tmpfs_readlink(vfs_node *node,char *buf,size_t bufsize);
 int tmpfs_getattr(vfs_node *node,struct stat *st);
 int tmpfs_setattr(vfs_node *node,struct stat *st);
 
 #define TMPFS_FLAGS_FILE 0x01
 #define TMPFS_FLAGS_DIR  0x02
+#define TMPFS_FLAGS_LINK 0x04
 
 #define IOCTL_TMPFS_CREATE_DEV 0x01
 #define IOCTL_TMPFS_SET_DEV_INODE 0x02
