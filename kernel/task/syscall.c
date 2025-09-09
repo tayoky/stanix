@@ -77,6 +77,9 @@ int sys_open(const char *path,int flags,mode_t mode){
 	} else {
 		vfs_flags = VFS_READONLY;
 	}
+	if(flags & O_NOFOLLOW){
+		vfs_flags |= VFS_NOFOLOW;
+	}
 	
 
 	file_descriptor *file = &FD_GET(fd);
@@ -476,6 +479,25 @@ int sys_stat(const char *pathname,struct stat *st){
 	}
 	
 	vfs_node *node = vfs_open(pathname,VFS_READONLY);
+	if(!node){
+		return -ENOENT;
+	}
+
+	int ret = vfs_getattr(node,st);
+
+	vfs_close(node);
+	return ret;
+}
+
+int sys_lstat(const char *pathname,struct stat *st){
+	if(!CHECK_STR(pathname)){
+		return -EFAULT;
+	}
+	if(!CHECK_STRUCT(st)){
+		return -EFAULT;
+	}
+	
+	vfs_node *node = vfs_open(pathname,VFS_READONLY | VFS_NOFOLOW);
 	if(!node){
 		return -ENOENT;
 	}
@@ -1051,6 +1073,16 @@ int sys_chmod(const char *pathname, mode_t mode){
 	return ret;
 }
 
+int sys_lchmod(const char *pathname, mode_t mode){
+	vfs_node *node = vfs_open(pathname,VFS_WRITEONLY | VFS_NOFOLOW);
+	if(!node)return -ENOENT;
+
+	int ret = chmod_node(node,mode);
+	vfs_close(node);
+
+	return ret;
+}
+
 int sys_fchmod(int fd, mode_t mode){
 	if(!is_valid_fd(fd)){
 		return -EBADF;
@@ -1077,6 +1109,17 @@ int sys_chown(const char *pathname, uid_t owner, gid_t group){
 
 	return ret;
 }
+
+int sys_lchown(const char *pathname, uid_t owner, gid_t group){
+	vfs_node *node = vfs_open(pathname,VFS_WRITEONLY | VFS_NOFOLOW);
+	if(!node)return -ENOENT;
+
+	int ret = chown_node(node,owner,group);
+	vfs_close(node);
+
+	return ret;
+}
+
 int sys_fchown(int fd, uid_t owner, gid_t group){
 	if(!is_valid_fd(fd)){
 		return -EBADF;
@@ -1253,6 +1296,9 @@ void *syscall_table[] = {
 	(void *)sys_ftruncate,
 	(void *)sys_link,
 	(void *)sys_rename,
+	(void *)sys_lstat,
+	(void *)sys_lchmod,
+	(void *)sys_lchown,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

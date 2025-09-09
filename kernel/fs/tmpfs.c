@@ -250,7 +250,7 @@ ssize_t tmpfs_readlink(vfs_node *node,char *buf,size_t bufsize){
 	if(bufsize > inode->buffer_size)bufsize = inode->buffer_size;
 
 	memcpy(buf,inode->buffer,bufsize);
-	return 0;
+	return bufsize;
 }
 
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
