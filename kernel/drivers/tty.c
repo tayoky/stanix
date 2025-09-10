@@ -192,6 +192,7 @@ vfs_node *new_tty(tty **tty){
 	(*tty)->termios.c_iflag = ICRNL | IMAXBEL;
 	(*tty)->termios.c_oflag = OPOST | ONLCR | ONLRET;
 	(*tty)->termios.c_lflag = ECHONL | ECHOK | ECHOE | ECHO | ICANON | IEXTEN | ISIG;
+	(*tty)->termios.c_oflag = CS8;
 
 	(*tty)->canon_buf = kmalloc(512);
 	(*tty)->canon_index = 0;
