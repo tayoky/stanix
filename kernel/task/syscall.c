@@ -1225,6 +1225,31 @@ int sys_rename(const char *oldpath, const char *newpath){
 	return vfs_unlink(oldpath);
 }
 
+int sys_symlink(const char *target, const char *linkpath){
+	if(!CHECK_STR(target) || !CHECK_STR(linkpath)){
+		return -EFAULT;
+	}
+	return vfs_symlink(target,linkpath);
+}
+
+ssize_t sys_readlink(const char *path,char *buf, size_t bufsize){
+	if(!CHECK_STR(path)){
+		return -EFAULT;
+	}
+	if(!CHECK_MEM(buf,bufsize)){
+		return -EFAULT;
+	}
+
+	vfs_node *node = vfs_open(path,VFS_READONLY | VFS_NOFOLOW);
+	if(!node){
+		return -ENOENT;
+	}
+
+	ssize_t ret = vfs_readlink(node,buf,bufsize);
+	vfs_close(node);
+	return ret;
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1299,6 +1324,8 @@ void *syscall_table[] = {
 	(void *)sys_lstat,
 	(void *)sys_lchmod,
 	(void *)sys_lchown,
+	(void *)sys_symlink,
+	(void *)sys_readlink,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
