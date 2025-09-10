@@ -103,10 +103,10 @@ void mount_initrd(void){
 			vfs_close(file);
 		} else if(current_file->type == USTAR_LNKTYPE){
 			//symlink
-			char *linkpath = kmalloc(strlen(current_file->linked_file) + 2);
-			sprintf(linkpath,"/%s",current_file->linked_file);
-			vfs_symlink(full_path,linkpath);
-			kfree(linkpath);
+			char *target = kmalloc(strlen(current_file->linked_file) + 2);
+			sprintf(target,"/%s",current_file->linked_file);
+			vfs_symlink(target,full_path);
+			kfree(target);
 		}
 
 		addr += (((uint64_t)file_size + 1023) / 512) * 512;

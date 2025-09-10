@@ -43,7 +43,7 @@ int tmpfs_unlink(vfs_node *node,const char *name);
 int tmpfs_link(vfs_node *,const char*,vfs_node*,const char*);
 struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index);
 int tmpfs_truncate(vfs_node *node,size_t size);
-int tmpfs_symlink(vfs_node *node,const char *name,const char *linkpath);
+int tmpfs_symlink(vfs_node *node,const char *name,const char *target);
 ssize_t tmpfs_readlink(vfs_node *node,char *buf,size_t bufsize);
 int tmpfs_getattr(vfs_node *node,struct stat *st);
 int tmpfs_setattr(vfs_node *node,struct stat *st);

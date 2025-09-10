@@ -327,15 +327,15 @@ int vfs_unlink(const char *path){
 
 int vfs_symlink(const char *target, const char *linkpath){
 	//open parent
-	vfs_node *parent = vfs_open(target,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node *parent = vfs_open(linkpath,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
 
-	const char *child  = vfs_basename(target);
+	const char *child  = vfs_basename(linkpath);
 	int ret;
 	if(parent->symlink){
-		ret = parent->symlink(parent,child,linkpath);
+		ret = parent->symlink(parent,child,target);
 	} else if(parent->flags & VFS_DIR){
 		ret = -EIO;
 	} else {

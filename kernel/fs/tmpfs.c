@@ -226,15 +226,15 @@ int tmpfs_link(vfs_node *parent_src,const char *src,vfs_node *parent_dest,const 
 }
 
 
-int tmpfs_symlink(vfs_node *node,const char *name,const char *linkpath){
+int tmpfs_symlink(vfs_node *node,const char *name,const char *target){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	if(tmpfs_exist(inode,name))return -EEXIST;
 
 	tmpfs_inode *symlink = new_inode(TMPFS_FLAGS_LINK);
 	kfree(symlink->buffer);
-	symlink->buffer_size = strlen(linkpath);
-	symlink->buffer = strdup(linkpath);
+	symlink->buffer_size = strlen(target);
+	symlink->buffer = strdup(target);
 
 	//create new entry
 	tmpfs_dirent *entry = kmalloc(sizeof(tmpfs_dirent));
