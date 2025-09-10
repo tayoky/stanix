@@ -168,7 +168,7 @@ if [ ! -f ./ports/configure ] ; then
 	git submodule update ports
 fi
 
-(cd ports && ./configure --with-sysroot=$SYSROOT --cc=$CC --ar=$AR --ld=$LD --as=$AS --nm=$NM --host=$HOST --prefix=../initrd/usr)
+(cd ports && ./configure --with-sysroot=$SYSROOT --cc=$CC --ar=$AR --ld=$LD --as=$AS --nm=$NM --host=$HOST --prefix=$SYSROOT/usr)
 
 echo "using $CC"
 echo "using $LD"

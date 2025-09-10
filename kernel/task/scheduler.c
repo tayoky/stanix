@@ -44,7 +44,7 @@ void init_task(){
 	kernel_task->flags = PROC_FLAG_PRESENT | PROC_FLAG_RUN;
 	kernel_task->child = new_list();
 	kernel_task->memseg = new_list();
-	kernel_task->umask = 0x2;
+	kernel_task->umask = 022;
 
 	//setup a new stack
 	kernel_task->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);

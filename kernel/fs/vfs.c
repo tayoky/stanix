@@ -48,7 +48,7 @@ int vfs_mount(const char *name,vfs_node *local_root){
 	//first open the mount point or create it
 	vfs_node *mount_point = vfs_open(name,VFS_READWRITE);
 	if(!mount_point){
-		if(vfs_mkdir(name,0x777)){
+		if(vfs_mkdir(name,0777)){
 			return -ENOENT;
 		}
 		mount_point = vfs_open(name,VFS_READWRITE);

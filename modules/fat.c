@@ -17,7 +17,7 @@ static int fat_getattr(vfs_node *node,struct stat *st){
 
 	//TODO : parse times
 	st->st_size = inode->entry.file_size;
-	st->st_mode = 0x777;
+	st->st_mode = 0777;
 	return 0;
 }
 
