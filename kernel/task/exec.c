@@ -72,13 +72,12 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	char **saved_argv = kmalloc((argc + 1) * sizeof(char *));
 	for (int i = 0; i < argc; i++){
 		total_arg_size += strlen(argv[i]) + 1;
-		saved_argv[i] = kmalloc(strlen(argv[i]) + 1);
-		strcpy(saved_argv[i],argv[i]);
+		saved_argv[i] = strdup(argv[i]);
 	}
 	saved_argv[argc] = NULL; // last NULL entry at the end
 
 	//align this
-	if(total_arg_size & 0b111){
+	if(total_arg_size % 8){
 		total_arg_size += 8 - (total_arg_size % 8);
 	}
 
@@ -87,8 +86,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	char **saved_envp = kmalloc((envc + 1) * sizeof(char *));
 	for (int i = 0; i < envc; i++){
 		total_arg_size += strlen(envp[i]) + 1;
-		saved_envp[i] = kmalloc(strlen(envp[i]) + 1);
-		strcpy(saved_envp[i],envp[i]);
+		saved_envp[i] = strdup(envp[i]);
 	}
 	saved_envp[envc] = NULL; // last NULL entry at the end
 	
@@ -97,6 +95,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	while(current){
 		list_node *next = current->next;
 		memseg_unmap(get_current_proc(),current->value);
+		list_remove(get_current_proc()->memseg,current->value);
 		current = next;
 	}
 
@@ -153,12 +152,12 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	//check setuid /setgid bit
 	struct stat st;
 	if(vfs_getattr(file,&st) >= 0){
-		if(st.st_mode & 0x800){
+		if(st.st_mode & S_ISUID){
 			get_current_proc()->suid =get_current_proc()->euid;
 			get_current_proc()->uid  = st.st_uid;
 			get_current_proc()->euid = st.st_uid;
 		}
-		if(st.st_mode & 0x080){
+		if(st.st_mode & S_ISGID){
 			get_current_proc()->sgid = get_current_proc()->egid;
 			get_current_proc()->gid  = st.st_gid;
 			get_current_proc()->egid = st.st_gid;
@@ -168,7 +167,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	vfs_close(file);
 
 	//map stack
-	memseg_map(get_current_proc(),USER_STACK_BOTTOM,USER_STACK_SIZE,PAGING_FLAG_RW_CPL3  | PAGING_FLAG_NO_EXE,MAP_PRIVATE);
+	memseg_map(get_current_proc(),USER_STACK_BOTTOM,USER_STACK_SIZE,PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE,MAP_PRIVATE);
 
 	//keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;
@@ -196,7 +195,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	argv[argc] = NULL;
 
 	//align the pointer
-	if((uintptr_t)ptr & 0b111){
+	if((uintptr_t)ptr % 8){
 		ptr += 8 - ((uintptr_t)ptr % 8);
 	}
 
