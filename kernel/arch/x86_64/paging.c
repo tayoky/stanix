@@ -26,7 +26,7 @@ void init_paging(void){
 	//for kernel module kheap , ...
 	for (int i = 0; i < 8; i++){
 		kernel->arch.hPDP[i] = pmm_allocate_page() | PAGING_FLAG_RW_CPL0;
-		memset((void *)kernel->arch.hPDP[i] + kernel->hhdm,0,PAGE_SIZE);
+		memset((void *)((kernel->arch.hPDP[i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm),0,PAGE_SIZE);
 	}
 	
 	addrspace_t PMLT4 = create_addr_space();
@@ -52,18 +52,18 @@ addrspace_t create_addr_space(){
 	//map the hhdm
 	map_hhdm(PMLT4);
 
+	kdebugf("create addrspace %p\n",PMLT4);
 	return PMLT4;
 }
 
 void delete_addr_space(addrspace_t PMLT4){
 	//recusively free everythings
 	//EXCEPT THE HIGHER PDP
-
+	kdebugf("free addrspace %p\n",PMLT4);
 	for (uint16_t PMLT4i = 0; PMLT4i < (512 - 8); PMLT4i++){
 		if(!(PMLT4[PMLT4i] & 1))continue;
 
 		uint64_t *PDP = (uint64_t *)((PMLT4[PMLT4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-
 		for (uint16_t PDPi = 0; PDPi < 512; PDPi++){
 			if(!(PDP[PDPi] & 1))continue;
 			uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
@@ -172,6 +172,8 @@ void unmap_page(addrspace_t PMLT4,uintptr_t virtual_addr){
 	
 	PT[PTi] = 0;
 
+	if(get_addr_space() == PMLT4)asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
+
 	//if there are not more mapped entries in a table we can delete it
 	for (uint16_t i = 0; i < 512; i++){
 		if(PT[i] & 1){
@@ -188,16 +190,6 @@ void unmap_page(addrspace_t PMLT4,uintptr_t virtual_addr){
 	}
 	pmm_free_page((uintptr_t)PD-kernel->hhdm);
 	PDP[PDPi] = 0;
-
-	for (uint16_t i = 0; i < 512; i++){
-		if(PDP[i] & 1){
-			return;
-		}
-	}
-	pmm_free_page((uintptr_t)PDP-kernel->hhdm);
-	PMLT4[PMLT4i] = 0;
-
-	asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
 }
 
 void map_kernel(uint64_t *PMLT4){
