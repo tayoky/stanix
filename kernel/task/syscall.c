@@ -1097,7 +1097,10 @@ static int chown_node(vfs_node *node,uid_t owner,gid_t group){
 	if(st.st_uid != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT){
 		return -EPERM;
 	}
-	return vfs_chown(node,owner,group);
+	st.st_uid = owner;
+	st.st_gid = group;
+	st.st_mode &= ~(S_ISUID | S_ISGID);
+	return vfs_setattr(node,&st);
 }
 
 int sys_chown(const char *pathname, uid_t owner, gid_t group){
