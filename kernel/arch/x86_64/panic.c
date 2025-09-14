@@ -68,8 +68,10 @@ void panic(const char *error,fault_frame *fault){
 		kprintf("cr2 : 0x%p\tcr3 : 0x%p\n",fault->cr2,fault->cr3);
 		kprintf("rip : 0x%p\n",fault->rip);
 		kprintf("cs  : 0x%p\tss  : 0x%p\n",fault->cs,fault->ss);
+		kprintf("es  : 0x%p\tds  : 0x%p\n",fault->es,fault->ds);
+		kprintf("gs  : 0x%p\tfs  : 0x%p\n",fault->gs,fault->fs);
 		kprintf("========================= FLAG =========================\n");
-		kprintf("falgs: 0x%lx\n",fault->flags);
+		kprintf("flags: 0x%lx\n",fault->flags);
 		
 
 	}else{

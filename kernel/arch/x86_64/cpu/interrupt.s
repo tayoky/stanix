@@ -60,7 +60,6 @@ isr_base:
     push rax
     mov rax, cr2
     push rax
-    mov rdi, rsp
     
     ;save segs
     xor rax, rax
@@ -73,7 +72,17 @@ isr_base:
     mov ax, gs
     push rax
     
+    
+    mov rdi, rsp
     cld
+    and rsp, ~0xf
+
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov gs, ax
+    mov fs, ax
+
     call isr_handler
 
     ;load segs

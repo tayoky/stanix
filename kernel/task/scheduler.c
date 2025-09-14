@@ -148,6 +148,10 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 		"pop %0" : "=r" (proc->context.frame.flags));
 	proc->context.frame.cs = 0x08;
 	proc->context.frame.ss = 0x10;
+	proc->context.frame.ds = 0x10;
+	proc->context.frame.es = 0x10;
+	proc->context.frame.gs = 0x10;
+	proc->context.frame.fs = 0x10;
 	proc->context.frame.rip = (uint64_t)func;
 	#endif
 
