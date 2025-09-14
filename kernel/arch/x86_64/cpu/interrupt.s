@@ -46,6 +46,7 @@ isr_err_stub_base:
     mov ds, ax
     mov es, ax
     mov ss, ax
+    cld
     call exception_handler
     mov ax, 0x23
     mov ds, ax

@@ -50,6 +50,7 @@ irq_base:
     mov ds, ax
     mov es, ax
     mov ss, ax
+    cld
     call irq_handler
     mov ax, 0x23
     mov ds, ax
