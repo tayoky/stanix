@@ -10,6 +10,10 @@
 //any change here must be replicataed in interrupt handler
 //and context switch
 typedef struct fault_frame{
+	uint64_t gs;
+	uint64_t fs;
+	uint64_t es;
+	uint64_t ds;
 	uint64_t cr2;
 	uint64_t cr3;
 	uint64_t rax;

@@ -1,27 +1,44 @@
-%macro isr_err_stub_no_code 2
+%macro isr_no_code 2
     global %1
     %1:
         push 0
         push %2
-        jmp isr_err_stub_base
+        jmp isr_base
 %endmacro
-%macro isr_err_stub_code 2
+%macro isr_code 2
     global %1
     %1:
         push %2
-        jmp isr_err_stub_base
+        jmp isr_base
 %endmacro
 section .text
-extern exception_handler
-isr_err_stub_no_code divide_exception, 0
-isr_err_stub_no_code overflow_exception, 4
-isr_err_stub_no_code invalid_op_exception, 6
-isr_err_stub_code invalid_tss_exception, 10
-isr_err_stub_code global_fault_exception, 13
-isr_err_stub_code pagefault_exception, 14
-isr_err_stub_no_code isr128, 128
+extern isr_handler
+isr_no_code divide_exception, 0
+isr_no_code overflow_exception, 4
+isr_no_code invalid_op_exception, 6
+isr_code invalid_tss_exception, 10
+isr_code global_fault_exception, 13
+isr_code pagefault_exception, 14
+isr_no_code isr128, 128
 
-isr_err_stub_base:
+isr_no_code irq0 , 32
+isr_no_code irq1 , 33
+isr_no_code irq2 , 34
+isr_no_code irq3 , 35
+isr_no_code irq4 , 36
+isr_no_code irq5 , 37
+isr_no_code irq6 , 38
+isr_no_code irq7 , 39
+isr_no_code irq8 , 40
+isr_no_code irq9 , 41
+isr_no_code irq10, 42
+isr_no_code irq11, 43
+isr_no_code irq12, 44
+isr_no_code irq13, 45
+isr_no_code irq14, 46
+isr_no_code irq15, 47
+
+isr_base:
     push r15
     push r14
     push r13
@@ -37,22 +54,41 @@ isr_err_stub_base:
     push rcx
     push rbx
     push rax
+
+    ;save cr2 and cr3
     mov rax, cr3
     push rax
     mov rax, cr2
     push rax
     mov rdi, rsp
-    mov ax, 0x10
-    mov ds, ax
-    mov es, ax
-    mov ss, ax
+    
+    ;save segs
+    xor rax, rax
+    mov ax, ds
+    push rax
+    mov ax, es
+    push rax
+    mov ax, fs
+    push rax
+    mov ax, gs
+    push rax
+    
     cld
-    call exception_handler
-    mov ax, 0x23
-    mov ds, ax
+    call isr_handler
+
+    ;load segs
+    pop rax
+    mov gs, ax
+    pop rax
+    mov fs, ax
+    pop rax
     mov es, ax
     pop rax
-    pop rax
+    mov ds, ax
+    
+    ;skip cr2 and cr3
+    add rsp, 16
+
     pop rax
     pop rbx
     pop rcx

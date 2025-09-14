@@ -3,6 +3,7 @@
 #include <kernel/print.h>
 #include <kernel/signal.h>
 #include <kernel/interrupt.h>
+#include <kernel/irq.h>
 #include <stdint.h>
 #include "idt.h"
 #include "isr.h"
@@ -58,7 +59,10 @@ void page_fault_info(fault_frame *fault){
 	kprintf("present page\n");
 }
 
-void exception_handler(fault_frame *fault){
+void isr_handler(fault_frame *fault){
+	if(fault->err_type >= 32 && fault->err_type <= 47){
+		return irq_handler(fault);
+	}
 	//0x80 is syscall not a fault
 	if(fault->err_type == 0x80){
 		return syscall_handler(fault);

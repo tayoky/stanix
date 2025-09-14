@@ -122,7 +122,7 @@ void irq_eoi(uintmax_t irq_num){
 }
 
 void irq_handler(fault_frame *frame){
-	void (*handler)(fault_frame *) = handlers[frame->err_type];
+	void (*handler)(fault_frame *) = handlers[frame->err_type - 32];
 	if(handler){
 		handler(frame);
 	}
