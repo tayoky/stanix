@@ -16,6 +16,7 @@
 #include <kernel/module.h>
 #include <kernel/tty.h>
 #include <kernel/signal.h>
+#include <kernel/asm.h>
 #include <sys/type.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
@@ -1334,6 +1335,7 @@ void *syscall_table[] = {
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
 
 void syscall_handler(fault_frame *context){
+	enable_interrupt();
 	if(ARG0_REG(*context) >= syscall_number){
 		ARG0_REG(*context) = (uint64_t)-EINVAL;
 		return;

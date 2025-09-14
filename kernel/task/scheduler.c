@@ -163,11 +163,9 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 
 
 void yeld(){
-	if(!kernel->can_task_switch){
-		return;
-	}
-
-	kernel->can_task_switch = 0;
+	if(!kernel->can_task_switch)return;
+	
+	disable_interrupt();
 
 	//save old proc
 	process *old = get_current_proc();
@@ -184,10 +182,10 @@ void yeld(){
 
 	set_kernel_stack(KSTACK_TOP(get_current_proc()->kernel_stack));
 
-	kernel->can_task_switch = 1;
 	if(get_current_proc() != old){
 		context_switch(&old->context,&get_current_proc()->context);
 	}
+	enable_interrupt();
 }
 
 process *get_current_proc(){

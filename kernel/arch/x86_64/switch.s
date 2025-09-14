@@ -1,12 +1,9 @@
-extern kernel
+;please make sure intterupt flags is clear when entering this shit
 
-;FIXME : race conditon if switch happend between start of this func
-;and the cli
 global context_switch
 context_switch:
 	;save eflags first
 	pushfq
-	cli
 	pop rax
 	mov [rdi + 512 + 8 * 21], rax
 
