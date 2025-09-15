@@ -41,3 +41,19 @@ void gfx_draw_texture(gfx_t *gfx,texture_t *texture,long x,long y){
 		}
 	}
 }
+
+void gfx_draw_texture_scale(gfx_t *gfx,texture_t *texture,long x,long y,float scale_x,float scale_y){
+	size_t rx = 0;
+	scale_x = 1 / scale_x;
+	scale_y = 1 / scale_y;
+	for(float tx=0; tx<texture->width; tx += scale_x){
+		size_t ry = 0;
+		for (float ty = 0; ty < texture->height; ty += scale_y){
+			long cx = tx;
+			long cy = ty;
+			gfx_draw_pixel(gfx,texture->bitmap[cx + cy * texture->width],rx + x,ry + y);
+			ry++;	
+		}
+		rx++;
+	}
+}

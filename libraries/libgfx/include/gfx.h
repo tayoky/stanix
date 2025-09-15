@@ -60,6 +60,7 @@ long gfx_char_height(font_t *font,int c);
 
 texture_t *gfx_load_texture(gfx_t *gfx,const char *path);
 void gfx_draw_texture(gfx_t *gfx,texture_t *textutre,long x,long y);
+void gfx_draw_texture_scale(gfx_t *gfx,texture_t *texture,long x,long y,float scale_x,float scale_y);
 
 #define gfx_draw_pixel(gfx,color,x,y) {*(color_t *)((uintptr_t)gfx->buffer +  (x) * (gfx->bpp / 8) + (y) * gfx->pitch) = (color);}
 
