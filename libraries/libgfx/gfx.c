@@ -9,6 +9,7 @@
 #include "gfx.h"
 
 gfx_t *gfx_open_framebuffer(const char *path){
+	if(!path)path = getenv("FB");
 	int fb = open(path,O_WRONLY);
 	if(fb < 0)return NULL;
 

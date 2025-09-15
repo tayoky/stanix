@@ -8,6 +8,7 @@ static int (*font_types[])(font_t*,const char *path) = {
 };
 
 font_t *gfx_load_font(const char *path){
+	if(!path)path = getenv("FONT");
 	font_t *font = malloc(sizeof(font_t));
 
 	for(size_t i = 0; i<sizeof(font_types) / sizeof(*font_types); i++){

@@ -17,6 +17,11 @@ insmod /mod/ps2-kb.ko
 insmod /mod/serial.ko
 echo "mount partitions"
 automount
+
+#setup font and frambuffer path
+export FONT="/zap-light16.psf"
+export FB="/dev/fb0"
+
 #uncomment this line to get a shell on the serial port
 #login --setup-stdin-from-stdout > /dev/ttyS0
 term --layout azerty
