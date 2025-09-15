@@ -66,7 +66,7 @@ memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot,in
 	address = new_memseg->addr;
 	size    = new_memseg->size;
 
-	kdebugf("map %p size : %lx\n",address,size);
+	//kdebugf("map %p size : %lx\n",address,size);
 	
 	uintptr_t end = address + size;
 	while(address < end){
@@ -91,7 +91,7 @@ void memseg_chflag(process *proc,memseg *seg,uint64_t prot){
 void memseg_unmap(process *proc,memseg *seg){
 	list_remove(proc->memseg,seg);
 
-	kdebugf("unmap %p %p\n",seg->addr,seg->size);
+	//kdebugf("unmap %p %p\n",seg->addr,seg->size);
 
 	seg->ref_count--;
 	if(seg->ref_count == 0){
