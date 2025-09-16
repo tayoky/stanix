@@ -8,6 +8,7 @@
 #include <kernel/arch.h>
 #include <kernel/time.h>
 #include <kernel/asm.h>
+#include <kernel/signal.h>
 #include <kernel/memseg.h>
 #include <stdatomic.h>
 #include <errno.h>
@@ -196,6 +197,15 @@ process *get_current_proc(){
 	return kernel->current_proc;
 }
 
+static void alert_parent(process *proc){
+	if(!proc->parent)return;
+	if((proc->parent->flags & PROC_FLAG_WAIT) && (proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1 || proc->parent->waitfor == -proc->group)){
+		unblock_proc(proc->parent);
+	} else {
+		send_sig(proc->parent,SIGCHLD);
+	}
+}
+
 void kill_proc(process *proc){
 	//all the childreen become orphelan
 	//the parent of orphelan is init
@@ -203,6 +213,7 @@ void kill_proc(process *proc){
 		process *child = node->value;
 		child->parent = init;
 		list_append(init->child,child);
+		if(child->flags & PROC_FLAG_ZOMBIE)alert_parent(child);
 	}
 	free_list(proc->child);
 
@@ -221,17 +232,12 @@ void kill_proc(process *proc){
 	foreach(node,proc->memseg){
 		memseg_unmap(proc,node->value);
 	}
+	free_list(proc->memseg);
 
 	//the tricky part begin
 	kernel->can_task_switch = 0;
 
-	//is the parent waiting ?
-	if(proc->parent && (proc->parent->flags & PROC_FLAG_WAIT)){
-		//see if we can wake it up
-		if(proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1 || proc->parent->waitfor == -proc->group){
-			unblock_proc(proc->parent);
-		}
-	}
+	alert_parent(proc);
 	
 	proc->flags |= PROC_FLAG_ZOMBIE;
 	block_proc(proc);
@@ -309,6 +315,7 @@ void unblock_proc(process *proc){
 
 void final_proc_cleanup(process *proc){
 	list_remove(proc_list,proc);
+	if(proc->parent)list_remove(proc->parent->child,proc);
 	//now we can free the paging tables
 	delete_addr_space(proc->addrspace);
 	kfree((void*)proc->kernel_stack);
