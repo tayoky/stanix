@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-//#include <assert.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -12,8 +11,6 @@
 #include <input.h>
 #include <dirent.h>
 #include <errno.h>
-//stanix specific input device header
-#include <input.h>
 
 extern char **environ;
 
@@ -49,16 +46,24 @@ int main(){
 		i++;
 	}
 
-	//launch tsh in the startup script
-	static const char *arg[] = {
-		"tash",
-		"/etc/init.d/startup.sh",
-		NULL
-	};
+	pid_t child = fork();
+	if(!child){
+		//launch tsh in the startup script
+		static char *arg[] = {
+			"tash",
+			"/etc/init.d/startup.sh",
+			NULL
+		};
 
-	execvp("tash",arg);
+		execvp("tash",arg);
 
-	perror("tash");
-	printf("make sure tash is installed then reboot the system\n");
-	return 1;
+		perror("tash");
+		printf("make sure tash is installed then reboot the system\n");
+		return 1;
+	}
+
+	//just cleanup oprhan process
+	for(;;){
+		waitpid(-1,NULL,0);
+	}
 }
