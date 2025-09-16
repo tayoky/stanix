@@ -295,6 +295,7 @@ void tmpfs_close(vfs_node *node){
 
 int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	if(tmpfs_exist(inode,name))return -EEXIST;
 
 	//turn vfs flag into tmpfs flags
 	uint64_t inode_flag = 0;
