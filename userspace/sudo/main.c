@@ -20,7 +20,7 @@ int main(int argc,char **argv){
 			shell = "sh";
 		}
 
-		const char *args[] = {
+		char *args[] = {
 			shell,
 			NULL
 		};
@@ -37,7 +37,7 @@ int main(int argc,char **argv){
 		return 0;
 	}
 
-	execvp(argv[1],(const char *const*)&argv[1]);
+	execvp(argv[1],&argv[1]);
 	perror(argv[1]);
 
 	return 0;
