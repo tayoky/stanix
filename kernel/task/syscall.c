@@ -347,10 +347,15 @@ int sys_ioctl(int fd,uint64_t request,void *arg){
 	return vfs_ioctl(FD_GET(fd).node,request,arg);
 }
 
-int sys_usleep(useconds_t usec){
-	kdebugf("sleep for %ld\n",usec);
-	micro_sleep(usec);
-	return 0;
+int sys_nanosleep(const struct timespec *duration,struct timespec *rem){
+	if(!CHECK_STRUCT(duration)){
+		return -EFAULT;
+	}
+	if(rem && !CHECK_STRUCT(rem)){
+		return -EFAULT;
+	}
+	//TODO : set rem
+	return micro_sleep(duration->tv_nsec / 1000 + duration->tv_sec * 1000000);
 }
 
 int sys_sleepuntil(struct timeval *time){
@@ -361,15 +366,20 @@ int sys_sleepuntil(struct timeval *time){
 	return 0;
 }
 
-int sys_gettimeofday(struct timeval *tv, struct timezone *tz){
-	(void)tz;
-
-	if(!CHECK_STRUCT(tv)){
+ int sys_clock_gettime(clockid_t clockid,struct timespec *tp){
+	if(!CHECK_STRUCT(tp)){
 		return -EFAULT;
 	}
 
-	*tv = time;
-	return 0;
+	switch(clockid){
+	case CLOCK_MONOTONIC:
+	case CLOCK_REALTIME:
+		tp->tv_sec  = time.tv_sec;
+		tp->tv_nsec = time.tv_usec * 1000;
+		return 0;
+	default:
+		return -EINVAL;
+	}
 }
 
 int sys_pipe(int pipefd[2]){
@@ -1269,10 +1279,10 @@ void *syscall_table[] = {
 	(void *)sys_dup2,
 	(void *)sys_sbrk,
 	(void *)sys_ioctl,
-	(void *)sys_usleep,
+	(void *)sys_nanosleep,
 	(void *)sys_sleepuntil,
-	(void *)sys_gettimeofday,
-	(void *)sys_stub, //settimeofday
+	(void *)sys_clock_gettime,
+	(void *)sys_stub, //clock_settime
 	(void *)sys_pipe,
 	(void *)sys_execve,
 	(void *)sys_fork,

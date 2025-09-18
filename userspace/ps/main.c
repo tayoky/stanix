@@ -52,8 +52,8 @@ int main(int argc,char **argv){
 		if(!ent)break;
 		if(!isdigit(ent->d_name[0]))continue;
 
-		char path[PATH_MAX];
-		snprintf(path,PATH_MAX,"/proc/%s",ent->d_name);
+		char path[PATH_MAX + 6];
+		snprintf(path,sizeof(path),"/proc/%s",ent->d_name);
 		print(path,ent->d_name);
 	}
 

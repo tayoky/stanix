@@ -116,7 +116,7 @@ void check(const char *prefix){
 	}
 }
 
-int main(int argc,char **argv){
+int main(){
 	if(getuid() != 0){
 		fprintf(stderr,"automount : not run as root\n");
 		return 1;

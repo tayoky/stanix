@@ -85,7 +85,7 @@ int main(int argc,char **argv){
 	system("clear");
 	system("cat /etc/motd");
 
-	const char *arg[] = {
+	char *arg[] = {
 		pwd->pw_shell,
 		NULL
 	};
