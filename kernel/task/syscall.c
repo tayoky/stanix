@@ -458,7 +458,13 @@ int sys_mkdir(const char *path,mode_t mode){
 		return -EFAULT;
 	}
 
-	return vfs_mkdir(path,mode & ~get_current_proc()->umask);
+	//remove slash at the endd, as the vfs don't really like them
+	char *kpath = strdup(path);
+	for(char *ptr=kpath+strlen(kpath)-1; ptr>kpath && *ptr == '/'; ptr--)*ptr = '\0';
+
+	int ret = vfs_mkdir(kpath,mode & ~get_current_proc()->umask);
+	kfree(kpath);
+	return ret;
 }
 
 int sys_readdir(int fd,struct dirent *ret,long int index){
