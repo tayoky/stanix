@@ -20,4 +20,8 @@ void fault_handler(fault_frame *frame){
 	}
 	//TODO : send appropriate signal
 	send_sig(get_current_proc(),SIGSEGV);
+
+	if(is_userspace(frame)){
+		handle_signal(frame);
+	}
 }
