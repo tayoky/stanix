@@ -20,6 +20,7 @@
 #include <kernel/module.h>
 #include <kernel/proc.h>
 #include <kernel/sysfs.h>
+#include <kernel/shm.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -135,6 +136,7 @@ void kmain(){
 	init_mod();
 	init_proc();
 	init_sysfs();
+	init_shm();
 	
 	//just to debug
 	ls("/dev/");

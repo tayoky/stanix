@@ -13,6 +13,7 @@ typedef struct memseg_struct {
 	long flags;
 	long ref_count;
 	void (*unmap)(struct memseg_struct *);
+	void *private_data;
 } memseg;
 
 memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,int flags);

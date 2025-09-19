@@ -5,6 +5,9 @@ echo "mounting /proc"
 mount -t proc -S / -T /proc
 echo "mounting /sys"
 mount -t sysfs -S / -T /sys
+echo "mounting shmfs"
+mkdir -p /dev/shm
+mount -t shmfs -S / -T /dev/shm
 echo "loading modules"
 insmod /mod/test.ko
 insmod /mod/pci.ko
