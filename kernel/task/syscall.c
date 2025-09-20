@@ -332,7 +332,7 @@ uint64_t sys_sbrk(intptr_t incr){
 		}
 	} else {
 		//make heap bigger
-		memseg_map(get_current_proc(),proc->heap_end,PAGE_SIZE * incr_pages,PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE,MAP_PRIVATE);
+		memseg_map(get_current_proc(),proc->heap_end,PAGE_SIZE * incr_pages,PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE,MAP_PRIVATE|MAP_ANONYMOUS,NULL,0,NULL);
 	}
 	proc->heap_end += incr_pages * PAGE_SIZE;
 	return proc->heap_end;
@@ -969,12 +969,10 @@ int sys_mount(const char *source, const char *target,const char *filesystemtype,
 }
 
 void *sys_mmap(uintptr_t addr,size_t length,int prot,int flags,int fd,off_t offset){
-	if((flags & MAP_PRIVATE) && (flags & MAP_SHARED)){
-		return (void *)-EINVAL;
-	}
-	if(!length){
-		return (void *)-EINVAL;
-	}
+	int check = flags & (MAP_SHARED | MAP_PRIVATE);
+	if(check == 0 || check == (MAP_PRIVATE & MAP_SHARED))return (void*)-EINVAL;
+	if(!length)return (void *)-EINVAL;
+
 	if(flags & MAP_FIXED){
 		if(!CHECK_PTR_INRANGE(addr + length))return (void *)-EEXIST;
 		if(addr % PAGE_SIZE || length % PAGE_SIZE) return (void *)-EINVAL;
@@ -990,18 +988,21 @@ void *sys_mmap(uintptr_t addr,size_t length,int prot,int flags,int fd,off_t offs
 		pflags |= PAGING_FLAG_NO_EXE;
 	}
 
-	if(flags & MAP_ANONYMOUS){
-		memseg *seg = memseg_map(get_current_proc(),addr,length,pflags,flags);
-		if(seg){
-			return (void *)seg->addr;
-		} else {
-			return (void *)-EEXIST;
-		}
-	} else {
+	vfs_node *node;
+	if(!(flags & MAP_ANONYMOUS)){
 		if(!FD_GET(fd).present){
 			return (void *)-EBADF;
 		}
-		return vfs_mmap(FD_GET(fd).node,(void *)addr,length,pflags,flags,offset);
+		node = FD_GET(fd).node;
+	}
+
+
+	memseg *seg;
+	int ret = memseg_map(get_current_proc(),addr,length,pflags,flags,node,offset,&seg);
+	if(ret < 0){
+		return (void*)(uintptr_t)ret;
+	} else {
+		return (void*)seg->addr;
 	}
 }
 

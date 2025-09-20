@@ -132,7 +132,8 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz);
 		}
 		
-		memseg *seg = memseg_map(get_current_proc(),prog_header[i].p_vaddr,prog_header[i].p_memsz,PAGING_FLAG_RW_CPL0,MAP_PRIVATE);
+		memseg *seg;
+		memseg_map(get_current_proc(),prog_header[i].p_vaddr,prog_header[i].p_memsz,PAGING_FLAG_RW_CPL0,MAP_PRIVATE|MAP_ANONYMOUS,NULL,0,&seg);
 		memset((void*)prog_header[i].p_vaddr,0,prog_header[i].p_memsz);
 
 		//file size must be <= to virtual size
@@ -167,7 +168,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	vfs_close(file);
 
 	//map stack
-	memseg_map(get_current_proc(),USER_STACK_BOTTOM,USER_STACK_SIZE,PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE,MAP_PRIVATE);
+	memseg_map(get_current_proc(),USER_STACK_BOTTOM,USER_STACK_SIZE,PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE,MAP_PRIVATE|MAP_ANONYMOUS,NULL,0,NULL);
 
 	//keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;

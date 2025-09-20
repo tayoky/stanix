@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <errno.h>
 
 memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,int flags){
 	list_node *prev = NULL;
@@ -59,22 +60,34 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,
 	return new_memseg;
 }
 
-memseg *memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot,int flags){
+int memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_node *node,off_t offset,memseg **seg){
 	memseg *new_memseg = memseg_create(proc,address,size,prot,flags);
-	if(!new_memseg) return NULL;
+	if(!new_memseg) return -EEXIST;
 	
 	address = new_memseg->addr;
 	size    = new_memseg->size;
 
 	//kdebugf("map %p size : %lx\n",address,size);
-	
-	uintptr_t end = address + size;
-	while(address < end){
-		map_page(proc->addrspace,pmm_allocate_page(),address,prot);
-		address += PAGE_SIZE;
+	int ret = 0;
+	if(flags & MAP_ANONYMOUS){
+		uintptr_t end = address + size;
+		while(address < end){
+			map_page(proc->addrspace,pmm_allocate_page(),address,prot);
+			address += PAGE_SIZE;
+		}
+	} else if(node){
+		ret = vfs_mmap(node,offset,new_memseg);
+	} else {
+		ret = -EINVAL;
 	}
 
-	return new_memseg;
+	if(ret < 0){
+		list_remove(proc->memseg,new_memseg);
+		kfree(new_memseg);
+	}
+	
+	if(seg)*seg = new_memseg;
+	return ret;
 }
 
 void memseg_chflag(process *proc,memseg *seg,uint64_t prot){
@@ -93,6 +106,10 @@ void memseg_unmap(process *proc,memseg *seg){
 
 	//kdebugf("unmap %p %p\n",seg->addr,seg->size);
 
+
+	uintptr_t addr = seg->addr;
+	uintptr_t end = seg->addr + seg->size;
+
 	seg->ref_count--;
 	if(seg->ref_count == 0){
 		if(seg->unmap){
@@ -108,8 +125,6 @@ void memseg_unmap(process *proc,memseg *seg){
 		kfree(seg);
 	}
 
-	uintptr_t addr = seg->addr;
-	uintptr_t end = seg->addr + seg->size;
 	while(addr < end){
 		unmap_page(proc->addrspace,addr);
 		addr += PAGE_SIZE;
@@ -139,8 +154,9 @@ void memseg_clone(process *parent,process *child,memseg *seg){
 		}
 		return;
 	}
-	memseg *new_seg = memseg_map(child,seg->addr,seg->size,PAGING_FLAG_RW_CPL0,seg->flags);
-	if(!new_seg){
+	//TODO : what happend for device mapped as private ?
+	memseg *new_seg;
+	if(memseg_map(child,seg->addr,seg->size,PAGING_FLAG_RW_CPL0,seg->flags | MAP_ANONYMOUS,NULL,0,&new_seg) < 0){
 		return;
 	}
 

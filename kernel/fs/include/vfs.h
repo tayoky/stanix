@@ -26,6 +26,7 @@
 
 struct vfs_node_struct;
 struct vfs_mount_point_struct;
+struct memseg_struct;
 
 typedef struct vfs_node_struct {
 	void *private_inode;
@@ -48,7 +49,7 @@ typedef struct vfs_node_struct {
 	int (* setattr)(struct vfs_node_struct *,struct stat *);
 	int (* wait_check)(struct vfs_node_struct *,short);
 	int (* wait)(struct vfs_node_struct *,short);
-	void *(* mmap)(struct vfs_node_struct *,void *,size_t,uint64_t,int,off_t);
+	int (* mmap)(struct vfs_node_struct *,off_t,struct memseg_struct *);
 
 	//used for directories cache
 	char name[PATH_MAX];
@@ -175,7 +176,7 @@ int vfs_setattr(vfs_node *node,struct stat *st);
 
 int vfs_unmount(const char *path);
 
-void *vfs_mmap(vfs_node *node,void *addr,size_t lenght,uint64_t prot,int flags,off_t offset);
+int vfs_mmap(vfs_node *node,off_t offset,struct memseg_struct *seg);
 
 void vfs_register_fs(vfs_filesystem *fs);
 void vfs_unregister_fs(vfs_filesystem *fs);

@@ -98,33 +98,28 @@ void framebuffer_unmap(memseg *seg){
 	(void)seg;
 }
 
-void *frambuffer_mmap(vfs_node *node,void *addr,size_t lenght,uint64_t prot,int flags,off_t offset){
-	if(!(flags & MAP_SHARED)){
-		return (void *)-EINVAL;
+int frambuffer_mmap(vfs_node *node,off_t offset,memseg *seg){
+	if(!(seg->flags & MAP_SHARED)){
+		return -EINVAL;
 	}
 
 	struct limine_framebuffer *inode = node->private_inode;
-	offset = PAGE_ALIGN_DOWN(offset);
-	lenght = PAGE_ALIGN_DOWN(lenght);
-	if(lenght == 0)return (void *)-EINVAL;
 
-	memseg *seg = memseg_create(get_current_proc(),(uintptr_t)addr,lenght,prot,flags);
-	if(!seg)return (void *)-EEXIST;
 	seg->unmap = framebuffer_unmap;
 
 	uintptr_t vaddr = seg->addr;
-	uintptr_t paddr = (uintptr_t)inode->address - kernel->hhdm + offset;
-	uintptr_t end   = paddr + lenght;
+	uintptr_t paddr = (uintptr_t)inode->address - kernel->hhdm + PAGE_ALIGN_DOWN(offset);
+	uintptr_t end   = paddr + seg->size;
 
-	kdebugf("map framebuffer at %p in %p lenght : %p\n",vaddr,seg,lenght);
+	kdebugf("map framebuffer at %p in %p lenght : %p\n",vaddr,seg,seg->size);
 
 	while(paddr < end){
-		map_page(get_current_proc()->addrspace,paddr,vaddr,prot);
+		map_page(get_current_proc()->addrspace,paddr,vaddr,seg->prot);
 		paddr += PAGE_SIZE;
 		vaddr += PAGE_SIZE;
 	}
 
-	return (void *)seg->addr;
+	return 0;
 }
 
 void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color){

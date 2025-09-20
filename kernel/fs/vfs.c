@@ -3,6 +3,7 @@
 #include <kernel/print.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
+#include <kernel/memseg.h>
 #include <kernel/time.h>
 #include <kernel/list.h>
 #include <limits.h>
@@ -419,12 +420,12 @@ int vfs_ioctl(vfs_node *node,uint64_t request,void *arg){
 }
 
 
-void *vfs_mmap(vfs_node *node,void *addr,size_t lenght,uint64_t prot,int flags,off_t offset){
+int vfs_mmap(vfs_node *node,off_t offset,struct memseg_struct *seg){
 	if(node->mmap){
-		return node->mmap(node,addr,lenght,prot,flags,offset);
+		return node->mmap(node,offset,seg);
 	} else {
-		//TODO : general mapping
-		return (void *)-EINVAL;
+		//TODO : file mapping
+		return -EINVAL;
 	}
 }
 
