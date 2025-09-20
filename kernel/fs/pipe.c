@@ -5,10 +5,11 @@
 #include <errno.h>
 #include <kernel/print.h>
 #include <poll.h>
+#include <stdatomic.h>
 
 struct pipe{
-	ring_buffer ring;
-	int isbroken;
+	ring_buffer *ring;
+	atomic_int isbroken;
 };
 
 #define PIPE_SIZE 4096
@@ -45,24 +46,24 @@ ssize_t pipe_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 	struct pipe *pipe_inode = (struct pipe *)node->private_inode;
 
-	//borken pipe check
+	//broken pipe check
 	if(pipe_inode->isbroken){
 		return 0;
 	}
 
-	return ringbuffer_read(buffer,&pipe_inode->ring,count);
+	return ringbuffer_read(buffer,pipe_inode->ring,count);
 }
 
 ssize_t pipe_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 	struct pipe *pipe_inode = (struct pipe *)node->private_inode;
 
-	//borken pipe check
+	//broken pipe check
 	if(pipe_inode->isbroken){
 		return -EPIPE;
 	}
 
-	return ringbuffer_write(buffer,&pipe_inode->ring,count);
+	return ringbuffer_write(buffer,pipe_inode->ring,count);
 }
 
 int pipe_wait_check(vfs_node *node,short type){
@@ -75,10 +76,10 @@ int pipe_wait_check(vfs_node *node,short type){
 			events |= POLLERR;
 		}
 	}
-	if((type & POLLIN) && ringbuffer_read_available(&pipe_inode->ring)){
+	if((node->read) && (type & POLLIN) && ringbuffer_read_available(pipe_inode->ring)){
 		type |= POLLIN;
 	}
-	if((type & POLLOUT) && ringbuffer_write_available(&pipe_inode->ring)){
+	if((node->write) && (type & POLLOUT) && ringbuffer_write_available(pipe_inode->ring)){
 		type |= POLLOUT;
 	}
 	return type;
@@ -88,14 +89,11 @@ void pipe_close(vfs_node *node){
 	struct pipe *pipe_inode = (struct pipe *)node->private_inode;
 
 	//if it's aready broken delete the pipe
-	if(pipe_inode->isbroken){
-		delete_ringbuffer(&pipe_inode->ring);
+	if(atomic_exchange(&pipe_inode->isbroken,1)){
+		delete_ringbuffer(pipe_inode->ring);
 		kfree(pipe_inode);
 		return;
 	}
-
-	//broke the pipe
-	pipe_inode->isbroken = 1;
 
 	return;
 }

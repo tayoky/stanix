@@ -37,13 +37,13 @@ static void mouse_handler(fault_frame *frame){
 	kdebugf("mouse movement %d:%d",x,y);
 }
 
-ring_buffer mouse_buffer;
+ring_buffer *mouse_buffer;
 
 static ssize_t mouse_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 	(void)node;
 
-	return ringbuffer_read(buffer,&mouse_buffer,count);
+	return ringbuffer_read(buffer,mouse_buffer,count);
 }
 
 int init_mouse(int argc,char **argv){
@@ -83,7 +83,7 @@ int init_mouse(int argc,char **argv){
 }
 
 int fini_mouse(){
-	delete_ringbuffer(&mouse_buffer);
+	delete_ringbuffer(mouse_buffer);
 	return 0;
 }
 

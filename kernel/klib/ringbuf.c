@@ -5,13 +5,14 @@
 #include <kernel/list.h>
 #include <errno.h>
 
-ring_buffer new_ringbuffer(size_t buffer_size){
-	ring_buffer ring;
-	ring.buffer_size = buffer_size;
-	ring.write_offset = 0;
-	ring.read_offset = 0;
-	ring.buffer = kmalloc(buffer_size);
-	ring.reader_waiter = new_list();
+ring_buffer *new_ringbuffer(size_t buffer_size){
+	ring_buffer *ring = kmalloc(sizeof(ring_buffer));
+	memset(ring,0,sizeof(ring_buffer));
+	ring->buffer_size = buffer_size;
+	ring->write_offset = 0;
+	ring->read_offset = 0;
+	ring->buffer = kmalloc(buffer_size);
+	ring->reader_waiter = new_list();
 	return ring;
 }
 

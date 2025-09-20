@@ -13,7 +13,7 @@ typedef struct {
 	list *reader_waiter;
 }ring_buffer;
 
-ring_buffer new_ringbuffer(size_t buffer_size);
+ring_buffer *new_ringbuffer(size_t buffer_size);
 void delete_ringbuffer(ring_buffer *ring);
 ssize_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count);
 ssize_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count);

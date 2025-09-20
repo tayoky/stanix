@@ -11,7 +11,7 @@
 typedef struct tty {
 	void *private_data;
 	void (*out)(char,void *);
-	ring_buffer input_buffer;
+	ring_buffer *input_buffer;
 	struct termios termios;
 	struct winsize size;
 	list *waiter;
@@ -23,7 +23,7 @@ typedef struct tty {
 } tty;
 
 typedef struct pty {
-	ring_buffer output_buffer;
+	ring_buffer *output_buffer;
 	vfs_node *slave;
 }pty;
 

@@ -12,7 +12,7 @@
 
 void pty_output(char c,void *data){
 	pty *pty = (struct pty*)data;
-	ringbuffer_write(&c,&pty->output_buffer,1);
+	ringbuffer_write(&c,pty->output_buffer,1);
 }
 
 ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
@@ -21,12 +21,12 @@ ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	tty *tty = (struct tty *)node->private_inode;
 	pty *pty = (struct pty *)tty->private_data;
 
-	if(pty->slave->ref_count == 1 && !ringbuffer_read_available(&pty->output_buffer)){
+	if(pty->slave->ref_count == 1 && !ringbuffer_read_available(pty->output_buffer)){
 		//nobody as open the slave and there no data
 		return -EIO;
 	}
 
-	return ringbuffer_read(buffer,&pty->output_buffer,count);
+	return ringbuffer_read(buffer,pty->output_buffer,count);
 }
 
 ssize_t pty_master_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
@@ -47,7 +47,7 @@ int pty_master_wait_check(vfs_node *node,short type){
 	if((type & POLLHUP) && pty->slave->ref_count == 1){
 		events |= POLLHUP;
 	}
-	if((type & POLLIN) && ringbuffer_read_available(&pty->output_buffer)){
+	if((type & POLLIN) && ringbuffer_read_available(pty->output_buffer)){
 		events |= POLLIN;
 	}
 	if(type & POLLOUT){
@@ -99,7 +99,7 @@ ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	struct tty *tty = (struct tty *)node->private_inode;
 
 	if(tty->termios.c_lflag & ICANON){
-		ssize_t rsize = ringbuffer_read(buffer,&tty->input_buffer,count);
+		ssize_t rsize = ringbuffer_read(buffer,tty->input_buffer,count);
 		if(rsize < 0){
 			return rsize;
 		}
@@ -109,7 +109,7 @@ ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 		return rsize;
 	}
 
-	return ringbuffer_read(buffer,&tty->input_buffer,count);
+	return ringbuffer_read(buffer,tty->input_buffer,count);
 }
 
 ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
@@ -131,7 +131,7 @@ int tty_wait_check(vfs_node *node,short type){
 		events |= POLLHUP;
 	}
 
-	if((type & POLLIN) && ringbuffer_read_available(&tty->input_buffer)){
+	if((type & POLLIN) && ringbuffer_read_available(tty->input_buffer)){
 		events |= POLLIN;
 	}
 
@@ -329,7 +329,7 @@ int tty_input(tty *tty,char c){
 		tty->canon_buf[tty->canon_index] = c;
 		tty->canon_index++;
 		if(c == '\n' || c == tty->termios.c_cc[VEOL] || c == tty->termios.c_cc[VEOF]){
-			if((size_t)ringbuffer_write(tty->canon_buf,&tty->input_buffer,tty->canon_index) < tty->canon_index){
+			if((size_t)ringbuffer_write(tty->canon_buf,tty->input_buffer,tty->canon_index) < tty->canon_index){
 				if(tty->termios.c_iflag & IMAXBEL){
 					tty_output(tty,'\a');
 				}
@@ -344,7 +344,7 @@ int tty_input(tty *tty,char c){
 	}
 
 	//check for full ringbuffer
-	if(ringbuffer_write(&c,&tty->input_buffer,1) == 0){
+	if(ringbuffer_write(&c,tty->input_buffer,1) == 0){
 		if(tty->termios.c_iflag & IMAXBEL){
 			tty_output(tty,'\a');
 		}

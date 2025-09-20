@@ -10,7 +10,7 @@
 #include <errno.h>
 
 struct keyboard {
-	ring_buffer queue;
+	ring_buffer *queue;
 	process *controller;
 };
 
@@ -92,7 +92,7 @@ static void keyboard_handler(fault_frame *frame){
 	}
 	event.ie_key.scancode = extended ? scancode + 0x80 : scancode;
 	extended = 0;
-	ringbuffer_write(&event,&keyboard.queue,sizeof(struct input_event));
+	ringbuffer_write(&event,keyboard.queue,sizeof(struct input_event));
 }
 
 static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
@@ -103,7 +103,7 @@ static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	//must be the controller process
 	//return EOF so process don't stop because of an error
 	if(get_current_proc() != kb->controller) return 0;
-	return ringbuffer_read(buffer,&kb->queue,count);
+	return ringbuffer_read(buffer,kb->queue,count);
 }
 
 static int kbd_ioctl(vfs_node *node,uint64_t req,void *arg){
@@ -127,7 +127,7 @@ static int kbd_wait_check(vfs_node *node,short type){
 	struct keyboard *kb = node->private_inode;
 	if(!kb->controller)kb->controller = get_current_proc();
 	int events = 0;
-	if((type & POLLIN) && ringbuffer_read_available(node->private_inode) && get_current_proc() == kb->controller){
+	if((type & POLLIN) && ringbuffer_read_available(kb->queue) && get_current_proc() == kb->controller){
 		events |= POLLIN;
 	}
 	return events;
@@ -220,6 +220,7 @@ static int init_ps2kb(int argc,char **argv){
 }
 
 static int fini_ps2kb(){
+	delete_ringbuffer(keyboard.queue);
 	return 0;
 }
 
