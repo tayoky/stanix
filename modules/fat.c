@@ -116,8 +116,8 @@ ssize_t fat_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
 			//allow unaligned read
 			off += offset % inode->fat_info.cluster_size;
 
-			if(read_size + offset % inode->fat_info.cluster_size > inode->fat_info.cluster_size){
-				read_size = inode->fat_info.cluster_size = offset % inode->fat_info.cluster_size;
+			if(read_size + (offset % inode->fat_info.cluster_size) > inode->fat_info.cluster_size){
+				read_size = inode->fat_info.cluster_size - (offset % inode->fat_info.cluster_size);
 			}
 		}
 
