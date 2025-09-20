@@ -22,7 +22,7 @@ for i in "$@"; do
       shift # past argument=value
       ;;
     --target=*)
-      HOST="${i#*=}"
+      TARGET="${i#*=}"
       shift # past argument=value
       ;;
     --nproc=*)
