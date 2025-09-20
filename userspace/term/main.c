@@ -417,17 +417,22 @@ int main(int argc,const char **argv){
 
 	printf("starting userspace terminal emulator...\n");
 
+	if(!getenv("FB") || !getenv("FONT")){
+		fprintf(stderr,"no FB or FONT variable\n");
+		return EXIT_FAILURE;
+	}
+
 	//open gtx context
-	fb = gfx_open_framebuffer("/dev/fb0");
+	fb = gfx_open_framebuffer(NULL);
 	if(!fb){
 		perror("open gfx context");
 		return EXIT_FAILURE;
 	}
 
 	//load font
-	font = gfx_load_font("/zap-light16.psf");
+	font = gfx_load_font(NULL);
 	if(!font){
-		perror("/zap-light16.psf");
+		perror(getenv("FONT"));
 		return EXIT_FAILURE;
 	}
 	c_width  = gfx_char_width(font,' ');
