@@ -21,6 +21,8 @@ texture_t *gfx_load_texture(gfx_t *gfx,const char *path){
 	if(!memcmp(magic,"BM",2)){
 		//bitmap
 		ret = bmp_load(gfx,texture,file);
+	} if(!memcmp(magic,"qoif",4)){
+		ret = qoi_load(gfx,texture,file);
 	} else {
 		errno = EILSEQ; //not 100 %sure
 		ret = -1;
