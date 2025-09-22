@@ -13,7 +13,8 @@
 #include <stdatomic.h>
 #include <errno.h>
 
-process *running_proc;
+static process *running_proc_tail;
+static process *running_proc_head;
 list *proc_list;
 process *sleeping_proc;
 
@@ -23,8 +24,8 @@ process *init;
 static void idle_task(){
 	for(;;){
 		//if there are other process runnnig block us
-		if(get_current_proc()->next != get_current_proc()){
-			block_proc();
+		if(get_current_proc()->next != running_proc_head){
+			block_proc(NULL);
 		}
 	}
 }
@@ -40,8 +41,6 @@ void init_task(){
 	memset(kernel_task,0,sizeof(process));
 	kernel_task->parent = kernel_task;
 	kernel_task->pid = 0;
-	kernel_task->next = kernel_task;
-	kernel_task->prev = kernel_task;
 	kernel_task->flags = PROC_FLAG_PRESENT | PROC_FLAG_RUN;
 	kernel_task->child = new_list();
 	kernel_task->memseg = new_list();
@@ -63,7 +62,7 @@ void init_task(){
 
 	list_append(proc_list,kernel_task);
 
-	running_proc = kernel_task;
+	running_proc_head = running_proc_tail = NULL;
 
 	//the first task will be the init task
 	init = get_current_proc();
@@ -80,8 +79,10 @@ void init_task(){
 }
 
 void schedule(){
-	//get the next task
-	kernel->current_proc = get_current_proc()->next;
+	//pop the next task from the queue
+	kernel->current_proc = running_proc_tail;
+	running_proc_tail = running_proc_tail->next;
+	if(!running_proc_tail)running_proc_head = NULL;
 
 	//see if we can wakeup anything
 	while(sleeping_proc){
@@ -100,7 +101,7 @@ process *new_proc(){
 	kdebugf("next : %p\n",get_current_proc()->next);
 	process *proc = kmalloc(sizeof(process));
 	memset(proc,0,sizeof(process));
-	proc->pid =  __sync_fetch_and_add(&kernel->created_proc_count,1);
+	proc->pid =  atomic_fetch_add(&kernel->created_proc_count,1);
 
 	kdebugf("new proc 0x%p next : 0x%p pid : %ld/%ld\n",proc,get_current_proc()->next,proc->pid,kernel->created_proc_count);
 	init_mutex(&proc->sig_lock);
@@ -166,13 +167,29 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 	return proc;
 }
 
+/// @brief push an task at the top of the queue
+/// @param proc 
+static void push_task(process *proc){
+	if(running_proc_head){
+		running_proc_head->next = proc;
+	} else {
+		running_proc_tail = proc;
+	}
 
-void yeld(){
+	running_proc_head = proc;
+
+	proc->next = NULL;
+}
+
+void yield(int addback){
 	if(!kernel->can_task_switch)return;
 	
+	int prev_int = have_interrupt();
 	disable_interrupt();
 
-	//save old proc
+	if(addback)push_task(get_current_proc());
+
+	//save old task
 	process *old = get_current_proc();
 
 	schedule();
@@ -186,11 +203,11 @@ void yeld(){
 	}
 
 	set_kernel_stack(KSTACK_TOP(get_current_proc()->kernel_stack));
-
+	
 	if(get_current_proc() != old){
 		context_switch(&old->context,&get_current_proc()->context);
 	}
-	enable_interrupt();
+	if(prev_int)enable_interrupt();
 }
 
 process *get_current_proc(){
@@ -206,41 +223,46 @@ static void alert_parent(process *proc){
 	}
 }
 
-void kill_proc(process *proc){
+void kill_proc(void){
+	spinlock_acquire(&get_current_proc()->state_lock);
+
 	//all the childreen become orphelan
 	//the parent of orphelan is init
-	foreach(node,proc->child){
+	foreach(node,get_current_proc()->child){
 		process *child = node->value;
+
+		//we prevent the child from diying between when we set the parent and when we signal
+		//wich could lead to a race condition
+		spinlock_acquire(&child->state_lock);
 		child->parent = init;
 		list_append(init->child,child);
 		if(child->flags & PROC_FLAG_ZOMBIE)alert_parent(child);
+		spinlock_acquire(&child->state_lock);
 	}
-	free_list(proc->child);
-
+	free_list(get_current_proc()->child);
+	
 	//close every open fd
 	for (size_t i = 0; i < MAX_FD; i++){
-		if(proc->fds[i].present){
-			vfs_close(proc->fds[i].node);
+		if(get_current_proc()->fds[i].present){
+			vfs_close(get_current_proc()->fds[i].node);
 		}
 	}
-
-	//close cwd
-	vfs_close(proc->cwd_node);
-	kfree(proc->cwd_path);
-
-	//unmap everything
-	foreach(node,proc->memseg){
-		memseg_unmap(proc,node->value);
-	}
-	free_list(proc->memseg);
-
-	//the tricky part begin
-	kernel->can_task_switch = 0;
-
-	alert_parent(proc);
 	
-	proc->flags |= PROC_FLAG_ZOMBIE;
-	block_proc(proc);
+	//close cwd
+	vfs_close(get_current_proc()->cwd_node);
+	kfree(get_current_proc()->cwd_path);
+	
+	//unmap everything
+	foreach(node,get_current_proc()->memseg){
+		memseg_unmap(get_current_proc(),node->value);
+	}
+	free_list(get_current_proc()->memseg);
+	
+	
+	alert_parent(get_current_proc());
+	
+	get_current_proc()->flags |= PROC_FLAG_ZOMBIE;
+	block_proc(&get_current_proc()->state_lock);
 }
 
 process *pid2proc(pid_t pid){
@@ -259,8 +281,12 @@ process *pid2proc(pid_t pid){
 	return NULL;
 }
 
-int block_proc(){
-	//clear the intterupt flags
+int block_proc(spinlock *lock){
+	if(lock != &get_current_proc()->state_lock){
+		spinlock_acquire(&get_current_proc()->state_lock);
+	}
+
+	//clear the signal interrupt flags
 	get_current_proc()->flags &= ~PROC_FLAG_INTR;
 
 	//kdebugf("block %ld\n",get_current_proc()->pid);
@@ -269,19 +295,17 @@ int block_proc(){
 		unblock_proc(idle);
 	}
 
-	kernel->can_task_switch = 0;
-
-	//block ourself
+	//set the flag
 	get_current_proc()->flags &= ~(uint64_t)PROC_FLAG_RUN;
 	get_current_proc()->flags |= PROC_FLAG_BLOCKED;
 
-	//remove us from the list
-	get_current_proc()->prev->next = get_current_proc()->next;
-	get_current_proc()->next->prev = get_current_proc()->prev;
+	//now we can release the flag lock
+	if(lock && lock != &get_current_proc()->state_lock)spinlock_release(lock);
+	spinlock_release(&get_current_proc()->state_lock);
 
-	kernel->can_task_switch = 1;
-	//apply
-	yeld();
+	//if somebody unblock us within between it's not a prb
+
+	yield(0);
 
 	//if we were interrupted return -EINTR
 	if(get_current_proc()->flags & PROC_FLAG_INTR){
@@ -292,26 +316,23 @@ int block_proc(){
 }
 
 void unblock_proc(process *proc){
-	char old = kernel->can_task_switch;
+	spinlock_acquire(&proc->state_lock);
+
 	//aready unblocked ?
 	if(proc->flags & PROC_FLAG_RUN){
+		spinlock_release(&proc->state_lock);
 		return;
 	}
+
 	//kdebugf("unblock %ld\n",proc->pid);
 	proc->flags |= PROC_FLAG_RUN;
 	proc->flags &= ~PROC_FLAG_BLOCKED;
 
-	kernel->can_task_switch = 0;
+	push_task(proc);
 
-	//add it just before us
-	proc->next = get_current_proc();
-	proc->prev = get_current_proc()->prev;
-	proc->prev->next = proc;
-	proc->waker = get_current_proc();
-	get_current_proc()->prev = proc;
-
-	kernel->can_task_switch = old;
+	spinlock_acquire(&proc->state_lock);
 }
+
 
 void final_proc_cleanup(process *proc){
 	list_remove(proc_list,proc);

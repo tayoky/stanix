@@ -6,6 +6,7 @@
 #include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <kernel/mutex.h>
+#include <kernel/spinlock.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/signal.h>
@@ -40,6 +41,7 @@ typedef struct process_struct {
 	struct process_struct *prev;
 	struct process_struct *parent;
 	uint64_t flags;
+	spinlock state_lock;
 	file_descriptor fds[MAX_FD];
 	vfs_node *cwd_node;
 	char *cwd_path;
@@ -71,7 +73,6 @@ typedef struct process_struct {
 #define PROC_FLAG_TOCLEAN 0x004UL
 #define PROC_FLAG_DEAD    0x008UL
 #define PROC_FLAG_RUN     0x010UL
-#define PROC_FLAG_SLEEP   0x020UL
 #define PROC_FLAG_WAIT    0x040UL
 #define PROC_FLAG_INTR    0x080UL
 #define PROC_FLAG_BLOCKED 0x100UL
@@ -81,13 +82,29 @@ void init_task(void);
 process *get_current_proc(void);
 process *new_proc(void);
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
-void kill_proc(process *proc);
+
+/// @brief kill the current process
+void kill_proc(void);
+
 void final_proc_cleanup(process *proc);
+
+/// @brief get a process from its pid
+/// @param pid the pid of the process
+/// @return the process with the specfied pid
 process *pid2proc(pid_t pid);
-int block_proc();
+
+/// @brief block the current proc and release a lock atomicly
+/// @param lock the lock to release or NULL
+/// @return -EINTR if intruppted by signal devlivery or 0
+int block_proc(spinlock *lock);
+
+/// @brief unblock a process
+/// @param proc the process to unblock
 void unblock_proc(process *proc);
 
-void yeld();
+/// @brief yield to next task
+/// @param addback do we add the task back to the queue or running task
+void yield(int addback);
 
 #define FD_GET(fd) get_current_proc()->fds[fd]
 #define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))

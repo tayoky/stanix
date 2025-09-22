@@ -233,7 +233,7 @@ void sys_exit(int error_code){
 	//set that we exited normally
 	get_current_proc()->exit_status = (1UL << 16) | error_code;
 	kdebugf("exit with code : %ld\n",error_code);
-	kill_proc(get_current_proc());
+	kill_proc();
 }
 
 int sys_dup(int oldfd){
@@ -645,7 +645,7 @@ int sys_waitpid(pid_t pid,int *status,int options){
 	get_current_proc()->flags |= PROC_FLAG_WAIT;
 	
 	//block, when we wake up the process is now a zombie
-	if(block_proc() == -EINTR){
+	if(block_proc(NULL) == -EINTR){
 		return -EINTR;
 	}
 
@@ -853,7 +853,7 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout){
 		if(timeout >= 0 && (time.tv_sec < end.tv_sec || (time.tv_sec == end.tv_sec && time.tv_usec <= end.tv_usec))){
 			break;
 		}
-		yeld();
+		yield(1);
 	}
 	
 	return 0;

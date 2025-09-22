@@ -3,12 +3,13 @@
 
 #include <kernel/spinlock.h>
 #include <stddef.h>
+#include <stdatomic.h>
 
 struct process_struct;
 
 typedef struct mutex {
 	spinlock lock;
-	int locked;
+	atomic_int locked;
 	struct process_struct *waiter_head;
 	struct process_struct *waiter_tail;
 	size_t waiter_count;

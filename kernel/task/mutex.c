@@ -3,15 +3,18 @@
 #include <kernel/string.h>
 #include <kernel/mutex.h>
 #include <kernel/panic.h>
+#include <stdatomic.h>
+
+//FIXME : should we disable interrupt on mutex
 
 void init_mutex(mutex_t *mutex){
 	memset(mutex,0,sizeof(mutex_t));
 }
 
 int acquire_mutex(mutex_t *mutex){
-	spinlock_acquire(mutex->lock);
-	if(mutex->locked){
+	if(atomic_exchange(&mutex->locked,1)){
 		//register on the list
+		spinlock_acquire(&mutex->lock);
 		if(mutex->waiter_head){
 			mutex->waiter_head->snext = get_current_proc();
 		}
@@ -19,41 +22,28 @@ int acquire_mutex(mutex_t *mutex){
 		mutex->waiter_head = get_current_proc();
 		if(!mutex->waiter_tail)mutex->waiter_tail = mutex->waiter_head;
 		mutex->waiter_count++;
-		spinlock_release(mutex->lock);
+		spinlock_release(&mutex->lock);
 		while(mutex->locked){
 			//if we get intterupted just reblock
-			block_proc(); //TODO : maybee block_proc should realse the spinlock ?
+			block_proc(NULL);
 		}
 	}
-	mutex->locked = 1;
-	spinlock_release(mutex->lock);
 	return 0;
 }
 
-//TODO : maybee don't unlock on  wakeup ?
 void release_mutex(mutex_t *mutex){
-	spinlock_acquire(mutex->lock);
-	mutex->locked = 0;
-
+	atomic_store(&mutex->locked,0); //maybee move this at the end
+	spinlock_acquire(&mutex->lock);
 	if(mutex->waiter_count > 0){
 		process *proc = mutex->waiter_tail;
 		mutex->waiter_tail = proc->snext;
 		if(!mutex->waiter_tail)mutex->waiter_head = NULL;
 		mutex->waiter_count--;
 		unblock_proc(proc);
-		//the unblocked process will release the spinlock
-		return;
 	}
-	spinlock_release(mutex->lock);
+	spinlock_release(&mutex->lock);
 }
 
 int try_acquire_mutex(mutex_t *mutex){
-	spinlock_acquire(mutex->lock);
-	if(mutex->locked){
-		spinlock_release(mutex->lock);
-		return 0;
-	}
-	mutex->locked = 1;
-	spinlock_release(mutex->lock);
-	return 1;
+	return !!atomic_exchange(&mutex->locked,1);
 }

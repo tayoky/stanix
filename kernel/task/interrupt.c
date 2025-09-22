@@ -6,7 +6,7 @@
 //generic intruppt handler
 
 void timer_handler(fault_frame *frame){
-	yeld();
+	yield(1);
 
 	if(is_userspace(frame)){
 		handle_signal(frame);

@@ -49,14 +49,14 @@ static const char default_handling[] = {
 	[SIGTHR]    = IGN,
 };
 
-static void handle_default(process *proc,int signum){
+static void handle_default(int signum){
 	switch(default_handling[signum]){
 	case CORE:
 	case KILL:
 		release_mutex(&get_current_proc()->sig_lock);
 		kdebugf("process killed by signal %d\n",signum);
 		get_current_proc()->exit_status = ((uint64_t)1 << 17) | signum;
-		kill_proc(proc);
+		kill_proc();
 		break;
 	case IGN:
 	case CONT:
@@ -67,7 +67,7 @@ static void handle_default(process *proc,int signum){
 		int ret = 0;
 		//block until recive a continue signals or kill
 		get_current_proc()->flags |= PROC_FLAG_STOPPED;
-		while((ret = block_proc())){
+		while((ret = block_proc(NULL))){
 			if(ret != EINTR){
 				//uh
 				kdebugf("signal bug\n");
@@ -125,8 +125,9 @@ int send_sig(process *proc,int signum){
 	}
 	
 	//if the task is blocked interrupt it
+	//FIXME : maybee we should acquire the state lock here
 	if(proc->flags & PROC_FLAG_BLOCKED){
-		__sync_or_and_fetch(&proc->flags,PROC_FLAG_INTR);
+		proc->flags |= PROC_FLAG_INTR;
 		unblock_proc(proc);
 	}
 
@@ -136,44 +137,45 @@ int send_sig(process *proc,int signum){
 
 void handle_signal(fault_frame *context){
 	acquire_mutex(&get_current_proc()->sig_lock);
-	if(get_current_proc()->pending_sig & ~get_current_proc()->sig_mask){
-		for (int signum = 1; signum < NSIG; signum++){
-			if((get_current_proc()->pending_sig & sigmask(signum)) && !(get_current_proc()->sig_mask & sigmask(signum))){
-				kdebugf("signal %d recived\n",signum);
-				get_current_proc()->pending_sig &= ~sigmask(signum);
-				if(get_current_proc()->sig_handling[signum].sa_handler == SIG_IGN){
-					continue;
-				} else if(get_current_proc()->sig_handling[signum].sa_handler == SIG_DFL){
-					handle_default(get_current_proc(),signum);
-					continue;
-				} else {
-					//this is the tricky part
+	sigset_t to_handle = get_current_proc()->pending_sig & ~get_current_proc()->sig_mask;
 
-					uintptr_t sp = SP_REG(*context);
-					kdebugf("sp : %p\n",sp);
-					//align the stack
-					sp &= ~0xfUL;
-					//we need make the ucontext on the userspace stack
-					sp -= sizeof(ucontext_t);
-					ucontext_t *ucontext = (ucontext_t *)sp;
-					memset(ucontext,0,sizeof(ucontext_t));
-					memcpy(&ucontext->uc_mcontext,context,sizeof(fault_frame));
-					ucontext->uc_sigmask = get_current_proc()->sig_mask;
+	//nothing to handle ? just return
+	if(!to_handle){
+		release_mutex(&get_current_proc()->sig_lock);
+		return;
+	}
 
-					//push the magic return value
-					sp -= sizeof(uintptr_t);
-					*(uintptr_t *)sp = MAGIC_SIGRETURN;
-
-					//apply the new mask
-					get_current_proc()->sig_mask |= get_current_proc()->sig_handling[signum].sa_mask;
-
-					release_mutex(&get_current_proc()->sig_lock);
-
-					//then we can jump to the signal handler
-					jump_userspace((void *)get_current_proc()->sig_handling[signum].sa_handler,(void *)sp,signum,0,(uintptr_t)ucontext,0);
-				}
+	for (int signum = 1; signum < NSIG; signum++){
+		if(to_handle & sigmask(signum)){
+			kdebugf("signal %d recived\n",signum);
+			get_current_proc()->pending_sig &= ~sigmask(signum);
+			if(get_current_proc()->sig_handling[signum].sa_handler == SIG_IGN){
+				continue;
+			} else if(get_current_proc()->sig_handling[signum].sa_handler == SIG_DFL){
+				handle_default(signum);
+				continue;
+			} else {
+				release_mutex(&get_current_proc()->sig_lock);
+				//this is the tricky part
+				uintptr_t sp = SP_REG(*context);
+				kdebugf("sp : %p\n",sp);
+				//align the stack
+				sp &= ~0xfUL;
+				//we need make the ucontext on the userspace stack
+				sp -= sizeof(ucontext_t);
+				ucontext_t *ucontext = (ucontext_t *)sp;
+				memset(ucontext,0,sizeof(ucontext_t));
+				memcpy(&ucontext->uc_mcontext,context,sizeof(fault_frame));
+				ucontext->uc_sigmask = get_current_proc()->sig_mask;
+				//push the magic return value
+				sp -= sizeof(uintptr_t);
+				*(uintptr_t *)sp = MAGIC_SIGRETURN;
+				//apply the new mask
+				get_current_proc()->sig_mask |= get_current_proc()->sig_handling[signum].sa_mask;
+				//then we can jump to the signal handler
+				jump_userspace((void *)get_current_proc()->sig_handling[signum].sa_handler,(void *)sp,signum,0,(uintptr_t)ucontext,0);
 			}
-		}		
+		}
 	}
 	release_mutex(&get_current_proc()->sig_lock);
 }
