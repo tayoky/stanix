@@ -608,7 +608,6 @@ int sys_waitpid(pid_t pid,int *status,int options){
 				if(status){
 					*status = proc->exit_status;
 				}
-				proc->flags |= PROC_FLAG_DEAD;
 				kernel->can_task_switch = 1;
 				pid = proc->pid;
 				final_proc_cleanup(proc);
@@ -630,7 +629,6 @@ int sys_waitpid(pid_t pid,int *status,int options){
 			if(status){
 				*status = proc->exit_status;
 			}
-			proc->flags |= PROC_FLAG_DEAD;
 			kernel->can_task_switch = 1;
 			final_proc_cleanup(proc);
 			return pid;

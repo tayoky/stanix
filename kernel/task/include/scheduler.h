@@ -40,7 +40,7 @@ typedef struct process_struct {
 	struct process_struct *next;
 	struct process_struct *prev;
 	struct process_struct *parent;
-	uint64_t flags;
+	atomic_int flags;
 	spinlock state_lock;
 	file_descriptor fds[MAX_FD];
 	vfs_node *cwd_node;
@@ -68,15 +68,13 @@ typedef struct process_struct {
 	struct process_struct *waker; //the proc that wake up us
 } process;
 
-#define PROC_FLAG_PRESENT 0x001UL
-#define PROC_FLAG_ZOMBIE  0x002UL
-#define PROC_FLAG_TOCLEAN 0x004UL
-#define PROC_FLAG_DEAD    0x008UL
-#define PROC_FLAG_RUN     0x010UL
-#define PROC_FLAG_WAIT    0x040UL
-#define PROC_FLAG_INTR    0x080UL
-#define PROC_FLAG_BLOCKED 0x100UL
-#define PROC_FLAG_STOPPED 0x200UL
+#define PROC_FLAG_PRESENT 0x01
+#define PROC_FLAG_ZOMBIE  0x02
+#define PROC_FLAG_RUN     0x04 //is the task actually running on a cpu
+#define PROC_FLAG_WAIT    0x08 //is the task blocked ?
+#define PROC_FLAG_INTR    0x10
+#define PROC_FLAG_BLOCKED 0x20
+#define PROC_FLAG_STOPPED 0x40
 
 void init_task(void);
 process *get_current_proc(void);

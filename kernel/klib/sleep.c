@@ -4,12 +4,12 @@
 #include <kernel/print.h>
 
 int sleep_until(struct timeval wakeup_time){
-	kernel->can_task_switch = 0;
 	kdebugf("wait until : %ld:%ld\n",wakeup_time.tv_sec,wakeup_time.tv_usec);
 	get_current_proc()->wakeup_time = wakeup_time;
 
 	//add us to the list
 	//keep the list organise from first awake to last
+	//TODO : put a spinlock or something on the sleep queue
 	process *proc = sleeping_proc;
 	process *prev = NULL;
 	while(proc){
@@ -29,7 +29,7 @@ int sleep_until(struct timeval wakeup_time){
 		get_current_proc()->snext = sleeping_proc;
 		sleeping_proc = get_current_proc();
 	}
-	return block_proc(NULL);
+	return block_proc();
 }
 
 int sleep(long seconds){

@@ -78,9 +78,9 @@ void init_task(){
 	idle = new_kernel_task(idle_task,0,NULL);
 }
 
-void schedule(){
+process *schedule(){
 	//pop the next task from the queue
-	kernel->current_proc = running_proc_tail;
+	process *picked = running_proc_tail;
 	running_proc_tail = running_proc_tail->next;
 	if(!running_proc_tail)running_proc_head = NULL;
 
@@ -94,29 +94,29 @@ void schedule(){
 	}
 	
 	//kdebugf("switch to %p\n",get_current_proc());
+	return picked;
 }
 
 process *new_proc(){
 	//init the new proc
-	kdebugf("next : %p\n",get_current_proc()->next);
 	process *proc = kmalloc(sizeof(process));
 	memset(proc,0,sizeof(process));
 	proc->pid =  atomic_fetch_add(&kernel->created_proc_count,1);
 
-	kdebugf("new proc 0x%p next : 0x%p pid : %ld/%ld\n",proc,get_current_proc()->next,proc->pid,kernel->created_proc_count);
+	kdebugf("new proc 0x%p pid : %ld\n",proc,proc->pid);
 	init_mutex(&proc->sig_lock);
 	proc->addrspace = create_addr_space();
 	proc->parent = get_current_proc();
-	proc->flags = PROC_FLAG_PRESENT;
-	proc->child = new_list();
+	proc->flags  = PROC_FLAG_PRESENT | PROC_FLAG_BLOCKED;
+	proc->child  = new_list();
 	proc->memseg = new_list();
-	proc->uid   = get_current_proc()->uid;
-	proc->euid  = get_current_proc()->euid;
-	proc->suid  = get_current_proc()->suid;
-	proc->gid   = get_current_proc()->gid;
-	proc->egid  = get_current_proc()->egid;
-	proc->sgid  = get_current_proc()->sgid;
-	proc->umask = get_current_proc()->umask;
+	proc->uid    = get_current_proc()->uid;
+	proc->euid   = get_current_proc()->euid;
+	proc->suid   = get_current_proc()->suid;
+	proc->gid    = get_current_proc()->gid;
+	proc->egid   = get_current_proc()->egid;
+	proc->sgid   = get_current_proc()->sgid;
+	proc->umask  = get_current_proc()->umask;
 
 	//setup a new kernel stack
 	proc->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
@@ -130,12 +130,6 @@ process *new_proc(){
 
 	//add it to the global process list
 	list_append(proc_list,proc);
-
-	if(!proc->addrspace){
-		kdebugf("cr3 is 0 !!!\n");
-		disable_interrupt();
-		for(;;);
-	}
 
 	return proc;
 }
@@ -193,20 +187,34 @@ void yield(int addback){
 
 	//save old task
 	process *old = get_current_proc();
+	process *new = schedule();
 
-	schedule();
+	//the old task isen't running anymore
+	atomic_fetch_and(&old->flags,~PROC_FLAG_RUN);
 
-	if(!get_current_proc()->addrspace){
+	//but the new one is ! 
+	atomic_fetch_or(&new->flags,PROC_FLAG_RUN);
+	kernel->current_proc = new;
+
+	//set the blocked flag if needed
+	//we can't set it in block_proc cause the process is still running
+	//and setting the blocked flag while the proc is running could lead to an process un blocking us
+	//before we are even blocked
+	if(!addback){
+		atomic_fetch_or(&old->flags,PROC_FLAG_BLOCKED);
+	}
+
+	if(!new->addrspace){
 		kdebugf("%ld/%ld : %p : cr3 is 0 !!!\n",get_current_proc()->pid,kernel->created_proc_count,old->next);
 	}
 
-	if(old->addrspace != get_current_proc()->addrspace){
-		set_addr_space(get_current_proc()->addrspace);
+	if(old->addrspace != new->addrspace){
+		set_addr_space(new->addrspace);
 	}
 
-	set_kernel_stack(KSTACK_TOP(get_current_proc()->kernel_stack));
+	set_kernel_stack(KSTACK_TOP(new->kernel_stack));
 	
-	if(get_current_proc() != old){
+	if(new != old){
 		context_switch(&old->context,&get_current_proc()->context);
 	}
 	if(prev_int)enable_interrupt();
@@ -264,7 +272,7 @@ void kill_proc(void){
 	
 	alert_parent(get_current_proc());
 	
-	get_current_proc()->flags |= PROC_FLAG_ZOMBIE;
+	atomic_fetch_or(&get_current_proc()->flags,PROC_FLAG_ZOMBIE);
 	spinlock_release(&get_current_proc()->state_lock);
 	block_proc();
 }
@@ -286,10 +294,8 @@ process *pid2proc(pid_t pid){
 }
 
 int block_proc(void){
-
-	spinlock_acquire(&get_current_proc()->state_lock);
 	//clear the signal interrupt flags
-	get_current_proc()->flags &= ~PROC_FLAG_INTR;
+	atomic_fetch_and(&get_current_proc()->flags,~PROC_FLAG_INTR);
 
 	//kdebugf("block %ld\n",get_current_proc()->pid);
 	//if this is the last process unblock the idle task
@@ -297,17 +303,9 @@ int block_proc(void){
 		unblock_proc(idle);
 	}
 
-	//set the flag
-	get_current_proc()->flags &= ~(uint64_t)PROC_FLAG_RUN;
-	get_current_proc()->flags |= PROC_FLAG_BLOCKED;
-
-	//now we can release the flag lock
-	spinlock_release(&get_current_proc()->state_lock);
-
-	//if somebody unblock us within between it's a race contion
-	//FIXME
-
 	kernel->can_task_switch = 1;
+
+	//yeld will set the blocked flag for us
 	yield(0);
 
 	//if we were interrupted return -EINTR
@@ -319,21 +317,14 @@ int block_proc(void){
 }
 
 void unblock_proc(process *proc){
-	spinlock_acquire(&proc->state_lock);
-
 	//aready unblocked ?
-	if(proc->flags & PROC_FLAG_RUN){
-		spinlock_release(&proc->state_lock);
+	if(!(atomic_fetch_and(&proc->flags,~PROC_FLAG_BLOCKED) & PROC_FLAG_BLOCKED)){
 		return;
 	}
 
-	//kdebugf("unblock %ld\n",proc->pid);
-	proc->flags |= PROC_FLAG_RUN;
-	proc->flags &= ~PROC_FLAG_BLOCKED;
+	kdebugf("unblock %ld\n",proc->pid);
 
 	push_task(proc);
-
-	spinlock_release(&proc->state_lock);
 }
 
 
