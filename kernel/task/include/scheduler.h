@@ -93,10 +93,9 @@ void final_proc_cleanup(process *proc);
 /// @return the process with the specfied pid
 process *pid2proc(pid_t pid);
 
-/// @brief block the current proc and release a lock atomicly
-/// @param lock the lock to release or NULL
+/// @brief block the current proc
 /// @return -EINTR if intruppted by signal devlivery or 0
-int block_proc(spinlock *lock);
+int block_proc(void);
 
 /// @brief unblock a process
 /// @param proc the process to unblock

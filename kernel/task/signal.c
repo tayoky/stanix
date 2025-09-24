@@ -67,7 +67,7 @@ static void handle_default(int signum){
 		int ret = 0;
 		//block until recive a continue signals or kill
 		get_current_proc()->flags |= PROC_FLAG_STOPPED;
-		while((ret = block_proc(NULL))){
+		while((ret = block_proc())){
 			if(ret != EINTR){
 				//uh
 				kdebugf("signal bug\n");

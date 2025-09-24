@@ -25,7 +25,7 @@ int acquire_mutex(mutex_t *mutex){
 		spinlock_release(&mutex->lock);
 		while(mutex->locked){
 			//if we get intterupted just reblock
-			block_proc(NULL);
+			block_proc();
 		}
 	}
 	return 0;

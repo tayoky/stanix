@@ -25,7 +25,7 @@ static void idle_task(){
 	for(;;){
 		//if there are other process runnnig block us
 		if(get_current_proc()->next != running_proc_head){
-			block_proc(NULL);
+			block_proc();
 		}
 	}
 }
@@ -187,6 +187,8 @@ void yield(int addback){
 	int prev_int = have_interrupt();
 	disable_interrupt();
 
+	kdebugf("yield\n");
+
 	if(addback)push_task(get_current_proc());
 
 	//save old task
@@ -217,6 +219,7 @@ process *get_current_proc(){
 static void alert_parent(process *proc){
 	if(!proc->parent)return;
 	if((proc->parent->flags & PROC_FLAG_WAIT) && (proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1 || proc->parent->waitfor == -proc->group)){
+		proc->parent->waker = proc;
 		unblock_proc(proc->parent);
 	} else {
 		send_sig(proc->parent,SIGCHLD);
@@ -262,7 +265,8 @@ void kill_proc(void){
 	alert_parent(get_current_proc());
 	
 	get_current_proc()->flags |= PROC_FLAG_ZOMBIE;
-	block_proc(&get_current_proc()->state_lock);
+	spinlock_release(&get_current_proc()->state_lock);
+	block_proc();
 }
 
 process *pid2proc(pid_t pid){
@@ -281,17 +285,15 @@ process *pid2proc(pid_t pid){
 	return NULL;
 }
 
-int block_proc(spinlock *lock){
-	if(lock != &get_current_proc()->state_lock){
-		spinlock_acquire(&get_current_proc()->state_lock);
-	}
+int block_proc(void){
 
+	spinlock_acquire(&get_current_proc()->state_lock);
 	//clear the signal interrupt flags
 	get_current_proc()->flags &= ~PROC_FLAG_INTR;
 
 	//kdebugf("block %ld\n",get_current_proc()->pid);
 	//if this is the last process unblock the idle task
-	if(get_current_proc()->next == get_current_proc()){
+	if(!running_proc_tail){
 		unblock_proc(idle);
 	}
 
@@ -300,11 +302,12 @@ int block_proc(spinlock *lock){
 	get_current_proc()->flags |= PROC_FLAG_BLOCKED;
 
 	//now we can release the flag lock
-	if(lock && lock != &get_current_proc()->state_lock)spinlock_release(lock);
 	spinlock_release(&get_current_proc()->state_lock);
 
-	//if somebody unblock us within between it's not a prb
+	//if somebody unblock us within between it's a race contion
+	//FIXME
 
+	kernel->can_task_switch = 1;
 	yield(0);
 
 	//if we were interrupted return -EINTR
@@ -330,7 +333,7 @@ void unblock_proc(process *proc){
 
 	push_task(proc);
 
-	spinlock_acquire(&proc->state_lock);
+	spinlock_release(&proc->state_lock);
 }
 
 
