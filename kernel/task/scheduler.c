@@ -324,7 +324,12 @@ void unblock_proc(process *proc){
 
 	kdebugf("unblock %ld\n",proc->pid);
 
+	int save = have_interrupt();
+	disable_interrupt();
+
 	push_task(proc);
+
+	if(save)enable_interrupt();
 }
 
 
