@@ -595,6 +595,7 @@ int sys_waitpid(pid_t pid,int *status,int options){
 	if(pid == 0) pid = -get_current_proc()->group;
 
 	//prevent child state from changing
+	//NOT SMP SAFE
 	kernel->can_task_switch = 0;
 
 	kdebugf("wait for %ld\n",pid);

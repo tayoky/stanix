@@ -273,6 +273,11 @@ void kill_proc(void){
 	
 	atomic_fetch_or(&get_current_proc()->flags,PROC_FLAG_ZOMBIE);
 	spinlock_release(&get_current_proc()->state_lock);
+
+	//FIXME : not SMP safe
+	//another task could waitpid on us and free us between spinlock_release and block_proc
+	//which is a RACE CONDITION
+
 	block_proc();
 }
 
