@@ -181,8 +181,6 @@ void yield(int addback){
 	int prev_int = have_interrupt();
 	disable_interrupt();
 
-	kdebugf("yield\n");
-
 	if(addback)push_task(get_current_proc());
 
 	//save old task
@@ -205,7 +203,7 @@ void yield(int addback){
 	}
 
 	if(!new->addrspace){
-		kdebugf("%ld/%ld : %p : cr3 is 0 !!!\n",get_current_proc()->pid,kernel->created_proc_count,old->next);
+		kdebugf("pid : %ld proc : %p : cr3 is 0 !!!\n",new->pid,new);
 	}
 
 	if(old->addrspace != new->addrspace){
@@ -226,7 +224,7 @@ process *get_current_proc(){
 
 static void alert_parent(process *proc){
 	if(!proc->parent)return;
-	if((proc->parent->flags & PROC_FLAG_WAIT) && (proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1 || proc->parent->waitfor == -proc->group)){
+	if((atomic_load(&proc->parent->flags) & PROC_FLAG_WAIT) && (proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1 || proc->parent->waitfor == -proc->group)){
 		proc->parent->waker = proc;
 		unblock_proc(proc->parent);
 	} else {
@@ -235,6 +233,7 @@ static void alert_parent(process *proc){
 }
 
 void kill_proc(void){
+	disable_interrupt();
 	spinlock_acquire(&get_current_proc()->state_lock);
 
 	//all the childreen become orphelan
@@ -296,6 +295,9 @@ process *pid2proc(pid_t pid){
 int block_proc(void){
 	//clear the signal interrupt flags
 	atomic_fetch_and(&get_current_proc()->flags,~PROC_FLAG_INTR);
+	
+	int save = have_interrupt();
+	disable_interrupt();
 
 	//kdebugf("block %ld\n",get_current_proc()->pid);
 	//if this is the last process unblock the idle task
@@ -303,13 +305,16 @@ int block_proc(void){
 		unblock_proc(idle);
 	}
 
+
 	kernel->can_task_switch = 1;
 
 	//yeld will set the blocked flag for us
 	yield(0);
 
+	if(save)enable_interrupt();
+
 	//if we were interrupted return -EINTR
-	if(get_current_proc()->flags & PROC_FLAG_INTR){
+	if(atomic_load(&get_current_proc()->flags) & PROC_FLAG_INTR){
 		return -EINTR;
 	}
 
@@ -321,8 +326,6 @@ void unblock_proc(process *proc){
 	if(!(atomic_fetch_and(&proc->flags,~PROC_FLAG_BLOCKED) & PROC_FLAG_BLOCKED)){
 		return;
 	}
-
-	kdebugf("unblock %ld\n",proc->pid);
 
 	int save = have_interrupt();
 	disable_interrupt();

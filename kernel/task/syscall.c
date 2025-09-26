@@ -640,7 +640,7 @@ int sys_waitpid(pid_t pid,int *status,int options){
 	}
 	
 	get_current_proc()->waitfor = pid;
-	get_current_proc()->flags |= PROC_FLAG_WAIT;
+	atomic_fetch_or(&get_current_proc()->flags,PROC_FLAG_WAIT);
 	
 	//block, when we wake up the process is now a zombie
 	if(block_proc() == -EINTR){
