@@ -16,16 +16,16 @@ int acquire_mutex(mutex_t *mutex){
 		//register on the list
 		spinlock_acquire(&mutex->lock);
 		if(mutex->waiter_head){
-			mutex->waiter_head->snext = get_current_proc();
+			mutex->waiter_head->snext = get_current_task();
 		}
-		get_current_proc()->snext = NULL;
-		mutex->waiter_head = get_current_proc();
+		get_current_task()->snext = NULL;
+		mutex->waiter_head = get_current_task();
 		if(!mutex->waiter_tail)mutex->waiter_tail = mutex->waiter_head;
 		mutex->waiter_count++;
 		spinlock_release(&mutex->lock);
 		while(mutex->locked){
 			//if we get intterupted just reblock
-			block_proc();
+			block_task();
 		}
 	}
 	return 0;
@@ -35,11 +35,11 @@ void release_mutex(mutex_t *mutex){
 	atomic_store(&mutex->locked,0); //maybee move this at the end
 	spinlock_acquire(&mutex->lock);
 	if(mutex->waiter_count > 0){
-		process *proc = mutex->waiter_tail;
-		mutex->waiter_tail = proc->snext;
+		task *thread = mutex->waiter_tail;
+		mutex->waiter_tail = thread->snext;
 		if(!mutex->waiter_tail)mutex->waiter_head = NULL;
 		mutex->waiter_count--;
-		unblock_proc(proc);
+		unblock_task(thread);
 	}
 	spinlock_release(&mutex->lock);
 }

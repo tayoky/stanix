@@ -53,41 +53,41 @@ static void handle_default(int signum){
 	switch(default_handling[signum]){
 	case CORE:
 	case KILL:
-		release_mutex(&get_current_proc()->sig_lock);
+		release_mutex(&get_current_task()->sig_lock);
 		kdebugf("process killed by signal %d\n",signum);
-		get_current_proc()->exit_status = ((uint64_t)1 << 17) | signum;
+		get_current_task()->exit_status = ((uint64_t)1 << 17) | signum;
 		kill_proc();
 		break;
 	case IGN:
 	case CONT:
 		break;
 	case STOP:
-		release_mutex(&get_current_proc()->sig_lock);
+		release_mutex(&get_current_task()->sig_lock);
 		kdebugf("process stopped\n");
 		int ret = 0;
 		//block until recive a continue signals or kill
-		get_current_proc()->flags |= PROC_FLAG_STOPPED;
-		while((ret = block_proc())){
+		get_current_task()->flags |= PROC_FLAG_STOPPED;
+		while((ret = block_task())){
 			if(ret != EINTR){
 				//uh
 				kdebugf("signal bug\n");
-				get_current_proc()->flags &= ~PROC_FLAG_STOPPED;
+				get_current_task()->flags &= ~PROC_FLAG_STOPPED;
 				return;
 			}
 			for(int i=0; i<NSIG; i++){
-				acquire_mutex(&get_current_proc()->sig_lock);
-				if((sigmask(i) & get_current_proc()->pending_sig) && !(sigmask(i) & get_current_proc()->sig_mask) 
-				&& get_current_proc()->sig_handling[i].sa_handler == SIG_DFL && default_handling[i] != IGN){
+				acquire_mutex(&get_current_task()->sig_lock);
+				if((sigmask(i) & get_current_task()->pending_sig) && !(sigmask(i) & get_current_task()->sig_mask) 
+				&& get_current_task()->sig_handling[i].sa_handler == SIG_DFL && default_handling[i] != IGN){
 					if(default_handling[i] == STOP){
 						//ignore other stop
-						get_current_proc()->pending_sig &= ~sigmask(i);
+						get_current_task()->pending_sig &= ~sigmask(i);
 						break;
 					}
-					release_mutex(&get_current_proc()->sig_lock);
-					get_current_proc()->flags &= ~PROC_FLAG_STOPPED;
+					release_mutex(&get_current_task()->sig_lock);
+					get_current_task()->flags &= ~PROC_FLAG_STOPPED;
 					return;
 				}
-				release_mutex(&get_current_proc()->sig_lock);
+				release_mutex(&get_current_task()->sig_lock);
 			}
 		}
 		break;
@@ -107,55 +107,59 @@ int send_sig_pgrp(pid_t pgrp,int signum){
 }
 
 int send_sig(process *proc,int signum){
-	kdebugf("send %d to %ld\n",signum,proc->pid);
+	return send_sig_task(proc->main_thread,signum);
+}
 
-	acquire_mutex(&proc->sig_lock);
+int send_sig_task(task *thread,int signum){
+	kdebugf("send %d to %ld\n",signum,thread->tid);
+
+	acquire_mutex(&thread->sig_lock);
 	//if the process ignore just skip
-	if(proc->sig_handling[signum].sa_handler == SIG_IGN || (proc->sig_handling[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN)){
-		release_mutex(&proc->sig_lock);
+	if(thread->sig_handling[signum].sa_handler == SIG_IGN || (thread->sig_handling[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN)){
+		release_mutex(&thread->sig_lock);
 		return 0;
 	}
 
-	proc->pending_sig |= sigmask(signum);
+	thread->pending_sig |= sigmask(signum);
 
 	//if blocked don't handle
-	if(proc->sig_mask & sigmask(signum)){
-		release_mutex(&proc->sig_lock);
+	if(thread->sig_mask & sigmask(signum)){
+		release_mutex(&thread->sig_lock);
 		return 0;
 	}
 	
 	//if the task is blocked interrupt it
 	//FIXME : maybee we should acquire the state lock here
-	if(proc->flags & PROC_FLAG_BLOCKED){
-		proc->flags |= PROC_FLAG_INTR;
-		unblock_proc(proc);
+	if(thread->flags & PROC_FLAG_BLOCKED){
+		thread->flags |= PROC_FLAG_INTR;
+		unblock_task(thread);
 	}
 
-	release_mutex(&proc->sig_lock);
+	release_mutex(&thread->sig_lock);
 	return 0;
 }
 
 void handle_signal(fault_frame *context){
-	acquire_mutex(&get_current_proc()->sig_lock);
-	sigset_t to_handle = get_current_proc()->pending_sig & ~get_current_proc()->sig_mask;
+	acquire_mutex(&get_current_task()->sig_lock);
+	sigset_t to_handle = get_current_task()->pending_sig & ~get_current_task()->sig_mask;
 
 	//nothing to handle ? just return
 	if(!to_handle){
-		release_mutex(&get_current_proc()->sig_lock);
+		release_mutex(&get_current_task()->sig_lock);
 		return;
 	}
 
 	for (int signum = 1; signum < NSIG; signum++){
 		if(to_handle & sigmask(signum)){
 			kdebugf("signal %d recived\n",signum);
-			get_current_proc()->pending_sig &= ~sigmask(signum);
-			if(get_current_proc()->sig_handling[signum].sa_handler == SIG_IGN){
+			get_current_task()->pending_sig &= ~sigmask(signum);
+			if(get_current_task()->sig_handling[signum].sa_handler == SIG_IGN){
 				continue;
-			} else if(get_current_proc()->sig_handling[signum].sa_handler == SIG_DFL){
+			} else if(get_current_task()->sig_handling[signum].sa_handler == SIG_DFL){
 				handle_default(signum);
 				continue;
 			} else {
-				release_mutex(&get_current_proc()->sig_lock);
+				release_mutex(&get_current_task()->sig_lock);
 				//this is the tricky part
 				uintptr_t sp = SP_REG(*context);
 				kdebugf("sp : %p\n",sp);
@@ -166,18 +170,18 @@ void handle_signal(fault_frame *context){
 				ucontext_t *ucontext = (ucontext_t *)sp;
 				memset(ucontext,0,sizeof(ucontext_t));
 				memcpy(&ucontext->uc_mcontext,context,sizeof(fault_frame));
-				ucontext->uc_sigmask = get_current_proc()->sig_mask;
+				ucontext->uc_sigmask = get_current_task()->sig_mask;
 				//push the magic return value
 				sp -= sizeof(uintptr_t);
 				*(uintptr_t *)sp = MAGIC_SIGRETURN;
 				//apply the new mask
-				get_current_proc()->sig_mask |= get_current_proc()->sig_handling[signum].sa_mask;
+				get_current_task()->sig_mask |= get_current_task()->sig_handling[signum].sa_mask;
 				//then we can jump to the signal handler
-				jump_userspace((void *)get_current_proc()->sig_handling[signum].sa_handler,(void *)sp,signum,0,(uintptr_t)ucontext,0);
+				jump_userspace((void *)get_current_task()->sig_handling[signum].sa_handler,(void *)sp,signum,0,(uintptr_t)ucontext,0);
 			}
 		}
 	}
-	release_mutex(&get_current_proc()->sig_lock);
+	release_mutex(&get_current_task()->sig_lock);
 }
 
 void restore_signal_handler(fault_frame *context){
@@ -188,7 +192,7 @@ void restore_signal_handler(fault_frame *context){
 	ucontext_t *ucontext = (ucontext_t *)SP_REG(*context);
 
 	//restore the old mask
-	get_current_proc()->sig_mask = ucontext->uc_sigmask;
+	get_current_task()->sig_mask = ucontext->uc_sigmask;
 
 	fault_frame *old_context = (fault_frame *)&ucontext->uc_mcontext;
 	kdebugf("sp : %p\n",SP_REG(*old_context));

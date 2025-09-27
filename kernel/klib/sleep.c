@@ -5,31 +5,31 @@
 
 int sleep_until(struct timeval wakeup_time){
 	kdebugf("wait until : %ld:%ld\n",wakeup_time.tv_sec,wakeup_time.tv_usec);
-	get_current_proc()->wakeup_time = wakeup_time;
+	get_current_task()->wakeup_time = wakeup_time;
 
 	//add us to the list
 	//keep the list organise from first awake to last
 	//TODO : put a spinlock or something on the sleep queue
-	process *proc = sleeping_proc;
-	process *prev = NULL;
-	while(proc){
+	task *thread = sleeping_proc;
+	task *prev = NULL;
+	while(thread){
 
-		if(proc->wakeup_time.tv_sec > wakeup_time.tv_usec || (proc->wakeup_time.tv_sec == wakeup_time.tv_sec && proc->wakeup_time.tv_usec > wakeup_time.tv_usec)){
+		if(thread->wakeup_time.tv_sec > wakeup_time.tv_usec || (thread->wakeup_time.tv_sec == wakeup_time.tv_sec && thread->wakeup_time.tv_usec > wakeup_time.tv_usec)){
 			break;
 		}
 
-		prev = proc;
-		proc = proc->snext;
+		prev = thread;
+		thread = thread->snext;
 	}
 	
 	if(prev){
-		get_current_proc()->snext = prev->snext;
-		prev->snext = get_current_proc();
+		get_current_task()->snext = prev->snext;
+		prev->snext = get_current_task();
 	} else {
-		get_current_proc()->snext = sleeping_proc;
-		sleeping_proc = get_current_proc();
+		get_current_task()->snext = sleeping_proc;
+		sleeping_proc = get_current_task();
 	}
-	return block_proc();
+	return block_task();
 }
 
 int sleep(long seconds){

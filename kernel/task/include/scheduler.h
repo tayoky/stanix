@@ -14,7 +14,7 @@
 #include <fcntl.h>
 
 struct fault_frame;
-struct process_struct;
+struct process;
 
 #define MAX_FD 32
 
@@ -30,32 +30,42 @@ typedef struct {
 #define FD_APPEND   0x04
 #define FD_NONBLOCK 0x08
 
-typedef struct process_struct {
+struct process;
+
+typedef struct task {
 	acontext context;
-	addrspace_t addrspace;
-	uintptr_t kernel_stack;
-	struct fault_frame *syscall_frame;
-	pid_t pid;
-	struct process_struct *snext; //next field used in sleep/mutex
-	struct process_struct *next;
-	struct process_struct *prev;
-	struct process_struct *parent;
+	struct process *process;
+	struct task *snext;
+	struct task *next;
+	struct task *prev;
+	pid_t tid;
+	sigset_t sig_mask;
+	mutex_t sig_lock;
+	sigset_t pending_sig;
+	struct sigaction sig_handling[32];
+
+	struct timeval wakeup_time;
+	pid_t waitfor;
+	long exit_status;
 	atomic_int flags;
+	spinlock state_lock;
+	uintptr_t kernel_stack;
+
+	struct fault_frame *syscall_frame;
+} task;
+
+typedef struct process {
+	addrspace_t addrspace;
+	pid_t pid;
+	struct process *parent;
 	spinlock state_lock;
 	file_descriptor fds[MAX_FD];
 	vfs_node *cwd_node;
 	char *cwd_path;
 	uintptr_t heap_start;
 	uintptr_t heap_end;
-	struct timeval wakeup_time;
 	list *memseg;
-	pid_t waitfor;
-	long exit_status;
 	list *child;
-	mutex_t sig_lock;
-	sigset_t sig_mask;
-	sigset_t pending_sig;
-	struct sigaction sig_handling[32];
 	pid_t group;
 	pid_t sid;
 	uid_t uid;
@@ -65,7 +75,8 @@ typedef struct process_struct {
 	gid_t egid;
 	gid_t sgid;
 	mode_t umask;
-	struct process_struct *waker; //the proc that wake up us
+	struct process *waker; //the proc that wake up us
+	task *main_thread;
 } process;
 
 #define PROC_FLAG_PRESENT 0x01
@@ -78,11 +89,13 @@ typedef struct process_struct {
 
 void init_task(void);
 process *get_current_proc(void);
+task *get_current_task(void);
 process *new_proc(void);
+task *new_task(process *proc);
 process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
 
-/// @brief kill the current process
-void kill_proc(void);
+/// @brief kill the current thread
+void kill_task(void);
 
 void final_proc_cleanup(process *proc);
 
@@ -93,11 +106,11 @@ process *pid2proc(pid_t pid);
 
 /// @brief block the current proc
 /// @return -EINTR if intruppted by signal devlivery or 0
-int block_proc(void);
+int block_task(void);
 
-/// @brief unblock a process
-/// @param proc the process to unblock
-void unblock_proc(process *proc);
+/// @brief unblock a task
+/// @param proc the task to unblock
+void unblock_task(task *thread);
 
 /// @brief yield to next task
 /// @param addback do we add the task back to the queue or running task
@@ -108,9 +121,12 @@ void yield(int addback);
 #define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)
 
 extern list *proc_list;
-extern process *sleeping_proc;
+extern task *sleeping_proc;
 
 #define EUID_ROOT 0
 #define KSTACK_TOP(kstack) (((kstack) + KERNEL_STACK_SIZE) & ~0xFUL)
+
+//TODO : make a kill_proc
+#define kill_proc kill_task
 
 #endif

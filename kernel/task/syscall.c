@@ -231,7 +231,8 @@ ssize_t sys_read(int fd,void *buffer,size_t count){
 
 void sys_exit(int error_code){
 	//set that we exited normally
-	get_current_proc()->exit_status = (1UL << 16) | error_code;
+	//TODO : set this on process or something
+	get_current_task()->exit_status = (1UL << 16) | error_code;
 	kdebugf("exit with code : %ld\n",error_code);
 	kill_proc();
 }
@@ -588,6 +589,7 @@ int sys_chdir(const char *path){
 }
 
 int sys_waitpid(pid_t pid,int *status,int options){
+	/*
 	if(status && !CHECK_MEM(status,sizeof(status))){
 		return -EFAULT;
 	}
@@ -644,7 +646,7 @@ int sys_waitpid(pid_t pid,int *status,int options){
 	atomic_fetch_or(&get_current_proc()->flags,PROC_FLAG_WAIT);
 	
 	//block, when we wake up the process is now a zombie
-	if(block_proc() == -EINTR){
+	if(block_task() == -EINTR){
 		return -EINTR;
 	}
 
@@ -659,7 +661,8 @@ int sys_waitpid(pid_t pid,int *status,int options){
 
 	final_proc_cleanup(proc);
 
-	return pid;
+	return pid;*/
+	return -ENOSYS;
 }
 
 int sys_unlink(const char *pathname){
@@ -867,7 +870,7 @@ int sys_sigprocmask(int how, const sigset_t * restrict set, sigset_t *oldset){
 	}
 
 	if(oldset){
-		*oldset = get_current_proc()->sig_mask;
+		*oldset = get_current_task()->sig_mask;
 	}
 
 	//if set is null then we have finished our jobs
@@ -877,13 +880,13 @@ int sys_sigprocmask(int how, const sigset_t * restrict set, sigset_t *oldset){
 
 	switch(how){
 	case SIG_BLOCK:
-		get_current_proc()->sig_mask |= *set;
+		get_current_task()->sig_mask |= *set;
 		break;
 	case SIG_UNBLOCK:
-		get_current_proc()->sig_mask &= ~*set;
+		get_current_task()->sig_mask &= ~*set;
 		break;
 	case SIG_SETMASK:
-		get_current_proc()->sig_mask = *set;
+		get_current_task()->sig_mask = *set;
 		break;
 	default :
 		return -EINVAL;
@@ -904,7 +907,7 @@ int sys_sigaction(int signum, const struct sigaction *act, struct sigaction *old
 	}
 
 	if(oldact){
-		*oldact = get_current_proc()->sig_handling[signum];
+		*oldact = get_current_task()->sig_handling[signum];
 	}
 
 	//can't change handling for SIGKILL and SIGSTOP
@@ -913,7 +916,7 @@ int sys_sigaction(int signum, const struct sigaction *act, struct sigaction *old
 	}
 
 	if(act){
-		get_current_proc()->sig_handling[signum] = *act;
+		get_current_task()->sig_handling[signum] = *act;
 	}
 
 	return 0;
@@ -924,7 +927,7 @@ int sys_sigpending(sigset_t *set){
 		return -EFAULT;
 	}
 
-	*set = get_current_proc()->pending_sig;
+	*set = get_current_task()->pending_sig;
 
 	return 0;
 }
@@ -1357,7 +1360,7 @@ void syscall_handler(fault_frame *context){
 		return;
 	}
 
-	get_current_proc()->syscall_frame = context;
+	get_current_task()->syscall_frame = context;
 
 	long (*syscall)(long,long,long,long,long) = syscall_table[ARG0_REG(*context)];
 	RET_REG(*context) = syscall(ARG1_REG(*context),ARG2_REG(*context),ARG3_REG(*context),ARG4_REG(*context),ARG5_REG(*context));

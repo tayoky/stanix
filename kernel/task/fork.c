@@ -18,10 +18,10 @@ pid_t fork(void){
 	}
 
 	//clone metadata
-	child->heap_end = parent->heap_end;
+	child->heap_end   = parent->heap_end;
 	child->heap_start = parent->heap_start;
-	child->sig_mask = parent->sig_mask;
-	memcpy(child->sig_handling,parent->sig_handling,sizeof(parent->sig_handling));
+	child->main_thread->sig_mask   = get_current_task()->sig_mask;
+	memcpy(child->main_thread->sig_handling,get_current_task()->sig_handling,sizeof(get_current_task()->sig_handling));
 
 	//clone fd
 	for(int i = 0;i<MAX_FD;i++){
@@ -36,14 +36,15 @@ pid_t fork(void){
 	child->cwd_path = strdup(parent->cwd_path);
 
 	//copy context parent to child but overload regs with userspace context
-	child->context = parent->context;
-	child->context.frame = *parent->syscall_frame;
+	//FIXME : this might not get the lasted value of context
+	child->main_thread->context       = get_current_task()->context;
+	child->main_thread->context.frame = *get_current_task()->syscall_frame;
 	
 	//return 0 to the child
-	RET_REG(child->context.frame) = 0;
+	RET_REG(child->main_thread->context.frame) = 0;
 
 	//make it ruuuunnnnn !!!
-	unblock_proc(child);
+	unblock_task(child->main_thread);
 
 	return child->pid;
 }

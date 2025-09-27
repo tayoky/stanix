@@ -33,8 +33,8 @@ typedef struct kernel_table_struct{
 	vfs_node **outs;
 	terminal_emu_settings terminal_settings;
 	uint8_t pic_type;
-	pid_t created_proc_count;
-	process *current_proc;
+	pid_t tid_count;
+	task *current_task;
 	char can_task_switch;
 	mutex_t PMM_lock;
 	int pty_count;

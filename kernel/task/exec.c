@@ -220,9 +220,9 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 	kfree(saved_envp);
 
 	//reset signal handling of handled signals
-	for(size_t i=0; i< sizeof(get_current_proc()->sig_handling)/sizeof(*get_current_proc()->sig_handling); i++){
-		if(get_current_proc()->sig_handling[i].sa_handler != SIG_IGN){
-			get_current_proc()->sig_handling[i].sa_handler = SIG_DFL;
+	for(size_t i=0; i< sizeof(get_current_task()->sig_handling)/sizeof(*get_current_task()->sig_handling); i++){
+		if(get_current_task()->sig_handling[i].sa_handler != SIG_IGN){
+			get_current_task()->sig_handling[i].sa_handler = SIG_DFL;
 		}
 	}
 

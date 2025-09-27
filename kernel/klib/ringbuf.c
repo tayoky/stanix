@@ -40,7 +40,7 @@ ssize_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 	//check if there are something to read or sleep
 	if(ringbuffer_read_available(ring) == 0){
 		list_append(ring->reader_waiter,get_current_proc());
-		if(block_proc() == -EINTR){
+		if(block_task() == -EINTR){
 			return -EINTR;
 		}
 	}
@@ -89,7 +89,7 @@ ssize_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 
 	//if a process is waiting to read wakeup
 	if(ring->reader_waiter->frist_node){
-		unblock_proc(ring->reader_waiter->frist_node->value);
+		unblock_task(ring->reader_waiter->frist_node->value);
 		list_remove(ring->reader_waiter,ring->reader_waiter->frist_node->value);
 	}
 
