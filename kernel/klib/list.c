@@ -1,18 +1,18 @@
 #include <kernel/list.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
-#include <kernel/mutex.h>
+#include <kernel/spinlock.h>
 
 list *new_list(){
 	list *l = kmalloc(sizeof(list));
 	l->frist_node = NULL;
 	l->last_node = NULL;
 	l->node_count = 0;
-	init_mutex(&l->mutex);
 	return l;
 }
 
 void free_list(list *l){
+	spinlock_acquire(&l->lock);
 	list_node *prev = NULL;
 	foreach(node,l){
 		if(prev){
@@ -32,7 +32,7 @@ void list_append(list *l,void *value){
 	memset(new_node,0,sizeof(list_node));
 	new_node->value = value;
 
-	acquire_mutex(&l->mutex);
+	spinlock_acquire(&l->lock);
 
 	//link
 	new_node->prev = l->last_node;
@@ -44,14 +44,14 @@ void list_append(list *l,void *value){
 	l->last_node = new_node;
 
 	l->node_count++;
-	release_mutex(&l->mutex);
+	spinlock_release(&l->lock);
 }
 
 void list_add_after(list *l,list_node *node,void *value){
 	if(node) {
 		list_node *new_node = kmalloc(sizeof(list_node));
 		new_node->value = value;
-		acquire_mutex(&l->mutex);
+		spinlock_acquire(&l->lock);
 		
 		//link
 		new_node->prev = node;
@@ -66,7 +66,7 @@ void list_add_after(list *l,list_node *node,void *value){
 		list_node *new_node = kmalloc(sizeof(list_node));
 		new_node->value = value;
 		new_node->prev = NULL;
-		acquire_mutex(&l->mutex);
+		spinlock_acquire(&l->lock);
 
 		//link
 		if(l->frist_node){
@@ -77,11 +77,11 @@ void list_add_after(list *l,list_node *node,void *value){
 	}
 
 	l->node_count++;
-	release_mutex(&l->mutex);
+	spinlock_release(&l->lock);
 }
 
 void list_remove(list *l,void *value){
-	acquire_mutex(&l->mutex);
+	spinlock_acquire(&l->lock);
 	foreach(node,l){
 		if(node->value == value){
 			if(node->prev){
@@ -95,9 +95,9 @@ void list_remove(list *l,void *value){
 				l->last_node = node->prev;
 			}
 			l->node_count--;
-			release_mutex(&l->mutex);
+			spinlock_release(&l->lock);
 			return;
 		}
 	}
-	release_mutex(&l->mutex);
+	spinlock_release(&l->lock);
 }

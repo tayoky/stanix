@@ -1,7 +1,7 @@
 #ifndef LIST_H
 #define LIST_H
 
-#include <kernel/mutex.h>
+#include <kernel/spinlock.h>
 #include <sys/type.h>
 
 struct list_struct;
@@ -17,7 +17,7 @@ typedef struct list_struct{
 	list_node *frist_node;
 	list_node *last_node;
 	size_t node_count;
-	mutex_t mutex;
+	spinlock lock;
 } list;
 
 list *new_list();
