@@ -101,3 +101,19 @@ void list_remove(list *l,void *value){
 	}
 	spinlock_release(&l->lock);
 }
+
+void list_remove_node(list *l,list_node *node){
+	spinlock_acquire(&l->lock);
+	if(node->prev){
+		node->prev->next = node->next;
+	} else {
+		l->frist_node = node->next;
+	}
+	if(node->next){
+		node->next->prev = node->prev;
+	} else {
+		l->last_node = node->prev;
+	}
+	l->node_count--;
+	spinlock_release(&l->lock);
+}

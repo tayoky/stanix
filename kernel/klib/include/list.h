@@ -25,6 +25,7 @@ void free_list(list *l);
 void list_append(list *l,void *value);
 void list_remove(list *l,void *value);
 void list_add_after(list *l,list_node *node,void *value);
+void list_remove_node(list *l,list_node *node);
 
 #define foreach(var,l) for(list_node * var = l->frist_node ; var ; var = var ->next)
 
