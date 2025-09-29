@@ -1,4 +1,5 @@
 #include <kernel/time.h>
+#include <kernel/sleep.h>
 #include <kernel/kernel.h>
 #include <kernel/scheduler.h>
 #include <kernel/print.h>
@@ -55,4 +56,40 @@ int micro_sleep(suseconds_t micro_second){
 	}
 
 	return sleep_until(new_timeval);
+}
+
+void sleep_on_queue(sleep_queue *queue){
+	spinlock_acquire(&queue->lock);
+
+	if(queue->head){
+		queue->head->snext = get_current_task();
+	} else {
+		queue->tail = get_current_task();
+	}
+
+	queue->head = get_current_task();
+	get_current_task()->snext = NULL;
+
+	spinlock_release(&queue->lock);
+}
+
+void wakeup_queue(sleep_queue *queue,size_t count){
+	spinlock_acquire(&queue->lock);
+
+	for(;;){
+		if(queue->tail)break;
+
+		task *thread = queue->tail;
+
+		queue->tail = queue->tail->snext;
+		if(!queue->tail)queue->head = NULL;
+
+		unblock_task(thread);
+
+		if(count){
+			if(--count == 0)break;
+		}
+	}
+
+	spinlock_release(&queue->lock);
 }

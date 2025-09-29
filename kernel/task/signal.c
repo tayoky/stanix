@@ -55,7 +55,7 @@ static void handle_default(int signum){
 	case KILL:
 		release_mutex(&get_current_task()->sig_lock);
 		kdebugf("process killed by signal %d\n",signum);
-		get_current_task()->exit_status = ((uint64_t)1 << 17) | signum;
+		get_current_proc()->exit_status = ((uint64_t)1 << 17) | signum;
 		kill_proc();
 		break;
 	case IGN:

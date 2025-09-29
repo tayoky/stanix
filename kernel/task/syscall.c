@@ -232,7 +232,7 @@ ssize_t sys_read(int fd,void *buffer,size_t count){
 void sys_exit(int error_code){
 	//set that we exited normally
 	//TODO : set this on process or something
-	get_current_task()->exit_status = (1UL << 16) | error_code;
+	get_current_proc()->exit_status = (1UL << 16) | error_code;
 	kdebugf("exit with code : %ld\n",error_code);
 	kill_proc();
 }

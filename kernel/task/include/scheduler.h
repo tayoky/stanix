@@ -7,6 +7,7 @@
 #include <kernel/vfs.h>
 #include <kernel/mutex.h>
 #include <kernel/spinlock.h>
+#include <kernel/sleep.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/signal.h>
@@ -20,9 +21,9 @@ struct process;
 
 typedef struct {
 	vfs_node *node;
-	uint64_t offset;
-	uint64_t present;
-	uint64_t flags;
+	size_t offset;
+	long present;
+	long flags;
 }file_descriptor;
 
 #define FD_READ     0x01
@@ -46,12 +47,13 @@ typedef struct task {
 
 	struct timeval wakeup_time;
 	pid_t waitfor;
-	long exit_status;
 	atomic_int flags;
 	spinlock state_lock;
 	uintptr_t kernel_stack;
 
 	struct fault_frame *syscall_frame;
+	void *exit_arg;
+	sleep_queue waiter;
 } task;
 
 typedef struct process {
@@ -77,6 +79,7 @@ typedef struct process {
 	mode_t umask;
 	struct process *waker; //the proc that wake up us
 	task *main_thread;
+	long exit_status;
 } process;
 
 #define PROC_FLAG_PRESENT 0x01
