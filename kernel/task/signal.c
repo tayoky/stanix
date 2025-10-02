@@ -54,17 +54,18 @@ static void handle_default(int signum){
 	case CORE:
 	case KILL:
 		release_mutex(&get_current_task()->sig_lock);
-		kdebugf("process killed by signal %d\n",signum);
+		kdebugf("task killed by signal %d\n",signum);
 		get_current_proc()->exit_status = ((uint64_t)1 << 17) | signum;
-		kill_proc();
+		kill_task();
 		break;
 	case IGN:
 	case CONT:
 		break;
 	case STOP:
 		release_mutex(&get_current_task()->sig_lock);
-		kdebugf("process stopped\n");
+		kdebugf("task stopped\n");
 		int ret = 0;
+		//FIXME : i'm pretty sure if main thread recive SIGSTOP the whole process should stop
 		//block until recive a continue signals or kill
 		get_current_task()->flags |= PROC_FLAG_STOPPED;
 		while((ret = block_task())){

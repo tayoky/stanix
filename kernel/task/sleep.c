@@ -71,6 +71,17 @@ void sleep_on_queue(sleep_queue *queue){
 	get_current_task()->snext = NULL;
 
 	spinlock_release(&queue->lock);
+
+	//what if we get unblocked between releasing the lock and block_task
+	//RACE CONDITION
+
+	block_task();
+}
+
+void wakeup_queue_specific(sleep_queue *queue,list_node *node){
+	spinlock_acquire(&queue->lock);
+	
+	spinlock_release(&queue->lock);
 }
 
 void wakeup_queue(sleep_queue *queue,size_t count){

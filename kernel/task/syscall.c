@@ -589,7 +589,6 @@ int sys_chdir(const char *path){
 }
 
 int sys_waitpid(pid_t pid,int *status,int options){
-	/*
 	if(status && !CHECK_MEM(status,sizeof(status))){
 		return -EFAULT;
 	}
@@ -602,20 +601,18 @@ int sys_waitpid(pid_t pid,int *status,int options){
 
 	kdebugf("wait for %ld\n",pid);
 
+
+	//first build up a threads list to wait
+	size_t threads_count = 0;
+	task **threads = NULL;
+
 	if(pid == -1){
 		//wait for any
+		threads_count = get_current_proc()->child->node_count;
+		threads = kmalloc(sizeof(task *) * threads_count);
+		size_t i = 0;
 		foreach(node,get_current_proc()->child){
-			//don't wait for zombie
-			process *proc = node->value;
-			if(proc->flags & PROC_FLAG_ZOMBIE){
-				if(status){
-					*status = proc->exit_status;
-				}
-				kernel->can_task_switch = 1;
-				pid = proc->pid;
-				final_proc_cleanup(proc);
-				return pid;
-			}
+			threads[i++] = ((process *)node->value)->main_thread;
 		}
 	} else {
 		//wait for pid
@@ -626,31 +623,19 @@ int sys_waitpid(pid_t pid,int *status,int options){
 			kernel->can_task_switch = 1;
 			return -ECHILD;
 		}
-
-		//don't wait for zombie
-		if(proc->flags & PROC_FLAG_ZOMBIE){
-			if(status){
-				*status = proc->exit_status;
-			}
-			kernel->can_task_switch = 1;
-			final_proc_cleanup(proc);
-			return pid;
-		}
+		threads_count = 1;
+		threads = kmalloc(sizeof(task *));
+		threads[0] = proc->main_thread;
 	}
 
-	if(options & WNOHANG){
-		return -ECHILD;
-	}
-	
-	get_current_proc()->waitfor = pid;
-	atomic_fetch_or(&get_current_proc()->flags,PROC_FLAG_WAIT);
-	
-	//block, when we wake up the process is now a zombie
-	if(block_task() == -EINTR){
-		return -EINTR;
+	task *waker;
+	int ret = waitfor(threads,threads_count,options,&waker);
+	kfree(threads);
+	if(ret < 0){
+		return ret;
 	}
 
-	process *proc = get_current_proc()->waker;
+	process *proc = waker->process;
 
 	//get the exit status
 	if(status){
@@ -661,8 +646,7 @@ int sys_waitpid(pid_t pid,int *status,int options){
 
 	final_proc_cleanup(proc);
 
-	return pid;*/
-	return -ENOSYS;
+	return pid;
 }
 
 int sys_unlink(const char *pathname){

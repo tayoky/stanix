@@ -239,18 +239,22 @@ process *get_current_proc(void){
 
 static void alert_parent(process *proc){
 	if(!proc->parent)return;
-	/*if((atomic_load(&proc->parent->flags) & PROC_FLAG_WAIT) && (proc->parent->waitfor == proc->pid || proc->parent->waitfor == -1 || proc->parent->waitfor == -proc->group)){
-		proc->parent->waker = proc;
-		unblock_task(proc->parent);
-	} else {*/
-		send_sig(proc->parent,SIGCHLD);
-	//}
+	if(!proc->main_thread->waiter)send_sig(proc->parent,SIGCHLD);
 }
 
-void kill_task(void){
-	disable_interrupt();
-	spinlock_acquire(&get_current_proc()->state_lock);
+void kill_proc(){
+	//just kill the main thread
+	if(get_current_task() == get_current_proc()->main_thread){
+		//we are the main thread, diying will kill the proc
+		kill_task();
+	} else {
+		//we are not the main thread
+		send_sig_task(get_current_proc()->main_thread,SIGKILL);
+		kill_task();
+	}
+}
 
+static void do_proc_deletion(void){
 	//all the childreen become orphelan
 	//the parent of orphelan is init
 	foreach(node,get_current_proc()->child){
@@ -265,7 +269,7 @@ void kill_task(void){
 		spinlock_acquire(&child->state_lock);
 	}
 	free_list(get_current_proc()->child);
-	
+
 	//close every open fd
 	for (size_t i = 0; i < MAX_FD; i++){
 		if(get_current_proc()->fds[i].present){
@@ -282,9 +286,28 @@ void kill_task(void){
 		memseg_unmap(get_current_proc(),node->value);
 	}
 	free_list(get_current_proc()->memseg);
-	
-	
-	alert_parent(get_current_proc());
+}
+
+void kill_task(void){
+	disable_interrupt();
+	spinlock_acquire(&get_current_proc()->state_lock);
+
+	if(get_current_task() == get_current_proc()->main_thread){
+		//we are the main thread, we need to kill the whole proc
+		//TODO : send SIGKILL to all threads and wait for it to be handled
+		do_proc_deletion();
+		alert_parent(get_current_proc());
+	}
+
+	//if a task is waiting on us alert
+	if(get_current_task()->waiter){
+		//FIXME : not SMP safe
+		//a task could be waiting on multiples threads and if they all wakeup the waiter at the same time
+		//waker will still indicate only the last
+		//RACE CONDITION
+		get_current_task()->waiter->waker = get_current_task();
+		unblock_task(get_current_task()->waiter);
+	}
 	
 	atomic_fetch_or(&get_current_task()->flags,PROC_FLAG_ZOMBIE);
 	spinlock_release(&get_current_proc()->state_lock);
@@ -326,7 +349,7 @@ int block_task(void){
 	}
 
 
-	kernel->can_task_switch = 1;
+	kernel->can_task_switch = 1; 	
 
 	//yeld will set the blocked flag for us
 	yield(0);

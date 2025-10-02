@@ -53,7 +53,8 @@ typedef struct task {
 
 	struct fault_frame *syscall_frame;
 	void *exit_arg;
-	sleep_queue waiter;
+	struct task *waker;
+	struct task *waiter; //task waiting on us
 } task;
 
 typedef struct process {
@@ -77,7 +78,6 @@ typedef struct process {
 	gid_t egid;
 	gid_t sgid;
 	mode_t umask;
-	struct process *waker; //the proc that wake up us
 	task *main_thread;
 	long exit_status;
 } process;
@@ -100,6 +100,9 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 /// @brief kill the current thread
 void kill_task(void);
 
+/// @brief kill the current process
+void kill_proc();
+
 void final_proc_cleanup(process *proc);
 
 /// @brief get a process from its pid
@@ -119,6 +122,14 @@ void unblock_task(task *thread);
 /// @param addback do we add the task back to the queue or running task
 void yield(int addback);
 
+/// @brief wait for any thread in a group of threads to die
+/// @param threads the threads list
+/// @param threads_count the number of threads in the threads list
+/// @param flags flags such as WNOHANG
+/// @param waker the thread that died
+/// @return the tid of the threads that died or negative errno number
+int waitfor(task **threads,size_t threads_count,int flags,task **waker);
+
 #define FD_GET(fd) get_current_proc()->fds[fd]
 #define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))
 #define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)
@@ -128,8 +139,5 @@ extern task *sleeping_proc;
 
 #define EUID_ROOT 0
 #define KSTACK_TOP(kstack) (((kstack) + KERNEL_STACK_SIZE) & ~0xFUL)
-
-//TODO : make a kill_proc
-#define kill_proc kill_task
 
 #endif
