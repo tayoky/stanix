@@ -1,7 +1,7 @@
 #ifndef KHEAP_H
 #define KHEAP_H
 
-#include <kernel/mutex.h>
+#include <kernel/spinlock.h>
 #include <sys/types.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -22,7 +22,7 @@ typedef struct {
 	uint64_t start;
 	uint64_t lenght;
 	heap_segment *first_seg;
-	mutex_t mutex;
+	spinlock lock;
 	void (*changes_size)(ssize_t);
 }heap_info;
 
