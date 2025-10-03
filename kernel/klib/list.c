@@ -5,9 +5,7 @@
 
 list *new_list(){
 	list *l = kmalloc(sizeof(list));
-	l->frist_node = NULL;
-	l->last_node = NULL;
-	l->node_count = 0;
+	memset(l,0,sizeof(list));
 	return l;
 }
 

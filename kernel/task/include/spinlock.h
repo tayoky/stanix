@@ -9,7 +9,7 @@ typedef struct spinlock {
     int had_interrupt;
 } spinlock;
 
-#define SPINLOCK_DEBUG
+//#define SPINLOCK_DEBUG
 
 #ifdef SPINLOCK_DEBUG
 #include <kernel/print.h>
