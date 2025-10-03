@@ -111,9 +111,10 @@ ssize_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 		//now write the rest
 		memcpy(ring->buffer + ring->write_offset,buffer,rest_count);
 		ring->write_offset += rest_count;
+		buffer += rest_count;
 
 		//if a process is waiting to read wakeup
-		wakeup_queue(&ring->writer_queue,1);
+		wakeup_queue(&ring->reader_queue,1);
 		spinlock_release(&ring->lock);
 	}
 
