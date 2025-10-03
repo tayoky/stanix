@@ -177,6 +177,7 @@ void parse_color(void){
 			i++;
 			if(escape_state - i >= 2)
 			front_color = parse_complex(i);
+			i+= 2;
 			continue;
 		case 39:
 			front_color = ansi2gfx(ansi_colours[7]);
@@ -185,6 +186,7 @@ void parse_color(void){
 			i++;
 			if(escape_state - i >= 2)
 			back_color = parse_complex(i);
+			i+= 2;
 			continue;
 		case 49:
 			back_color = ansi2gfx(ansi_colours[0]);
