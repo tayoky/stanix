@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/module.h>
+#include <signal.h>
 #include <ctype.h>
 #include <input.h>
 #include <dirent.h>
@@ -63,7 +64,13 @@ int main(){
 	}
 
 	//just cleanup oprhan process
+	sigset_t sigchld;
+	sigemptyset(&sigchld);
+	sigaddset(&sigchld,SIGCHLD);
 	for(;;){
-		waitpid(-1,NULL,0);
+		int sig;
+		if(sigwait(&sigchld,&sig) == 0){
+			waitpid(-1,NULL,0);
+		}
 	}
 }
