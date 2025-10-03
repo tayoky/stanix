@@ -935,6 +935,36 @@ int sys_kill(pid_t pid,int sig){
 	return 0;
 }
 
+int sys_sigwait(const sigset_t *set, int *sig){
+	if(!CHECK_STRUCT(sig) || ! CHECK_STRUCT(set)){
+		return -EFAULT;
+	}
+	sigset_t mask = *set & ~(SIGKILL | SIGSTOP);
+
+	for(;;){
+		if(block_task() != EINTR){
+			//what the hell happend
+			return -EIO;
+		}
+		acquire_mutex(&get_current_task()->sig_lock);
+		if(get_current_task()->pending_sig & mask){
+			for(int i=0; i<_NSIG; i++){
+				if((get_current_task()->pending_sig & mask) & sigmask(i)){
+					*sig = i;
+					break;
+				}
+			}
+			release_mutex(&get_current_task()->sig_lock);
+			return 0;
+		} else if(get_current_task()->pending_sig & ~get_current_task()->sig_mask){
+			//we didn't wait for this signal but the signal must be handled
+			release_mutex(&get_current_task()->sig_lock);
+			return -EINTR;
+		}
+		release_mutex(&get_current_task()->sig_lock);
+	}
+}
+
 pid_t sys_getpid(){
 	return get_current_proc()->pid;
 }
@@ -1295,7 +1325,7 @@ void *syscall_table[] = {
 	(void *)sys_poll,
 	(void *)sys_sigprocmask,
 	(void *)sys_sigaction,
-	(void *)sys_stub, //sys_sigwait
+	(void *)sys_sigwait,
 	(void *)sys_stub, //sys_sigsuspend
 	(void *)sys_sigpending,
 	(void *)sys_kill,
