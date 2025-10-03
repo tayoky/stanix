@@ -24,6 +24,7 @@ int waitfor(task **threads,size_t threads_count,int flags,task **waker){
         }
 
         //register
+        waitfor_count++;
         if(!(flags & WNOHANG))threads[i]->waiter = get_current_task();
     }
 
