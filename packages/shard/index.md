@@ -1,5 +1,5 @@
 ---
-title: tutils
+title: shard
 comment: this file was generated automaticly DO NOT EDIT
 ---
 ## description
@@ -9,34 +9,28 @@ to build and install this package use the ports submodule in the stanix repo
 after having making stanix
 ```sh
 cd ports
-./clean.sh tutils
-./build.sh tutils
-./install.sh tutils
+./clean.sh shard
+./build.sh shard
+./install.sh shard
 ```
 
 ## precompiled
 precompiled are currently not available
 
 ## packages source
-[package source](https://github.com/tayoky/ports/tree/main/ports/tutils)  
+[package source](https://github.com/tayoky/ports/tree/main/ports/shard)  
 
 ### manifest
 ```bash
-GIT=https://github.com/tayoky/tutils
-COMMIT=a0778b3a62c296cc8f9405cbe8dae9b16a6d2baf
+GIT=https://github.com/shardlanguage/shard/
+COMMIT=3f72898d42f42b6a7d4bc2767f724748b77239e0
 
-configure() {
-
-	./configure --host="$HOST" --with-CC="$CC" --prefix="$PREFIX"
+build(){
+    make -C scripts CC=$CC
 }
 
-build() {
-	make
-}
-
-install() {
-	make install
-}
-```
+install(){
+    cp shard $PREFIX/bin
+}```
 
 this page was generated using a [script](../../update-packages.md)

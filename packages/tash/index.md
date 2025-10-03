@@ -1,5 +1,5 @@
 ---
-title: tutils
+title: tash
 comment: this file was generated automaticly DO NOT EDIT
 ---
 ## description
@@ -9,25 +9,24 @@ to build and install this package use the ports submodule in the stanix repo
 after having making stanix
 ```sh
 cd ports
-./clean.sh tutils
-./build.sh tutils
-./install.sh tutils
+./clean.sh tash
+./build.sh tash
+./install.sh tash
 ```
 
 ## precompiled
 precompiled are currently not available
 
 ## packages source
-[package source](https://github.com/tayoky/ports/tree/main/ports/tutils)  
+[package source](https://github.com/tayoky/ports/tree/main/ports/tash)  
 
 ### manifest
 ```bash
-GIT=https://github.com/tayoky/tutils
-COMMIT=a0778b3a62c296cc8f9405cbe8dae9b16a6d2baf
+GIT=https://github.com/tayoky/tash
+COMMIT=d78769ee11a8da2f1dd44f820a1f0bb519b8f903
 
 configure() {
-
-	./configure --host="$HOST" --with-CC="$CC" --prefix="$PREFIX"
+	./configure --host="$HOST" --cc=$CC --prefix=$PREFIX
 }
 
 build() {

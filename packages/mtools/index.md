@@ -1,5 +1,5 @@
 ---
-title: tutils
+title: mtools
 comment: this file was generated automaticly DO NOT EDIT
 ---
 ## description
@@ -9,33 +9,33 @@ to build and install this package use the ports submodule in the stanix repo
 after having making stanix
 ```sh
 cd ports
-./clean.sh tutils
-./build.sh tutils
-./install.sh tutils
+./clean.sh mtools
+./build.sh mtools
+./install.sh mtools
 ```
 
 ## precompiled
 precompiled are currently not available
 
 ## packages source
-[package source](https://github.com/tayoky/ports/tree/main/ports/tutils)  
+[package source](https://github.com/tayoky/ports/tree/main/ports/mtools)  
 
 ### manifest
 ```bash
-GIT=https://github.com/tayoky/tutils
-COMMIT=a0778b3a62c296cc8f9405cbe8dae9b16a6d2baf
+VERSION=4.0.49
+TAR=http://ftp.gnu.org/gnu/mtools/mtools-$VERSION.tar.gz
+WEBSITE=https://www.gnu.org/software/mtools/
 
 configure() {
-
-	./configure --host="$HOST" --with-CC="$CC" --prefix="$PREFIX"
+	./configure --host=$HOST --prefix=/usr CFLAGS=-Wno-error
 }
 
-build() {
-	make
+build(){
+	make all -j$NPROC
 }
 
-install() {
-	make install
+install(){
+	make install DESTDIR=${PREFIX%%/usr}
 }
 ```
 

@@ -1,5 +1,5 @@
 ---
-title: tutils
+title: tsed
 comment: this file was generated automaticly DO NOT EDIT
 ---
 ## description
@@ -9,33 +9,33 @@ to build and install this package use the ports submodule in the stanix repo
 after having making stanix
 ```sh
 cd ports
-./clean.sh tutils
-./build.sh tutils
-./install.sh tutils
+./clean.sh tsed
+./build.sh tsed
+./install.sh tsed
 ```
 
 ## precompiled
 precompiled are currently not available
 
 ## packages source
-[package source](https://github.com/tayoky/ports/tree/main/ports/tutils)  
+[package source](https://github.com/tayoky/ports/tree/main/ports/tsed)  
 
 ### manifest
 ```bash
-GIT=https://github.com/tayoky/tutils
-COMMIT=a0778b3a62c296cc8f9405cbe8dae9b16a6d2baf
+GIT=https://github.com/StercusMax/tsed
+COMMIT=b06cfec6e119e0e1c1771068558a1688c338dde8
 
 configure() {
-
-	./configure --host="$HOST" --with-CC="$CC" --prefix="$PREFIX"
+	true
 }
 
 build() {
-	make
+	$CC main.c -o tsed
 }
 
 install() {
-	make install
+	mkdir -p $PREFIX/bin
+	cp tsed $PREFIX/bin
 }
 ```
 

@@ -23,7 +23,7 @@ precompiled are currently not available
 ### manifest
 ```bash
 GIT=https://github.com/Mellurboo/SpecSeek/
-COMMIT="47f51c62de8e8142a8ecb47b65b19cc7fd60b2c7"
+COMMIT="fede6a5dad6aeaf664dd65543691ad888cc6d037"
 
 build(){
 	make specseek_64 CFLAGS=-mno-sse
