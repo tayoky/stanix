@@ -12,6 +12,7 @@ typedef struct {
 	size_t write_offset;
 	size_t read_offset;
 	size_t buffer_size;
+	size_t read_available;
 	sleep_queue reader_queue;
 	sleep_queue writer_queue;
 	spinlock lock;

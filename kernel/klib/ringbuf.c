@@ -3,6 +3,7 @@
 #include <kernel/string.h>
 #include <kernel/scheduler.h>
 #include <kernel/sleep.h>
+#include <kernel/print.h>
 #include <errno.h>
 
 ring_buffer *new_ringbuffer(size_t buffer_size){
@@ -11,6 +12,7 @@ ring_buffer *new_ringbuffer(size_t buffer_size){
 	ring->buffer_size = buffer_size;
 	ring->write_offset = 0;
 	ring->read_offset = 0;
+	ring->read_available = 0;
 	ring->buffer = kmalloc(buffer_size);
 	return ring;
 }
@@ -21,12 +23,7 @@ void delete_ringbuffer(ring_buffer *ring){
 }
 
 size_t ringbuffer_read_available(ring_buffer *ring){
-	//read before write
-	if(ring->read_offset <= ring->write_offset){
-		return (size_t)ring->write_offset - ring->read_offset;
-	} else {
-		return (size_t)(ring->buffer_size - (ring->write_offset - ring->read_offset));
-	}
+	return ring->read_available;
 }
 
 size_t ringbuffer_write_available(ring_buffer *ring){
@@ -54,6 +51,7 @@ ssize_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 	if(count > ringbuffer_read_available(ring)){
 		count = ringbuffer_read_available(ring);
 	}
+	ring->read_available -= count;
 
 	//if the read go farther than the end cut in two
 	size_t rest_count = count;
@@ -76,7 +74,6 @@ ssize_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 
 ssize_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 	char *buffer = (char *)buf;
-
 	
 	while(count){
 		spinlock_acquire(&ring->lock);
@@ -85,6 +82,7 @@ ssize_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 			spinlock_release(&ring->lock);
 			//what if things happend between when we release the lock and sleep
 			//RACE CONDITION
+			kdebugf("h\n");
 			if(sleep_on_queue(&ring->writer_queue) == EINTR){
 				return -EINTR;
 			}
@@ -99,6 +97,7 @@ ssize_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 		}
 
 		count -= rest_count;
+		ring->read_available += rest_count;
 
 		//if the write go farther than the end cut in two
 		if(rest_count + ring->write_offset >= ring->buffer_size){
