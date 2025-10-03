@@ -58,7 +58,7 @@ int micro_sleep(suseconds_t micro_second){
 	return sleep_until(new_timeval);
 }
 
-void sleep_on_queue(sleep_queue *queue){
+int sleep_on_queue(sleep_queue *queue){
 	spinlock_acquire(&queue->lock);
 
 	if(queue->head){
@@ -75,20 +75,14 @@ void sleep_on_queue(sleep_queue *queue){
 	//what if we get unblocked between releasing the lock and block_task
 	//RACE CONDITION
 
-	block_task();
-}
-
-void wakeup_queue_specific(sleep_queue *queue,list_node *node){
-	spinlock_acquire(&queue->lock);
-	
-	spinlock_release(&queue->lock);
+	return block_task();
 }
 
 void wakeup_queue(sleep_queue *queue,size_t count){
 	spinlock_acquire(&queue->lock);
 
 	for(;;){
-		if(queue->tail)break;
+		if(!queue->tail)break;
 
 		task *thread = queue->tail;
 

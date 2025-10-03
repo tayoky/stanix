@@ -12,4 +12,8 @@ typedef struct sleep_queue {
 	struct task *head;
 } sleep_queue;
 
+
+int sleep_on_queue(sleep_queue *queue);
+void wakeup_queue(sleep_queue *queue,size_t count);
+
 #endif
