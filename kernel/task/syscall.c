@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <sched.h>
 
 //we can't include stdlib
 char *realpath(const char *path,char *res);
@@ -1287,6 +1288,26 @@ ssize_t sys_readlink(const char *path,char *buf, size_t bufsize){
 	return ret;
 }
 
+int sys_clone(int (*fn)(void*),void *stack,int flags,void *arg,void *tls,pid_t *child_tid){
+	if(!(flags & CLONE_THREAD)){
+		//we don't support that in kernel yet
+		return -ENOSYS;
+	}
+
+	task *new_thread = new_task(get_current_proc());
+	memcpy(&new_thread->context.frame,get_current_task()->syscall_frame,sizeof(fault_frame));
+	PC_REG(new_thread->context.frame) = (uintptr_t)fn;
+	ARG1_REG(new_thread->context.frame) = (uintptr_t)arg;
+	unblock_task(new_thread);
+
+	return 0;
+}
+
+int sys_thread_exit(void *arg){
+	get_current_task()->exit_arg = arg;
+	kill_task();
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1363,6 +1384,8 @@ void *syscall_table[] = {
 	(void *)sys_lchown,
 	(void *)sys_symlink,
 	(void *)sys_readlink,
+	(void *)sys_clone,
+	(void *)sys_thread_exit,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

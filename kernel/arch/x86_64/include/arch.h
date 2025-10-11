@@ -75,5 +75,6 @@ void enable_sse(void);
 #define ARG5_REG(frame) ( frame ).r8
 #define RET_REG(frame)  ( frame ).rax
 #define SP_REG(frame)   ( frame ).rsp
+#define PC_REG(frame)   ( frame ).rip
 
 #endif
