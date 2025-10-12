@@ -644,7 +644,7 @@ int sys_waitpid(pid_t pid,int *status,int options){
 	}
 
 	pid = proc->pid;
-
+	
 	final_proc_cleanup(proc);
 
 	return pid;
@@ -917,21 +917,21 @@ int sys_sigpending(sigset_t *set){
 	return 0;
 }
 
-int sys_kill(pid_t pid,int sig){
-	if(pid < 0){
-		if(send_sig_pgrp(-pid,sig) < 0){
+int sys_kill(pid_t tid,int sig){
+	if(tid < 0){
+		if(send_sig_pgrp(-tid,sig) < 0){
 			return -ESRCH;
 		}
 		return 0;
 	}
-	process *proc = pid2proc(pid);
-	if(!proc){
+	task *thread = tid2task(tid);
+	if(!thread){
 		return -ESRCH;
 	}
 
 	//TODO : permission checks
 
-	send_sig(proc,sig);
+	send_sig_task(thread,sig);
 
 	return 0;
 }
@@ -1298,6 +1298,7 @@ int sys_clone(int (*fn)(void*),void *stack,int flags,void *arg,void *tls,pid_t *
 	memcpy(&new_thread->context.frame,get_current_task()->syscall_frame,sizeof(fault_frame));
 	PC_REG(new_thread->context.frame) = (uintptr_t)fn;
 	ARG1_REG(new_thread->context.frame) = (uintptr_t)arg;
+	list_append(get_current_proc()->threads,new_thread);
 	unblock_task(new_thread);
 
 	return 0;
@@ -1306,6 +1307,7 @@ int sys_clone(int (*fn)(void*),void *stack,int flags,void *arg,void *tls,pid_t *
 int sys_thread_exit(void *arg){
 	get_current_task()->exit_arg = arg;
 	kill_task();
+	return 0;
 }
 
 int sys_stub(void){

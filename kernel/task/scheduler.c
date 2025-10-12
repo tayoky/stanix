@@ -16,6 +16,7 @@
 static task *running_task_tail;
 static task *running_task_head;
 list *proc_list;
+list *task_list;
 task *sleeping_proc;
 
 process *idle;
@@ -34,6 +35,7 @@ void init_task(){
 	kstatus("init kernel task... ");
 	//init the scheduler first
 	proc_list     = new_list();
+	task_list     = new_list();
 	sleeping_proc = NULL;
 	
 	//init the kernel task
@@ -41,8 +43,9 @@ void init_task(){
 	memset(kernel_task,0,sizeof(process));
 	kernel_task->parent = kernel_task;
 	kernel_task->pid = 0;
-	kernel_task->child = new_list();
-	kernel_task->memseg = new_list();
+	kernel_task->child   = new_list();
+	kernel_task->memseg  = new_list();
+	kernel_task->threads = new_list();
 	kernel_task->umask = 022;
 
 	//get the address space
@@ -96,7 +99,6 @@ task *schedule(){
 
 
 task *new_task(process *proc){
-	
 	task *thread = kmalloc(sizeof(task));
 	memset(thread,0,sizeof(task));
 	kdebugf("new task 0x%p tid : %ld\n",thread,thread->tid);
@@ -110,6 +112,9 @@ task *new_task(process *proc){
 	thread->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
 	
 	thread->process = proc;
+
+	list_append(proc->threads,thread);
+
 	return thread;
 }
 
@@ -120,16 +125,18 @@ process *new_proc(){
 	proc->pid =  atomic_fetch_add(&kernel->tid_count,1);
 
 	proc->addrspace = create_addr_space();
-	proc->parent = get_current_proc();
-	proc->child  = new_list();
-	proc->memseg = new_list();
-	proc->uid    = get_current_proc()->uid;
-	proc->euid   = get_current_proc()->euid;
-	proc->suid   = get_current_proc()->suid;
-	proc->gid    = get_current_proc()->gid;
-	proc->egid   = get_current_proc()->egid;
-	proc->sgid   = get_current_proc()->sgid;
-	proc->umask  = get_current_proc()->umask;
+	proc->parent  = get_current_proc();
+	proc->child   = new_list();
+	proc->memseg  = new_list();
+	proc->threads = new_list();
+	proc->uid     = get_current_proc()->uid;
+	proc->uid     = get_current_proc()->uid;
+	proc->euid    = get_current_proc()->euid;
+	proc->suid    = get_current_proc()->suid;
+	proc->gid     = get_current_proc()->gid;
+	proc->egid    = get_current_proc()->egid;
+	proc->sgid    = get_current_proc()->sgid;
+	proc->umask   = get_current_proc()->umask;
 	proc->main_thread = new_task(proc);
 
 	//add it the the list of the childreen of the parent
@@ -286,6 +293,8 @@ static void do_proc_deletion(void){
 		memseg_unmap(get_current_proc(),node->value);
 	}
 	free_list(get_current_proc()->memseg);
+
+	free_list(get_current_proc()->threads);
 }
 
 void kill_task(void){
@@ -335,6 +344,21 @@ process *pid2proc(pid_t pid){
 	return NULL;
 }
 
+task *tid2task(pid_t tid){
+	//is it ourself ?
+	if(get_current_task()->tid == tid){
+		return get_current_task();
+	}
+
+	foreach(node,task_list){
+		task *thread = node->value;
+		if(thread->tid == tid){
+			return thread;
+		}
+	}
+	return NULL;
+}
+
 int block_task(void){
 	//clear the signal interrupt flags
 	atomic_fetch_and(&get_current_task()->flags,~PROC_FLAG_INTR);
@@ -379,6 +403,7 @@ void unblock_task(task *thread){
 }
 
 void final_task_cleanup(task *thread){
+	list_remove(task_list,thread);
 	kfree((void*)thread->kernel_stack);
 	kfree(thread);
 }

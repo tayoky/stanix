@@ -79,6 +79,7 @@ typedef struct process {
 	gid_t sgid;
 	mode_t umask;
 	task *main_thread;
+	list *threads;
 	long exit_status;
 } process;
 
@@ -109,6 +110,8 @@ void final_proc_cleanup(process *proc);
 /// @param pid the pid of the process
 /// @return the process with the specfied pid
 process *pid2proc(pid_t pid);
+
+task *tid2task(pid_t tid);
 
 /// @brief block the current proc
 /// @return -EINTR if intruppted by signal devlivery or 0
