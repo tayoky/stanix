@@ -5,7 +5,7 @@
 volatile int flag = 0;
 
 void *test(void *arg){
-	puts("hello\n");
+	printf("hello from thread %ld\n",pthread_self());
 	flag = 1;
 }
 

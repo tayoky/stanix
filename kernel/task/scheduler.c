@@ -122,8 +122,7 @@ process *new_proc(){
 	//init the new proc
 	process *proc = kmalloc(sizeof(process));
 	memset(proc,0,sizeof(process));
-	proc->pid =  atomic_fetch_add(&kernel->tid_count,1);
-
+	
 	proc->addrspace = create_addr_space();
 	proc->parent  = get_current_proc();
 	proc->child   = new_list();
@@ -138,6 +137,7 @@ process *new_proc(){
 	proc->sgid    = get_current_proc()->sgid;
 	proc->umask   = get_current_proc()->umask;
 	proc->main_thread = new_task(proc);
+	proc->pid =  proc->main_thread->tid;
 
 	//add it the the list of the childreen of the parent
 	list_append(proc->parent->child,proc);

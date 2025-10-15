@@ -1288,12 +1288,8 @@ ssize_t sys_readlink(const char *path,char *buf, size_t bufsize){
 	return ret;
 }
 
-int sys_clone(int (*fn)(void*),void *stack,int flags,void *arg,void *tls,pid_t *child_tid){
-	if(!(flags & CLONE_THREAD)){
-		//we don't support that in kernel yet
-		return -ENOSYS;
-	}
-
+int sys_new_thread(void (*fn)(void*),void *stack,int flags,void *arg,void *tls,pid_t *child_tid){
+	
 	task *new_thread = new_task(get_current_proc());
 	memcpy(&new_thread->context.frame,get_current_task()->syscall_frame,sizeof(fault_frame));
 	PC_REG(new_thread->context.frame) = (uintptr_t)fn;
@@ -1308,6 +1304,10 @@ int sys_thread_exit(void *arg){
 	get_current_task()->exit_arg = arg;
 	kill_task();
 	return 0;
+}
+
+pid_t sys_gettid(void){
+	return get_current_task()->tid;
 }
 
 int sys_stub(void){
@@ -1386,8 +1386,9 @@ void *syscall_table[] = {
 	(void *)sys_lchown,
 	(void *)sys_symlink,
 	(void *)sys_readlink,
-	(void *)sys_clone,
+	(void *)sys_new_thread,
 	(void *)sys_thread_exit,
+	(void *)sys_gettid,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
