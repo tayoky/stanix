@@ -122,7 +122,6 @@ void irq_eoi(uintmax_t irq_num){
 }
 
 void irq_handler(fault_frame *frame){
-	if(frame->err_type != 32)kdebugf("irq %d\n",frame->err_type - 32);
 	void (*handler)(fault_frame *) = handlers[frame->err_type - 32];
 	if(handler){
 		handler(frame);

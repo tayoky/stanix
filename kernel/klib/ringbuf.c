@@ -3,7 +3,6 @@
 #include <kernel/string.h>
 #include <kernel/scheduler.h>
 #include <kernel/sleep.h>
-#include <kernel/print.h>
 #include <errno.h>
 
 ring_buffer *new_ringbuffer(size_t buffer_size){
@@ -82,7 +81,6 @@ ssize_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
 			spinlock_release(&ring->lock);
 			//what if things happend between when we release the lock and sleep
 			//RACE CONDITION
-			kdebugf("h\n");
 			if(sleep_on_queue(&ring->writer_queue) == EINTR){
 				return -EINTR;
 			}
