@@ -2,34 +2,77 @@
 title: syscall
 ---
 list of all syscall
-- [x] 0 [exit](exit)
-- [x] 1 [open](open)
-- [x] 2 [close](close)
-- [x] 3 [read](read)
-- [x] 4 [write](write)
-- [x] 5 lseek(seek in internal lseek in libc for compatibility
-- [x] 6 [dup](dup)
-- [x] 7 [dup2](dup2)
-- [x] 8 sbrk
-- [x] 9 ioctl
-- [x] 10 [usleep](usleep)(will be replaced soon with nanosleep)
-- [x] 11 sleepuntil
-- [x] 12 gettimeofday
-- [ ] 13 settimeofday
-- [x] 14 pipe
-- [x] 15 execve
-- [x] 16 fork
-- [x] 17 mkdir
-- [ ] 18 unlink
-- [ ] 19 rmdir
-- [x] 20 readdir
-- [x] 21 stat
-- [x] 22 fstat
-- [x] 23 getcwd
-- [x] 24 chdir
-- [x] 25 waitpid (uncomplete impl)
-- [ ]  fchmod
-- [ ]  fchown
-- [ ]  chmod
-- [ ]  chown
-- [ ]  mmap
+- 00 [exit](exit)
+- 01 [open](open)
+- 02 [close](close)
+- 03 [read](read)
+- 04 [write](write)
+- 05 seek
+- 06 [dup](dup)
+- 07 [dup2](dup2)
+- 08 sbrk
+- 09 ioctl
+- 10 nanosleep
+- 11 sleepuntil
+- 12 clock_gettime
+- 13 clock_settime (unimplemented)
+- 14 pipe
+- 15 execve
+- 16 fork
+- 17 mkdir
+- 18 unlink
+- 19 rmdir
+- 20 readdir
+- 21 stat
+- 22 fstat
+- 23 getcwd
+- 24 chdir
+- 25 waitpid
+- 26 insmod
+- 27 rmmod
+- 28 isatty
+- 29 openpty
+- 30 poll
+- 31 sigprocmask
+- 32 sigaction
+- 33 sigwait
+- 34 sigsuspend (unimplemented)
+- 35 sigpending
+- 36 kill
+- 37 getpid
+- 38 mount
+- 39 umount (unimplemented)
+- 40 mmap
+- 41 munmap
+- 42 mprotect (unimplemented)
+- 43 msync
+- 44 setuid
+- 45 seteuid
+- 46 getuid
+- 47 geteuid
+- 48 setgid
+- 49 setegid
+- 50 getgid
+- 51 getegid
+- 52 chmod
+- 53 fchmod
+- 54 chown
+- 55 fchown
+- 56 setpgid
+- 57 getpgid
+- 58 fcntl
+- 59 umask
+- 60 access
+- 61 utimes (unimplemented)
+- 62 truncate
+- 63 ftruncate
+- 64 link
+- 65 rename
+- 66 lstat
+- 67 lchmod
+- 68 lchown
+- 69 symlink
+- 70 readlink
+- 71 new_thread
+- 72 thread_exit
+- 73 gettid

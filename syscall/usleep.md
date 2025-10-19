@@ -1,6 +1,10 @@
 ---
 title : usleep
 ---
+
+## WARNING
+this syscall have been removed from stanix's kernel and is replaced by [nanosleep](nanosleep)
+
 ```c
 int usleep(useconds_t usec);
 ```
