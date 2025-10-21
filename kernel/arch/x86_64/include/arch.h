@@ -52,6 +52,7 @@ typedef struct arch_specific {
 typedef struct acontext {
 	char sse[512];
 	fault_frame frame;
+	uint64_t fs_base;
 } acontext;
 
 //arch specific functions
@@ -65,6 +66,7 @@ uintptr_t get_ptr_context(fault_frame *fault);
 int is_userspace(fault_frame *frame);
 
 void init_timer(void);
+void set_tls(void *tls);
 void enable_sse(void);
 
 #define ARG0_REG(frame) ( frame ).rax

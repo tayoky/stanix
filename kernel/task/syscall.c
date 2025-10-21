@@ -1288,12 +1288,19 @@ ssize_t sys_readlink(const char *path,char *buf, size_t bufsize){
 	return ret;
 }
 
-int sys_new_thread(void (*fn)(void*),void *stack,int flags,void *arg,void *tls,pid_t *child_tid){
-	
+int sys_new_thread(void (*fn)(void*),void *stack,int flags,void *arg,pid_t *child_tid){
+	if(child_tid && !CHECK_STRUCT(child_tid)){
+		return -EFAULT;
+	}
+
 	task *new_thread = new_task(get_current_proc());
+
 	memcpy(&new_thread->context.frame,get_current_task()->syscall_frame,sizeof(fault_frame));
 	PC_REG(new_thread->context.frame) = (uintptr_t)fn;
 	ARG1_REG(new_thread->context.frame) = (uintptr_t)arg;
+	SP_REG(new_thread->context.frame) = (uintptr_t)stack;
+
+	if(child_tid)*child_tid = new_thread->tid; 
 	list_append(get_current_proc()->threads,new_thread);
 	unblock_task(new_thread);
 
@@ -1308,6 +1315,11 @@ int sys_thread_exit(void *arg){
 
 pid_t sys_gettid(void){
 	return get_current_task()->tid;
+}
+
+int sys_settls(void *tls){
+	set_tls(tls);
+	return 0;
 }
 
 int sys_stub(void){
@@ -1389,6 +1401,7 @@ void *syscall_table[] = {
 	(void *)sys_new_thread,
 	(void *)sys_thread_exit,
 	(void *)sys_gettid,
+	(void *)sys_settls,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

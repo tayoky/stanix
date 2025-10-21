@@ -32,3 +32,9 @@ int is_userspace(fault_frame *frame){
 uintptr_t get_ptr_context(fault_frame *fault){
 	return fault->cr2;
 }
+
+
+void set_tls(void *tls){
+	//set fs base
+	asm volatile("wrmsr" : : "c"(0xc0000100), "d" ((uint32_t)(((uintptr_t)tls) >> 32)), "a" ((uint32_t)((uintptr_t)tls)));
+}

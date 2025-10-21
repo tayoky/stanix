@@ -38,8 +38,22 @@ context_switch:
 
 	fxsave [rdi]
 
+	;save fs base
+	mov rcx, 0xc0000100
+	rdmsr
+	mov [rdi + 512 + 8 * 28]    , eax
+	mov [rdi + 512 + 8 * 28 + 4], edx
+
 	;load new context
 	;load rsi and flags/seg last
+
+
+	;load fs base
+	mov eax, [rdi + 512 + 8 * 28]
+	mov edx, [rdi + 512 + 8 * 28 + 4]
+	mov rcx, 0xc0000100
+	wrmsr
+
 	fxrstor [rsi]
 	
 	mov rax, [rsi + 512 + 8 * 4 ]
