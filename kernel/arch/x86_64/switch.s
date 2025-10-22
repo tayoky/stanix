@@ -78,7 +78,6 @@ context_switch:
 	add rsp, 512 + 8 * 23
 
 	mov gs, [rsi + 512 + 8 * 0]
-	mov fs, [rsi + 512 + 8 * 1]
 	mov es, [rsi + 512 + 8 * 2]
 	mov ds, [rsi + 512 + 8 * 3]
 

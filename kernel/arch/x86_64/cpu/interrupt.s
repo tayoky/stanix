@@ -81,7 +81,6 @@ isr_base:
     mov ds, ax
     mov es, ax
     mov gs, ax
-    mov fs, ax
 
     call isr_handler
 
@@ -89,7 +88,7 @@ isr_base:
     pop rax
     mov gs, ax
     pop rax
-    mov fs, ax
+    ;mov fs, ax
     pop rax
     mov es, ax
     pop rax
