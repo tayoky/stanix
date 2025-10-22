@@ -230,9 +230,9 @@ void yield(int addback){
 
 	set_kernel_stack(KSTACK_TOP(new->kernel_stack));
 	
-	if(new != old){
+	//if(new != old){ //HACK so that fork can refresh context
 		context_switch(&old->context,&get_current_task()->context);
-	}
+	//}
 	if(prev_int)enable_interrupt();
 }
 

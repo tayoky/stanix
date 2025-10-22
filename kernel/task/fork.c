@@ -37,6 +37,7 @@ pid_t fork(void){
 
 	//copy context parent to child but overload regs with userspace context
 	//FIXME : this might not get the lasted value of context
+	yield(1);//HACK to update the context
 	child->main_thread->context       = get_current_task()->context;
 	child->main_thread->context.frame = *get_current_task()->syscall_frame;
 	
