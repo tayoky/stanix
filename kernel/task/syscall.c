@@ -1322,6 +1322,36 @@ int sys_settls(void *tls){
 	return 0;
 }
 
+//FIXME : probably full of race condition
+int sys_thread_join(pid_t tid, void **arg){
+	if(arg && !CHECK_STRUCT(arg)){
+		return -EFAULT;
+	}
+
+	task *thread = tid2task(tid);
+	if(!thread || thread->process != get_current_proc()){
+		return -ESRCH;
+	}
+
+	if(thread == get_current_task()){
+		return -EDEADLK;
+	}
+
+	
+	int ret = waitfor(&thread, 1, 0, NULL);
+	if(ret < 0){
+		//return EDEADLk if somebody was already waiting on it
+		if(ret == -ECHILD)ret = -EDEADLK;
+		return ret;
+	}
+
+	if(arg) *arg = thread->exit_arg;
+
+	final_task_cleanup(thread);
+
+	return 0;
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1402,6 +1432,7 @@ void *syscall_table[] = {
 	(void *)sys_thread_exit,
 	(void *)sys_gettid,
 	(void *)sys_settls,
+	(void *)sys_thread_join,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

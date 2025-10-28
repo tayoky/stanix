@@ -106,6 +106,9 @@ void kill_proc();
 
 void final_proc_cleanup(process *proc);
 
+
+void final_task_cleanup(task *thread);
+
 /// @brief get a process from its pid
 /// @param pid the pid of the process
 /// @return the process with the specfied pid
