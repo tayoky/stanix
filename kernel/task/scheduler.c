@@ -101,12 +101,12 @@ task *schedule(){
 task *new_task(process *proc){
 	task *thread = kmalloc(sizeof(task));
 	memset(thread,0,sizeof(task));
-	kdebugf("new task 0x%p tid : %ld\n",thread,thread->tid);
 	init_mutex(&thread->sig_lock);
 	
 	thread->tid    = atomic_fetch_add(&kernel->tid_count,1);
 	thread->flags  = PROC_FLAG_PRESENT | PROC_FLAG_BLOCKED;
-
+	
+	kdebugf("new task 0x%p tid : %ld\n",thread,thread->tid);
 	
 	//setup a new kernel stack
 	thread->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
