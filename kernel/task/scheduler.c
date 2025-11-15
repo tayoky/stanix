@@ -89,6 +89,7 @@ task *schedule(){
 		if(sleeping_proc->wakeup_time.tv_sec > time.tv_sec || (sleeping_proc->wakeup_time.tv_sec == time.tv_sec && sleeping_proc->wakeup_time.tv_usec > time.tv_usec)){
 			break;
 		}
+		atomic_fetch_and(&sleeping_proc->flags, ~PROC_FLAG_SLEEP);
 		unblock_task(sleeping_proc);
 		sleeping_proc = sleeping_proc->snext;
 	}

@@ -3,10 +3,12 @@
 #include <kernel/kernel.h>
 #include <kernel/scheduler.h>
 #include <kernel/print.h>
+#include <errno.h>
 
 int sleep_until(struct timeval wakeup_time){
 	kdebugf("wait until : %ld:%ld\n",wakeup_time.tv_sec,wakeup_time.tv_usec);
 	get_current_task()->wakeup_time = wakeup_time;
+	atomic_fetch_or(&get_current_task()->flags, PROC_FLAG_SLEEP);
 
 	//add us to the list
 	//keep the list organise from first awake to last
@@ -30,7 +32,22 @@ int sleep_until(struct timeval wakeup_time){
 		get_current_task()->snext = sleeping_proc;
 		sleeping_proc = get_current_task();
 	}
-	return block_task();
+	if (block_task() == -EINTR) {
+		if (atomic_load(&get_current_task()->flags) & PROC_FLAG_SLEEP) {
+			// we are still in the sleep queue
+			// remove us
+			if (sleeping_proc == get_current_task()) {
+				// we are the first 
+				sleeping_proc = get_current_task()->snext;
+			} else {
+				prev->snext = get_current_task()->snext;
+			}
+		}
+		atomic_fetch_and(&get_current_task()->flags, ~PROC_FLAG_SLEEP);
+		return -EINTR;
+	} else {
+		return 0;
+	}
 }
 
 int sleep(long seconds){
