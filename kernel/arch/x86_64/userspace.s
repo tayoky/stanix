@@ -44,7 +44,7 @@ jump_userspace:
 global load_context
 load_context:
 	mov rsp, rdi
-	add rsp, 16 ;skip cr2 ad cr3
+	add rsp, 8 * 6 ;skip control registers and segments regs
 	pop rax
 	pop rbx
 	pop rcx
