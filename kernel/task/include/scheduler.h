@@ -55,7 +55,7 @@ typedef struct task {
 	struct fault_frame *syscall_frame;
 	void *exit_arg;
 	struct task *waker;
-	struct task *waiter; //task waiting on us
+	struct task * _Atomic waiter; //task waiting on us
 } task;
 
 typedef struct process {

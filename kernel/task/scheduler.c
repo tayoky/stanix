@@ -314,7 +314,7 @@ void kill_task(void){
 	}
 
 	//if a task is waiting on us alert
-	if(get_current_task()->waiter){
+	if(atomic_load(&get_current_task()->waiter)){
 		//FIXME : not SMP safe
 		//a task could be waiting on multiples threads and if they all wakeup the waiter at the same time
 		//waker will still indicate only the last
