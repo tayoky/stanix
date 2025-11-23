@@ -2,6 +2,7 @@
 #include <kernel/sleep.h>
 #include <kernel/kernel.h>
 #include <kernel/scheduler.h>
+#include <kernel/spinlock.h>
 #include <kernel/print.h>
 #include <errno.h>
 
@@ -12,36 +13,43 @@ int sleep_until(struct timeval wakeup_time){
 
 	//add us to the list
 	//keep the list organise from first awake to last
-	//TODO : put a spinlock or something on the sleep queue
+	spinlock_acquire(&sleep_lock);
 	task *thread = sleeping_proc;
-	task *prev = NULL;
 	while(thread){
-
-		if(thread->wakeup_time.tv_sec > wakeup_time.tv_usec || (thread->wakeup_time.tv_sec == wakeup_time.tv_sec && thread->wakeup_time.tv_usec > wakeup_time.tv_usec)){
+		task *next = thread->snext;
+		if(!next || next->wakeup_time.tv_sec > wakeup_time.tv_usec || (next->wakeup_time.tv_sec == wakeup_time.tv_sec && next->wakeup_time.tv_usec > wakeup_time.tv_usec)){
 			break;
 		}
-
-		prev = thread;
 		thread = thread->snext;
 	}
 	
-	if(prev){
-		get_current_task()->snext = prev->snext;
-		prev->snext = get_current_task();
+	if(thread){
+		get_current_task()->snext = thread->snext;
+		get_current_task()->sprev = thread;
+		if (thread->snext) thread->snext->sprev = get_current_task();
+		thread->snext   = get_current_task();
 	} else {
 		get_current_task()->snext = sleeping_proc;
+		get_current_task()->sprev = NULL;
+		if (sleeping_proc) sleeping_proc->sprev = get_current_task();
 		sleeping_proc = get_current_task();
 	}
+	spinlock_release(&sleep_lock);
+	
 	if (block_task() == -EINTR) {
 		if (atomic_load(&get_current_task()->flags) & PROC_FLAG_SLEEP) {
 			// we are still in the sleep queue
 			// remove us
-			if (sleeping_proc == get_current_task()) {
-				// we are the first 
-				sleeping_proc = get_current_task()->snext;
+			spinlock_acquire(&sleep_lock);
+			if (get_current_task()->sprev) {
+				get_current_task()->sprev->snext = get_current_task()->snext;
 			} else {
-				prev->snext = get_current_task()->snext;
+				sleeping_proc = get_current_task()->snext;
 			}
+			if (get_current_task()->snext) {
+				get_current_task()->snext->sprev = get_current_task()->sprev;
+			}
+			spinlock_release(&sleep_lock);
 		}
 		atomic_fetch_and(&get_current_task()->flags, ~PROC_FLAG_SLEEP);
 		return -EINTR;

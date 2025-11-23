@@ -37,6 +37,7 @@ typedef struct task {
 	acontext context;
 	struct process *process;
 	struct task *snext;
+	struct task *sprev;
 	struct task *next;
 	struct task *prev;
 	pid_t tid;
@@ -143,6 +144,7 @@ int waitfor(task **threads,size_t threads_count,int flags,task **waker);
 
 extern list *proc_list;
 extern task *sleeping_proc;
+extern spinlock sleep_lock;
 
 #define EUID_ROOT 0
 #define KSTACK_TOP(kstack) (((kstack) + KERNEL_STACK_SIZE) & ~0xFUL)

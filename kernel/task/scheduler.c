@@ -1,4 +1,5 @@
 #include <kernel/scheduler.h>
+#include <kernel/spinlock.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/kheap.h>
@@ -18,6 +19,7 @@ static task *running_task_head;
 list *proc_list;
 list *task_list;
 task *sleeping_proc;
+spinlock sleep_lock;
 
 process *idle;
 process *init;
@@ -85,6 +87,7 @@ task *schedule(){
 	if(!running_task_tail)running_task_head = NULL;
 
 	//see if we can wakeup anything
+	spinlock_acquire(&sleep_lock);
 	while(sleeping_proc){
 		if(sleeping_proc->wakeup_time.tv_sec > time.tv_sec || (sleeping_proc->wakeup_time.tv_sec == time.tv_sec && sleeping_proc->wakeup_time.tv_usec > time.tv_usec)){
 			break;
@@ -93,6 +96,7 @@ task *schedule(){
 		unblock_task(sleeping_proc);
 		sleeping_proc = sleeping_proc->snext;
 	}
+	spinlock_release(&sleep_lock);
 	
 	//kdebugf("switch to %p\n",get_current_proc());
 	return picked;
