@@ -1300,8 +1300,7 @@ int sys_new_thread(void (*fn)(void*),void *stack,int flags,void *arg,pid_t *chil
 	ARG1_REG(new_thread->context.frame) = (uintptr_t)arg;
 	SP_REG(new_thread->context.frame) = (uintptr_t)stack;
 
-	if(child_tid)*child_tid = new_thread->tid; 
-	list_append(get_current_proc()->threads,new_thread);
+	if(child_tid)*child_tid = new_thread->tid;
 	unblock_task(new_thread);
 
 	return 0;
@@ -1327,16 +1326,18 @@ int sys_thread_join(pid_t tid, void **arg){
 	if(arg && !CHECK_STRUCT(arg)){
 		return -EFAULT;
 	}
-
+	
 	task *thread = tid2task(tid);
+	kdebugf("wait for %ld\n", tid);
 	if(!thread || thread->process != get_current_proc()){
 		return -ESRCH;
 	}
-
+	kdebugf("found\n");
+	
 	if(thread == get_current_task()){
 		return -EDEADLK;
 	}
-
+	
 	
 	int ret = waitfor(&thread, 1, 0, NULL);
 	if(ret < 0){

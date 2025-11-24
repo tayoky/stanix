@@ -118,7 +118,8 @@ task *new_task(process *proc){
 	
 	thread->process = proc;
 
-	list_append(proc->threads,thread);
+	list_append(proc->threads, thread);
+	list_append(task_list, thread);
 
 	return thread;
 }
@@ -408,7 +409,7 @@ void unblock_task(task *thread){
 }
 
 void final_task_cleanup(task *thread){
-	list_remove(task_list,thread);
+	list_remove(task_list, thread);
 	kfree((void*)thread->kernel_stack);
 	kfree(thread);
 }
