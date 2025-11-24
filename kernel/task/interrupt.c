@@ -19,7 +19,7 @@ void fault_handler(fault_frame *frame){
 		restore_signal_handler(frame);
 	}
 	//TODO : send appropriate signal
-	send_sig(get_current_proc(),SIGSEGV);
+	send_sig_task(get_current_task(),SIGSEGV);
 
 	if(is_userspace(frame)){
 		handle_signal(frame);

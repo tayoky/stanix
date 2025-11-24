@@ -61,6 +61,9 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,
 }
 
 int memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_node *node,off_t offset,memseg **seg){
+	// we need size to be aligned
+	size = PAGE_ALIGN_UP(size);
+
 	memseg *new_memseg = memseg_create(proc,address,size,prot,flags);
 	if(!new_memseg) return -EEXIST;
 	
