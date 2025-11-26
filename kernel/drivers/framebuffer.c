@@ -94,11 +94,11 @@ int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
 	}
 }
 
-void framebuffer_unmap(memseg *seg){
+void framebuffer_unmap(memseg_t *seg){
 	(void)seg;
 }
 
-int frambuffer_mmap(vfs_node *node,off_t offset,memseg *seg){
+int frambuffer_mmap(vfs_node *node,off_t offset,memseg_t *seg){
 	if(!(seg->flags & MAP_SHARED)){
 		return -EINVAL;
 	}

@@ -11,49 +11,10 @@
 
 struct keyboard {
 	ring_buffer *queue;
-	process *controller;
+	process_t *controller;
 };
 
 #define PS2_SET_SCANCODE_SET 0xF0
-
-const char kbd_us[128] = {
-	0,0,
-	'1','2','3','4','5','6','7','8','9','0',
-	'-','=','\b',
-	'\t', /* tab */
-	'q','w','e','r','t','y','u','i','o','p','[',']','\n',
-	0, /* control */
-	'a','s','d','f','g','h','j','k','l',';','\'', '`',
-	0, /* left shift */
-	'\\','z','x','c','v','b','n','m',',','.','/',
-	0, /* right shift */
-	'*',
-	0, /* alt */
-	' ', /* space */
-	0, /* caps lock */
-	0, /* F1 [59] */
-	0, 0, 0, 0, 0, 0, 0, 0,
-	0, /* ... F10 */
-	0, /* 69 num lock */
-	0, /* scroll lock */
-	0, /* home */
-	0, /* up arrow */
-	0, /* page up */
-	'-',
-	0, /* left arrow */
-	0,
-	0, /* right arrow */
-	'+',
-	0, /* 79 end */
-	0, /* down arrow */
-	0, /* page down */
-	0, /* insert */
-	0, /* delete */
-	0, 0, 0,
-	0, /* F11 */
-	0, /* F12 */
-	0, /* everything else */
-};
 
 static struct keyboard keyboard;
 
@@ -86,10 +47,6 @@ static void keyboard_handler(fault_frame *frame){
 		event.ie_key.flags = IE_KEY_RELEASE;
 	}
 
-	if(!extended && kbd_us[scancode]){
-		event.ie_key.c = kbd_us[scancode];
-		event.ie_key.flags |= IE_KEY_GRAPH;
-	}
 	event.ie_key.scancode = extended ? scancode + 0x80 : scancode;
 	extended = 0;
 	ringbuffer_write(&event,keyboard.queue,sizeof(struct input_event));

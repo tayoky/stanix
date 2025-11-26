@@ -14,19 +14,19 @@
 #include <stdatomic.h>
 #include <errno.h>
 
-static task *running_task_tail;
-static task *running_task_head;
-list *proc_list;
-list *task_list;
-task *sleeping_proc;
+static task_t *running_task_tail;
+static task_t *running_task_head;
+list_t *proc_list;
+list_t *task_list;
+task_t *sleeping_proc;
 spinlock sleep_lock;
 
-process *idle;
-process *init;
+process_t *idle;
+process_t *init;
 
 static void idle_task(){
 	for(;;){
-		//if there are other process runnnig block us
+		//if there are other process_t runnnig block us
 		if(get_current_task()->next != running_task_head){
 			block_task();
 		}
@@ -41,8 +41,8 @@ void init_task(){
 	sleeping_proc = NULL;
 	
 	//init the kernel task
-	process *kernel_task = kmalloc(sizeof(process));
-	memset(kernel_task,0,sizeof(process));
+	process_t *kernel_task = kmalloc(sizeof(process_t));
+	memset(kernel_task,0,sizeof(process_t));
 	kernel_task->parent = kernel_task;
 	kernel_task->pid = 0;
 	kernel_task->child   = new_list();
@@ -80,9 +80,9 @@ void init_task(){
 	idle = new_kernel_task(idle_task,0,NULL);
 }
 
-task *schedule(){
+task_t *schedule(){
 	//pop the next task from the queue
-	task *picked = running_task_tail;
+	task_t *picked = running_task_tail;
 	running_task_tail = running_task_tail->next;
 	if(!running_task_tail)running_task_head = NULL;
 
@@ -92,7 +92,7 @@ task *schedule(){
 		if(sleeping_proc->wakeup_time.tv_sec > time.tv_sec || (sleeping_proc->wakeup_time.tv_sec == time.tv_sec && sleeping_proc->wakeup_time.tv_usec > time.tv_usec)){
 			break;
 		}
-		atomic_fetch_and(&sleeping_proc->flags, ~PROC_FLAG_SLEEP);
+		atomic_fetch_and(&sleeping_proc->flags, ~TASK_FLAG_SLEEP);
 		unblock_task(sleeping_proc);
 		sleeping_proc = sleeping_proc->snext;
 	}
@@ -103,13 +103,13 @@ task *schedule(){
 }
 
 
-task *new_task(process *proc){
-	task *thread = kmalloc(sizeof(task));
-	memset(thread,0,sizeof(task));
+task_t *new_task(process_t *proc){
+	task_t *thread = kmalloc(sizeof(task_t));
+	memset(thread,0,sizeof(task_t));
 	init_mutex(&thread->sig_lock);
 	
 	thread->tid    = atomic_fetch_add(&kernel->tid_count,1);
-	thread->flags  = PROC_FLAG_PRESENT | PROC_FLAG_BLOCKED;
+	thread->flags  = TASK_FLAG_PRESENT | TASK_FLAG_BLOCKED;
 	
 	kdebugf("new task 0x%p tid : %ld\n",thread,thread->tid);
 	
@@ -124,10 +124,10 @@ task *new_task(process *proc){
 	return thread;
 }
 
-process *new_proc(){
+process_t *new_proc(){
 	//init the new proc
-	process *proc = kmalloc(sizeof(process));
-	memset(proc,0,sizeof(process));
+	process_t *proc = kmalloc(sizeof(process_t));
+	memset(proc,0,sizeof(process_t));
 	
 	proc->addrspace = create_addr_space();
 	proc->parent  = get_current_proc();
@@ -155,8 +155,8 @@ process *new_proc(){
 }
 
 //TODO arg don't work
-process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]){
-	process *proc = new_proc();
+process_t *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]){
+	process_t *proc = new_proc();
 	(void)argc;(void)argv;
 
 	
@@ -187,7 +187,7 @@ process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[
 
 /// @brief push an task at the top of the queue
 /// @param proc 
-static void push_task(task *t){
+static void push_task(task_t *t){
 	if(running_task_head){
 		running_task_head->next = t;
 	} else {
@@ -208,14 +208,14 @@ void yield(int addback){
 	if(addback)push_task(get_current_task());
 
 	//save old task
-	task *old = get_current_task();
-	task *new = schedule();
+	task_t *old = get_current_task();
+	task_t *new = schedule();
 
 	//the old task isen't running anymore
-	atomic_fetch_and(&old->flags,~PROC_FLAG_RUN);
+	atomic_fetch_and(&old->flags,~TASK_FLAG_RUN);
 
 	//but the new one is ! 
-	atomic_fetch_or(&new->flags,PROC_FLAG_RUN);
+	atomic_fetch_or(&new->flags,TASK_FLAG_RUN);
 	kernel->current_task = new;
 
 	//set the blocked flag if needed
@@ -223,7 +223,7 @@ void yield(int addback){
 	//and setting the blocked flag while the proc is running could lead to an process un blocking us
 	//before we are even blocked
 	if(!addback){
-		atomic_fetch_or(&old->flags,PROC_FLAG_BLOCKED);
+		atomic_fetch_or(&old->flags,TASK_FLAG_BLOCKED);
 	}
 
 	if(!new->process->addrspace){
@@ -242,15 +242,15 @@ void yield(int addback){
 	if(prev_int)enable_interrupt();
 }
 
-task *get_current_task(void){
+task_t *get_current_task(void){
 	return kernel->current_task;
 }
 
-process *get_current_proc(void){
+process_t *get_current_proc(void){
 	return get_current_task()->process;
 }
 
-static void alert_parent(process *proc){
+static void alert_parent(process_t *proc){
 	if(!proc->parent)return;
 	if(!proc->main_thread->waiter)send_sig(proc->parent,SIGCHLD);
 }
@@ -271,14 +271,14 @@ static void do_proc_deletion(void){
 	//all the childreen become orphelan
 	//the parent of orphelan is init
 	foreach(node,get_current_proc()->child){
-		process *child = node->value;
+		process_t *child = node->value;
 
 		//we prevent the child from diying between when we set the parent and when we signal
 		//wich could lead to a race condition
 		spinlock_acquire(&child->state_lock);
 		child->parent = init;
 		list_append(init->child,child);
-		if(atomic_load(&child->main_thread->flags) & PROC_FLAG_ZOMBIE)alert_parent(child);
+		if(atomic_load(&child->main_thread->flags) & TASK_FLAG_ZOMBIE)alert_parent(child);
 		spinlock_acquire(&child->state_lock);
 	}
 	free_list(get_current_proc()->child);
@@ -324,7 +324,7 @@ void kill_task(void){
 		unblock_task(get_current_task()->waiter);
 	}
 	
-	atomic_fetch_or(&get_current_task()->flags,PROC_FLAG_ZOMBIE);
+	atomic_fetch_or(&get_current_task()->flags,TASK_FLAG_ZOMBIE);
 	spinlock_release(&get_current_proc()->state_lock);
 
 	//FIXME : not SMP safe
@@ -334,14 +334,14 @@ void kill_task(void){
 	block_task();
 }
 
-process *pid2proc(pid_t pid){
+process_t *pid2proc(pid_t pid){
 	//is it ourself ?
 	if(get_current_proc()->pid == pid){
 		return get_current_proc();
 	}
 
 	foreach(node,proc_list){
-		process *proc = node->value;
+		process_t *proc = node->value;
 		if(proc->pid == pid){
 			return proc;
 		}
@@ -350,14 +350,14 @@ process *pid2proc(pid_t pid){
 	return NULL;
 }
 
-task *tid2task(pid_t tid){
+task_t *tid2task(pid_t tid){
 	//is it ourself ?
 	if(get_current_task()->tid == tid){
 		return get_current_task();
 	}
 
 	foreach(node,task_list){
-		task *thread = node->value;
+		task_t *thread = node->value;
 		if(thread->tid == tid){
 			return thread;
 		}
@@ -367,7 +367,7 @@ task *tid2task(pid_t tid){
 
 int block_task(void){
 	//clear the signal interrupt flags
-	atomic_fetch_and(&get_current_task()->flags,~PROC_FLAG_INTR);
+	atomic_fetch_and(&get_current_task()->flags,~TASK_FLAG_INTR);
 	
 	int save = have_interrupt();
 	disable_interrupt();
@@ -387,16 +387,16 @@ int block_task(void){
 	if(save)enable_interrupt();
 
 	//if we were interrupted return -EINTR
-	if(atomic_load(&get_current_task()->flags) & PROC_FLAG_INTR){
+	if(atomic_load(&get_current_task()->flags) & TASK_FLAG_INTR){
 		return -EINTR;
 	}
 
 	return 0;
 }
 
-void unblock_task(task *thread){
+void unblock_task(task_t *thread){
 	//aready unblocked ?
-	if(!(atomic_fetch_and(&thread->flags,~PROC_FLAG_BLOCKED) & PROC_FLAG_BLOCKED)){
+	if(!(atomic_fetch_and(&thread->flags,~TASK_FLAG_BLOCKED) & TASK_FLAG_BLOCKED)){
 		return;
 	}
 
@@ -408,13 +408,13 @@ void unblock_task(task *thread){
 	if(save)enable_interrupt();
 }
 
-void final_task_cleanup(task *thread){
+void final_task_cleanup(task_t *thread){
 	list_remove(task_list, thread);
 	kfree((void*)thread->kernel_stack);
 	kfree(thread);
 }
 
-void final_proc_cleanup(process *proc){
+void final_proc_cleanup(process_t *proc){
 	list_remove(proc_list,proc);
 	if(proc->parent)list_remove(proc->parent->child,proc);
 

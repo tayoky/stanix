@@ -67,12 +67,12 @@ static void handle_default(int signum){
 		int ret = 0;
 		//FIXME : i'm pretty sure if main thread recive SIGSTOP the whole process should stop
 		//block until recive a continue signals or kill
-		get_current_task()->flags |= PROC_FLAG_STOPPED;
+		get_current_task()->flags |= TASK_FLAG_STOPPED;
 		while((ret = block_task())){
 			if(ret != EINTR){
 				//uh
 				kdebugf("signal bug\n");
-				get_current_task()->flags &= ~PROC_FLAG_STOPPED;
+				get_current_task()->flags &= ~TASK_FLAG_STOPPED;
 				return;
 			}
 			for(int i=0; i<NSIG; i++){
@@ -85,7 +85,7 @@ static void handle_default(int signum){
 						break;
 					}
 					release_mutex(&get_current_task()->sig_lock);
-					get_current_task()->flags &= ~PROC_FLAG_STOPPED;
+					get_current_task()->flags &= ~TASK_FLAG_STOPPED;
 					return;
 				}
 				release_mutex(&get_current_task()->sig_lock);
@@ -98,7 +98,7 @@ static void handle_default(int signum){
 int send_sig_pgrp(pid_t pgrp,int signum){
 	int ret = -1;
 	foreach(node,proc_list){
-		process *proc = node->value;
+		process_t *proc = node->value;
 		if(proc->group == pgrp){
 			send_sig(proc,signum);
 			ret = 0;
@@ -107,11 +107,11 @@ int send_sig_pgrp(pid_t pgrp,int signum){
 	return ret;
 }
 
-int send_sig(process *proc,int signum){
+int send_sig(process_t *proc,int signum){
 	return send_sig_task(proc->main_thread,signum);
 }
 
-int send_sig_task(task *thread,int signum){
+int send_sig_task(task_t *thread,int signum){
 	kdebugf("send %d to %ld\n",signum,thread->tid);
 
 	acquire_mutex(&thread->sig_lock);
@@ -131,8 +131,8 @@ int send_sig_task(task *thread,int signum){
 	
 	//if the task is blocked interrupt it
 	//FIXME : maybee we should acquire the state lock here
-	if(thread->flags & PROC_FLAG_BLOCKED){
-		thread->flags |= PROC_FLAG_INTR;
+	if(thread->flags & TASK_FLAG_BLOCKED){
+		thread->flags |= TASK_FLAG_INTR;
 		unblock_task(thread);
 	}
 

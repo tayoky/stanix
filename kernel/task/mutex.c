@@ -35,7 +35,7 @@ void release_mutex(mutex_t *mutex){
 	atomic_store(&mutex->locked,0); //maybee move this at the end
 	spinlock_acquire(&mutex->lock);
 	if(mutex->waiter_count > 0){
-		task *thread = mutex->waiter_tail;
+		task_t *thread = mutex->waiter_tail;
 		mutex->waiter_tail = thread->snext;
 		if(!mutex->waiter_tail)mutex->waiter_head = NULL;
 		mutex->waiter_count--;

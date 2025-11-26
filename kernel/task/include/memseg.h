@@ -14,12 +14,12 @@ typedef struct memseg_struct {
 	long ref_count;
 	void (*unmap)(struct memseg_struct *);
 	void *private_data;
-} memseg;
+} memseg_t;
 
-memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,int flags);
-int memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_node *node,off_t offset,memseg **seg);
-void memseg_unmap(process *proc,memseg *seg);
-void memseg_clone(process *parent,process *child,memseg *seg);
-void memseg_chflag(process *proc,memseg *seg,uint64_t flags);
+memseg_t *memseg_create(process_t *proc,uintptr_t address,size_t size,uint64_t prot,int flags);
+int memseg_map(process_t *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_node *node,off_t offset,memseg_t **seg);
+void memseg_unmap(process_t *proc,memseg_t *seg);
+void memseg_clone(process_t *parent,process_t *child,memseg_t *seg);
+void memseg_chflag(process_t *proc,memseg_t *seg,uint64_t flags);
 
 #endif

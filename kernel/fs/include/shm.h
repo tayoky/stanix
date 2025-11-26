@@ -8,7 +8,7 @@
 typedef struct shm_file {
     char name[PATH_MAX];
     size_t size;
-    list *blocks;
+    list_t *blocks;
     uid_t uid;
     gid_t gid;
     mode_t mode;

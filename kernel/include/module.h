@@ -24,7 +24,7 @@ typedef struct kmodule_section_struct {
 } kmodule_section;
 
 typedef struct loaded_module_struct {
-	list *sections;
+	list_t *sections;
 	kmodule *meta;
 } loaded_module;
 

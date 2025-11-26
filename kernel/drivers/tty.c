@@ -11,15 +11,15 @@
 #include <poll.h>
 
 void pty_output(char c,void *data){
-	pty *pty = (struct pty*)data;
+	pty_t *pty = (pty_t*)data;
 	ringbuffer_write(&c,pty->output_buffer,1);
 }
 
 ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 
-	tty *tty = (struct tty *)node->private_inode;
-	pty *pty = (struct pty *)tty->private_data;
+	tty_t *tty = (tty_t *)node->private_inode;
+	pty_t *pty = (pty_t *)tty->private_data;
 
 	if(pty->slave->ref_count == 1 && !ringbuffer_read_available(pty->output_buffer)){
 		//nobody as open the slave and there no data
@@ -32,7 +32,7 @@ ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 ssize_t pty_master_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 
-	tty *tty = (struct tty *)node->private_inode;
+	tty_t *tty = (tty_t *)node->private_inode;
 	for(size_t i=0;i<count;i++){
 		tty_input(tty,*(char *)buffer);
 		(char *)buffer++;
@@ -41,8 +41,8 @@ ssize_t pty_master_write(vfs_node *node,void *buffer,uint64_t offset,size_t coun
 }
 
 int pty_master_wait_check(vfs_node *node,short type){
-	tty *tty = (struct tty *)node->private_inode;
-	pty *pty = (struct pty *)tty->private_data;
+	tty_t *tty = (tty_t *)node->private_inode;
+	pty_t *pty = (pty_t *)tty->private_data;
 	int events = 0;
 	if((type & POLLHUP) && pty->slave->ref_count == 1){
 		events |= POLLHUP;
@@ -58,12 +58,12 @@ int pty_master_wait_check(vfs_node *node,short type){
 	return events;
 }
 
-int new_pty(vfs_node **master,vfs_node **slave,tty **rep){
-	pty *pty = kmalloc(sizeof(struct pty));
-	memset(pty,0,sizeof(struct pty));
+int new_pty(vfs_node **master,vfs_node **slave,tty_t **rep){
+	pty_t *pty = kmalloc(sizeof(pty_t));
+	memset(pty,0,sizeof(pty_t));
 	pty->output_buffer = new_ringbuffer(4096);
 
-	tty *tty = NULL;
+	tty_t *tty = NULL;
 	*slave = new_tty(&tty);
 	*rep = tty;
 	tty->private_data = pty;
@@ -96,7 +96,7 @@ int new_pty(vfs_node **master,vfs_node **slave,tty **rep){
 
 ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
-	struct tty *tty = (struct tty *)node->private_inode;
+	tty_t *tty = (tty_t *)node->private_inode;
 
 	if(tty->termios.c_lflag & ICANON){
 		ssize_t rsize = ringbuffer_read(buffer,tty->input_buffer,count);
@@ -114,7 +114,7 @@ ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 
 ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
-	struct tty *tty = (struct tty *)node->private_inode;
+	tty_t *tty = (tty_t *)node->private_inode;
 
 	while(count > 0){
 		tty_output(tty,*(char *)buffer);
@@ -125,7 +125,7 @@ ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 }
 
 int tty_wait_check(vfs_node *node,short type){
-	struct tty *tty = (struct tty *)node->private_inode;
+	tty_t *tty = (tty_t *)node->private_inode;
 	int events = 0;
 	if((type & POLLHUP) && tty->unconnected){
 		events |= POLLHUP;
@@ -143,7 +143,7 @@ int tty_wait_check(vfs_node *node,short type){
 }
 
 int tty_ioctl(vfs_node *node,uint64_t request,void *arg){
-	struct tty *tty = (struct tty *)node->private_inode;
+	tty_t *tty = (tty_t *)node->private_inode;
 	switch (request){
 	case TIOCGETA:
 		*(struct termios *)arg = tty->termios;
@@ -173,10 +173,10 @@ int tty_ioctl(vfs_node *node,uint64_t request,void *arg){
 	}
 }
 
-vfs_node *new_tty(tty **tty){
+vfs_node *new_tty(tty_t **tty){
 	if(!(*tty)){
-		(*tty) = kmalloc(sizeof(struct tty));
-		memset((*tty),0,sizeof(struct tty));
+		(*tty) = kmalloc(sizeof(tty_t));
+		memset((*tty),0,sizeof(tty_t));
 	}
 
 	(*tty)->input_buffer = new_ringbuffer(4096);
@@ -212,7 +212,7 @@ vfs_node *new_tty(tty **tty){
 
 //tty_output and tty_input based on TorauOS's tty system
 
-int tty_output(tty *tty,char c){
+int tty_output(tty_t *tty,char c){
 	if(tty->termios.c_oflag & OPOST){
 		//enable output processing
 		if(tty->termios.c_oflag & OLCUC){
@@ -246,7 +246,7 @@ int tty_output(tty *tty,char c){
 	return 0;
 }
 
-int tty_input(tty *tty,char c){
+int tty_input(tty_t *tty,char c){
 	if(tty->termios.c_iflag & INLCR){
 		//translate NL to CR
 		if(c == '\n') c = '\r';

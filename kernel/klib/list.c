@@ -3,13 +3,13 @@
 #include <kernel/string.h>
 #include <kernel/spinlock.h>
 
-list *new_list(){
-	list *l = kmalloc(sizeof(list));
-	memset(l,0,sizeof(list));
+list_t *new_list(){
+	list_t *l = kmalloc(sizeof(list_t));
+	memset(l,0,sizeof(list_t));
 	return l;
 }
 
-void free_list(list *l){
+void free_list(list_t *l){
 	spinlock_acquire(&l->lock);
 	list_node *prev = NULL;
 	foreach(node,l){
@@ -25,7 +25,7 @@ void free_list(list *l){
 	kfree(l);
 }
 
-void list_append(list *l,void *value){
+void list_append(list_t *l,void *value){
 	list_node *new_node = kmalloc(sizeof(list_node));
 	memset(new_node,0,sizeof(list_node));
 	new_node->value = value;
@@ -45,7 +45,7 @@ void list_append(list *l,void *value){
 	spinlock_release(&l->lock);
 }
 
-void list_add_after(list *l,list_node *node,void *value){
+void list_add_after(list_t *l,list_node *node,void *value){
 	if(node) {
 		list_node *new_node = kmalloc(sizeof(list_node));
 		new_node->value = value;
@@ -78,7 +78,7 @@ void list_add_after(list *l,list_node *node,void *value){
 	spinlock_release(&l->lock);
 }
 
-void list_remove(list *l,void *value){
+void list_remove(list_t *l,void *value){
 	spinlock_acquire(&l->lock);
 	foreach(node,l){
 		if(node->value == value){
@@ -100,7 +100,7 @@ void list_remove(list *l,void *value){
 	spinlock_release(&l->lock);
 }
 
-void list_remove_node(list *l,list_node *node){
+void list_remove_node(list_t *l,list_node *node){
 	spinlock_acquire(&l->lock);
 	if(node->prev){
 		node->prev->next = node->next;

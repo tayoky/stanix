@@ -38,7 +38,7 @@ typedef struct ata_ident {
     uint16_t obsolete10[152];   // Contain nothing really useful
 } __attribute__((packed)) __attribute__((aligned(8))) ata_ident;
 
-static list *ide_controllers;
+static list_t *ide_controllers;
 static int hdx = 'a';
 
 typedef struct {

@@ -12,7 +12,7 @@
 
 //TODO : make this safe using mutex
 
-list *shm_files;
+list_t *shm_files;
 vfs_node *shmfs_root;
 
 //shared memory subsystem
@@ -37,7 +37,7 @@ static void shm_destroy(shm_file *file){
     kfree(file);
 }
 
-static void shm_unmap(memseg *seg){
+static void shm_unmap(memseg_t *seg){
     (void)seg;
     shm_file *file = seg->private_data;
     file->ref_count--;
@@ -46,7 +46,7 @@ static void shm_unmap(memseg *seg){
     }
 }
 
-static int shm_mmap(vfs_node *node,off_t offset,memseg *seg){
+static int shm_mmap(vfs_node *node,off_t offset,memseg_t *seg){
     //why would you map shm as private ????
 	if(!(seg->flags & MAP_SHARED)){
 		return -EINVAL;

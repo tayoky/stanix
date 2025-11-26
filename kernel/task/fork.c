@@ -7,8 +7,8 @@
 #include <kernel/string.h>
 
 pid_t fork(void){
-	process *parent = get_current_proc();
-	process *child = new_proc();
+	process_t *parent = get_current_proc();
+	process_t *child = new_proc();
 	child->parent = parent;
 
 	kdebugf("forking child : %ld\n",child->pid);

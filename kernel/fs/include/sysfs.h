@@ -6,7 +6,7 @@
 
 typedef struct sysfs_inode {
     const char *name;
-    list *child;
+    list_t *child;
     int type;
     vfs_node *linked_node;
 } sysfs_inode;

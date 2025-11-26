@@ -13,19 +13,19 @@ typedef struct list_node_struct{
 	void *value;
 } list_node;
 
-typedef struct list_struct{
+typedef struct list {
 	list_node *frist_node;
 	list_node *last_node;
 	size_t node_count;
 	spinlock lock;
-} list;
+} list_t;
 
-list *new_list();
-void free_list(list *l);
-void list_append(list *l,void *value);
-void list_remove(list *l,void *value);
-void list_add_after(list *l,list_node *node,void *value);
-void list_remove_node(list *l,list_node *node);
+list_t *new_list();
+void free_list(list_t *l);
+void list_append(list_t *l,void *value);
+void list_remove(list_t *l,void *value);
+void list_add_after(list_t *l,list_node *node,void *value);
+void list_remove_node(list_t *l,list_node *node);
 
 #define foreach(var,l) for(list_node * var = l->frist_node ; var ; var = var ->next)
 

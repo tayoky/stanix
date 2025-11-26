@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <errno.h>
 
-memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,int flags){
+memseg_t *memseg_create(process_t *proc,uintptr_t address,size_t size,uint64_t prot,int flags){
 	list_node *prev = NULL;
 	if(address){
 		//we need to page align everything
@@ -18,7 +18,7 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,
 		address = PAGE_ALIGN_DOWN(address);
 		size = end - address;
 		foreach(node,proc->memseg){
-			memseg *current = node->value;
+			memseg_t *current = node->value;
 			if(current->addr < end && current->addr + current->size > address){
 				//there already a seg here
 				return NULL;
@@ -31,8 +31,8 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,
 	} else {
 		//no address ? we need to find one ourself
 		foreach(node,proc->memseg){
-			memseg *current = node->value;
-			memseg *next = node->next ? node->next->value : NULL;
+			memseg_t *current = node->value;
+			memseg_t *next = node->next ? node->next->value : NULL;
 			if(!next || next->addr - (current->addr + current->size) >= size){
 				address = current->addr + current->size;
 				prev = node;
@@ -47,8 +47,8 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,
 		}
 	}
 
-	memseg *new_memseg = kmalloc(sizeof(memseg));
-	memset(new_memseg,0,sizeof(memseg));
+	memseg_t *new_memseg = kmalloc(sizeof(memseg_t));
+	memset(new_memseg,0,sizeof(memseg_t));
 	new_memseg->addr = address;
 	new_memseg->size = size;
 	new_memseg->prot = prot;
@@ -60,11 +60,11 @@ memseg *memseg_create(process *proc,uintptr_t address,size_t size,uint64_t prot,
 	return new_memseg;
 }
 
-int memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_node *node,off_t offset,memseg **seg){
+int memseg_map(process_t *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_node *node,off_t offset,memseg_t **seg){
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
 
-	memseg *new_memseg = memseg_create(proc,address,size,prot,flags);
+	memseg_t *new_memseg = memseg_create(proc,address,size,prot,flags);
 	if(!new_memseg) return -EEXIST;
 	
 	address = new_memseg->addr;
@@ -93,7 +93,7 @@ int memseg_map(process *proc, uintptr_t address,size_t size,uint64_t prot,int fl
 	return ret;
 }
 
-void memseg_chflag(process *proc,memseg *seg,uint64_t prot){
+void memseg_chflag(process_t *proc,memseg_t *seg,uint64_t prot){
 	seg->prot = prot;
 	
 	uintptr_t addr = seg->addr;
@@ -104,7 +104,7 @@ void memseg_chflag(process *proc,memseg *seg,uint64_t prot){
 	}
 }
 
-void memseg_unmap(process *proc,memseg *seg){
+void memseg_unmap(process_t *proc,memseg_t *seg){
 	list_remove(proc->memseg,seg);
 
 	//kdebugf("unmap %p %p\n",seg->addr,seg->size);
@@ -134,12 +134,12 @@ void memseg_unmap(process *proc,memseg *seg){
 	}
 }
 
-void memseg_clone(process *parent,process *child,memseg *seg){
+void memseg_clone(process_t *parent,process_t *child,memseg_t *seg){
 	if(seg->flags & MAP_SHARED){
 		seg->ref_count++;
 		list_node *prev = NULL;
 		foreach(node,child->memseg){
-			memseg *current = node->value;
+			memseg_t *current = node->value;
 			if(current->addr > seg->addr + seg->size){
 				break;
 			}
@@ -158,7 +158,7 @@ void memseg_clone(process *parent,process *child,memseg *seg){
 		return;
 	}
 	//TODO : what happend for device mapped as private ?
-	memseg *new_seg;
+	memseg_t *new_seg;
 	if(memseg_map(child,seg->addr,seg->size,PAGING_FLAG_RW_CPL0,seg->flags | MAP_ANONYMOUS,NULL,0,&new_seg) < 0){
 		return;
 	}

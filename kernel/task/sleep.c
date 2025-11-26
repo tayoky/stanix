@@ -9,14 +9,14 @@
 int sleep_until(struct timeval wakeup_time){
 	kdebugf("wait until : %ld:%ld\n",wakeup_time.tv_sec,wakeup_time.tv_usec);
 	get_current_task()->wakeup_time = wakeup_time;
-	atomic_fetch_or(&get_current_task()->flags, PROC_FLAG_SLEEP);
+	atomic_fetch_or(&get_current_task()->flags, TASK_FLAG_SLEEP);
 
 	//add us to the list
 	//keep the list organise from first awake to last
 	spinlock_acquire(&sleep_lock);
-	task *thread = sleeping_proc;
+	task_t *thread = sleeping_proc;
 	while(thread){
-		task *next = thread->snext;
+		task_t *next = thread->snext;
 		if(!next || next->wakeup_time.tv_sec > wakeup_time.tv_usec || (next->wakeup_time.tv_sec == wakeup_time.tv_sec && next->wakeup_time.tv_usec > wakeup_time.tv_usec)){
 			break;
 		}
@@ -37,7 +37,7 @@ int sleep_until(struct timeval wakeup_time){
 	spinlock_release(&sleep_lock);
 	
 	if (block_task() == -EINTR) {
-		if (atomic_load(&get_current_task()->flags) & PROC_FLAG_SLEEP) {
+		if (atomic_load(&get_current_task()->flags) & TASK_FLAG_SLEEP) {
 			// we are still in the sleep queue
 			// remove us
 			spinlock_acquire(&sleep_lock);
@@ -51,7 +51,7 @@ int sleep_until(struct timeval wakeup_time){
 			}
 			spinlock_release(&sleep_lock);
 		}
-		atomic_fetch_and(&get_current_task()->flags, ~PROC_FLAG_SLEEP);
+		atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_SLEEP);
 		return -EINTR;
 	} else {
 		return 0;
@@ -109,7 +109,7 @@ void wakeup_queue(sleep_queue *queue,size_t count){
 	for(;;){
 		if(!queue->tail)break;
 
-		task *thread = queue->tail;
+		task_t *thread = queue->tail;
 
 		queue->tail = queue->tail->snext;
 		if(!queue->tail)queue->head = NULL;

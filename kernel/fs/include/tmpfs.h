@@ -15,7 +15,7 @@ struct tmpfs_inode_struct;
 
 typedef struct tmpfs_inode_struct{
 	struct tmpfs_inode_struct *parent;
-	list *entries;
+	list_t *entries;
 	uint64_t flags;
 	size_t buffer_size;
 	char *buffer;

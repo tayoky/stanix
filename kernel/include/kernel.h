@@ -34,7 +34,7 @@ typedef struct kernel_table_struct{
 	terminal_emu_settings terminal_settings;
 	uint8_t pic_type;
 	pid_t tid_count;
-	task *current_task;
+	task_t *current_task;
 	char can_task_switch;
 	spinlock PMM_lock;
 	int pty_count;

@@ -43,7 +43,7 @@ typedef struct fault_frame{
 
 //arch specific functions
 
-void context_switch(process *old,process *new);
+void context_switch(task_t *old,task_t *new);
 
 typedef struct arch_specific {
 

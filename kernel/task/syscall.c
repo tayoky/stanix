@@ -320,7 +320,7 @@ uint64_t sys_sbrk(intptr_t incr){
 	}
 
 	//get proc
-	process *proc = get_current_proc();
+	process_t *proc = get_current_proc();
 
 	intptr_t incr_pages = PAGE_ALIGN_UP(incr) / PAGE_SIZE;
 
@@ -605,19 +605,19 @@ int sys_waitpid(pid_t pid,int *status,int options){
 
 	//first build up a threads list to wait
 	size_t threads_count = 0;
-	task **threads = NULL;
+	task_t **threads = NULL;
 
 	if(pid == -1){
 		//wait for any
 		threads_count = get_current_proc()->child->node_count;
-		threads = kmalloc(sizeof(task *) * threads_count);
+		threads = kmalloc(sizeof(task_t *) * threads_count);
 		size_t i = 0;
 		foreach(node,get_current_proc()->child){
-			threads[i++] = ((process *)node->value)->main_thread;
+			threads[i++] = ((process_t *)node->value)->main_thread;
 		}
 	} else {
 		//wait for pid
-		process *proc = pid2proc(pid);
+		process_t *proc = pid2proc(pid);
 
 		//make sure it exist and is a child
 		if((!proc) || proc->parent != get_current_proc()){
@@ -625,18 +625,18 @@ int sys_waitpid(pid_t pid,int *status,int options){
 			return -ECHILD;
 		}
 		threads_count = 1;
-		threads = kmalloc(sizeof(task *));
+		threads = kmalloc(sizeof(task_t *));
 		threads[0] = proc->main_thread;
 	}
 
-	task *waker;
+	task_t *waker;
 	int ret = waitfor(threads,threads_count,options,&waker);
 	kfree(threads);
 	if(ret < 0){
 		return ret;
 	}
 
-	process *proc = waker->process;
+	process_t *proc = waker->process;
 
 	//get the exit status
 	if(status){
@@ -776,7 +776,7 @@ int sys_openpty(int *amaster, int *aslave, char *name,const struct termios *term
 	*amaster = master;
 	*aslave = slave;
 
-	tty *tty;
+	tty_t *tty;
 
 	int ret = new_pty(&FD_GET(master).node,&FD_GET(slave).node,&tty);
 	if(ret < 0){
@@ -924,7 +924,7 @@ int sys_kill(pid_t tid,int sig){
 		}
 		return 0;
 	}
-	task *thread = tid2task(tid);
+	task_t *thread = tid2task(tid);
 	if(!thread){
 		return -ESRCH;
 	}
@@ -1014,7 +1014,7 @@ void *sys_mmap(uintptr_t addr,size_t length,int prot,int flags,int fd,off_t offs
 	}
 
 
-	memseg *seg;
+	memseg_t *seg;
 	int ret = memseg_map(get_current_proc(),addr,length,pflags,flags,node,offset,&seg);
 	if(ret < 0){
 		return (void*)(uintptr_t)ret;
@@ -1027,7 +1027,7 @@ int sys_munmap(void *addr, size_t len){
 	if(!len)return -EINVAL;
 	if(!CHECK_PTR_INRANGE((uintptr_t)addr + len))return -EINVAL;
 	foreach(node,get_current_proc()->memseg){
-		memseg *seg = node->value;
+		memseg_t *seg = node->value;
 		if(seg->addr >= (uintptr_t)addr && seg->addr + seg->addr <= (uintptr_t)addr + len){
 			memseg_unmap(get_current_proc(),seg);
 		}
@@ -1174,7 +1174,7 @@ int sys_setpgid(pid_t pid, pid_t pgid){
 	if(pgid < 0){
 		return -EINVAL;
 	}
-	process *proc = pid2proc(pid);
+	process_t *proc = pid2proc(pid);
 	if(!proc || (proc->parent != get_current_proc() && proc != get_current_proc())){
 		return -ESRCH;
 	}
@@ -1186,7 +1186,7 @@ int sys_setpgid(pid_t pid, pid_t pgid){
 }
 
 pid_t sys_getpgid(pid_t pid){
-	process *proc = pid2proc(pid);
+	process_t *proc = pid2proc(pid);
 	if(!proc || (proc->parent != get_current_proc() && proc != get_current_proc())){
 		return -ESRCH;
 	}
@@ -1293,7 +1293,7 @@ int sys_new_thread(void (*fn)(void*),void *stack,int flags,void *arg,pid_t *chil
 		return -EFAULT;
 	}
 
-	task *new_thread = new_task(get_current_proc());
+	task_t *new_thread = new_task(get_current_proc());
 
 	memcpy(&new_thread->context.frame,get_current_task()->syscall_frame,sizeof(fault_frame));
 	PC_REG(new_thread->context.frame) = (uintptr_t)fn;
@@ -1327,7 +1327,7 @@ int sys_thread_join(pid_t tid, void **arg){
 		return -EFAULT;
 	}
 	
-	task *thread = tid2task(tid);
+	task_t *thread = tid2task(tid);
 	kdebugf("wait for %ld\n", tid);
 	if(!thread || thread->process != get_current_proc()){
 		return -ESRCH;

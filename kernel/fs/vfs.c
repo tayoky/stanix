@@ -14,7 +14,7 @@
 //TODO : make this process specific
 vfs_node *root;
 
-list *fs_types;
+list_t*fs_types;
 
 void init_vfs(void){
 	kstatus("init vfs... ");

@@ -20,4 +20,4 @@ DEF(write_serial)
 DEF(init_timer)
 
 DEF(jump_userspace)
-DEF(context_switch,process *old,process *new)
+DEF(context_switch,task_t *old,task_t *new)

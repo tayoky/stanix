@@ -132,7 +132,7 @@ int exec(const char *path,int argc,const char **argv,int envc,const char **envp)
 			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz);
 		}
 		
-		memseg *seg;
+		memseg_t *seg;
 		memseg_map(get_current_proc(),prog_header[i].p_vaddr,prog_header[i].p_memsz,PAGING_FLAG_RW_CPL0,MAP_PRIVATE|MAP_ANONYMOUS,NULL,0,&seg);
 		memset((void*)prog_header[i].p_vaddr,0,prog_header[i].p_memsz);
 

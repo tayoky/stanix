@@ -35,7 +35,7 @@ static uintptr_t ptr = ((uintptr_t)&p_kernel_end) + PAGE_SIZE;
 
 
 exported_sym *exported_sym_list = NULL;
-list *loaded_mods;
+list_t *loaded_mods;
 
 int check_mod_header(Elf_Ehdr *header){
 	if(memcmp(header->e_ident,ELFMAG,4)){

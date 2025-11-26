@@ -39,7 +39,7 @@ typedef struct arch_specific {
 
 //arch specific functions
 
-void context_switch(process *old,process *new);
+void context_switch(task_t *old,task_t *new);
 
 void init_timer();
 

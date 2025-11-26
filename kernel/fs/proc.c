@@ -24,7 +24,7 @@ struct dirent *proc_root_readdir(vfs_node *node,uint64_t index){
     index -=2;
 	foreach(node,proc_list){
 		if(!index){
-            process *proc = node->value;
+            process_t *proc = node->value;
 			struct dirent *ret = kmalloc(sizeof(struct dirent));
 			sprintf(ret->d_name,"%d",proc->pid);
 			return ret;
@@ -35,7 +35,7 @@ struct dirent *proc_root_readdir(vfs_node *node,uint64_t index){
 }
 
 int proc_getattr(vfs_node *node,struct stat *st){
-    process *proc = node->private_inode;
+    process_t *proc = node->private_inode;
     st->st_uid  = proc->euid;
     st->st_gid  = proc->egid;
     st->st_mode = 0x555;
@@ -62,7 +62,7 @@ vfs_node *proc_root_lookup(vfs_node *root,const char *name){
     char *end;
     pid_t pid = strtol(name,&end,10);
     if(end == name)return NULL;
-    process *proc = pid2proc(pid);
+    process_t *proc = pid2proc(pid);
     if(!proc)return NULL;
 
     vfs_node *node = kmalloc(sizeof(vfs_node));

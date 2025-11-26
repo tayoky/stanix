@@ -56,7 +56,7 @@ typedef struct task {
 	void *exit_arg;
 	struct task *waker;
 	struct task * _Atomic waiter; //task waiting on us
-} task;
+} task_t;
 
 typedef struct process {
 	addrspace_t addrspace;
@@ -68,8 +68,9 @@ typedef struct process {
 	char *cwd_path;
 	uintptr_t heap_start;
 	uintptr_t heap_end;
-	list *memseg;
-	list *child;
+	list_t *memseg;
+	list_t *child;
+	list_t *threads;
 	pid_t group;
 	pid_t sid;
 	uid_t uid;
@@ -79,26 +80,25 @@ typedef struct process {
 	gid_t egid;
 	gid_t sgid;
 	mode_t umask;
-	task *main_thread;
-	list *threads;
+	task_t *main_thread;
 	long exit_status;
-} process;
+} process_t;
 
-#define PROC_FLAG_PRESENT 0x01
-#define PROC_FLAG_ZOMBIE  0x02
-#define PROC_FLAG_RUN     0x04 //is the task actually running on a cpu
-#define PROC_FLAG_WAIT    0x08 //is the task blocked ?
-#define PROC_FLAG_INTR    0x10
-#define PROC_FLAG_BLOCKED 0x20
-#define PROC_FLAG_STOPPED 0x40
-#define PROC_FLAG_SLEEP   0x80
+#define TASK_FLAG_PRESENT 0x01
+#define TASK_FLAG_ZOMBIE  0x02
+#define TASK_FLAG_RUN     0x04 //is the task actually running on a cpu
+#define TASK_FLAG_WAIT    0x08 //is the task blocked ?
+#define TASK_FLAG_INTR    0x10
+#define TASK_FLAG_BLOCKED 0x20
+#define TASK_FLAG_STOPPED 0x40
+#define TASK_FLAG_SLEEP   0x80
 
 void init_task(void);
-process *get_current_proc(void);
-task *get_current_task(void);
-process *new_proc(void);
-task *new_task(process *proc);
-process *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
+process_t *get_current_proc(void);
+task_t *get_current_task(void);
+process_t *new_proc(void);
+task_t *new_task(process_t *proc);
+process_t *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
 
 /// @brief kill the current thread
 void kill_task(void);
@@ -106,17 +106,17 @@ void kill_task(void);
 /// @brief kill the current process
 void kill_proc();
 
-void final_proc_cleanup(process *proc);
+void final_proc_cleanup(process_t *proc);
 
 
-void final_task_cleanup(task *thread);
+void final_task_cleanup(task_t *thread);
 
 /// @brief get a process from its pid
 /// @param pid the pid of the process
 /// @return the process with the specfied pid
-process *pid2proc(pid_t pid);
+process_t *pid2proc(pid_t pid);
 
-task *tid2task(pid_t tid);
+task_t *tid2task(pid_t tid);
 
 /// @brief block the current proc
 /// @return -EINTR if intruppted by signal devlivery or 0
@@ -124,7 +124,7 @@ int block_task(void);
 
 /// @brief unblock a task
 /// @param proc the task to unblock
-void unblock_task(task *thread);
+void unblock_task(task_t *thread);
 
 /// @brief yield to next task
 /// @param addback do we add the task back to the queue or running task
@@ -136,14 +136,14 @@ void yield(int addback);
 /// @param flags flags such as WNOHANG
 /// @param waker the thread that died
 /// @return the tid of the threads that died or negative errno number
-int waitfor(task **threads,size_t threads_count,int flags,task **waker);
+int waitfor(task_t **threads,size_t threads_count,int flags,task_t **waker);
 
 #define FD_GET(fd) get_current_proc()->fds[fd]
 #define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))
 #define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)
 
-extern list *proc_list;
-extern task *sleeping_proc;
+extern list_t*proc_list;
+extern task_t *sleeping_proc;
 extern spinlock sleep_lock;
 
 #define EUID_ROOT 0
