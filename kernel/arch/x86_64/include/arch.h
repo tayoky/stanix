@@ -5,6 +5,7 @@
 #include "idt.h"
 #include "tss.h"
 
+#include <sys/shutdown.h>
 #include <stdint.h>
 
 //any change here must be replicataed in interrupt handler
@@ -68,6 +69,7 @@ int is_userspace(fault_frame *frame);
 void init_timer(void);
 void set_tls(void *tls);
 void enable_sse(void);
+int shutdown(int flags);
 
 #define ARG0_REG(frame) ( frame ).rax
 #define ARG1_REG(frame) ( frame ).rdi

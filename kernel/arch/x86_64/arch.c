@@ -1,5 +1,7 @@
 #include <kernel/arch.h>
 #include <kernel/serial.h>
+#include <kernel/print.h>
+#include <errno.h>
 #include "idt.h"
 #include "gdt.h"
 #include "tss.h"
@@ -37,4 +39,20 @@ uintptr_t get_ptr_context(fault_frame *fault){
 void set_tls(void *tls){
 	//set fs base
 	asm volatile("wrmsr" : : "c"(0xc0000100), "d" ((uint32_t)(((uintptr_t)tls) >> 32)), "a" ((uint32_t)((uintptr_t)tls)));
+}
+
+
+int shutdown(int flags){
+	if (flags & SHUTDOWN_REBOOT) {
+		// trigger a tripple fault
+		IDTR zero_idtr = {
+			.offset = 0,
+			.size = 0,
+		};
+		asm("lidt %0 ; int $16" : : "m" (zero_idtr));
+		__builtin_unreachable();
+	} else {
+		kdebugf("shutdown unimplemented");
+		return -ENOSYS;
+	}
 }

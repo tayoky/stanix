@@ -1353,6 +1353,14 @@ int sys_thread_join(pid_t tid, void **arg){
 	return 0;
 }
 
+int sys_shutdown(int flags){
+	if (get_current_proc()->euid != EUID_ROOT) {
+		return -EPERM;
+	}
+
+	return shutdown(flags);
+}
+
 int sys_stub(void){
 	return -ENOSYS;
 }
@@ -1434,6 +1442,7 @@ void *syscall_table[] = {
 	(void *)sys_gettid,
 	(void *)sys_settls,
 	(void *)sys_thread_join,
+	(void *)sys_shutdown,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
