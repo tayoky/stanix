@@ -6,8 +6,8 @@
 #include <kernel/print.h>
 #include <errno.h>
 
-int sleep_until(struct timeval wakeup_time){
-	kdebugf("wait until : %ld:%ld\n",wakeup_time.tv_sec,wakeup_time.tv_usec);
+int sleep_until(struct timeval wakeup_time) {
+	kdebugf("wait until : %ld:%ld\n", wakeup_time.tv_sec, wakeup_time.tv_usec);
 	get_current_task()->wakeup_time = wakeup_time;
 	atomic_fetch_or(&get_current_task()->flags, TASK_FLAG_SLEEP);
 
@@ -15,15 +15,15 @@ int sleep_until(struct timeval wakeup_time){
 	//keep the list organise from first awake to last
 	spinlock_acquire(&sleep_lock);
 	task_t *thread = sleeping_proc;
-	while(thread){
+	while (thread) {
 		task_t *next = thread->snext;
-		if(!next || next->wakeup_time.tv_sec > wakeup_time.tv_usec || (next->wakeup_time.tv_sec == wakeup_time.tv_sec && next->wakeup_time.tv_usec > wakeup_time.tv_usec)){
+		if (!next || next->wakeup_time.tv_sec > wakeup_time.tv_usec || (next->wakeup_time.tv_sec == wakeup_time.tv_sec && next->wakeup_time.tv_usec > wakeup_time.tv_usec)) {
 			break;
 		}
 		thread = thread->snext;
 	}
-	
-	if(thread){
+
+	if (thread) {
 		get_current_task()->snext = thread->snext;
 		get_current_task()->sprev = thread;
 		if (thread->snext) thread->snext->sprev = get_current_task();
@@ -35,7 +35,7 @@ int sleep_until(struct timeval wakeup_time){
 		sleeping_proc = get_current_task();
 	}
 	spinlock_release(&sleep_lock);
-	
+
 	if (block_task() == -EINTR) {
 		if (atomic_load(&get_current_task()->flags) & TASK_FLAG_SLEEP) {
 			// we are still in the sleep queue
@@ -58,21 +58,21 @@ int sleep_until(struct timeval wakeup_time){
 	}
 }
 
-int sleep(long seconds){
+int sleep(long seconds) {
 	return micro_sleep(seconds * 1000000);
 }
 
-int micro_sleep(suseconds_t micro_second){
-	if(micro_second < 100){
+int micro_sleep(suseconds_t micro_second) {
+	if (micro_second < 100) {
 		return 0;
 	}
 	//caclulate new time val
 	struct timeval new_timeval = time;
-	if(1000000 - new_timeval.tv_usec > micro_second){
+	if (1000000 - new_timeval.tv_usec > micro_second) {
 		new_timeval.tv_usec += micro_second;
 	} else {
 		micro_second -= 1000000 - new_timeval.tv_usec;
-		new_timeval.tv_sec ++;
+		new_timeval.tv_sec++;
 		new_timeval.tv_usec = 0;
 
 		//now we need to cut the remaing micro second in second and micro second
@@ -83,10 +83,10 @@ int micro_sleep(suseconds_t micro_second){
 	return sleep_until(new_timeval);
 }
 
-int sleep_on_queue(sleep_queue *queue){
+int sleep_on_queue(sleep_queue *queue) {
 	spinlock_acquire(&queue->lock);
 
-	if(queue->head){
+	if (queue->head) {
 		queue->head->snext = get_current_task();
 	} else {
 		queue->tail = get_current_task();
@@ -103,21 +103,21 @@ int sleep_on_queue(sleep_queue *queue){
 	return block_task();
 }
 
-void wakeup_queue(sleep_queue *queue,size_t count){
+void wakeup_queue(sleep_queue *queue, size_t count) {
 	spinlock_acquire(&queue->lock);
 
-	for(;;){
-		if(!queue->tail)break;
+	for (;;) {
+		if (!queue->tail)break;
 
 		task_t *thread = queue->tail;
 
 		queue->tail = queue->tail->snext;
-		if(!queue->tail)queue->head = NULL;
+		if (!queue->tail)queue->head = NULL;
 
 		unblock_task(thread);
 
-		if(count){
-			if(--count == 0)break;
+		if (count) {
+			if (--count == 0)break;
 		}
 	}
 

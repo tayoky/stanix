@@ -5,23 +5,23 @@
 
 //generic intruppt handler
 
-void timer_handler(fault_frame *frame){
+void timer_handler(fault_frame *frame) {
 	yield(1);
 
-	if(is_userspace(frame)){
+	if (is_userspace(frame)) {
 		handle_signal(frame);
 	}
 }
 
 //called when a fault/interrupt occur in userspace
-void fault_handler(fault_frame *frame){
-	if(get_ptr_context(frame) == MAGIC_SIGRETURN){
+void fault_handler(fault_frame *frame) {
+	if (get_ptr_context(frame) == MAGIC_SIGRETURN) {
 		restore_signal_handler(frame);
 	}
 	//TODO : send appropriate signal
-	send_sig_task(get_current_task(),SIGSEGV);
+	send_sig_task(get_current_task(), SIGSEGV);
 
-	if(is_userspace(frame)){
+	if (is_userspace(frame)) {
 		handle_signal(frame);
 	}
 }

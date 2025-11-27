@@ -8,18 +8,18 @@
 //RACE CONDITION
 
 //wait for any thread in a group to die
-int waitfor(task_t **threads,size_t threads_count,int flags,task_t **waker){
+int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker) {
 	if (waker) *waker = NULL;
 	size_t waitfor_count = 0;
-	for (size_t i=0; i<threads_count; i++) {
+	for (size_t i=0; i < threads_count; i++) {
 		task_t *expected = NULL;
-		if(!atomic_compare_exchange_strong(&threads[i]->waiter, &expected, get_current_task())){
+		if (!atomic_compare_exchange_strong(&threads[i]->waiter, &expected, get_current_task())) {
 			//somebody is already waiting on it
 			threads[i] = NULL;
 			continue;
 		}
 
-		if(atomic_load(&threads[i]->flags) & TASK_FLAG_ZOMBIE){
+		if (atomic_load(&threads[i]->flags) & TASK_FLAG_ZOMBIE) {
 			//already dead
 			get_current_task()->waker = threads[i];
 			goto ret;
@@ -29,7 +29,7 @@ int waitfor(task_t **threads,size_t threads_count,int flags,task_t **waker){
 		waitfor_count++;
 	}
 
-	if(waitfor_count == 0){
+	if (waitfor_count == 0) {
 		return -ECHILD;
 	}
 
@@ -41,10 +41,10 @@ int waitfor(task_t **threads,size_t threads_count,int flags,task_t **waker){
 		status = -EINTR;
 	}
 
-	ret:
+ret:
 
-	for (size_t i=0; i<threads_count; i++) {
-	   if(!threads[i])continue;
+	for (size_t i=0; i < threads_count; i++) {
+		if (!threads[i])continue;
 
 		//unregister
 		task_t *expected = get_current_task();

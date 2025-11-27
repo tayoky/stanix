@@ -6,27 +6,27 @@
 #include <kernel/print.h>
 #include <kernel/string.h>
 
-pid_t fork(void){
+pid_t fork(void) {
 	process_t *parent = get_current_proc();
 	process_t *child = new_proc();
 	child->parent = parent;
 
-	kdebugf("forking child : %ld\n",child->pid);
+	kdebugf("forking child : %ld\n", child->pid);
 
-	foreach(node,parent->memseg){
-		memseg_clone(parent,child,node->value);
+	foreach(node, parent->memseg) {
+		memseg_clone(parent, child, node->value);
 	}
 
 	//clone metadata
 	child->heap_end   = parent->heap_end;
 	child->heap_start = parent->heap_start;
 	child->main_thread->sig_mask   = get_current_task()->sig_mask;
-	memcpy(child->main_thread->sig_handling,get_current_task()->sig_handling,sizeof(get_current_task()->sig_handling));
+	memcpy(child->main_thread->sig_handling, get_current_task()->sig_handling, sizeof(get_current_task()->sig_handling));
 
 	//clone fd
-	for(int i = 0;i<MAX_FD;i++){
+	for (int i = 0;i < MAX_FD;i++) {
 		child->fds[i] = parent->fds[i];
-		if(child->fds[i].present){
+		if (child->fds[i].present) {
 			child->fds[i].node   = vfs_dup(parent->fds[i].node);
 			child->fds[i].offset = parent->fds[i].offset;
 		}
@@ -40,7 +40,7 @@ pid_t fork(void){
 	yield(1);//HACK to update the context
 	child->main_thread->context       = get_current_task()->context;
 	child->main_thread->context.frame = *get_current_task()->syscall_frame;
-	
+
 	//return 0 to the child
 	RET_REG(child->main_thread->context.frame) = 0;
 

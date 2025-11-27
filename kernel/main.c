@@ -31,27 +31,7 @@ struct timeval time = {
 	.tv_usec = 0,
 };
 
-static void ls(const char *path){
-	vfs_node *node = vfs_open(path,VFS_READONLY);
-	if(!node){
-		kprintf("%s don't exist\n",path);
-		return;
-	}
-
-	struct dirent *ret;
-	uint64_t index = 0;
-	while(1){
-		ret = vfs_readdir(node,index);
-		if(!ret)break;
-		kprintf("%s\n",ret->d_name);
-		kfree(ret);
-		index++;
-	}
-
-	vfs_close(node);
-}
-
-void print_license(void){
+void print_license(void) {
 	kinfof("the STANIX kernel\n"
 		"Copyright (C) 2025  tayoky\n"
 		"\n"
@@ -66,16 +46,16 @@ void print_license(void){
 		"GNU General Public License for more details.\n");
 }
 
-void spawn_init(){
+void spawn_init() {
 	kstatus("try spawn init...\n");
 	//first get the path for the init program
-	char *init_path = ini_get_value(kernel->conf_file,"init","init");
+	char *init_path = ini_get_value(kernel->conf_file, "init", "init");
 
-	if(!init_path){
+	if (!init_path) {
 		init_path = strdup("/init");
 	}
 
-	kinfof("try to exec %s\n",init_path);
+	kinfof("try to exec %s\n", init_path);
 
 	const char *arg[] = {
 		init_path,
@@ -87,9 +67,9 @@ void spawn_init(){
 		NULL
 	};
 
-	if(exec(init_path,1,arg,1,env)){
+	if (exec(init_path, 1, arg, 1, env)) {
 		kfail();
-		kinfof("can't spawn %s\n",init_path);
+		kinfof("can't spawn %s\n", init_path);
 	}
 
 	kfree(init_path);
@@ -99,7 +79,7 @@ void spawn_init(){
 }
 
 //the entry point
-void kmain(){
+void kmain() {
 	enable_interrupt();
 	kinfof("\n"
 		"███████╗████████╗ █████╗ ███╗   ██╗██╗██╗  ██╗    \n"
@@ -119,7 +99,7 @@ void kmain(){
 	print_license();
 	get_bootinfo();
 	init_PMM();
-	kprintf("used pages: 0x%lx\n",master_kernel_table.used_memory/PAGE_SIZE);
+	kprintf("used pages: 0x%lx\n", master_kernel_table.used_memory / PAGE_SIZE);
 	init_paging();
 	init_kheap();
 	init_vfs();
@@ -137,11 +117,7 @@ void kmain(){
 	init_proc();
 	init_sysfs();
 	init_shm();
-	
-	//just to debug
-	ls("/dev/");
 
 	kstatus("finish init kernel\n");
 	spawn_init();
-
 }

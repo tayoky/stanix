@@ -42,12 +42,12 @@ static char *error_strings[] = {
 	[ERR_PointerOverflow] = "PointerOverflow",
 };
 
-static void print_err(uint32_t error){
-	kdebugf("error : %s\n",error_strings[error]);
+static void print_err(uint32_t error) {
+	kdebugf("error : %s\n", error_strings[error]);
 }
 
-static void print_loc(struct source_location loc){
-	kdebugf("location : %s:%u %u\n",loc.filename,loc.line,loc.column);
+static void print_loc(struct source_location loc) {
+	kdebugf("location : %s:%u %u\n", loc.filename, loc.line, loc.column);
 }
 
 #define DEF(name) void name(){\
@@ -55,35 +55,35 @@ static void print_loc(struct source_location loc){
 	panic(#name,NULL);\
 }
 
-void __ubsan_handle_type_mismatch_v1(const struct type_mismatch_data *data,void *pointer){
+void __ubsan_handle_type_mismatch_v1(const struct type_mismatch_data *data, void *pointer) {
 	kdebugf("__ubsan_handle_type_mismatch_v1 reached\n");
 	print_loc(data->loc);
-	kdebugf("type : %hx:%hu\n",data->type->type_kind,data->type->type_info);
+	kdebugf("type : %hx:%hu\n", data->type->type_kind, data->type->type_info);
 
 	uintptr_t alignement = (uintptr_t)1 << data->log_alignment;
 
 	uint32_t error;
-	if(!pointer){
+	if (!pointer) {
 		error = ERR_NullPointerUse;
-	} else if ((uintptr_t)pointer & (alignement - 1)){
+	} else if ((uintptr_t)pointer & (alignement - 1)) {
 		error = ERR_MisalignedPointerUse;
 	} else {
 		error = ERR_InsufficientObjectSize;
 	}
 	print_err(error);
-	kdebugf("at %p\n",pointer);
+	kdebugf("at %p\n", pointer);
 
-	panic("__ubsan_handle_type_mismatch_v1 reached",NULL);
+	panic("__ubsan_handle_type_mismatch_v1 reached", NULL);
 }
-void __ubsan_handle_pointer_overflow(const struct source_location *loc,void *base,void *result){
+void __ubsan_handle_pointer_overflow(const struct source_location *loc, void *base, void *result) {
 	print_loc(*loc);
 
 	uint32_t error;
-	if(base == NULL && result == NULL){
+	if (base == NULL && result == NULL) {
 		error = ERR_NullptrWithOffset;
-	} else if (base == NULL && result != NULL){
+	} else if (base == NULL && result != NULL) {
 		error = ERR_NullptrWithNonZeroOffset;
-	} else if (base != NULL && result == NULL){
+	} else if (base != NULL && result == NULL) {
 		error = ERR_NullptrAfterNonZeroOffset;
 	} else {
 		error = ERR_PointerOverflow;
@@ -91,10 +91,10 @@ void __ubsan_handle_pointer_overflow(const struct source_location *loc,void *bas
 
 	print_err(error);
 
-	kdebugf("base   : 0x%p\n",base);
-	kdebugf("result : 0x%p\n",result);
+	kdebugf("base   : 0x%p\n", base);
+	kdebugf("result : 0x%p\n", result);
 
-	panic("__ubsan_handle_pointer_overflow reached",NULL);
+	panic("__ubsan_handle_pointer_overflow reached", NULL);
 }
 DEF(__ubsan_handle_add_overflow)
 DEF(__ubsan_handle_sub_overflow)
