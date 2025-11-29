@@ -1,8 +1,8 @@
 ---
 title: stanix
 ---
-stanix is an 64 bit open source operating system made by tayoky since january 2025  
-the entire operating system is written from scratch
+stanix is a 64 bits open source operating system made by tayoky since december 2024  
+the entire operating system is written from scratch with its own libc kernel shell and userspace
 
 ## download
 a new stable release is avalible each month
@@ -16,6 +16,8 @@ list of all supported hardware
 - ps2 keyboard (only on `x86_64`)
 - cmos (only on `x86_64`)
 - framebuffer (with tty emulation)
+- ATA devices on ide controller
+- pci bus
 
 ## recommanded specs
 - at least 256 mb of ram (also run on 128 mb)
@@ -28,12 +30,29 @@ list of all supported hardware
 - vfs
 - tmpfs
 - userspace
-- multitasking
+- multithreading
 - pipes
+- pty system
+- usermode
+- multi user
 - dynamic module loading
+- fat32 support
+- a pretty complete libc with over 300 functions
+- somes ports (such as doom,binutils,...)
+
+## drivers list
+- 8042 (ps2 controller on most PC)
+- ATA
+- framebuffer
+- serial (early boot)
+- serial (complete driver)
+- pci bus
+- ps2 keyboard
+- partitions (GPT/MBR)
+- fat12/16/32 (readonly)
 
 ## packages
-a list of available packages and ports can be found [here](packages)
+a list of availables packages and ports can be found [here](packages)
 
 ## docs
 see [kernel docs](kernel) and [userspace docs](user)  
