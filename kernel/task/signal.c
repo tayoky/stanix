@@ -3,6 +3,7 @@
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
+#include <kernel/arch.h>
 #include <stdatomic.h>
 #include <ucontext.h>
 #include <signal.h>

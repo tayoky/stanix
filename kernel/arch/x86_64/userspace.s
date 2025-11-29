@@ -40,25 +40,4 @@ jump_userspace:
 
 	;return
 	iretq
-
-global load_context
-load_context:
-	mov rsp, rdi
-	add rsp, 8 * 6 ;skip control registers and segments regs
-	pop rax
-	pop rbx
-	pop rcx
-	pop rdx
-	pop rsi
-	pop rdi
-	pop rbp
-	pop r8
-	pop r9
-	pop r10
-	pop r11
-	pop r12
-	pop r13
-	pop r14
-	pop r15
-	add rsp, 16 ;skip err code and type
-	iretq
+	

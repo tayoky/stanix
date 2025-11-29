@@ -58,7 +58,8 @@ typedef struct acontext {
 
 //arch specific functions
 void set_kernel_stack(uintptr_t stack);
-void context_switch(acontext *old,acontext *new);
+int save_context(acontext *context);
+void load_context(acontext *context);
 uintptr_t get_ptr_context(fault_frame *fault);
 
 /// @brief check if a specfied context is in userspace

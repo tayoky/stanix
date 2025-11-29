@@ -8,7 +8,6 @@
 #include <stddef.h>
 
 void jump_userspace(void *address,void *stack,uintptr_t arg1,uintptr_t arg2,uintptr_t arg3,uintptr_t arg4);
-void load_context(fault_frame *context);
 
 //some macro to check ptr
 #define CHECK_PTR_INRANGE(ptr) ((uintptr_t)ptr <= USERSPACE_LIMIT)

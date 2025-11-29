@@ -5,6 +5,7 @@
 #include <kernel/paging.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
+#include <kernel/arch.h>
 
 pid_t fork(void) {
 	process_t *parent = get_current_proc();
@@ -36,9 +37,7 @@ pid_t fork(void) {
 	child->cwd_path = strdup(parent->cwd_path);
 
 	//copy context parent to child but overload regs with userspace context
-	//FIXME : this might not get the lasted value of context
-	yield(1);//HACK to update the context
-	child->main_thread->context       = get_current_task()->context;
+	save_context(&child->main_thread->context);
 	child->main_thread->context.frame = *get_current_task()->syscall_frame;
 
 	//return 0 to the child

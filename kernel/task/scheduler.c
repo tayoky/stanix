@@ -205,12 +205,19 @@ void yield(int addback) {
 	int prev_int = have_interrupt();
 	disable_interrupt();
 
-	if (addback)push_task(get_current_task());
+	if (addback) push_task(get_current_task());
 
 	//save old task
 	task_t *old = get_current_task();
 	task_t *new = schedule();
 
+	if (save_context(&old->context)) {
+		kdebugf("B\n");
+		if (prev_int) enable_interrupt();
+		for(;;);
+		return;
+	}
+	
 	//the old task isen't running anymore
 	atomic_fetch_and(&old->flags, ~TASK_FLAG_RUN);
 
@@ -234,12 +241,19 @@ void yield(int addback) {
 		set_addr_space(new->process->addrspace);
 	}
 
-	set_kernel_stack(KSTACK_TOP(new->kernel_stack));
+	kdebugf("switch from %p to %p\n", old, new);
 
-	//if(new != old){ //HACK so that fork can refresh context
-	context_switch(&old->context, &get_current_task()->context);
-	//}
-	if (prev_int)enable_interrupt();
+	if (new != old) {
+		set_kernel_stack(KSTACK_TOP(new->kernel_stack));
+		kdebugf("A\n");
+		kdebugf("rip : %p\n",new->context.frame.rip);
+		kdebugf("rax : %p\n",new->context.frame.rax);
+		load_context(&new->context);
+	}
+
+	kdebugf("C\n");
+
+	return;
 }
 
 task_t *get_current_task(void) {
