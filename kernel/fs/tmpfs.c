@@ -262,12 +262,14 @@ struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
 	if(index == 0){
 		struct dirent *ret = kmalloc(sizeof(struct dirent));
 		strcpy(ret->d_name,".");
+		ret->d_ino = (ino_t)inode;
 		return ret;
 	}
 
 	if(index == 1){
 		struct dirent *ret = kmalloc(sizeof(struct dirent));
 		strcpy(ret->d_name,"..");
+		ret->d_ino = (ino_t)inode->parent;
 		return ret;
 	}
 
@@ -277,6 +279,7 @@ struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
 			tmpfs_dirent *entry = node->value;
 			struct dirent *ret = kmalloc(sizeof(struct dirent));
 			strcpy(ret->d_name,entry->name);
+			ret->d_ino = (ino_t)entry->inode;
 			return ret;
 		}
 		index--;
@@ -343,6 +346,7 @@ int tmpfs_getattr(vfs_node *node,struct stat *st){
 	st->st_mtime       = inode->mtime;
 	st->st_ctime       = inode->ctime;
 	st->st_nlink       = inode->link_count;
+	st->st_ino         = (ino_t)inode; // fake an inode number
 	
 	//simulate fake blocks of 512 bytes
 	//because blocks don't exist on tmpfs
