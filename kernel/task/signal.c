@@ -167,12 +167,18 @@ void handle_signal(fault_frame *context) {
 				kdebugf("sp : %p\n", sp);
 				//align the stack
 				sp &= ~0xfUL;
+
 				//we need make the ucontext on the userspace stack
 				sp -= sizeof(ucontext_t);
 				ucontext_t *ucontext = (ucontext_t *)sp;
 				memset(ucontext, 0, sizeof(ucontext_t));
-				memcpy(&ucontext->uc_mcontext, context, sizeof(fault_frame));
 				ucontext->uc_sigmask = get_current_task()->sig_mask;
+
+				// save machine context
+				acontext *saved_context = (acontext*)&ucontext->uc_mcontext;
+				save_context(saved_context);
+				saved_context->frame = *context;
+
 				//push the magic return value
 				sp -= sizeof(uintptr_t);
 				*(uintptr_t *)sp = MAGIC_SIGRETURN;
@@ -196,8 +202,8 @@ void restore_signal_handler(fault_frame *context) {
 	//restore the old mask
 	get_current_task()->sig_mask = ucontext->uc_sigmask;
 
-	fault_frame *old_context = (fault_frame *)&ucontext->uc_mcontext;
-	kdebugf("sp : %p\n", SP_REG(*old_context));
+	acontext *old_context = (acontext *)&ucontext->uc_mcontext;
+	kdebugf("sp : %p\n", SP_REG(old_context->frame));
 
-	load_context((fault_frame *)&ucontext->uc_mcontext);
+	load_context((acontext *)&ucontext->uc_mcontext);
 }
