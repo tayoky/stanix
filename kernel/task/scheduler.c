@@ -212,9 +212,7 @@ void yield(int addback) {
 	task_t *new = schedule();
 
 	if (save_context(&old->context)) {
-		kdebugf("B\n");
 		if (prev_int) enable_interrupt();
-		for(;;);
 		return;
 	}
 	
@@ -233,26 +231,16 @@ void yield(int addback) {
 		atomic_fetch_or(&old->flags, TASK_FLAG_BLOCKED);
 	}
 
-	if (!new->process->addrspace) {
-		kdebugf("tid : %ld task : %p : cr3 is 0 !!!\n", new->tid, new);
-	}
-
 	if (old->process->addrspace != new->process->addrspace) {
 		set_addr_space(new->process->addrspace);
 	}
 
-	kdebugf("switch from %p to %p\n", old, new);
-
 	if (new != old) {
 		set_kernel_stack(KSTACK_TOP(new->kernel_stack));
-		kdebugf("A\n");
-		kdebugf("rip : %p\n",new->context.frame.rip);
-		kdebugf("rax : %p\n",new->context.frame.rax);
 		load_context(&new->context);
 	}
-
-	kdebugf("C\n");
-
+	
+	if (prev_int) enable_interrupt();
 	return;
 }
 

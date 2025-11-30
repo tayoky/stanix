@@ -26,14 +26,15 @@ save_context:
 	mov [rdi + 512 + 8 * 19], r14
 	mov [rdi + 512 + 8 * 20], r15
 	;return address
-	mov rax, [rsp]
+	pop rax
 	mov [rdi + 512 + 8 * 23], rax
+	mov [rdi + 512 + 8 * 26], rsp
+	push rax
 	mov [rdi + 512 + 8 * 24], cs
 	;save flags
 	pushfq
 	pop rax
 	mov [rdi + 512 + 8 * 25], rax
-	mov [rdi + 512 + 8 * 26], rsp
 	mov [rdi + 512 + 8 * 27], ss
 
 	fxsave [rdi]
