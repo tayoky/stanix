@@ -478,6 +478,7 @@ int sys_readdir(int fd, struct dirent *ret, long int index) {
 
 	//now copy kret to userspace ret and free it
 	*ret = *kret;
+	ret->d_ino = 1; // make want ino to be non 0
 	kfree(kret);
 	return 0;
 }
