@@ -378,6 +378,8 @@ int vfs_link(const char *src,const char *dest){
 }
 
 int vfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
+	dirent->d_type = DT_UNKNOWN;
+	dirent->d_ino  = 1; //some programs want non NULL inode
 	if(node->readdir){
 		return node->readdir(node,index,dirent);
 	} else {

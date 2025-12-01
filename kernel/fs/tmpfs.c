@@ -267,12 +267,14 @@ int tmpfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 	if(index == 0){
 		strcpy(dirent->d_name,".");
 		dirent->d_ino = INODE_NUMBER(inode);
+		dirent->d_type = DT_DIR;
 		return 0;
 	}
 
 	if(index == 1){
 		strcpy(dirent->d_name,"..");
 		dirent->d_ino = INODE_NUMBER(inode->parent);
+		dirent->d_type = DT_DIR;
 		return 0;
 	}
 
@@ -282,6 +284,13 @@ int tmpfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 			tmpfs_dirent *entry = node->value;
 			strcpy(dirent->d_name,entry->name);
 			dirent->d_ino = INODE_NUMBER(entry->inode);
+			if (entry->inode->flags & TMPFS_FLAGS_DIR) {
+				dirent->d_type = DT_DIR;
+			} else if (entry->inode->flags & TMPFS_FLAGS_FILE) {
+				dirent->d_type = DT_REG;
+			} else if (entry->inode->flags & TMPFS_FLAGS_LINK) {
+				dirent->d_type = DT_LNK;
+			}
 			return 0;
 		}
 		index--;

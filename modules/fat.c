@@ -220,6 +220,12 @@ int fat_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 		dirent->d_name[j++] = entry.name[i];
 	}
 	dirent->d_name[j] = '\0';
+
+	if (entry.attribute & ATTR_DIRECTORY) {
+		dirent->d_type = DT_DIR;
+	} else {
+		dirent->d_type = DT_REG;
+	}
 	return 0;
 }
 
