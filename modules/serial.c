@@ -2,6 +2,7 @@
 #include <kernel/print.h>
 #include <kernel/string.h>
 #include <kernel/vfs.h>
+#include <kernel/devfs.h>
 #include <kernel/kheap.h>
 #include <kernel/irq.h>
 #include <kernel/arch.h>
@@ -92,9 +93,9 @@ static int init_port(uint16_t port){
 	tty->private_data = (void *)(uintptr_t)port;
 
 	char path[20];
-	sprintf(path,"/dev/ttyS%d",serial_count);
+	sprintf(path,"ttyS%d",serial_count);
 	kdebugf("serial : mounting serial port under %s\n",path);
-	if(vfs_mount(path,node)){
+	if(devfs_create_dev(path,node)){
 		return -EIO;
 	}
 	

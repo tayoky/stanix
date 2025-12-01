@@ -2,6 +2,7 @@
 #include <kernel/framebuffer.h>
 #include <kernel/kernel.h>
 #include <kernel/string.h>
+#include <kernel/devfs.h>
 #include <kernel/print.h>
 #include <kernel/devices.h>
 #include <kernel/bootinfo.h>
@@ -140,8 +141,8 @@ void init_frambuffer(void){
 		}
 
 		//find the path for the frambuffer
-		char *full_path = kmalloc(strlen("/dev/fb") + 3);
-		sprintf(full_path,"/dev/fb%d",i);
+		char *full_path = kmalloc(strlen("fb") + 3);
+		sprintf(full_path,"fb%d",i);
 
 		vfs_node *framebuffer_dev = kmalloc(sizeof(vfs_node));
 		memset(framebuffer_dev,0,sizeof(vfs_node));
@@ -152,9 +153,9 @@ void init_frambuffer(void){
 		framebuffer_dev->private_inode = frambuffer_request.response->framebuffers[i];
 
 		//create the device
-		if(vfs_mount(full_path,framebuffer_dev)){
+		if(devfs_create_dev(full_path,framebuffer_dev)){
 			kfail();
-			kinfof("fail to create device %s\n",full_path);
+			kinfof("fail to create device /dev/%s\n",full_path);
 			kfree(full_path);
 			return;
 		}

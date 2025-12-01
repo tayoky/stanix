@@ -31,6 +31,21 @@ void vfs_unregister_fs(vfs_filesystem *fs){
 	list_remove(fs_types,fs);
 }
 
+//basename without modyfing anything
+static const char *vfs_basename(const char *path){
+	const char *base = path + strlen(path) - 1;
+	//path of directory might finish with '/' like /tmp/dir/
+	if(*base == '/')base--;
+	while(*base != '/'){
+		base--;
+		if(base < path){
+			break;
+		}
+	}
+	base++;
+	return base;
+}
+
 int vfs_auto_mount(const char *source,const char *target,const char *filesystemtype,unsigned long mountflags,const void *data){
 	foreach(node,fs_types){
 		vfs_filesystem *fs = node->value;
@@ -45,19 +60,7 @@ int vfs_auto_mount(const char *source,const char *target,const char *filesystemt
 	return -ENODEV;
 }
 
-int vfs_mount(const char *name,vfs_node *local_root){
-	//first open the mount point or create it
-	vfs_node *mount_point = vfs_open(name,VFS_READWRITE);
-	if(!mount_point){
-		if(vfs_mkdir(name,0777)){
-			return -ENOENT;
-		}
-		mount_point = vfs_open(name,VFS_READWRITE);
-		if(!mount_point){
-			return -ENOENT;
-		}
-	}
-
+int vfs_mount_on(vfs_node *mount_point, vfs_node *local_root) {
 	//something is aready mounted ?
 	if(mount_point->flags & VFS_MOUNT){
 		return -EBUSY;
@@ -75,6 +78,24 @@ int vfs_mount(const char *name,vfs_node *local_root){
 	return 0;
 }
 
+int vfs_mountat(vfs_node *at,const char *name,vfs_node *local_root){
+	//first open the mount point or create it
+	vfs_node *mount_point = vfs_openat(at,name,VFS_READWRITE);
+	if(!mount_point){
+		return -ENOENT;
+	}
+
+	int ret = vfs_mount_on(mount_point, local_root);
+
+	vfs_close(mount_point);
+
+	return ret;
+}
+
+int vfs_mount(const char *name,vfs_node *local_root){
+	return vfs_mountat(NULL,name,local_root);
+}
+
 
 //TODO : we don't handle the case where a parent of the mount point get closed
 //the local_root stay open but somebody try to open it's parent
@@ -84,19 +105,11 @@ int vfs_unmount(const char *path){
 		return -ENOENT;
 	}
 
-	const char *child = path + strlen(path) - 1;
-	//path of directory might finish with '/' like /tmp/dir/
-	if(*child == '/')child--;
-	while(*child != '/'){
-		child--;
-		if(child < path){
-			break;
-		}
-	}
-	child++;
+	// i think we don't handle trailling / very well
+	const char *child = vfs_basename(path);
 	
 	//we can use vfs_lookup cause it don't folow mount point (only vfs_openat does)
-	vfs_node *mount_point = vfs_lookup(parent,path);
+	vfs_node *mount_point = vfs_lookup(parent,child);
 	vfs_close(parent);
 	if(!(mount_point->flags & VFS_MOUNT)){
 		//not even a mount point
@@ -262,24 +275,13 @@ void vfs_close(vfs_node *node){
 	}
 }
 
-//basename without modyfing anything
-static const char *vfs_basename(const char *path){
-	const char *base = path + strlen(path) - 1;
-	//path of directory might finish with '/' like /tmp/dir/
-	if(*base == '/')base--;
-	while(*base != '/'){
-		base--;
-		if(base < path){
-			break;
-		}
-	}
-	base++;
-	return base;
+int vfs_create(const char *path,int perm,long flags){
+	return vfs_createat(NULL,path,perm,flags);
 }
 
-int vfs_create(const char *path,int perm,uint64_t flags){
+int vfs_createat(vfs_node *at,const char *path,int perm,long flags){
 	//open the parent
-	vfs_node *parent = vfs_open(path,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node *parent = vfs_openat(at,path,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
@@ -440,6 +442,7 @@ vfs_node *vfs_dup(vfs_node *node){
 int vfs_getattr(vfs_node *node,struct stat *st){
 	memset(st,0,sizeof(struct stat));
 	st->st_nlink = 1; //in case a driver forgot to set :D
+	st->st_mode  = 0744; //default mode
 	//make sure we can actually sync
 	if(node->getattr){
 		int ret = node->getattr(node,st);
@@ -482,16 +485,20 @@ int vfs_chroot(vfs_node *new_root){
 	return 0;
 }
 
-vfs_node *vfs_open(const char *path,uint64_t flags){
-	//if absolute relative to root else relative to cwd
-	if(path[0] == '/' || path[0] == '\0'){
-		return vfs_openat(root,path,flags);
-	}
-	return vfs_openat(get_current_proc()->cwd_node,path,flags);
+vfs_node *vfs_open(const char *path,long flags){
+	return vfs_openat(NULL,path,flags);
 }
 
 
-vfs_node *vfs_openat(vfs_node *at,const char *path,uint64_t flags){
+vfs_node *vfs_openat(vfs_node *at,const char *path,long flags){
+	if (!at) {
+		//if absolute relative to root else relative to cwd
+		if(path[0] == '/' || path[0] == '\0'){
+			return vfs_openat(root,path,flags);
+		}
+		return vfs_openat(get_current_proc()->cwd_node,path,flags);
+	}
+
 	//don't open for nothing
 	if((!flags & VFS_READONLY )&& (!(flags &  VFS_WRITEONLY))){
 		return NULL;

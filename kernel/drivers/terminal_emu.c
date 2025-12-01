@@ -3,7 +3,7 @@
 #include <kernel/print.h>
 #include <kernel/kernel.h>
 #include <kernel/string.h>
-#include <kernel/vfs.h>
+#include <kernel/devfs.h>
 #include <kernel/framebuffer.h>
 
 uint32_t ANSI_color[] = {
@@ -238,7 +238,7 @@ void init_terminal_emualtor(void){
 	terminal_dev->ioctl =  term_ioctl;
 	terminal_dev->write = term_write;
 	terminal_dev->flags = VFS_DEV | VFS_CHAR | VFS_TTY;
-	if(vfs_mount("/dev/tty0",terminal_dev)){
+	if(devfs_create_dev("tty0",terminal_dev)){
 		kfail();
 		kinfof("terminal emulator init but can't create device /dev/tty0\n");
 		return;

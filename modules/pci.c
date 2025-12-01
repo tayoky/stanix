@@ -1,6 +1,6 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
-#include <kernel/vfs.h>
+#include <kernel/devfs.h>
 #include <kernel/port.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
@@ -189,7 +189,7 @@ static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg
 	kdebugf("pci : find bus %d device %d function %d vendorID : %lx deviceID : %lx\n",bus,device,function,vendorID,deviceID);
 
 	char path[32];
-	sprintf(path,"/dev/pci/%02d:%d:%d",bus,device,function);
+	sprintf(path,"pci/%02d:%d:%d",bus,device,function);
 
 	//setup the vnode
 	vfs_node *node = kmalloc(sizeof(vfs_node));
@@ -205,7 +205,7 @@ static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg
 	inode->function = function;
 	node->private_inode = inode;
 
-	if(vfs_mount(path,node)){
+	if(devfs_create_dev(path,node)){
 		kdebugf("pci : fail to mount %s\n",path);
 	}
 }
@@ -214,7 +214,7 @@ int init_pci(int argc,char **argv){
 	(void)argc;
 	(void)argv;
 
-	vfs_mkdir("/dev/pci",0x444);
+	vfs_mkdir("/dev/pci",0755);
 
 	pci_foreach(create_pci_dev,NULL);
 	

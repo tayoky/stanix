@@ -1,6 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
 #include <kernel/ringbuf.h>
+#include <kernel/devfs.h>
 #include <kernel/time.h>
 #include <kernel/string.h>
 #include <kernel/arch.h>
@@ -171,7 +172,7 @@ static int init_ps2kb(int argc,char **argv){
 	ps2_register_handler(keyboard_handler,1);
 
 	kdebugf("keyboard succefuly init create /dev/kb0\n");
-	vfs_mount("/dev/kb0",node);
+	devfs_create_dev("kb0",node);
 
 	return 0;
 }

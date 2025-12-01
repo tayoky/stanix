@@ -8,7 +8,7 @@
 #include <kernel/port.h>
 #include <module/ata.h>
 #include <module/pci.h>
-#include <kernel/vfs.h>
+#include <kernel/devfs.h>
 #include <sys/ioctl.h>
 #include <errno.h>
 
@@ -332,7 +332,7 @@ static void ide_init_device(ide_device *device){
 
 
 	char path[256];
-	sprintf(path,"/dev/hd%c",hdx++);
+	sprintf(path,"hd%c",hdx++);
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
 	device->node = node;
@@ -343,7 +343,7 @@ static void ide_init_device(ide_device *device){
 	node->getattr = ide_getattr;
 	node->read    = ata_read;
 	node->write   = ata_write;
-	vfs_mount(path,node);
+	devfs_create_dev(path,node);
 }
 
 static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){

@@ -116,6 +116,7 @@ static void create_part(vfs_node *dev,const char *target,off_t offset,size_t siz
 	node->read  = part_read;
 	node->write = part_write;
 	node->ioctl = part_ioctl;
+	vfs_create(path,0700,VFS_FILE);
 	vfs_mount(path,node);
 }
 

@@ -1,4 +1,4 @@
-#include <kernel/vfs.h>
+#include <kernel/devfs.h>
 #include <kernel/tty.h>
 #include <kernel/string.h>
 #include <kernel/kheap.h>
@@ -81,8 +81,8 @@ int new_pty(vfs_node **master,vfs_node **slave,tty_t **rep){
 	//mount and save the slave
 	pty->slave = *slave;
 	char path[32];
-	sprintf(path,"/dev/pts/%d",kernel->pty_count);
-	if(vfs_mount(path,*slave)){
+	sprintf(path,"pts/%d",kernel->pty_count);
+	if(devfs_create_dev(path,*slave)){
 		vfs_close(*master);
 		vfs_close(*slave);
 		//TODO : delete tty

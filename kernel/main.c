@@ -8,7 +8,7 @@
 #include <kernel/kheap.h>
 #include <kernel/tmpfs.h>
 #include <kernel/tarfs.h>
-#include <kernel/devices.h>
+#include <kernel/devfs.h>
 #include <kernel/framebuffer.h>
 #include <kernel/ini.h>
 #include <kernel/terminal_emu.h>

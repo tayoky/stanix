@@ -1,4 +1,4 @@
-#include <kernel/devices.h>
+#include <kernel/devfs.h>
 #include <kernel/vfs.h>
 #include <kernel/tmpfs.h>
 #include <kernel/kernel.h>
@@ -7,6 +7,14 @@
 #include <kernel/string.h>
 #include <kernel/port.h>
 #include <kernel/serial.h>
+
+static vfs_node *devfs_root;
+
+int devfs_create_dev(const char *path, vfs_node *dev) {
+	int ret = vfs_createat(devfs_root,path,0777,VFS_FILE);
+	if (ret < 0) return ret;
+	return vfs_mountat(devfs_root, path, dev);
+}
 
 ssize_t zero_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	//to make compiler happy
@@ -22,39 +30,6 @@ vfs_node zero_dev = {
 	.flags = VFS_DEV | VFS_CHAR | VFS_BLOCK,
 };
 
-///dev/port only exist on x86_64
-#ifdef x86_64
-ssize_t port_read(vfs_node *node,void *buffer,uint64_t port,size_t count){
-	//make compiler happy
-	(void)node;
-
-	uint8_t *cbuf = buffer;
-	while(count > 0){
-		*cbuf = in_byte(port);
-		cbuf++;
-		count--;
-	}
-	return count;
-}
-ssize_t port_write(vfs_node *node,void *buffer,uint64_t port,size_t count){
-	//make compiler happy
-	(void)node;
-	
-	uint8_t *cbuf = buffer;
-	while(count > 0){
-		out_byte(port,*cbuf);
-		cbuf++;
-		count--;
-	}
-	return count;
-}
-
-vfs_node port_dev = {
-	.read = port_read,
-	.write = port_write,
-	.flags = VFS_DEV | VFS_BLOCK,
-};
-#endif
 ssize_t write_serial_dev(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	//make compiler happy
 	(void)node;
@@ -94,7 +69,8 @@ vfs_node null_dev = {
 
 void init_devices(void){
 	kstatus("init dev ...");
-	if(vfs_mount("/dev",new_tmpfs())){
+	devfs_root = new_tmpfs();
+	if(vfs_mount("/dev",devfs_root)){
 		kfail();
 		kinfof("fail to mount devfs on /dev\n");
 		halt();
@@ -103,34 +79,25 @@ void init_devices(void){
 	//create some simple devices
 
 	// /dev/zero
-	if(vfs_mount("/dev/zero",&zero_dev)){
+	if(devfs_create_dev("zero",&zero_dev)){
 		kfail();
 		kinfof("fail to create device /dev/zero\n");
 		halt();
 	}
 
-	// /dev/port
-#ifdef x86_64
-	if(vfs_mount("/dev/port",&port_dev)){
-		kfail();
-		kinfof("fail to create device /dev/port\n");
-		halt();
-	}
-#endif
-
 	// /dev/console
-	if(vfs_mount("/dev/console",&serial_dev)){
+	if(devfs_create_dev("console",&serial_dev)){
 		kinfof("fail to create device : /dev/console\n");
 	}
 
 	///dev/null
-	if(vfs_mount("/dev/null",&null_dev)){
+	if(devfs_create_dev("null",&null_dev)){
 		kfail();
 		kinfof("fail to create device /dev/null\n");
 		halt();
 	}
 
-	if(vfs_mkdir("/dev/pts",0x555)){
+	if(vfs_mkdir("/dev/pts",0755)){
 		kfail();
 		kinfof("fail to mkdir /dev/pts\n");
 		halt();
