@@ -377,11 +377,11 @@ int vfs_link(const char *src,const char *dest){
 	return ret;
 }
 
-struct dirent *vfs_readdir(vfs_node *node,uint64_t index){
+int vfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 	if(node->readdir){
-		return node->readdir(node,index);
+		return node->readdir(node,index,dirent);
 	} else {
-		return NULL;
+		return -ENOTDIR;
 	}
 }
 

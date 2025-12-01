@@ -4,6 +4,7 @@
 #include <kernel/sysfs.h>
 #include <kernel/print.h>
 #include <kernel/kernel.h>
+#include <errno.h>
 
 static vfs_node *sysfs_inode2vnode(sysfs_inode *inode);
 
@@ -23,31 +24,28 @@ void sysfs_register(const char *name,vfs_node *node){
     list_append(((sysfs_inode *)sysfs_root->private_inode)->child,inode);
 }
 
-struct dirent *sysfs_readdir(vfs_node *node,uint64_t index){
+int sysfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
     sysfs_inode *inode = node->private_inode;
 	if(index == 0){
-		struct dirent *ret = kmalloc(sizeof(struct dirent));
-		strcpy(ret->d_name,".");
-		return ret;
+		strcpy(dirent->d_name,".");
+		return 0;
 	}
 
 	if(index == 1){
-		struct dirent *ret = kmalloc(sizeof(struct dirent));
-		strcpy(ret->d_name,"..");
-		return ret;
+		strcpy(dirent->d_name,"..");
+		return 0;
 	}
 
     index -=2;
 	foreach(node,inode->child){
 		if(!index){
             sysfs_inode *entry = node->value;
-			struct dirent *ret = kmalloc(sizeof(struct dirent));
-			strcpy(ret->d_name,entry->name);
-			return ret;
+			strcpy(dirent->d_name,entry->name);
+			return 0;
 		}
 		index--;
 	}
-    return NULL;
+    return -ENOENT;
 }
 
 

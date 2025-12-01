@@ -136,7 +136,7 @@ ssize_t fat_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
 	return data_read;
 }
 
-struct dirent *fat_readdir(vfs_node *node,uint64_t index){
+int fat_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 	fat_inode *inode = node->private_inode;
 
 	uint64_t offset   = inode->is_fat16_root ? inode->start         : fat_cluster2offset(&inode->fat_info,inode->first_cluster);
@@ -144,7 +144,7 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 	uint32_t cluster  = inode->first_cluster;
 	kdebugf("readdir on %s , first cluster is %lx\n",inode->is_fat16_root ? "root" : "not root",cluster);
 	while (index > 0){
-		if(!remaning)return NULL;
+		if(!remaning)return -ENOENT;
 		//skip everything with VOLUME_ID attr or free
 		for(;;){
 			fat_entry entry;
@@ -152,7 +152,7 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 			if(entry.name[0] == 0x00){
 				//everything is free after that
 				//we hit last
-				return NULL;
+				return -ENOENT;
 			}
 			if(!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5))break;
 			offset += sizeof(fat_entry);
@@ -160,11 +160,11 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 				//end of cluster
 				//jump to next
 				cluster = fat_get_next_cluster(&inode->fat_info,cluster);
-				if(cluster == FAT_EOF)return NULL;
+				if(cluster == FAT_EOF)return -ENOENT;
 				offset = fat_cluster2offset(&inode->fat_info,cluster);
 			}
 			remaning--;
-			if(!remaning)return NULL;
+			if(!remaning)return -ENOENT;
 		}
 		index--;
 		offset += sizeof(fat_entry);
@@ -172,12 +172,12 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 			//end of cluster
 			//jump to next
 			cluster = fat_get_next_cluster(&inode->fat_info,cluster);
-			if(cluster == FAT_EOF)return NULL;
+			if(cluster == FAT_EOF)return -ENOENT;
 			offset = fat_cluster2offset(&inode->fat_info,cluster);
 		}
 		remaning--;
 	}
-	if(!remaning)return NULL;
+	if(!remaning)return -ENOENT;
 
 	//skip everything with VOLUME_ID attr
 	//TODO : handle long name
@@ -187,7 +187,7 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 		if(entry.name[0] == 0x00){
 			//everything is free after that
 			//we hit last
-			return NULL;
+			return -ENOENT;
 		}
 		if(!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5))break;
 		offset += sizeof(fat_entry);
@@ -195,33 +195,32 @@ struct dirent *fat_readdir(vfs_node *node,uint64_t index){
 			//end of cluster
 			//jump to next
 			cluster = fat_get_next_cluster(&inode->fat_info,cluster);
-			if(cluster == FAT_EOF)return NULL;
+			if(cluster == FAT_EOF)return -ENOENT;
 			offset = fat_cluster2offset(&inode->fat_info,cluster);
 		}
 		remaning--;
-		if(!remaning)return NULL;
+		if(!remaning)return -ENOENT;
 	}
 
 	//now parse the entry
 	fat_entry entry;
 	vfs_read(inode->fat_info.dev,&entry,offset,sizeof(entry));
 	
-	struct dirent *ent = kmalloc(sizeof(struct dirent));
 	size_t j=0;
 	for(int i=0; i<8; i++){
 		if(entry.name[i] == ' ')break;
-		ent->d_name[j++] = entry.name[i];
+		dirent->d_name[j++] = entry.name[i];
 	}
 	//don't add . for directories without extention
 	if(!((entry.attribute & ATTR_DIRECTORY) && entry.name[8] == ' ')){
-		ent->d_name[j++] = '.';
+		dirent->d_name[j++] = '.';
 	}
 	for(int i=8; i<11; i++){
 		if(entry.name[i] == ' ')break;
-		ent->d_name[j++] = entry.name[i];
+		dirent->d_name[j++] = entry.name[i];
 	}
-	ent->d_name[j] = '\0';
-	return ent;
+	dirent->d_name[j] = '\0';
+	return 0;
 }
 
 static vfs_node *fat_lookup(vfs_node *node,const char *name){

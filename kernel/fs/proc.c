@@ -4,34 +4,32 @@
 #include <kernel/print.h>
 #include <kernel/proc.h>
 #include <kernel/vfs.h>
+#include <errno.h>
 
 long strtol(const char *str, char **end,int base);
 
-struct dirent *proc_root_readdir(vfs_node *node,uint64_t index){
+int proc_root_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
     (void)node;
 	if(index == 0){
-		struct dirent *ret = kmalloc(sizeof(struct dirent));
-		strcpy(ret->d_name,".");
-		return ret;
+		strcpy(dirent->d_name,".");
+		return 0;
 	}
 
 	if(index == 1){
-		struct dirent *ret = kmalloc(sizeof(struct dirent));
-		strcpy(ret->d_name,"..");
-		return ret;
+		strcpy(dirent->d_name,"..");
+		return 0;
 	}
 
     index -=2;
 	foreach(node,proc_list){
 		if(!index){
             process_t *proc = node->value;
-			struct dirent *ret = kmalloc(sizeof(struct dirent));
-			sprintf(ret->d_name,"%d",proc->pid);
-			return ret;
+			sprintf(dirent->d_name,"%d",proc->pid);
+			return 0;
 		}
 		index--;
 	}
-    return NULL;
+    return -ENOENT;
 }
 
 int proc_getattr(vfs_node *node,struct stat *st){
@@ -42,7 +40,7 @@ int proc_getattr(vfs_node *node,struct stat *st){
     return 0;
 }
 
-struct dirent *proc_readdir(vfs_node *node,uint64_t index){
+int proc_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
     (void)node;
     static char *content[] = {
         ".",
@@ -50,11 +48,10 @@ struct dirent *proc_readdir(vfs_node *node,uint64_t index){
         "cwd",
     };
 
-    if(index >= sizeof(content)/sizeof(*content))return NULL;
+    if(index >= sizeof(content)/sizeof(*content))return -ENOENT;
 
-    struct dirent *ret = kmalloc(sizeof(struct dirent));
-    strcpy(ret->d_name,content[index]);
-    return ret;
+    strcpy(dirent->d_name,content[index]);
+    return 0;
 }
 
 vfs_node *proc_root_lookup(vfs_node *root,const char *name){

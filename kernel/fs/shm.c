@@ -134,31 +134,28 @@ static int shmfs_getattr(vfs_node *node,struct stat *st){
     return 0;
 }
 
-static struct dirent *shmfs_readdir(vfs_node *node,uint64_t index){
+int shmfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
     (void)node;
 	if(index == 0){
-		struct dirent *ret = kmalloc(sizeof(struct dirent));
-		strcpy(ret->d_name,".");
-		return ret;
+		strcpy(dirent->d_name,".");
+		return 0;
 	}
 
 	if(index == 1){
-		struct dirent *ret = kmalloc(sizeof(struct dirent));
-		strcpy(ret->d_name,"..");
-		return ret;
+		strcpy(dirent->d_name,"..");
+		return 0;
 	}
 
     index -=2;
 	foreach(node,shm_files){
 		if(!index){
             shm_file *file = node->value;
-			struct dirent *ret = kmalloc(sizeof(struct dirent));
-			strcpy(ret->d_name,file->name);
-			return ret;
+			strcpy(dirent->d_name,file->name);
+			return 0;
 		}
 		index--;
 	}
-    return NULL;
+    return -ENOENT;
 }
 
 static shm_file *shmfs_file_from_name(const char *name){

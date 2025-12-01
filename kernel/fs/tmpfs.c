@@ -257,38 +257,36 @@ ssize_t tmpfs_readlink(vfs_node *node,char *buf,size_t bufsize){
 	return bufsize;
 }
 
-struct dirent *tmpfs_readdir(vfs_node *node,uint64_t index){
+
+int tmpfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	//update atime
 	inode->atime = NOW();
 
 	if(index == 0){
-		struct dirent *ret = kmalloc(sizeof(struct dirent));
-		strcpy(ret->d_name,".");
-		ret->d_ino = INODE_NUMBER(inode);
-		return ret;
+		strcpy(dirent->d_name,".");
+		dirent->d_ino = INODE_NUMBER(inode);
+		return 0;
 	}
 
 	if(index == 1){
-		struct dirent *ret = kmalloc(sizeof(struct dirent));
-		strcpy(ret->d_name,"..");
-		ret->d_ino = INODE_NUMBER(inode->parent);
-		return ret;
+		strcpy(dirent->d_name,"..");
+		dirent->d_ino = INODE_NUMBER(inode->parent);
+		return 0;
 	}
 
 	index -=2;
 	foreach(node,inode->entries){
 		if(!index){
 			tmpfs_dirent *entry = node->value;
-			struct dirent *ret = kmalloc(sizeof(struct dirent));
-			strcpy(ret->d_name,entry->name);
-			ret->d_ino = INODE_NUMBER(entry->inode);
-			return ret;
+			strcpy(dirent->d_name,entry->name);
+			dirent->d_ino = INODE_NUMBER(entry->inode);
+			return 0;
 		}
 		index--;
 	}
-	return NULL;
+	return -ENOENT;
 }
 
 void tmpfs_close(vfs_node *node){

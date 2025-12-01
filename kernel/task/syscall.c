@@ -470,16 +470,7 @@ int sys_readdir(int fd, struct dirent *ret, long int index) {
 	if (!is_valid_fd(fd)) {
 		return -EBADF;
 	}
-	struct dirent *kret = vfs_readdir(FD_GET(fd).node, (uint64_t)index);
-
-	if (kret == NULL) {
-		return -ENOENT;
-	}
-
-	//now copy kret to userspace ret and free it
-	*ret = *kret;
-	kfree(kret);
-	return 0;
+	return vfs_readdir(FD_GET(fd).node, index, ret);
 }
 
 int sys_stat(const char *pathname, struct stat *st) {
@@ -676,9 +667,8 @@ int sys_rmdir(const char *pathname) {
 		vfs_close(node);
 		return -ENOTDIR;
 	}
-	struct dirent *entry = vfs_readdir(node, 2);
-	if (entry) {
-		kfree(entry);
+	struct dirent entry;
+	if (vfs_readdir(node, 2, &entry) != -ENOENT) {
 		vfs_close(node);
 		return -ENOTEMPTY;
 	}

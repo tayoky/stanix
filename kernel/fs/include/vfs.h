@@ -42,7 +42,7 @@ typedef struct vfs_node_struct {
 	int (* link)(struct vfs_node_struct*,const char*,struct vfs_node_struct*,const char*);
 	int (* symlink)(struct vfs_node_struct*,const char*,const char*);
 	ssize_t (*readlink)(struct vfs_node_struct*,char*,size_t);
-	struct dirent *(* readdir)(struct vfs_node_struct*,uint64_t index);
+	int (* readdir)(struct vfs_node_struct*,unsigned long index,struct dirent*);
 	int (* truncate)(struct vfs_node_struct*,size_t);
 	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
 	int (* getattr)(struct vfs_node_struct *,struct stat *);
@@ -124,12 +124,7 @@ int vfs_link(const char *src,const char *dest);
 int vfs_symlink(const char *target, const char *linkpath);
 ssize_t vfs_readlink(vfs_node *node,char *buf,size_t bufsiz);
 
-
-/// @brief read an entry in a directory at a specifed index
-/// @param node context of the dir
-/// @param index the index to read
-/// @return a pointer to a dirent that can be free or NULL if fail
-struct dirent *vfs_readdir(vfs_node *node,uint64_t index);
+int vfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent);
 
 /// @brief truncate a file to a specfied size
 /// @param node context of the file
