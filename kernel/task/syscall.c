@@ -968,6 +968,18 @@ int sys_mount(const char *source, const char *target, const char *filesystemtype
 	return vfs_auto_mount(source, target, filesystemtype, mountflags, data);
 }
 
+int sys_umount(const char *target) {
+	if (!CHECK_STR(target)) {
+		return -EFAULT;
+	}
+
+	if (get_current_proc()->euid != EUID_ROOT) {
+		return -EPERM;
+	}
+
+	return vfs_unmount(target);
+}
+
 void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t offset) {
 	int check = flags & (MAP_SHARED | MAP_PRIVATE);
 	if (check == 0 || check == (MAP_PRIVATE & MAP_SHARED))return (void *)-EINVAL;
@@ -1388,7 +1400,7 @@ void *syscall_table[] = {
 	(void *)sys_kill,
 	(void *)sys_getpid,
 	(void *)sys_mount,
-	(void *)sys_stub, //sys_umount
+	(void *)sys_umount,
 	(void *)sys_mmap,
 	(void *)sys_munmap,
 	(void *)sys_stub, //sys_mprotect
