@@ -96,11 +96,14 @@ int vfs_mount(const char *name,vfs_node *local_root){
 	return vfs_mountat(NULL,name,local_root);
 }
 
+int vfs_unmount(const char *path){
+	return vfs_unmountat(NULL, path);
+}
 
 //TODO : we don't handle the case where a parent of the mount point get closed
 //the local_root stay open but somebody try to open it's parent
-int vfs_unmount(const char *path){
-	vfs_node *parent = vfs_open(path,VFS_PARENT);
+int vfs_unmountat(vfs_node *at, const char *path){
+	vfs_node *parent = vfs_openat(at,path,VFS_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}

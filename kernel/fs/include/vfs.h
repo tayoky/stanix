@@ -175,6 +175,7 @@ int vfs_getattr(vfs_node *node,struct stat *st);
 int vfs_setattr(vfs_node *node,struct stat *st);
 
 int vfs_unmount(const char *path);
+int vfs_unmountat(vfs_node *at, const char *path);
 
 int vfs_mmap(vfs_node *node,off_t offset,struct memseg_struct *seg);
 

@@ -15,6 +15,12 @@ void pty_output(char c,void *data){
 	ringbuffer_write(&c,pty->output_buffer,1);
 }
 
+void pty_cleanup(void *data) {
+	pty_t *pty = (pty_t*)data;
+	delete_ringbuffer(pty->output_buffer);
+	kfree(pty);
+}
+
 ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 
@@ -58,6 +64,16 @@ int pty_master_wait_check(vfs_node *node,short type){
 	return events;
 }
 
+void pty_master_close(vfs_node *node) {
+	tty_t *tty = (tty_t *)node->private_inode;
+	pty_t *pty = tty->private_data;
+
+	// the master close so unmount
+	char path[PATH_MAX];
+	sprintf(path, "pts/%s", pty->slave->name);
+	devfs_remove_dev(path);
+}
+
 int new_pty(vfs_node **master,vfs_node **slave,tty_t **rep){
 	pty_t *pty = kmalloc(sizeof(pty_t));
 	memset(pty,0,sizeof(pty_t));
@@ -67,7 +83,8 @@ int new_pty(vfs_node **master,vfs_node **slave,tty_t **rep){
 	*slave = new_tty(&tty);
 	*rep = tty;
 	tty->private_data = pty;
-	tty->out = pty_output;
+	tty->out     = pty_output;
+	tty->cleanup = pty_cleanup;
 
 	//create the master
 	*master = kmalloc(sizeof(vfs_node));
@@ -75,6 +92,7 @@ int new_pty(vfs_node **master,vfs_node **slave,tty_t **rep){
 	(*master)->read          = pty_master_read;
 	(*master)->write         = pty_master_write;
 	(*master)->wait_check    = pty_master_wait_check;
+	(*master)->close         = pty_master_close,
 	(*master)->private_inode = tty;
 	(*master)->ref_count     = 1;
 
@@ -140,6 +158,19 @@ int tty_wait_check(vfs_node *node,short type){
 	}
 
 	return events;
+}
+
+void tty_close(vfs_node *node){
+	// this mean the tty has been unmounted so do cleanup
+	tty_t *tty = (tty_t *)node->private_inode;
+
+	// TODO : send SIGHUP
+
+	if (tty->cleanup) tty->cleanup(tty->private_data);
+
+	delete_ringbuffer(tty->input_buffer);
+	kfree(tty->canon_buf);
+	kfree(tty);
 }
 
 int tty_ioctl(vfs_node *node,uint64_t request,void *arg){

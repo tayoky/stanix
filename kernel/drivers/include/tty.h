@@ -11,6 +11,7 @@
 typedef struct tty {
 	void *private_data;
 	void (*out)(char,void *);
+	void (*cleanup)(void *);
 	ring_buffer *input_buffer;
 	struct termios termios;
 	struct winsize size;
