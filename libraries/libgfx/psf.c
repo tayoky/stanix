@@ -35,6 +35,7 @@ static long psf1_char_height(font_t *font,int c){
 }
 
 static void psf1_draw_char(gfx_t *gfx,font_t *font,color_t color,long x,long y,int c){
+	if (c > 255) c = '?';
 	PSF1_data *data = font->private;
 	char *current_byte = &data->data[c * data->header.character_size];
 	for (uint16_t i = 0; i < data->header.character_size; i++){

@@ -11,6 +11,7 @@
 #include <termios.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <wchar.h>
 #include <sys/fb.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -18,7 +19,7 @@
 //most basic terminal emumator
 
 struct cell {
-	int c;
+	wchar_t c;
 	color_t back_color;
 	color_t front_color;
 };
@@ -68,7 +69,7 @@ struct layout kbd_us = {
 };
 struct layout kbd_fr = {
 		.keys = {
-		0,"\e","&","?" /*é*/,"\"","\'","(","-"," " /*è*/,"_"," "/*ç*/," " /*à*/,")","=","\177",
+		0,"\e","&","é","\"","\'","(","-","è","_","ç","à",")","=","\177",
 		"\t","a","z","e","r","t","y","u","i","o","p","^","$","\n",
 		0,"q","s","d","f","g","h","j","k","l","m","\"", "`",
 		0,"<","w","x","c","v","b","n",",",";",":","!",0,"*",
@@ -86,10 +87,10 @@ struct layout kbd_fr = {
 		[0x56] = "<",
 	},
 	.shift = {
-		0,"\e","1","2","3","4","5","6","7","8","9","0"," " /*°*/,"+","\177",
+		0,"\e","1","2","3","4","5","6","7","8","9","0","°","+","\177",
 		"\t","A","Z","E","R","T","Y","U","I","O","P","{","}","\n",
 		0,"Q","S","D","F","G","H","J","K","L","M","%", "~",
-		0,">","W","X","C","V","B","N","?",".","/"," " /*§*/,0,"*",
+		0,">","W","X","C","V","B","N","?",".","/","§",0,"*",
 		0," ",
 		[0x47] =
 		"7","8","9","-",
@@ -126,6 +127,7 @@ font_t *font;
 int escape_state = 0;
 int escape_arg_start;
 int escape_args[8];
+FILE *master_file;
 
 uint32_t ansi_colours[] = {
 	0x000000, //black
@@ -230,9 +232,9 @@ void scroll(int s){
 	y -= s;
 }
 
-void draw_char(char c){
+void draw_char(wchar_t c){
 	if(escape_state == 1){
-		if(c == '['){
+		if(c == L'['){
 			memset(escape_args,0,sizeof(escape_args));
 			escape_state = 2;
 			escape_arg_start = 1;
@@ -250,16 +252,16 @@ void draw_char(char c){
 				escape_arg_start = 0;
 			}
 			escape_args[escape_state-3] *= 10;
-			escape_args[escape_state-3] += c - '0';
+			escape_args[escape_state-3] += (char)c - '0';
 			return;
-		} else if(c == '?'){
+		} else if(c == L'?'){
 			return;
-		} else if(c == ';'){
+		} else if(c == L';'){
 			escape_arg_start = 1;
 			return;
 		} else {
 			int escape_args_count = escape_state - 2;
-			switch(c){
+			switch((char)c){
 			case 'H':
 				if(escape_args_count < 2){
 					redraw(x,y);
@@ -353,7 +355,7 @@ void draw_char(char c){
 		}
 	}
 	
-	switch(c){
+	switch((char)c){
 	case '\r':
 		redraw(x,y);
 		x = 1;
@@ -391,16 +393,12 @@ void draw_char(char c){
 	}
 
 	//put into grid
-	grid[(y - 1) * width +  x - 1].c = (unsigned char) c;
+	grid[(y - 1) * width +  x - 1].c = c;
 	grid[(y - 1) * width +  x - 1].back_color = back_color;
 	grid[(y - 1) * width +  x - 1].front_color = front_color;
 	redraw(x,y);
 	x++;
 	redraw_cursor(x,y);
-}
-
-void writestr(int fd,const char *str){
-	write(fd,str,strlen(str));
 }
 
 //TODO : terminate when child die
@@ -499,6 +497,7 @@ int main(int argc,const char **argv){
 	}
 
 	close(slave);
+	master_file = fdopen(master, "r+");
 
 	//clear screen and init color
 	front_color = ansi2gfx(ansi_colours[7]);
@@ -512,7 +511,7 @@ int main(int argc,const char **argv){
 	height = fb->height / c_height;
 	grid = malloc(sizeof(struct cell) * width * height);
 	for(int i = 0;i < width * height; i++){
-			grid[i].c = ' ';
+			grid[i].c = L' ';
 			grid[i].back_color = back_color;
 			grid[i].front_color = front_color;
 	}
@@ -534,8 +533,8 @@ int main(int argc,const char **argv){
 
 		if(wait[0].revents & POLLIN){
 			//there data to print
-			char c;
-			if(read(master,&c,1) < 0){
+			wchar_t c;
+			if((c = fgetwc(master_file)) == WEOF){
 				//read error ???
 				perror("read");
 			} else {
@@ -599,9 +598,9 @@ int main(int argc,const char **argv){
 				//if crtl is pressed send special crtl + XXX char
 				if(crtl && strlen(str) == 1){
 					char c = str[0] - 'a' + 1;
-					write(master,&c,1);
+					fputc(c, master_file);
 				} else {
-					writestr(master,str);
+					fputs(str, master_file);
 				}
 				ignore:
 			}

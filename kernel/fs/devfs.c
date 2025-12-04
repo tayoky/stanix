@@ -18,7 +18,7 @@ int devfs_create_dev(const char *path, vfs_node *dev) {
 
 
 void devfs_remove_dev(const char *path) {
-	return vfs_unmountat(devfs_root, path);
+	vfs_unmountat(devfs_root, path);
 }
 
 ssize_t zero_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
