@@ -104,6 +104,9 @@ void check(const char *prefix){
 			}
 			char target[PATH_MAX];
 			sprintf(target,MNT_PATH"%s%c%d",prefix,letter,i);
+			if (mkdir(target, 0777) < 0) {
+				goto fail;
+			}
 			if(mount(path,target,fs->mount_type,0,NULL) < 0){
 				goto fail;
 			}
