@@ -55,10 +55,15 @@ void kfprintf(vfs_node *node,const char *fmt,...){
 	va_end(args);
 }
 
+
+void kvprintf(const char *fmt,va_list args) {
+	printfunc(output_char,fmt,args,NULL);
+}
+
 void kprintf(const char *fmt,...){
 	va_list args;
 	va_start(args,fmt);
-	printfunc(output_char,fmt,args,NULL);
+	kvprintf(fmt,args);
 	va_end(args);
 }
 

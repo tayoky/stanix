@@ -10,6 +10,7 @@ void printfunc(print_func func,const char *fmt,va_list,void *extra);
 void kfprintf(vfs_node *node,const char *fmt,...);
 int  sprintf(char *buf,const char *fmt,...);
 void kprintf(const char *fmt,...);
+void kvprintf(const char *fmt,va_list args);
 void kstatus(const char *status);
 void __kdebugf(const char *file,int line,const char *fmt,...);
 void kinfof(const char *fmt,...);
