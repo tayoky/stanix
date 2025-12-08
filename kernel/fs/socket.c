@@ -14,6 +14,7 @@ static ssize_t socket_read(vfs_node *node, void *buf, uint64_t offset, size_t co
 static socket_t *add_defaults(socket_t *socket) {
 	if (!socket) return NULL;
 	socket->node.read = socket_read;
+	socket->node.flags = VFS_SOCK | VFS_DEV;
 	return socket;
 }
 

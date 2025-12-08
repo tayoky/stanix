@@ -15,14 +15,15 @@
 #define PATH_MAX 256
 #endif
 
-#define VFS_FILE  0x01
-#define VFS_DIR   0x02
-#define VFS_LINK  0x04
-#define VFS_DEV   0x08
-#define VFS_MOUNT 0x10
-#define VFS_CHAR  0x20
-#define VFS_BLOCK 0x40
-#define VFS_TTY   0x80
+#define VFS_FILE  0x001
+#define VFS_DIR   0x002
+#define VFS_LINK  0x004
+#define VFS_DEV   0x008
+#define VFS_MOUNT 0x010
+#define VFS_CHAR  0x020
+#define VFS_BLOCK 0x040
+#define VFS_TTY   0x080
+#define VFS_SOCK  0x100
 
 struct vfs_node_struct;
 struct vfs_mount_point_struct;
