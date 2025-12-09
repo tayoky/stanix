@@ -3,8 +3,7 @@
 the vfs as multplie root, one for each mount point  
 each `vfs_node` represent an context
 ## path
-path are like `mountpoint:/folder/file.txt`
-## function
+## functions
 ### `vfs_mount(const char *path,vfs_node *node)`
 mount a node at a specifed place   
 NOTE : a mounted context cannot be close, `vfs_close`on it do nothing  
@@ -20,6 +19,6 @@ vfs_mount("test",my_node);
 close an context 
 #### ex
 ```c
-vfs_node *file = vfs_open("initrd:/readme.txt");
+vfs_node *file = vfs_open("/readme.txt");
 vfs_close(file);
 ```

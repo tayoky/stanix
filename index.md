@@ -1,11 +1,13 @@
 ---
 title: stanix
 ---
-stanix is a 64 bits open source operating system made by tayoky since december 2024  
-the entire operating system is written from scratch with its own libc kernel shell and userspace
+stanix is a 64-bit open source operating system made from scratch started in december 2024  
+the entire operating system is written from scratch with its own libc kernel shell and userspace (only a third-party bootloader called "Limine" is used)
+
+stanix aim to be unix-like (not a unix clone, somes things are differents) with the required posix function to port programs
 
 ## download
-a new stable release is avalible each month
+a new stable release is avalible every 3 months
 - [source code](https://github.com/tayoky/stanix)
 - [lasted release](https://github.com/tayoky/stanix/releases)
 - [compile from source](miscellaneous/build)
@@ -18,6 +20,20 @@ list of all supported hardware
 - framebuffer (with tty emulation)
 - ATA devices on ide controller
 - pci bus
+
+## goal
+futures goals (once a goal is reached it is removed from the list)
+- a GUI
+- a SDL3/2 port
+- a MESA port (in progress)
+- socket
+- dynamic linking
+- nvme support
+- atapi support
+- better blockfs interface at kernel level
+- better interface for buses at kernel level
+- ext2 support
+- fat write support
 
 ## recommanded specs
 - at least 256 mb of ram (also run on 128 mb)
