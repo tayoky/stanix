@@ -7,8 +7,9 @@ there are two possiblity :
 
 > [!NOTE]
 > if building from window use WSL
+
 ## cross building
-if you are building from another OS you will first have to make an **cross toolchain**
+if you are building from another OS you will first have to make a **cross toolchain**
  
 ### required sofware
 - `git`
@@ -25,7 +26,7 @@ if you are building from another OS you will first have to make an **cross toolc
 - a shell (sh,bash,dash,ksh,...)
 - `make`
 
-on ubuntu you can get everything by
+on ubuntu you can get everything by running
 ```sh
 sudo apt install build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf
 ```
@@ -49,19 +50,23 @@ then you can run the script to build the toolchain
 > [!NOTE]  
 > supported values for `--target` are `x86_64-stanix`, `i386-stanix` and `aarch64-stanix` 
 
-now source the script to setup the `PATH` `CC` ,... variables
+> [!NOTE]
+> compiling the toolchain (that contain gcc) might takes some time
+
+now source the script to setup the `PATH`, `CC`, ... variables
 ```sh
 . ./add-to-path.sh
 ```
+
 > [!NOTE]  
 > you will have to do this step every time
 you quit your sessions and come back (or open/close a new terminal window)   
 > once you have done this step the default C compiler for this session is a stanix cross compiler use `unset CC` to revert to your system compiler
 
 then you can follow the guide same as [self building](#self-building)
-.
+
 ## self building
-if you are compiling from sanix (or using the cross toolchain) follow these steps
+if you are compiling from stanix (or using the cross toolchain) follow these steps
 
 ### required software
 - `git`
@@ -80,16 +85,15 @@ first configure, this will detect the compiler and linker
 ./configure --host=x86_64-stanix
 ```
 > [!NOTE]  
-> supportted values for `--host` are `x86_64-stanix`, `i386-stanix` and `aarch64-stanix` 
+> supported values for `--host` are `x86_64-stanix`, `i386-stanix` and `aarch64-stanix` 
 
-see [configuration option](#configuration-options) for all supported options  
+see [configuration options](#configuration-options) for all supported options  
 
 ### compiling
-first run `make` and then `./essential-ports.sh` to build tsh and tutils 
-then just run `make all` for all images or
+first run `make` and then just run `make all` for all images or
 - `make hdd` for hdd image
 - `make iso` for iso image
-`make test` create an hdd image  and automaticly launch it with qemu
+`make test` create an hdd image and automaticly launch it with qemu
 
 ## configuration options
 all options supported by the `./configure` script

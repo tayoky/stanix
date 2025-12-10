@@ -3,11 +3,10 @@ title: stanix
 ---
 stanix is a 64-bit open source operating system made from scratch started in december 2024  
 the entire operating system is written from scratch with its own libc kernel shell and userspace (only a third-party bootloader called "Limine" is used)
-
-stanix aim to be unix-like (not a unix clone, somes things are differents) with the required posix function to port programs
+stanix aim to be unix-like (not a unix clone, somes things are differents) with the required posix functions to port programs
 
 ## download
-a new stable release is avalible every 3 months
+a new stable release is available every 3 months
 - [source code](https://github.com/tayoky/stanix)
 - [lasted release](https://github.com/tayoky/stanix/releases)
 - [compile from source](miscellaneous/build)
@@ -72,4 +71,3 @@ a list of availables packages and ports can be found [here](packages)
 
 ## docs
 see [kernel docs](kernel) and [userspace docs](user)  
-

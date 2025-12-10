@@ -1,13 +1,13 @@
 ---
 title: ports
 ---
-installing ports is simple  
-when you clone the stanix repo you get a ports folder   
-just go into it and use build and install to install all ports you want
+Installing ports is simple.  
+When you clone the stanix repo you get a ports folder, once stanix is built just go into it and use build and install to install all ports you want.
 ```sh
 ./build.sh XXX
 ./install.sh XXX
 ```
-just rebuild the initrd and the disk image (using `make iso` or `make hdd`)  and you're done !
+where XXX is the name of the port.
+Rebuild the initrd and the disk image (using `make iso` or `make hdd`) and you're done !
 
-see [here](../packages) for a list of all the availables packages and ports
+See [here](../packages) for a list of all the availables packages and ports.
