@@ -498,6 +498,7 @@ int main(int argc,const char **argv){
 
 	close(slave);
 	master_file = fdopen(master, "r+");
+	setvbuf(master_file, NULL, _IONBF, 0);
 
 	//clear screen and init color
 	front_color = ansi2gfx(ansi_colours[7]);
