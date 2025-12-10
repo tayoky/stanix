@@ -42,7 +42,7 @@ void set_tls(void *tls){
 }
 
 
-int shutdown(int flags){
+int arch_shutdown(int flags){
 	if (flags & SHUTDOWN_REBOOT) {
 		// trigger a tripple fault
 		IDTR zero_idtr = {

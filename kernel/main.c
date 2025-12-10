@@ -21,6 +21,8 @@
 #include <kernel/proc.h>
 #include <kernel/sysfs.h>
 #include <kernel/shm.h>
+#include <kernel/socket.h>
+#include <kernel/unix.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -117,6 +119,8 @@ void kmain() {
 	init_proc();
 	init_sysfs();
 	init_shm();
+	init_sockets();
+	init_unix_socket();
 
 	kstatus("finish init kernel\n");
 	spawn_init();

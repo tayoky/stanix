@@ -10,9 +10,10 @@ typedef struct socket {
 	vfs_node node;
 	struct socket_domain *domain;
 	int type;
+	int protocol;
 	ssize_t (*sendmsg)(struct socket *socket, const struct msghdr *message, int flags);
 	ssize_t (*recvmsg)(struct socket *socket, struct msghdr *message, int flags);
-	struct socket *(*accept)(struct socket *socket, struct sockaddr *address, socklen_t *address_len);
+	int (*accept)(struct socket *socket, struct sockaddr *address, socklen_t *address_len, struct socket **new_sock);
 	int (*bind)(struct socket *socket, const struct sockaddr *address, socklen_t address_len);
 	int (*connect)(struct socket *socket, const struct sockaddr *address, socklen_t address_len);
 	int (*listen)(struct socket *socket, int backlog);
@@ -28,7 +29,16 @@ typedef struct socket_domain {
 
 void init_sockets(void);
 socket_t *create_socket(int domain, int type, int protocol);
+void *socket_new(size_t size);
 void register_socket_domain(socket_domain_t *domain);
 void unregister_socket_domain(socket_domain_t *domain);
+
+
+ssize_t socket_sendmsg(vfs_node *socket, const struct msghdr *message, int flags);
+ssize_t socket_recvmsg(vfs_node *socket, struct msghdr *message, int flags);
+int socket_accept(vfs_node *socket, struct sockaddr *address, socklen_t *address_len, vfs_node **new_sock);
+int socket_bind(vfs_node *socket, const struct sockaddr *address, socklen_t address_len);
+int socket_connect(vfs_node *socket, const struct sockaddr *address, socklen_t address_len);
+int socket_listen(vfs_node*socket, int backlog);
 
 #endif

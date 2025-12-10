@@ -17,10 +17,13 @@ typedef struct unix_connection {
 	unix_socket_t *socket;
 } unix_connection_t;
 
-#define UNIX_STATUS_INIT      0
-#define UNIX_STATUS_BOUND     1
-#define UNIX_STATUS_LISTEN    2
-#define UNIX_STATUS_CONNECTED 3
-#define UNIX_STATUS_CLOSED    4
+#define UNIX_STATUS_INIT         0
+#define UNIX_STATUS_BOUND        1
+#define UNIX_STATUS_LISTEN       2
+#define UNIX_STATUS_CONNECTED    3
+#define UNIX_STATUS_DISCONNECTED 4
+
+
+void init_unix_socket(void);
 
 #endif

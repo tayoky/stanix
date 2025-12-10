@@ -14,6 +14,7 @@
 #include <kernel/string.h>
 #include <kernel/arch.h>
 #include <kernel/module.h>
+#include <kernel/socket.h>
 #include <kernel/tty.h>
 #include <kernel/signal.h>
 #include <kernel/asm.h>
@@ -1348,13 +1349,57 @@ int sys_thread_join(pid_t tid, void **arg) {
 	return 0;
 }
 
-int sys_shutdown(int flags) {
+int sys_sys_shutdown(int flags) {
 	if (get_current_proc()->euid != EUID_ROOT) {
 		return -EPERM;
 	}
 
-	return shutdown(flags);
+	return arch_shutdown(flags);
 }
+
+int sys_socket(int domain, int type, int protocol) {
+	return -ENOSYS;
+}
+
+int sys_accept(int socket, struct sockaddr *address, socklen_t *address_len) {
+	if (address && !CHECK_PTR(address)) {
+		return -EFAULT;
+	}
+
+	if (!is_valid_fd(socket)) {
+		return -EBADF;
+	}
+
+	//first find a fd for it
+	int fd = find_fd();
+	if (fd == -1) {
+		return -ENXIO;
+	}
+
+	vfs_node *new_sock;
+	int ret = socket_accept(FD_GET(socket).node, address, address_len, &new_sock);
+	if (ret < 0) return ret;
+
+	FD_GET(fd).node = new_sock;
+	FD_GET(fd).present = 1;
+
+	return ret;
+}
+
+int sys_bind(int socket, const struct sockaddr *address, socklen_t address_len) {
+
+}
+int     connect(int socket, const struct sockaddr *address,
+             socklen_t address_len);
+int     getpeername(int socket, struct sockaddr *address,
+             socklen_t *address_len);
+int     getsockname(int socket, struct sockaddr *address,
+             socklen_t *address_len);
+int     getsockopt(int socket, int level, int option_name,
+             void *option_value, socklen_t *option_len);
+int     listen(int socket, int backlog);
+ssize_t recvmsg(int socket, struct msghdr *message, int flags);
+ssize_t sendmsg(int socket, const struct msghdr *message, int flags);
 
 int sys_stub(void) {
 	return -ENOSYS;
@@ -1437,7 +1482,16 @@ void *syscall_table[] = {
 	(void *)sys_gettid,
 	(void *)sys_settls,
 	(void *)sys_thread_join,
-	(void *)sys_shutdown,
+	(void *)sys_sys_shutdown,
+	(void *)sys_socket,
+	(void *)sys_stub, // sys_sendmsg
+	(void *)sys_stub, // sys_recvmsg
+	(void *)sys_stub, // sys_accept
+	(void *)sys_stub, // sys_bind
+	(void *)sys_stub, // sys_connect
+	(void *)sys_stub, // sys_listen
+	(void *)sys_stub, // sys_getsockname
+	(void *)sys_stub, // sys_getpeername
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
