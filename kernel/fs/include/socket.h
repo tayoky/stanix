@@ -28,7 +28,7 @@ typedef struct socket_domain {
 } socket_domain_t;
 
 void init_sockets(void);
-socket_t *create_socket(int domain, int type, int protocol);
+vfs_node *create_socket(int domain, int type, int protocol);
 void *socket_new(size_t size);
 void register_socket_domain(socket_domain_t *domain);
 void unregister_socket_domain(socket_domain_t *domain);

@@ -35,11 +35,11 @@ void *socket_new(size_t size) {
 	return socket;
 }
 
-socket_t *create_socket(int domain, int type, int protocol) {
+vfs_node *create_socket(int domain, int type, int protocol) {
 	foreach (node, socket_domains) {
 		socket_domain_t *cur_domain = node->value;
 		if (cur_domain->domain == domain) {
-			cur_domain->create(type, protocol);
+			return (vfs_node*)cur_domain->create(type, protocol);
 		}
 	}
 

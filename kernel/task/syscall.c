@@ -1370,7 +1370,7 @@ int sys_socket(int domain, int type, int protocol) {
 	FD_GET(fd).node = socket;
 	FD_GET(fd).present = 1;
 
-	return 0;
+	return fd;
 }
 
 int sys_accept(int socket, struct sockaddr *address, socklen_t *address_len) {
@@ -1395,7 +1395,7 @@ int sys_accept(int socket, struct sockaddr *address, socklen_t *address_len) {
 	FD_GET(fd).node = new_sock;
 	FD_GET(fd).present = 1;
 
-	return ret;
+	return fd;
 }
 
 int sys_bind(int socket, const struct sockaddr *address, socklen_t address_len) {
