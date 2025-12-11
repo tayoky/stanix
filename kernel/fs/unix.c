@@ -18,8 +18,6 @@ static void unix_pair(unix_socket_t *a, unix_socket_t *b) {
 	b->status = UNIX_STATUS_CONNECTED;
 	a->connected = b;
 	b->connected = a;
-	a->socket.node.ref_count++;
-	b->socket.node.ref_count++;
 
 	// init the recieve buffers
 	a->queue = new_ringbuffer(QUEUE_SIZE);
@@ -72,7 +70,7 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 
 int unix_listen(socket_t *sock, int backlog) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
-	
+	if (socket->status == UNIX_STATUS_INIT) return -EDESTADDRREQ;
 	if (socket->status != UNIX_STATUS_BOUND) return -EINVAL;
 
 	socket->queue = new_ringbuffer(sizeof(unix_connection_t) * backlog);
@@ -111,14 +109,67 @@ int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, sock
 	return 0;
 }
 
+ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
+	(void)flags;
+	unix_socket_t *socket = (unix_socket_t*)sock;
+
+	ssize_t total = 0;
+
+	if (sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) {
+		// TODO
+		return -ENOSYS;
+	} else {
+		if (socket->status != UNIX_STATUS_CONNECTED && socket->status != UNIX_STATUS_DISCONNECTED) return -ENOTCONN;
+		if (message->msg_name) return -EISCONN;
+		if (socket->status == UNIX_STATUS_DISCONNECTED && !ringbuffer_read_available(socket->queue)) {
+			// disconnected and nothing to read, we will never use this socket again
+			return -ENOTCONN;
+		}
+
+		for (int i=0; i<message->msg_iovlen; i++) {
+			ssize_t ret = ringbuffer_read(message->msg_iov[i].iov_base, socket->queue, message->msg_iov[i].iov_len);
+			if (ret < 0) return ret;
+			total += ret;
+		}
+	}
+
+	return total;
+}
+
+ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
+	(void)flags;
+	unix_socket_t *socket = (unix_socket_t*)sock;
+
+	ssize_t total = 0;
+
+	if (sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) {
+		// TODO
+		return -ENOSYS;
+	} else {
+		if (socket->status != UNIX_STATUS_CONNECTED) return -ENOTCONN;
+		if (message->msg_name) return -EISCONN;
+
+		for (int i=0; i<message->msg_iovlen; i++) {
+			ssize_t ret = ringbuffer_write(message->msg_iov[i].iov_base, socket->connected->queue, message->msg_iov[i].iov_len);
+			if (ret < 0) return ret;
+			total += ret;
+		}
+	}
+	return total;
+}
+
+
 void unix_close(vfs_node *node) {
 	unix_socket_t *socket = (unix_socket_t*)node;
 	switch (socket->status) {
+	case UNIX_STATUS_DISCONNECTED:
+		delete_ringbuffer(socket->queue);
+		break;
 	case UNIX_STATUS_CONNECTED:
-		// FIXME : this won't work we need to not hold a ref to the connected socket
+		// FIXME : we need some kind of lock
 		// disconnect the peer
 		socket->connected->status = UNIX_STATUS_DISCONNECTED;
-		vfs_close((vfs_node*)socket->connected);
+		delete_ringbuffer(socket->queue);
 		break;
 	case UNIX_STATUS_LISTEN:
 		delete_ringbuffer(socket->queue);
@@ -146,6 +197,8 @@ socket_t *unix_create(int type, int protocol) {
 	socket->socket.bind    = unix_bind;
 	socket->socket.connect = unix_connect;
 	socket->socket.listen  = unix_listen;
+	socket->socket.recvmsg = unix_recvmsg;
+	socket->socket.sendmsg = unix_sendmsg;
 
 	return (socket_t*)socket;
 }

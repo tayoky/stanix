@@ -1358,7 +1358,19 @@ int sys_sys_shutdown(int flags) {
 }
 
 int sys_socket(int domain, int type, int protocol) {
-	return -ENOSYS;
+	//first find a fd for it
+	int fd = find_fd();
+	if (fd == -1) {
+		return -ENXIO;
+	}
+
+	vfs_node *socket = create_socket(domain, type, protocol);
+	if (!socket) return -EPROTONOSUPPORT;
+
+	FD_GET(fd).node = socket;
+	FD_GET(fd).present = 1;
+
+	return 0;
 }
 
 int sys_accept(int socket, struct sockaddr *address, socklen_t *address_len) {
@@ -1387,19 +1399,72 @@ int sys_accept(int socket, struct sockaddr *address, socklen_t *address_len) {
 }
 
 int sys_bind(int socket, const struct sockaddr *address, socklen_t address_len) {
+	if (!CHECK_MEM(address, address_len)) {
+		return -EFAULT;
+	}
 
+	if (!is_valid_fd(socket)) {
+		return -EBADF;
+	}
+
+	return socket_bind(FD_GET(socket).node, address, address_len);
 }
-int     connect(int socket, const struct sockaddr *address,
-             socklen_t address_len);
-int     getpeername(int socket, struct sockaddr *address,
-             socklen_t *address_len);
-int     getsockname(int socket, struct sockaddr *address,
-             socklen_t *address_len);
-int     getsockopt(int socket, int level, int option_name,
-             void *option_value, socklen_t *option_len);
-int     listen(int socket, int backlog);
-ssize_t recvmsg(int socket, struct msghdr *message, int flags);
-ssize_t sendmsg(int socket, const struct msghdr *message, int flags);
+
+int sys_connect(int socket, const struct sockaddr *address, socklen_t address_len) {
+	if (!CHECK_MEM(address, address_len)) {
+		return -EFAULT;
+	}
+
+	if (!is_valid_fd(socket)) {
+		return -EBADF;
+	}
+
+	return socket_connect(FD_GET(socket).node, address, address_len);
+}
+
+int sys_listen(int socket, int backlog) {
+	if (!is_valid_fd(socket)) {
+		return -EBADF;
+	}
+
+	return socket_listen(FD_GET(socket).node, backlog);
+}
+
+int getpeername(int socket, struct sockaddr *address, socklen_t *address_len);
+
+int getsockname(int socket, struct sockaddr *address, socklen_t *address_len);
+int getsockopt(int socket, int level, int option_name, void *option_value, socklen_t *option_len);
+
+ssize_t sys_recvmsg(int socket, struct msghdr *message, int flags) {
+	if (!CHECK_STRUCT(message) || (message->msg_name && !CHECK_MEM(message->msg_name, message->msg_namelen))) {
+		return -EFAULT;
+	}
+	if (!CHECK_MEM(message->msg_iov, sizeof(struct iovec) * message->msg_iovlen)) {
+		return -EFAULT;
+	}
+
+	if (!is_valid_fd(socket)) {
+		return -EBADF;
+	}
+
+
+	return socket_recvmsg(FD_GET(socket).node, message, flags);
+}
+
+ssize_t sys_sendmsg(int socket, const struct msghdr *message, int flags) {
+	if (!CHECK_STRUCT(message) || (message->msg_name && !CHECK_MEM(message->msg_name, message->msg_namelen))) {
+		return -EFAULT;
+	}
+	if (!CHECK_MEM(message->msg_iov, sizeof(struct iovec) * message->msg_iovlen)) {
+		return -EFAULT;
+	}
+
+	if (!is_valid_fd(socket)) {
+		return -EBADF;
+	}
+
+	return socket_sendmsg(FD_GET(socket).node, message, flags);
+}
 
 int sys_stub(void) {
 	return -ENOSYS;
@@ -1484,14 +1549,16 @@ void *syscall_table[] = {
 	(void *)sys_thread_join,
 	(void *)sys_sys_shutdown,
 	(void *)sys_socket,
-	(void *)sys_stub, // sys_sendmsg
-	(void *)sys_stub, // sys_recvmsg
-	(void *)sys_stub, // sys_accept
-	(void *)sys_stub, // sys_bind
-	(void *)sys_stub, // sys_connect
-	(void *)sys_stub, // sys_listen
+	(void *)sys_sendmsg,
+	(void *)sys_recvmsg,
+	(void *)sys_accept,
+	(void *)sys_bind,
+	(void *)sys_connect,
+	(void *)sys_listen,
 	(void *)sys_stub, // sys_getsockname
 	(void *)sys_stub, // sys_getpeername
+	(void *)sys_stub, // sys_getsockopt
+	(void *)sys_stub, // sys_setsockopt
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

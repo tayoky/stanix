@@ -462,7 +462,9 @@ int vfs_getattr(vfs_node *node,struct stat *st){
 		st->st_mode |= S_IFDIR;
 	}
 	if(node->flags & VFS_DEV){
-		if(node->flags & VFS_BLOCK){
+		if(node->flags & VFS_SOCK){
+			st->st_mode |= S_IFSOCK;
+		} else if(node->flags & VFS_BLOCK){
 			st->st_mode |= S_IFBLK;
 		} else if(node->flags & VFS_CHAR){
 			st->st_mode |= S_IFCHR;

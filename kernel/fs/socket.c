@@ -11,9 +11,18 @@ void init_sockets(void) {
 }
 
 static ssize_t socket_read(vfs_node *node, void *buf, uint64_t offset, size_t count) {
-	socket_t *socket = (socket_t*)node;
-	// TODO
-	return -ENOSYS;
+	(void)offset;
+	struct iovec vec = {
+		.iov_base = buf,
+		.iov_len  = count,
+	};
+
+	struct msghdr message = {
+		.msg_iov = &vec,
+		.msg_iovlen = 1,
+	};
+
+	return socket_recvmsg(node, &message, 0);
 }
 
 
@@ -41,6 +50,17 @@ ssize_t socket_sendmsg(vfs_node *socket, const struct msghdr *message, int flags
 	socket_t *sock = (socket_t *)sock;
 	if (!(socket->flags & VFS_SOCK)) return -ENOTSOCK;
 	if (!sock->sendmsg) return -EOPNOTSUPP;
+
+	if ((sock->type == SOCK_RAW || sock->type == SOCK_DGRAM) && !message->msg_name) {
+		if (!sock->connected) {
+			return -EDESTADDRREQ;
+		}
+		struct msghdr dflt = *message;
+		dflt.msg_name    = sock->connected;
+		dflt.msg_namelen = sock->connected_len;
+		message = &dflt;
+		return sock->sendmsg(sock, &dflt, flags);
+	}
 
 	return sock->sendmsg(sock, message, flags);
 }
