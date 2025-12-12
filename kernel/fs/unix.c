@@ -54,7 +54,8 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 	vfs_node *node = vfs_open(address->sun_path, VFS_READWRITE);
 	unix_socket_t *server = (unix_socket_t*)node;
 	if (!node) return -ECONNREFUSED;
-	if (!(node->flags & VFS_SOCK) || (server->status != UNIX_STATUS_LISTEN)) return -ECONNREFUSED;
+	if (!(node->flags & VFS_SOCK) || (server->status != UNIX_STATUS_LISTEN) || 
+		server->socket.type != sock->type || server->socket.domain != sock->domain) return -ECONNREFUSED;
 
 	// send the connection struct
 	unix_connection_t connection = {
@@ -65,7 +66,11 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 	ssize_t ret = ringbuffer_write(&connection, server->queue, sizeof(unix_connection_t));
 	if (ret < 0) return ret;
 
-	return 0;
+	// FIXME : if we get interrupted here we will still be in the connect queue
+	int r = sleep_on_queue(&socket->sleep);
+	if (r < 0) return r;
+
+	return socket->status == UNIX_STATUS_CONNECTED ? 0 : -ECONNREFUSED;
 }
 
 int unix_listen(socket_t *sock, int backlog) {
@@ -94,7 +99,7 @@ int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, sock
 	// we can now connect to the socket
 	*new_sock = unix_create(sock->type, sock->protocol);
 	unix_pair((unix_socket_t*)*new_sock, connection.socket);
-	if (connection.socket->bound.sun_family) {
+	if (connection.socket->bound.sun_path[0]) {
 		// the connected socket have an address
 		*addr_len = sizeof(struct sockaddr_un);
 		*address = connection.socket->bound;
@@ -104,7 +109,8 @@ int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, sock
 		*address = connection.socket->bound;
 	}
 
-	// TODO : signal to the socket that we are now connected
+	// wakeup the client sock
+	wakeup_queue(&socket->sleep, 1);
 
 	return 0;
 }
@@ -173,6 +179,9 @@ void unix_close(vfs_node *node) {
 		break;
 	case UNIX_STATUS_LISTEN:
 		delete_ringbuffer(socket->queue);
+		if (socket->socket.type == SOCK_STREAM || socket->socket.type == SOCK_STREAM) {
+			wakeup_queue(&socket->sleep, 0);
+		}
 		// fallthrough
 	case UNIX_STATUS_BOUND:
 		vfs_unmount(socket->bound.sun_path);

@@ -14,10 +14,12 @@ struct sockaddr_un server_addr = {
 void *client_thread(void *arg){
 	(void)arg;
 
-	if (connect(server, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-		perror("conneted");
+	if (connect(client, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+		perror("connected");
 		return NULL;
 	}
+
+	puts("connected");
 
 	return NULL;
 }

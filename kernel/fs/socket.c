@@ -47,7 +47,7 @@ vfs_node *create_socket(int domain, int type, int protocol) {
 }
 
 ssize_t socket_sendmsg(vfs_node *socket, const struct msghdr *message, int flags) {
-	socket_t *sock = (socket_t *)sock;
+	socket_t *sock = (socket_t *)socket;
 	if (!(socket->flags & VFS_SOCK)) return -ENOTSOCK;
 	if (!sock->sendmsg) return -EOPNOTSUPP;
 
@@ -66,7 +66,7 @@ ssize_t socket_sendmsg(vfs_node *socket, const struct msghdr *message, int flags
 }
 
 ssize_t socket_recvmsg(vfs_node *socket, struct msghdr *message, int flags) {
-	socket_t *sock = (socket_t *)sock;
+	socket_t *sock = (socket_t *)socket;
 	if (!(socket->flags & VFS_SOCK)) return -ENOTSOCK;
 	if (!sock->recvmsg) return -EOPNOTSUPP;
 
@@ -74,19 +74,21 @@ ssize_t socket_recvmsg(vfs_node *socket, struct msghdr *message, int flags) {
 }
 
 int socket_accept(vfs_node *socket, struct sockaddr *address, socklen_t *address_len, vfs_node **new_sock) {
-	socket_t *sock = (socket_t *)sock;
+	socket_t *sock = (socket_t *)socket;
 	if (!(socket->flags & VFS_SOCK)) return -ENOTSOCK;
 	if (!sock->accept || sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) return -EOPNOTSUPP;
 
 	uint32_t storage[128];
+	socklen_t len_storage;
 	
 	if (!address) address = (struct sockaddr *)&storage;
+	if (!address_len) address_len = &len_storage;
 
 	return sock->accept(sock, address, address_len, (socket_t**)new_sock);
 }
 
 int socket_bind(vfs_node *socket, const struct sockaddr *address, socklen_t address_len) {
-	socket_t *sock = (socket_t *)sock;
+	socket_t *sock = (socket_t *)socket;
 	if (!(socket->flags & VFS_SOCK)) return -ENOTSOCK;
 	if (!sock->bind) return -EOPNOTSUPP;
 
@@ -94,7 +96,7 @@ int socket_bind(vfs_node *socket, const struct sockaddr *address, socklen_t addr
 }
 
 int socket_connect(vfs_node *socket, const struct sockaddr *address, socklen_t address_len) {
-	socket_t *sock = (socket_t *)sock;
+	socket_t *sock = (socket_t *)socket;
 	if (!(socket->flags & VFS_SOCK)) return -ENOTSOCK;
 	if (!sock->connect || sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) {
 		// standard connect that can work for datagram and raw sockets
@@ -110,7 +112,7 @@ int socket_connect(vfs_node *socket, const struct sockaddr *address, socklen_t a
 }
 
 int socket_listen(vfs_node*socket, int backlog) {
-	socket_t *sock = (socket_t *)sock;
+	socket_t *sock = (socket_t *)socket;
 	if (!(socket->flags & VFS_SOCK)) return -ENOTSOCK;
 	if (!sock->listen || sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) return -EOPNOTSUPP;
 
