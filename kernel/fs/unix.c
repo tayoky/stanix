@@ -2,6 +2,7 @@
 #include <kernel/unix.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
+#include <kernel/print.h>
 #include <kernel/ringbuf.h>
 #include <errno.h>
 
@@ -31,12 +32,11 @@ int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
 	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) return -EINVAL;
 	if (socket->status != UNIX_STATUS_INIT) return -EINVAL;
 
-	int ret = vfs_create(address->sun_path, 0777, VFS_FILE | VFS_DEV | VFS_SOCK);
+	int ret = vfs_create_ext(address->sun_path, 0777, VFS_SOCK, sock);
 	if (ret < 0) {
 		if (ret == -EEXIST) ret = -EADDRINUSE;
 		return ret;
 	}
-	vfs_mount(address->sun_path, (vfs_node*)sock);
 
 	socket->bound = *address;
 	socket->status = UNIX_STATUS_BOUND;
@@ -167,6 +167,7 @@ ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 
 void unix_close(vfs_node *node) {
 	unix_socket_t *socket = (unix_socket_t*)node;
+	kdebugf("unix cleanup\n");
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
 		delete_ringbuffer(socket->queue);
@@ -184,7 +185,6 @@ void unix_close(vfs_node *node) {
 		}
 		// fallthrough
 	case UNIX_STATUS_BOUND:
-		vfs_unmount(socket->bound.sun_path);
 		vfs_unlink(socket->bound.sun_path);
 		break;
 	}

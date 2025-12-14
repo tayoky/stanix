@@ -183,8 +183,9 @@ static vfs_node *shmfs_lookup(vfs_node *node,const char *name){
     return n;
 }
 
-static int shmfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
+static int shmfs_create(vfs_node *node,const char *name,mode_t perm,long flags,void *arg){
     (void)node;
+    (void)arg;
     //no dir in shmfs
     if(flags & VFS_DIR)return -EINVAL;
 
@@ -227,7 +228,7 @@ void init_shm(void){
     shmfs_root->getattr = shmfs_getattr;
     shmfs_root->unlink  = shmfs_unlink;
     shmfs_root->lookup  = shmfs_lookup;
-    shmfs_root->create = shmfs_create;
+    shmfs_root->create  = shmfs_create;
 
     vfs_register_fs(&shm_fs);
     kok();

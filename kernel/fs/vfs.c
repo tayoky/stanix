@@ -282,7 +282,15 @@ int vfs_create(const char *path,int perm,long flags){
 	return vfs_createat(NULL,path,perm,flags);
 }
 
-int vfs_createat(vfs_node *at,const char *path,int perm,long flags){
+int vfs_createat(vfs_node *at,const char *path,int perm,long flags) {
+	return vfs_createat_ext(at, path, perm, flags, NULL);
+}
+
+int vfs_create_ext(const char *path,int perm,long flags,void *arg){
+	return vfs_createat_ext(NULL, path, perm, flags, arg);
+}
+
+int vfs_createat_ext(vfs_node *at,const char *path,int perm,long flags,void *arg){
 	//open the parent
 	vfs_node *parent = vfs_openat(at,path,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent){
@@ -294,7 +302,7 @@ int vfs_createat(vfs_node *at,const char *path,int perm,long flags){
 	//call create on the parent
 	int ret;
 	if(parent->create){
-		ret = parent->create(parent,child,perm,flags);
+		ret = parent->create(parent,child,perm,flags,arg);
 	} else {
 		ret = -ENOTDIR;
 	}

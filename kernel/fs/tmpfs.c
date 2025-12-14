@@ -32,6 +32,9 @@ static void free_inode(tmpfs_inode *inode){
 }
 
 static vfs_node *inode2node(tmpfs_inode *inode){
+	if (inode->flags & TMPFS_FLAGS_SOCK) {
+		//TODO : connect or something like that
+	}
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
 	node->private_inode = (void *)inode;
@@ -290,6 +293,8 @@ int tmpfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 				dirent->d_type = DT_REG;
 			} else if (entry->inode->flags & TMPFS_FLAGS_LINK) {
 				dirent->d_type = DT_LNK;
+			} else if (entry->inode->flags & TMPFS_FLAGS_SOCK) {
+				dirent->d_type = DT_SOCK;
 			}
 			return 0;
 		}
@@ -307,7 +312,7 @@ void tmpfs_close(vfs_node *node){
 	}
 }
 
-int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
+int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags,void *arg){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	if(tmpfs_exist(inode,name))return -EEXIST;
 
@@ -315,6 +320,9 @@ int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
 	uint64_t inode_flag = 0;
 	if(flags & VFS_FILE){
 		inode_flag |= TMPFS_FLAGS_FILE;
+	}
+	if(flags & VFS_SOCK){
+		inode_flag |= TMPFS_FLAGS_SOCK;
 	}
 	if(flags & VFS_DIR){
 		inode_flag |= TMPFS_FLAGS_DIR;
@@ -325,6 +333,10 @@ int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags){
 	child_inode->link_count = 1;
 	child_inode->parent = inode;
 	child_inode->perm = perm;
+
+	if(flags & VFS_SOCK) {
+		child_inode->data = arg;
+	}
 
 	//create new entry
 	tmpfs_dirent *entry = kmalloc(sizeof(tmpfs_dirent));

@@ -27,6 +27,7 @@ typedef struct tmpfs_inode_struct{
 	time_t mtime;
 	size_t link_count;
 	size_t open_count;
+	void *data;
 }tmpfs_inode;
 
 typedef struct tmpfs_dirent_struct {
@@ -38,7 +39,7 @@ vfs_node *tmpfs_lookup(vfs_node *node,const char *name);
 ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 void tmpfs_close(vfs_node *node);
-int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags);
+int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags,void *arg);
 int tmpfs_unlink(vfs_node *node,const char *name);
 int tmpfs_link(vfs_node *,const char*,vfs_node*,const char*);
 int tmpfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent);
@@ -51,6 +52,7 @@ int tmpfs_setattr(vfs_node *node,struct stat *st);
 #define TMPFS_FLAGS_FILE 0x01
 #define TMPFS_FLAGS_DIR  0x02
 #define TMPFS_FLAGS_LINK 0x04
+#define TMPFS_FLAGS_SOCK 0x08
 
 #define IOCTL_TMPFS_CREATE_DEV 0x01
 #define IOCTL_TMPFS_SET_DEV_INODE 0x02

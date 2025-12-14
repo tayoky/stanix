@@ -38,7 +38,7 @@ typedef struct vfs_node_struct {
 	ssize_t (* write)(struct vfs_node_struct *,void *buf,uint64_t off,size_t count);
 	void (* close)(struct vfs_node_struct *);
 	struct vfs_node_struct *(* lookup)(struct vfs_node_struct *,const char *name);
-	int (* create)(struct vfs_node_struct*,const char *name,mode_t perm,long);
+	int (* create)(struct vfs_node_struct*,const char *name,mode_t perm,long,void*);
 	int (* unlink)(struct vfs_node_struct*,const char *);
 	int (* link)(struct vfs_node_struct*,const char*,struct vfs_node_struct*,const char*);
 	int (* symlink)(struct vfs_node_struct*,const char*,const char*);
@@ -108,6 +108,8 @@ ssize_t vfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);
 ssize_t vfs_write(vfs_node *node,const void *buffer,uint64_t offset,size_t count);
 int vfs_create(const char *path,int perm,long flags);
 int vfs_createat(vfs_node *at,const char *path,int perm,long flags);
+int vfs_create_ext(const char *path,int perm,long flags,void *arg);
+int vfs_createat_ext(vfs_node *at,const char *path,int perm,long flags,void *arg);
 int vfs_mkdir(const char *path,int perm);
 
 /// @brief close an context
