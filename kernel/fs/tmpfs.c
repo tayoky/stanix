@@ -60,6 +60,7 @@ static vfs_node *inode2node(tmpfs_inode *inode){
 	}
 
 	if (inode->flags & TMPFS_FLAGS_SOCK) {
+		node->private_inode2 = inode->data;
 		node->flags |= VFS_SOCK;
 	}
 

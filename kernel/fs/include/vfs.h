@@ -31,6 +31,7 @@ struct memseg_struct;
 
 typedef struct vfs_node_struct {
 	void *private_inode;
+	void *private_inode2;
 	struct vfs_mount_point_struct *mount_point;
 	uint64_t flags;
 	uint64_t ref_count;
