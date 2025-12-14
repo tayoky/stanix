@@ -3,6 +3,7 @@
 #include <kernel/kheap.h>
 #include <kernel/string.h>
 #include <kernel/print.h>
+#include <kernel/scheduler.h>
 #include <kernel/ringbuf.h>
 #include <errno.h>
 
@@ -32,7 +33,7 @@ int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
 	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) return -EINVAL;
 	if (socket->status != UNIX_STATUS_INIT) return -EINVAL;
 
-	int ret = vfs_create_ext(address->sun_path, 0777, VFS_SOCK, sock);
+	int ret = vfs_create_ext(address->sun_path, 0777 & ~get_current_proc()->umask, VFS_SOCK, sock);
 	if (ret < 0) {
 		if (ret == -EEXIST) ret = -EADDRINUSE;
 		return ret;

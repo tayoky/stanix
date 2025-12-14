@@ -465,14 +465,12 @@ int vfs_getattr(vfs_node *node,struct stat *st){
 	//file type to mode
 	if(node->flags & VFS_FILE){
 		st->st_mode |= S_IFREG;
-	}
-	if(node->flags & VFS_DIR){
+	} else if(node->flags & VFS_DIR){
 		st->st_mode |= S_IFDIR;
-	}
-	if(node->flags & VFS_DEV){
-		if(node->flags & VFS_SOCK){
-			st->st_mode |= S_IFSOCK;
-		} else if(node->flags & VFS_BLOCK){
+	} else if(node->flags & VFS_SOCK){
+		st->st_mode |= S_IFSOCK;
+	} else if(node->flags & VFS_DEV){
+		if(node->flags & VFS_BLOCK){
 			st->st_mode |= S_IFBLK;
 		} else if(node->flags & VFS_CHAR){
 			st->st_mode |= S_IFCHR;

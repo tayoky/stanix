@@ -8,7 +8,7 @@
 
 #define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - KHEAP_START)
 
-static tmpfs_inode *new_inode(uint64_t flags){
+static tmpfs_inode *new_inode(long flags){
 	tmpfs_inode *inode = kmalloc(sizeof(tmpfs_inode));
 	memset(inode,0,sizeof(tmpfs_inode));
 	inode->buffer_size = 0;
@@ -32,9 +32,6 @@ static void free_inode(tmpfs_inode *inode){
 }
 
 static vfs_node *inode2node(tmpfs_inode *inode){
-	if (inode->flags & TMPFS_FLAGS_SOCK) {
-		//TODO : connect or something like that
-	}
 	vfs_node *node = kmalloc(sizeof(vfs_node));
 	memset(node,0,sizeof(vfs_node));
 	node->private_inode = (void *)inode;
@@ -60,6 +57,10 @@ static vfs_node *inode2node(tmpfs_inode *inode){
 	if(inode->flags & TMPFS_FLAGS_LINK){
 		node->readlink   = tmpfs_readlink;
 		node->flags |= VFS_LINK;
+	}
+
+	if (inode->flags & TMPFS_FLAGS_SOCK) {
+		node->flags |= VFS_SOCK;
 	}
 
 	node->close    = tmpfs_close;

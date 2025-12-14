@@ -1,8 +1,15 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <getopt.h>
+
+struct option options[] = {
+	{"list", no_argument, 0, 'l'},
+	{0,0,0,0},
+};
 
 int server;
 int client;
@@ -24,7 +31,7 @@ void *client_thread(void *arg){
 	return NULL;
 }
 
-int main(){
+int main(int argc, char **argv){
 	server = socket(AF_UNIX, SOCK_STREAM, 0);
 	client = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -41,6 +48,10 @@ int main(){
 	if (listen(server, 5) < 0) {
 		perror("listen");
 		return 1;
+	}
+
+	if (getopt_long(argc, argv, "l", options, NULL) == 'l') {
+		system("ls -l /tmp");
 	}
 
 	pthread_t thread;
