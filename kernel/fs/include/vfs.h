@@ -46,7 +46,7 @@ typedef struct vfs_node_struct {
 	ssize_t (*readlink)(struct vfs_node_struct*,char*,size_t);
 	int (* readdir)(struct vfs_node_struct*,unsigned long index,struct dirent*);
 	int (* truncate)(struct vfs_node_struct*,size_t);
-	int (* ioctl)(struct vfs_node_struct*,uint64_t,void*);
+	int (* ioctl)(struct vfs_node_struct*,long,void*);
 	int (* getattr)(struct vfs_node_struct *,struct stat *);
 	int (* setattr)(struct vfs_node_struct *,struct stat *);
 	int (* wait_check)(struct vfs_node_struct *,short);
@@ -154,7 +154,7 @@ int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner);
 /// @param request the id of the request
 /// @param arg device/request specific
 /// @return device/request specific
-int vfs_ioctl(vfs_node *node,uint64_t request,void *arg);
+int vfs_ioctl(vfs_node *node,long request,void *arg);
 
 /// @brief duplicate an vfs_node
 /// @param node the vfs_node to duplicate

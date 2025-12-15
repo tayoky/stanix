@@ -7,6 +7,7 @@
 #include <kernel/devices.h>
 #include <kernel/bootinfo.h>
 #include <kernel/memseg.h>
+#include <kernel/tmpfs.h>
 #include <sys/mman.h>
 #include <sys/fb.h>
 #include <errno.h>
@@ -41,7 +42,7 @@ int framebuffer_scroll(struct limine_framebuffer *inode,uint64_t count){
 	return 0;
 }
 
-int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg){
+int framebuffer_ioctl(vfs_node *node,long request,void *arg){
 	struct limine_framebuffer *inode = node->private_inode;
 	
 	//implent basic ioctl : width hight ...
@@ -124,7 +125,10 @@ int frambuffer_mmap(vfs_node *node,off_t offset,memseg_t *seg){
 }
 
 void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color){
-	struct limine_framebuffer *inode = framebuffer->private_inode;
+	// this way of getting the limine struct is VERY HACKY
+	tmpfs_inode *tmpfs_inode = framebuffer->private_inode;
+	vfs_node *dev = tmpfs_inode->data;
+	struct limine_framebuffer *inode = dev->private_inode;
 	uint64_t location =  y * inode->pitch  + (x * sizeof(uint32_t));
 	vfs_write(framebuffer,&color,location,sizeof(uint32_t));
 }

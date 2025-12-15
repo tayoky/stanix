@@ -4,6 +4,7 @@
 
 #include <kernel/list.h>
 #include <kernel/vfs.h>
+#include <kernel/memseg.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <limits.h>
@@ -48,13 +49,15 @@ int tmpfs_symlink(vfs_node *node,const char *name,const char *target);
 ssize_t tmpfs_readlink(vfs_node *node,char *buf,size_t bufsize);
 int tmpfs_getattr(vfs_node *node,struct stat *st);
 int tmpfs_setattr(vfs_node *node,struct stat *st);
+int tmpfs_wait_check(vfs_node *node,short type);
+int tmpfs_mmap(vfs_node *node,off_t offset,memseg_t *seg);
+int tmpfs_ioctl(vfs_node *node, long request, void *arg);
 
-#define TMPFS_FLAGS_FILE 0x01
-#define TMPFS_FLAGS_DIR  0x02
-#define TMPFS_FLAGS_LINK 0x04
-#define TMPFS_FLAGS_SOCK 0x08
-
-#define IOCTL_TMPFS_CREATE_DEV 0x01
-#define IOCTL_TMPFS_SET_DEV_INODE 0x02
+#define TMPFS_FLAGS_FILE  0x01
+#define TMPFS_FLAGS_DIR   0x02
+#define TMPFS_FLAGS_LINK  0x04
+#define TMPFS_FLAGS_SOCK  0x08
+#define TMPFS_FLAGS_CHAR  0x10
+#define TMPFS_FLAGS_BLOCK 0x20
 
 #endif

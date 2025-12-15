@@ -426,7 +426,7 @@ int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
 	return vfs_setattr(node,&st);
 }
 
-int vfs_ioctl(vfs_node *node,uint64_t request,void *arg){
+int vfs_ioctl(vfs_node *node,long request,void *arg){
 	if(node->ioctl){
 		return node->ioctl(node,request,arg);
 	} else {

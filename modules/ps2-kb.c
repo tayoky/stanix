@@ -64,7 +64,7 @@ static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	return ringbuffer_read(buffer,kb->queue,count);
 }
 
-static int kbd_ioctl(vfs_node *node,uint64_t req,void *arg){
+static int kbd_ioctl(vfs_node *node,long req,void *arg){
 	(void)arg;
 	struct keyboard *kb = node->private_inode;
 	switch(req){

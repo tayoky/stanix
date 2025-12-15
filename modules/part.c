@@ -61,7 +61,7 @@ typedef struct part {
 	struct part_info info;
 } part;
 
-static int part_ioctl(vfs_node *node,uint64_t req,void *arg){
+static int part_ioctl(vfs_node *node,long req,void *arg){
 	//expose partiton info to userspace
 	part *partition = node->private_inode;
 	switch(req){

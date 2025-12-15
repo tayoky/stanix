@@ -240,7 +240,7 @@ static ssize_t ata_write(vfs_node *node,void *buffer,uint64_t offset,size_t coun
 	return ata_access(node,buffer,offset,count,1);
 }
 
-static int ide_ioctl(vfs_node *node,uint64_t req,void *arg){
+static int ide_ioctl(vfs_node *node,long req,void *arg){
 	ide_device *device = node->private_inode;
 	switch(req){
 	case I_MODEL:

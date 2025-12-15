@@ -11,9 +11,7 @@
 static vfs_node *devfs_root;
 
 int devfs_create_dev(const char *path, vfs_node *dev) {
-	int ret = vfs_createat(devfs_root,path,0777,VFS_FILE);
-	if (ret < 0) return ret;
-	return vfs_mountat(devfs_root, path, dev);
+	return vfs_createat_ext(devfs_root, path, 0666, dev->flags, dev);
 }
 
 

@@ -90,7 +90,7 @@ void term_draw_char(char c,terminal_emu_settings *terminal_settings){
 	terminal_settings->x += 8;
 }
 
-int term_ioctl(vfs_node *node,uint64_t request,void *arg){
+int term_ioctl(vfs_node *node,long request,void *arg){
 	//make compiler happy
 	(void)arg;
 	terminal_emu_settings *inode = node->private_inode;

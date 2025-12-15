@@ -6,7 +6,7 @@
 void init_frambuffer(void);
 
 ssize_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
-int framebuffer_ioctl(vfs_node *node,uint64_t request,void *arg);
+int framebuffer_ioctl(vfs_node *node,long request,void *arg);
 void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color);
 #define IOCTL_FRAMEBUFFER_WIDTH  0x01
 #define IOCTL_FRAMEBUFFER_HEIGHT 0x02

@@ -8,6 +8,8 @@
 
 #define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - KHEAP_START)
 
+#define IS_DEV(flags) (flags & (TMPFS_FLAGS_CHAR | TMPFS_FLAGS_BLOCK))
+
 static tmpfs_inode *new_inode(long flags){
 	tmpfs_inode *inode = kmalloc(sizeof(tmpfs_inode));
 	memset(inode,0,sizeof(tmpfs_inode));
@@ -26,6 +28,9 @@ static tmpfs_inode *new_inode(long flags){
 }
 
 static void free_inode(tmpfs_inode *inode){
+	if (IS_DEV(inode->flags)) {
+		vfs_close(inode->data);
+	}
 	kfree(inode->buffer);
 	free_list(inode->entries);
 	kfree(inode);
@@ -51,6 +56,7 @@ static vfs_node *inode2node(tmpfs_inode *inode){
 		node->read       = tmpfs_read;
 		node->write      = tmpfs_write;
 		node->truncate   = tmpfs_truncate;
+		node->mmap       = tmpfs_mmap;
 		node->flags |= VFS_FILE;
 	}
 
@@ -62,6 +68,22 @@ static vfs_node *inode2node(tmpfs_inode *inode){
 	if (inode->flags & TMPFS_FLAGS_SOCK) {
 		node->private_inode2 = inode->data;
 		node->flags |= VFS_SOCK;
+	}
+
+	if (IS_DEV(inode->flags)) {
+		node->read       = tmpfs_read;
+		node->write      = tmpfs_write;
+		node->truncate   = tmpfs_truncate;
+		node->ioctl      = tmpfs_ioctl;
+		node->mmap       = tmpfs_mmap;
+		node->wait_check = tmpfs_wait_check;
+		node->flags |= VFS_DEV;
+		if (inode->flags & TMPFS_FLAGS_CHAR) {
+			node->flags |= VFS_CHAR;
+		}
+		if (inode->flags & TMPFS_FLAGS_BLOCK) {
+			node->flags |= VFS_BLOCK;
+		}
 	}
 
 	node->close    = tmpfs_close;
@@ -89,6 +111,7 @@ void init_tmpfs(){
 	vfs_register_fs(&tmpfs);
 	kok();
 }
+
 vfs_node *new_tmpfs(){
 	tmpfs_inode *root_inode = new_inode(TMPFS_FLAGS_DIR);
 	root_inode->link_count = 0; //so it get freed when the tmpfs is unmounted
@@ -118,8 +141,36 @@ vfs_node *tmpfs_lookup(vfs_node *node,const char *name){
 	return NULL;
 }
 
+int tmpfs_wait_check(vfs_node *node,short type){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	if (IS_DEV(inode->flags)) {
+		return vfs_wait_check(inode->data, type);
+	}
+	return type;
+}
+
+int tmpfs_mmap(vfs_node *node,off_t offset,memseg_t *seg){
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	if (IS_DEV(inode->flags)) {
+		return vfs_mmap(inode->data, offset, seg);
+	}
+	// TODO : file mapping
+	return -ENOSYS;
+}
+
+int tmpfs_ioctl(vfs_node *node, long request, void *arg) {
+	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	if (IS_DEV(inode->flags)) {
+		return vfs_ioctl(inode->data, request, arg);
+	}
+	return -EINVAL;
+}
+
 ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	if (IS_DEV(inode->flags)) {
+		return vfs_read(inode->data, buffer, offset, count);
+	}
 
 	//if the read is out of bound make it smaller
 	if(offset + count > inode->buffer_size){
@@ -139,6 +190,9 @@ ssize_t tmpfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 
 ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	if (IS_DEV(inode->flags)) {
+		return vfs_write(inode->data, buffer, offset, count);
+	}
 
 	//if the write is out of bound make the file bigger
 	if(offset + count > inode->buffer_size){
@@ -154,6 +208,9 @@ ssize_t tmpfs_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 
 int tmpfs_truncate(vfs_node *node,size_t size){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
+	if (IS_DEV(inode->flags)) {
+		return vfs_truncate(inode->data, size);
+	}
 	char *new_buffer = kmalloc(size);
 
 	if(inode->buffer_size > size){
@@ -297,6 +354,10 @@ int tmpfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 				dirent->d_type = DT_LNK;
 			} else if (entry->inode->flags & TMPFS_FLAGS_SOCK) {
 				dirent->d_type = DT_SOCK;
+			} else if (entry->inode->flags & TMPFS_FLAGS_CHAR) {
+				dirent->d_type = DT_CHR;
+			} else if (entry->inode->flags & TMPFS_FLAGS_BLOCK) {
+				dirent->d_type = DT_BLK;
 			}
 			return 0;
 		}
@@ -329,16 +390,19 @@ int tmpfs_create(vfs_node *node,const char *name,mode_t perm,long flags,void *ar
 	if(flags & VFS_DIR){
 		inode_flag |= TMPFS_FLAGS_DIR;
 	}
+	if(flags & VFS_CHAR){
+		inode_flag |= TMPFS_FLAGS_CHAR;
+	}
+	if(flags & VFS_BLOCK){
+		inode_flag |= TMPFS_FLAGS_BLOCK;
+	}
 
 	//create new inode
 	tmpfs_inode *child_inode = new_inode(inode_flag);
 	child_inode->link_count = 1;
 	child_inode->parent = inode;
 	child_inode->perm = perm;
-
-	if(flags & VFS_SOCK) {
-		child_inode->data = arg;
-	}
+	child_inode->data = arg;
 
 	//create new entry
 	tmpfs_dirent *entry = kmalloc(sizeof(tmpfs_dirent));

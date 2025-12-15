@@ -173,7 +173,7 @@ void tty_close(vfs_node *node){
 	kfree(tty);
 }
 
-int tty_ioctl(vfs_node *node,uint64_t request,void *arg){
+int tty_ioctl(vfs_node *node,long request,void *arg){
 	tty_t *tty = (tty_t *)node->private_inode;
 	switch (request){
 	case TIOCGETA:
