@@ -20,7 +20,12 @@ int proc_root_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 		return 0;
 	}
 
-    index -=2;
+    if(index == 2){
+		strcpy(dirent->d_name,"self");
+		return 0;
+	}
+
+    index -=3;
 	foreach(node,proc_list){
 		if(!index){
             process_t *proc = node->value;
@@ -54,8 +59,56 @@ int proc_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
     return 0;
 }
 
+int proc_link_getattr(vfs_node *node, struct stat *st) {
+    process_t *proc = node->private_inode;
+    st->st_uid  = proc->euid;
+    st->st_gid  = proc->egid;
+    st->st_mode = 0777;
+    return 0;
+}
+
+ssize_t proc_self_readlink(vfs_node *node, char *buffer, size_t count) {
+    (void)node;
+    char buf[128];
+    sprintf(buf, "/proc/%ld", get_current_proc()->pid);
+    if (count > strlen(buf) + 1) count = strlen(buf) + 1;
+    memcpy(buffer, buf, count);
+    return count;
+}
+
+ssize_t proc_cwd_readlink(vfs_node *node, char *buffer, size_t count) {
+    process_t *proc = node->private_inode;
+    if (count > strlen(proc->cwd_path) + 1) count = strlen(proc->cwd_path) + 1;
+    memcpy(buffer, proc->cwd_path, count);
+    return count;
+}
+
+vfs_node *proc_lookup(vfs_node *root,const char *name) {
+    process_t *proc = root->private_inode;
+    vfs_node *node = kmalloc(sizeof(vfs_node));
+    memset(node,0,sizeof(vfs_node));
+    node->private_inode = proc;
+    if (!strcmp(name, "cwd")) {
+        node->flags    = VFS_LINK;
+        node->getattr  = proc_link_getattr;
+        node->readlink = proc_cwd_readlink;
+        return node;
+    }
+    kfree(node);
+    return NULL;
+}
+
 vfs_node *proc_root_lookup(vfs_node *root,const char *name){
     (void)root;
+    if (!strcmp(name ,"self")) {
+        vfs_node *node = kmalloc(sizeof(vfs_node));
+        memset(node,0,sizeof(vfs_node));
+        node->private_inode = get_current_proc();
+        node->flags    = VFS_LINK;
+        node->getattr  = proc_link_getattr;
+        node->readlink = proc_self_readlink;
+        return node;
+    }
     char *end;
     pid_t pid = strtol(name,&end,10);
     if(end == name)return NULL;
@@ -68,6 +121,7 @@ vfs_node *proc_root_lookup(vfs_node *root,const char *name){
     node->flags   = VFS_DIR;
     node->getattr = proc_getattr;
     node->readdir = proc_readdir;
+    node->lookup  = proc_lookup;
     return node;
 }
 
