@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -20,13 +21,15 @@ struct sockaddr_un server_addr = {
 
 void *client_thread(void *arg){
 	(void)arg;
-
+	
 	if (connect(client, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
 		perror("connected");
 		return NULL;
 	}
 
 	puts("connected");
+	char *msg = "hello from unix socket !";
+	send(client, msg, strlen(msg), 0);
 
 	return NULL;
 }
@@ -62,6 +65,14 @@ int main(int argc, char **argv){
 		perror("accept");
 		return 1;
 	}
+
+	char buf[64];
+	ssize_t size = recv(connected_sock, buf, sizeof(buf), 0);
+	if (size < 0) {
+		perror("recv");
+		return 1;
+	}
+	printf("recived : \"%.*s\"\n", (int)size, buf);
 
 	pthread_join(thread, NULL);
 
