@@ -59,9 +59,6 @@ void check(const char *prefix){
 			continue;
 		}
 
-
-
-		//TODO : mount the loaded partions
 		for(int i = 0;;i++){
 			sprintf(path,DEV_PATH"%s%c%d",prefix,letter,i);
 			int fd = open(path,O_WRONLY);
@@ -95,7 +92,7 @@ void check(const char *prefix){
 				} else {
 					fprintf(stderr,"unknow fs type %08x-%04hx-%04hx-%04hx-",info.gpt.type.e1,info.gpt.type.e2,info.gpt.type.e3,info.gpt.type.e4);
 					for(int i=0; i<6; i++){
-						printf("%02hhx",info.gpt.type.e5[i]);
+						fprintf(stderr, "%02hhx",info.gpt.type.e5[i]);
 					}
 					fprintf(stderr," (gpt)\n");
 				}
@@ -120,7 +117,7 @@ void check(const char *prefix){
 }
 
 int main(){
-	if(getuid() != 0){
+	if(geteuid() != 0){
 		fprintf(stderr,"automount : not run as root\n");
 		return 1;
 	}
