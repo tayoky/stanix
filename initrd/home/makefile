@@ -1,3 +1,5 @@
+all : test
+
 test.c.o : test.c
 	tcc -c -o $@ $^
 

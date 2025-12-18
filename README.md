@@ -6,7 +6,7 @@ with its own kernel libc shell and userspace capable of running programs such as
 more info on [the webiste](https://tayoky.github.io/stanix)
 
 ## screenshots
-![a stanix screenshot with ls runnning](https://tayoky.github.io/stanix/assets/screenshot1.png)
+![a stanix screenshot with ls runnning](https://tayoky.github.io/stanix/assets/screenshot2.png)
 
 ### doom !
 ![doom running under stanix](https://tayoky.github.io/stanix/assets/doom.png)
