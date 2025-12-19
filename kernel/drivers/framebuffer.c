@@ -4,7 +4,6 @@
 #include <kernel/string.h>
 #include <kernel/devfs.h>
 #include <kernel/print.h>
-#include <kernel/devices.h>
 #include <kernel/bootinfo.h>
 #include <kernel/memseg.h>
 #include <kernel/tmpfs.h>
