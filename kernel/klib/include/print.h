@@ -3,14 +3,15 @@
 #include <stdarg.h>
 #include <kernel/vfs.h>
 
-typedef void(*print_func)(const char ch,void *extra);
+int sprintf(char * str,const char *fmt,...);
+int vsprintf(char * buf,const char *fmt,va_list args);
+int snprintf(char * str,size_t maxlen, const char *fmt,...);
+int vsnprintf(char * buf,size_t maxlen, const char *fmt,va_list args);
 
-void printfunc(print_func func,const char *fmt,va_list,void *extra);
-
+void kvfprintf(vfs_node *node,const char *fmt,va_list args);
 void kfprintf(vfs_node *node,const char *fmt,...);
-int  sprintf(char *buf,const char *fmt,...);
-void kprintf(const char *fmt,...);
 void kvprintf(const char *fmt,va_list args);
+void kprintf(const char *fmt,...);
 void kstatus(const char *status);
 void __kdebugf(const char *file,int line,const char *fmt,...);
 void kinfof(const char *fmt,...);
