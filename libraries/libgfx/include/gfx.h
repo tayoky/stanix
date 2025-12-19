@@ -63,5 +63,6 @@ void gfx_draw_texture(gfx_t *gfx,texture_t *textutre,long x,long y);
 void gfx_draw_texture_scale(gfx_t *gfx,texture_t *texture,long x,long y,float scale_x,float scale_y);
 
 #define gfx_draw_pixel(gfx,color,x,y) {*(color_t *)((uintptr_t)gfx->buffer +  (x) * (gfx->bpp / 8) + (y) * gfx->pitch) = (color);}
+#define gfx_pixel_addr(gfx,x,y) ((uintptr_t)gfx->buffer +  (x) * (gfx->bpp / 8) + (y) * gfx->pitch)
 
 #endif
