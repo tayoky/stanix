@@ -18,7 +18,7 @@ static inline uint64_t octal2int(const char *octal){
 #define CHECK(o,m) if(i & o)mode |= m
 
 void mount_initrd(void){
-	kstatus("unpack initrd ...");
+	kstatusf("unpack initrd ...");
 	
 	//create an tmpfs for it
 	if(vfs_chroot(new_tmpfs())){

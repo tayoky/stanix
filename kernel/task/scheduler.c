@@ -34,7 +34,7 @@ static void idle_task() {
 }
 
 void init_task() {
-	kstatus("init kernel task... ");
+	kstatusf("init kernel task... ");
 	//init the scheduler first
 	proc_list     = new_list();
 	task_list     = new_list();

@@ -218,7 +218,7 @@ static int shmfs_unlink(vfs_node *node,const char *name){
 }
 
 void init_shm(void){
-    kstatus("init shared memory subsystem ... ");
+    kstatusf("init shared memory subsystem ... ");
     shm_files = new_list();
 
     shmfs_root = kmalloc(sizeof(vfs_node));

@@ -49,7 +49,7 @@ void print_license(void) {
 }
 
 void spawn_init() {
-	kstatus("try spawn init...\n");
+	kstatusf("try spawn init...\n");
 	//first get the path for the init program
 	char *init_path = ini_get_value(kernel->conf_file, "init", "init");
 
@@ -122,6 +122,6 @@ void kmain() {
 	init_sockets();
 	init_unix_socket();
 
-	kstatus("finish init kernel\n");
+	kstatusf("finish init kernel\n");
 	spawn_init();
 }

@@ -90,7 +90,7 @@ void isr_handler(fault_frame *fault){
 }
 
 void init_idt(void){
-	kstatus("init IDT... ");
+	kstatusf("init IDT... ");
 
 	//some exception other exceptions are not very important
 	set_idt_gate(kernel->arch.idt,0,&divide_exception,0x8E);

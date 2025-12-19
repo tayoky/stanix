@@ -13,7 +13,7 @@ void init_kout(){
 	//and save it!
 	//simple right ?
 
-	kstatus("init kout... ");
+	kstatusf("init kout... ");
 
 	//first find the number of out
 	int kout_count = 0;

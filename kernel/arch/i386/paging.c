@@ -15,7 +15,7 @@ uint64_t get_addr_space(){
 }
 
 void init_paging(void){
-	kstatus("init paging... ");
+	kstatusf("init paging... ");
 	
 	//init the 8 higher PDP
 	//the 8 higher PDP mapping are conserved across all address space

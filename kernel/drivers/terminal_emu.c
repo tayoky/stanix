@@ -131,7 +131,7 @@ ssize_t term_write(vfs_node *node,void *vbuffer,uint64_t offset,size_t count){
 }
 
 void init_terminal_emualtor(void){
-	kstatus("init terminal emulator ...");
+	kstatusf("init terminal emulator ...");
 	//not activated by default
 	char *activated_value = ini_get_value(kernel->conf_file,"terminal_emulator","activate");
 	if(!activated_value){

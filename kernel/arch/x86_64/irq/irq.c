@@ -25,7 +25,7 @@ extern void irq15();
 static void *handlers[16];
 
 void init_irq(void){
-	kstatus("init irq chip... ");
+	kstatusf("init irq chip... ");
 
 	//set generic handler
 	set_idt_gate(kernel->arch.idt,32,irq0,0x8E);

@@ -71,7 +71,7 @@ vfs_node null_dev = {
 };
 
 void init_devices(void){
-	kstatus("init dev ...");
+	kstatusf("init dev ...");
 	devfs_root = new_tmpfs();
 	if(vfs_mount("/dev",devfs_root)){
 		kfail();

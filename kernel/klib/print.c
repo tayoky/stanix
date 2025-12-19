@@ -61,24 +61,30 @@ void kprintf(const char *fmt,...){
 	va_end(args);
 }
 
-void __kdebugf(const char*file,int line,const char *fmt,...){
-	kprintf("["COLOR_BLUE"debug"COLOR_RESET"] %s:%d ",file,line);
+static const char *get_string(int level) {
+	switch (level) {
+	case LOG_DEBUG:
+		return "["COLOR_BLUE  "debug"COLOR_RESET"]";
+	case LOG_INFO:
+		return "["COLOR_YELLOW"infos"COLOR_RESET"]";
+	case LOG_STATUS:
+		return "["COLOR_YELLOW"status"COLOR_RESET"]";
+	case LOG_WARNING:
+		return "["COLOR_YELLOW" warn "COLOR_RESET"]";
+	case LOG_ERROR:
+		return "["COLOR_RED   "error"COLOR_RESET"]";
+	case LOG_FATAL:
+		return "["COLOR_RED   "fatal"COLOR_RESET"]";
+	default :
+		return "["COLOR_BLUE  "?????"COLOR_RESET"]";
+	}
+}
+
+void __kprint(const char *filename, long line, int level, const char *fmt, ...) {
 	va_list args;
-	va_start(args,fmt);
+	va_start(args, fmt);
+	kprintf("%s %s:%ld ", get_string(level), filename, line);
 	kvprintf(fmt, args);
 	va_end(args);
 }
 
-void kinfof(const char *fmt,...){
-	kprintf("["COLOR_YELLOW"infos"COLOR_RESET"] ");
-	va_list args;
-	va_start(args,fmt);
-	kvprintf(fmt, args);
-	va_end(args);
-}
-
-
-void kstatus(const char *status){
-	kprintf("["COLOR_YELLOW"status"COLOR_RESET"] ");
-	kprintf(status);
-}

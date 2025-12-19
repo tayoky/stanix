@@ -8,7 +8,7 @@
 
 
 void init_PMM(){
-	kstatus("init PMM ... ");
+	kstatusf("init PMM ... ");
 
 	kernel->used_memory = kernel->total_memory;
 	kernel->PMM_stack_head = NULL;

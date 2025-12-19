@@ -59,7 +59,7 @@ static const char *memmap_types[] = {
 
 
 void get_bootinfo(void) {
-	kstatus("getting limine response ...");
+	kstatusf("getting limine response ...");
 	//get the stack start
 #ifdef x86_64
 	uint64_t *rbp;

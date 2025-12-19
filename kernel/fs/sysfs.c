@@ -95,7 +95,7 @@ ssize_t mem_read(vfs_node *node,void *buf,uint64_t off,size_t count){
 }
 
 void init_sysfs(void){
-    kstatus("init sysfs ... ");
+    kstatusf("init sysfs ... ");
     sysfs_root = sysfs_inode2vnode(new_sysfs_inode());
 
     // simple /sys/mem

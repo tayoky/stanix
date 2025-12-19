@@ -10,7 +10,7 @@ void set_kernel_stack(uintptr_t stack){
 }
 
 void init_tss(){
-	kstatus("init tss... ");
+	kstatusf("init tss... ");
 
 	//just set the tss
 	memset(&kernel->arch.tss,0,sizeof(TSS));

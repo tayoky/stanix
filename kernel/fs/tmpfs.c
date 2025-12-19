@@ -107,7 +107,7 @@ vfs_filesystem tmpfs = {
 };
 
 void init_tmpfs(){
-	kstatus("init tmpfs... ");
+	kstatusf("init tmpfs... ");
 	vfs_register_fs(&tmpfs);
 	kok();
 }

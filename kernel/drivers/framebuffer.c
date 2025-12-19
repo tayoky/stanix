@@ -133,7 +133,7 @@ void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color){
 }
 
 void init_frambuffer(void){
-	kstatus("init frambuffer ...");
+	kstatusf("init frambuffer ...");
 
 	for (uint64_t i = 0; i < frambuffer_request.response->framebuffer_count; i++){
 		if(i >= 100){

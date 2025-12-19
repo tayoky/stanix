@@ -59,7 +59,7 @@ static int is_leap(uintmax_t year){
 }
 
 void init_cmos(void){
-	kstatus("start reading cmos... ");
+	kstatusf("start reading cmos... ");
 	cmos_wait();
 	mode = read_raw_cmos(CMOS_REGISTER_B);
 	uint8_t seconds = read_cmos(0x00);

@@ -274,7 +274,7 @@ int rmmod(const char *name) {
 }
 
 void init_mod() {
-	kstatus("init exported symbol list and module loader ... ");
+	kstatusf("init exported symbol list and module loader ... ");
 
 	//init the list to keep track of all modules
 	loaded_mods = new_list();

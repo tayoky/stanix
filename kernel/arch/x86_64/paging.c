@@ -19,7 +19,7 @@ void set_addr_space(addrspace_t new_addrspace){
 }
 
 void init_paging(void){
-	kstatus("init paging... ");
+	kstatusf("init paging... ");
 	
 	//init the 8 higher PDP
 	//the 8 higher PDP mapping are conserved across all address space

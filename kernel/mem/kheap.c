@@ -6,7 +6,7 @@
 #include <kernel/kernel.h>
 
 void init_kheap(void){
-	kstatus("init kheap... ");
+	kstatusf("init kheap... ");
 
 	kernel->kheap.start = PAGE_ALIGN_DOWN(KHEAP_START);
 	kernel->kheap.changes_size = change_kheap_size;

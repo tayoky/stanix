@@ -28,7 +28,7 @@ gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint
 | GDT_SEGMENT_ACCESS_S
 
 void init_gdt(void){
-	kstatus("init GDT... ");
+	kstatusf("init GDT... ");
 
 	//first the null segment
 	kernel->arch.gdt[0] = create_gdt_segement(0,0,0,0);

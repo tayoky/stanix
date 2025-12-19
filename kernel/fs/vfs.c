@@ -17,7 +17,7 @@ vfs_node *root;
 list_t*fs_types;
 
 void init_vfs(void){
-	kstatus("init vfs... ");
+	kstatusf("init vfs... ");
 	root = NULL;
 	fs_types  = new_list();
 	kok();

@@ -7,7 +7,7 @@
 #include <kernel/ini.h>
 
 void read_main_conf_file(void){
-	kstatus("open main conf file /conf.ini ...");
+	kstatusf("open main conf file /conf.ini ...");
 	vfs_node *conf_file = vfs_open("/conf.ini",VFS_READONLY);
 
 	//retry with stanix.ini

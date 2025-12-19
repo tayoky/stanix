@@ -29,7 +29,7 @@ void pit_handler(fault_frame *frame){
 }
 
 void init_pit(void){
-	kstatus("init PIT... ");
+	kstatusf("init PIT... ");
 
 	//the tick per second is defined here
 	uint16_t divider = 1193181 / TPS;
