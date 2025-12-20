@@ -6,7 +6,8 @@ CFLAGS = -Wall \
     -fno-stack-protector \
     -fno-stack-check \
     -fno-PIC \
-    -fsanitize=undefined
+    -fsanitize=undefined \
+    -D__KERNEL__=1
 CFLAGS += -I ./
 CFLAGS += -I ./include/
 CFLAGS += -I ../limine/
