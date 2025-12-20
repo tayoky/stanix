@@ -22,6 +22,7 @@ typedef struct twm_request {
 
 typedef struct twm_event {
     uint64_t request_id;
+    int size;
 } twm_event_t;
 
 typedef struct twm_ctx {
@@ -44,8 +45,15 @@ typedef struct twm_request_create_window {
     long height;
 } twm_request_create_window_t;
 
+
+typedef struct twm_event_window_created {
+    twm_event_t base;
+    twm_window_t id;
+} twm_event_window_created_t;
+
 #define TWM_CURRENT_MAJOR 0
 #define TWM_CURRENT_MINOR 1
+#define TWM_MAX_PACKET_SIZE 4096
 
 int twm_init(const char *path);
 void twm_fini(void);
