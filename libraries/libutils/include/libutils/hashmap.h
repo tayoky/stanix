@@ -2,9 +2,8 @@
 #define _LIBUTILS_HASHMAP_H
 
 #include "vector.h"
+#include "base.h"
 #include <stdint.h>
-#include <string.h>
-#include <stdlib.h>
 
 typedef struct utils_hashmap_entry {
 	long key;
@@ -79,6 +78,17 @@ static inline int utils_hashmap_remove(utils_hashmap_t *hashmap, long key) {
 		}
 	}
 	return 0;
+}
+
+static inline void utils_hashmap_foreach(utils_hashmap_t *hashmap, void (*func)(void *element, void *arg), void *arg) {
+	for (size_t i=0; i<hashmap->capacity; i++) {
+		utils_vector_t *vector = &hashmap->vectors[i];
+		utils_hashmap_entry_t *entries = vector->data;
+		if (!entries) continue;
+		for (size_t j=0; j<vector->count; j++) {
+			func(entries[j].element, arg);
+		}
+	}
 }
 
 #endif

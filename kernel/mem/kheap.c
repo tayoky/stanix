@@ -4,6 +4,7 @@
 #include <kernel/panic.h>
 #include <kernel/spinlock.h>
 #include <kernel/kernel.h>
+#include <kernel/string.h>
 
 void init_kheap(void){
 	kstatusf("init kheap... ");
@@ -171,4 +172,28 @@ void *kmalloc(size_t amount){
 
 void kfree(void *ptr){
 	return free(&kernel->kheap,ptr);
+}
+
+
+void *krealloc(void *ptr, size_t new_size) {
+	if(!ptr){
+		return kmalloc(new_size);
+	}
+	if(!new_size){
+		kfree(ptr);
+		return NULL;
+	}
+	heap_segment *seg = (heap_segment *)((uintptr_t)ptr - sizeof(heap_segment));
+	void *new_buf = kmalloc(new_size);
+	if(!new_buf){
+		return NULL;
+	}
+
+	if(new_size > seg->lenght){
+		memcpy(new_buf,ptr,seg->lenght);
+	} else {
+		memcpy(new_buf,ptr,seg->lenght);
+	}
+	kfree(ptr);
+	return new_buf;
 }

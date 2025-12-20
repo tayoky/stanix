@@ -1,8 +1,7 @@
 #ifndef _LIBUTILS_VECTOR_H
 #define _LIBUTILS_VECTOR_H
 
-#include <stdlib.h>
-#include <string.h>
+#include "base.h"
 
 typedef struct utils_vector {
 	size_t count;
@@ -12,6 +11,7 @@ typedef struct utils_vector {
 } utils_vector_t;
 
 static inline void utils_init_vector(utils_vector_t *vector, size_t element_size){
+	if (vector->data) return;
 	vector->data = malloc(element_size);
 	vector->capacity = 1;
 	vector->count = 0;
@@ -19,6 +19,7 @@ static inline void utils_init_vector(utils_vector_t *vector, size_t element_size
 }
 
 static inline void utils_free_vector(utils_vector_t *vector){
+	if (!vector->data) return;
 	free(vector->data);
 	vector->data = NULL;
 	vector->count = 0;
