@@ -57,6 +57,8 @@ void *kmalloc(size_t amount);
 /// @param ptr an pointer to the memory region to free
 void kfree(void *ptr);
 
+void *krealloc(void *ptr, size_t size);
+
 #define KHEAP_START (((uint64_t)0xFFFF << 48)  | ((uint64_t)(509 & 0x1FF) << 39))
 
 #endif
