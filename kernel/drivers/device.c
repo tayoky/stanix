@@ -1,10 +1,13 @@
 #include <libutils/hashmap.h>
 #include <kernel/device.h>
+#include <kernel/tmpfs.h>
+#include <kernel/print.h>
 #include <kernel/bus.h>
 #include <errno.h>
 
 utils_hashmap_t device_drivers;
 utils_hashmap_t devices;
+vfs_node_t *devfs_root;
 
 static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_driver) {
 	if (addr->device) {
@@ -87,4 +90,13 @@ int destroy_device(device_t *device) {
 
 device_t *device_from_number(dev_t dev) {
 	return utils_hashmap_get(&devices, dev);
+}
+
+void init_devices(void) {
+	kstatusf("init devices ... ");
+	utils_init_hashmap(&devices, 256);
+	utils_init_hashmap(&device_drivers, 256);
+	devfs_root = new_tmpfs();
+	vfs_mount("/dev", devfs_root);
+	kok();
 }

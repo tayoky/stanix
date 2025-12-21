@@ -17,7 +17,7 @@ void output_buf(const char *buf, size_t size) {
 		return;
 	}
 	// else output to all context open in kernel.outs
-	vfs_node *current = *kernel->outs;
+	vfs_fd_t *current = *kernel->outs;
 	long index = 0;
 	while(current){
 		// print to it
@@ -27,13 +27,13 @@ void output_buf(const char *buf, size_t size) {
 	}
 }
 
-void kvfprintf(vfs_node *node, const char *fmt, va_list args) {
+void kvfprintf(vfs_fd_t *node, const char *fmt, va_list args) {
 	char buf[1024];
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	vfs_write(node, buf, 0, strlen(buf));
 }
 
-void kfprintf(vfs_node *node, const char *fmt, ...) {
+void kfprintf(vfs_fd_t *node, const char *fmt, ...) {
 	va_list args;
 	va_start(args,fmt);
 	kvfprintf(node, fmt, args);

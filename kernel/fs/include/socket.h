@@ -28,17 +28,17 @@ typedef struct socket_domain {
 } socket_domain_t;
 
 void init_sockets(void);
-vfs_node *create_socket(int domain, int type, int protocol);
+vfs_fd_t *create_socket(int domain, int type, int protocol);
 void *socket_new(size_t size);
 void register_socket_domain(socket_domain_t *domain);
 void unregister_socket_domain(socket_domain_t *domain);
 
 
-ssize_t socket_sendmsg(vfs_node *socket, const struct msghdr *message, int flags);
-ssize_t socket_recvmsg(vfs_node *socket, struct msghdr *message, int flags);
-int socket_accept(vfs_node *socket, struct sockaddr *address, socklen_t *address_len, vfs_node **new_sock);
-int socket_bind(vfs_node *socket, const struct sockaddr *address, socklen_t address_len);
-int socket_connect(vfs_node *socket, const struct sockaddr *address, socklen_t address_len);
-int socket_listen(vfs_node*socket, int backlog);
+ssize_t socket_sendmsg(vfs_fd_t *socket, const struct msghdr *message, int flags);
+ssize_t socket_recvmsg(vfs_fd_t *socket, struct msghdr *message, int flags);
+int socket_accept(vfs_fd_t *socket, struct sockaddr *address, socklen_t *address_len, vfs_fd_t **new_sock);
+int socket_bind(vfs_fd_t *socket, const struct sockaddr *address, socklen_t address_len);
+int socket_connect(vfs_fd_t *socket, const struct sockaddr *address, socklen_t address_len);
+int socket_listen(vfs_fd_t *socket, int backlog);
 
 #endif

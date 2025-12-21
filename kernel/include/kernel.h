@@ -30,8 +30,7 @@ typedef struct kernel_table_struct{
 	vfs_mount_point *first_mount_point;
 	struct limine_file *initrd;
 	const char *conf_file;
-	vfs_node **outs;
-	terminal_emu_settings terminal_settings;
+	vfs_fd_t **outs;
 	uint8_t pic_type;
 	pid_t tid_count;
 	task_t *current_task;

@@ -11,8 +11,8 @@
 #include <sys/fb.h>
 #include <errno.h>
 
-ssize_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	struct limine_framebuffer *inode = node->private_inode;
+ssize_t framebuffer_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+	struct limine_framebuffer *inode = fd->private;
 	uint64_t size = inode->width * inode->height * (inode->bpp / 8);
 	if(offset + count > size){
 		if(offset > size){
@@ -41,8 +41,8 @@ int framebuffer_scroll(struct limine_framebuffer *inode,uint64_t count){
 	return 0;
 }
 
-int framebuffer_ioctl(vfs_node *node,long request,void *arg){
-	struct limine_framebuffer *inode = node->private_inode;
+int framebuffer_ioctl(vfs_fd_t *node,long request,void *arg){
+	struct limine_framebuffer *inode = node->private;
 	
 	//implent basic ioctl : width hight ...
 	switch (request){
@@ -99,17 +99,17 @@ void framebuffer_unmap(memseg_t *seg){
 	(void)seg;
 }
 
-int frambuffer_mmap(vfs_node *node,off_t offset,memseg_t *seg){
+int frambuffer_mmap(vfs_fd_t *fd,off_t offset,memseg_t *seg){
 	if(!(seg->flags & MAP_SHARED)){
 		return -EINVAL;
 	}
 
-	struct limine_framebuffer *inode = node->private_inode;
+	struct limine_framebuffer *fb = fd->private;
 
 	seg->unmap = framebuffer_unmap;
 
 	uintptr_t vaddr = seg->addr;
-	uintptr_t paddr = (uintptr_t)inode->address - kernel->hhdm + PAGE_ALIGN_DOWN(offset);
+	uintptr_t paddr = (uintptr_t)fb->address - kernel->hhdm + PAGE_ALIGN_DOWN(offset);
 	uintptr_t end   = paddr + seg->size;
 
 	kdebugf("map framebuffer at %p in %p lenght : %p\n",vaddr,seg,seg->size);
@@ -123,19 +123,22 @@ int frambuffer_mmap(vfs_node *node,off_t offset,memseg_t *seg){
 	return 0;
 }
 
-void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color){
-	// this way of getting the limine struct is VERY HACKY
-	tmpfs_inode *tmpfs_inode = framebuffer->private_inode;
-	vfs_node *dev = tmpfs_inode->data;
-	struct limine_framebuffer *inode = dev->private_inode;
+void draw_pixel(vfs_fd_t *fd,uint64_t x,uint64_t y,uint32_t color){
+	struct limine_framebuffer *inode = fd->private;
 	uint64_t location =  y * inode->pitch  + (x * sizeof(uint32_t));
-	vfs_write(framebuffer,&color,location,sizeof(uint32_t));
+	vfs_write(fd,&color,location,sizeof(uint32_t));
 }
+
+vfs_ops_t framebuffer_ops = {
+	.write = framebuffer_write,
+	.mmap  = frambuffer_mmap,
+	.ioctl = framebuffer_ioctl,
+};
 
 void init_frambuffer(void){
 	kstatusf("init frambuffer ...");
 
-	for (uint64_t i = 0; i < frambuffer_request.response->framebuffer_count; i++){
+	for (long i = 0; i < frambuffer_request.response->framebuffer_count; i++){
 		if(i >= 100){
 			kfail();
 			kinfof("too many frambuffer (%ld) can only have up to 99\n",frambuffer_request.response->framebuffer_count);
@@ -147,24 +150,22 @@ void init_frambuffer(void){
 		char *full_path = kmalloc(strlen("fb") + 3);
 		sprintf(full_path,"fb%d",i);
 
-		vfs_node *framebuffer_dev = kmalloc(sizeof(vfs_node));
-		memset(framebuffer_dev,0,sizeof(vfs_node));
-		framebuffer_dev->flags = VFS_DEV | VFS_BLOCK;
-		framebuffer_dev->write = framebuffer_write;
-		framebuffer_dev->mmap  = frambuffer_mmap;
-		framebuffer_dev->ioctl = framebuffer_ioctl;
-		framebuffer_dev->private_inode = frambuffer_request.response->framebuffers[i];
+		framebuffer_t *framebuffer_dev = kmalloc(sizeof(framebuffer_t));
+		memset(framebuffer_dev,0,sizeof(framebuffer_t));
+		framebuffer_dev->device.type = DEVICE_BLOCK;
+		framebuffer_dev->device.ops = &framebuffer_ops;
+		framebuffer_dev->device.name = full_path;
+		framebuffer_dev->fb = frambuffer_request.response->framebuffers[i];
 
 		//create the device
-		if(devfs_create_dev(full_path,framebuffer_dev)){
+		if(register_device(framebuffer_dev)){
 			kfail();
 			kinfof("fail to create device /dev/%s\n",full_path);
 			kfree(full_path);
 			return;
 		}
-		kfree(full_path);
 	}
 	kok();
 	
-	kinfof("%lu frambuffer found\n",frambuffer_request.response->framebuffer_count);
+	kinfof("%lu framebuffer found\n",frambuffer_request.response->framebuffer_count);
 }

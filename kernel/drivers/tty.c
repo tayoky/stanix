@@ -1,4 +1,3 @@
-#include <kernel/devfs.h>
 #include <kernel/tty.h>
 #include <kernel/string.h>
 #include <kernel/kheap.h>
@@ -21,7 +20,7 @@ void pty_cleanup(void *data) {
 	kfree(pty);
 }
 
-ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t pty_master_read(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 
 	tty_t *tty = (tty_t *)node->private_inode;
@@ -35,7 +34,7 @@ ssize_t pty_master_read(vfs_node *node,void *buffer,uint64_t offset,size_t count
 	return ringbuffer_read(buffer,pty->output_buffer,count);
 }
 
-ssize_t pty_master_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t pty_master_write(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 
 	tty_t *tty = (tty_t *)node->private_inode;
@@ -46,7 +45,7 @@ ssize_t pty_master_write(vfs_node *node,void *buffer,uint64_t offset,size_t coun
 	return (ssize_t)count;
 }
 
-int pty_master_wait_check(vfs_node *node,short type){
+int pty_master_wait_check(vfs_fd_t *node,short type){
 	tty_t *tty = (tty_t *)node->private_inode;
 	pty_t *pty = (pty_t *)tty->private_data;
 	int events = 0;
@@ -64,36 +63,37 @@ int pty_master_wait_check(vfs_node *node,short type){
 	return events;
 }
 
-void pty_master_close(vfs_node *node) {
-	tty_t *tty = (tty_t *)node->private_inode;
+void pty_master_close(vfs_fd_t *fd) {
+	tty_t *tty = (tty_t *)fd->private;
 	pty_t *pty = tty->private_data;
 
-	// the master close so unmount
-	char path[PATH_MAX];
-	sprintf(path, "pts/%s", pty->slave->name);
-	devfs_remove_dev(path);
+	// the master close so remove the slave
+	destroy_device((device_t*)pty->slave);
 }
 
-int new_pty(vfs_node **master,vfs_node **slave,tty_t **rep){
+vfs_ops_t pty_master_ops = {
+	.read       = pty_master_read,
+	.write      = pty_master_write,
+	.wait_check = pty_master_wait_check,
+	.close      = pty_master_close,
+};
+
+int new_pty(vfs_fd_t **master_fd,vfs_fd_t **slave_fd,tty_t **rep){
 	pty_t *pty = kmalloc(sizeof(pty_t));
 	memset(pty,0,sizeof(pty_t));
 	pty->output_buffer = new_ringbuffer(4096);
 
-	tty_t *tty = NULL;
-	*slave = new_tty(&tty);
-	*rep = tty;
-	tty->private_data = pty;
-	tty->out     = pty_output;
-	tty->cleanup = pty_cleanup;
+	tty_t *slave = new_tty(NULL);
+	*rep = slave;
+	slave->private_data = pty;
+	slave->out     = pty_output;
+	slave->cleanup = pty_cleanup;
 
 	//create the master
-	*master = kmalloc(sizeof(vfs_node));
+	pty_t master = kmalloc(sizeof(vfs_node));
 	memset(*master,0,sizeof(vfs_node));
-	(*master)->read          = pty_master_read;
-	(*master)->write         = pty_master_write;
-	(*master)->wait_check    = pty_master_wait_check;
-	(*master)->close         = pty_master_close,
 	(*master)->private_inode = tty;
+	(*master)
 	(*master)->ref_count     = 1;
 
 	//mount and save the slave
@@ -112,9 +112,9 @@ int new_pty(vfs_node **master,vfs_node **slave,tty_t **rep){
 	return kernel->pty_count++;
 }
 
-ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t tty_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
-	tty_t *tty = (tty_t *)node->private_inode;
+	tty_t *tty = (tty_t *)fd->private;
 
 	if(tty->termios.c_lflag & ICANON){
 		ssize_t rsize = ringbuffer_read(buffer,tty->input_buffer,count);
@@ -130,9 +130,9 @@ ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	return ringbuffer_read(buffer,tty->input_buffer,count);
 }
 
-ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
+ssize_t tty_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
-	tty_t *tty = (tty_t *)node->private_inode;
+	tty_t *tty = (tty_t *)fd->private;
 
 	while(count > 0){
 		tty_output(tty,*(char *)buffer);
@@ -142,8 +142,8 @@ ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
 	return count;
 }
 
-int tty_wait_check(vfs_node *node,short type){
-	tty_t *tty = (tty_t *)node->private_inode;
+int tty_wait_check(vfs_fd_t *fd,short type){
+	tty_t *tty = (tty_t *)fd->private;
 	int events = 0;
 	if((type & POLLHUP) && tty->unconnected){
 		events |= POLLHUP;
@@ -160,9 +160,8 @@ int tty_wait_check(vfs_node *node,short type){
 	return events;
 }
 
-void tty_close(vfs_node *node){
-	// this mean the tty has been unmounted so do cleanup
-	tty_t *tty = (tty_t *)node->private_inode;
+void tty_cleanup(device_t *device){
+	tty_t *tty = (tty_t *)device;
 
 	// TODO : send SIGHUP
 
@@ -173,8 +172,8 @@ void tty_close(vfs_node *node){
 	kfree(tty);
 }
 
-int tty_ioctl(vfs_node *node,long request,void *arg){
-	tty_t *tty = (tty_t *)node->private_inode;
+int tty_ioctl(vfs_fd_t *fd,long request,void *arg){
+	tty_t *tty = (tty_t *)fd->private;
 	switch (request){
 	case TIOCGETA:
 		*(struct termios *)arg = tty->termios;
@@ -204,7 +203,14 @@ int tty_ioctl(vfs_node *node,long request,void *arg){
 	}
 }
 
-vfs_node *new_tty(tty_t **tty){
+vfs_ops_t tty_ops = {
+	.read       = tty_read,
+	.write      = tty_write,
+	.ioctl      = tty_ioctl,
+	.wait_check = tty_wait_check,
+};
+
+device_t *new_tty(tty_t **tty){
 	if(!(*tty)){
 		(*tty) = kmalloc(sizeof(tty_t));
 		memset((*tty),0,sizeof(tty_t));
@@ -227,18 +233,10 @@ vfs_node *new_tty(tty_t **tty){
 
 	(*tty)->canon_buf = kmalloc(512);
 	(*tty)->canon_index = 0;
-	
-	//create the vfs node
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
-	node->private_inode = *tty;
-	node->flags         = VFS_DEV | VFS_CHAR | VFS_TTY;
-	node->read          = tty_read;
-	node->write         = tty_write;
-	node->ioctl         = tty_ioctl;
-	node->wait_check    = tty_wait_check;
+	(*tty)->device.type = DEVICE_CHAR;
+	(*tty)->device.ops = &tty_ops;
 
-	return node;
+	return (device_t*)(*tty);
 }
 
 //tty_output and tty_input based on TorauOS's tty system

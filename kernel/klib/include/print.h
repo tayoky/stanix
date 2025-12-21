@@ -8,8 +8,8 @@ int vsprintf(char * buf,const char *fmt,va_list args);
 int snprintf(char * str,size_t maxlen, const char *fmt,...);
 int vsnprintf(char * buf,size_t maxlen, const char *fmt,va_list args);
 
-void kvfprintf(vfs_node *node,const char *fmt,va_list args);
-void kfprintf(vfs_node *node,const char *fmt,...);
+void kvfprintf(vfs_fd_t *node,const char *fmt,va_list args);
+void kfprintf(vfs_fd_t *node,const char *fmt,...);
 void kvprintf(const char *fmt,va_list args);
 void kprintf(const char *fmt,...);
 void kok(void);

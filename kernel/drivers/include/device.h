@@ -17,6 +17,7 @@ typedef struct device {
 	device_driver_t *driver;
 	struct bus *bus;
 	char *name;
+	vfs_ops_t *ops;
 	int number;
 	int type;
 } device_t;

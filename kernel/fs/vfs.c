@@ -6,13 +6,14 @@
 #include <kernel/memseg.h>
 #include <kernel/time.h>
 #include <kernel/list.h>
+#include <kernel/device.h>
 #include <limits.h>
 #include <stddef.h>
 #include <errno.h>
 #include <poll.h>
 
 //TODO : make this process specific
-vfs_node *root;
+vfs_node_t *root;
 
 list_t*fs_types;
 
@@ -60,7 +61,7 @@ int vfs_auto_mount(const char *source,const char *target,const char *filesystemt
 	return -ENODEV;
 }
 
-int vfs_mount_on(vfs_node *mount_point, vfs_node *local_root) {
+int vfs_mount_on(vfs_node_t *mount_point, vfs_node_t *local_root) {
 	//something is aready mounted ?
 	if(mount_point->flags & VFS_MOUNT){
 		return -EBUSY;
@@ -78,21 +79,21 @@ int vfs_mount_on(vfs_node *mount_point, vfs_node *local_root) {
 	return 0;
 }
 
-int vfs_mountat(vfs_node *at,const char *name,vfs_node *local_root){
+int vfs_mountat(vfs_node_t *at,const char *name,vfs_node_t *local_root){
 	//first open the mount point or create it
-	vfs_node *mount_point = vfs_openat(at,name,VFS_READWRITE);
+	vfs_node_t *mount_point = vfs_get_node_at(at,name,VFS_READWRITE);
 	if(!mount_point){
 		return -ENOENT;
 	}
 
 	int ret = vfs_mount_on(mount_point, local_root);
 
-	vfs_close(mount_point);
+	vfs_close_node(mount_point);
 
 	return ret;
 }
 
-int vfs_mount(const char *name,vfs_node *local_root){
+int vfs_mount(const char *name,vfs_node_t *local_root){
 	return vfs_mountat(NULL,name,local_root);
 }
 
@@ -102,8 +103,8 @@ int vfs_unmount(const char *path){
 
 //TODO : we don't handle the case where a parent of the mount point get closed
 //the local_root stay open but somebody try to open it's parent
-int vfs_unmountat(vfs_node *at, const char *path){
-	vfs_node *parent = vfs_openat(at,path,VFS_PARENT);
+int vfs_unmountat(vfs_node_t *at, const char *path){
+	vfs_node_t *parent = vfs_get_node_at(at,path,VFS_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
@@ -112,46 +113,46 @@ int vfs_unmountat(vfs_node *at, const char *path){
 	const char *child = vfs_basename(path);
 	
 	//we can use vfs_lookup cause it don't folow mount point (only vfs_openat does)
-	vfs_node *mount_point = vfs_lookup(parent,child);
-	vfs_close(parent);
+	vfs_node_t *mount_point = vfs_lookup(parent,child);
+	vfs_close_node(parent);
 	if(!(mount_point->flags & VFS_MOUNT)){
 		//not even a mount point
 		return -EINVAL;
 	}
-	vfs_node *local_root = mount_point->linked_node;
+	vfs_node_t *local_root = mount_point->linked_node;
 
 	mount_point->flags  &= ~VFS_MOUNT;
 
-	vfs_close(local_root);
-	vfs_close(mount_point);
+	vfs_close_node(local_root);
+	vfs_close_node(mount_point);
 	return 0;
 }
 
-ssize_t vfs_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	if(node->read){
-		return node->read(node,(void *)buffer,offset,count);
+ssize_t vfs_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+	if(fd->inode->flags & VFS_DIR){
+		return -EISDIR;
+	}
+	if(fd->ops->read){
+		return fd->ops->read(fd,buffer,offset,count);
 	} else {
-		if(node->flags & VFS_DIR){
-			return -EISDIR;
-		}
 		return -EBADF;
 	}
 }
 
-ssize_t vfs_write(vfs_node *node,const void *buffer,uint64_t offset,size_t count){
-	if(node->write){
-		return node->write(node,(void *)buffer,offset,count);
+ssize_t vfs_write(vfs_fd_t *fd,const void *buffer,uint64_t offset,size_t count){
+	if(fd->inode->flags & VFS_DIR){
+		return -EISDIR;
+	}
+	if(fd->ops->write){
+		return fd->ops->write(fd,(void *)buffer,offset,count);
 	} else {
-		if(node->flags & VFS_DIR){
-			return -EISDIR;
-		}
 		return -EBADF;
 	}
 }
 
-ssize_t vfs_readlink(vfs_node *node,char *buf,size_t bufsiz){
-	if(node->readlink){
-		return node->readlink(node,buf,bufsiz);
+ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz){
+	if(node->ops->readlink){
+		return node->ops->readlink(node,buf,bufsiz);
 	} else {
 		if(node->flags & VFS_LINK){
 			return -EIO;
@@ -160,9 +161,9 @@ ssize_t vfs_readlink(vfs_node *node,char *buf,size_t bufsiz){
 	}
 }
 
-int vfs_wait_check(vfs_node *node,short type){
-	if(node->wait_check){
-		return node->wait_check(node,type);
+int vfs_wait_check(vfs_node_t *node,short type){
+	if(node->ops->wait_check){
+		return node->ops->wait_check(node,type);
 	} else {
 		//by default report as ready for all request actions
 		//so that stuff such as files are alaways ready
@@ -170,9 +171,9 @@ int vfs_wait_check(vfs_node *node,short type){
 	}
 }
 
-int vfs_wait(vfs_node *node,short type){
-	if(node->wait){
-		return node->wait(node,type);
+int vfs_wait(vfs_node_t *node,short type){
+	if(node->ops->wait){
+		return node->ops->wait(node,type);
 	} else {
 		//mmmm...
 		//how we land here ??
@@ -181,7 +182,7 @@ int vfs_wait(vfs_node *node,short type){
 }
 
 
-vfs_node *vfs_lookup(vfs_node *node,const char *name){
+vfs_node_t *vfs_lookup(vfs_node_t *node,const char *name){
 	//handle .. here so we can handle the parent of mount point
 	if((!strcmp("..",name)) && node->parent){
 		return vfs_dup(node->parent);
@@ -192,7 +193,7 @@ vfs_node *vfs_lookup(vfs_node *node,const char *name){
 	}
 
 	//first search in the directory cache
-	for(vfs_node *current = node->child; current; current = current->brother){
+	for(vfs_node_t *current = node->child; current; current = current->brother){
 		if(!strcmp(current->name,name)){
 			current->ref_count++;
 			return current;
@@ -202,8 +203,8 @@ vfs_node *vfs_lookup(vfs_node *node,const char *name){
 	//it isen't chached
 	//ask the fs for it
 
-	if(node->lookup){
-		vfs_node *child = node->lookup(node,(char *)name);
+	if(node->ops->lookup){
+		vfs_node_t *child = node->ops->lookup(node,name);
 		if(!child){
 			return NULL;
 		}
@@ -224,7 +225,7 @@ vfs_node *vfs_lookup(vfs_node *node,const char *name){
 	}
 }
 
-void vfs_close(vfs_node *node){
+void vfs_close_node(vfs_node_t *node){
 	node->ref_count --;
 
 	if(node->ref_count > 0){
@@ -248,7 +249,7 @@ void vfs_close(vfs_node *node){
 			//special case for the first child
 			node->parent->child = node->brother;
 		} else {
-			for(vfs_node *current = node->parent->child; current; current = current->brother){
+			for(vfs_node_t *current = node->parent->child; current; current = current->brother){
 				if(current->brother == node){
 					current->brother = node->brother;
 					break;
@@ -258,13 +259,13 @@ void vfs_close(vfs_node *node){
 		node->parent->childreen_count--;
 	}
 
-	vfs_node *parent = node->parent;
+	vfs_node_t *parent = node->parent;
 	if(parent == node){
 		parent = NULL;
 	}
 
-	if(node->close){
-		node->close(node);
+	if(node->ops->cleanup){
+		node->ops->cleanup(node);
 	}
 
 	kfree(node);
@@ -273,26 +274,26 @@ void vfs_close(vfs_node *node){
 	if(parent){
 		if(parent->childreen_count == 0 && parent->ref_count == 0){
 			parent->ref_count++;
-			return vfs_close(parent);
+			return vfs_close_node(parent);
 		}
 	}
 }
 
-int vfs_create(const char *path,int perm,long flags){
-	return vfs_createat(NULL,path,perm,flags);
+int vfs_create(const char *path, int perm, long flags){
+	return vfs_createat(NULL, path, perm, flags);
 }
 
-int vfs_createat(vfs_node *at,const char *path,int perm,long flags) {
+int vfs_createat(vfs_node_t *at, const char *path, int perm, long flags) {
 	return vfs_createat_ext(at, path, perm, flags, NULL);
 }
 
-int vfs_create_ext(const char *path,int perm,long flags,void *arg){
+int vfs_create_ext(const char *path, int perm, long flags, void *arg){
 	return vfs_createat_ext(NULL, path, perm, flags, arg);
 }
 
-int vfs_createat_ext(vfs_node *at,const char *path,int perm,long flags,void *arg){
+int vfs_createat_ext(vfs_node_t *at,const char *path,int perm,long flags,void *arg){
 	//open the parent
-	vfs_node *parent = vfs_openat(at,path,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent = vfs_get_node_at(at, path, VFS_WRITEONLY | VFS_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
@@ -301,24 +302,20 @@ int vfs_createat_ext(vfs_node *at,const char *path,int perm,long flags,void *arg
 	
 	//call create on the parent
 	int ret;
-	if(parent->create){
-		ret = parent->create(parent,child,perm,flags,arg);
+	if(parent->ops->create){
+		ret = parent->ops->create(parent,child,perm,flags,arg);
 	} else {
 		ret = -ENOTDIR;
 	}
 
 	//close
-	vfs_close(parent);
+	vfs_close_node(parent);
 	return ret;
-}
-
-int vfs_mkdir(const char *path,int perm){
-	return vfs_create(path,perm,VFS_DIR);
 }
 
 int vfs_unlink(const char *path){
 	//open parent
-	vfs_node *parent = vfs_open(path,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent = vfs_open(path,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
@@ -327,47 +324,48 @@ int vfs_unlink(const char *path){
 
 	//call unlink on the parent
 	int ret;
-	if(parent->create){
-		ret = parent->unlink(parent,child);
+	if(parent->ops->create){
+		ret = parent->ops->unlink(parent,child);
 	} else {
 		ret = -ENOTDIR;
 	}
 	
 	//cleanup
-	vfs_close(parent);
+	vfs_close_node(parent);
 	return ret;
 }
 
 
 int vfs_symlink(const char *target, const char *linkpath){
 	//open parent
-	vfs_node *parent = vfs_open(linkpath,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent = vfs_open(linkpath,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
 
 	const char *child  = vfs_basename(linkpath);
 	int ret;
-	if(parent->symlink){
-		ret = parent->symlink(parent,child,target);
+	if(parent->ops->symlink){
+		ret = parent->ops->symlink(parent,child,target);
 	} else if(parent->flags & VFS_DIR){
 		ret = -EIO;
 	} else {
 		ret = -ENOTDIR;
 	}
 
-	vfs_close(parent);
+	vfs_close_node(parent);
 	return ret;
 }
 
 int vfs_link(const char *src,const char *dest){
 	//open parent
-	vfs_node *parent_src = vfs_open(src,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent_src = vfs_get_node(src,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent_src){
 		return -ENOENT;
 	}
-	vfs_node *parent_dest = vfs_open(dest,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent_dest = vfs_get_node(dest,VFS_WRITEONLY | VFS_PARENT);
 	if(!parent_dest){
+		vfs_close_node(parent_src);
 		return -ENOENT;
 	}
 
@@ -376,40 +374,29 @@ int vfs_link(const char *src,const char *dest){
 
 	//call link on the parents
 	int ret;
-	if(parent_src->link){
-		ret = parent_src->link(parent_src,child_src,parent_dest,child_dest);
+	if(parent_src->ops->link){
+		ret = parent_src->ops->link(parent_src,child_src,parent_dest,child_dest);
 	} else {
 		ret = -ENOTDIR;
 	}
 	
 	//cleanup
-	vfs_close(parent_src);
-	vfs_close(parent_dest);
+	vfs_close_node(parent_src);
+	vfs_close_node(parent_dest);
 	return ret;
 }
 
-int vfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
+int vfs_readdir(vfs_fd_t *node,unsigned long index,struct dirent *dirent){
 	dirent->d_type = DT_UNKNOWN;
 	dirent->d_ino  = 1; //some programs want non NULL inode
-	if(node->readdir){
-		return node->readdir(node,index,dirent);
+	if(node->ops->readdir){
+		return node->ops->readdir(node,index,dirent);
 	} else {
 		return -ENOTDIR;
 	}
 }
 
-int vfs_truncate(vfs_node *node,size_t size){
-	if(node->truncate){
-		return node->truncate(node,size);
-	} else {
-		if(node->flags & VFS_DIR){
-			return -EISDIR;
-		}
-		return -EBADF;
-	}
-}
-
-int vfs_chmod(vfs_node *node,mode_t perm){
+int vfs_chmod(vfs_node_t *node,mode_t perm){
 	struct stat st;
 	int ret = vfs_getattr(node,&st);
 	if(ret < 0)return ret;
@@ -417,7 +404,7 @@ int vfs_chmod(vfs_node *node,mode_t perm){
 	return vfs_setattr(node,&st);
 }
 
-int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
+int vfs_chown(vfs_node_t *node,uid_t owner,gid_t group_owner){
 	struct stat st;
 	int ret = vfs_getattr(node,&st);
 	if(ret < 0)return ret;
@@ -426,39 +413,13 @@ int vfs_chown(vfs_node *node,uid_t owner,gid_t group_owner){
 	return vfs_setattr(node,&st);
 }
 
-int vfs_ioctl(vfs_node *node,long request,void *arg){
-	if(node->ioctl){
-		return node->ioctl(node,request,arg);
-	} else {
-		return -EINVAL;
-	}
-}
-
-
-int vfs_mmap(vfs_node *node,off_t offset,struct memseg_struct *seg){
-	if(node->mmap){
-		return node->mmap(node,offset,seg);
-	} else {
-		//TODO : file mapping
-		return -EINVAL;
-	}
-}
-
-vfs_node *vfs_dup(vfs_node *node){
-	//well we can copy a the void so ...
-	//we can copy an non existant node
-	if(!node) return NULL;
-	node->ref_count++;
-	return node;
-}
-
-int vfs_getattr(vfs_node *node,struct stat *st){
+int vfs_getattr(vfs_node_t *node,struct stat *st){
 	memset(st,0,sizeof(struct stat));
 	st->st_nlink = 1; //in case a driver forgot to set :D
 	st->st_mode  = 0744; //default mode
 	//make sure we can actually sync
-	if(node->getattr){
-		int ret = node->getattr(node,st);
+	if(node->ops->getattr){
+		int ret = node->ops->getattr(node,st);
 		if(ret < 0)return ret;
 	}
 	
@@ -485,36 +446,26 @@ int vfs_getattr(vfs_node *node,struct stat *st){
 	return 0;
 }
 
-int vfs_setattr(vfs_node *node,struct stat *st){
+int vfs_setattr(vfs_node_t *node,struct stat *st){
 	//make sure we can actually sync
-	if(!node->setattr){
+	if(!node->ops->setattr){
 		return -EINVAL; //should be another error ... but what ???
 	}
-	return node->setattr(node,st);
+	return node->ops->setattr(node,st);
 }
 
-int vfs_chroot(vfs_node *new_root){
+int vfs_chroot(vfs_node_t *new_root){
 	root = new_root;
 	return 0;
 }
 
-vfs_node *vfs_open(const char *path,long flags){
-	return vfs_openat(NULL,path,flags);
-}
-
-
-vfs_node *vfs_openat(vfs_node *at,const char *path,long flags){
+vfs_node_t *vfs_get_node_at(vfs_node_t *at, const char *path, long flags){
 	if (!at) {
 		//if absolute relative to root else relative to cwd
 		if(path[0] == '/' || path[0] == '\0'){
-			return vfs_openat(root,path,flags);
+			return vfs_get_node_at(root,path,flags);
 		}
-		return vfs_openat(get_current_proc()->cwd_node,path,flags);
-	}
-
-	//don't open for nothing
-	if((!flags & VFS_READONLY )&& (!(flags &  VFS_WRITEONLY))){
-		return NULL;
+		return vfs_get_node_at(get_current_proc()->cwd_node,path,flags);
 	}
 
 	//we are going to modify it
@@ -541,7 +492,7 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,long flags){
 		}
 	}
 
-	//we handle VFS_PARENT here
+	// we handle VFS_PARENT here
 	if(flags & VFS_PARENT){
 		//do we have a parent ?
 		if(path_depth < 1){
@@ -550,24 +501,24 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,long flags){
 		path_depth--;
 	}
 
-	vfs_node *current_node = vfs_dup(at);
+	vfs_node_t *current_node = vfs_dup_node(at);
 	int loop_max = SYMLOOP_MAX;
 
 	for (int i = 0; i < path_depth; i++){
 		if(!current_node)return NULL;
 		
-		vfs_node *next_node = vfs_lookup(current_node,path_array[i]);
+		vfs_node_t *next_node = vfs_lookup(current_node,path_array[i]);
 		//folow mount points and symlink
 		while(next_node){
 			if(next_node->flags & VFS_MOUNT){
-				vfs_node *mount_point = next_node;
+				vfs_node_t *mount_point = next_node;
 				next_node = vfs_dup(next_node->linked_node);
 				vfs_close(mount_point);
 				continue;
 			}
 			if((next_node->flags & VFS_LINK) && (!(flags & VFS_NOFOLOW) || i < path_depth - 1)){
 				//TODO : maybee cache linked node ?
-				vfs_node *symlink = next_node;
+				vfs_node_t *symlink = next_node;
 				if(loop_max-- <= 0){
 					vfs_close(symlink);
 					return NULL;
@@ -591,17 +542,66 @@ vfs_node *vfs_openat(vfs_node *at,const char *path,long flags){
 	}
 	
 	if(!current_node)return NULL;
+	
+	return current_node;
+}
 
-	///update modify / access time
+vfs_fd_t *vfs_openat(vfs_node_t *at, const char *path, long flags) {
+	vfs_node_t *node = vfs_get_node_at(at, path);
+	if (!node) return NULL;
+
+	vfs_fd_t *fd = vfs_open_node(node, flags);
+	vfs_close_node(node);
+	return fd;
+}
+
+vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
 	struct stat st;
-	vfs_getattr(current_node,&st);
+	vfs_fd_t *fd = kmalloc(sizeof(vfs_fd_t));
+	memset(fd, 0, sizeof(vfs_fd_t));
+	vfs_getattr(node, &st);
+
+	fd->ops       = node->ops;
+	fd->private   = node;
+	fd->inode     = vfs_dup_node(node);
+	fd->flags     = flags;
+	fd->ref_count = 1;
+
+	if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode)) {
+		device_t *device = device_from_number(st.st_rdev);
+		fd->ops     = device->ops;
+		fd->private = device;
+	}
+
+	if (fd->ops->open) {
+		int ret = fd->ops->open(fd);
+		if (ret < 0) {
+			kfree(node);
+			return ret;
+		}
+	}
+
+	
+	///update modify / access time
 	if((flags & VFS_WRITEONLY) || (flags & VFS_READWRITE)){
 		st.st_mtime = NOW();
 	}
 	if((flags & VFS_READONLY) || (flags & VFS_READWRITE)){
 		st.st_atime = NOW();
 	}
-	vfs_setattr(current_node,&st);
-	
-	return current_node;
+	vfs_setattr(node, &st);
+
+	return fd;
+}
+
+void vfs_close(vfs_fd_t *fd) {
+	fd->ref_count--;
+	if (fd->ref_count > 0) return;
+	vfs_close_node(fd->inode);
+
+	if(fd->ops->close) {
+		fd->ops->close(fd);
+	}
+
+	kfree(fd);
 }

@@ -2,16 +2,18 @@
 #define TERMINAL_EMU_H
 
 #include <kernel/vfs.h>
+#include <kernel/device.h>
 #include <stdint.h>
 
 #define FONT_TYPE_PSF1 0x01
 
-typedef struct {
+typedef struct terminal_emu {
+	device_t device;
 	void *header;
 	void *font;
 	char font_type;
 	char activate;
-	vfs_node *frambuffer_dev;
+	vfs_node_t *frambuffer_dev;
 	uintmax_t x;
 	uintmax_t y;
 	uint32_t font_color;
@@ -19,7 +21,7 @@ typedef struct {
 	uintmax_t width;
 	uintmax_t height;
 	uintmax_t ANSI_esc_mode;
-} terminal_emu_settings;
+} terminal_emu_t;
 
 typedef struct {
     uint16_t magic; // Magic bytes for identification.
@@ -30,7 +32,7 @@ typedef struct {
 #define PSF1_FONT_MAGIC 0x0436
 
 void init_terminal_emualtor(void);
-void term_draw_char(char c,terminal_emu_settings *terminal_settings);
+void term_draw_char(char c,terminal_emu_t *terminal);
 
 #define IOCTL_TTY_WIDTH  0x89798
 #define IOCTL_TTY_HEIGHT 0x89146

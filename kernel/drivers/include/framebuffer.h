@@ -1,13 +1,20 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 #include <kernel/vfs.h>
+#include <kernel/limine.h>
+#include <kernel/device.h>
 #include <stdarg.h>
+
+typedef struct framebuffer {
+	device_t device;
+	struct limine_framebuffer *fb;
+} framebuffer_t;
 
 void init_frambuffer(void);
 
-ssize_t framebuffer_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
-int framebuffer_ioctl(vfs_node *node,long request,void *arg);
-void draw_pixel(vfs_node *framebuffer,uint64_t x,uint64_t y,uint32_t color);
+ssize_t framebuffer_write(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count);
+int framebuffer_ioctl(vfs_fd_t *node,long request,void *arg);
+void draw_pixel(vfs_fd_t *framebuffer,uint64_t x,uint64_t y,uint32_t color);
 #define IOCTL_FRAMEBUFFER_WIDTH  0x01
 #define IOCTL_FRAMEBUFFER_HEIGHT 0x02
 #define IOCTL_FRAMEBUFFER_BPP    0x03

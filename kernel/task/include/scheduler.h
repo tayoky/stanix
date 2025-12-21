@@ -20,7 +20,7 @@ struct process;
 #define MAX_FD 32
 
 typedef struct {
-	vfs_node *node;
+	vfs_node_t *node;
 	size_t offset;
 	long present;
 	long flags;
@@ -64,7 +64,7 @@ typedef struct process {
 	struct process *parent;
 	spinlock state_lock;
 	file_descriptor fds[MAX_FD];
-	vfs_node *cwd_node;
+	vfs_node_t *cwd_node;
 	char *cwd_path;
 	uintptr_t heap_start;
 	uintptr_t heap_end;

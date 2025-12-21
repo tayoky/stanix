@@ -5,10 +5,12 @@
 #include <kernel/ringbuf.h>
 #include <kernel/list.h>
 #include <kernel/scheduler.h>
+#include <kernel/device.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 
 typedef struct tty {
+	device_t device;
 	void *private_data;
 	void (*out)(char,void *);
 	void (*cleanup)(void *);
@@ -25,7 +27,7 @@ typedef struct tty {
 
 typedef struct pty {
 	ring_buffer *output_buffer;
-	vfs_node *slave;
+	device_t *slave;
 } pty_t;
 
 /// @brief give a char to the input of a tty
@@ -39,13 +41,13 @@ int tty_output(tty_t *tty,char c);
 /// @brief create a new tty
 /// @param tyy 
 /// @return ane vfs_node that represent the tty
-vfs_node *new_tty(tty_t **tty);
+device_t *new_tty(tty_t **tty);
 
 
-int new_pty(vfs_node **master,vfs_node **slave,tty_t **);
+int new_pty(vfs_fd_t **master,vfs_fd_t **slave,tty_t **);
 
-ssize_t tty_read(vfs_node *node,void *buffer,uint64_t offset,size_t count);
-ssize_t tty_write(vfs_node *node,void *buffer,uint64_t offset,size_t count);
-int tty_wait_check(vfs_node *node,short type);
+ssize_t tty_read(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count);
+ssize_t tty_write(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count);
+int tty_wait_check(vfs_fd_t *node,short type);
 
 #endif
