@@ -81,7 +81,7 @@ int sys_open(const char *path, int flags, mode_t mode) {
 
 	file_descriptor *file = &FD_GET(fd);
 
-	vfs_node *node = vfs_open(path, vfs_flags);
+	vfs_fd_t *node = vfs_open(path, vfs_flags);
 
 
 	//O_CREAT things
@@ -125,7 +125,7 @@ int sys_open(const char *path, int flags, mode_t mode) {
 	}
 
 	//now init the fd
-	file->node = node;
+	file->fd = node;
 	file->present = 1;
 	file->offset = 0;
 
@@ -163,7 +163,7 @@ int sys_close(int fd) {
 		return -EBADF;
 	}
 	file_descriptor *file = &FD_GET(fd);
-	vfs_close(file->node);
+	vfs_close(file->fd);
 	file->present = 0;
 	return 0;
 }
@@ -179,19 +179,14 @@ ssize_t sys_write(int fd, void *buffer, size_t count) {
 
 	file_descriptor *file = &FD_GET(fd);
 
-	//if non blocking mode check that write won't block
-	if (FD_CHECK(fd, FD_NONBLOCK) && !(vfs_wait_check(file->node, POLLOUT) & POLLOUT)) {
-		return -EWOULDBLOCK;
-	}
-
 	//if append go to the end
 	if (FD_CHECK(fd, FD_APPEND)) {
 		struct stat st;
-		vfs_getattr(file->node, &st);
+		vfs_getattr(file->fd->inode, &st);
 		file->offset = st.st_size;
 	}
 
-	int64_t wsize = vfs_write(file->node, buffer, file->offset, count);
+	ssize_t wsize = vfs_write(file->fd, buffer, file->offset, count);
 
 	if (wsize > 0) {
 		file->offset += wsize;
@@ -211,12 +206,7 @@ ssize_t sys_read(int fd, void *buffer, size_t count) {
 
 	file_descriptor *file = &FD_GET(fd);
 
-	//if non blocking mode check that read won't block
-	if (FD_CHECK(fd, FD_NONBLOCK) && !(vfs_wait_check(file->node, POLLIN) & POLLIN)) {
-		return -EWOULDBLOCK;
-	}
-
-	int64_t rsize = vfs_read(file->node, buffer, file->offset, count);
+	ssize_t rsize = vfs_read(file->fd, buffer, file->offset, count);
 
 	if (rsize > 0) {
 		file->offset += rsize;
@@ -265,8 +255,8 @@ int sys_dup2(int oldfd, int newfd) {
 	}
 
 	//make the actual copy
-	new_file->node = vfs_dup(old_file->node);
-	if (new_file->node) {
+	new_file->fd = vfs_dup(old_file->fd);
+	if (new_file->fd) {
 		new_file->present = 1;
 		new_file->offset = old_file->offset;
 	} else {
@@ -288,7 +278,7 @@ off_t sys_seek(int fd, int64_t offset, int whence) {
 	file_descriptor *file = &FD_GET(fd);
 
 	struct stat st;
-	vfs_getattr(file->node, &st);
+	vfs_getattr(file->fd->inode, &st);
 
 	switch (whence) {
 	case SEEK_SET:
@@ -340,7 +330,7 @@ int sys_ioctl(int fd, uint64_t request, void *arg) {
 		return -EBADF;
 	}
 
-	return vfs_ioctl(FD_GET(fd).node, request, arg);
+	return vfs_ioctl(FD_GET(fd).fd, request, arg);
 }
 
 int sys_nanosleep(const struct timespec *duration, struct timespec *rem) {
@@ -398,7 +388,7 @@ int sys_pipe(int pipefd[2]) {
 	FD_GET(write).flags = FD_WRITE;
 	FD_GET(write).present = 1;
 
-	create_pipe(&FD_GET(read).node, &FD_GET(write).node);
+	create_pipe(&FD_GET(read).fd, &FD_GET(write).fd);
 
 	pipefd[0] = read;
 	pipefd[1] = write;
@@ -471,7 +461,7 @@ int sys_readdir(int fd, struct dirent *ret, long int index) {
 	if (!is_valid_fd(fd)) {
 		return -EBADF;
 	}
-	return vfs_readdir(FD_GET(fd).node, index, ret);
+	return vfs_readdir(FD_GET(fd).fd, index, ret);
 }
 
 int sys_stat(const char *pathname, struct stat *st) {
@@ -482,14 +472,14 @@ int sys_stat(const char *pathname, struct stat *st) {
 		return -EFAULT;
 	}
 
-	vfs_node *node = vfs_open(pathname, VFS_READONLY);
+	vfs_node_t *node = vfs_get_node(pathname, VFS_READONLY);
 	if (!node) {
 		return -ENOENT;
 	}
 
 	int ret = vfs_getattr(node, st);
 
-	vfs_close(node);
+	vfs_close_node(node);
 	return ret;
 }
 
@@ -501,14 +491,14 @@ int sys_lstat(const char *pathname, struct stat *st) {
 		return -EFAULT;
 	}
 
-	vfs_node *node = vfs_open(pathname, VFS_READONLY | VFS_NOFOLOW);
+	vfs_node_t *node = vfs_get_node(pathname, VFS_READONLY | VFS_NOFOLOW);
 	if (!node) {
 		return -ENOENT;
 	}
 
 	int ret = vfs_getattr(node, st);
 
-	vfs_close(node);
+	vfs_close_node(node);
 	return ret;
 }
 
@@ -521,7 +511,7 @@ int sys_fstat(int fd, struct stat *st) {
 		return -EBADF;
 	}
 
-	vfs_getattr(FD_GET(fd).node, st);
+	vfs_getattr(FD_GET(fd).fd->inode, st);
 
 	return 0;
 }

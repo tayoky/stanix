@@ -20,7 +20,7 @@ struct process;
 #define MAX_FD 32
 
 typedef struct {
-	vfs_node_t *node;
+	vfs_fd_t *fd;
 	size_t offset;
 	long present;
 	long flags;

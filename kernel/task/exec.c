@@ -35,7 +35,7 @@ int verfiy_elf(Elf64_Ehdr *header) {
 int exec(const char *path, int argc, const char **argv, int envc, const char **envp) {
 	int ret = 0;
 
-	vfs_node *file = vfs_open(path, VFS_READONLY);
+	vfs_fd_t *file = vfs_open(path, VFS_READONLY);
 
 	if (!file) {
 		return -ENOENT;
