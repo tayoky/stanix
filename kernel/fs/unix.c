@@ -6,6 +6,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/ringbuf.h>
 #include <errno.h>
+#include <poll.h>
 
 #define QUEUE_SIZE 4096
 
@@ -166,6 +167,24 @@ ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 }
 
 
+int unix_wait_check(vfs_node *node, short event) {
+	unix_socket_t *socket = (unix_socket_t*)node;
+	int ret = 0;
+	switch (socket->status) {
+	case UNIX_STATUS_CONNECTED:
+		if (ringbuffer_read_available(socket->queue)) ret |= POLLIN;
+		break;
+	case UNIX_STATUS_LISTEN:
+		if (ringbuffer_read_available(socket->queue)) ret |= POLLIN;
+		break;
+	default:
+		ret = event;
+		break;
+	}
+	return ret;
+}
+
+
 void unix_close(vfs_node *node) {
 	unix_socket_t *socket = (unix_socket_t*)node;
 	kdebugf("unix cleanup\n");
@@ -203,6 +222,7 @@ socket_t *unix_create(int type, int protocol) {
 	socket->bound.sun_family = AF_UNIX;
 	
 	socket->socket.node.close = unix_close;
+	socket->socket.node.wait_check = unix_wait_check;
 	socket->socket.accept  = unix_accept;
 	socket->socket.bind    = unix_bind;
 	socket->socket.connect = unix_connect;
