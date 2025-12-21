@@ -10,7 +10,6 @@ typedef struct bus {
 } bus_t;
 
 typedef struct bus_addr {
-	vfs_node node;
 	device_t *device;
 	int type;
 } bus_addr_t;

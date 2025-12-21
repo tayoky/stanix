@@ -14,7 +14,6 @@ typedef struct device_driver {
 } device_driver_t;
 
 typedef struct device {
-	vfs_node node;
 	device_driver_t *driver;
 	struct bus *bus;
 	char *name;
@@ -28,7 +27,24 @@ typedef struct device {
 
 int register_device_driver(device_driver_t *device_driver);
 int unregister_device_driver(device_driver_t *device_driver);
+
+/**
+ * @brief register a new device
+ * @param device the device to register
+ * @note if number is 0 a dev number is automaticly allocated
+ */
 int register_device(device_t *device);
-int unregister_device(device_t *device);
+
+/**
+ * @brief destroy a device
+ * @param device the device to destroy
+ */
+int destroy_device(device_t *device);
+
+/**
+ * @brief get a device from its dev number
+ * @param dev the dev number to find the device from
+ */
+device_t *device_from_number(dev_t dev);
 
 #endif

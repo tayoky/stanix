@@ -67,8 +67,8 @@ int unregister_device_driver(device_driver_t *device_driver) {
 	return 0;
 }
 
-
 int register_device(device_t *device) {
+	// TODO : allocate dev number
 	utils_hashmap_add(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
 		bus_t *bus = (bus_t*)device;
@@ -80,7 +80,11 @@ int register_device(device_t *device) {
 	return 0;
 }
 
-int unregister_device(device_t *device) {
+int destroy_device(device_t *device) {
 	utils_hashmap_remove(&devices, device->number);
 	return 0;
+}
+
+device_t *device_from_number(dev_t dev) {
+	return utils_hashmap_get(&devices, dev);
 }
