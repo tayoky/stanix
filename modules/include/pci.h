@@ -1,7 +1,20 @@
 #ifndef PCI_H
 #define PCI_H
 
+#include <kernel/bus.h>
 #include <stdint.h>
+
+typedef struct pci_addr {
+	bus_addr_t addr;
+	uint16_t vendor_id;
+	uint16_t device_id;
+	uint8_t class;
+	uint8_t subclass;
+	uint8_t prog_if;
+	uint8_t bus;
+	uint8_t device;
+	uint8_t function;
+} pci_addr_t;
 
 #define PCI_CONFIG_VENDOR_ID   0x00
 #define PCI_CONFIG_DEVICE_ID   0x02

@@ -11,6 +11,7 @@ typedef struct bus {
 
 typedef struct bus_addr {
 	device_t *device;
+	char *name;
 	int type;
 } bus_addr_t;
 

@@ -52,5 +52,6 @@ device_t *device_from_number(dev_t dev);
 
 
 void init_devices(void);
+void init_mem_devices(void);
 
 #endif

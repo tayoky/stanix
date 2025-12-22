@@ -108,6 +108,7 @@ void kmain() {
 	mount_initrd();
 	init_tmpfs();
 	init_devices();
+	init_memory_devices();
 	init_frambuffer();
 	read_main_conf_file();
 	init_terminal_emualtor();

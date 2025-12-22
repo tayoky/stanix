@@ -156,67 +156,54 @@ void pci_foreach(void (*func)(uint8_t,uint8_t,uint8_t,void *),void *arg){
 	}
 }
 
-typedef struct {
-	uint8_t bus;
-	uint8_t device;
-	uint8_t function;
-} pci_inode;
-
-static ssize_t pci_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	pci_inode *inode = node->private_inode;
-
-	//config space is 256 bytes
-	if(offset >= 256){
-		return 0;
-	}
-	if(offset + count >= 256){
-		count = 256 - offset;
-	}
-
-	for (size_t i = 0; i < count; i++){
-		*(uint8_t *)buffer = pci_read_config_byte(inode->bus,inode->device,inode->function,offset);
-		offset ++;
-		(uint8_t *)buffer++;
-	}
-
-	return count;
-}
-
-static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
-	(void)arg;
+static void create_pci_addr(uint8_t bus,uint8_t device,uint8_t function,void *arg){
+	bus_t *pci_bus = arg;
 	uint16_t vendorID = pci_read_config_word(bus,device,function,PCI_CONFIG_VENDOR_ID);
 	uint16_t deviceID = pci_read_config_word(bus,device,function,PCI_CONFIG_DEVICE_ID);
 	kdebugf("pci : find bus %d device %d function %d vendorID : %lx deviceID : %lx\n",bus,device,function,vendorID,deviceID);
 
-	char path[32];
-	sprintf(path,"pci/%02d:%d:%d",bus,device,function);
+	char name[32];
+	sprintf(name,"%02d:%d:%d",bus,device,function);
 
-	//setup the vnode
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
-	node->flags = VFS_DEV | VFS_BLOCK;
-	node->read = pci_read;
+	//setup the addr
+	pci_addr_t *addr = kmalloc(sizeof(pci_addr_t));
+	memset(addr, 0, sizeof(pci_addr_t));
+	addr->addr.type = BUS_PCI;
+	addr->addr.name = strdup(name);
+	addr->device_id = deviceID;
+	addr->vendor_id = vendorID;
+	addr->class     = pci_read_config_byte(bus, device, function, PCI_CONFIG_BASE_CLASS);
+	addr->sub_class = pci_read_config_byte(bus, device, function, PCI_CONFIG_SUB_CLASS);
+	addr->prog_if   = pci_read_config_byte(bus, device, function, PCI_CONFIG_PROG_IF);
+	addr->bus       = bus;
+	addr->device    = device;
+	addr->function  = function;
 
-	//setup inode
-	pci_inode *inode = kmalloc(sizeof(pci_inode));
-	memset(inode,0,sizeof(pci_inode));
-	inode->bus      = bus;
-	inode->device   = device;
-	inode->function = function;
-	node->private_inode = inode;
-
-	if(devfs_create_dev(path,node)){
-		kdebugf("pci : fail to mount %s\n",path);
-	}
+	list_append(pci_bus->addresses, addr);
 }
+
+
+device_driver_t pci_driver = {
+	.name = "pci",
+};
+
+bus_t pci_bus = {
+	.device = {
+		.driver = &pci_driver,
+		.name = "pci",
+		.type = DEVICE_BUS,
+	}
+};
 
 int init_pci(int argc,char **argv){
 	(void)argc;
 	(void)argv;
 
-	vfs_mkdir("/dev/pci",0755);
+	register_device_driver(&pci_driver);
 
-	pci_foreach(create_pci_dev,NULL);
+	pci_bus.addresses = new_list();
+	pci_foreach(create_pci_addr,&pci_bus);
+	register_device(&pci_bus);
 	
 	EXPORT(pci_foreach);
 	EXPORT(pci_read_config_dword)
@@ -229,6 +216,8 @@ int init_pci(int argc,char **argv){
 }
 
 int rm_pci(){
+	destroy_device(&pci_bus);
+	unregister_device_driver(&pci_driver);
 	UNEXPORT(pci_foreach);
 	UNEXPORT(pci_read_config_dword)
 	UNEXPORT(pci_read_config_word)
