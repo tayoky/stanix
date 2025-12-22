@@ -2,6 +2,7 @@
 #define _KERNEL_DEVICE_H
 
 #include <kernel/vfs.h>
+#include <sys/sysmacros.h>
 
 struct bus;
 struct bus_addr;
@@ -11,6 +12,7 @@ typedef struct device_driver {
 	int (*check)(struct bus_addr *addr);
 	int (*init_device)(struct bus_addr *addr);
 	int major; // all devices that use this driver have this
+	int minor_count;
 } device_driver_t;
 
 typedef struct device {
