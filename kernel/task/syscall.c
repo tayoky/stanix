@@ -81,17 +81,17 @@ int sys_open(const char *path, int flags, mode_t mode) {
 
 	file_descriptor *file = &FD_GET(fd);
 
-	vfs_fd_t *node = vfs_open(path, vfs_flags);
+	vfs_fd_t *vfs_fd = vfs_open(path, vfs_flags);
 
 
 	//O_CREAT things
 	if (flags & O_CREAT) {
-		if (node && flags & O_EXCL) {
-			vfs_close(node);
+		if (vfs_fd && flags & O_EXCL) {
+			vfs_close(vfs_fd);
 			return -EEXIST;
 		}
 
-		if (!node) {
+		if (!vfs_fd) {
 			//the user want to create the file
 			int result = vfs_create(path, mode & ~get_current_proc()->umask, VFS_FILE);
 
@@ -100,38 +100,38 @@ int sys_open(const char *path, int flags, mode_t mode) {
 				return result;
 			}
 
-			node = vfs_open(path, vfs_flags);
-			vfs_chown(node, get_current_proc()->euid, get_current_proc()->egid);
+			vfs_fd = vfs_open(path, vfs_flags);
+			vfs_chown(vfs_fd->inode, get_current_proc()->euid, get_current_proc()->egid);
 		}
 	}
 
 
-	if (!node) {
+	if (!vfs_fd) {
 		return -ENOENT;
 	}
 
 	//is a directory check
 	if (flags & O_DIRECTORY) {
-		if (!(node->flags & VFS_DIR)) {
-			vfs_close(node);
+		if (!(vfs_fd->inode->flags & VFS_DIR)) {
+			vfs_close(vfs_fd);
 			return -ENOTDIR;
 		}
 	}
 
 	//simple check for writing on directory
-	if (((flags & O_WRONLY) || (flags & O_RDWR) || (flags & O_TRUNC) || (flags & O_CREAT)) && (node->flags & VFS_DIR)) {
-		vfs_close(node);
+	if (((flags & O_WRONLY) || (flags & O_RDWR) || (flags & O_TRUNC) || (flags & O_CREAT)) && (vfs_fd->inode->flags & VFS_DIR)) {
+		vfs_close(vfs_fd);
 		return -EISDIR;
 	}
 
 	//now init the fd
-	file->fd = node;
+	file->fd = vfs_fd;
 	file->present = 1;
 	file->offset = 0;
 
 	//apply runc if needed
 	if (flags & O_TRUNC) {
-		vfs_truncate(node, 0);
+		vfs_truncate(vfs_fd->inode, 0);
 	}
 
 	//now apply the flags on the fd
@@ -535,7 +535,7 @@ int sys_chdir(const char *path) {
 	}
 
 	//check if exist
-	vfs_node *node = vfs_open(path, VFS_READONLY);
+	vfs_node_t *node = vfs_get_node(path, VFS_READONLY);
 	if (!node) {
 		return -ENOENT;
 	}
@@ -555,7 +555,7 @@ int sys_chdir(const char *path) {
 
 	//free old cwd
 	kfree(get_current_proc()->cwd_path);
-	vfs_close(get_current_proc()->cwd_node);
+	vfs_close_node(get_current_proc()->cwd_node);
 
 	//set new cwd
 	get_current_proc()->cwd_node = node;
@@ -631,15 +631,15 @@ int sys_unlink(const char *pathname) {
 	}
 
 	//unlink don't work on dir while vfs_unlink work on dir
-	vfs_node *node = vfs_open(pathname, VFS_READONLY);
+	vfs_node_t *node = vfs_get_node(pathname, VFS_READONLY);
 	if (!node) {
 		return -ENOENT;
 	}
 	if (node->flags & VFS_DIR) {
-		vfs_close(node);
+		vfs_close_node(node);
 		return -EISDIR;
 	}
-	vfs_close(node);
+	vfs_close_node(node);
 
 	return vfs_unlink(pathname);
 }
@@ -650,26 +650,26 @@ int sys_rmdir(const char *pathname) {
 	}
 
 	//check for dir and empty
-	vfs_node *node = vfs_open(pathname, VFS_READONLY);
-	if (!node) {
+	vfs_fd_t *fd = vfs_open(pathname, VFS_READONLY);
+	if (!fd) {
 		return -ENOENT;
 	}
-	if (!(node->flags & VFS_DIR)) {
-		vfs_close(node);
+	if (!(fd->inode->flags & VFS_DIR)) {
+		vfs_close(fd);
 		return -ENOTDIR;
 	}
 	struct dirent entry;
-	if (vfs_readdir(node, 2, &entry) != -ENOENT) {
-		vfs_close(node);
+	if (vfs_readdir(fd, 2, &entry) != -ENOENT) {
+		vfs_close(fd);
 		return -ENOTEMPTY;
 	}
 
 	//now check if it in use
-	if (node->ref_count > 1) {
-		vfs_close(node);
+	if (fd->inode->ref_count > 1) {
+		vfs_close(fd);
 		return -EBUSY;
 	}
-	vfs_close(node);
+	vfs_close(fd);
 
 	return vfs_unlink(pathname);
 }
@@ -718,7 +718,8 @@ int sys_isatty(int fd) {
 		return -EBADF;
 	}
 
-	if (FD_GET(fd).node->flags & VFS_TTY) {
+	// TODO bring back this
+	if (0) {
 		return 1;
 	} else {
 		return -ENOTTY;
@@ -752,7 +753,7 @@ int sys_openpty(int *amaster, int *aslave, char *name, const struct termios *ter
 
 	tty_t *tty;
 
-	int ret = new_pty(&FD_GET(master).node, &FD_GET(slave).node, &tty);
+	int ret = new_pty(&FD_GET(master).fd, &FD_GET(slave).fd, &tty);
 	if (ret < 0) {
 		return ret;
 	}
@@ -799,7 +800,7 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 				fds[i].revents = POLLNVAL;
 				return -EBADF;
 			}
-			int r = vfs_wait_check(FD_GET(fds[i].fd).node, fds[i].events);
+			int r = vfs_wait_check(FD_GET(fds[i].fd).fd, fds[i].events);
 			if (r) {
 				//it's ready !!!!
 				fds[i].revents = r;
@@ -991,17 +992,16 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 		pflags |= PAGING_FLAG_NO_EXE;
 	}
 
-	vfs_node *node;
+	vfs_fd_t *vfs_fd;
 	if (!(flags & MAP_ANONYMOUS)) {
 		if (!FD_GET(fd).present) {
 			return (void *)-EBADF;
 		}
-		node = FD_GET(fd).node;
+		vfs_fd = FD_GET(fd).fd;
 	}
 
-
 	memseg_t *seg;
-	int ret = memseg_map(get_current_proc(), addr, length, pflags, flags, node, offset, &seg);
+	int ret = memseg_map(get_current_proc(), addr, length, pflags, flags, vfs_fd, offset, &seg);
 	if (ret < 0) {
 		return (void *)(uintptr_t)ret;
 	} else {
@@ -1075,7 +1075,7 @@ uid_t sys_getegid(void) {
 	return get_current_proc()->egid;
 }
 
-static int chmod_node(vfs_node *node, mode_t mode) {
+static int chmod_node(vfs_node_t *node, mode_t mode) {
 	struct stat st;
 	vfs_getattr(node, &st);
 	if (st.st_uid != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT) {
@@ -1085,21 +1085,21 @@ static int chmod_node(vfs_node *node, mode_t mode) {
 }
 
 int sys_chmod(const char *pathname, mode_t mode) {
-	vfs_node *node = vfs_open(pathname, VFS_WRITEONLY);
+	vfs_node_t *node = vfs_get_node(pathname, VFS_WRITEONLY);
 	if (!node)return -ENOENT;
 
 	int ret = chmod_node(node, mode);
-	vfs_close(node);
+	vfs_close_node(node);
 
 	return ret;
 }
 
 int sys_lchmod(const char *pathname, mode_t mode) {
-	vfs_node *node = vfs_open(pathname, VFS_WRITEONLY | VFS_NOFOLOW);
+	vfs_node_t *node = vfs_get_node(pathname, VFS_WRITEONLY | VFS_NOFOLOW);
 	if (!node)return -ENOENT;
 
 	int ret = chmod_node(node, mode);
-	vfs_close(node);
+	vfs_close_node(node);
 
 	return ret;
 }
@@ -1108,11 +1108,13 @@ int sys_fchmod(int fd, mode_t mode) {
 	if (!is_valid_fd(fd)) {
 		return -EBADF;
 	}
-
-	return chmod_node(FD_GET(fd).node, mode);
+	if (!FD_GET(fd).fd->inode) {
+		return -EINVAL;
+	}
+	return chmod_node(FD_GET(fd).fd->inode, mode);
 }
 
-static int chown_node(vfs_node *node, uid_t owner, gid_t group) {
+static int chown_node(vfs_node_t *node, uid_t owner, gid_t group) {
 	struct stat st;
 	vfs_getattr(node, &st);
 	if (st.st_uid != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT) {
@@ -1125,21 +1127,21 @@ static int chown_node(vfs_node *node, uid_t owner, gid_t group) {
 }
 
 int sys_chown(const char *pathname, uid_t owner, gid_t group) {
-	vfs_node *node = vfs_open(pathname, VFS_WRITEONLY);
+	vfs_node_t *node = vfs_get_node(pathname, VFS_WRITEONLY);
 	if (!node)return -ENOENT;
 
 	int ret = chown_node(node, owner, group);
-	vfs_close(node);
+	vfs_close_node(node);
 
 	return ret;
 }
 
 int sys_lchown(const char *pathname, uid_t owner, gid_t group) {
-	vfs_node *node = vfs_open(pathname, VFS_WRITEONLY | VFS_NOFOLOW);
+	vfs_node_t *node = vfs_get_node(pathname, VFS_WRITEONLY | VFS_NOFOLOW);
 	if (!node)return -ENOENT;
 
 	int ret = chown_node(node, owner, group);
-	vfs_close(node);
+	vfs_close_node(node);
 
 	return ret;
 }
@@ -1148,8 +1150,11 @@ int sys_fchown(int fd, uid_t owner, gid_t group) {
 	if (!is_valid_fd(fd)) {
 		return -EBADF;
 	}
+	if (!FD_GET(fd).fd->inode) {
+		return -EINVAL;
+	}
 
-	return chown_node(FD_GET(fd).node, owner, group);
+	return chown_node(FD_GET(fd).fd->inode, owner, group);
 }
 
 //TODO : check if group exist
@@ -1205,19 +1210,19 @@ mode_t sys_umask(mode_t mask) {
 }
 
 int sys_access(const char *pathname, int mode) {
-	uint64_t flags = VFS_READONLY;
+	long flags = VFS_READONLY;
 	if (mode & W_OK)flags |= VFS_WRITEONLY;
-	vfs_node *node = vfs_open(pathname, flags);
+	vfs_node_t *node = vfs_get_node(pathname, flags);
 	if (!node)return -ENOENT;
-	vfs_close(node);
+	vfs_close_node(node);
 	return 0;
 }
 
 int sys_truncate(const char *path, off_t length) {
-	vfs_node *node = vfs_open(path, VFS_WRITEONLY);
+	vfs_node_t *node = vfs_get_node(path, VFS_WRITEONLY);
 	if (!node)return -ENOENT;
 	int ret = vfs_truncate(node, (size_t)length);
-	vfs_close(node);
+	vfs_close_node(node);
 	return ret;
 }
 
@@ -1226,8 +1231,11 @@ int sys_ftruncate(int fd, off_t length) {
 	if (!is_valid_fd(fd) || !FD_CHECK(fd, VFS_WRITEONLY)) {
 		return -EBADF;
 	}
+	if (!FD_GET(fd).fd->inode) {
+		return -EINVAL;
+	}
 
-	return vfs_truncate(FD_GET(fd).node, (size_t)length);
+	return vfs_truncate(FD_GET(fd).fd->inode, (size_t)length);
 }
 
 int sys_link(const char *oldpath, const char *newpath) {
@@ -1264,13 +1272,13 @@ ssize_t sys_readlink(const char *path, char *buf, size_t bufsize) {
 		return -EFAULT;
 	}
 
-	vfs_node *node = vfs_open(path, VFS_READONLY | VFS_NOFOLOW);
+	vfs_node_t *node = vfs_get_node(path, VFS_READONLY | VFS_NOFOLOW);
 	if (!node) {
 		return -ENOENT;
 	}
 
 	ssize_t ret = vfs_readlink(node, buf, bufsize);
-	vfs_close(node);
+	vfs_close_node(node);
 	return ret;
 }
 
@@ -1354,10 +1362,10 @@ int sys_socket(int domain, int type, int protocol) {
 		return -ENXIO;
 	}
 
-	vfs_node *socket = create_socket(domain, type, protocol);
+	vfs_fd_t *socket = create_socket(domain, type, protocol);
 	if (!socket) return -EPROTONOSUPPORT;
 
-	FD_GET(fd).node = socket;
+	FD_GET(fd).fd = socket;
 	FD_GET(fd).present = 1;
 
 	return fd;
@@ -1378,11 +1386,11 @@ int sys_accept(int socket, struct sockaddr *address, socklen_t *address_len) {
 		return -ENXIO;
 	}
 
-	vfs_node *new_sock;
-	int ret = socket_accept(FD_GET(socket).node, address, address_len, &new_sock);
+	vfs_fd_t *new_sock;
+	int ret = socket_accept(FD_GET(socket).fd, address, address_len, &new_sock);
 	if (ret < 0) return ret;
 
-	FD_GET(fd).node = new_sock;
+	FD_GET(fd).fd = new_sock;
 	FD_GET(fd).present = 1;
 
 	return fd;
@@ -1397,7 +1405,7 @@ int sys_bind(int socket, const struct sockaddr *address, socklen_t address_len) 
 		return -EBADF;
 	}
 
-	return socket_bind(FD_GET(socket).node, address, address_len);
+	return socket_bind(FD_GET(socket).fd, address, address_len);
 }
 
 int sys_connect(int socket, const struct sockaddr *address, socklen_t address_len) {
@@ -1409,7 +1417,7 @@ int sys_connect(int socket, const struct sockaddr *address, socklen_t address_le
 		return -EBADF;
 	}
 
-	return socket_connect(FD_GET(socket).node, address, address_len);
+	return socket_connect(FD_GET(socket).fd, address, address_len);
 }
 
 int sys_listen(int socket, int backlog) {
@@ -1417,7 +1425,7 @@ int sys_listen(int socket, int backlog) {
 		return -EBADF;
 	}
 
-	return socket_listen(FD_GET(socket).node, backlog);
+	return socket_listen(FD_GET(socket).fd, backlog);
 }
 
 int getpeername(int socket, struct sockaddr *address, socklen_t *address_len);
@@ -1438,7 +1446,7 @@ ssize_t sys_recvmsg(int socket, struct msghdr *message, int flags) {
 	}
 
 
-	return socket_recvmsg(FD_GET(socket).node, message, flags);
+	return socket_recvmsg(FD_GET(socket).fd, message, flags);
 }
 
 ssize_t sys_sendmsg(int socket, const struct msghdr *message, int flags) {
@@ -1453,7 +1461,7 @@ ssize_t sys_sendmsg(int socket, const struct msghdr *message, int flags) {
 		return -EBADF;
 	}
 
-	return socket_sendmsg(FD_GET(socket).node, message, flags);
+	return socket_sendmsg(FD_GET(socket).fd, message, flags);
 }
 
 int sys_stub(void) {

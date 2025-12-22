@@ -28,12 +28,12 @@ pid_t fork(void) {
 	for (int i = 0;i < MAX_FD;i++) {
 		child->fds[i] = parent->fds[i];
 		if (child->fds[i].present) {
-			child->fds[i].node   = vfs_dup(parent->fds[i].node);
+			child->fds[i].fd   = vfs_dup(parent->fds[i].fd);
 			child->fds[i].offset = parent->fds[i].offset;
 		}
 	}
 
-	child->cwd_node = vfs_dup(parent->cwd_node);
+	child->cwd_node = vfs_dup_node(parent->cwd_node);
 	child->cwd_path = strdup(parent->cwd_path);
 
 	//copy context parent to child but overload regs with userspace context

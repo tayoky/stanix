@@ -2,7 +2,7 @@
 #include <kernel/framebuffer.h>
 #include <kernel/kernel.h>
 #include <kernel/string.h>
-#include <kernel/devfs.h>
+#include <kernel/device.h>
 #include <kernel/print.h>
 #include <kernel/bootinfo.h>
 #include <kernel/memseg.h>
@@ -12,8 +12,9 @@
 #include <errno.h>
 
 ssize_t framebuffer_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
-	struct limine_framebuffer *inode = fd->private;
-	uint64_t size = inode->width * inode->height * (inode->bpp / 8);
+	framebuffer_t *framebuffer = fd->private;
+	struct limine_framebuffer *data = framebuffer->fb;
+	uint64_t size = data->width * data->height * (data->bpp / 8);
 	if(offset + count > size){
 		if(offset > size){
 			return 0;
@@ -22,72 +23,73 @@ ssize_t framebuffer_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count
 	}
 	if(count == sizeof(uint32_t)){
 		//special case if we set only one pixel to go faster
-		*(uint32_t *)(((uint64_t)inode->address) + offset) = *(uint32_t *)buffer;
+		*(uint32_t *)(((uint64_t)data->address) + offset) = *(uint32_t *)buffer;
 		return sizeof(uint32_t);	
 	}
 
 	//write to the framebuffer is easy just memcpy
-	memcpy((void *)((uint64_t)inode->address) + offset,buffer,count);
+	memcpy((void *)((uint64_t)data->address) + offset,buffer,count);
 
 	return count;
 }
 
-int framebuffer_scroll(struct limine_framebuffer *inode,uint64_t count){
+int framebuffer_scroll(struct limine_framebuffer *data,uint64_t count){
 	//scroll the specified amount of pixel
-	uint32_t *buffer = (uint32_t *)inode->address;
+	uint32_t *buffer = (uint32_t *)data->address;
 
-	memmove(buffer,&buffer[count * inode->width],(inode->width * inode->height - count * inode->width) * sizeof(uint32_t));
+	memmove(buffer,&buffer[count * data->width],(data->width * data->height - count * data->width) * sizeof(uint32_t));
 	
 	return 0;
 }
 
-int framebuffer_ioctl(vfs_fd_t *node,long request,void *arg){
-	struct limine_framebuffer *inode = node->private;
+int framebuffer_ioctl(vfs_fd_t *fd,long request,void *arg){
+	framebuffer_t *framebuffer = fd->private;
+	struct limine_framebuffer *data = framebuffer->fb;
 	
 	//implent basic ioctl : width hight ...
 	switch (request){
 	case IOCTL_GET_FB_INFO:
 		struct fb *fb = arg;
-		fb->width = inode->width;
-		fb->height = inode->height;
-		fb->pitch = inode->pitch;
-		fb->bpp = inode->bpp;
-		fb->red_mask_size    = inode->red_mask_size;
-		fb->red_mask_shift   = inode->red_mask_shift;
-		fb->green_mask_size  = inode->green_mask_size;
-		fb->green_mask_shift = inode->green_mask_shift;
-		fb->blue_mask_size   = inode->blue_mask_size;
-		fb->blue_mask_shift  = inode->blue_mask_shift;
+		fb->width = data->width;
+		fb->height = data->height;
+		fb->pitch = data->pitch;
+		fb->bpp = data->bpp;
+		fb->red_mask_size    = data->red_mask_size;
+		fb->red_mask_shift   = data->red_mask_shift;
+		fb->green_mask_size  = data->green_mask_size;
+		fb->green_mask_shift = data->green_mask_shift;
+		fb->blue_mask_size   = data->blue_mask_size;
+		fb->blue_mask_shift  = data->blue_mask_shift;
 		return 0;
 	case IOCTL_FRAMEBUFFER_HEIGHT:
-		return inode->height;
+		return data->height;
 		break;
 	case IOCTL_FRAMEBUFFER_WIDTH:
-		return inode->width;
+		return data->width;
 		break;
 	case IOCTL_FRAMEBUFFER_BPP:
-		return inode->bpp;
+		return data->bpp;
 		break;
 	case IOCTL_FRAMEBUFFER_RM:
-		return inode->red_mask_size;
+		return data->red_mask_size;
 		break;
 	case IOCTL_FRAMEBUFFER_RS:
-		return inode->red_mask_shift;
+		return data->red_mask_shift;
 		break;
 	case IOCTL_FRAMEBUFFER_GM:
-		return inode->green_mask_size;
+		return data->green_mask_size;
 		break;
 	case IOCTL_FRAMEBUFFER_GS:
-		return inode->green_mask_shift;
+		return data->green_mask_shift;
 		break;
 	case IOCTL_FRAMEBUFFER_BM:
-		return inode->blue_mask_size;
+		return data->blue_mask_size;
 		break;
 	case IOCTL_FRAMEBUFFER_BS:
-		return inode->blue_mask_shift;
+		return data->blue_mask_shift;
 		break;
 	case IOCTL_FRAMEBUFFER_SCROLL:
-		return framebuffer_scroll(inode,(uint64_t) arg);
+		return framebuffer_scroll(data,(uint64_t) arg);
 		break;
 	default:
 		return -EINVAL;
@@ -104,7 +106,8 @@ int frambuffer_mmap(vfs_fd_t *fd,off_t offset,memseg_t *seg){
 		return -EINVAL;
 	}
 
-	struct limine_framebuffer *fb = fd->private;
+	framebuffer_t *framebuffer = fd->private;
+	struct limine_framebuffer *fb = framebuffer->fb;
 
 	seg->unmap = framebuffer_unmap;
 
@@ -124,10 +127,15 @@ int frambuffer_mmap(vfs_fd_t *fd,off_t offset,memseg_t *seg){
 }
 
 void draw_pixel(vfs_fd_t *fd,uint64_t x,uint64_t y,uint32_t color){
-	struct limine_framebuffer *inode = fd->private;
-	uint64_t location =  y * inode->pitch  + (x * sizeof(uint32_t));
+	framebuffer_t *framebuffer = fd->private;
+	struct limine_framebuffer *data = framebuffer->fb;
+	uint64_t location =  y * data->pitch  + (x * sizeof(uint32_t));
 	vfs_write(fd,&color,location,sizeof(uint32_t));
 }
+
+device_driver_t framebuffer_driver = {
+	.name = "framebuffer driver",
+};
 
 vfs_ops_t framebuffer_ops = {
 	.write = framebuffer_write,
@@ -138,7 +146,7 @@ vfs_ops_t framebuffer_ops = {
 void init_frambuffer(void){
 	kstatusf("init frambuffer ...");
 
-	for (long i = 0; i < frambuffer_request.response->framebuffer_count; i++){
+	for (size_t i = 0; i < frambuffer_request.response->framebuffer_count; i++){
 		if(i >= 100){
 			kfail();
 			kinfof("too many frambuffer (%ld) can only have up to 99\n",frambuffer_request.response->framebuffer_count);
@@ -152,13 +160,14 @@ void init_frambuffer(void){
 
 		framebuffer_t *framebuffer_dev = kmalloc(sizeof(framebuffer_t));
 		memset(framebuffer_dev,0,sizeof(framebuffer_t));
-		framebuffer_dev->device.type = DEVICE_BLOCK;
-		framebuffer_dev->device.ops = &framebuffer_ops;
-		framebuffer_dev->device.name = full_path;
+		framebuffer_dev->device.type   = DEVICE_BLOCK;
+		framebuffer_dev->device.ops    = &framebuffer_ops;
+		framebuffer_dev->device.name   = full_path;
+		framebuffer_dev->device.driver = &framebuffer_driver;
 		framebuffer_dev->fb = frambuffer_request.response->framebuffers[i];
 
 		//create the device
-		if(register_device(framebuffer_dev)){
+		if(register_device((device_t*)framebuffer_dev)){
 			kfail();
 			kinfof("fail to create device /dev/%s\n",full_path);
 			kfree(full_path);

@@ -94,7 +94,7 @@ int insmod(const char *pathname, const char **args, char **name) {
 
 	int ret = -ENOSYS;
 	kdebugf("try to insmod %s\n", pathname);
-	vfs_node *file = vfs_open(pathname, VFS_READONLY);
+	vfs_fd_t *file = vfs_open(pathname, VFS_READONLY);
 	if (!file) {
 		return -ENOENT;
 	}
@@ -110,7 +110,7 @@ int insmod(const char *pathname, const char **args, char **name) {
 
 	//load the entire things into memory
 	struct stat st;
-	vfs_getattr(file, &st);
+	vfs_getattr(file->inode, &st);
 	char *mod = map_mod(PAGE_ALIGN_UP(st.st_size));
 	vfs_read(file, mod, 0, st.st_size);
 

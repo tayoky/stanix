@@ -152,7 +152,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 
 	//check setuid /setgid bit
 	struct stat st;
-	if (vfs_getattr(file, &st) >= 0) {
+	if (vfs_getattr(file->inode, &st) >= 0) {
 		if (st.st_mode & S_ISUID) {
 			get_current_proc()->suid =get_current_proc()->euid;
 			get_current_proc()->uid  = st.st_uid;

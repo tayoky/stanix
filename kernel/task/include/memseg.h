@@ -17,7 +17,7 @@ typedef struct memseg_struct {
 } memseg_t;
 
 memseg_t *memseg_create(process_t *proc,uintptr_t address,size_t size,uint64_t prot,int flags);
-int memseg_map(process_t *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_node_t *node,off_t offset,memseg_t **seg);
+int memseg_map(process_t *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_fd_t *fd,off_t offset,memseg_t **seg);
 void memseg_unmap(process_t *proc,memseg_t *seg);
 void memseg_clone(process_t *parent,process_t *child,memseg_t *seg);
 void memseg_chflag(process_t *proc,memseg_t *seg,uint64_t flags);

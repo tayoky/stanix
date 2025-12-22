@@ -48,4 +48,7 @@ int destroy_device(device_t *device);
  */
 device_t *device_from_number(dev_t dev);
 
+
+void init_devices(void);
+
 #endif

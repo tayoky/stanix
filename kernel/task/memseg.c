@@ -60,7 +60,7 @@ memseg_t *memseg_create(process_t *proc, uintptr_t address, size_t size, uint64_
 	return new_memseg;
 }
 
-int memseg_map(process_t *proc, uintptr_t address, size_t size, uint64_t prot, int flags, vfs_node *node, off_t offset, memseg_t **seg) {
+int memseg_map(process_t *proc, uintptr_t address, size_t size, uint64_t prot, int flags, vfs_fd_t *fd, off_t offset, memseg_t **seg) {
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
 
@@ -78,8 +78,8 @@ int memseg_map(process_t *proc, uintptr_t address, size_t size, uint64_t prot, i
 			map_page(proc->addrspace, pmm_allocate_page(), address, prot);
 			address += PAGE_SIZE;
 		}
-	} else if (node) {
-		ret = vfs_mmap(node, offset, new_memseg);
+	} else if (fd) {
+		ret = vfs_mmap(fd, offset, new_memseg);
 	} else {
 		ret = -EINVAL;
 	}

@@ -36,7 +36,7 @@ void init_kout(){
 	}
 
 	//now open and make the list
-	vfs_node **outs = kmalloc(sizeof(vfs_node *) * (kout_count + 1));
+	vfs_fd_t **outs = kmalloc(sizeof(vfs_fd_t *) * (kout_count + 1));
 	outs[kout_count] = NULL;
 
 	for (int index = 0; index < kout_count; index++){
@@ -44,13 +44,13 @@ void init_kout(){
 		sprintf(current_key,"kout%d",index);
 		char *current_kout = ini_get_value(kernel->conf_file,"kout",current_key);
 
-		vfs_node *current_node = vfs_open(current_kout,VFS_WRITEONLY);
-		if(!current_node){
+		vfs_fd_t *current_fd = vfs_open(current_kout,VFS_WRITEONLY);
+		if(!current_fd){
 			kinfof("can't open %s \n",current_kout);
 			kfree(current_kout);
 			continue;
 		}
-		outs[index] = current_node;
+		outs[index] = current_fd;
 		kfree(current_kout);
 	}
 	

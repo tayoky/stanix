@@ -53,9 +53,10 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) return -EINVAL;
 	if (socket->status != UNIX_STATUS_INIT) return -EINVAL;
 
-	vfs_node *node = vfs_open(address->sun_path, VFS_READWRITE);
+	vfs_node_t *node = vfs_get_node(address->sun_path, VFS_READWRITE);
 	unix_socket_t *server = (unix_socket_t*)node->private_inode2;
 	if (!node) return -ECONNREFUSED;
+	vfs_close_node(node);
 	if (!(node->flags & VFS_SOCK) || (server->status != UNIX_STATUS_LISTEN) || 
 		server->socket.type != sock->type || server->socket.domain != sock->domain) return -ECONNREFUSED;
 
@@ -167,8 +168,8 @@ ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 }
 
 
-int unix_wait_check(vfs_node *node, short event) {
-	unix_socket_t *socket = (unix_socket_t*)node;
+int unix_wait_check(socket_t *sock, short event) {
+	unix_socket_t *socket = (unix_socket_t*)sock;
 	int ret = 0;
 	switch (socket->status) {
 	case UNIX_STATUS_CONNECTED:
@@ -185,8 +186,8 @@ int unix_wait_check(vfs_node *node, short event) {
 }
 
 
-void unix_close(vfs_node *node) {
-	unix_socket_t *socket = (unix_socket_t*)node;
+void unix_close(socket_t *sock) {
+	unix_socket_t *socket = (unix_socket_t*)sock;
 	kdebugf("unix cleanup\n");
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
@@ -221,8 +222,8 @@ socket_t *unix_create(int type, int protocol) {
 	socket->status = UNIX_STATUS_INIT;
 	socket->bound.sun_family = AF_UNIX;
 	
-	socket->socket.node.close = unix_close;
-	socket->socket.node.wait_check = unix_wait_check;
+	socket->socket.close = unix_close;
+	socket->socket.wait_check = unix_wait_check;
 	socket->socket.accept  = unix_accept;
 	socket->socket.bind    = unix_bind;
 	socket->socket.connect = unix_connect;

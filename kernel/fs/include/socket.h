@@ -7,7 +7,6 @@
 struct socket_domain;
 
 typedef struct socket {
-	vfs_node node;
 	struct socket_domain *domain;
 	int type;
 	int protocol;
@@ -17,6 +16,8 @@ typedef struct socket {
 	int (*bind)(struct socket *socket, const struct sockaddr *address, socklen_t address_len);
 	int (*connect)(struct socket *socket, const struct sockaddr *address, socklen_t address_len);
 	int (*listen)(struct socket *socket, int backlog);
+	int (*wait_check)(struct socket *socket, short type);
+	void (*close)(struct socket *socket);
 	struct sockaddr *connected;
 	socklen_t connected_len;
 } socket_t;

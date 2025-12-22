@@ -8,7 +8,7 @@
 
 void read_main_conf_file(void){
 	kstatusf("open main conf file /conf.ini ...");
-	vfs_node *conf_file = vfs_open("/conf.ini",VFS_READONLY);
+	vfs_fd_t *conf_file = vfs_open("/conf.ini",VFS_READONLY);
 
 	//retry with stanix.ini
 	if(!conf_file){
@@ -26,7 +26,7 @@ void read_main_conf_file(void){
 
 	//now read it
 	struct stat st;
-	vfs_getattr(conf_file,&st);
+	vfs_getattr(conf_file->inode,&st);
 	char *buffer = kmalloc(st.st_size + 1);
 
 	if(vfs_read(conf_file,buffer,0,st.st_size) != (ssize_t)st.st_size){

@@ -13,7 +13,7 @@
 //TODO : make this safe using mutex
 
 list_t *shm_files;
-vfs_node *shmfs_root;
+vfs_node_t *shmfs_root;
 
 //shared memory subsystem
 int shmfs_mount(const char *source,const char *target,unsigned long flags,const void *data){
@@ -46,14 +46,13 @@ static void shm_unmap(memseg_t *seg){
     }
 }
 
-static int shm_mmap(vfs_node *node,off_t offset,memseg_t *seg){
+static int shm_mmap(vfs_fd_t *fd,off_t offset,memseg_t *seg){
     //why would you map shm as private ????
 	if(!(seg->flags & MAP_SHARED)){
 		return -EINVAL;
 	}
 
-
-    shm_file *file = node->private_inode;
+    shm_file *file = fd->private;
 
     offset = PAGE_ALIGN_DOWN(offset);
     if(offset + seg->size > PAGE_ALIGN_UP(file->size))return -EINVAL;
@@ -78,7 +77,7 @@ static int shm_mmap(vfs_node *node,off_t offset,memseg_t *seg){
 }
 
 //op for the actual shm files   
-static int shm_getattr(vfs_node *node,struct stat *st){
+static int shm_getattr(vfs_node_t *node,struct stat *st){
     shm_file *file = node->private_inode;
     st->st_uid  = file->uid;
     st->st_gid  = file->gid;
@@ -89,7 +88,7 @@ static int shm_getattr(vfs_node *node,struct stat *st){
     return 0;
 }
 
-static int shm_setattr(vfs_node *node,struct stat *st){
+static int shm_setattr(vfs_node_t *node,struct stat *st){
     shm_file *file = node->private_inode;
     file->uid  = st->st_uid; 
     file->gid  = st->st_gid;
@@ -97,7 +96,7 @@ static int shm_setattr(vfs_node *node,struct stat *st){
     return 0;
 }
 
-static int shm_truncate(vfs_node *node,size_t size){
+static int shm_truncate(vfs_node_t *node,size_t size){
     shm_file *file = node->private_inode;
     if(size > file->size){
         size_t current_size = PAGE_ALIGN_UP(file->size);
@@ -119,7 +118,7 @@ static int shm_truncate(vfs_node *node,size_t size){
     return 0;
 }
 
-static void shm_close(vfs_node *node){
+static void shm_cleanup(vfs_node_t *node){
     shm_file *file = node->private_inode;
     file->ref_count--;
     if(file->ref_count == 0){
@@ -128,13 +127,13 @@ static void shm_close(vfs_node *node){
 }
 //op for the shmfs root
 
-static int shmfs_getattr(vfs_node *node,struct stat *st){
+static int shmfs_getattr(vfs_node_t *node,struct stat *st){
     (void)node;
     st->st_mode = 0777;
     return 0;
 }
 
-int shmfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
+int shmfs_readdir(vfs_fd_t *node,unsigned long index,struct dirent *dirent){
     (void)node;
 	if(index == 0){
 		strcpy(dirent->d_name,".");
@@ -166,24 +165,28 @@ static shm_file *shmfs_file_from_name(const char *name){
     return NULL;
 }
 
-static vfs_node *shmfs_lookup(vfs_node *node,const char *name){
+vfs_ops_t shmfs_ops = {
+    .mmap = shm_mmap,
+    .getattr = shm_getattr,
+    .setattr = shm_setattr,
+    .truncate = shm_truncate,
+    .cleanup = shm_cleanup,
+};
+
+static vfs_node_t *shmfs_lookup(vfs_node_t *node,const char *name){
     (void)node;
     shm_file *file = shmfs_file_from_name(name);
     if(!file)return NULL;
     file->ref_count++;
-    vfs_node *n = kmalloc(sizeof(vfs_node));
-    memset(n,0,sizeof(vfs_node));
+    vfs_node_t *n = kmalloc(sizeof(vfs_node_t));
+    memset(n,0,sizeof(vfs_node_t));
     n->flags = VFS_DEV | VFS_BLOCK;
-    n->getattr  = shm_getattr;
-    n->setattr  = shm_setattr;
-    n->truncate = shm_truncate;
-    n->close    = shm_close;
-    n->mmap     = shm_mmap;
     n->private_inode = file;
+    n->ops = &shmfs_ops;
     return n;
 }
 
-static int shmfs_create(vfs_node *node,const char *name,mode_t perm,long flags,void *arg){
+static int shmfs_create(vfs_node_t *node,const char *name,mode_t perm,long flags,void *arg){
     (void)node;
     (void)arg;
     //no dir in shmfs
@@ -203,7 +206,7 @@ static int shmfs_create(vfs_node *node,const char *name,mode_t perm,long flags,v
 }
 
 
-static int shmfs_unlink(vfs_node *node,const char *name){
+static int shmfs_unlink(vfs_node_t *node,const char *name){
     (void)node;
     shm_file *file = shmfs_file_from_name(name);
     if(!file)return -ENOENT;
@@ -217,18 +220,22 @@ static int shmfs_unlink(vfs_node *node,const char *name){
     return 0;
 }
 
+vfs_ops_t shm_root_ops = {
+    .readdir = shmfs_readdir,
+    .getattr = shmfs_getattr,
+    .unlink  = shmfs_unlink,
+    .lookup  = shmfs_lookup,
+    .create  = shmfs_create,
+};
+
 void init_shm(void){
     kstatusf("init shared memory subsystem ... ");
     shm_files = new_list();
 
-    shmfs_root = kmalloc(sizeof(vfs_node));
-    memset(shmfs_root,0,sizeof(vfs_node));
+    shmfs_root = kmalloc(sizeof(vfs_node_t));
+    memset(shmfs_root,0,sizeof(vfs_node_t));
     shmfs_root->flags = VFS_DIR;
-    shmfs_root->readdir = shmfs_readdir;
-    shmfs_root->getattr = shmfs_getattr;
-    shmfs_root->unlink  = shmfs_unlink;
-    shmfs_root->lookup  = shmfs_lookup;
-    shmfs_root->create  = shmfs_create;
+    shmfs_root->ops = &shm_root_ops;
 
     vfs_register_fs(&shm_fs);
     kok();

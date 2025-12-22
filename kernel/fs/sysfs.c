@@ -6,9 +6,9 @@
 #include <kernel/kernel.h>
 #include <errno.h>
 
-static vfs_node *sysfs_inode2vnode(sysfs_inode *inode);
+static vfs_node_t *sysfs_inode2vnode(sysfs_inode *inode);
 
-vfs_node *sysfs_root;
+vfs_node_t *sysfs_root;
 
 static sysfs_inode *new_sysfs_inode(void){
     sysfs_inode *inode = kmalloc(sizeof(sysfs_inode));
@@ -17,15 +17,15 @@ static sysfs_inode *new_sysfs_inode(void){
     return inode;
 }
 
-void sysfs_register(const char *name,vfs_node *node){
+void sysfs_register(const char *name,vfs_node_t *node){
     sysfs_inode *inode = new_sysfs_inode();
     inode->linked_node = node;
     inode->name = strdup(name);
     list_append(((sysfs_inode *)sysfs_root->private_inode)->child,inode);
 }
 
-int sysfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
-    sysfs_inode *inode = node->private_inode;
+int sysfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
+    sysfs_inode *inode = fd->private;
 	if(index == 0){
 		strcpy(dirent->d_name,".");
 		return 0;
@@ -49,7 +49,7 @@ int sysfs_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 }
 
 
-vfs_node *sysfs_lookup(vfs_node *node,const char *name){
+vfs_node_t *sysfs_lookup(vfs_node_t *node,const char *name){
     sysfs_inode *inode = node->private_inode;
 	foreach(node,inode->child){
         sysfs_inode *entry = node->value;
@@ -60,14 +60,18 @@ vfs_node *sysfs_lookup(vfs_node *node,const char *name){
     return NULL;
 }
 
-static vfs_node *sysfs_inode2vnode(sysfs_inode *inode){
-    if(inode->linked_node)return vfs_dup(inode->linked_node);
-    vfs_node *node = kmalloc(sizeof(vfs_node));
-    memset(node,0,sizeof(vfs_node));
+vfs_ops_t sysfs_ops = {
+    .readdir = sysfs_readdir,
+    .lookup  = sysfs_lookup,
+};
+
+static vfs_node_t *sysfs_inode2vnode(sysfs_inode *inode){
+    if(inode->linked_node)return vfs_dup_node(inode->linked_node);
+    vfs_node_t *node = kmalloc(sizeof(vfs_node_t));
+    memset(node,0,sizeof(vfs_node_t));
     node->private_inode = inode;
     node->flags = VFS_DIR;
-    node->readdir = sysfs_readdir;
-    node->lookup  = sysfs_lookup;
+    node->ops = &sysfs_ops;
 
     return node;
 }
@@ -84,8 +88,8 @@ vfs_filesystem sys_fs = {
     .mount = sysfs_mount,
 };
 
-ssize_t mem_read(vfs_node *node,void *buf,uint64_t off,size_t count){
-    (void)node;
+ssize_t mem_read(vfs_fd_t *fd,void *buf,uint64_t off,size_t count){
+    (void)fd;
     char str[512];
     sprintf(str,"total : %ld\nused  : %ld\n",kernel->total_memory,kernel->used_memory);
     if(off > strlen(str))return 0;
@@ -94,15 +98,19 @@ ssize_t mem_read(vfs_node *node,void *buf,uint64_t off,size_t count){
     return count;
 }
 
+vfs_ops_t mem_ops = {
+    .read = mem_read,
+};
+
 void init_sysfs(void){
     kstatusf("init sysfs ... ");
     sysfs_root = sysfs_inode2vnode(new_sysfs_inode());
 
     // simple /sys/mem
-    vfs_node *mem = kmalloc(sizeof(vfs_node));
-    memset(mem,0,sizeof(vfs_node));
+    vfs_node_t *mem = kmalloc(sizeof(vfs_node_t));
+    memset(mem,0,sizeof(vfs_node_t));
     mem->flags = VFS_DEV | VFS_BLOCK;
-    mem->read  = mem_read;
+    mem->ops  = &mem_ops;
     mem->ref_count = 1;
     sysfs_register("mem",mem);
 

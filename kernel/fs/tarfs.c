@@ -57,7 +57,7 @@ void mount_initrd(void){
 			}
 
 			//open the file
-			vfs_node *file = vfs_open(full_path,VFS_WRITEONLY);
+			vfs_fd_t *file = vfs_open(full_path,VFS_WRITEONLY);
 			if(!file){
 				kfail();
 				kinfof("fail to open file %s\n",full_path);
@@ -65,10 +65,10 @@ void mount_initrd(void){
 			}
 
 			//set the owner to root
-			vfs_chown(file,0,0);
+			vfs_chown(file->inode,0,0);
 
 			//set mode
-			vfs_chmod(file,octal2int(current_file->file_mode));
+			vfs_chmod(file->inode,octal2int(current_file->file_mode));
 
 			//copy the files content
 			ssize_t write_size = vfs_write(file,addr + 512,0,file_size);

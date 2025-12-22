@@ -57,6 +57,7 @@ typedef struct vfs_fd {
 	void *private;
 	size_t ref_count;
 	long flags;
+	long type;
 } vfs_fd_t;
 
 typedef struct vfs_ops {
@@ -209,7 +210,7 @@ static inline vfs_fd_t *vfs_dup(vfs_fd_t *fd) {
  * @param size the new size
  * @return 0 on success else error code
  */
-int vfs_truncate(vfs_node_t *node, size_t size){
+static inline int vfs_truncate(vfs_node_t *node, size_t size){
 	if (!node || !node->ops->truncate) return -EBADF;
 	if(node->flags & VFS_DIR){
 		return -EISDIR;

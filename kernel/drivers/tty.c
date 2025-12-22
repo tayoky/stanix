@@ -20,24 +20,25 @@ void pty_cleanup(void *data) {
 	kfree(pty);
 }
 
-ssize_t pty_master_read(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count){
+ssize_t pty_master_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 
-	tty_t *tty = (tty_t *)node->private_inode;
-	pty_t *pty = (pty_t *)tty->private_data;
+	pty_t *pty = (pty_t *)fd->private;
 
-	if(pty->slave->ref_count == 1 && !ringbuffer_read_available(pty->output_buffer)){
+	//TODO bring back this
+	/*if(pty->slave->ref_count == 1 && !ringbuffer_read_available(pty->output_buffer)){
 		//nobody as open the slave and there no data
 		return -EIO;
-	}
+	}*/
 
 	return ringbuffer_read(buffer,pty->output_buffer,count);
 }
 
-ssize_t pty_master_write(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count){
+ssize_t pty_master_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 
-	tty_t *tty = (tty_t *)node->private_inode;
+	pty_t *pty = (pty_t *)fd->private;
+	tty_t *tty = pty->slave;
 	for(size_t i=0;i<count;i++){
 		tty_input(tty,*(char *)buffer);
 		(char *)buffer++;
@@ -45,13 +46,13 @@ ssize_t pty_master_write(vfs_fd_t *node,void *buffer,uint64_t offset,size_t coun
 	return (ssize_t)count;
 }
 
-int pty_master_wait_check(vfs_fd_t *node,short type){
-	tty_t *tty = (tty_t *)node->private_inode;
-	pty_t *pty = (pty_t *)tty->private_data;
+int pty_master_wait_check(vfs_fd_t *fd,short type){
+	pty_t *pty = (pty_t *)fd->private;
 	int events = 0;
+	/*TODO : bring back this
 	if((type & POLLHUP) && pty->slave->ref_count == 1){
 		events |= POLLHUP;
-	}
+	}*/
 	if((type & POLLIN) && ringbuffer_read_available(pty->output_buffer)){
 		events |= POLLIN;
 	}
@@ -64,8 +65,7 @@ int pty_master_wait_check(vfs_fd_t *node,short type){
 }
 
 void pty_master_close(vfs_fd_t *fd) {
-	tty_t *tty = (tty_t *)fd->private;
-	pty_t *pty = tty->private_data;
+	pty_t *pty = fd->private;
 
 	// the master close so remove the slave
 	destroy_device((device_t*)pty->slave);
@@ -78,36 +78,41 @@ vfs_ops_t pty_master_ops = {
 	.close      = pty_master_close,
 };
 
+device_driver_t pty_driver = {
+	.name = "pty driver",
+};
+
 int new_pty(vfs_fd_t **master_fd,vfs_fd_t **slave_fd,tty_t **rep){
 	pty_t *pty = kmalloc(sizeof(pty_t));
 	memset(pty,0,sizeof(pty_t));
 	pty->output_buffer = new_ringbuffer(4096);
 
 	tty_t *slave = new_tty(NULL);
+	pty->slave = slave;
 	*rep = slave;
 	slave->private_data = pty;
+	slave->device.driver = &pty_driver;
 	slave->out     = pty_output;
 	slave->cleanup = pty_cleanup;
 
-	//create the master
-	pty_t master = kmalloc(sizeof(vfs_node));
-	memset(*master,0,sizeof(vfs_node));
-	(*master)->private_inode = tty;
-	(*master)
-	(*master)->ref_count     = 1;
+	// create the master fd
+	(*master_fd) = kmalloc(sizeof(vfs_fd_t));
+	memset((*master_fd), 0, sizeof(vfs_fd_t));
+	(*master_fd)->private   = pty;
+	(*master_fd)->ops       = &pty_master_ops;
+	(*master_fd)->ref_count = 1;
 
-	//mount and save the slave
-	pty->slave = *slave;
+	// TODO : create the slave fd
+	// (*slave_fd) = open_device(slave);
+
+	// register and save the slave
 	char path[32];
 	sprintf(path,"pts/%d",kernel->pty_count);
-	if(devfs_create_dev(path,*slave)){
-		vfs_close(*master);
-		vfs_close(*slave);
-		//TODO : delete tty
+	slave->device.name = strdup(path);
+	if(register_device((device_t*)slave) < 0){
+		// TODO : delete tty
 		return -ENOENT;
 	}
-	//mounting reset refcount to 1
-	(*slave)->ref_count++;
 
 	return kernel->pty_count++;
 }
@@ -210,36 +215,36 @@ vfs_ops_t tty_ops = {
 	.wait_check = tty_wait_check,
 };
 
-device_t *new_tty(tty_t **tty){
-	if(!(*tty)){
-		(*tty) = kmalloc(sizeof(tty_t));
-		memset((*tty),0,sizeof(tty_t));
+tty_t *new_tty(tty_t *tty){
+	if(!tty){
+		tty = kmalloc(sizeof(tty_t));
+		memset(tty,0,sizeof(tty_t));
 	}
 
-	(*tty)->input_buffer = new_ringbuffer(4096);
+	tty->input_buffer = new_ringbuffer(4096);
 
 	//reset termios to default value
-	memset(&(*tty)->termios,0,sizeof(struct termios));
-	(*tty)->termios.c_cc[VEOF] = 0x04;
-	(*tty)->termios.c_cc[VERASE] = 127;
-	(*tty)->termios.c_cc[VINTR] = 0x03;
-	(*tty)->termios.c_cc[VQUIT] = 0x22;
-	(*tty)->termios.c_cc[VSUSP] = 0x1A;
-	(*tty)->termios.c_cc[VMIN] = 1;
-	(*tty)->termios.c_iflag = ICRNL | IMAXBEL;
-	(*tty)->termios.c_oflag = OPOST | ONLCR | ONLRET;
-	(*tty)->termios.c_lflag = ECHONL | ECHOK | ECHOE | ECHO | ICANON | IEXTEN | ISIG;
-	(*tty)->termios.c_oflag = CS8;
+	memset(&tty->termios,0,sizeof(struct termios));
+	tty->termios.c_cc[VEOF] = 0x04;
+	tty->termios.c_cc[VERASE] = 127;
+	tty->termios.c_cc[VINTR] = 0x03;
+	tty->termios.c_cc[VQUIT] = 0x22;
+	tty->termios.c_cc[VSUSP] = 0x1A;
+	tty->termios.c_cc[VMIN] = 1;
+	tty->termios.c_iflag = ICRNL | IMAXBEL;
+	tty->termios.c_oflag = OPOST | ONLCR | ONLRET;
+	tty->termios.c_lflag = ECHONL | ECHOK | ECHOE | ECHO | ICANON | IEXTEN | ISIG;
+	tty->termios.c_oflag = CS8;
 
-	(*tty)->canon_buf = kmalloc(512);
-	(*tty)->canon_index = 0;
-	(*tty)->device.type = DEVICE_CHAR;
-	(*tty)->device.ops = &tty_ops;
+	tty->canon_buf = kmalloc(512);
+	tty->canon_index = 0;
+	tty->device.type = DEVICE_CHAR;
+	tty->device.ops = &tty_ops;
 
-	return (device_t*)(*tty);
+	return tty;
 }
 
-//tty_output and tty_input based on TorauOS's tty system
+// tty_output and tty_input based on TorauOS's tty system
 
 int tty_output(tty_t *tty,char c){
 	if(tty->termios.c_oflag & OPOST){

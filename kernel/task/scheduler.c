@@ -56,7 +56,7 @@ void init_task() {
 	kernel_task->main_thread = new_task(kernel_task);
 
 	//let just the boot kernel task start with a cwd at initrd root
-	kernel_task->cwd_node = vfs_open("/", VFS_READONLY);
+	kernel_task->cwd_node = vfs_get_node("/", VFS_READONLY);
 	kernel_task->cwd_path = strdup("");
 
 	//the current task is the kernel task
@@ -176,7 +176,7 @@ process_t *new_kernel_task(void (*func)(uint64_t, char **), uint64_t argc, char 
 #endif
 
 	//just copy the cwd of the current task
-	proc->cwd_node = vfs_dup(get_current_proc()->cwd_node);
+	proc->cwd_node = vfs_dup_node(get_current_proc()->cwd_node);
 	proc->cwd_path = strdup(get_current_proc()->cwd_path);
 
 	//created process are blocked until with unblock them
@@ -288,12 +288,12 @@ static void do_proc_deletion(void) {
 	//close every open fd
 	for (size_t i = 0; i < MAX_FD; i++) {
 		if (get_current_proc()->fds[i].present) {
-			vfs_close(get_current_proc()->fds[i].node);
+			vfs_close(get_current_proc()->fds[i].fd);
 		}
 	}
 
 	//close cwd
-	vfs_close(get_current_proc()->cwd_node);
+	vfs_close_node(get_current_proc()->cwd_node);
 	kfree(get_current_proc()->cwd_path);
 
 	//unmap everything

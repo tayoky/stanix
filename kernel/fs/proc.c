@@ -5,10 +5,10 @@
 #include <kernel/proc.h>
 #include <kernel/vfs.h>
 #include <errno.h>
-
+/** 
 long strtol(const char *str, char **end,int base);
 
-int proc_root_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
+int proc_root_readdir(vfs_node_t *node,unsigned long index,struct dirent *dirent){
     (void)node;
 	if(index == 0){
 		strcpy(dirent->d_name,".");
@@ -37,7 +37,7 @@ int proc_root_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
     return -ENOENT;
 }
 
-int proc_getattr(vfs_node *node,struct stat *st){
+int proc_getattr(vfs_node_t *node,struct stat *st){
     process_t *proc = node->private_inode;
     st->st_uid  = proc->euid;
     st->st_gid  = proc->egid;
@@ -45,7 +45,7 @@ int proc_getattr(vfs_node *node,struct stat *st){
     return 0;
 }
 
-int proc_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
+int proc_readdir(vfs_node_t *node,unsigned long index,struct dirent *dirent){
     (void)node;
     static char *content[] = {
         ".",
@@ -59,7 +59,7 @@ int proc_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
     return 0;
 }
 
-int proc_link_getattr(vfs_node *node, struct stat *st) {
+int proc_link_getattr(vfs_node_t *node, struct stat *st) {
     process_t *proc = node->private_inode;
     st->st_uid  = proc->euid;
     st->st_gid  = proc->egid;
@@ -67,7 +67,7 @@ int proc_link_getattr(vfs_node *node, struct stat *st) {
     return 0;
 }
 
-ssize_t proc_self_readlink(vfs_node *node, char *buffer, size_t count) {
+ssize_t proc_self_readlink(vfs_node_t *node, char *buffer, size_t count) {
     (void)node;
     char buf[128];
     sprintf(buf, "/proc/%ld", get_current_proc()->pid);
@@ -76,16 +76,16 @@ ssize_t proc_self_readlink(vfs_node *node, char *buffer, size_t count) {
     return count;
 }
 
-ssize_t proc_cwd_readlink(vfs_node *node, char *buffer, size_t count) {
+ssize_t proc_cwd_readlink(vfs_node_t *node, char *buffer, size_t count) {
     process_t *proc = node->private_inode;
     if (count > strlen(proc->cwd_path) + 1) count = strlen(proc->cwd_path) + 1;
     memcpy(buffer, proc->cwd_path, count);
     return count;
 }
 
-vfs_node *proc_lookup(vfs_node *root,const char *name) {
+vfs_node_t *proc_lookup(vfs_node_t *root,const char *name) {
     process_t *proc = root->private_inode;
-    vfs_node *node = kmalloc(sizeof(vfs_node));
+    vfs_node_t *node = kmalloc(sizeof(vfs_node));
     memset(node,0,sizeof(vfs_node));
     node->private_inode = proc;
     if (!strcmp(name, "cwd")) {
@@ -142,10 +142,12 @@ int proc_mount(const char *source,const char *target,unsigned long flags,const v
 vfs_filesystem proc_fs = {
     .name = "proc",
     .mount = proc_mount,
-};
+};*/
 
 void init_proc(void){
     kdebugf("init proc fs ...");
-    vfs_register_fs(&proc_fs);
-    kok();
+    //vfs_register_fs(&proc_fs);
+    //kok();
+    kfail();
+    kinfof("todo bring back /proc\n");
 }

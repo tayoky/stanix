@@ -27,7 +27,7 @@ typedef struct tty {
 
 typedef struct pty {
 	ring_buffer *output_buffer;
-	device_t *slave;
+	tty_t *slave;
 } pty_t;
 
 /// @brief give a char to the input of a tty
@@ -38,10 +38,12 @@ int tty_input(tty_t *tty,char c);
 
 int tty_output(tty_t *tty,char c);
 
-/// @brief create a new tty
-/// @param tyy 
-/// @return ane vfs_node that represent the tty
-device_t *new_tty(tty_t **tty);
+/**
+ * @brief create a new tty
+ * @param tty the tty to init
+ * @return the new tty
+ */
+tty_t *new_tty(tty_t *tty);
 
 
 int new_pty(vfs_fd_t **master,vfs_fd_t **slave,tty_t **);
