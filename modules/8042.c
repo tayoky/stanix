@@ -1,5 +1,6 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
+#include <kernel/string.h>
 #include <kernel/ringbuf.h>
 #include <kernel/port.h>
 #include <kernel/irq.h>
@@ -29,13 +30,17 @@
 #define PS2_CONTROLLER_TEST_SUCCESSED 0x55
 #define PS2_CONTROLLER_TEST_FAILED    0xFC
 
-char ps2_have_port1 = 1;
-char ps2_have_port2 = 0;
-
-int ps2_port_id[3][2] = {
-	{0,0},
-	{0,0},
-	{0,0}
+int have_ports[2] = {1, 0};
+static ps2_addr_t ports[2];
+static device_driver_t ps2_driver = {
+	.name = "8042",
+};
+static bus_t ps2_bus = {
+	.device = {
+		.name = "ps2",
+		.driver = &ps2_driver,
+		.type = DEVICE_BUS,
+	},
 };
 
 static int wait_output(){
@@ -117,8 +122,8 @@ static void print_device_name(int port){
 	int c0 = ps2_read();
 	int c1 = ps2_read();
 
-	ps2_port_id[port][0] = c0;
-	ps2_port_id[port][1] = c1;
+	ports[port-1].device_id[0] = c0;
+	ports[port-1].device_id[1] = c1;
 
 	switch(c0){
 	case -1: //-1 mean no byte
@@ -170,6 +175,15 @@ static void print_device_name(int port){
 
 }
 
+static void setup_addr(int port){
+	list_append(ps2_bus.addresses, &ports[port-1]);
+	char name[32];
+	sprintf(name, "port%d", port);
+	ports[port-1].addr.type = BUS_PS2;
+	ports[port-1].addr.name = strdup(name);
+	ports[port-1].port = port;
+}
+
 static int init_ps2(int argc,char **argv){
 	//disable everything
 	ps2_send_command(PS2_DISABLE_PORT1);
@@ -191,26 +205,26 @@ static int init_ps2(int argc,char **argv){
 	uint8_t conf = (uint8_t)ps2_read();
 	if(!(conf & (1 << 5))){
 		//there is a second port
-		ps2_have_port2 = 1;
+		have_ports[1] = 1;
 	}
 	ps2_send_command(PS2_DISABLE_PORT2);
 	
 	//test ports
 	ps2_send_command(PS2_TEST_PORT1);
 	if(ps2_read() != 0){
-		ps2_have_port1 = 0;
+		have_ports[0] = 0;
 		kdebugf("ps2 : the first ps2 port didn't pass test (broken controller ?)\n");
 	}
-	if(ps2_have_port2){
+	if(have_ports[1]){
 		ps2_send_command(PS2_TEST_PORT2);
 		if(ps2_read() != 0){
-			ps2_have_port2 = 0;
+			have_ports[1] = 0;
 			kdebugf("ps2 : the second ps2 port didn't pass test (broken controller ?)\n");
 		}
 	}
 
 	//if no port availible just give up
-	if(!(ps2_have_port1 || ps2_have_port2)){
+	if(!(have_ports[0] || have_ports[1])){
 		kdebugf("ps2 : both ps2 ports are not availible\n");
 		return -ENODEV;
 	}
@@ -221,10 +235,10 @@ static int init_ps2(int argc,char **argv){
 	//start by setting all field to 0
 	conf &= 0b00000100;	
 	//then activate irq
-	if(ps2_have_port1){
+	if(have_ports[0]){
 		conf |= 1;
 	}
-	if(ps2_have_port2){
+	if(have_ports[1]){
 		conf |= 2;
 	}
 	//now write conf
@@ -232,35 +246,30 @@ static int init_ps2(int argc,char **argv){
 	ps2_write(conf);
 
 	//activate devices
-	if(ps2_have_port1){
+	if(have_ports[0]){
 		ps2_send_command(PS2_ENABLE_PORT1);
 	}
-	if(ps2_have_port2){
+	if(have_ports[1]){
 		ps2_send_command(PS2_ENABLE_PORT2);
 	}
 
+	//setup driver and bus
+	register_device_driver(&ps2_driver);
+	ps2_bus.addresses = new_list();
+
 	//now scan the device on each port
-	if(ps2_have_port1){
-		if(ps2_send(1,PS2_DISABLE_SCANING) != PS2_ACK){
+	for (int i=1; i<3; i++) {
+		if (!have_ports[i]) continue;
+		if(ps2_send(i,PS2_DISABLE_SCANING) != PS2_ACK){
 			//no device on the port
-			ps2_have_port1 = 0;
-			kdebugf("ps2 : no device on first port\n");
+			have_ports[i-1] = 0;
+			kdebugf("ps2 : no device on port %d\n", i);
 		} else {
 			//identify the device
-			print_device_name(1);
+			print_device_name(i);
+			setup_addr(i);
 		}
-	}
-	
-	//now scan the device on each port
-	if(ps2_have_port2){
-		if(ps2_send(2,PS2_DISABLE_SCANING) != PS2_ACK){
-			//no device on the port
-			ps2_have_port2 = 0;
-			kdebugf("ps2 : no device on second port\n");
-		} else {
-			print_device_name(2);
-		}
-	}
+	}	
 
 	//we now want to enbale translation
 	if(!have_opt(argc,argv,"--no-translation")){
@@ -269,15 +278,14 @@ static int init_ps2(int argc,char **argv){
 		ps2_write(conf);	
 	}
 
+	register_device((device_t*)&ps2_bus);
+
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");
 
 	//NOTE : at this point scanning is disable
 	//the driver specfic to the device as to enable scaning itself
 
 	//export time
-	EXPORT(ps2_have_port1);
-	EXPORT(ps2_have_port2);
-	EXPORT(ps2_port_id);
 	EXPORT(ps2_register_handler);
 	EXPORT(ps2_read);
 	EXPORT(ps2_send);
@@ -286,9 +294,8 @@ static int init_ps2(int argc,char **argv){
 }
 
 static int fini_ps2(){
-	UNEXPORT(ps2_have_port1);
-	UNEXPORT(ps2_have_port2);
-	UNEXPORT(ps2_port_id);
+	destroy_device((device_t*)&ps2_bus);
+	unregister_device_driver(&ps2_driver);
 	UNEXPORT(ps2_register_handler);
 	UNEXPORT(ps2_read);
 	UNEXPORT(ps2_send);

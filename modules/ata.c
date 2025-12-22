@@ -347,6 +347,7 @@ static int ide_check_addr(bus_addr_t *addr){
 }
 
 static int ide_probe(bus_addr_t *addr) {
+	// TODO : register the controller on the addr
 	pci_addr_t *pci_addr = (pci_addr_t*)(addr);
 	uint8_t prog_if = pci_addr->prog_if;
 	uint8_t bus      = pci_addr->bus;
