@@ -124,12 +124,12 @@ int tmpfs_truncate(vfs_node_t *node,size_t size){
 	return 0;
 }
 
-ssize_t tmpfs_write(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count){
-	tmpfs_inode *inode = (tmpfs_inode *)node->private;
+ssize_t tmpfs_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+	tmpfs_inode *inode = (tmpfs_inode *)fd->private;
 
 	//if the write is out of bound make the file bigger
 	if(offset + count > inode->buffer_size){
-		tmpfs_truncate(node->inode, offset + count);
+		tmpfs_truncate(fd->inode, offset + count);
 	}
 
 	//update mtime
@@ -331,6 +331,7 @@ int tmpfs_setattr(vfs_node_t *node,struct stat *st){
 	inode->atime        = st->st_atime;
 	inode->mtime        = st->st_mtime;
 	inode->ctime        = st->st_ctime;
+	inode->dev          = st->st_dev;
 	return 0;
 }
 
@@ -344,6 +345,7 @@ int tmpfs_getattr(vfs_node_t *node,struct stat *st){
 	st->st_mtime       = inode->mtime;
 	st->st_ctime       = inode->ctime;
 	st->st_nlink       = inode->link_count;
+	st->st_dev         = inode->dev;
 	st->st_ino         = INODE_NUMBER(inode); // fake an inode number
 	
 	//simulate fake blocks of 512 bytes
@@ -374,6 +376,15 @@ static vfs_node_t *inode2node(tmpfs_inode *inode){
 	memset(node,0,sizeof(vfs_node_t));
 	node->private_inode = (void *)inode;
 	node->flags = 0;
+	node->ops = &tmfps_ops;
+
+	if (inode->flags & TMPFS_FLAGS_DIR) {
+		node->flags |= VFS_DIR;
+	}
+
+	if (inode->flags & TMPFS_FLAGS_FILE) {
+		node->flags |= VFS_FILE;
+	}
 
 	if (inode->flags & TMPFS_FLAGS_SOCK) {
 		node->private_inode2 = inode->data;

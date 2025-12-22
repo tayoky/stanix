@@ -26,6 +26,7 @@ typedef struct tmpfs_inode_struct{
 	time_t atime;
 	time_t ctime;
 	time_t mtime;
+	dev_t dev;
 	size_t link_count;
 	size_t open_count;
 	void *data;

@@ -71,7 +71,7 @@ int unregister_device_driver(device_driver_t *device_driver) {
 }
 
 int register_device(device_t *device) {
-	// TODO : allocate dev number
+	// TODO : allocate dev number and create dev in devfs
 	utils_hashmap_add(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
 		bus_t *bus = (bus_t*)device;

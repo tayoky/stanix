@@ -585,7 +585,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
 	vfs_getattr(node, &st);
 
 	fd->ops       = node->ops;
-	fd->private   = node;
+	fd->private   = node->private_inode;
 	fd->inode     = vfs_dup_node(node);
 	fd->flags     = flags;
 	fd->ref_count = 1;
