@@ -75,6 +75,11 @@ int register_device(device_t *device) {
 	if (!device->number)  {
 		device->number = device->driver->minor_count++;
 	}
+	if (device->type == DEVICE_BUS) {
+		vfs_createat(devfs_root, device->name, 0666, VFS_DIR);
+	} else {
+		vfs_createat(devfs_root, device->name, 0666, device->type == DEVICE_CHAR ? VFS_DEV | VFS_CHAR : VFS_DEV | VFS_BLOCK);
+	}
 	device->number = makedev(device->driver->major, device->number);
 	utils_hashmap_add(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
