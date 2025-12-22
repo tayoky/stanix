@@ -1,6 +1,6 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
-#include <kernel/devfs.h>
+#include <kernel/bus.h>
 #include <kernel/port.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
@@ -173,7 +173,7 @@ static void create_pci_addr(uint8_t bus,uint8_t device,uint8_t function,void *ar
 	addr->device_id = deviceID;
 	addr->vendor_id = vendorID;
 	addr->class     = pci_read_config_byte(bus, device, function, PCI_CONFIG_BASE_CLASS);
-	addr->sub_class = pci_read_config_byte(bus, device, function, PCI_CONFIG_SUB_CLASS);
+	addr->subclass  = pci_read_config_byte(bus, device, function, PCI_CONFIG_SUB_CLASS);
 	addr->prog_if   = pci_read_config_byte(bus, device, function, PCI_CONFIG_PROG_IF);
 	addr->bus       = bus;
 	addr->device    = device;
@@ -203,7 +203,7 @@ int init_pci(int argc,char **argv){
 
 	pci_bus.addresses = new_list();
 	pci_foreach(create_pci_addr,&pci_bus);
-	register_device(&pci_bus);
+	register_device((device_t*)&pci_bus);
 	
 	EXPORT(pci_foreach);
 	EXPORT(pci_read_config_dword)
@@ -216,7 +216,7 @@ int init_pci(int argc,char **argv){
 }
 
 int rm_pci(){
-	destroy_device(&pci_bus);
+	destroy_device((device_t*)&pci_bus);
 	unregister_device_driver(&pci_driver);
 	UNEXPORT(pci_foreach);
 	UNEXPORT(pci_read_config_dword)

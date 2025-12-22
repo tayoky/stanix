@@ -2,7 +2,7 @@
 #include <kernel/print.h>
 #include <kernel/string.h>
 #include <kernel/vfs.h>
-#include <kernel/devfs.h>
+#include <kernel/device.h>
 #include <kernel/kheap.h>
 #include <kernel/irq.h>
 #include <kernel/arch.h>
@@ -72,6 +72,10 @@ static void serial_out(char c,void *arg){
 	out_byte(port,c);
 }
 
+static device_driver_t serial_driver = {
+	.name = "serial port",
+};
+
 static int init_port(uint16_t port){
 	out_byte(port + SERIAL_IER, 0x01);
 	out_byte(port + 3, 0x80);
@@ -87,15 +91,16 @@ static int init_port(uint16_t port){
 	}
 	out_byte(port + SERIAL_MCR, SERIAL_MCR_DTR | SERIAL_MCR_RTS | SERIAL_MCR_OUT1 | SERIAL_MCR_OUT2);
 
-	tty_t *tty = NULL;
-	vfs_node *node = new_tty(&tty);
+	tty_t *tty = new_tty(NULL);
 	tty->out = serial_out;
 	tty->private_data = (void *)(uintptr_t)port;
+	char name[20];
+	sprintf(name, "ttyS%d",serial_count);
+	tty->device.name   = strdup(name);
+	tty->device.driver = &serial_driver;
 
-	char path[20];
-	sprintf(path,"ttyS%d",serial_count);
-	kdebugf("serial : mounting serial port under %s\n",path);
-	if(devfs_create_dev(path,node)){
+	kdebugf("register serial port under %s\n",path);
+	if(register_device((device_t*)tty) < 0){
 		return -EIO;
 	}
 	
@@ -108,6 +113,7 @@ static int init_port(uint16_t port){
 
 static int init_serial(int argc,char **argv){
 	serial_count = 0;
+	register_device_driver(&serial_driver);
 	if(have_opt(argc - 1,argv,"--port")){
 		for (int i = 0; i < argc-1; i++){
 			if(!strcmp("--port",argv[i])){
@@ -116,6 +122,7 @@ static int init_serial(int argc,char **argv){
 			
 		}
 		if(!serial_count){
+			unregister_device_driver(&serial_driver);
 			return -ENODEV;
 		}
 		return 0;
@@ -126,6 +133,7 @@ static int init_serial(int argc,char **argv){
 }
 
 static int fini_serial(){
+	unregister_device_driver(&serial_driver);
 	return 0;
 }
 

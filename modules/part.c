@@ -2,6 +2,7 @@
 #include <kernel/string.h>
 #include <kernel/print.h>
 #include <kernel/kheap.h>
+#include <kernel/device.h>
 #include <kernel/vfs.h>
 #include <module/part.h>
 #include <stdint.h>
@@ -18,15 +19,15 @@ typedef struct mbr_entry_struct {
 	char chs_end[3];
 	uint32_t lba_start;
 	uint32_t sectors_count;
-} __attribute__((packed)) mbr_entry;
+} __attribute__((packed)) mbr_entry_t;
 
 typedef struct mbr_struct {
 	char bootstrap[440];
 	uint32_t uuid;
 	uint16_t reserved;
-	mbr_entry entries[4];
+	mbr_entry_t entries[4];
 	uint16_t signature;
-} __attribute__((packed)) mbr_table;
+} __attribute__((packed)) mbr_table_t;
 
 typedef struct gpt_struct {
 	char signature[8];
@@ -43,7 +44,7 @@ typedef struct gpt_struct {
 	uint32_t part_count;
 	uint32_t part_ent_size;
 	uint32_t checksum_part;
-} __attribute__((packed)) gpt_header;
+} __attribute__((packed)) gpt_header_t;
 
 typedef struct gpt_entry {
 	struct gpt_guid type;
@@ -52,29 +53,30 @@ typedef struct gpt_entry {
 	uint64_t lba_end;
 	uint64_t attribute;
 	char name[72];
-} __attribute__((packed)) gpt_entry;
+} __attribute__((packed)) gpt_entry_t;
 
 typedef struct part {
-	vfs_node *dev;
+	device_t device;
+	vfs_fd_t *dev;
 	size_t size;
 	off_t offset;
 	struct part_info info;
-} part;
+} part_t;
 
-static int part_ioctl(vfs_node *node,long req,void *arg){
-	//expose partiton info to userspace
-	part *partition = node->private_inode;
-	switch(req){
+static int part_ioctl(vfs_fd_t *fd,long req,void *arg){
+	// expose partiton info to userspace
+	part_t *partition = fd->private;
+	switch (req) {
 	case I_PART_GET_INFO:
 		*(struct part_info *)arg = partition->info;
 		return 0;
 	default:
-		return -EINVAL;
+		return vfs_ioctl(partition->dev, req, arg);
 	}
 }
 
-static ssize_t part_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
-	part *partition = node->private_inode;
+static ssize_t part_read(vfs_fd_t *fd,void *buf,uint64_t offset,size_t count){
+	part_t *partition = fd->private;
 	if(offset > partition->size){
 		return 0;
 	}
@@ -84,8 +86,8 @@ static ssize_t part_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
 	return vfs_read(partition->dev,buf,offset + partition->offset,count);
 }
 
-static ssize_t part_write(vfs_node *node,void *buf,uint64_t offset,size_t count){
-	part *partition = node->private_inode;
+static ssize_t part_write(vfs_fd_t *fd,const void *buf,uint64_t offset,size_t count){
+	part_t *partition = fd->private;
 	if(offset > partition->size){
 		return 0;
 	}
@@ -95,33 +97,43 @@ static ssize_t part_write(vfs_node *node,void *buf,uint64_t offset,size_t count)
 	return vfs_write(partition->dev,buf,offset + partition->offset,count);
 }
 
-void swap_guid(struct gpt_guid *guid){
+static vfs_ops_t part_ops = {
+	.read  = part_read,
+	.write = part_write,
+	.ioctl = part_ioctl,
+};
+
+static device_driver_t part_driver = {
+	.name = "partitions",
+};
+
+static void swap_guid(struct gpt_guid *guid){
 	guid->e4 = ((guid->e4 & 0xff) << 8) | ((guid->e4 >> 8) & 0xff);
 }
 
-static void create_part(vfs_node *dev,const char *target,off_t offset,size_t size,int *count,struct part_info *info){
+static int create_part(vfs_fd_t *dev,const char *target,off_t offset,size_t size,int *count,struct part_info *info){
 	kdebugf("find partition offset : %lx size : %ld\n",offset,size);
 	char path[strlen(target) + 16];
-	sprintf(path,"%s%d",target,(*count)++);
+	sprintf(path,"%s%d",dev->inode->name,(*count)++);
 
-	part *p = kmalloc(sizeof(part));
+	part_t *p = kmalloc(sizeof(part_t));
 	p->dev    = vfs_dup(dev);
 	p->offset = offset;
 	p->size   = size;
 	p->info   = *info;
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
-	node->private_inode = p;
-	node->flags = VFS_DEV | VFS_BLOCK;
-	node->read  = part_read;
-	node->write = part_write;
-	node->ioctl = part_ioctl;
-	vfs_create(path,0700,VFS_FILE);
-	vfs_mount(path,node);
+	p->device.type   = DEVICE_BLOCK;
+	p->device.name   = strdup(path);
+	p->device.driver = &part_driver;
+	p->device.ops    = &part_ops;
+	int ret = register_device((device_t*)dev);
+	if (ret < 0) {
+		kfree(p->device.name);
+		kfree(p);
+	}
 }
 
-int init_gpt(off_t offset,vfs_node *dev,const char *target){
-	gpt_header gpt;
+int init_gpt(off_t offset,vfs_fd_t *dev,const char *target){
+	gpt_header_t gpt;
 	vfs_read(dev,&gpt,offset,sizeof(gpt));
 	if(memcmp(gpt.signature,"EFI PART",8)){
 		vfs_close(dev);
@@ -137,7 +149,7 @@ int init_gpt(off_t offset,vfs_node *dev,const char *target){
 	memcpy(&info.gpt.disk_uuid,&gpt.guid,sizeof(gpt.guid));
 	swap_guid(&info.gpt.disk_uuid);
 	for (size_t i = 0; i < gpt.part_count; i++,off += gpt.part_ent_size){
-		gpt_entry entry;
+		gpt_entry_t entry;
 		vfs_read(dev,&entry,off,sizeof(entry));
 
 		//ignore empty partitions
@@ -162,10 +174,10 @@ int part_mount(const char *source,const char *target,unsigned long flags,const v
 
 	kdebugf("mount %s to %s\n",source,target);
 
-	vfs_node *dev = vfs_open(source,VFS_READONLY);
+	vfs_fd_t *dev = vfs_open(source,VFS_READONLY);
 	if(!dev)return -ENOENT;
 
-	mbr_table mbr;
+	mbr_table_t mbr;
 	vfs_read(dev,&mbr,0,sizeof(mbr));
 
 	//check for gpt first
@@ -201,6 +213,7 @@ vfs_filesystem part_fs = {
 int part_init(int argc,char **argv){
 	(void)argc;
 	(void)argv;
+	register_device_driver(&part_driver);
 	vfs_register_fs(&part_fs);
 	return 0;
 }
