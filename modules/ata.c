@@ -8,7 +8,7 @@
 #include <kernel/port.h>
 #include <module/ata.h>
 #include <module/pci.h>
-#include <kernel/devfs.h>
+#include <kernel/device.h>
 #include <sys/ioctl.h>
 #include <errno.h>
 
@@ -36,10 +36,7 @@ typedef struct ata_ident {
     uint16_t obsolete9[16];     // Contain nothing really useful
     uint64_t sectors_lba48;     // LBA48 maximum sectors, AND by 0000FFFFFFFFFFFF for validity
     uint16_t obsolete10[152];   // Contain nothing really useful
-} __attribute__((packed)) __attribute__((aligned(8))) ata_ident;
-
-static list_t *ide_controllers;
-static int hdx = 'a';
+} __attribute__((packed)) __attribute__((aligned(8))) ata_ident_t;
 
 typedef struct {
 	mutex_t lock;
@@ -47,18 +44,18 @@ typedef struct {
 	uint32_t base;
 	uint32_t ctrl;
 	uint32_t bmide;
-} ide_channel;
+} ide_channel_t;
 
 typedef struct {
+	device_t device;
 	int exist;
 	int drive;
 	int class;
 	size_t size;
-	vfs_node *node;
 	char model[40];
 	uint32_t command_sets;
-	ide_channel *channel;
-} ide_device;
+	ide_channel_t *channel;
+} ide_device_t;
 
 #define ATA_DRIVE_MASTER 0xA0
 #define ATA_DRIVE_SLAVE  0xB0
@@ -67,11 +64,14 @@ typedef struct {
 #define ATA_CLASS_ATAPI  1
 
 typedef struct {
-	ide_device devices[4];
-	ide_channel channel[2];
-} ide_controller;
+	ide_device_t devices[4];
+	ide_channel_t channel[2];
+} ide_controller_t;
 
-static uint32_t reg2port(ide_device *device,uint32_t reg){
+static device_driver_t ide_driver;
+static int hdx = 'a';
+
+static uint32_t reg2port(ide_device_t *device,uint32_t reg){
 	if(reg <= ATA_REG_STATUS){
 		return device->channel->base + reg;
 	} else if (reg <= ATA_REG_LBA5){
@@ -83,7 +83,7 @@ static uint32_t reg2port(ide_device *device,uint32_t reg){
 	}
 }
 
-static void ide_write(ide_device *device,uint32_t reg,uint8_t data){
+static void ide_write(ide_device_t *device,uint32_t reg,uint8_t data){
 	//set HOB
 	if (reg > 0x07 && reg < 0x0C){
 		ide_write(device,ATA_REG_CONTROL,0x80 | device->channel->nIEN);
@@ -95,7 +95,7 @@ static void ide_write(ide_device *device,uint32_t reg,uint8_t data){
 	}
 }
 
-static uint8_t ide_read(ide_device *device,uint32_t reg){
+static uint8_t ide_read(ide_device_t *device,uint32_t reg){
 	if (reg > 0x07 && reg < 0x0C){
 		ide_write(device,ATA_REG_CONTROL,0x80 | device->channel->nIEN);
 	}
@@ -106,11 +106,11 @@ static uint8_t ide_read(ide_device *device,uint32_t reg){
 	return data;
 }
 
-static void ide_io_wait(ide_device *device){
+static void ide_io_wait(ide_device_t *device){
 	for (size_t i = 0; i < 4; i++){ide_read(device,ATA_REG_ALTSTATUS);}
 }
 
-static int ide_poll(ide_device *device,uint8_t mask,uint8_t value){
+static int ide_poll(ide_device_t *device,uint8_t mask,uint8_t value){
 	size_t timeout = 10000;
 	while((ide_read(device,ATA_REG_STATUS) & mask) != value){
 		if(--timeout <= 0){
@@ -121,15 +121,15 @@ static int ide_poll(ide_device *device,uint8_t mask,uint8_t value){
 	return 0;
 }
 
-static void ide_reset(ide_device *device){
-	//soft reset
+static void ide_reset(ide_device_t *device){
+	// soft reset
 	ide_write(device,ATA_REG_CONTROL,0x4 | device->channel->nIEN);
 	ide_io_wait(device);
 	ide_write(device,ATA_REG_CONTROL,device->channel->nIEN);
 }
 
-static ssize_t ata_access(vfs_node *node,void *buffer,uint64_t offset,size_t count,int write){
-	ide_device *device = node->private_inode;
+static ssize_t ata_access(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count,int write){
+	ide_device_t *device = fd->private;
 
 	if(offset >= device->size){
 		return 0;
@@ -154,10 +154,10 @@ static ssize_t ata_access(vfs_node *node,void *buffer,uint64_t offset,size_t cou
 	//for write we need to fill first and last sectors
 	if(write){
 		if(offset % 512){
-			ata_access(node,buf,lba * 512,512,0);
+			ata_access(fd,buf,lba * 512,512,0);
 		}
 		if(sectors_count > 1 && end % 512){
-			ata_access(node,&buf[256*(sectors_count - 1)],(lba + sectors_count - 1) * 512,512,0);
+			ata_access(fd,&buf[256*(sectors_count - 1)],(lba + sectors_count - 1) * 512,512,0);
 		}
 	}
 
@@ -233,15 +233,15 @@ static ssize_t ata_access(vfs_node *node,void *buffer,uint64_t offset,size_t cou
 }
 
 
-static ssize_t ata_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	return ata_access(node,buffer,offset,count,0);
+static ssize_t ata_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+	return ata_access(fd,buffer,offset,count,0);
 }
-static ssize_t ata_write(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	return ata_access(node,buffer,offset,count,1);
+static ssize_t ata_write(vfs_fd_t *fd,const void *buffer,uint64_t offset,size_t count){
+	return ata_access(fd,(void*)buffer,offset,count,1);
 }
 
-static int ide_ioctl(vfs_node *node,long req,void *arg){
-	ide_device *device = node->private_inode;
+static int ide_ioctl(vfs_fd_t *fd,long req,void *arg){
+	ide_device_t *device = fd->private;
 	switch(req){
 	case I_MODEL:
 		strcpy(arg,device->model);
@@ -251,18 +251,13 @@ static int ide_ioctl(vfs_node *node,long req,void *arg){
 	}
 }
 
-static int ide_getattr(vfs_node *node,struct stat *st){
-	ide_device *device = node->private_inode;
-	//ata devices belong to root i guess ..
-	st->st_uid = 0;
-	st->st_gid = 0;
-	st->st_size = device->size;
-	st->st_blksize = 512;
-	st->st_blocks = (st->st_size + st->st_blksize - 1) / st->st_blksize;
-	return 0;
-}
+static vfs_ops_t ata_ops = {
+	.read  = ata_read,
+	.write = ata_write,
+	.ioctl = ide_ioctl,
+};
 
-static void ide_init_device(ide_device *device){
+static void ide_init_device(ide_device_t *device){
 	//identify
 	ide_write(device,ATA_REG_DRV_SELECT,device->drive);
 	ide_io_wait(device);
@@ -311,7 +306,7 @@ static void ide_init_device(ide_device *device){
 	}
 
 	//we want this shit to be aligned
-	ata_ident ident;
+	ata_ident_t ident;
 	uint16_t *buf = (uint16_t *)&ident;
 	for (size_t i = 0; i < 256; i++){
 		buf[i] = in_word(device->channel->base + ATA_REG_DATA);
@@ -331,50 +326,51 @@ static void ide_init_device(ide_device *device){
 	kdebugf("find usable ata drive on channel %s drive %s\n",device->channel->base == 0x1f0 ? "primary" : "secondary",device->drive == ATA_DRIVE_MASTER ? "master" : "slave");
 
 
-	char path[256];
-	sprintf(path,"hd%c",hdx++);
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
-	device->node = node;
+	char name[256];
+	sprintf(name,"hd%c",hdx++);
 	device->size = sectors * 512;
-	node->flags = VFS_BLOCK | VFS_DEV;
-	node->private_inode = device;
-	node->ioctl   = ide_ioctl;
-	node->getattr = ide_getattr;
-	node->read    = ata_read;
-	node->write   = ata_write;
-	devfs_create_dev(path,node);
+	device->device.type   = DEVICE_BLOCK;
+	device->device.ops    = &ata_ops;
+	device->device.driver = &ide_driver;
+	device->device.name   = strdup(name);
+	register_device((device_t*)device);
 }
 
-static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
-	(void)arg;
-	uint8_t base_class = pci_read_config_byte(bus,device,function,PCI_CONFIG_BASE_CLASS);
-	uint8_t sub_class  = pci_read_config_byte(bus,device,function,PCI_CONFIG_SUB_CLASS);
-	uint8_t prog_if    = pci_read_config_byte(bus,device,function,PCI_CONFIG_PROG_IF);
-	
-
-	if(!((base_class == 1) && ((sub_class == 5) || (sub_class == 1)))){
-		return;
+static int ide_check_addr(bus_addr_t *addr){
+	pci_addr_t *pci_addr = (pci_addr_t*)(addr);
+	if (addr->type != BUS_PCI) return 0;
+	if((pci_addr->class == 1) && ((pci_addr->subclass == 5) || (pci_addr->subclass == 1))){
+		kdebugf("find ata disk on %d:%d:%d\n",pci_addr->bus,pci_addr->device,pci_addr->function);
+		return 1;
 	}
-	kdebugf("find ata disk on %d:%d:%d\n",bus,device,function);
+	return 0;
+}
+
+static int ide_probe(bus_addr_t *addr) {
+	pci_addr_t *pci_addr = (pci_addr_t*)(addr);
+	uint8_t prog_if = pci_addr->prog_if;
+	uint8_t bus      = pci_addr->bus;
+	uint8_t device   = pci_addr->device;
+	uint8_t function = pci_addr->function;
 	if(prog_if & 0x1){
 		//primary channel pci native mode
 		//can we switch ?
 		if(!(prog_if & 0x02)){
 			kdebugf("ide controller don't support compatibility mode\n");
-			return;
+			return -ENOTSUP;
 		}
 		prog_if &= ~0x1;
 	}
 	if(prog_if & 0x4){
-		//primary channel pci native mode
+		//secondary channel pci native mode
 		//can we switch ?
 		if(!(prog_if & 0x08)){
 			kdebugf("ide controller don't support compatibility mode\n");
-			return;
+			return -ENOTSUP;
 		}
 		prog_if &= ~0x4;
 	}
+	pci_addr->prog_if = prog_if;
 	pci_write_config_byte(bus,device,function,PCI_CONFIG_PROG_IF,prog_if);
 
 	uint32_t bar0 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR0) & ~0x3;
@@ -386,8 +382,8 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	//TODO : native mode support
 	bar0 = bar1 = bar2 = bar3 = 0;
 
-	ide_controller *controller = kmalloc(sizeof(ide_controller));
-	memset(controller,0,sizeof(ide_controller));
+	ide_controller_t *controller = kmalloc(sizeof(ide_controller_t));
+	memset(controller,0,sizeof(ide_controller_t));
 
 	controller->channel[0].base  = bar0 ? bar0 : 0x1f0;
 	controller->channel[1].base  = bar2 ? bar2 : 0x170;
@@ -424,30 +420,28 @@ static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	for(size_t i=0; i<5; i++){
 		if(i == 5){
 			kfree(controller);
-			return;
+			return -ENODEV;
 		}
 		if(controller->devices[i].exist)break;
-	}
-	
-	list_append(ide_controllers,controller);
-}
-
-int ide_init(int argc,char **argv){
-	(void)argc;
-	(void)argv;
-	ide_controllers = new_list();
-	pci_foreach(check_dev,NULL);
-	if(!ide_controllers->node_count){
-		kdebugf("no ata disk found\n");
-		//return an error
-		// so the module loader remove us
-		return -ENODEV;
 	}
 	return 0;
 }
 
+static device_driver_t ide_driver = {
+	.name = "ide",
+	.check = ide_check_addr,
+	.probe = ide_probe,
+};
+
+int ide_init(int argc,char **argv){
+	(void)argc;
+	(void)argv;
+	register_device_driver(&ide_driver);
+	return 0;
+}
+
 int ide_fini(){
-	free_list(ide_controllers);
+	unregister_device_driver(&ide_driver);
 	return 0;
 }
 

@@ -10,7 +10,7 @@ struct bus_addr;
 typedef struct device_driver {
 	const char *name;
 	int (*check)(struct bus_addr *addr);
-	int (*init_device)(struct bus_addr *addr);
+	int (*probe)(struct bus_addr *addr);
 	int major; // all devices that use this driver have this
 	int minor_count;
 } device_driver_t;
