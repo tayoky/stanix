@@ -129,7 +129,7 @@ int vfs_unmountat(vfs_node_t *at, const char *path){
 }
 
 ssize_t vfs_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
-	if(fd->inode && (fd->inode->flags & VFS_DIR)){
+	if(fd->type & VFS_DIR){
 		return -EISDIR;
 	}
 	if(fd->ops->read){
@@ -140,24 +140,24 @@ ssize_t vfs_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 }
 
 ssize_t vfs_write(vfs_fd_t *fd,const void *buffer,uint64_t offset,size_t count){
-	if(fd->inode && (fd->inode->flags & VFS_DIR)){
+	if(fd->type & VFS_DIR){
 		return -EISDIR;
 	}
 	if(fd->ops->write){
-		return fd->ops->write(fd,(void *)buffer,offset,count);
+		return fd->ops->write(fd,buffer,offset,count);
 	} else {
 		return -EBADF;
 	}
 }
 
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz){
-	if(node->ops->readlink){
+	if (!(node->flags & VFS_LINK)) {
+			return -ENOLINK;
+	}
+	if (node->ops->readlink) {
 		return node->ops->readlink(node,buf,bufsiz);
 	} else {
-		if(node->flags & VFS_LINK){
-			return -EIO;
-		}
-		return -ENOLINK;
+		return -EIO;
 	}
 }
 
@@ -313,7 +313,7 @@ int vfs_createat_ext(vfs_node_t *at,const char *path,int perm,long flags,void *a
 	if(parent->ops->create){
 		ret = parent->ops->create(parent,child,perm,flags,arg);
 	} else {
-		ret = -ENOTDIR;
+		ret = -EIO;
 	}
 
 	//close
@@ -339,7 +339,7 @@ int vfs_unlink(const char *path){
 	if(parent->ops->create){
 		ret = parent->ops->unlink(parent,child);
 	} else {
-		ret = -ENOTDIR;
+		ret = -EIO;
 	}
 	
 	//cleanup
@@ -363,10 +363,8 @@ int vfs_symlink(const char *target, const char *linkpath){
 	int ret;
 	if(parent->ops->symlink){
 		ret = parent->ops->symlink(parent,child,target);
-	} else if(parent->flags & VFS_DIR){
-		ret = -EIO;
 	} else {
-		ret = -ENOTDIR;
+		ret = -EIO;
 	}
 
 	vfs_close_node(parent);
@@ -384,8 +382,14 @@ int vfs_link(const char *src,const char *dest){
 		vfs_close_node(parent_src);
 		return -ENOENT;
 	}
+	if (!(parent_src->flags & VFS_DIR)) {
+		vfs_close_node(parent_src);
+		vfs_close_node(parent_dest);
+		return -ENOTDIR;
+	}
 	if (!(parent_dest->flags & VFS_DIR)) {
 		vfs_close_node(parent_src);
+		vfs_close_node(parent_dest);
 		return -ENOTDIR;
 	}
 
@@ -397,7 +401,7 @@ int vfs_link(const char *src,const char *dest){
 	if(parent_src->ops->link){
 		ret = parent_src->ops->link(parent_src,child_src,parent_dest,child_dest);
 	} else {
-		ret = -ENOTDIR;
+		ret = -EIO;
 	}
 	
 	//cleanup
@@ -406,8 +410,8 @@ int vfs_link(const char *src,const char *dest){
 	return ret;
 }
 
-int vfs_readdir(vfs_fd_t *node,unsigned long index,struct dirent *dirent){
-	if (!(node->flags & VFS_DIR)) {
+int vfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
+	if (!(fd->type & VFS_DIR)) {
 		return -ENOTDIR;
 	}
 	dirent->d_type = DT_UNKNOWN;
@@ -415,7 +419,7 @@ int vfs_readdir(vfs_fd_t *node,unsigned long index,struct dirent *dirent){
 	if(node->ops->readdir){
 		return node->ops->readdir(node,index,dirent);
 	} else {
-		return -ENOTDIR;
+		return -EIO;
 	}
 }
 
