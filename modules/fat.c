@@ -10,12 +10,15 @@
 #undef min
 #define min(a,b) (a < b ? a : b)
 
-static int fat_getattr(vfs_node *node,struct stat *st){
+static vfs_ops_t fat_ops;
+
+static int fat_getattr(vfs_node_t *node,struct stat *st){
 	fat_inode *inode = node->private_inode;
 	//no meta data on root (emulated on fat 32 root)
 	if(inode->is_fat16_root)return 0;
 
 	//TODO : parse times
+	st->st_ino  = inode->first_cluster;
 	st->st_size = inode->entry.file_size;
 	st->st_mode = 0777;
 	return 0;
@@ -62,30 +65,27 @@ static uint32_t fat_get_next_cluster(fat *fat_info,uint32_t cluster){
 	return ent;
 }
 
-static vfs_node *fat_entry2node(fat_entry *entry,fat *fat_info){
+static vfs_node_t *fat_entry2node(fat_entry *entry,fat *fat_info){
 	fat_inode *inode = kmalloc(sizeof(fat_inode));
 	memset(inode,0,sizeof(fat_inode));
 	inode->fat_info = *fat_info;
 	inode->entry    = *entry;
 	inode->first_cluster = (entry->cluster_higher << 16) | entry->cluster_lower;
 
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
+	vfs_node_t *node = kmalloc(sizeof(vfs_node_t));
+	memset(node,0,sizeof(vfs_node_t));
 	node->private_inode = inode;
-	node->getattr       = fat_getattr;
+	node->ops           = &fat_ops;
 	if(entry->attribute & ATTR_DIRECTORY){
 		node->flags |= VFS_DIR;
-		node->readdir = fat_readdir;
-		node->lookup  = fat_lookup;
 	} else {
 		node->flags |= VFS_FILE;
-		node->read  = fat_read;
 	}
 	return node;
 }
 
-ssize_t fat_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
-	fat_inode *inode = node->private_inode;
+ssize_t fat_read(vfs_fd_t *fd,void *buf,uint64_t offset,size_t count){
+	fat_inode *inode = fd->private;
 
 	if(offset > inode->entry.file_size){
 		return 0;
@@ -136,8 +136,8 @@ ssize_t fat_read(vfs_node *node,void *buf,uint64_t offset,size_t count){
 	return data_read;
 }
 
-int fat_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
-	fat_inode *inode = node->private_inode;
+int fat_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
+	fat_inode *inode = fd->private;
 
 	uint64_t offset   = inode->is_fat16_root ? inode->start         : fat_cluster2offset(&inode->fat_info,inode->first_cluster);
 	uint32_t remaning = inode->is_fat16_root ? inode->entries_count : UINT32_MAX;
@@ -229,7 +229,7 @@ int fat_readdir(vfs_node *node,unsigned long index,struct dirent *dirent){
 	return 0;
 }
 
-static vfs_node *fat_lookup(vfs_node *node,const char *name){
+static vfs_node_t *fat_lookup(vfs_node_t *node,const char *name){
 	fat_inode *inode = node->private_inode;
 
 	uint32_t remaning = inode->is_fat16_root ? inode->entries_count : UINT32_MAX;
@@ -283,7 +283,7 @@ static vfs_node *fat_lookup(vfs_node *node,const char *name){
 int fat_mount(const char *source,const char *target,unsigned long flags,const void *data){
 	(void)flags;
 	(void)data;
-	vfs_node *dev = vfs_open(source,VFS_READONLY);
+	vfs_fd_t *dev = vfs_open(source,VFS_READONLY);
 	if(!dev)return -ENOENT;
 
 	fat_bpb bpb;
@@ -341,7 +341,7 @@ int fat_mount(const char *source,const char *target,unsigned long flags,const vo
 		.cluster_size     = bpb.byte_per_sector * bpb.sector_per_cluster,
 		.data_start       = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector,
 	};
-	vfs_node *local_root;
+	vfs_node_t *local_root;
 	if(fat_type == FAT32){
 		//build a fake entry for root
 		fat_entry root_entry;
@@ -359,12 +359,11 @@ int fat_mount(const char *source,const char *target,unsigned long flags,const vo
 		root->start         = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector;
 		root->is_fat16_root = 1;
 
-		local_root = kmalloc(sizeof(vfs_node));
-		memset(local_root,0,sizeof(vfs_node));
+		local_root = kmalloc(sizeof(vfs_node_t));
+		memset(local_root,0,sizeof(vfs_node_t));
 		local_root->private_inode = root;
 		local_root->flags = VFS_DIR;
-		local_root->readdir = fat_readdir;
-		local_root->lookup  = fat_lookup;
+		local_root->ops = &fat_ops;
 	}
 
 	
@@ -379,6 +378,13 @@ int fat_mount(const char *source,const char *target,unsigned long flags,const vo
 
 	return 0;
 }
+
+static vfs_ops_t fat_ops = {
+	.read    = fat_read,
+	.readdir = fat_readdir,
+	.lookup  = fat_lookup,
+	.getattr = fat_getattr,
+};
 
 vfs_filesystem fat_fs = {
 	.mount = fat_mount,

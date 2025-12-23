@@ -84,20 +84,20 @@ typedef struct fat_entry {
 } __attribute__((packed)) fat_entry;
 
 typedef struct fat {
-    int fat_type;
-	vfs_node *dev;
-    uint16_t reserved_sectors;
-    uint16_t sector_size;
-    uint32_t sectors_per_fat;
-    uint32_t cluster_size;
-    off_t data_start;          //start of root/data section start
+	int fat_type;
+	vfs_fd_t *dev;
+	uint16_t reserved_sectors;
+	uint16_t sector_size;
+	uint32_t sectors_per_fat;
+	uint32_t cluster_size;
+	off_t data_start;          //start of root/data section start
 } fat;
 
 //in memory inode
 typedef struct fat_inode {
 	fat_entry entry;
 	uint32_t first_cluster;
-    fat fat_info;
+	fat fat_info;
 	//used for fat16/12 root
 	int is_fat16_root;
 	uint64_t start;
@@ -105,8 +105,8 @@ typedef struct fat_inode {
 } fat_inode;
 
 
-static vfs_node *fat_lookup(vfs_node *node,const char *name);
-int fat_readdir(vfs_node *node,unsigned long index,struct dirent *dirent);
-ssize_t fat_read(vfs_node *node,void *buf,uint64_t offset,size_t count);
+static vfs_node_t *fat_lookup(vfs_node_t *node,const char *name);
+int fat_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent);
+ssize_t fat_read(vfs_fd_t *fd,void *buf,uint64_t offset,size_t count);
 
 #endif
