@@ -15,11 +15,24 @@ static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_dri
 		return -EBUSY;
 	}
 	
-	if (!device_driver->check || !device_driver->init_device) return -ENOTSUP;
+	if (!device_driver->check || !device_driver->probe) return -ENOTSUP;
 	if (!device_driver->check(addr)) return -ENOTSUP;
 	
 	// the driver is compatible with the device
-	return device_driver->init_device(addr);
+	return device_driver->probe(addr);
+}
+
+struct __init_device_struct_helper {
+	bus_addr_t *addr;
+	int ret;
+};
+
+static void __init_device_helper(void *element, void *arg) {
+	struct __init_device_struct_helper *data = arg;
+	device_driver_t *driver = element;
+
+	if (data->ret >= 0) return;
+	data->ret = init_device_with_driver(data->addr, driver);
 }
 
 static int init_device(bus_addr_t *addr) {
@@ -27,21 +40,18 @@ static int init_device(bus_addr_t *addr) {
 		// a driver already control this address
 		return -EBUSY;
 	}
+	
+	struct __init_device_struct_helper data = {
+		.addr = addr,
+		.ret = -ENOTSUP,
+	},
 
-	int ret = -ENOTSUP;
+	utils_hashmap_foreach(&device_drivers, __init_device_helper, &data); 
 
-	/*utils_hashmap_foreach(&device_drivers, ); {
-		ret = udrv_init_device_with_typedef(addr, device_driver);
-		if (ret < 0) continue;
-
-		// the driver is compatible
-		break;
-	}*/
-
-	return ret;
+	return data->ret;
 }
 
-static void init_bus_with_driver_helper(void *element, void *arg) {
+static void __init_bus_with_driver_helper(void *element, void *arg) {
 	bus_t *bus = element;
 	device_driver_t *driver = arg;
 	if (bus->device.type != DEVICE_BUS) return;
@@ -61,7 +71,7 @@ int register_device_driver(device_driver_t *device_driver) {
 	utils_hashmap_add(&device_drivers, device_driver->major, device_driver);
 
 	// try to use this new driver on all already existing devices
-	utils_hashmap_foreach(&devices, init_bus_with_driver_helper, device_driver);
+	utils_hashmap_foreach(&devices, __init_bus_with_driver_helper, device_driver);
 	return 0;
 }
 
@@ -71,7 +81,7 @@ int unregister_device_driver(device_driver_t *device_driver) {
 }
 
 int register_device(device_t *device) {
-	// TODO : create dev in devfs
+	// TODO : create buses in devfs
 	if (!device->number)  {
 		device->number = device->driver->minor_count++;
 	}
@@ -79,9 +89,10 @@ int register_device(device_t *device) {
 	if (device->addr) {
 		device->addr->device = device;
 	}
+	if (device->type == DEVICE_BUS) {
 		vfs_createat(devfs_root, device->name, 0666, VFS_DIR);
 	} else {
-		vfs_createat(devfs_root, device->name, 0666, device->type == DEVICE_CHAR ? VFS_DEV | VFS_CHAR : VFS_DEV | VFS_BLOCK);
+		vfs_createat_ext(devfs_root, device->name, 0666, device->type == DEVICE_CHAR ? VFS_DEV | VFS_CHAR : VFS_DEV | VFS_BLOCK, &device->number);
 	}
 	utils_hashmap_add(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
@@ -96,6 +107,7 @@ int register_device(device_t *device) {
 
 int destroy_device(device_t *device) {
 	utils_hashmap_remove(&devices, device->number);
+	// TODO : call cleanup func and remove dev in devfs
 	return 0;
 }
 

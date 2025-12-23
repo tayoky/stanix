@@ -301,9 +301,11 @@ int tmpfs_create(vfs_node_t *node,const char *name,mode_t perm,long flags,void *
 	}
 	if(flags & VFS_CHAR){
 		inode_flag |= TMPFS_FLAGS_CHAR;
+		inode->dev = *(dev_t*)arg;
 	}
 	if(flags & VFS_BLOCK){
 		inode_flag |= TMPFS_FLAGS_BLOCK;
+		inode->dev = *(dev_t*)arg;
 	}
 
 	//create new inode
@@ -331,7 +333,6 @@ int tmpfs_setattr(vfs_node_t *node,struct stat *st){
 	inode->atime        = st->st_atime;
 	inode->mtime        = st->st_mtime;
 	inode->ctime        = st->st_ctime;
-	inode->dev          = st->st_dev;
 	return 0;
 }
 
