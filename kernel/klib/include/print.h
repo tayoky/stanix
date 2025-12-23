@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <kernel/vfs.h>
 
+void kprint_buf(const char *buf, size_t size);
 int sprintf(char * str,const char *fmt,...);
 int vsprintf(char * buf,const char *fmt,va_list args);
 int snprintf(char * str,size_t maxlen, const char *fmt,...);

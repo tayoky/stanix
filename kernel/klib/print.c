@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-void output_buf(const char *buf, size_t size) {
+void kprint_buf(const char *buf, size_t size) {
 	// when kout is not init just output trought serial
 	if(!kernel->outs){
 		while (size > 0) {
@@ -43,7 +43,7 @@ void kfprintf(vfs_fd_t *node, const char *fmt, ...) {
 void kvprintf(const char *fmt, va_list args) {
 	char buf[1024];
 	vsnprintf(buf, sizeof(buf), fmt, args);
-	output_buf(buf, strlen(buf));
+	kprint_buf(buf, strlen(buf));
 }
 
 void kok(void){

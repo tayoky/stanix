@@ -4,10 +4,12 @@
 
 // memory devices
 
-#define DEV_MEM 1
-#define DEV_NULL 2
-#define DEV_ZERO 5
-#define DEV_FULL 7
+#define DEV_MEM     1
+#define DEV_NULL    2
+#define DEV_ZERO    5
+#define DEV_FULL    7
+#define DEV_KMSG    11
+#define DEV_TTYBOOT 13
 
 static ssize_t mem_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	device_t *device = fd->private;
@@ -31,6 +33,18 @@ static ssize_t mem_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t cou
 		return count;
 	case DEV_FULL:
 		return -ENOSPC;
+	case DEV_KMSG:
+		kprint_buf(buf, count);
+		return count;
+	case DEV_TTYBOOT:;
+		const char *c = buf;
+		while (count > 0) {
+			write_serial_char(*c);
+			c++;
+			count;
+		}
+		return count;
+
 	default:
 		return -EINVAL;
 	}
@@ -63,8 +77,10 @@ static int create_mem_dev(int minor, const char *name) {
 void init_mem_devices(void) {
 	kstatus("init memory devices ... ");
 	register_device_driver(&mem_driver);
-	create_dev_mem(DEV_NULL, "null");
-	create_dev_mem(DEV_ZERO, "zero");
-	create_dev_mem(DEV_FULL, "full");
+	create_dev_mem(DEV_NULL   , "null");
+	create_dev_mem(DEV_ZERO   , "zero");
+	create_dev_mem(DEV_FULL   , "full");
+	create_dev_mem(DEV_KMSG   , "kmsg");
+	create_dev_mem(DEV_TTYBOOT, "ttyboot");
 	kok();
 }
