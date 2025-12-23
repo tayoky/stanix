@@ -12,6 +12,7 @@
 #include <kernel/framebuffer.h>
 #include <kernel/ini.h>
 #include <kernel/terminal_emu.h>
+#include <kernel/tty.h>
 #include <kernel/kout.h>
 #include <kernel/irq.h>
 #include <kernel/string.h>
@@ -112,6 +113,7 @@ void kmain() {
 	init_frambuffer();
 	read_main_conf_file();
 	init_terminal_emualtor();
+	init_ptys();
 	init_kout();
 	init_irq();
 	init_task();

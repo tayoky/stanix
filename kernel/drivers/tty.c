@@ -116,6 +116,13 @@ int new_pty(vfs_fd_t **master_fd,vfs_fd_t **slave_fd,tty_t **rep){
 	return kernel->pty_count++;
 }
 
+void init_ptys(void) {
+	kstatusf("init pty ... ");
+	register_device_driver(&pty_driver);
+	vfs_mkdir("/dev/pts", 0755);
+	kok();
+}
+
 ssize_t tty_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 	(void)offset;
 	tty_t *tty = (tty_t *)fd->private;

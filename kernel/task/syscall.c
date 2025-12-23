@@ -694,9 +694,8 @@ int sys_isatty(int fd) {
 	if (!is_valid_fd(fd)) {
 		return -EBADF;
 	}
-
-	// TODO bring back this
-	if (0) {
+	struct termios t;
+	if (vfs_ioctl(FD_GET(fd).fd, TIOCGETA, &t) == 0) {
 		return 1;
 	} else {
 		return -ENOTTY;
