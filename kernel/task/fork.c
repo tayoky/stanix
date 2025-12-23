@@ -30,6 +30,7 @@ pid_t fork(void) {
 		if (child->fds[i].present) {
 			child->fds[i].fd   = vfs_dup(parent->fds[i].fd);
 			child->fds[i].offset = parent->fds[i].offset;
+			child->fds[i].flags  = parent->fds[i].flags;
 		}
 	}
 
