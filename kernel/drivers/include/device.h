@@ -20,7 +20,7 @@ typedef struct device {
 	struct bus_addr *addr;
 	char *name;
 	vfs_ops_t *ops;
-	int number;
+	dev_t number;
 	int type;
 } device_t;
 

@@ -597,6 +597,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
 
 	if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode)) {
 		device_t *device = device_from_number(st.st_rdev);
+		if (!device) goto error;
 		fd->ops     = device->ops;
 		fd->private = device;
 	}
@@ -604,7 +605,9 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
 	if (fd->ops->open) {
 		int ret = fd->ops->open(fd);
 		if (ret < 0) {
-			kfree(node);
+			error:
+			vfs_close_node(fd->inode);
+			kfree(fd);
 			return NULL;
 		}
 	}

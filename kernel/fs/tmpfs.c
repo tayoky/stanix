@@ -301,11 +301,9 @@ int tmpfs_create(vfs_node_t *node,const char *name,mode_t perm,long flags,void *
 	}
 	if(flags & VFS_CHAR){
 		inode_flag |= TMPFS_FLAGS_CHAR;
-		inode->dev = *(dev_t*)arg;
 	}
 	if(flags & VFS_BLOCK){
 		inode_flag |= TMPFS_FLAGS_BLOCK;
-		inode->dev = *(dev_t*)arg;
 	}
 
 	//create new inode
@@ -314,6 +312,9 @@ int tmpfs_create(vfs_node_t *node,const char *name,mode_t perm,long flags,void *
 	child_inode->parent = inode;
 	child_inode->perm = perm;
 	child_inode->data = arg;
+	if ((flags & VFS_BLOCK) || (flags & VFS_CHAR)) {
+		child_inode->dev = *(dev_t*)arg;
+	}
 
 	//create new entry
 	tmpfs_dirent *entry = kmalloc(sizeof(tmpfs_dirent));
@@ -346,7 +347,7 @@ int tmpfs_getattr(vfs_node_t *node,struct stat *st){
 	st->st_mtime       = inode->mtime;
 	st->st_ctime       = inode->ctime;
 	st->st_nlink       = inode->link_count;
-	st->st_dev         = inode->dev;
+	st->st_rdev        = inode->dev;
 	st->st_ino         = INODE_NUMBER(inode); // fake an inode number
 	
 	//simulate fake blocks of 512 bytes

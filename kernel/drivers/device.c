@@ -94,6 +94,7 @@ int register_device(device_t *device) {
 	} else {
 		vfs_createat_ext(devfs_root, device->name, 0666, device->type == DEVICE_CHAR ? VFS_CHAR : VFS_BLOCK, &device->number);
 	}
+	kdebugf("register device %s as %d,%d (%lx)\n", device->name, major(device->number), minor(device->number), device->number);
 	utils_hashmap_add(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
 		bus_t *bus = (bus_t*)device;

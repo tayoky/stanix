@@ -145,6 +145,7 @@ vfs_ops_t framebuffer_ops = {
 
 void init_frambuffer(void){
 	kstatusf("init frambuffer ...");
+	register_device_driver(&framebuffer_driver);
 
 	for (size_t i = 0; i < frambuffer_request.response->framebuffer_count; i++){
 		if(i >= 100){
