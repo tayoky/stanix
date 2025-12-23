@@ -1,4 +1,5 @@
 #include <kernel/pipe.h>
+#include <kernel/vfs.h>
 #include <kernel/ringbuf.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
@@ -100,6 +101,8 @@ int create_pipe(vfs_fd_t **read,vfs_fd_t **write){
 	//set the data
 	(*read)->ops  = &pipe_read_ops;
 	(*write)->ops = &pipe_write_ops;
+	(*read)->flags  = O_RDONLY;
+	(*write)->flags = O_WRONLY;
 
 	return 0;
 }

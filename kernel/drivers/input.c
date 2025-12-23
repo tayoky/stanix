@@ -1,13 +1,14 @@
+#include <kernel/print.h>
 #include <kernel/input.h>
-#include <input.h>
+#include <kernel/scheduler.h>
+#include <sys/input.h>
+#include <poll.h>
 
-#define passthrough(op, ...) if(device->ops) return device->ops->op ? device->ops->op(__VA_ARGS__) : -EINVAL;\
-	else return -EINVAL;
 #define check_control(val) if (!device->controlling_fd) device->controlling_fd = fd;\
 										 if (device->controlling_fd != fd) return val;
 
 static int input_ioctl(vfs_fd_t *fd, long req, void *arg) {
-	(void)arg;
+	int ret = -EINVAL;
 	input_device_t *device = fd->private;
 	switch (req) {
 	case I_INPUT_GET_CONTROL:
@@ -19,7 +20,8 @@ static int input_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		device->controlling_fd = NULL;
 		return 0;
 	default:
-		passthrought(ioctl);
+		if (device->ops && device->ops->ioctl) ret = device->ops->ioctl(fd, req, arg);
+		return ret;
 	}
 }
 
@@ -44,7 +46,7 @@ static int input_wait_check(vfs_fd_t *fd, short events) {
 
 static void input_close(vfs_fd_t *fd) {
 	input_device_t *device = fd->private;
-	passthrought(close);
+	if (device->ops && device->ops->close) device->ops->close(fd);
 	if (fd == device->controlling_fd) {
 		device->controlling_fd = NULL;
 	}
@@ -59,7 +61,7 @@ static vfs_ops_t input_ops = {
 
 int send_input_event(input_device_t *device, struct input_event *event) {
 	if (ringbuffer_write_available(device->events)) {
-		ringbuffer_write(device->events, event, sizeof(struct input_event));
+		ringbuffer_write(event, device->events, sizeof(struct input_event));
 	}
 	return 0;
 }

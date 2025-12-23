@@ -140,6 +140,7 @@ static int init_ps2kb(int argc,char **argv){
 	(void)argc;
 	(void)argv;
 	register_device_driver(&ps2_kb_driver);
+	return 0;
 }
 
 static int fini_ps2kb(){

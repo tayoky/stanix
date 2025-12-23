@@ -44,11 +44,11 @@ static int init_device(bus_addr_t *addr) {
 	struct __init_device_struct_helper data = {
 		.addr = addr,
 		.ret = -ENOTSUP,
-	},
+	};
 
 	utils_hashmap_foreach(&device_drivers, __init_device_helper, &data); 
 
-	return data->ret;
+	return data.ret;
 }
 
 static void __init_bus_with_driver_helper(void *element, void *arg) {
@@ -115,16 +115,16 @@ device_t *device_from_number(dev_t dev) {
 	return utils_hashmap_get(&devices, dev);
 }
 
-vfd_fd_t *open_device(device_t *device, long flags) {
+vfs_fd_t *open_device(device_t *device, long flags) {
 	vfs_fd_t *fd = kmalloc(sizeof(vfs_fd_t));
 	memset(fd, 0, sizeof(vfs_fd_t));
-	fd->ops = device;
+	fd->ops = device->ops;
 	fd->type = device->type == DEVICE_BLOCK ? VFS_BLOCK : VFS_CHAR;
 	fd->flags = flags;
 	fd->ref_count = 1;
 	fd->private = device;
 	if (fd->ops->open) {
-		if (fs->ops->open(fd) < 0) {
+		if (fd->ops->open(fd) < 0) {
 			kfree(fd);
 			return NULL;
 		}

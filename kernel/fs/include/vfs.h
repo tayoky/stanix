@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <limits.h>
 #include <errno.h>
+#include <fcntl.h>
 
 //just in case we use a weird limits.h
 #ifndef PATH_MAX

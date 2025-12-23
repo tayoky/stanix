@@ -1,5 +1,6 @@
 #include <kernel/device.h>
 #include <kernel/string.h>
+#include <kernel/print.h>
 #include <kernel/kheap.h>
 
 // memory devices
@@ -12,6 +13,7 @@
 #define DEV_TTYBOOT 13
 
 static ssize_t mem_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
+	(void)offset;
 	device_t *device = fd->private;
 	switch (minor(device->number)) {
 	case DEV_NULL:
@@ -26,6 +28,7 @@ static ssize_t mem_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 }
 
 static ssize_t mem_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t count) {
+	(void)offset;
 	device_t *device = fd->private;
 	switch (minor(device->number)) {
 	case DEV_NULL:
@@ -41,7 +44,7 @@ static ssize_t mem_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t cou
 		while (count > 0) {
 			write_serial_char(*c);
 			c++;
-			count;
+			count--;
 		}
 		return count;
 
@@ -76,12 +79,12 @@ static int create_mem_dev(int minor, const char *name) {
 }
 
 void init_mem_devices(void) {
-	kstatus("init memory devices ... ");
+	kstatusf("init memory devices ... ");
 	register_device_driver(&mem_driver);
-	create_dev_mem(DEV_NULL   , "null");
-	create_dev_mem(DEV_ZERO   , "zero");
-	create_dev_mem(DEV_FULL   , "full");
-	create_dev_mem(DEV_KMSG   , "kmsg");
-	create_dev_mem(DEV_TTYBOOT, "ttyboot");
+	create_mem_dev(DEV_NULL   , "null");
+	create_mem_dev(DEV_ZERO   , "zero");
+	create_mem_dev(DEV_FULL   , "full");
+	create_mem_dev(DEV_KMSG   , "kmsg");
+	create_mem_dev(DEV_TTYBOOT, "ttyboot");
 	kok();
 }

@@ -422,10 +422,10 @@ int vfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
 	}
 	dirent->d_type = DT_UNKNOWN;
 	dirent->d_ino  = 1; //some programs want non NULL inode
-	if(node->ops->readdir){
-		return node->ops->readdir(node,index,dirent);
+	if(fd->ops->readdir){
+		return fd->ops->readdir(fd,index,dirent);
 	} else {
-		return -EIO;
+		return -EINVAL;
 	}
 }
 
@@ -637,7 +637,7 @@ void vfs_close(vfs_fd_t *fd) {
 }
 
 int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid) {
-	struct st;
+	struct stat st;
 	vfs_getattr(node, &st);
 
 	int is_other = 1;

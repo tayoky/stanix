@@ -62,7 +62,7 @@ static void serial_handler(fault_frame *frame, void *data){
 	tty_t *serial_port = data;
 	
 	uint16_t port = (uint16_t)(uintptr_t)serial_port->private_data;
-	tty_input(serial_ports,in_byte(port));
+	tty_input(serial_port,in_byte(port));
 }
 
 static void serial_out(char c,void *arg){
@@ -98,7 +98,7 @@ static int init_port(uint16_t port){
 	tty->device.name   = strdup(name);
 	tty->device.driver = &serial_driver;
 
-	kdebugf("register serial port under %s\n",path);
+	kdebugf("register serial port under %s\n",name);
 	if(register_device((device_t*)tty) < 0){
 		return -EIO;
 	}

@@ -138,7 +138,7 @@ vfs_ops_t terminal_ops = {
 
 device_driver_t terminal_emulator = {
 	.name = "kernel terminal emulator",
-}
+};
 
 void init_terminal_emualtor(void){
 	kstatusf("init terminal emulator ...");

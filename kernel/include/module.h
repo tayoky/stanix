@@ -1,10 +1,9 @@
-#ifndef MODULE_H
-#define MODULE_H
+#ifndef _KERNEL_MODULE_H
+#define _KERNEL_MODULE_H
 
 #include <kernel/list.h>
 #include <stdint.h>
 #include <stddef.h>
-
 
 typedef struct kmodule_struct {
 	uint64_t magic;

@@ -4,7 +4,7 @@
 #include <kernel/device.h>
 #include <kernel/ringbuf.h>
 #include <kernel/vfs.h>
-#include <input.h>
+#include <sys/input.h>
 
 typedef struct input_device {
 	device_t device;

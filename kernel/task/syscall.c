@@ -67,13 +67,13 @@ int sys_open(const char *path, int flags, mode_t mode) {
 
 	file_descriptor *file = &FD_GET(fd);
 
-	int vfs_flags = flags & (O_RDONLY | O_WRONLY | O_RDWR | O_NOFOLLOW | O_NONBLOCK)
+	int vfs_flags = flags & (O_RDONLY | O_WRONLY | O_RDWR | O_NOFOLLOW | O_NONBLOCK);
 
 	vfs_fd_t *vfs_fd = vfs_open(path, vfs_flags);
 
 	//O_CREAT things
 	if (flags & O_CREAT) {
-		if (vfs_fd && flags & O_EXCL) {
+		if (vfs_fd && (flags & O_EXCL)) {
 			vfs_close(vfs_fd);
 			return -EEXIST;
 		}
@@ -354,14 +354,14 @@ int sys_pipe(int pipefd[2]) {
 		return -ENXIO;
 	}
 	FD_GET(read).present = 1;
-	FD_GET(read).flags = FD_READ;
+	FD_GET(read).flags = 0;
 
 	int write = find_fd();
 	if (write == -1) {
 		FD_GET(read).present = 0;
 		return -ENXIO;
 	}
-	FD_GET(write).flags = FD_WRITE;
+	FD_GET(write).flags = 0;
 	FD_GET(write).present = 1;
 
 	create_pipe(&FD_GET(read).fd, &FD_GET(write).fd);
@@ -715,14 +715,14 @@ int sys_openpty(int *amaster, int *aslave, char *name, const struct termios *ter
 		return -ENXIO;
 	}
 	FD_GET(master).present = 1;
-	FD_GET(master).flags = FD_WRITE | FD_READ;
+	FD_GET(master).flags = 0;
 
 	int slave = find_fd();
 	if (slave == -1) {
 		FD_GET(master).present = 0;
 		return -ENXIO;
 	}
-	FD_GET(slave).flags = FD_WRITE | FD_READ;
+	FD_GET(slave).flags = 0;
 	FD_GET(slave).present = 1;
 	*amaster = master;
 	*aslave = slave;
@@ -1193,7 +1193,7 @@ int sys_access(const char *pathname, int mode) {
 		vfs_close_node(node);
 		return 0;
 	}
-	int succed = vfs_user_perm(node, get_current_proc()->uid, get_current_proc()->gid) & mode == mode;
+	int succed = (vfs_user_perm(node, get_current_proc()->uid, get_current_proc()->gid) & mode) == mode;
 	vfs_close_node(node);
 	return succed ? 0 : -EACCES;
 }
