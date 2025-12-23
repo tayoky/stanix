@@ -54,7 +54,7 @@ int sys_open(const char *path, int flags, mode_t mode) {
 	}
 
 	//imposible conbinaison of flags
-	if (flags & O_WRONLY && flags & O_RDWR) {
+	if ((flags & O_WRONLY) && (flags & O_RDWR)) {
 		return -EINVAL;
 	}
 
@@ -65,24 +65,11 @@ int sys_open(const char *path, int flags, mode_t mode) {
 		return -ENXIO;
 	}
 
-	//translate to vfs flags
-	uint64_t vfs_flags = 0;
-	if (flags & O_WRONLY) {
-		vfs_flags = VFS_WRITEONLY;
-	} else if (flags & O_RDWR) {
-		vfs_flags = VFS_READWRITE;
-	} else {
-		vfs_flags = VFS_READONLY;
-	}
-	if (flags & O_NOFOLLOW) {
-		vfs_flags |= VFS_NOFOLOW;
-	}
-
-
 	file_descriptor *file = &FD_GET(fd);
 
-	vfs_fd_t *vfs_fd = vfs_open(path, vfs_flags);
+	int vfs_flags = flags & (O_RDONLY | O_WRONLY | O_RDWR | O_NOFOLLOW | O_NONBLOCK)
 
+	vfs_fd_t *vfs_fd = vfs_open(path, vfs_flags);
 
 	//O_CREAT things
 	if (flags & O_CREAT) {
@@ -136,22 +123,12 @@ int sys_open(const char *path, int flags, mode_t mode) {
 
 	//now apply the flags on the fd
 	file->flags = 0;
-	if (flags & O_WRONLY) {
-		file->flags |= FD_WRITE;
-	} else if (flags & O_RDWR) {
-		file->flags |= FD_WRITE | FD_READ;
-	} else {
-		file->flags |= FD_READ;
-	}
 
 	if (flags & O_APPEND) {
 		file->flags |= FD_APPEND;
 	}
 	if (flags & O_CLOEXEC) {
 		file->flags |= FD_CLOEXEC;
-	}
-	if (flags & O_NONBLOCK) {
-		file->flags |= FD_NONBLOCK;
 	}
 
 	return fd;
@@ -173,7 +150,7 @@ ssize_t sys_write(int fd, void *buffer, size_t count) {
 		return -EFAULT;
 	}
 
-	if ((!is_valid_fd(fd) || (!FD_CHECK(fd, FD_WRITE)))) {
+	if (!is_valid_fd(fd)) {
 		return -EBADF;
 	}
 
@@ -200,7 +177,7 @@ ssize_t sys_read(int fd, void *buffer, size_t count) {
 		return -EFAULT;
 	}
 
-	if ((!is_valid_fd(fd) || (!FD_CHECK(fd, FD_READ)))) {
+	if (!is_valid_fd(fd)) {
 		return -EBADF;
 	}
 
@@ -217,7 +194,6 @@ ssize_t sys_read(int fd, void *buffer, size_t count) {
 
 void sys_exit(int error_code) {
 	//set that we exited normally
-	//TODO : set this on process or something
 	get_current_proc()->exit_status = (1UL << 16) | error_code;
 	kdebugf("exit with code : %ld\n", error_code);
 	kill_proc();
@@ -472,7 +448,7 @@ int sys_stat(const char *pathname, struct stat *st) {
 		return -EFAULT;
 	}
 
-	vfs_node_t *node = vfs_get_node(pathname, VFS_READONLY);
+	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY);
 	if (!node) {
 		return -ENOENT;
 	}
@@ -491,7 +467,7 @@ int sys_lstat(const char *pathname, struct stat *st) {
 		return -EFAULT;
 	}
 
-	vfs_node_t *node = vfs_get_node(pathname, VFS_READONLY | VFS_NOFOLOW);
+	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY | O_NOFOLLOW);
 	if (!node) {
 		return -ENOENT;
 	}
@@ -535,7 +511,7 @@ int sys_chdir(const char *path) {
 	}
 
 	//check if exist
-	vfs_node_t *node = vfs_get_node(path, VFS_READONLY);
+	vfs_node_t *node = vfs_get_node(path, O_RDONLY);
 	if (!node) {
 		return -ENOENT;
 	}
@@ -631,7 +607,7 @@ int sys_unlink(const char *pathname) {
 	}
 
 	//unlink don't work on dir while vfs_unlink work on dir
-	vfs_node_t *node = vfs_get_node(pathname, VFS_READONLY);
+	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY);
 	if (!node) {
 		return -ENOENT;
 	}
@@ -650,7 +626,7 @@ int sys_rmdir(const char *pathname) {
 	}
 
 	//check for dir and empty
-	vfs_fd_t *fd = vfs_open(pathname, VFS_READONLY);
+	vfs_fd_t *fd = vfs_open(pathname, O_RDONLY);
 	if (!fd) {
 		return -ENOENT;
 	}
@@ -1085,7 +1061,7 @@ static int chmod_node(vfs_node_t *node, mode_t mode) {
 }
 
 int sys_chmod(const char *pathname, mode_t mode) {
-	vfs_node_t *node = vfs_get_node(pathname, VFS_WRITEONLY);
+	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY);
 	if (!node)return -ENOENT;
 
 	int ret = chmod_node(node, mode);
@@ -1095,7 +1071,7 @@ int sys_chmod(const char *pathname, mode_t mode) {
 }
 
 int sys_lchmod(const char *pathname, mode_t mode) {
-	vfs_node_t *node = vfs_get_node(pathname, VFS_WRITEONLY | VFS_NOFOLOW);
+	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY | O_NOFOLLOW);
 	if (!node)return -ENOENT;
 
 	int ret = chmod_node(node, mode);
@@ -1127,7 +1103,7 @@ static int chown_node(vfs_node_t *node, uid_t owner, gid_t group) {
 }
 
 int sys_chown(const char *pathname, uid_t owner, gid_t group) {
-	vfs_node_t *node = vfs_get_node(pathname, VFS_WRITEONLY);
+	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY);
 	if (!node)return -ENOENT;
 
 	int ret = chown_node(node, owner, group);
@@ -1137,7 +1113,7 @@ int sys_chown(const char *pathname, uid_t owner, gid_t group) {
 }
 
 int sys_lchown(const char *pathname, uid_t owner, gid_t group) {
-	vfs_node_t *node = vfs_get_node(pathname, VFS_WRITEONLY | VFS_NOFOLOW);
+	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY | O_NOFOLLOW);
 	if (!node)return -ENOENT;
 
 	int ret = chown_node(node, owner, group);
@@ -1184,6 +1160,7 @@ pid_t sys_getpgid(pid_t pid) {
 	return proc->group;
 }
 
+// FIXME : fcntl is highly broken
 int sys_fcntl(int fd, int op, int arg) {
 	if (!is_valid_fd(fd)) {
 		return -EBADF;
@@ -1209,9 +1186,10 @@ mode_t sys_umask(mode_t mask) {
 	return old;
 }
 
+// FIXME : access is highly broken
 int sys_access(const char *pathname, int mode) {
-	long flags = VFS_READONLY;
-	if (mode & W_OK)flags |= VFS_WRITEONLY;
+	long flags = O_RDONLY;
+	if (mode & W_OK)flags |= O_WRONLY;
 	vfs_node_t *node = vfs_get_node(pathname, flags);
 	if (!node)return -ENOENT;
 	vfs_close_node(node);
@@ -1219,7 +1197,7 @@ int sys_access(const char *pathname, int mode) {
 }
 
 int sys_truncate(const char *path, off_t length) {
-	vfs_node_t *node = vfs_get_node(path, VFS_WRITEONLY);
+	vfs_node_t *node = vfs_get_node(path, O_WRONLY);
 	if (!node)return -ENOENT;
 	int ret = vfs_truncate(node, (size_t)length);
 	vfs_close_node(node);
@@ -1227,8 +1205,8 @@ int sys_truncate(const char *path, off_t length) {
 }
 
 int sys_ftruncate(int fd, off_t length) {
-	//must be open for writing
-	if (!is_valid_fd(fd) || !FD_CHECK(fd, VFS_WRITEONLY)) {
+	//must be open
+	if (!is_valid_fd(fd)) {
 		return -EBADF;
 	}
 	if (!FD_GET(fd).fd->inode) {
@@ -1272,7 +1250,7 @@ ssize_t sys_readlink(const char *path, char *buf, size_t bufsize) {
 		return -EFAULT;
 	}
 
-	vfs_node_t *node = vfs_get_node(path, VFS_READONLY | VFS_NOFOLOW);
+	vfs_node_t *node = vfs_get_node(path, O_RDONLY | O_NOFOLLOW);
 	if (!node) {
 		return -ENOENT;
 	}

@@ -169,7 +169,7 @@ void init_terminal_emualtor(void){
 	}
 
 	//and open the frammebuffer
-	vfs_fd_t *frambuffer_dev = vfs_open(frambuffer_path,VFS_WRITEONLY);
+	vfs_fd_t *frambuffer_dev = vfs_open(frambuffer_path,O_WRONLY);
 	if(!frambuffer_dev){
 		kfail();
 		kinfof("fail to open device : %s\n",frambuffer_path);
@@ -191,7 +191,7 @@ void init_terminal_emualtor(void){
 	}
 
 	//now open the file
-	vfs_fd_t *font_file = vfs_open(font_path,VFS_READONLY);
+	vfs_fd_t *font_file = vfs_open(font_path,O_RDONLY);
 	if(!font_file){
 		kfail();
 		kinfof("fail to open file : %s\n",font_path);
@@ -253,7 +253,7 @@ void init_terminal_emualtor(void){
 		return;
 	}
 
-	vfs_fd_t *tty = vfs_open("/dev/tty0",VFS_WRITEONLY);
+	vfs_fd_t *tty = vfs_open("/dev/tty0",O_WRONLY);
 	kfprintf(tty,"[" COLOR_YELLOW "infos" COLOR_RESET "] PMM, VMM vfs tmpFS and other aready init \n");
 	vfs_close(tty);
 

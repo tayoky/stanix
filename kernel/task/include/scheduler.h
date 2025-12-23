@@ -24,12 +24,9 @@ typedef struct {
 	size_t offset;
 	long present;
 	long flags;
-}file_descriptor;
+} file_descriptor;
 
-#define FD_READ     0x01
-#define FD_WRITE    0x02
 #define FD_APPEND   0x04
-#define FD_NONBLOCK 0x08
 
 struct process;
 

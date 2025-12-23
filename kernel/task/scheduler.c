@@ -56,7 +56,7 @@ void init_task() {
 	kernel_task->main_thread = new_task(kernel_task);
 
 	//let just the boot kernel task start with a cwd at initrd root
-	kernel_task->cwd_node = vfs_get_node("/", VFS_READONLY);
+	kernel_task->cwd_node = vfs_get_node("/", O_RDONLY);
 	kernel_task->cwd_path = strdup("");
 
 	//the current task is the kernel task

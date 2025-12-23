@@ -391,15 +391,11 @@ static vfs_node_t *inode2node(tmpfs_inode *inode){
 		node->private_inode2 = inode->data;
 		node->flags |= VFS_SOCK;
 	}
-
-	if (IS_DEV(inode->flags)) {
-		node->flags |= VFS_DEV;
-		if (inode->flags & TMPFS_FLAGS_CHAR) {
-			node->flags |= VFS_CHAR;
-		}
-		if (inode->flags & TMPFS_FLAGS_BLOCK) {
-			node->flags |= VFS_BLOCK;
-		}
+	if (inode->flags & TMPFS_FLAGS_CHAR) {
+		node->flags |= VFS_CHAR;
+	}
+	if (inode->flags & TMPFS_FLAGS_BLOCK) {
+		node->flags |= VFS_BLOCK;
 	}
 
 	inode->open_count++;

@@ -134,7 +134,7 @@ static int shmfs_getattr(vfs_node_t *node,struct stat *st){
 }
 
 int shmfs_readdir(vfs_fd_t *node,unsigned long index,struct dirent *dirent){
-    (void)node;
+	(void)node;
 	if(index == 0){
 		strcpy(dirent->d_name,".");
 		return 0;
@@ -145,16 +145,16 @@ int shmfs_readdir(vfs_fd_t *node,unsigned long index,struct dirent *dirent){
 		return 0;
 	}
 
-    index -=2;
+	index -=2;
 	foreach(node,shm_files){
 		if(!index){
-            shm_file *file = node->value;
+			shm_file *file = node->value;
 			strcpy(dirent->d_name,file->name);
 			return 0;
 		}
 		index--;
 	}
-    return -ENOENT;
+	return -ENOENT;
 }
 
 static shm_file *shmfs_file_from_name(const char *name){
@@ -180,7 +180,7 @@ static vfs_node_t *shmfs_lookup(vfs_node_t *node,const char *name){
     file->ref_count++;
     vfs_node_t *n = kmalloc(sizeof(vfs_node_t));
     memset(n,0,sizeof(vfs_node_t));
-    n->flags = VFS_DEV | VFS_BLOCK;
+    n->flags = VFS_FILE;
     n->private_inode = file;
     n->ops = &shmfs_ops;
     return n;

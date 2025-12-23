@@ -283,7 +283,7 @@ static vfs_node_t *fat_lookup(vfs_node_t *node,const char *name){
 int fat_mount(const char *source,const char *target,unsigned long flags,const void *data){
 	(void)flags;
 	(void)data;
-	vfs_fd_t *dev = vfs_open(source,VFS_READONLY);
+	vfs_fd_t *dev = vfs_open(source,O_RDONLY);
 	if(!dev)return -ENOENT;
 
 	fat_bpb bpb;

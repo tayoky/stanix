@@ -92,7 +92,7 @@ int register_device(device_t *device) {
 	if (device->type == DEVICE_BUS) {
 		vfs_createat(devfs_root, device->name, 0666, VFS_DIR);
 	} else {
-		vfs_createat_ext(devfs_root, device->name, 0666, device->type == DEVICE_CHAR ? VFS_DEV | VFS_CHAR : VFS_DEV | VFS_BLOCK, &device->number);
+		vfs_createat_ext(devfs_root, device->name, 0666, device->type == DEVICE_CHAR ? VFS_CHAR : VFS_BLOCK, &device->number);
 	}
 	utils_hashmap_add(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {

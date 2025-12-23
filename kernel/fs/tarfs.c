@@ -57,7 +57,7 @@ void mount_initrd(void){
 			}
 
 			//open the file
-			vfs_fd_t *file = vfs_open(full_path,VFS_WRITEONLY);
+			vfs_fd_t *file = vfs_open(full_path,O_WRONLY);
 			if(!file){
 				kfail();
 				kinfof("fail to open file %s\n",full_path);

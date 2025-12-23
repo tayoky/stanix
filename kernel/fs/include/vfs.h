@@ -18,7 +18,6 @@
 #define VFS_FILE  0x001
 #define VFS_DIR   0x002
 #define VFS_LINK  0x004
-#define VFS_DEV   0x008
 #define VFS_MOUNT 0x010
 #define VFS_CHAR  0x020
 #define VFS_BLOCK 0x040
@@ -267,10 +266,6 @@ void vfs_unregister_fs(vfs_filesystem *fs);
 int vfs_auto_mount(const char *source,const char *target,const char *filesystemtype,unsigned long mountflags,const void *data);
 
 //flags
-#define VFS_READONLY     0x01 //readonly
-#define VFS_WRITEONLY    0x02 //write only
-#define VFS_READWRITE    0x03 //write and read
-#define VFS_PARENT       0x04 //open the parent
-#define VFS_NOFOLOW      0x08 //don't folow symlinks
+#define O_PARENT       0x4000 //open the parent
 
 #endif

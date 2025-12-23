@@ -109,7 +109,7 @@ void init_sysfs(void){
     // simple /sys/mem
     vfs_node_t *mem = kmalloc(sizeof(vfs_node_t));
     memset(mem,0,sizeof(vfs_node_t));
-    mem->flags = VFS_DEV | VFS_BLOCK;
+    mem->flags = VFS_FILE;
     mem->ops  = &mem_ops;
     mem->ref_count = 1;
     sysfs_register("mem",mem);

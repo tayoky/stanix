@@ -81,7 +81,7 @@ int vfs_mount_on(vfs_node_t *mount_point, vfs_node_t *local_root) {
 
 int vfs_mountat(vfs_node_t *at,const char *name,vfs_node_t *local_root){
 	//first open the mount point or create it
-	vfs_node_t *mount_point = vfs_get_node_at(at,name,VFS_READWRITE);
+	vfs_node_t *mount_point = vfs_get_node_at(at,name,O_RDWR);
 	if(!mount_point){
 		return -ENOENT;
 	}
@@ -104,7 +104,7 @@ int vfs_unmount(const char *path){
 //TODO : we don't handle the case where a parent of the mount point get closed
 //the local_root stay open but somebody try to open it's parent
 int vfs_unmountat(vfs_node_t *at, const char *path){
-	vfs_node_t *parent = vfs_get_node_at(at,path,VFS_PARENT);
+	vfs_node_t *parent = vfs_get_node_at(at,path,O_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
@@ -129,24 +129,30 @@ int vfs_unmountat(vfs_node_t *at, const char *path){
 }
 
 ssize_t vfs_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
-	if(fd->type & VFS_DIR){
+	if (fd->type & VFS_DIR) {
 		return -EISDIR;
 	}
-	if(fd->ops->read){
+	if (fd->flags & O_WRONLY) {
+		return -EBADF;
+	}
+	if (fd->ops->read) {
 		return fd->ops->read(fd,buffer,offset,count);
 	} else {
-		return -EBADF;
+		return -EINVAL;
 	}
 }
 
 ssize_t vfs_write(vfs_fd_t *fd,const void *buffer,uint64_t offset,size_t count){
-	if(fd->type & VFS_DIR){
+	if (fd->type & VFS_DIR) {
 		return -EISDIR;
 	}
-	if(fd->ops->write){
+	if (!(fd->flags & (O_WRONLY | O_RDWR))) {
+		return -EBADF;
+	}
+	if (fd->ops->write) {
 		return fd->ops->write(fd,buffer,offset,count);
 	} else {
-		return -EBADF;
+		return -EINVAL;
 	}
 }
 
@@ -297,7 +303,7 @@ int vfs_create_ext(const char *path, int perm, long flags, void *arg){
 
 int vfs_createat_ext(vfs_node_t *at,const char *path,int perm,long flags,void *arg){
 	//open the parent
-	vfs_node_t *parent = vfs_get_node_at(at, path, VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent = vfs_get_node_at(at, path, O_WRONLY | O_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
@@ -323,7 +329,7 @@ int vfs_createat_ext(vfs_node_t *at,const char *path,int perm,long flags,void *a
 
 int vfs_unlink(const char *path){
 	//open parent
-	vfs_node_t *parent = vfs_get_node(path,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent = vfs_get_node(path,O_WRONLY | O_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
@@ -350,7 +356,7 @@ int vfs_unlink(const char *path){
 
 int vfs_symlink(const char *target, const char *linkpath){
 	//open parent
-	vfs_node_t *parent = vfs_get_node(linkpath,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent = vfs_get_node(linkpath,O_WRONLY | O_PARENT);
 	if(!parent){
 		return -ENOENT;
 	}
@@ -373,11 +379,11 @@ int vfs_symlink(const char *target, const char *linkpath){
 
 int vfs_link(const char *src,const char *dest){
 	//open parent
-	vfs_node_t *parent_src = vfs_get_node(src,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent_src = vfs_get_node(src,O_WRONLY | O_PARENT);
 	if(!parent_src){
 		return -ENOENT;
 	}
-	vfs_node_t *parent_dest = vfs_get_node(dest,VFS_WRITEONLY | VFS_PARENT);
+	vfs_node_t *parent_dest = vfs_get_node(dest,O_WRONLY | O_PARENT);
 	if(!parent_dest){
 		vfs_close_node(parent_src);
 		return -ENOENT;
@@ -440,34 +446,28 @@ int vfs_chown(vfs_node_t *node,uid_t owner,gid_t group_owner){
 	return vfs_setattr(node,&st);
 }
 
-int vfs_getattr(vfs_node_t *node,struct stat *st){
+int vfs_getattr(vfs_node_t *node,struct stat *st) {
 	memset(st,0,sizeof(struct stat));
 	st->st_nlink = 1; //in case a driver forgot to set :D
 	st->st_mode  = 0744; //default mode
 	//make sure we can actually sync
-	if(node->ops->getattr){
+	if (node->ops->getattr) {
 		int ret = node->ops->getattr(node,st);
 		if(ret < 0)return ret;
 	}
 	
 	//file type to mode
-	if(node->flags & VFS_FILE){
+	if (node->flags & VFS_FILE) {
 		st->st_mode |= S_IFREG;
-	} else if(node->flags & VFS_DIR){
+	} else if (node->flags & VFS_DIR) {
 		st->st_mode |= S_IFDIR;
-	} else if(node->flags & VFS_SOCK){
+	} else if (node->flags & VFS_SOCK) {
 		st->st_mode |= S_IFSOCK;
-	} else if(node->flags & VFS_DEV){
-		if(node->flags & VFS_BLOCK){
-			st->st_mode |= S_IFBLK;
-		} else if(node->flags & VFS_CHAR){
-			st->st_mode |= S_IFCHR;
-		} else {
-			st->st_mode |= S_IFBLK;
-			st->st_mode |= S_IFCHR;
-		}
-	}
-	if(node->flags & VFS_LINK){
+	} else if (node->flags & VFS_BLOCK) {
+		st->st_mode |= S_IFBLK;
+	} else if (node->flags & VFS_CHAR) {
+		st->st_mode |= S_IFCHR;
+	} else if (node->flags & VFS_LINK) {
 		st->st_mode |= S_IFLNK;
 	}
 	return 0;
@@ -519,8 +519,8 @@ vfs_node_t *vfs_get_node_at(vfs_node_t *at, const char *path, long flags){
 		}
 	}
 
-	// we handle VFS_PARENT here
-	if(flags & VFS_PARENT){
+	// we handle O_PARENT here
+	if(flags & O_PARENT){
 		//do we have a parent ?
 		if(path_depth < 1){
 			return NULL;
@@ -543,7 +543,7 @@ vfs_node_t *vfs_get_node_at(vfs_node_t *at, const char *path, long flags){
 				vfs_close_node(mount_point);
 				continue;
 			}
-			if((next_node->flags & VFS_LINK) && (!(flags & VFS_NOFOLOW) || i < path_depth - 1)){
+			if((next_node->flags & VFS_LINK) && (!(flags & O_NOFOLLOW) || i < path_depth - 1)){
 				//TODO : maybee cache linked node ?
 				vfs_node_t *symlink = next_node;
 				if(loop_max-- <= 0){
@@ -610,11 +610,13 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
 	}
 
 	
-	///update modify / access time
-	if((flags & VFS_WRITEONLY) || (flags & VFS_READWRITE)){
+	/// update modify / access time
+	if (flags & O_RDWR) {
 		st.st_mtime = NOW();
-	}
-	if((flags & VFS_READONLY) || (flags & VFS_READWRITE)){
+		st.st_atime = NOW();
+	} else if (flags & O_WRONLY) {
+		st.st_mtime = NOW();
+	} else {
 		st.st_atime = NOW();
 	}
 	vfs_setattr(node, &st);

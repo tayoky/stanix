@@ -8,13 +8,13 @@
 
 void read_main_conf_file(void){
 	kstatusf("open main conf file /conf.ini ...");
-	vfs_fd_t *conf_file = vfs_open("/conf.ini",VFS_READONLY);
+	vfs_fd_t *conf_file = vfs_open("/conf.ini",O_RDONLY);
 
 	//retry with stanix.ini
 	if(!conf_file){
 		kinfof("fail to open /conf.ini\n");
 		kinfof("try to open /stanix.ini instead\n");
-		conf_file = vfs_open("/stanix.ini",VFS_READONLY);
+		conf_file = vfs_open("/stanix.ini",O_RDONLY);
 	}
 
 	if(!conf_file){
