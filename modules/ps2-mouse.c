@@ -1,5 +1,6 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
+#include <kernel/input.h>
 #include <kernel/kheap.h>
 #include <kernel/ringbuf.h>
 #include <kernel/arch.h>
@@ -11,6 +12,7 @@
 
 #define PS2_SET_RATE 0xF3
 
+static device_driver_t ps2_mouse_driver;
 
 static int set_mouse_rate(int port,int rate){
 	if(ps2_send(port,PS2_SET_RATE) != PS2_ACK){
@@ -22,8 +24,9 @@ static int set_mouse_rate(int port,int rate){
 	return 0;
 }
 
-static void mouse_handler(fault_frame *frame){
+static void mouse_handler(fault_frame *frame, void *arg){
 	(void)frame;
+	input_device_t *mouse = arg;
 	int flags = ps2_read();
 	int x = ps2_read();
 	int y = ps2_read();
@@ -37,53 +40,61 @@ static void mouse_handler(fault_frame *frame){
 	kdebugf("mouse movement %d:%d",x,y);
 }
 
-ring_buffer *mouse_buffer;
-
-static ssize_t mouse_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	(void)offset;
-	(void)node;
-
-	return ringbuffer_read(buffer,mouse_buffer,count);
+static int mouse_check(bus_addr_t *addr) {
+	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
+	if (addr->type != BUS_PS2) return 0;
+	if (ps2_addr->device_id[0]) return 0;
+	kdebugf("found ps2 mouse on port %d\n", ps2_addr->port);
+	return 1;
 }
+
+static int mouse_probe(bus_addr_t *addr) {
+	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
+	int port = ps2_addr->port;
+
+	// first do a reset
+	if (ps2_send(port, 0xFF) != PS2_ACK) {
+		kdebugf("mouse reset failed\n");
+		return -EIO;
+	}
+	if (ps2_read() != 0xAA) {
+		kdebugf("mouse didn't pass self test\n");
+		return -EIO;
+	}
+	// discard the id of the mouse we aready know that
+	ps2_read();
+	ps2_read();
+
+	if (ps2_send(port, PS2_ENABLE_SCANING) != PS2_ACK) {
+		kdebugf("error while enabling scanning\n");
+		return -EIO;
+	}
+
+	input_device_t *mouse = kmalloc(sizeof(input_device_t));
+	memset(mouse, 0, sizeof(input_device_t));
+	mouse->device.number = port;
+	mouse->device.driver = &ps2_mouse_driver;
+	mouse->device.name = strdup("mouse0");
+	mouse->device.addr = addr;
+	register_input_device(mouse);
+	ps2_register_handler(mouse_handler,port,mouse);
+	return 0;
+}
+
+static device_driver_t ps2_mouse_driver = {
+	.name = "ps2 mouse",
+	.check = mouse_check,
+	.probe = mouse_probe,
+};
 
 int init_mouse(int argc,char **argv){
 	(void)argc;
 	(void)argv;
-	//only check port 2 for the moment
-
-	if(ps2_port_id[2][0]){
-		kdebugf("ps2 : no usable ps2 mouse found\n");
-		return -ENODEV;
-	}
-
-	//first do a reset
-	if(ps2_send(2,0xFF) != PS2_ACK){
-		kdebugf("ps2 : mouse reset failed\n");
-		return -ENODEV;
-	}
-	if(ps2_read() != 0xAA){
-		kdebugf("ps2 : mouse didn't pass self test\n");
-		return -ENODEV;
-	}
-	//discard the id of the mouse we aready know that
-	ps2_read();
-
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
-	node->read = mouse_read;
-	if(ps2_send(2,PS2_ENABLE_SCANING) != PS2_ACK){
-		kdebugf("ps2 : error while enable scanning\n");
-		return -EIO;
-	}
-
-	mouse_buffer = new_ringbuffer(sizeof(struct input_event) * 32);
-
-	ps2_register_handler(mouse_handler,2);
-	return 0;
+	register_device_driver(&ps2_mouse_driver);
 }
 
 int fini_mouse(){
-	delete_ringbuffer(mouse_buffer);
+	unregister_device_driver(&ps2_mouse_driver);
 	return 0;
 }
 

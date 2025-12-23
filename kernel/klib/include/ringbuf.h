@@ -16,7 +16,7 @@ typedef struct {
 	sleep_queue reader_queue;
 	sleep_queue writer_queue;
 	spinlock lock;
-}ring_buffer;
+} ring_buffer;
 
 ring_buffer *new_ringbuffer(size_t buffer_size);
 void delete_ringbuffer(ring_buffer *ring);

@@ -10,7 +10,7 @@ typedef struct input_device {
 	device_t device;
 	vfs_fd_t *controlling_fd;
 	vfs_ops_t *ops;
-	ringbuffer *events;
+	ring_buffer *events;
 } input_device_t;
 
 int register_input_device(input_device_t *device);

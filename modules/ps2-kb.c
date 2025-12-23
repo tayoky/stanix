@@ -120,7 +120,9 @@ static int kb_probe(bus_addr_t *addr) {
 	input_device_t *keyboard = kmalloc(sizeof(input_device_t));
 	memset(keyboard, 0, sizeof(input_device_t));
 	keyboard->device.driver = &ps2_kb_driver;
-	keyboard->device.number  = ps2_addr->port;
+	keyboard->device.number = ps2_addr->port;
+	keyboard->device.name   = strdup("kb0");
+	keyboard->device.addr   = addr;
 	register_input_device(keyboard);
 
 	ps2_register_handler(keyboard_handler,port,keyboard);
