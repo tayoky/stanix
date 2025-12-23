@@ -102,8 +102,7 @@ int new_pty(vfs_fd_t **master_fd,vfs_fd_t **slave_fd,tty_t **rep){
 	(*master_fd)->ops       = &pty_master_ops;
 	(*master_fd)->ref_count = 1;
 
-	// TODO : create the slave fd
-	// (*slave_fd) = open_device(slave);
+	(*slave_fd) = open_device(slave, VFS_READWRITE);
 
 	// register and save the slave
 	char path[32];

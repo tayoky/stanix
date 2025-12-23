@@ -115,6 +115,23 @@ device_t *device_from_number(dev_t dev) {
 	return utils_hashmap_get(&devices, dev);
 }
 
+vfd_fd_t *open_device(device_t *device, long flags) {
+	vfs_fd_t *fd = kmalloc(sizeof(vfs_fd_t));
+	memset(fd, 0, sizeof(vfs_fd_t));
+	fd->ops = device;
+	fd->type = device->type == DEVICE_BLOCK ? VFS_BLOCK : VFS_CHAR;
+	fd->flags = flags;
+	fd->ref_count = 1;
+	fd->private = device;
+	if (fd->ops->open) {
+		if (fs->ops->open(fd) < 0) {
+			kfree(fd);
+			return NULL;
+		}
+	}
+	return fd;
+}
+
 void init_devices(void) {
 	kstatusf("init devices ... ");
 	utils_init_hashmap(&devices, 256);

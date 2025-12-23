@@ -50,6 +50,13 @@ int destroy_device(device_t *device);
  */
 device_t *device_from_number(dev_t dev);
 
+/**
+ * @brief open a device without going through a path
+ * @param device the device to open
+ * @param flags flags to open the device with
+ * @return a vfs file descriptor to the device or NULL on error
+ */
+vfd_fd_t *open_device(device_t *device, long flags);
 
 void init_devices(void);
 void init_mem_devices(void);
