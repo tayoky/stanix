@@ -259,7 +259,7 @@ static int init_ps2(int argc,char **argv){
 
 	//now scan the device on each port
 	for (int i=1; i<3; i++) {
-		if (!have_ports[i]) continue;
+		if (!have_ports[i-1]) continue;
 		if(ps2_send(i,PS2_DISABLE_SCANING) != PS2_ACK){
 			//no device on the port
 			have_ports[i-1] = 0;

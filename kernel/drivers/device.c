@@ -139,5 +139,6 @@ void init_devices(void) {
 	utils_init_hashmap(&device_drivers, 256);
 	devfs_root = new_tmpfs();
 	vfs_mount("/dev", devfs_root);
+	vfs_mkdir("/dev/pts", 0555);
 	kok();
 }
