@@ -15,7 +15,7 @@
 #define TPS 100
 
 void pit_handler(fault_frame *frame){
-	//update the time
+	// update the time
 	time.tv_usec += 1000000/TPS;
 	if(time.tv_usec >= 1000000){
 		time.tv_usec -= 1000000;
@@ -31,16 +31,16 @@ void pit_handler(fault_frame *frame){
 void init_pit(void){
 	kstatusf("init PIT... ");
 
-	//the tick per second is defined here
+	// the tick per second is defined here
 	uint16_t divider = 1193181 / TPS;
 
-	irq_generic_map(pit_handler,0);
+	irq_generic_map(pit_handler,0,NULL);
 
 	out_byte(PIT_COMMAND,0b00110100);
 	out_byte(PIT_CHANNEL0,divider & 0xFF);
 	out_byte(PIT_CHANNEL0,(divider >> 8) & 0xFF);
 	
-	//just wait to make sure PIT work
+	// just wait to make sure PIT work
 	micro_sleep(100000);
 
 	kok();

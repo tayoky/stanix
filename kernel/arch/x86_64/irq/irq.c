@@ -23,6 +23,7 @@ extern void irq14();
 extern void irq15();
 
 static void *handlers[16];
+static void *handlers_data[16];
 
 void init_irq(void){
 	kstatusf("init irq chip... ");
@@ -57,7 +58,7 @@ void init_irq(void){
 	}
 }
 
-void irq_map(void *handler,uintmax_t irq_num){
+void irq_map(void *handler,int irq_num){
 	//first add it into the IDT
 	set_idt_gate(kernel->arch.idt,irq_num + 32,handler,0x8E);
 
@@ -75,11 +76,12 @@ void irq_map(void *handler,uintmax_t irq_num){
 	}
 }
 
-void irq_generic_map(void *handler,uintmax_t irq_num){
-	//save the handler
+void irq_generic_map(void *handler,int irq_num, void *data){
+	// save the handler
 	handlers[irq_num] = handler;
+	handlers_data[irq_num] = data;
 
-	//and then unmask it
+	// and then unmask it
 	switch (kernel->pic_type)
 	{
 	case PIC_PIC:
@@ -93,7 +95,7 @@ void irq_generic_map(void *handler,uintmax_t irq_num){
 	}
 }
 
-void irq_mask(uintmax_t irq_num){
+void irq_mask(int irq_num){
 	switch (kernel->pic_type)
 	{
 	case PIC_PIC:
@@ -107,7 +109,7 @@ void irq_mask(uintmax_t irq_num){
 	}
 }
 
-void irq_eoi(uintmax_t irq_num){
+void irq_eoi(int irq_num){
 	switch (kernel->pic_type)
 	{
 	case PIC_PIC:
@@ -122,12 +124,14 @@ void irq_eoi(uintmax_t irq_num){
 }
 
 void irq_handler(fault_frame *frame){
-	void (*handler)(fault_frame *) = handlers[frame->err_type - 32];
+	void (*handler)(fault_frame *, void *) = handlers[frame->err_type - 32];
+	void *data = handlers_data[frame->err_type - 32];
+	frame->err_code = frame->err_type - 32;
 	if(handler){
-		handler(frame);
+		handler(frame, data);
 	}
-	//if the err_code is -1 then it aready send eoi
+	// if the err_code is -1 then it aready send eoi
 	if(frame->err_code != (uintptr_t)-1){
-		irq_eoi(frame->err_type);
+		irq_eoi(frame->err_code);
 	}
 }

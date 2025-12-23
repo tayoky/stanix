@@ -55,14 +55,13 @@ static uint16_t str2port(char *str){
 }
 
 int serial_count = 1;
-tty_t *serial_ports = NULL;
 
 
-static void serial_handler(fault_frame *frame){
+static void serial_handler(fault_frame *frame, void *data){
 	(void)frame;
+	tty_t *serial_port = data;
 	
-	//TODO : add support for multiple serial ports
-	uint16_t port = (uint16_t)(uintptr_t)serial_ports->private_data;
+	uint16_t port = (uint16_t)(uintptr_t)serial_port->private_data;
 	tty_input(serial_ports,in_byte(port));
 }
 
@@ -104,8 +103,7 @@ static int init_port(uint16_t port){
 		return -EIO;
 	}
 	
-	serial_ports = tty;
-	irq_generic_map(serial_handler,4);
+	irq_generic_map(serial_handler,4,tty);
 
 	serial_count++;
 	return 0;

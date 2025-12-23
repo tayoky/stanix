@@ -95,14 +95,13 @@ int ps2_send(uint8_t port,uint8_t data){
 }
 
 void ps2_register_handler(void *handler,uint8_t port,void *data){
-	(void)data; // TODO : impl when irq system get support for it
 	switch (port){
 	case 1:
 		kdebugf("registers handler for first ps2 irq\n");
-		irq_generic_map(handler,1);
+		irq_generic_map(handler,1, data);
 		break;
 	case 2:
-		irq_generic_map(handler,12);
+		irq_generic_map(handler,12, data);
 		break;
 	default:
 		break;
