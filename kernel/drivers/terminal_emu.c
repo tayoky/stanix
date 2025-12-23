@@ -136,6 +136,10 @@ vfs_ops_t terminal_ops = {
 	.write = term_write,
 };
 
+device_driver_t terminal_emulator = {
+	.name = "kernel terminal emulator",
+}
+
 void init_terminal_emualtor(void){
 	kstatusf("init terminal emulator ...");
 	//not activated by default
@@ -153,6 +157,8 @@ void init_terminal_emualtor(void){
 		return;
 	}
 	kfree(activated_value);
+
+	register_device_driver(&terminal_emulator);
 
 	//now find the framebuffer to use
 	char *frambuffer_path = ini_get_value(kernel->conf_file,"terminal_emulator","framebuffer");
@@ -203,11 +209,10 @@ void init_terminal_emualtor(void){
 		return;
 	}
 
-	//close the file
 	vfs_close(font_file);
 
-	//allocate place for the term
-	terminal_emu_t* terminal_dev = kmalloc(sizeof(terminal_emu_t));
+	terminal_emu_t *terminal_dev = kmalloc(sizeof(terminal_emu_t));
+	memset(terminal_dev, 0, sizeof(terminal_emu_t));
 
 	//save the framebuffer context
 	terminal_dev->frambuffer_dev = frambuffer_dev;
@@ -238,9 +243,10 @@ void init_terminal_emualtor(void){
 	terminal_dev->back_color = 0x000000;
 
 	//create the device
-	terminal_dev->device.type = DEVICE_CHAR;
-	terminal_dev->device.name = strdup("tty0");
-	terminal_dev->device.ops  = &terminal_ops;
+	terminal_dev->device.type   = DEVICE_CHAR;
+	terminal_dev->device.name   = strdup("tty0");
+	terminal_dev->device.ops    = &terminal_ops;
+	terminal_dev->device.driver = &terminal_emulator;
 	if(register_device((device_t*)terminal_dev)){
 		kfail();
 		kinfof("terminal emulator init but can't create device /dev/tty0\n");
