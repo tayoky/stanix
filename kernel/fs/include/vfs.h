@@ -265,6 +265,9 @@ void vfs_register_fs(vfs_filesystem *fs);
 void vfs_unregister_fs(vfs_filesystem *fs);
 int vfs_auto_mount(const char *source,const char *target,const char *filesystemtype,unsigned long mountflags,const void *data);
 
+int vfs_perm(vfs_node_t *node);
+int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid);
+
 //flags
 #define O_PARENT       0x4000 //open the parent
 

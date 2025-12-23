@@ -1186,14 +1186,16 @@ mode_t sys_umask(mode_t mask) {
 	return old;
 }
 
-// FIXME : access is highly broken
 int sys_access(const char *pathname, int mode) {
-	long flags = O_RDONLY;
-	if (mode & W_OK)flags |= O_WRONLY;
-	vfs_node_t *node = vfs_get_node(pathname, flags);
+	vfs_node_t *node = vfs_get_node(pathname, 0);
 	if (!node)return -ENOENT;
+	if (mode & F_OK) {
+		vfs_close_node(node);
+		return 0;
+	}
+	int succed = vfs_user_perm(node, get_current_proc()->uid, get_current_proc()->gid) & mode == mode;
 	vfs_close_node(node);
-	return 0;
+	return succed ? 0 : -EACCES;
 }
 
 int sys_truncate(const char *path, off_t length) {

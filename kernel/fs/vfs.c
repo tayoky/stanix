@@ -635,3 +635,33 @@ void vfs_close(vfs_fd_t *fd) {
 
 	kfree(fd);
 }
+
+int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid) {
+	struct st;
+	vfs_getattr(node, &st);
+
+	int is_other = 1;
+	int perm = 0;
+	if (uid == 0) {
+		// root can read/write anything
+		perm |= 06;
+	}
+
+	if (uid == st.st_uid) {
+		is_other = 0;
+		perm |= st.st_mode & 07;
+	}
+	if (gid == st.st_gid) {
+		is_other = 0;
+		perm |= (st.st_mode >> 3) & 07;
+	}
+	if (is_other) {
+		perm |= (st.st_mode >> 6) & 07;
+	}
+
+	return perm;
+}
+
+int vfs_perm(vfs_node_t *node) {
+	return vfs_user_perm(node, get_current_proc()->euid, get_current_proc()->egid);
+}
