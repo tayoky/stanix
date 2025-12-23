@@ -70,6 +70,7 @@ static int create_mem_dev(int minor, const char *name) {
 	dev->name   = strdup(name);
 	dev->driver = &mem_driver;
 	dev->type   = DEVICE_CHAR;
+	dev->ops    = &mem_ops;
 	int ret = register_device(dev);
 	if (ret < 0) {
 		kfree(dev->name);
