@@ -20,6 +20,6 @@ typedef struct ps2_addr {
 
 int ps2_read(void);
 int ps2_send(uint8_t port,uint8_t data);
-void ps2_register_handler(void *handler,uint8_t port);
+void ps2_register_handler(void *handler,uint8_t port,void *data);
 
 #endif

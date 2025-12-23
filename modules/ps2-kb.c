@@ -1,7 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
 #include <kernel/ringbuf.h>
-#include <kernel/devfs.h>
+#include <kernel/input.h>
 #include <kernel/time.h>
 #include <kernel/string.h>
 #include <kernel/arch.h>
@@ -10,17 +10,13 @@
 #include <input.h>
 #include <errno.h>
 
-struct keyboard {
-	ring_buffer *queue;
-	process_t *controller;
-};
-
 #define PS2_SET_SCANCODE_SET 0xF0
 
-static struct keyboard keyboard;
+static device_driver_t ps2_kb_driver;
 
-static void keyboard_handler(fault_frame *frame){
+static void keyboard_handler(fault_frame *frame, void *arg){
 	(void)frame;
+	input_device_t *keyboard = arg;
 
 	uint8_t scancode = ps2_read();
 
@@ -49,136 +45,103 @@ static void keyboard_handler(fault_frame *frame){
 	}
 
 	event.ie_key.scancode = extended ? scancode + 0x80 : scancode;
-	extended = 0;
-	ringbuffer_write(&event,keyboard.queue,sizeof(struct input_event));
-}
-
-static ssize_t kbd_read(vfs_node *node,void *buffer,uint64_t offset,size_t count){
-	(void)offset;
-	struct keyboard *kb = node->private_inode;
-	if(!kb->controller)kb->controller = get_current_proc();
-
-	//must be the controller process
-	//return EOF so process don't stop because of an error
-	if(get_current_proc() != kb->controller) return 0;
-	return ringbuffer_read(buffer,kb->queue,count);
-}
-
-static int kbd_ioctl(vfs_node *node,long req,void *arg){
-	(void)arg;
-	struct keyboard *kb = node->private_inode;
-	switch(req){
-	case I_INPUT_GET_CONTROL:
-		kdebugf("process %d take control\n",get_current_proc()->pid);
-		kb->controller = get_current_proc();
-		return 0;
-	case I_INPUT_DROP_CONTROL:
-		kdebugf("process %d drop control\n",get_current_proc()->pid);
-		kb->controller = NULL;
-		return 0;
-	default:
-		return -EINVAL;
-	}
-}
-
-static int kbd_wait_check(vfs_node *node,short type){
-	struct keyboard *kb = node->private_inode;
-	if(!kb->controller)kb->controller = get_current_proc();
-	int events = 0;
-	if((type & POLLIN) && ringbuffer_read_available(kb->queue) && get_current_proc() == kb->controller){
-		events |= POLLIN;
-	}
-	return events;
+	send_input_event(keyboard, &event);
 }
 
 //helper
 #define CHANGE_SCANCODE(set) \
-	ps2_send(1,PS2_SET_SCANCODE_SET);\
-	if(ps2_send(1,set) != PS2_ACK){\
-		kdebugf("ps2 : error while changing scancode\n");\
+	ps2_send(port,PS2_SET_SCANCODE_SET);\
+	if(ps2_send(port,set) != PS2_ACK){\
+		kdebugf("error while changing scancode\n");\
 		return -EIO;\
 	}
 #define GET_SCANCODE() \
-	ps2_send(1,PS2_SET_SCANCODE_SET);\
-	if(ps2_send(1,0) != PS2_ACK){\
-		kdebugf("ps2 : error while reading scancode\n");\
+	ps2_send(port,PS2_SET_SCANCODE_SET);\
+	if(ps2_send(port,0) != PS2_ACK){\
+		kdebugf("error while reading scancode\n");\
 		return -EIO;\
 	}
 
-static int init_ps2kb(int argc,char **argv){
-	//for the moment only check on port 1
-	switch (ps2_port_id[1][0]){
+static int kb_check(bus_addr_t *addr) {
+	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
+	if (addr->type != BUS_PS2) return 0;
+
+	switch (ps2_addr->device_id[0]) {
 	case 0xAB:
 	case -1:
-		kdebugf("ps2 : ps2 keyboard find\n");
-		break;
+		kdebugf("ps2 keyboard found on port %d\n", ps2_addr->port);
+		return 1;
 	default:
-		kdebugf("ps2 : no usable ps2 keyboard found\n");
-		return -ENODEV;
+		return 0;
 	}
+}
+
+static int kb_probe(bus_addr_t *addr) {
+	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
+	int port = ps2_addr->port;
 
 	//start by reset the device
-	if(ps2_send(1,0xFF) != PS2_ACK){
+	if(ps2_send(port,0xFF) != PS2_ACK){
 		kdebugf("ps2 : failed to reset device\n");
-		return -ENODEV;
+		return -EIO;
 	}
 	if(ps2_read() != 0xAA){
 		kdebugf("ps2 : keyboard didn't pass self test\n");
-		return -ENODEV;
+		return -EIO;
 	}
-	//discard the id of the keyboard we aready know that
+	// discard the id of the keyboard we aready know that
 	ps2_read();
 	ps2_read();
 
-	keyboard.queue = new_ringbuffer(sizeof(struct input_event) * 25);
-	keyboard.controller = NULL;
 
-	vfs_node *node = kmalloc(sizeof(vfs_node));
-	memset(node,0,sizeof(vfs_node));
-	node->read          = kbd_read;
-	node->ioctl         = kbd_ioctl;
-	node->wait_check    = kbd_wait_check;
-	node->flags         = VFS_DEV | VFS_CHAR;
-	node->private_inode = &keyboard;
-
-	//if was maunch wwith --no-translation we don't try using translation
-	if(have_opt(argc,argv,"--no-translation")){
-		goto no_translation;
-	}
-
-	//set scancode 2 and keep it if translation enable
+	// set scancode 2 and keep it if translation enable
 	CHANGE_SCANCODE(2);
 	GET_SCANCODE();
 	if(ps2_read() == 0x41){
 		kdebugf("ps2 : using translation\n");
 	} else {
-		no_translation:
-		//tranlation not enable so set scancode 1
+		// tranlation not enabled so set scancode 1
 		CHANGE_SCANCODE(1)
 
-		//check it's actually using scancode 1
+		// check it's actually using scancode 1
 		GET_SCANCODE();
 		if(ps2_read() != 1){
 			kdebugf("ps2 : device don't support scancode set 1\n");
-			return -ENODEV;
+			return -ENOTSUP;
 		}
 	}
 
-	if(ps2_send(1,PS2_ENABLE_SCANING) != PS2_ACK){
+	if(ps2_send(port,PS2_ENABLE_SCANING) != PS2_ACK){
 		kdebugf("ps2 : error while enabling scaning\n");
 		return -EIO;
 	}
 
-	ps2_register_handler(keyboard_handler,1);
+	kdebugf("keyboard succefuly initialized creating device\n");
+	input_device_t *keyboard = kmalloc(sizeof(input_device_t));
+	memset(keyboard, 0, sizeof(input_device_t));
+	keyboard->device.driver = &ps2_kb_driver;
+	keyboard->device.number  = ps2_addr->port;
+	register_input_device(keyboard);
 
-	kdebugf("keyboard succefuly init create /dev/kb0\n");
-	devfs_create_dev("kb0",node);
+	ps2_register_handler(keyboard_handler,port,keyboard);
 
 	return 0;
 }
 
+static device_driver_t ps2_kb_driver = {
+	.name = "ps2 keyboard",
+	.check = kb_check,
+	.probe = kb_probe,
+};
+
+static int init_ps2kb(int argc,char **argv){
+	(void)argc;
+	(void)argv;
+	register_device_driver(&ps2_kb_driver);
+}
+
 static int fini_ps2kb(){
-	delete_ringbuffer(keyboard.queue);
+	unregister_device_driver(&ps2_kb_driver);
 	return 0;
 }
 
