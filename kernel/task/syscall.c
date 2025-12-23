@@ -235,6 +235,7 @@ int sys_dup2(int oldfd, int newfd) {
 	if (new_file->fd) {
 		new_file->present = 1;
 		new_file->offset = old_file->offset;
+		new_file->flags  = old_file->flags;
 	} else {
 		return -EIO;
 	}
