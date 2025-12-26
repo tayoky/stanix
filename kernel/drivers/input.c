@@ -31,7 +31,7 @@ ssize_t input_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	check_control(0);
 
 	// can only read full events
-	count -= count & sizeof(struct input_event);
+	count -= count % sizeof(struct input_event);
 
 	return ringbuffer_read(device->events, buf, count);
 }

@@ -12,8 +12,8 @@
 typedef struct tty {
 	device_t device;
 	void *private_data;
-	void (*out)(char,void *);
-	void (*cleanup)(void *);
+	void (*out)(char, struct tty *);
+	void (*cleanup)(struct tty *);
 	ring_buffer *input_buffer;
 	struct termios termios;
 	struct winsize size;
@@ -49,9 +49,5 @@ tty_t *new_tty(tty_t *tty);
 int new_pty(vfs_fd_t **master,vfs_fd_t **slave,tty_t **);
 
 void init_ptys(void);
-
-ssize_t tty_read(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count);
-ssize_t tty_write(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count);
-int tty_wait_check(vfs_fd_t *node,short type);
 
 #endif

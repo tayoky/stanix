@@ -65,8 +65,8 @@ static void serial_handler(fault_frame *frame, void *data){
 	tty_input(serial_port,in_byte(port));
 }
 
-static void serial_out(char c,void *arg){
-	uint16_t port = (uint16_t)(uintptr_t)arg;
+static void serial_out(char c,tty_t *tty){
+	uint16_t port = (uint16_t)(uintptr_t)tty->private_data;
 	while (!(in_byte(port + SERIAL_LSR) & SERIAL_LSR_THRE));
 	out_byte(port,c);
 }
