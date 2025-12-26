@@ -71,6 +71,23 @@ int sys_open(const char *path, int flags, mode_t mode) {
 
 	vfs_fd_t *vfs_fd = vfs_open(path, vfs_flags);
 
+	// perm checks
+	if (vfs_fd) {
+		int perm;
+		if (flags & O_RDWR) {
+			perm = 06;
+		} else if (flags & O_WRONLY) {
+			perm = 02;
+		} else {
+			perm = 04;
+		}
+		int have_perm = vfs_perm(vfs_fd->inode);
+		if (have_perm >= 0 && ((have_perm & perm) != perm)) {
+			vfs_close(vfs_fd);
+			return -EACCES;
+		}
+	}
+
 	//O_CREAT things
 	if (flags & O_CREAT) {
 		if (vfs_fd && (flags & O_EXCL)) {
