@@ -104,9 +104,4 @@ typedef struct fat_inode {
 	uint16_t entries_count;
 } fat_inode;
 
-
-static vfs_node_t *fat_lookup(vfs_node_t *node,const char *name);
-int fat_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent);
-ssize_t fat_read(vfs_fd_t *fd,void *buf,uint64_t offset,size_t count);
-
 #endif

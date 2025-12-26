@@ -91,6 +91,7 @@ int init_mouse(int argc,char **argv){
 	(void)argc;
 	(void)argv;
 	register_device_driver(&ps2_mouse_driver);
+	return 0;
 }
 
 int fini_mouse(){

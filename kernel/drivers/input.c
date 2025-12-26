@@ -25,7 +25,7 @@ static int input_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	}
 }
 
-ssize_t input_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
+static ssize_t input_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	(void)offset;
 	input_device_t *device = fd->private;
 	check_control(0);
@@ -33,7 +33,7 @@ ssize_t input_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	// can only read full events
 	count -= count % sizeof(struct input_event);
 
-	return ringbuffer_read(device->events, buf, count);
+	return ringbuffer_read(buf, device->events, count);
 }
 
 static int input_wait_check(vfs_fd_t *fd, short events) {

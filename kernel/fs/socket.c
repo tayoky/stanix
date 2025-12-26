@@ -10,7 +10,7 @@ void init_sockets(void) {
 	socket_domains = new_list();
 }
 
-static ssize_t socket_read(vfs_fd_t *fd, void *buf, uint64_t offset, size_t count) {
+static ssize_t socket_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	(void)offset;
 	struct iovec vec = {
 		.iov_base = buf,
@@ -46,7 +46,7 @@ void *socket_new(size_t size) {
 	return socket;
 }
 
-vfs_ops_t socket_ops = {
+static vfs_ops_t socket_ops = {
 	.wait_check = socket_wait_check,
 	.read       = socket_read,
 	.close      = socket_close,

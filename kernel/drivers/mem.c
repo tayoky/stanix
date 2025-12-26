@@ -2,6 +2,7 @@
 #include <kernel/string.h>
 #include <kernel/print.h>
 #include <kernel/kheap.h>
+#include <kernel/serial.h>
 
 // memory devices
 

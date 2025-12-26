@@ -114,7 +114,7 @@ int term_ioctl(vfs_fd_t *fd,long request,void *arg){
 	}
 }
 
-ssize_t term_write(vfs_fd_t *fd,void *vbuffer,uint64_t offset,size_t count){
+ssize_t term_write(vfs_fd_t *fd,const void *vbuffer,off_t offset,size_t count){
 	//make compiler happy
 	(void)offset;
 

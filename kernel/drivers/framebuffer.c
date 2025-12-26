@@ -11,12 +11,12 @@
 #include <sys/fb.h>
 #include <errno.h>
 
-ssize_t framebuffer_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+static ssize_t framebuffer_write(vfs_fd_t *fd,const void *buffer,off_t offset,size_t count){
 	framebuffer_t *framebuffer = fd->private;
 	struct limine_framebuffer *data = framebuffer->fb;
 	uint64_t size = data->width * data->height * (data->bpp / 8);
 	if(offset + count > size){
-		if(offset > size){
+		if((size_t)offset > size){
 			return 0;
 		}
 		count = size - offset;
@@ -33,7 +33,7 @@ ssize_t framebuffer_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count
 	return count;
 }
 
-int framebuffer_scroll(struct limine_framebuffer *data,uint64_t count){
+static int framebuffer_scroll(struct limine_framebuffer *data,uint64_t count){
 	//scroll the specified amount of pixel
 	uint32_t *buffer = (uint32_t *)data->address;
 
@@ -42,7 +42,7 @@ int framebuffer_scroll(struct limine_framebuffer *data,uint64_t count){
 	return 0;
 }
 
-int framebuffer_ioctl(vfs_fd_t *fd,long request,void *arg){
+static int framebuffer_ioctl(vfs_fd_t *fd,long request,void *arg){
 	framebuffer_t *framebuffer = fd->private;
 	struct limine_framebuffer *data = framebuffer->fb;
 	
@@ -97,11 +97,11 @@ int framebuffer_ioctl(vfs_fd_t *fd,long request,void *arg){
 	}
 }
 
-void framebuffer_unmap(memseg_t *seg){
+static void framebuffer_unmap(memseg_t *seg){
 	(void)seg;
 }
 
-int frambuffer_mmap(vfs_fd_t *fd,off_t offset,memseg_t *seg){
+static int frambuffer_mmap(vfs_fd_t *fd,off_t offset,memseg_t *seg){
 	if(!(seg->flags & MAP_SHARED)){
 		return -EINVAL;
 	}
@@ -133,11 +133,11 @@ void draw_pixel(vfs_fd_t *fd,uint64_t x,uint64_t y,uint32_t color){
 	vfs_write(fd,&color,location,sizeof(uint32_t));
 }
 
-device_driver_t framebuffer_driver = {
+static device_driver_t framebuffer_driver = {
 	.name = "framebuffer driver",
 };
 
-vfs_ops_t framebuffer_ops = {
+static vfs_ops_t framebuffer_ops = {
 	.write = framebuffer_write,
 	.mmap  = frambuffer_mmap,
 	.ioctl = framebuffer_ioctl,

@@ -66,18 +66,18 @@ typedef struct vfs_ops {
 	int (* create)(vfs_node_t*,const char *name,mode_t perm,long,void*);
 	int (* unlink)(vfs_node_t*,const char *);
 	int (* link)(vfs_node_t*,const char*,vfs_node_t*,const char*);
-	ssize_t (* write)(vfs_fd_t*,void *buf,uint64_t off,size_t count);
 	int (* symlink)(vfs_node_t*,const char*,const char*);
 	ssize_t (*readlink)(vfs_node_t*,char*,size_t);
 	int (* setattr)(vfs_node_t *,struct stat *);
 	int (* getattr)(vfs_node_t*,struct stat *);
 	int (* truncate)(vfs_node_t*,size_t);
-	void (*cleanup)(vfs_node_t*);
+	void (* cleanup)(vfs_node_t*);
 	
 	// fd operations
 	int (* open)(vfs_fd_t*);
 	int (* readdir)(vfs_fd_t*,unsigned long index,struct dirent*);
-	ssize_t (* read)(vfs_fd_t*,void *buf,uint64_t off,size_t count);
+	ssize_t (* read)(vfs_fd_t*,void *buf,off_t off,size_t count);
+	ssize_t (* write)(vfs_fd_t*,const void *buf,off_t off,size_t count);
 	int (* ioctl)(vfs_fd_t*,long,void*);
 	int (* wait_check)(vfs_fd_t *,short);
 	int (* wait)(vfs_fd_t *,short);

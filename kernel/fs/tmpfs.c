@@ -36,7 +36,7 @@ static void free_inode(tmpfs_inode *inode){
 }
 
 
-int tmpfs_mount(const char *source,const char *target,unsigned long flags,const void *data){
+static int tmpfs_mount(const char *source,const char *target,unsigned long flags,const void *data){
 	(void)data;
 	(void)source;
 	(void)flags;
@@ -44,7 +44,7 @@ int tmpfs_mount(const char *source,const char *target,unsigned long flags,const 
 	return vfs_mount(target,new_tmpfs());
 }
 
-vfs_filesystem tmpfs = {
+static vfs_filesystem tmpfs = {
 	.name = "tmpfs",
 	.mount = tmpfs_mount,
 };
@@ -62,7 +62,7 @@ vfs_node_t *new_tmpfs(){
 }
 
 
-vfs_node_t *tmpfs_lookup(vfs_node_t *node,const char *name){
+static vfs_node_t *tmpfs_lookup(vfs_node_t *node,const char *name){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	if(!strcmp(name,".")){
 		return inode2node(inode);
@@ -84,12 +84,12 @@ vfs_node_t *tmpfs_lookup(vfs_node_t *node,const char *name){
 	return NULL;
 }
 
-ssize_t tmpfs_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+static ssize_t tmpfs_read(vfs_fd_t *fd,void *buffer,off_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)fd->private;
 
 	//if the read is out of bound make it smaller
 	if(offset + count > inode->buffer_size){
-		if(offset >= inode->buffer_size){
+		if((size_t)offset >= inode->buffer_size){
 			return 0;
 		}
 		count = inode->buffer_size - offset;
@@ -103,7 +103,7 @@ ssize_t tmpfs_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 	return count;
 }
 
-int tmpfs_truncate(vfs_node_t *node,size_t size){
+static int tmpfs_truncate(vfs_node_t *node,size_t size){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	char *new_buffer = kmalloc(size);
 
@@ -124,7 +124,7 @@ int tmpfs_truncate(vfs_node_t *node,size_t size){
 	return 0;
 }
 
-ssize_t tmpfs_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+static ssize_t tmpfs_write(vfs_fd_t *fd,const void *buffer,off_t offset,size_t count){
 	tmpfs_inode *inode = (tmpfs_inode *)fd->private;
 
 	//if the write is out of bound make the file bigger
@@ -139,7 +139,7 @@ ssize_t tmpfs_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 	return count;
 }
 
-int tmpfs_unlink(vfs_node_t *node,const char *name){
+static int tmpfs_unlink(vfs_node_t *node,const char *name){
 	kdebugf("unlink %s\n",name);
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	
@@ -174,7 +174,7 @@ static int tmpfs_exist(tmpfs_inode *inode,const char *name){
 	return 0;
 }
 
-int tmpfs_link(vfs_node_t *parent_src,const char *src,vfs_node_t *parent_dest,const char *dest){
+static int tmpfs_link(vfs_node_t *parent_src,const char *src,vfs_node_t *parent_dest,const char *dest){
 	kdebugf("link %s %s\n",src,dest);
 	tmpfs_inode *parent_src_inode  = (tmpfs_inode *)parent_src->private_inode;
 	tmpfs_inode *parent_dest_inode = (tmpfs_inode *)parent_dest->private_inode;
@@ -200,8 +200,7 @@ int tmpfs_link(vfs_node_t *parent_src,const char *src,vfs_node_t *parent_dest,co
 	return 0;
 }
 
-
-int tmpfs_symlink(vfs_node_t *node,const char *name,const char *target){
+static int tmpfs_symlink(vfs_node_t *node,const char *name,const char *target){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 
 	if(tmpfs_exist(inode,name))return -EEXIST;
@@ -220,7 +219,7 @@ int tmpfs_symlink(vfs_node_t *node,const char *name,const char *target){
 	return 0;
 }
 
-ssize_t tmpfs_readlink(vfs_node_t *node,char *buf,size_t bufsize){
+static ssize_t tmpfs_readlink(vfs_node_t *node,char *buf,size_t bufsize){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	if(bufsize > inode->buffer_size)bufsize = inode->buffer_size;
 
@@ -228,8 +227,7 @@ ssize_t tmpfs_readlink(vfs_node_t *node,char *buf,size_t bufsize){
 	return bufsize;
 }
 
-
-int tmpfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
+static int tmpfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
 	tmpfs_inode *inode = (tmpfs_inode *)fd->private;
 
 	//update atime
@@ -275,7 +273,7 @@ int tmpfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
 	return -ENOENT;
 }
 
-void tmpfs_cleaunup(vfs_node_t *node){
+static void tmpfs_cleanup(vfs_node_t *node){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	inode->open_count--;
 	if(inode->open_count == 0 && inode->link_count == 0){
@@ -326,7 +324,7 @@ int tmpfs_create(vfs_node_t *node,const char *name,mode_t perm,long flags,void *
 	return 0;
 }
 
-int tmpfs_setattr(vfs_node_t *node,struct stat *st){
+static int tmpfs_setattr(vfs_node_t *node,struct stat *st){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	inode->perm         = st->st_mode & 0xffff;
 	inode->owner        = st->st_uid;   
@@ -337,7 +335,7 @@ int tmpfs_setattr(vfs_node_t *node,struct stat *st){
 	return 0;
 }
 
-int tmpfs_getattr(vfs_node_t *node,struct stat *st){
+static int tmpfs_getattr(vfs_node_t *node,struct stat *st){
 	tmpfs_inode *inode = (tmpfs_inode *)node->private_inode;
 	st->st_size        = inode->buffer_size;
 	st->st_mode        = inode->perm;
@@ -357,7 +355,7 @@ int tmpfs_getattr(vfs_node_t *node,struct stat *st){
 	return 0;
 }
 
-vfs_ops_t tmfps_ops = {
+static vfs_ops_t tmfps_ops = {
 	.lookup     = tmpfs_lookup,
 	.readdir    = tmpfs_readdir,
 	.create     = tmpfs_create,
@@ -370,7 +368,7 @@ vfs_ops_t tmfps_ops = {
 	.truncate   = tmpfs_truncate,
 	.getattr    = tmpfs_getattr,
 	.setattr    = tmpfs_setattr,
-	.cleanup    = tmpfs_cleaunup,
+	.cleanup    = tmpfs_cleanup,
 };
 
 static vfs_node_t *inode2node(tmpfs_inode *inode){

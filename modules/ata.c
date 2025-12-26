@@ -128,7 +128,7 @@ static void ide_reset(ide_device_t *device){
 	ide_write(device,ATA_REG_CONTROL,device->channel->nIEN);
 }
 
-static ssize_t ata_access(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count,int write){
+static ssize_t ata_access(vfs_fd_t *fd,void *buffer,size_t offset,size_t count,int write){
 	ide_device_t *device = fd->private;
 
 	if(offset >= device->size){
@@ -233,10 +233,10 @@ static ssize_t ata_access(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count
 }
 
 
-static ssize_t ata_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+static ssize_t ata_read(vfs_fd_t *fd,void *buffer,off_t offset,size_t count){
 	return ata_access(fd,buffer,offset,count,0);
 }
-static ssize_t ata_write(vfs_fd_t *fd,const void *buffer,uint64_t offset,size_t count){
+static ssize_t ata_write(vfs_fd_t *fd,const void *buffer,off_t offset,size_t count){
 	return ata_access(fd,(void*)buffer,offset,count,1);
 }
 

@@ -33,7 +33,7 @@ static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t 
 	return ringbuffer_read(buffer,pty->output_buffer,count);
 }
 
-static ssize_t pty_master_write(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
+static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	(void)offset;
 	pty_t *pty = (pty_t *)fd->private;
 	tty_t *tty = pty->slave;
@@ -142,7 +142,7 @@ static ssize_t tty_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) 
 	return ringbuffer_read(buffer,tty->input_buffer,count);
 }
 
-static ssize_t tty_write(vfs_fd_t *fd, void *buffer, off_t offset, size_t count){
+static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count){
 	(void)offset;
 	tty_t *tty = (tty_t *)fd->private;
 

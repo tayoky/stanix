@@ -84,7 +84,7 @@ static vfs_node_t *fat_entry2node(fat_entry *entry,fat *fat_info){
 	return node;
 }
 
-ssize_t fat_read(vfs_fd_t *fd,void *buf,uint64_t offset,size_t count){
+static ssize_t fat_read(vfs_fd_t *fd,void *buf,off_t offset,size_t count){
 	fat_inode *inode = fd->private;
 
 	if(offset > inode->entry.file_size){
@@ -136,7 +136,7 @@ ssize_t fat_read(vfs_fd_t *fd,void *buf,uint64_t offset,size_t count){
 	return data_read;
 }
 
-int fat_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
+static int fat_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
 	fat_inode *inode = fd->private;
 
 	uint64_t offset   = inode->is_fat16_root ? inode->start         : fat_cluster2offset(&inode->fat_info,inode->first_cluster);
@@ -386,7 +386,7 @@ static vfs_ops_t fat_ops = {
 	.getattr = fat_getattr,
 };
 
-vfs_filesystem fat_fs = {
+static vfs_filesystem fat_fs = {
 	.mount = fat_mount,
 	.name = "fat",
 };

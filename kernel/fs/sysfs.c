@@ -83,22 +83,22 @@ int sysfs_mount(const char *source,const char *target,unsigned long flags,const 
     return vfs_mount(target,sysfs_root);
 }
 
-vfs_filesystem sys_fs = {
+static vfs_filesystem sys_fs = {
     .name = "sysfs",
     .mount = sysfs_mount,
 };
 
-ssize_t mem_read(vfs_fd_t *fd,void *buf,uint64_t off,size_t count){
+static ssize_t mem_read(vfs_fd_t *fd,void *buf,off_t off,size_t count){
     (void)fd;
     char str[512];
     sprintf(str,"total : %ld\nused  : %ld\n",kernel->total_memory,kernel->used_memory);
-    if(off > strlen(str))return 0;
+    if((size_t)off > strlen(str))return 0;
     if(off + count > strlen(str))count = strlen(str) - off;
     memcpy(buf,&str[off],count);
     return count;
 }
 
-vfs_ops_t mem_ops = {
+static vfs_ops_t mem_ops = {
     .read = mem_read,
 };
 

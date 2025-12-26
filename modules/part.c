@@ -75,23 +75,23 @@ static int part_ioctl(vfs_fd_t *fd,long req,void *arg){
 	}
 }
 
-static ssize_t part_read(vfs_fd_t *fd,void *buf,uint64_t offset,size_t count){
+static ssize_t part_read(vfs_fd_t *fd,void *buf,off_t offset,size_t count){
 	part_t *partition = fd->private;
-	if(offset > partition->size){
+	if((size_t)offset > partition->size){
 		return 0;
 	}
-	if(offset + count > partition->size){
+	if((size_t)offset + count > partition->size){
 		count = partition->size - offset;
 	}
 	return vfs_read(partition->dev,buf,offset + partition->offset,count);
 }
 
-static ssize_t part_write(vfs_fd_t *fd,const void *buf,uint64_t offset,size_t count){
+static ssize_t part_write(vfs_fd_t *fd,const void *buf,off_t offset,size_t count){
 	part_t *partition = fd->private;
-	if(offset > partition->size){
+	if((size_t)offset > partition->size){
 		return 0;
 	}
-	if(offset + count > partition->size){
+	if((size_t)offset + count > partition->size){
 		count = partition->size - offset;
 	}
 	return vfs_write(partition->dev,buf,offset + partition->offset,count);
@@ -130,6 +130,7 @@ static int create_part(vfs_fd_t *dev,const char *target,off_t offset,size_t size
 		kfree(p->device.name);
 		kfree(p);
 	}
+	return ret;
 }
 
 int init_gpt(off_t offset,vfs_fd_t *dev,const char *target){

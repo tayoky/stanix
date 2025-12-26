@@ -15,7 +15,7 @@ struct pipe{
 
 #define PIPE_SIZE 4096
 
-ssize_t pipe_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+static ssize_t pipe_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count){
 	(void)offset;
 	struct pipe *pipe_inode = (struct pipe *)fd->private;
 
@@ -27,7 +27,7 @@ ssize_t pipe_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 	return ringbuffer_read(buffer,pipe_inode->ring,count);
 }
 
-ssize_t pipe_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
+static ssize_t pipe_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count){
 	(void)offset;
 	struct pipe *pipe_inode = (struct pipe *)fd->private;
 
@@ -39,7 +39,7 @@ ssize_t pipe_write(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 	return ringbuffer_write(buffer,pipe_inode->ring,count);
 }
 
-int pipe_wait_check(vfs_fd_t *fd,short type){
+static int pipe_wait_check(vfs_fd_t *fd, short type) {
 	struct pipe *pipe_inode = (struct pipe *)fd->private;
 	int events = 0;
 	if(pipe_inode->isbroken){
@@ -58,7 +58,7 @@ int pipe_wait_check(vfs_fd_t *fd,short type){
 	return type;
 }
 
-void pipe_close(vfs_fd_t *fd){
+static void pipe_close(vfs_fd_t *fd) {
 	struct pipe *pipe_inode = (struct pipe *)fd->private;
 
 	//if it's aready broken delete the pipe
@@ -71,20 +71,19 @@ void pipe_close(vfs_fd_t *fd){
 	return;
 }
 
-vfs_ops_t pipe_write_ops = {
+static vfs_ops_t pipe_write_ops = {
 	.write = pipe_write,
 	.wait_check = pipe_wait_check,
 	.close = pipe_close,
 };
 
-
-vfs_ops_t pipe_read_ops = {
+static vfs_ops_t pipe_read_ops = {
 	.read = pipe_read,
 	.wait_check = pipe_wait_check,
 	.close = pipe_close,
 };
 
-int create_pipe(vfs_fd_t **read,vfs_fd_t **write){
+int create_pipe(vfs_fd_t **read, vfs_fd_t **write) {
 	struct pipe *pipe_inode = kmalloc(sizeof(struct pipe));
 	pipe_inode->isbroken = 0;
 	pipe_inode->ring = new_ringbuffer(PIPE_SIZE);

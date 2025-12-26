@@ -71,7 +71,7 @@ ssize_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 	return count;
 }
 
-ssize_t ringbuffer_write(void *buf,ring_buffer *ring,size_t count){
+ssize_t ringbuffer_write(const void *buf,ring_buffer *ring,size_t count){
 	char *buffer = (char *)buf;
 	
 	while(count){
