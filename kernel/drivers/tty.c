@@ -9,9 +9,9 @@
 #include <errno.h>
 #include <poll.h>
 
-static void pty_output(char c, tty_t *tty) {
+static ssize_t pty_output(tty_t *tty, const char *buf, size_t size) {
 	pty_t *pty = tty->private_data;
-	ringbuffer_write(&c, pty->output_buffer, 1);
+	return ringbuffer_write(buf, pty->output_buffer, size);
 }
 
 static void pty_cleanup(pty_t *pty) {
@@ -78,6 +78,10 @@ static vfs_ops_t pty_master_ops = {
 	.close      = pty_master_close,
 };
 
+static tty_ops_t pty_slave_ops = {
+	.out     = pty_output,
+};
+
 static device_driver_t pty_driver = {
 	.name = "pty driver",
 };
@@ -92,7 +96,7 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep){
 	*rep = slave;
 	slave->private_data = pty;
 	slave->device.driver = &pty_driver;
-	slave->out = pty_output;
+	slave->ops = &pty_slave_ops;
 
 	// create the master fd
 	(*master_fd) = kmalloc(sizeof(vfs_fd_t));
@@ -177,16 +181,16 @@ static void tty_cleanup(device_t *device){
 
 	// TODO : send SIGHUP
 
-	if (tty->cleanup) tty->cleanup(tty);
+	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
 	delete_ringbuffer(tty->input_buffer);
 	kfree(tty->canon_buf);
 	kfree(tty);
 }
 
-static int tty_ioctl(vfs_fd_t *fd,long request,void *arg){
+static int tty_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	tty_t *tty = (tty_t *)fd->private;
-	switch (request){
+	switch (request) {
 	case TIOCGETA:
 		*(struct termios *)arg = tty->termios;
 		return 0;
@@ -210,8 +214,10 @@ static int tty_ioctl(vfs_fd_t *fd,long request,void *arg){
 		*(struct winsize *)arg = tty->size;
 		return 0;
 	default:
+		if (tty->ops->ioctl) {
+			return tty->ops->ioctl(tty, request, arg);
+		}
 		return -EINVAL;
-		break;
 	}
 }
 
@@ -222,7 +228,7 @@ static vfs_ops_t tty_ops = {
 	.wait_check = tty_wait_check,
 };
 
-tty_t *new_tty(tty_t *tty){
+tty_t *new_tty(tty_t *tty) {
 	if(!tty){
 		tty = kmalloc(sizeof(tty_t));
 		memset(tty,0,sizeof(tty_t));
@@ -253,7 +259,7 @@ tty_t *new_tty(tty_t *tty){
 
 // tty_output and tty_input based on TorauOS's tty system
 
-int tty_output(tty_t *tty,char c) {
+int tty_output(tty_t *tty, char c) {
 	if (tty->termios.c_oflag & OPOST) {
 		//enable output processing
 		if (tty->termios.c_oflag & OLCUC) {
@@ -283,11 +289,11 @@ int tty_output(tty_t *tty,char c) {
 	} else {
 		tty->column++;
 	}
-	tty->out(c, tty);
+	tty->ops->out(tty, &c, 1);
 	return 0;
 }
 
-int tty_input(tty_t *tty,char c) {
+int tty_input(tty_t *tty, char c) {
 	if (tty->termios.c_iflag & INLCR) {
 		// translate NL to CR
 		if (c == '\n') c = '\r';

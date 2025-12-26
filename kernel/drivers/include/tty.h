@@ -1,5 +1,5 @@
-#ifndef TTY_H
-#define TTY_H
+#ifndef _KERNEL_TTY_H
+#define _KERNEL_TTY_H
 
 #include <kernel/vfs.h>
 #include <kernel/ringbuf.h>
@@ -9,12 +9,19 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
+struct tty;
+
+typedef struct tty_ops {
+	int (* ioctl)(struct tty *, long , void *);
+	ssize_t (* out)(struct tty *, const char *, size_t);
+	void (* cleanup)(struct tty *);
+} tty_ops_t;
+
 typedef struct tty {
 	device_t device;
 	void *private_data;
-	void (*out)(char, struct tty *);
-	void (*cleanup)(struct tty *);
 	ring_buffer *input_buffer;
+	tty_ops_t *ops;
 	struct termios termios;
 	struct winsize size;
 	list_t *waiter;

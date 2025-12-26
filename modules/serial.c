@@ -28,11 +28,11 @@
 #define SERIAL_MCR_OUT2 1UL << 3 //Controls a hardware pin (OUT2) which is used to enable the IRQ in PC implementations 
 #define SERIAL_MCR_LOOP 1UL << 4 //Provides a local loopback feature for diagnostic testing of the UART 
 
-static uint16_t str2port(char *str){
-	if((strlen(str) != 4) || (memcmp(str,"COM",3) && memcmp(str,"com",3))){
+static uint16_t str2port(char *str) {
+	if ((strlen(str) != 4) || (memcmp(str,"COM",3) && memcmp(str,"com",3))) {
 		return 0;
 	}
-	switch (str[3]){
+	switch (str[3]) {
 	case '1':
 		return 0x3F8;
 	case '2':
@@ -57,7 +57,7 @@ static uint16_t str2port(char *str){
 int serial_count = 1;
 
 
-static void serial_handler(fault_frame *frame, void *data){
+static void serial_handler(fault_frame *frame, void *data) {
 	(void)frame;
 	tty_t *serial_port = data;
 	
@@ -65,17 +65,26 @@ static void serial_handler(fault_frame *frame, void *data){
 	tty_input(serial_port,in_byte(port));
 }
 
-static void serial_out(char c,tty_t *tty){
+static ssize_t serial_out(tty_t *tty, const char *buf, size_t size) {
 	uint16_t port = (uint16_t)(uintptr_t)tty->private_data;
-	while (!(in_byte(port + SERIAL_LSR) & SERIAL_LSR_THRE));
-	out_byte(port,c);
+	while (size > 0) {
+		while (!(in_byte(port + SERIAL_LSR) & SERIAL_LSR_THRE));
+		out_byte(port, *buf);
+		size--;
+		buf++;
+	}
+	return size;
 }
+
+static tty_ops_t serial_ops = {
+	.out = serial_out,
+};
 
 static device_driver_t serial_driver = {
 	.name = "serial port",
 };
 
-static int init_port(uint16_t port){
+static int init_port(uint16_t port) {
 	out_byte(port + SERIAL_IER, 0x01);
 	out_byte(port + 3, 0x80);
 	out_byte(port + SERIAL_DATA, 0x03);
@@ -91,7 +100,7 @@ static int init_port(uint16_t port){
 	out_byte(port + SERIAL_MCR, SERIAL_MCR_DTR | SERIAL_MCR_RTS | SERIAL_MCR_OUT1 | SERIAL_MCR_OUT2);
 
 	tty_t *tty = new_tty(NULL);
-	tty->out = serial_out;
+	tty->ops = &serial_ops;
 	tty->private_data = (void *)(uintptr_t)port;
 	char name[20];
 	sprintf(name, "ttyS%d",serial_count);
@@ -109,7 +118,7 @@ static int init_port(uint16_t port){
 	return 0;
 }
 
-static int init_serial(int argc,char **argv){
+static int init_serial(int argc,char **argv) {
 	serial_count = 0;
 	register_device_driver(&serial_driver);
 	if(have_opt(argc - 1,argv,"--port")){
@@ -130,7 +139,7 @@ static int init_serial(int argc,char **argv){
 	}
 }
 
-static int fini_serial(){
+static int fini_serial() {
 	unregister_device_driver(&serial_driver);
 	return 0;
 }
