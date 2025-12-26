@@ -60,6 +60,7 @@ static vfs_fd_t *open_socket(socket_t *socket) {
 	fd->private   = socket;
 	fd->ref_count = 1;
 	fd->type      = VFS_SOCK;
+	fd->flags     = O_RDWR;
 	return fd;
 }
 
@@ -101,18 +102,23 @@ ssize_t socket_recvmsg(vfs_fd_t *socket, struct msghdr *message, int flags) {
 	return sock->recvmsg(sock, message, flags);
 }
 
-int socket_accept(vfs_fd_t *socket, struct sockaddr *address, socklen_t *address_len, vfs_fd_t **new_sock) {
+int socket_accept(vfs_fd_t *socket, struct sockaddr *address, socklen_t *address_len, vfs_fd_t **new_sock_fd) {
 	socket_t *sock = (socket_t *)socket->private;
 	if (!(socket->type & VFS_SOCK)) return -ENOTSOCK;
 	if (!sock->accept || sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) return -EOPNOTSUPP;
-
+	
+	socket_t *new_sock;
 	uint32_t storage[128];
 	socklen_t len_storage;
 	
 	if (!address) address = (struct sockaddr *)&storage;
 	if (!address_len) address_len = &len_storage;
 
-	return sock->accept(sock, address, address_len, (socket_t**)new_sock);
+	int ret = sock->accept(sock, address, address_len, &new_sock);
+	if (ret >= 0) {
+		*new_sock_fd = open_socket(new_sock);
+	}
+	return ret;
 }
 
 int socket_bind(vfs_fd_t *socket, const struct sockaddr *address, socklen_t address_len) {

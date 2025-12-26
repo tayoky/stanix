@@ -236,6 +236,7 @@ vfs_node_t *vfs_lookup(vfs_node_t *node,const char *name){
 }
 
 void vfs_close_node(vfs_node_t *node){
+	if (!node) return;
 	node->ref_count --;
 
 	if(node->ref_count > 0){
