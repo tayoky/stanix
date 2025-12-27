@@ -55,10 +55,10 @@ Unlike DRM, TRM's KMS uses a "test-fix-commit" api, with three phases :
   ask the **TRM** driver to **commit** the specified mode atomicly (with minimum flicker in a single retrace)
 
 > [!NOTE]
-> During the fix phase the corrected mode can be far from the specified one, application should check if the mode is close enought before doing commiting.
+> During the fix phase the corrected mode can be far from the specified one, application should check if the mode is close enought before commiting.
 
 ## plane
-A **plane** is memory region that contain graphics data, a plane must be attached to a framebuffer. A plane is described as follows :
+A **plane** is memory region that contain graphics data, a plane must be attached to a framebuffer to be used. It is described as follows :
 ```c
 typedef struct trm_plane {
     trm_fb_t *fb;
@@ -78,10 +78,12 @@ typedef struct trm_plane {
 } trm_plane_t;
 ```
 
-> [!NOTE] note on primary planes  
+> [!NOTE] 
+> note on primary planes  
 > The **primary planes** must have the lowest `id`, a type of `TRM_PLANE_PRIMARY`, a `dest_x` and `dest_y` of 0 and a `dest_w` and `dest_y` equal to the `hdisplay` and `vdisplay` of it's crtc.
 
-> [!NOTE] The number of plane is fixed and cannot chabges, planes have a continious `id` (e.g. if there are two plane they will have id 0 and 1)
+> [!NOTE]
+> The number of plane is fixed and cannot chabges, planes have a continious `id` (e.g. if there are two plane they will have id 0 and 1)
 
 ## framebuffers
 A **framebuffer** describe the data of a plane. It is saved as follows :  
