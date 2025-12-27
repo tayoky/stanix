@@ -1,17 +1,123 @@
 #include <kernel/module.h>
 #include <kernel/string.h>
+#include <kernel/port.h>
 #include <kernel/trm.h>
 #include <module/pci.h>
+#include <module/vga.h>
+#include <errno.h>
 
 static device_driver_t vga_driver;
 
-static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
+static void vga_crtc_out(uint8_t index, uint8_t data) {
+	out_byte(VGA_CRTC_INDEX, index);
+	out_byte(VGA_CRTC_DATA, data);
+}
 
+static uint8_t vga_crtc_in(uint8_t index) {
+	out_byte(VGA_CRTC_INDEX, index);
+	return in_byte(VGA_CRTC_DATA);
+}
+
+static int vga_test_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
+	if (mode->crtcs) {
+		trm_crtc_t *crtc = mode->crtcs;
+		if (crtc->timings) {
+			trm_timings_t *timings = crtc->timings;
+			// we need every horizontal timing to be divisible by 8
+			if (timings->hdisplay & 7) return -ENOTSUP;
+			if (timings->hsync_start & 7) return -ENOTSUP;
+			if (timings->hsync_end & 7) return -ENOTSUP;
+			if (timings->htotal & 7) return -ENOTSUP;
+
+			// we need some maximum values
+			if (timings->hsync_end - timings->hsync_start > 31) return -ENOTSUP;
+			if (timings->htotal - timings->hdisplay > 63) return -ENOTSUP;
+
+			// standard VGA only has two clocks
+			if (timings->pixel_clock != 25000000 && timings->pixel_clock != 28000000) return -ENOTSUP;
+		}
+	}
+	return 0;
+}
+
+static void vga_wait_vsync(void) {
+	while (!(in_byte(VGA_INPUT_STATUS1) & 0x80));
+	while (in_byte(VGA_INPUT_STATUS1) & 0x80);
+}
+
+static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
+	trm_timings_t *timings = NULL;
+	if (mode->crtcs) {
+		timings = mode->crtcs[0].timings;
+	}
+
+	// wait for a retrace
+	vga_wait_vsync();
+
+	// TODO : disable sequencer
+
+	// make sure we are not using old monlchrome registers
+	uint8_t misc = in_byte(VGA_MISC_READ);
+	misc &= ~1;
+
+	// select the right clock
+	if (timings) {
+		misc &= ~12;
+		if (timings->pixel_clock == 25000000) {
+			misc |= 0;
+		} else if (timings->pixel_clock == 28000000) {
+			misc |= 4;
+		} else {
+			// the test did not catch this ??? WTF ???
+			return -ENOTSUP;
+		}
+	}
+	out_byte(VGA_MISC_WRITE, misc);
+
+	// make sure to disable write protect
+	uint8_t vsync_end = vga_crtc_in(VGA_CRTC_VSYNC_END);
+	vsync_end &= ~0x80;
+	vga_crtc_out(VGA_CRTC_VSYNC_END, vsync_end);
+
+	if (timings) {
+		// send horizontal timings
+		uint8_t hblank_end = timings->htotal / 8;
+		vga_crtc_out(VGA_CRTC_HTOTAL, (timings->htotal / 8) - 5);
+		vga_crtc_out(VGA_CRTC_HDISPLAY, (timings->hdisplay / 8) - 1);
+		vga_crtc_out(VGA_CRTC_HBLANK_START, timings->hdisplay / 8);
+		vga_crtc_out(VGA_CRTC_HBLANK_END, 0x80 | (hblank_end & 0x1f));
+		vga_crtc_out(VGA_CRTC_HSYNC_START, timings->hsync_start / 8);
+		vga_crtc_out(VGA_CRTC_HSYNC_END, ((hblank_end << 2) & 0x80) | ((timings->hsync_end / 8) & 0x1f));
+
+		// send vertical timings
+		uint8_t overflows = 0;
+		vga_crtc_out(VGA_CRTC_VTOTAL, timings->vtotal);
+		overflows |= (timings->vsync_start >> 2) & 0x80;
+		overflows |= (timings->vdisplay >> 3) & 0x40;
+		overflows |= (timings->vtotal >> 4) & 0x20;
+		overflows |= (timings->vdisplay >> 5) & 0x08;
+		overflows |= (timings->vsync_start >> 6) & 0x04;
+		overflows |= (timings->vdisplay >> 7) & 0x02;
+		overflows |= (timings->vtotal >> 8) & 0x01;
+		vga_crtc_out(VGA_CRTC_OVERFLOW, overflows);
+		vga_crtc_out(VGA_CRTC_MAX_SCAN, (timings->vdisplay >> 4) & 0x20);
+		vga_crtc_out(VGA_CRTC_VSYNC_START, timings->vsync_start);
+		vga_crtc_out(VGA_CRTC_VSYNC_END, timings->vsync_end & 0x0f);
+		vga_crtc_out(VGA_CRTC_VDISPLAY, timings->vdisplay);
+		vga_crtc_out(VGA_CRTC_VBLANK_START, timings->vdisplay);
+		vga_crtc_out(VGA_CRTC_VBLANK_END, timings->total & 0x7f);
+	}
+
+	trm_plane_t *plane = &mode->planes[0];
+	if (plane) {
+		// TODO : setup
+	}
 }
 
 
 static trm_ops_t vga_ops = {
-
+	.test_mode = vga_test_mode,
+	.commit_mode = vga_commit_mode,
 };
 
 static int vga_check(bus_addr_t *addr) {

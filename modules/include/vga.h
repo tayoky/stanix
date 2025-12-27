@@ -1,5 +1,39 @@
 #ifndef _MODULE_VGA_H
 #define _MODULE_VGA_H
 
+#define VGA_CRTC_INDEX    0x3b4
+#define VGA_CRTC_DATA     0x3b5
+#define VGA_ATTR_INDEX    0x3c0
+#define VGA_ATTR_DATA     0x3c1
+#define VGA_INPUT_STATUS0 0x3c2
+#define VGA_MISC_WRITE    0x3c2
+#define VGA_MISC_READ     0x3cc
+#define VGA_INPUT_STATUS1 0x3da
+
+#define VGA_CRTC_HTOTAL       0x00
+#define VGA_CRTC_HDISPLAY     0x01
+#define VGA_CRTC_HBLANK_START 0x02
+#define VGA_CRTC_HBLANK_END   0x03
+#define VGA_CRTC_HSYNC_START  0x04
+#define VGA_CRTC_HSYNC_END    0x05
+#define VGA_CRTC_VTOTAL       0x06
+#define VGA_CRTC_OVERFLOW     0x07
+#define VGA_CRTC_ROW_SCAN     0x08
+#define VGA_CRTC_MAX_SCAN     0x09
+#define VGA_CRTC_CURSOR_START 0x0a
+#define VGA_CRTC_CURSOR_END   0x0b
+#define VGA_CRTC_ADDR_HIGH    0x0c
+#define VGA_CRTC_ADDR_LOW     0x0d
+#define VGA_CRTC_CUR_LOC_HIGH 0x0e
+#define VGA_CRTC_CUR_LOC_LOW  0x0f
+#define VGA_CRTC_VSYNC_START  0x10
+#define VGA_CRTC_VSYNC_END    0x11
+#define VGA_CRTC_VDISPLAY     0x12
+#define VGA_CRTC_OFFSET       0x13
+#define VGA_CRTC_UNDERLINE    0x14
+#define VGA_CRTC_VBLANK_START 0x15
+#define VGA_CRTC_VBLANK_END   0x16
+#define VGA_CRTC_MODE_CONTROL 0x17
+#define VGA_CRTC_LINE_COMPARE 0x18
 
 #endif
