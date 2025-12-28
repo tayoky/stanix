@@ -7,6 +7,10 @@
 #define VGA_ATTR_DATA     0x3c1
 #define VGA_INPUT_STATUS0 0x3c2
 #define VGA_MISC_WRITE    0x3c2
+#define VGA_DAC_STATE     0x3c7
+#define VGA_DAC_INDEX_RD  0x3c7
+#define VGA_DAC_INDEX_WR  0x3c8
+#define VGA_DAC_DATA      0x3c9
 #define VGA_MISC_READ     0x3cc
 #define VGA_INPUT_STATUS1 0x3da
 

@@ -76,7 +76,8 @@ typedef struct trm_card {
 } trm_card_t;
 
 typedef struct trm_palette {
-    int stub;
+    size_t color_count;
+    uint32_t *colors;
 } trm_palette_t;
 
 typedef struct trm_mode {

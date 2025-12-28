@@ -37,6 +37,9 @@ static int vga_test_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 			if (timings->pixel_clock != 25000000 && timings->pixel_clock != 28000000) return -ENOTSUP;
 		}
 	}
+	if (mode->palette) {
+		if (mode->palette->colors_count > 256) return -ENOTSUP;
+	}
 	return 0;
 }
 
@@ -117,6 +120,16 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 		}
 		vga_crtc_out(VGA_CRTC_ADDR_LOW, fb->base);
 		vga_crtc_out(VGA_CRTC_ADDR_HIGH, fb->base >> 8);
+	}
+
+	if (mode->palette) {
+		trm_palette *palette = mode->palette;
+		for (size_t i=0; i<palette->colors_count; i++) {
+			out_byte(VGA_DAC_INDEX_WR, i);
+			out_byte(VGA_DAC_DATA, (palette->colors[i] >> 18) & 0x3f);
+			out_byte(VGA_DAC_DATA, (palette->colors[i] >> 10) & 0x3f);
+			out_byte(VGA_DAC_DATA, (palette->colors[i] >> 2) & 0x3f);
+		}
 	}
 }
 
