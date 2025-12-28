@@ -20,13 +20,15 @@ typedef struct device {
 	struct bus_addr *addr;
 	char *name;
 	vfs_ops_t *ops;
+	void (*cleanup)(device_t*);
 	dev_t number;
 	int type;
 } device_t;
 
-#define DEVICE_CHAR  1
-#define DEVICE_BLOCK 2
-#define DEVICE_BUS   3
+#define DEVICE_CHAR     1
+#define DEVICE_BLOCK    2
+#define DEVICE_BUS      3
+#define DEVICE_UNPLUGED 4
 
 int register_device_driver(device_driver_t *device_driver);
 int unregister_device_driver(device_driver_t *device_driver);

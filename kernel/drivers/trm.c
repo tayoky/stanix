@@ -71,6 +71,7 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 	fb->id = gpu->fd_count++;
 
 	trm_framebuffer_t *framebuffer = kmalloc(sizeof(trm_framebuffer_t));
+	framebuffer->device.type = DEVICE_BLOCK;
 	framebuffer->fb = fb;
 	framebuffer->base = base;
 	framebuffer->owner = fb;
@@ -201,9 +202,10 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	static int video_count = 0;
 	char name[32];
 	sprintf(name, "video%d", video_count++);
-	gpu->device.name = strdup(name);
-	gpu->device.ops  = &trm_ops;
-	gpu->device.type = DEVICE_CHAR;
+	gpu->device.name    = strdup(name);
+	gpu->device.ops     = &trm_ops;
+	gpu->device.cleanup = trm_cleanup;
+	gpu->device.type    = DEVICE_CHAR;
 
 	// default alignement
 	if (!gpu->align) gpu->align = 4 * 1024;

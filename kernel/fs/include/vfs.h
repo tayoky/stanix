@@ -238,11 +238,7 @@ int vfs_chown(vfs_node_t *node,uid_t owner,gid_t group_owner);
  * @param arg device/request specific
  * @return device/request specific
  */
-static inline int vfs_ioctl(vfs_fd_t *fd, long request, void *arg) {
-	if (!fd || !fd->ops->ioctl) return -EBADF;
-	return fd->ops->ioctl(fd, request, arg);
-}
-
+int vfs_ioctl(vfs_fd_t *fd, long request, void *arg); 
 
 /// @brief check if a vfs_node_t is ready for write/read
 /// @param node the node to check

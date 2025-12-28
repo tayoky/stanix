@@ -104,7 +104,7 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep){
 	(*master_fd)->private   = pty;
 	(*master_fd)->ops       = &pty_master_ops;
 	(*master_fd)->ref_count = 1;
-	(*master_fd)->type      = VFS_CHAR;
+	(*master_fd)->type      = VFS_FILE;
 	(*master_fd)->flags     = O_RDWR;
 
 	(*slave_fd) = open_device((device_t*)slave, O_RDWR);
@@ -185,7 +185,6 @@ static void tty_cleanup(device_t *device){
 
 	delete_ringbuffer(tty->input_buffer);
 	kfree(tty->canon_buf);
-	kfree(tty);
 }
 
 static int tty_ioctl(vfs_fd_t *fd, long request, void *arg) {
@@ -253,6 +252,7 @@ tty_t *new_tty(tty_t *tty) {
 	tty->canon_index = 0;
 	tty->device.type = DEVICE_CHAR;
 	tty->device.ops = &tty_ops;
+	tty->device.cleanup = tty_cleanup;
 
 	return tty;
 }

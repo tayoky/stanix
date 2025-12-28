@@ -27,6 +27,7 @@ typedef struct trm_alloc_block {
 } trm_alloc_block_t;
 
 typedef struct trm_framebuffer {
+	device_t device
 	struct vfs_fd *owner;
 	struct vfs_fd *fd;
 	struct trm_gpu *gpu;

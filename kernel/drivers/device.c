@@ -107,8 +107,10 @@ int register_device(device_t *device) {
 }
 
 int destroy_device(device_t *device) {
+	device->type = DEVICE_UNPLUGED;
 	utils_hashmap_remove(&devices, device->number);
-	// TODO : call cleanup func and remove dev in devfs
+	if (device->cleanup) device->cleanup(device);
+	// TODO : remove in devfs
 	return 0;
 }
 

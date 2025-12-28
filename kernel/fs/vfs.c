@@ -112,7 +112,7 @@ int vfs_unmountat(vfs_node_t *at, const char *path){
 	// i think we don't handle trailling / very well
 	const char *child = vfs_basename(path);
 	
-	//we can use vfs_lookup cause it don't folow mount point (only vfs_openat does)
+	// we can use vfs_lookup cause it don't folow mount point (only vfs_openat does)
 	vfs_node_t *mount_point = vfs_lookup(parent,child);
 	vfs_close_node(parent);
 	if(!(mount_point->flags & VFS_MOUNT)){
@@ -129,12 +129,16 @@ int vfs_unmountat(vfs_node_t *at, const char *path){
 }
 
 ssize_t vfs_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
-	if (fd->type & VFS_DIR) {
+	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+		// check if device is unpluged
+		if (((device_t*)fd->private)->type == DEVICE_UNPLUGED) return -ENODEV;
+	} else if (fd->type & VFS_DIR) {
 		return -EISDIR;
 	}
 	if (fd->flags & O_WRONLY) {
 		return -EBADF;
 	}
+
 	if (fd->ops->read) {
 		return fd->ops->read(fd,buffer,offset,count);
 	} else {
@@ -143,7 +147,10 @@ ssize_t vfs_read(vfs_fd_t *fd,void *buffer,uint64_t offset,size_t count){
 }
 
 ssize_t vfs_write(vfs_fd_t *fd,const void *buffer,uint64_t offset,size_t count){
-	if (fd->type & VFS_DIR) {
+	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+		// check if device is unpluged
+		if (((device_t*)fd->private)->type == DEVICE_UNPLUGED) return -ENODEV;
+	} else if (fd->type & VFS_DIR) {
 		return -EISDIR;
 	}
 	if (!(fd->flags & (O_WRONLY | O_RDWR))) {
@@ -154,6 +161,15 @@ ssize_t vfs_write(vfs_fd_t *fd,const void *buffer,uint64_t offset,size_t count){
 	} else {
 		return -EINVAL;
 	}
+}
+
+int vfs_ioctl(vfs_fd_t *fd, long request, void *arg) {
+	if (!fd || !fd->ops->ioctl) return -EBADF;
+	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+		// check if device is unpluged
+		if (((device_t*)fd->private)->type == DEVICE_UNPLUGED) return -ENODEV;
+	}
+	return fd->ops->ioctl(fd, request, arg);
 }
 
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz){
@@ -168,6 +184,10 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz){
 }
 
 int vfs_wait_check(vfs_fd_t *fd,short type){
+	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+		// check if device is unpluged
+		if (((device_t*)fd->private)->type == DEVICE_UNPLUGED) return type & POLLHUP;
+	}
 	if(fd->ops->wait_check){
 		return fd->ops->wait_check(fd,type);
 	} else {
