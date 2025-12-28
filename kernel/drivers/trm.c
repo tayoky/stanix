@@ -207,6 +207,7 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	gpu->device.ops     = &trm_ops;
 	gpu->device.cleanup = trm_cleanup;
 	gpu->device.type    = DEVICE_CHAR;
+	strcpy(gpu->card.driver, gpu->device.driver->name);
 
 	// default alignement
 	if (!gpu->align) gpu->align = 4 * 1024;
