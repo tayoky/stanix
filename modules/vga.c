@@ -8,6 +8,16 @@
 
 static device_driver_t vga_driver;
 
+static void vga_seq_out(uint8_t index, uint8_t data) {
+	out_byte(VGA_SEQ_INDEX, index);
+	out_byte(VGA_SEQ_DATA, data);
+}
+
+static uint8_t vga_seq_in(uint8_t index) {
+	out_byte(VGA_SEQ_INDEX, index);
+	return in_byte(VGA_SEQ_DATA);
+}
+
 static void vga_crtc_out(uint8_t index, uint8_t data) {
 	out_byte(VGA_CRTC_INDEX, index);
 	out_byte(VGA_CRTC_DATA, data);
@@ -57,7 +67,8 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	// wait for a retrace
 	vga_wait_vsync();
 
-	// TODO : disable sequencer
+	// disable and reset sequencer
+	vga_seq_out(VGA_SEQ_RESET, 0x01);
 
 	// make sure we are not using old monlchrome registers
 	uint8_t misc = in_byte(VGA_MISC_READ);
@@ -83,6 +94,11 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	vga_crtc_out(VGA_CRTC_VSYNC_END, vsync_end);
 
 	if (timings) {
+		// make sure we use 8 pixel char
+		uint8_t clocking = vga_seq_in(VGA_SEQ_CLOCK_MODE);
+		clocking |= 1;
+		vga_seq_out(VGA_SEQ_CLOCK_MODE, clocking);
+
 		// send horizontal timings
 		uint8_t hblank_end = timings->htotal / 8;
 		vga_crtc_out(VGA_CRTC_HTOTAL, (timings->htotal / 8) - 5);
@@ -131,6 +147,11 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 			out_byte(VGA_DAC_DATA, (palette->colors[i] >> 2) & 0x3f);
 		}
 	}
+
+	// restart sequencer
+	vga_seq_out(VGA_SEQ_RESET, 0x03);
+
+	return 0;
 }
 
 static int vga_support_format(uint32_t format) {

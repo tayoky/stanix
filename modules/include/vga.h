@@ -7,6 +7,8 @@
 #define VGA_ATTR_DATA     0x3c1
 #define VGA_INPUT_STATUS0 0x3c2
 #define VGA_MISC_WRITE    0x3c2
+#define VGA_SEQ_INDEX     0x3c4
+#define VGA_SEQ_DATA      0x3c5
 #define VGA_DAC_STATE     0x3c7
 #define VGA_DAC_INDEX_RD  0x3c7
 #define VGA_DAC_INDEX_WR  0x3c8
@@ -39,5 +41,11 @@
 #define VGA_CRTC_VBLANK_END   0x16
 #define VGA_CRTC_MODE_CONTROL 0x17
 #define VGA_CRTC_LINE_COMPARE 0x18
+
+#define VGA_SEQ_RESET      0x00
+#define VGA_SEQ_CLOCK_MODE 0x01
+#define VGA_SEQ_MAP_MASK   0x02
+#define VGA_SEQ_CHAR_MAP   0x03
+#define VGA_SEQ_MEM_MODE   0x04
 
 #endif
