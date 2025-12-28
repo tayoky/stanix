@@ -126,6 +126,13 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		memcpy(card->name  , gpu->card.name  , sizeof(gpu->card.name));
 		memcpy(card->driver, gpu->card.driver, sizeof(gpu->card.name));
 		return 0;
+	case TRM_GET_FRAMEBUFFER:;
+		trm_fb_t *fb = arg;
+		trm_framebuffer_t *framebuffer = trm_get_fb(gpu, fb->id);
+		if (!fb) return -EINVAL;
+		if (fd != gpu->master && framebuffer->owner != fd) return -EPERM;
+		// TODO : add framebuffer fd to proc fd
+		return 0;
 	case TRM_GET_PLANE:;
 		trm_plane_t *plane = arg;
 		if (plane->id > gpu->card.planes_count) return -EINVAL;

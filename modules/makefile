@@ -20,7 +20,7 @@ all : ${MOD} header
 	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^ -DMODULE
 install :
 	mkdir -p ${PREFIX}/mod
-	cp *.ko ${PREFIX}/mod/
+	cp ${MOD} ${PREFIX}/mod/
 header :
 	mkdir -p ${SYSROOT}/usr/include/module
 	cp include/*.h ${SYSROOT}/usr/include/module
