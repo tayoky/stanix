@@ -55,9 +55,12 @@ static vfs_ops_t trm_fb_ops = {
 };
 
 static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
-	// TODO : check if the card support the format
+	if (gpu->ops->support_format && !gpu->ops->support_format(fb->format)) {
+		return -ENOTSUP;
+	}
 	if (!fb->pitch) {
-		// TODO : calculate pitch
+		// FIXME : maybee we should align this
+		fb->pitch = fb->width * (trm_bpp(fb->format) + 7) / 8;
 	}
 	size_t size = fb->pitch * fb->height;
 	uintptr_t base = trm_alloc(gpu, size);

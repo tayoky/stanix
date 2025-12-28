@@ -17,6 +17,7 @@ typedef struct trm_ops {
     int (*commit_mode)(struct trm_gpu *gpu, trm_mode_t *mode);
     void (*cleanup)(struct trm_gpu *gpu);
     int (*mmap)(struct trm_gpu *gpu, uintptr_t vaddr, struct memseg_struct *seg);
+    int (*support_format)(uint32_t format);
 } trm_ops_t;
 
 typedef struct trm_alloc_block {

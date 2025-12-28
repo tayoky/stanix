@@ -1,6 +1,7 @@
-#ifndef _LIB_TRM_H
-#define _LIB_TRM_H
+#ifndef _LIBTRM_TRM_H
+#define _LIBTRM_TRM_H
 
+#include "format.h"
 #include <stddef.h>
 #include <stdint.h>
 

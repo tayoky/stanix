@@ -120,10 +120,16 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	}
 }
 
+static int vga_support_format(uint32_t format) {
+	// VGA only support indexed colors
+	if (format == TRM_C8) return 1;
+	return 0;
+}
 
 static trm_ops_t vga_ops = {
 	.test_mode = vga_test_mode,
 	.commit_mode = vga_commit_mode,
+	.support_format = vga_support_format,
 };
 
 static int vga_check(bus_addr_t *addr) {
