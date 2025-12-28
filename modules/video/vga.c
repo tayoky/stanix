@@ -157,7 +157,8 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	return 0;
 }
 
-static int vga_support_format(uint32_t format) {
+static int vga_support_format(trm_gpu_t *gpu, uint32_t format) {
+	(void)gpu;
 	// VGA only support indexed colors
 	if (format == TRM_C8) return 1;
 	return 0;
@@ -180,8 +181,6 @@ static int vga_check(bus_addr_t *addr) {
 }
 
 static int vga_probe(bus_addr_t *addr) {
-	(void)addr;
-
     trm_gpu_t *gpu = kmalloc(sizeof(trm_gpu_t));
     memset(gpu, 0, sizeof(trm_gpu_t));
     strcpy(gpu->card.name, "VGA compatible controller");
@@ -213,7 +212,7 @@ static int vga_probe(bus_addr_t *addr) {
     gpu->card.connectors[0].crtc           = 1;
 
     register_trm_gpu(gpu);
-
+    addr->device = (device_t*)gpu;
     return 0;
 }
 

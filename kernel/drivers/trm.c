@@ -55,7 +55,7 @@ static vfs_ops_t trm_fb_ops = {
 };
 
 static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
-	if (gpu->ops->support_format && !gpu->ops->support_format(fb->format)) {
+	if (gpu->ops->support_format && !gpu->ops->support_format(gpu, fb->format)) {
 		return -ENOTSUP;
 	}
 	if (!fb->pitch) {
@@ -117,6 +117,30 @@ static int trm_check_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	return gpu->ops->test_mode(gpu, mode);
 }
 
+static int trm_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
+	if (!gpu->ops->commit_mode) return -EINVAL;
+	int ret = trm_check_mode(gpu, mode);
+	if (ret < 0) return ret;
+	ret = gpu->ops->commit_mode(gpu, mode);
+	if (ret < 0) return ret;
+
+	// update stuff
+	for (size_t i=0; i<mode->planes_count; i++) {
+		trm_plane_t *plane = &mode->planes[i];
+		gpu->card.planes[plane->id - 1] = *plane;
+	}
+	for (size_t i=0; i<mode->crtcs_count; i++) {
+		trm_crtc_t *crtc = &mode->crtcs[i];
+		gpu->card.crtcs[crtc->id - 1] = *crtc;
+		if (crtc->timings) *gpu->card.crtcs[crtc->id - 1].timings = *crtc->timings;
+	}
+	for (size_t i=0; i<mode->connectors_count; i++) {
+		trm_connector_t *connector = &mode->connectors[i];
+		gpu->card.connectors[connector->id - 1] = *connector;
+	}
+	return ret;
+}
+
 static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	trm_gpu_t *gpu = fd->private;
 	int ret;
@@ -149,12 +173,8 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		return trm_check_mode(gpu, arg);
 	case TRM_KMS_COMMIT:
 		if (gpu->master != fd) return -EPERM;
-		if (!gpu->ops->commit_mode) return -EINVAL;
-		trm_mode_t *mode = arg;
-		ret = trm_check_mode(gpu, mode);
-		if (ret < 0) return ret;
-		return gpu->ops->commit_mode(gpu, mode);
-	case TRM_KMS_FIX:;
+		return trm_commit_mode(gpu, arg);
+	case TRM_KMS_FIX:
 		if (!gpu->ops->fix_mode) return -EINVAL;
 		return gpu->ops->fix_mode(gpu, arg);
 	case TRM_ALLOC_FRAMEBUFFER:
