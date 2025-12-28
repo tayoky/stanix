@@ -15,8 +15,8 @@ typedef struct trm_fb {
 } trm_fb_t;
 
 typedef struct trm_plane {
-    trm_fb_t *fb;
-    uint32_t fb_id;
+    trm_fb_t *fb;   // just a helper field
+    uint32_t fb_id; // actual fd id (used for mode setting)
     uint32_t possible_crtcs;
     uint32_t crtc;
     uint32_t id;

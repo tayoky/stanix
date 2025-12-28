@@ -110,7 +110,13 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 
 	trm_plane_t *plane = &mode->planes[0];
 	if (plane) {
-		// TODO : setup
+		trm_framebuffer_t *fb = trm_get_fb(plane->fb_id);
+		if (!fb) {
+			// TRM didn't catch this ??
+			return -EINVAL;
+		}
+		vga_crtc_out(VGA_CRTC_ADDR_LOW, fb->base);
+		vga_crtc_out(VGA_CRTC_ADDR_HIGH, fb->base >> 8);
 	}
 }
 
@@ -145,11 +151,16 @@ static int vga_probe(bus_addr_t *addr) {
     gpu->card.planes[0].type           = TRM_PLANE_PRIMARY;
     gpu->card.planes[0].possible_crtcs = TRM_CRTC_MASK(1);
     gpu->card.planes[0].crtc           = 1;
+    gpu->card.planes[0].src_x          = 0;
+    gpu->card.planes[0].src_y          = 0;
+    gpu->card.planes[0].src_w          = 0;
+    gpu->card.planes[0].src_h          = 0;
     
     // setup one crtc
     gpu->card.crtcs_count = 1;
     gpu->card.crtcs = kmalloc(sizeof(trm_crtc_t));
     gpu->card.crtcs[0].active = 1;
+    gpu->card.crtcs[0].timings = kmalloc(sizeof(trm_timings_t));
 
     // setup one connector
     gpu->card.connectors_count = 1;
