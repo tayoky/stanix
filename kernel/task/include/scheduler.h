@@ -135,6 +135,9 @@ void yield(int addback);
 /// @return the tid of the threads that died or negative errno number
 int waitfor(task_t **threads,size_t threads_count,int flags,task_t **waker);
 
+
+int add_fd(vfs_fd_t *fd);
+
 #define FD_GET(fd) get_current_proc()->fds[fd]
 #define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))
 #define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)

@@ -68,6 +68,8 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 		return -ENOMEM;
 	}
 
+	kdebugf("allocate framebuffer at %lx\n", base);
+
 	fb->id = gpu->fbs_count++;
 
 	trm_framebuffer_t *framebuffer = kmalloc(sizeof(trm_framebuffer_t));
@@ -85,8 +87,10 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 	fb_fd->private = framebuffer;
 	fb_fd->type = VFS_BLOCK;
 	fb_fd->flags = O_WRONLY;
+	fb_fd->ref_count = 1;
+	fb->fd = add_fd(fb_fd);
 
-	// TODO : add the fd to the proc's fd
+	return 0;
 }
 
 static int trm_check_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
@@ -119,6 +123,7 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	switch (req) {
 	case TRM_GET_RESSOURCES:;
 		trm_card_t *card = arg;
+		card->vram_size        = gpu->card.vram_size;
 		card->planes_count     = gpu->card.planes_count;
 		card->crtcs_count      = gpu->card.crtcs_count;
 		card->connectors_count = gpu->card.connectors_count;

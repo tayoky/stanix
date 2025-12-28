@@ -426,3 +426,21 @@ void final_proc_cleanup(process_t *proc) {
 	delete_addr_space(proc->addrspace);
 	kfree(proc);
 }
+
+int add_fd(vfs_fd_t *fd) {
+	int index = 0;
+	while (is_valid_fd(index)) {
+		index++;
+	}
+
+	if (index >= MAX_FD) {
+		//to much fd open
+		return -1;
+	}
+
+	FD_GET(index).present = 1;
+	FD_GET(index).fd = fd;
+	FD_GET(index).flags = 0;
+	FD_GET(index).offset = 0;
+	return index;
+}
