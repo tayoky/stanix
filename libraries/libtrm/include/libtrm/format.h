@@ -72,6 +72,6 @@ static inline int trm_bpp(uint32_t format) {
 	} else {
 		return 1;
 	}
-
+}
 
 #endif

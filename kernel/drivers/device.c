@@ -15,12 +15,12 @@ static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_dri
 
 	if (addr->device) {
 		// a driver already control this address
-		if (addr->device->driver->priority > driver->priority) {
+		if (addr->device->driver->priority > device_driver->priority) {
 			// the driver is already better
 			return -EBUSY;
 		} else {
 			// replace the old driver
-			device_destroy(addr->device);
+			destroy_device(addr->device);
 		}
 	}
 	
@@ -69,7 +69,7 @@ static void __init_bus_with_driver_helper(void *element, void *arg) {
 
 int register_device_driver(device_driver_t *device_driver) {
 	// default priority
-	if (!driver->priority) driver->priority = 1;
+	if (!device_driver->priority) device_driver->priority = 1;
 	if (device_driver->major == 0) {
 		// allocate a major
 		static int major_dyn = 256;

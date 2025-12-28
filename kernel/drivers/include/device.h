@@ -21,7 +21,7 @@ typedef struct device {
 	struct bus_addr *addr;
 	char *name;
 	vfs_ops_t *ops;
-	void (*cleanup)(device_t*);
+	void (*cleanup)(struct device *);
 	dev_t number;
 	int type;
 } device_t;

@@ -1,5 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/string.h>
+#include <kernel/kheap.h>
+#include <kernel/print.h>
 #include <kernel/port.h>
 #include <kernel/trm.h>
 #include <module/pci.h>
@@ -29,6 +31,7 @@ static uint8_t vga_crtc_in(uint8_t index) {
 }
 
 static int vga_test_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
+	(void)gpu;
 	if (mode->crtcs) {
 		trm_crtc_t *crtc = mode->crtcs;
 		if (crtc->timings) {
@@ -124,12 +127,12 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 		vga_crtc_out(VGA_CRTC_VSYNC_END, timings->vsync_end & 0x0f);
 		vga_crtc_out(VGA_CRTC_VDISPLAY, timings->vdisplay);
 		vga_crtc_out(VGA_CRTC_VBLANK_START, timings->vdisplay);
-		vga_crtc_out(VGA_CRTC_VBLANK_END, timings->total & 0x7f);
+		vga_crtc_out(VGA_CRTC_VBLANK_END, timings->vtotal & 0x7f);
 	}
 
 	trm_plane_t *plane = &mode->planes[0];
 	if (plane) {
-		trm_framebuffer_t *fb = trm_get_fb(plane->fb_id);
+		trm_framebuffer_t *fb = trm_get_fb(gpu, plane->fb_id);
 		if (!fb) {
 			// TRM didn't catch this ??
 			return -EINVAL;
@@ -139,7 +142,7 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	}
 
 	if (mode->palette) {
-		trm_palette *palette = mode->palette;
+		trm_palette_t *palette = mode->palette;
 		for (size_t i=0; i<palette->colors_count; i++) {
 			out_byte(VGA_DAC_INDEX_WR, i);
 			out_byte(VGA_DAC_DATA, (palette->colors[i] >> 18) & 0x3f);
@@ -170,13 +173,14 @@ static int vga_check(bus_addr_t *addr) {
     pci_addr_t *pci_addr = (pci_addr_t*)addr;
     if (addr->type != BUS_PCI) return 0;
     if (pci_addr->class == 0x0 && pci_addr->subclass == 0x1) {
+		kdebugf("found VGA card\n");
         return 1;
     }
     return 0;
 }
 
 static int vga_probe(bus_addr_t *addr) {
-    pci_addr_t *pci_addr = (pci_addr_t*)addr;
+	(void)addr;
 
     trm_gpu_t *gpu = kmalloc(sizeof(trm_gpu_t));
     memset(gpu, 0, sizeof(trm_gpu_t));
@@ -220,6 +224,8 @@ static device_driver_t vga_driver = {
 };
 
 int vga_init(int argc, char **argv){
+	(void)argc;
+	(void)argv;
     register_device_driver(&vga_driver);
 	return 0;
 }

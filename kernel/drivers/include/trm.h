@@ -27,7 +27,7 @@ typedef struct trm_alloc_block {
 } trm_alloc_block_t;
 
 typedef struct trm_framebuffer {
-	device_t device
+	device_t device;
 	struct vfs_fd *owner;
 	struct vfs_fd *fd;
 	struct trm_gpu *gpu;
@@ -41,9 +41,10 @@ typedef struct trm_gpu {
     trm_mode_t mode;
     trm_ops_t *ops;
     list_t *alloc_blocks;
-    libutils_hashmap_t fbs;
+    utils_hashmap_t fbs;
     struct vfs_fd *master;
-    uint32_t fb_count;
+    uint32_t fbs_count;
+    size_t align;
 } trm_gpu_t;
 
 trm_framebuffer_t *trm_get_fb(trm_gpu_t *gpu, uint32_t id);

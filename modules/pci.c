@@ -183,11 +183,11 @@ static void create_pci_addr(uint8_t bus,uint8_t device,uint8_t function,void *ar
 }
 
 
-device_driver_t pci_driver = {
+static device_driver_t pci_driver = {
 	.name = "pci",
 };
 
-bus_t pci_bus = {
+static bus_t pci_bus = {
 	.device = {
 		.driver = &pci_driver,
 		.name = "pci",

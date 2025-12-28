@@ -1,7 +1,7 @@
 #ifndef _LIBUTILS_BASE_H
 #define _LIBUTILS_BASE_H
 
-#ifdef __KERNEL__
+#if defined(__KERNEL__) || defined(MODULE)
 #include <kernel/kheap.h>
 #include <kernel/string.h>
 #define malloc kmalloc

@@ -12,7 +12,7 @@ trm_card_t *trm_get_ressources(int fd) {
 	if (ioctl(fd, TRM_GET_RESSOURCES, card) < 0) goto error_free;
 	card->planes     = malloc(sizeof(trm_plane_t) * card->planes_count);
 	card->crtcs      = calloc(sizeof(trm_crtc_t), card->crtcs_count);
-	card->connectors = malloc(sizeof(trm_connectors_t) * card->connectors_count);
+	card->connectors = malloc(sizeof(trm_connector_t) * card->connectors_count);
 	if (ioctl(fd, TRM_GET_RESSOURCES, card) < 0) goto error_free;
 
 	return card;

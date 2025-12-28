@@ -31,7 +31,7 @@ static uintptr_t trm_alloc(trm_gpu_t *gpu, size_t size) {
 	return TRM_NO_ALLOC;
 }
 
-static void trm_fb_mmap(vfs_fd_t *fd, off_t offset, memseg_t *seg) {
+static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, memseg_t *seg) {
 	trm_framebuffer_t *fb = fd->private;
 	if (offset + seg->size > fb->fb.pitch * fb->fb.height) {
 		return -EINVAL;
@@ -44,7 +44,7 @@ static void trm_fb_mmap(vfs_fd_t *fd, off_t offset, memseg_t *seg) {
 
 static void trm_fb_close(vfs_fd_t *fd) {
 	trm_framebuffer_t *fb = fd->private;
-	libutils_hashmap_remove(&fb->gpu-fbs, fb->fb.id);
+	utils_hashmap_remove(&fb->gpu->fbs, fb->fb.id);
 	// TODO : free used vram
 	kfree(fb);
 }
@@ -68,19 +68,20 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 		return -ENOMEM;
 	}
 
-	fb->id = gpu->fd_count++;
+	fb->id = gpu->fbs_count++;
 
 	trm_framebuffer_t *framebuffer = kmalloc(sizeof(trm_framebuffer_t));
 	framebuffer->device.type = DEVICE_BLOCK;
-	framebuffer->fb = fb;
+	framebuffer->fb = *fb;
 	framebuffer->base = base;
-	framebuffer->owner = fb;
+	framebuffer->owner = fd;
 	framebuffer->gpu = gpu;
+	utils_hashmap_add(&gpu->fbs, fb->id, framebuffer);
 
 	vfs_fd_t *fb_fd = kmalloc(sizeof(vfs_fd_t));
 	memset(fb_fd, 0, sizeof(vfs_fd_t));
 	framebuffer->fd = fb_fd;
-	fb_fd->ops = trm_fb_ops;
+	fb_fd->ops = &trm_fb_ops;
 	fb_fd->private = framebuffer;
 	fb_fd->type = VFS_BLOCK;
 	fb_fd->flags = O_WRONLY;
@@ -100,7 +101,7 @@ static int trm_check_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 		if (!(TRM_CRTC_MASK(mode_plane->crtc) & mode_plane->possible_crtcs)) return -EINVAL;
 
 		trm_crtc_t *crtc = &gpu->card.crtcs[mode_plane->crtc - 1];
-		if (!trm_get_fb(mode_plane->fb_id)) return -EINVAL;
+		if (!trm_get_fb(gpu, mode_plane->fb_id)) return -EINVAL;
 
 		if (mode_plane->type == TRM_PLANE_PRIMARY) {
 			// primary planes have some restrictions
@@ -180,9 +181,9 @@ static void trm_cleanup(device_t *device) {
 		gpu->ops->cleanup(gpu);
 	}
 	// TODO : cleanup everything
-	libutils_free_hashmap(&gpu->fbs);
+	utils_free_hashmap(&gpu->fbs);
 	kfree(gpu->card.planes);
-	kfree(gpu->card.crtc);
+	kfree(gpu->card.crtcs);
 	kfree(gpu->card.connectors);
 	free_list(gpu->alloc_blocks);
 	kfree(device->name);
@@ -195,7 +196,7 @@ static vfs_ops_t trm_ops = {
 };
 
 trm_framebuffer_t *trm_get_fb(trm_gpu_t *gpu, uint32_t id) {
-	return libutils_hashmap_get(gpu->fds, id);
+	return utils_hashmap_get(&gpu->fbs, id);
 }
 
 int register_trm_gpu(trm_gpu_t *gpu) {
@@ -210,23 +211,23 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	// default alignement
 	if (!gpu->align) gpu->align = 4 * 1024;
 
-	for (size_t i=0; i<gpu->card.planes_count) {
+	for (size_t i=0; i<gpu->card.planes_count; i++) {
 		trm_plane_t *plane =& gpu->card.planes[i];
 		plane->id = i + 1;
 		if (plane->type == TRM_PLANE_PRIMARY) {
 			plane->dest_x = 0;
 			plane->dest_y = 0;
 			if (plane->crtc) {
-				trm_crtc_t *crtc = gpu->card.crtcs[plane->crtc - 1];
-				plane->dest_w = crtc->timings.hdisplay;
-				plane->dest_h = crtc->timings.vdisplay;
+				trm_crtc_t *crtc = &gpu->card.crtcs[plane->crtc - 1];
+				plane->dest_w = crtc->timings->hdisplay;
+				plane->dest_h = crtc->timings->vdisplay;
 			}
 		}
 	}
-	for (size_t i=0; i<gpu->card.crtcs_count) {
+	for (size_t i=0; i<gpu->card.crtcs_count; i++) {
 		gpu->card.crtcs[i].id = i + 1;
 	}
-	for (size_t i=0; i<gpu->card.connectors_count) {
+	for (size_t i=0; i<gpu->card.connectors_count; i++) {
 		gpu->card.connectors[i].id = i + 1;
 	}
 
@@ -236,7 +237,7 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	main_block->base = 0;
 	main_block->free = 1;
 	list_append(gpu->alloc_blocks, main_block);
-	libutils_init_hashmap(&gpu->fbs, 32);
+	utils_init_hashmap(&gpu->fbs, 32);
 
 	return register_device((device_t*)gpu);
 }
