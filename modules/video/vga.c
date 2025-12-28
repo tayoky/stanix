@@ -172,7 +172,7 @@ static trm_ops_t vga_ops = {
 static int vga_check(bus_addr_t *addr) {
     pci_addr_t *pci_addr = (pci_addr_t*)addr;
     if (addr->type != BUS_PCI) return 0;
-    if (pci_addr->class == 0x0 && pci_addr->subclass == 0x1) {
+    if (pci_addr->class == 0x03 && pci_addr->subclass == 0x00) {
 		kdebugf("found VGA card\n");
         return 1;
     }
