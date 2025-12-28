@@ -9,14 +9,20 @@ utils_hashmap_t device_drivers;
 utils_hashmap_t devices;
 vfs_node_t *devfs_root;
 
-static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_driver) {
-	if (addr->device) {
-		// a driver already control this address
-		return -EBUSY;
-	}
-	
+static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_driver) {	
 	if (!device_driver->check || !device_driver->probe) return -ENOTSUP;
 	if (!device_driver->check(addr)) return -ENOTSUP;
+
+	if (addr->device) {
+		// a driver already control this address
+		if (addr->device->driver->priority > driver->priority) {
+			// the driver is already better
+			return -EBUSY;
+		} else {
+			// replace the old driver
+			device_destroy(addr->device);
+		}
+	}
 	
 	// the driver is compatible with the device
 	return device_driver->probe(addr);
@@ -62,6 +68,8 @@ static void __init_bus_with_driver_helper(void *element, void *arg) {
 }
 
 int register_device_driver(device_driver_t *device_driver) {
+	// default priority
+	if (!driver->priority) driver->priority = 1;
 	if (device_driver->major == 0) {
 		// allocate a major
 		static int major_dyn = 256;

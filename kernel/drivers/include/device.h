@@ -13,6 +13,7 @@ typedef struct device_driver {
 	int (*probe)(struct bus_addr *addr);
 	int major; // all devices that use this driver have this
 	int minor_count;
+	int priority;
 } device_driver_t;
 
 typedef struct device {
