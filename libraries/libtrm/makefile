@@ -7,7 +7,10 @@ OBJ = ${SRC:.c=.o}
 CFLAGS += -Wall -Wextra -std=c99
 CFLAGS += -Iinclude
 
-all :
+all : libtrm.a
+
+libtrm.a : ${OBJ}
+	${AR} rcs $@ $^
 
 %.o : %.c
 	${CC} ${CFLAGS} -o $@ -c $^
@@ -16,6 +19,9 @@ install : all
 	@echo '[install headers]'
 	@mkdir -p ${PREFIX}/include/libtrm
 	@cp include/libtrm/*.h ${PREFIX}/include/libtrm
+	@echo '[install libtrm.a]'
+	@mkdir -p ${PREFIX}/lib
+	@cp libtrm.a ${PREFIX}/lib
 
 clean : 
 	rm -f ${OBJ}

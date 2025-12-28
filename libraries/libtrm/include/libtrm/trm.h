@@ -12,7 +12,7 @@ typedef struct trm_fb {
     uint32_t modifier; // for non linear
     uint32_t pitch;
     uint32_t id;
-    uint32_t fd;       // the fd for this framebuffer only used for modesetting
+    uint32_t fd;       // the fd for this framebuffer, only used for mapping the fb or sharing
 } trm_fb_t;
 
 typedef struct trm_plane {
