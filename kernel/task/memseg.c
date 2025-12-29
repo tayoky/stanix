@@ -87,9 +87,10 @@ int memseg_map(process_t *proc, uintptr_t address, size_t size, uint64_t prot, i
 	if (ret < 0) {
 		list_remove(proc->memseg, new_memseg);
 		kfree(new_memseg);
+	} else {
+		if (seg) *seg = new_memseg;
+		if (fd) seg->fd = vfs_dup(fd);
 	}
-
-	if (seg)*seg = new_memseg;
 	return ret;
 }
 
@@ -115,8 +116,9 @@ void memseg_unmap(process_t *proc, memseg_t *seg) {
 
 	seg->ref_count--;
 	if (seg->ref_count == 0) {
-		if (seg->unmap) {
-			seg->unmap(seg);
+		if (seg->fd) {
+			vfs_munmap(seg->fd, seg);
+			vfs_close(seg->fd);
 		} else {
 			uintptr_t addr = seg->addr;
 			uintptr_t end = seg->addr + seg->size;

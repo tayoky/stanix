@@ -1,5 +1,5 @@
-#ifndef VFS_H
-#define VFS_H
+#ifndef _KERNEL_VFS_H
+#define _KERNEL_VFS_H
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
-//just in case we use a weird limits.h
+// just in case we use a weird limits.h
 #ifndef PATH_MAX
 #define PATH_MAX 256
 #endif
@@ -38,14 +38,14 @@ typedef struct vfs_node {
 	long flags;
 	size_t ref_count;
 
-	//used for directories cache
+	// used for directories cache
 	char name[PATH_MAX];
 	struct vfs_node *parent;
 	struct vfs_node *brother;
 	struct vfs_node *child;
 	size_t childreen_count;
 
-	struct vfs_node *linked_node; //used from mount point
+	struct vfs_node *linked_node; // used for mount point
 } vfs_node_t;
 
 /**
@@ -60,6 +60,9 @@ typedef struct vfs_fd {
 	long type;
 } vfs_fd_t;
 
+/**
+ * @brief all operations that can be done on a \ref vfs_fd_t or a \ref vfs_node_t
+ */
 typedef struct vfs_ops {
 	// inode operations
 	vfs_node_t*(* lookup)(vfs_node_t*,const char *name);
@@ -82,6 +85,7 @@ typedef struct vfs_ops {
 	int (* wait_check)(vfs_fd_t *,short);
 	int (* wait)(vfs_fd_t *,short);
 	int (* mmap)(vfs_fd_t *,off_t,struct memseg_struct *);
+	voud (* munmap)(vfs_fd_t *, struct memseg_struct *);
 	void (* close)(vfs_fd_t*);
 } vfs_ops_t;
 
@@ -102,11 +106,13 @@ typedef struct vfs_filesystem_struct {
 void init_vfs(void);
 
 // inode operations
-
-/// @brief mount a vfs_node_t to the specified path and create a directory fpr it if needed
-/// @param path the path to mount to
-/// @param local_root the vfs_node_t to mount
-/// @return 0 on success else error code
+//
+/**
+ * @brief mount a vfs_node_t to the specified path and create a directory fpr it if needed
+ * @param path the path to mount to
+ * @param local_root the vfs_node_t to mount
+ * @return 0 on success else error code
+ */
 int vfs_mount(const char *path,vfs_node_t *local_root);
 
 
@@ -128,9 +134,11 @@ static inline int vfs_mkdir(const char *path, mode_t perm){
 	return vfs_create(path, perm, VFS_DIR);
 }
 
-/// @brief unlink a path
-/// @param path the path to unlink
-/// @return 0 on success else error code
+/**
+ * @brief unlink a path
+ * @param path the path to unlink
+ * @return 0 on success else error code
+ */
 int vfs_unlink(const char *path);
 
 int vfs_link(const char *src,const char *dest);
@@ -218,17 +226,21 @@ static inline int vfs_truncate(vfs_node_t *node, size_t size){
 	return node->ops->truncate(node, size);
 }
 
-/// @brief change permission of a file/dir
-/// @param node context of the file/dir
-/// @param perm new permission
-/// @return 0 on succes else error code
+/**
+ * @brief change permission of a file/dir
+ * @param node context of the file/dir
+ * @param perm new permission
+ * @return 0 on succes else error code
+ */
 int vfs_chmod(vfs_node_t *node,mode_t perm);
 
-/// @brief change owner of a file/dir
-/// @param node context for the file/dir
-/// @param owner uid of new owner
-/// @param group_owner gid of new group_owner
-/// @return 0 on succes else error code
+/**
+ * @brief change owner of a file/dir
+ * @param node context for the file/dir
+ * @param owner uid of new owner
+ * @param group_owner gid of new group_owner
+ * @return 0 on succes else error code
+ */
 int vfs_chown(vfs_node_t *node,uid_t owner,gid_t group_owner);
 
 /** 
@@ -240,22 +252,32 @@ int vfs_chown(vfs_node_t *node,uid_t owner,gid_t group_owner);
  */
 int vfs_ioctl(vfs_fd_t *fd, long request, void *arg); 
 
-/// @brief check if a vfs_node_t is ready for write/read
-/// @param node the node to check
-/// @param type the type to check (read and/or write)
-/// @return 1 if is ready or 0 if not
+/**
+ * @brief check if a vfs_node_t is ready for write/read
+ * @param node the node to check
+ * @param type the type to check (read and/or write)
+ * @return 1 if is ready or 0 if not
+ */
 int vfs_wait_check(vfs_fd_t *node,short type);
 
-/// @brief wait on a file for read/write
-/// @param node the node to wait for
-/// @param type the type of action (write and/or read)
-/// @return 0 or -INVAL
-/// @note vfs_wait don't block the wait start only after calling block_brock()
+/**
+ * @brief wait on a file for read/write
+ * @param node the node to wait for
+ * @param type the type of action (write and/or read)
+ * @return 0 or -INVAL
+ * @note vfs_wait don't block the wait start only after calling block_task()
+ * @note this is unimplemented
+ */
 int vfs_wait(vfs_fd_t *node,short type);
 
 static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct memseg_struct *seg) {
 	if (!fd || !fd->ops->mmap) return -EBADF;
 	return fd->ops->mmap(fd, offset, seg);
+}
+
+static inline void vfs_munmap(vfs_fd_t *fd, struct memseg_struct *seg) {
+	if (!fd || !fd->ops->munmap) return;
+	return fd->ops->munmap(fd, seg);
 }
 
 void vfs_register_fs(vfs_filesystem *fs);

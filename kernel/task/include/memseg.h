@@ -6,13 +6,15 @@
 #include <stdint.h>
 #include <stddef.h>
 
+struct vfs_fd;
+
 typedef struct memseg_struct {
 	uintptr_t addr;
 	size_t size;
 	uint64_t prot;
 	long flags;
 	long ref_count;
-	void (*unmap)(struct memseg_struct *);
+	struct vfs_fd *fd;
 	void *private_data;
 } memseg_t;
 

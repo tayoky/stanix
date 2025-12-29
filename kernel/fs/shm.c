@@ -37,43 +37,29 @@ static void shm_destroy(shm_file *file){
     kfree(file);
 }
 
-static void shm_unmap(memseg_t *seg){
-    (void)seg;
-    shm_file *file = seg->private_data;
-    file->ref_count--;
-    if(file->ref_count == 0){
-        shm_destroy(file);
-    }
-}
-
-static int shm_mmap(vfs_fd_t *fd,off_t offset,memseg_t *seg){
-    //why would you map shm as private ????
+static int shm_mmap(vfs_fd_t *fd, off_t offset,memseg_t *seg){
+	// why would you map shm as private ????
 	if(!(seg->flags & MAP_SHARED)){
 		return -EINVAL;
 	}
 
-    shm_file *file = fd->private;
+	shm_file *file = fd->private;
 
-    offset = PAGE_ALIGN_DOWN(offset);
-    if(offset + seg->size > PAGE_ALIGN_UP(file->size))return -EINVAL;
+	offset = PAGE_ALIGN_DOWN(offset);
+	if(offset + seg->size > PAGE_ALIGN_UP(file->size))return -EINVAL;
 
-	seg->unmap = shm_unmap;
+	off_t off = 0;
+	uintptr_t vaddr = seg->addr;
+	foreach(node,file->blocks){
+		if(off >= offset && (size_t)off <= offset + seg->size){
+        		if(vaddr >= seg->addr + seg->size)break;
+        		map_page(get_addr_space(),(uintptr_t)node->value,vaddr,seg->prot);
+        		vaddr += PAGE_SIZE;
+        	}
+        	off += PAGE_SIZE;
+    	}
 
-    file->ref_count++;
-    seg->private_data = file;
-
-    off_t off = 0;
-    uintptr_t vaddr = seg->addr;
-    foreach(node,file->blocks){
-        if(off >= offset && (size_t)off <= offset + seg->size){
-            if(vaddr >= seg->addr + seg->size)break;
-            map_page(get_addr_space(),(uintptr_t)node->value,vaddr,seg->prot);
-            vaddr += PAGE_SIZE;
-        }
-        off += PAGE_SIZE;
-    }
-
-    return 0;
+	return 0;
 }
 
 //op for the actual shm files   

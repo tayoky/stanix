@@ -76,10 +76,6 @@ static int framebuffer_ioctl(vfs_fd_t *fd,long request,void *arg){
 	}
 }
 
-static void framebuffer_unmap(memseg_t *seg){
-	(void)seg;
-}
-
 static int frambuffer_mmap(vfs_fd_t *fd,off_t offset,memseg_t *seg){
 	if(!(seg->flags & MAP_SHARED)){
 		return -EINVAL;
@@ -87,8 +83,6 @@ static int frambuffer_mmap(vfs_fd_t *fd,off_t offset,memseg_t *seg){
 
 	framebuffer_t *framebuffer = fd->private;
 	struct limine_framebuffer *fb = framebuffer->fb;
-
-	seg->unmap = framebuffer_unmap;
 
 	uintptr_t vaddr = seg->addr;
 	uintptr_t paddr = (uintptr_t)fb->address - kernel->hhdm + PAGE_ALIGN_DOWN(offset);
