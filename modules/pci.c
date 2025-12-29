@@ -156,6 +156,33 @@ void pci_foreach(void (*func)(uint8_t,uint8_t,uint8_t,void *),void *arg){
 	}
 }
 
+uintptr_t pci_get_bar(pci_addr_t *addr, int ioport, int BAR) {
+	uintptr_t BAR_low = pci_read_config_dword(addr->bus, addr->device, addr->function, PCI_CONFIG_BAR0 + BAR * 4);
+	uintptr_t BAR_high = pci_read_config_dword(addr->bus, addr->device, addr->function, PCI_CONFIG_BAR0 + BAR * 4 + 4);
+	if (BAR_low & 1) {
+		// io port
+		if (ioport) {
+			return BAR_low & 0xfffffffc;
+		} else {
+			return PCI_INVALID_BAR;
+		}
+	}
+
+	if (ioport) return PCI_INVALID_BAR;
+
+	switch ((BAR_low & 0b110) >> 1) {
+	case 0x02:
+		// 64 bits BAR
+		return (BAR_low & 0xfffffff0) | (BAR_high << 32);
+	case 0x00:
+		// 32 bits BAR
+		return BAR_low & 0xfffffff0;
+	case 0x01:
+		// 16 bits BAR
+		return BAR_low & 0xfff0;
+	}
+}
+
 static void create_pci_addr(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	bus_t *pci_bus = arg;
 	uint16_t vendorID = pci_read_config_word(bus,device,function,PCI_CONFIG_VENDOR_ID);
@@ -212,6 +239,7 @@ int init_pci(int argc,char **argv){
 	EXPORT(pci_write_config_dword)
 	EXPORT(pci_write_config_word)
 	EXPORT(pci_write_config_byte)
+	EXPORT(pci_get_bar)
 	return 0;
 }
 
@@ -225,6 +253,7 @@ int rm_pci(){
 	UNEXPORT(pci_write_config_dword)
 	UNEXPORT(pci_write_config_word)
 	UNEXPORT(pci_write_config_byte)
+	UNEXPORT(pci_get_bar)
 	return 0;
 }
 

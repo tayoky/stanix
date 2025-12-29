@@ -2,6 +2,8 @@
 #include <kernel/vfs.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
+#include <kernel/paging.h>
+#include <kernel/kernel.h>
 #include <kernel/memseg.h>
 
 #define TRM_NO_ALLOC ((uintptr_t)-1)
@@ -37,7 +39,22 @@ static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, memseg_t *seg) {
 		return -EINVAL;
 	}
 	if (!fb->gpu->ops->mmap) {
-		return -EINVAL;
+		if (!gpu->vram_mmio) return -EINVAL;
+		// we can map it ourself
+		if(!(seg->flags & MAP_SHARED)){
+			return -EINVAL;
+		}
+		uintptr_t vaddr = seg->addr;
+		uintptr_t paddr = fb->base + gpu->vram_mmio + PAGE_ALIGN_DOWN(offset);
+		uintptr_t end   = paddr + seg->size;
+		kdebugf("map TRM framebuffer at %p in %p lenght : %p\n", vaddr, seg, seg->size);
+
+		while(paddr < end){
+			map_page(get_current_proc()->addrspace,paddr,vaddr,seg->prot);
+			paddr += PAGE_SIZE;
+			vaddr += PAGE_SIZE;
+		}
+		return 0;
 	}
 	return fb->gpu->ops->mmap(fb->gpu, fb->base + offset, seg);
 }
@@ -141,6 +158,17 @@ static int trm_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	return ret;
 }
 
+static int trm_fix_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
+	for (size_t i=0; i<mode->crtcs_count; i++) {
+		trm_crtc_t *crtc = &mode->crtcs[i];
+		if (crtc->timings) {
+			if (!crtc->timings->pixel_clock) crtc->timings->htotal * crtc->timings->vtotal * crtc->timings->refresh;
+		}
+	}
+	if (!gpu->ops->fix_mode) return -EINVAL;
+	return gpu->ops->fix_mode(gpu, mode);
+}
+
 static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	trm_gpu_t *gpu = fd->private;
 	int ret;
@@ -175,8 +203,7 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		if (gpu->master != fd) return -EPERM;
 		return trm_commit_mode(gpu, arg);
 	case TRM_KMS_FIX:
-		if (!gpu->ops->fix_mode) return -EINVAL;
-		return gpu->ops->fix_mode(gpu, arg);
+		return trm_fix_mode(gpu, arg);
 	case TRM_ALLOC_FRAMEBUFFER:
 		return trm_alloc_fb(fd, gpu, arg);
 	default:

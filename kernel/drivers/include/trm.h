@@ -43,6 +43,7 @@ typedef struct trm_gpu {
     list_t *alloc_blocks;
     utils_hashmap_t fbs;
     struct vfs_fd *master;
+    uintptr_t vram_mmio;
     uint32_t fbs_count;
     size_t align;
 } trm_gpu_t;

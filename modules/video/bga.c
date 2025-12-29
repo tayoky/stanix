@@ -1,5 +1,6 @@
 #include <kernel/module.h>
 #include <kernel/string.h>
+#include <kernel/kernel.h>
 #include <kernel/kheap.h>
 #include <kernel/print.h>
 #include <kernel/port.h>
@@ -17,7 +18,6 @@ typedef struct bga {
 	uint16_t version;
 	uint16_t max_x;
 	uint16_t max_y;
-	uintptr_t mmio;
 } bga_t;
 
 static device_driver_t bga_driver;
@@ -34,7 +34,12 @@ static uint16_t bga_read(uint16_t index) {
 
 static int bga_test_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	bga_t *bga = (bga_t*)gpu;
-	if (mode->crtcs) {
+	if (mode->planes_count) {
+		trm_plane_t *plane = &mode->planes[0];
+		if (plane->src_w != plane->dest_w) return -ENOTSUP;
+		if (plane->src_h != plane->dest_h) return -ENOTSUP;
+	}
+	if (mode->crtcs_count) {
 		trm_timings_t *timings = mode->crtcs[0].timings;
 		if (timings->hdisplay > bga->max_x) return -ENOTSUP;
 		if (timings->vdisplay > bga->max_y) return -ENOTSUP;
@@ -43,16 +48,16 @@ static int bga_test_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 }
 
 static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
-	trm_timings_t *timings = NULL;
-	if (mode->crtcs) {
-		timings = mode->crtcs[0].timings;
-	}
 
 	bga_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
 
-	if (timings) {
-		bga_write(VBE_DISPI_INDEX_XRES, timings->hdisplay);
-		bga_write(VBE_DISPI_INDEX_YRES, timings->vdisplay);
+	if (mode->crtcs) {
+		trm_timings_t *timings = timings = mode->crtcs[0].timings;
+		if (timings) {
+			bga_write(VBE_DISPI_INDEX_XRES, timings->hdisplay);
+
+			bga_write(VBE_DISPI_INDEX_YRES, timings->vdisplay);
+		}
 	}
 
 	if (mode->planes) {
@@ -76,7 +81,13 @@ static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 			break;
 		}
 		bga_write(VBE_DISPI_INDEX_BPP, bpp);
-		// TODO : scroll + framebuffer base (for double buffering)
+		if (bga->version >= VBE_DISPI_ID1) {
+			// FIXME : not sure this is correct
+			bga_write(VBE_DISPI_VIRT_WIDTH, fb->width);
+			bga_write(VBE_DISPI_VIRT_HEIGHT, bga->gpu.card.vram_size / fb->pitch);
+			bga_write(VBE_DISPI_X_OFFSET, ((fb->base / trm_bpp(fb->format)) % fb->width) + plane->src_x);
+			bga_write(VBE_DISPI_Y_OFFSET, fb->base / fb->pitch + plane->src_y);
+		}
 	}
 
 	uint16_t enable = VBE_DISPI_ENABLE;
@@ -122,6 +133,8 @@ static int bga_check(bus_addr_t *addr) {
 }
 
 static int bga_probe(bus_addr_t *addr) {
+	pci_addr_t *pci_addr = (pci_addr_t*)addr;
+
 	// init bga specific stuff
 	bga_t *bga = kmalloc(sizeof(bga_t));
 	memset(bga, 0, sizeof(bga_t));
@@ -137,7 +150,17 @@ static int bga_probe(bus_addr_t *addr) {
 
 	trm_gpu_t *gpu = (trm_gpu_t*)bga;
 	strcpy(gpu->card.name, "BGA adaptor");
-	gpu->card.vram_size = 8 * 1024 * 1024;
+	if (bga->version >= VBE_DISPI_ID2) {
+		gpu->card.vram_size = bga_read(VBE_DISPI_INDEX_VIDEO_MEMORY_64K) * 64 * 1024;
+	} else {
+		gpu->card.vram_size = 8 * 1024 * 1024;
+	}
+	gpu->vram_mmio = pci_get_bar(pci_addr, 0, 0);
+	if (gpu->vram_mmio == PCI_INVALID_BAR) {
+		kstatusf("BGA card has an invalid BAR\n");
+		kfree(gpu);
+		return -EIO;
+	}
 	gpu->ops = &bga_ops;
 	gpu->device.driver = &bga_driver;
 

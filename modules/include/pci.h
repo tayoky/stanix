@@ -16,6 +16,8 @@ typedef struct pci_addr {
 	uint8_t function;
 } pci_addr_t;
 
+#define PCI_INVALID_BAR ((uintptr_t)-1)
+
 #define PCI_CONFIG_VENDOR_ID   0x00
 #define PCI_CONFIG_DEVICE_ID   0x02
 #define PCI_CONFIG_COMMAND     0x04
@@ -67,6 +69,8 @@ uint8_t pci_read_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t
 void pci_write_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint32_t data);
 void pci_write_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint16_t data);
 void pci_write_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint8_t data);
+
+uintptr_t pci_get_bar(pci_addr_t *addr, int ioport, int BAR);
 
 /// @brief call a function for each pci device
 /// @param func the function called for each pci device

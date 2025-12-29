@@ -67,27 +67,6 @@ static int framebuffer_ioctl(vfs_fd_t *fd,long request,void *arg){
 	case IOCTL_FRAMEBUFFER_WIDTH:
 		return data->width;
 		break;
-	case IOCTL_FRAMEBUFFER_BPP:
-		return data->bpp;
-		break;
-	case IOCTL_FRAMEBUFFER_RM:
-		return data->red_mask_size;
-		break;
-	case IOCTL_FRAMEBUFFER_RS:
-		return data->red_mask_shift;
-		break;
-	case IOCTL_FRAMEBUFFER_GM:
-		return data->green_mask_size;
-		break;
-	case IOCTL_FRAMEBUFFER_GS:
-		return data->green_mask_shift;
-		break;
-	case IOCTL_FRAMEBUFFER_BM:
-		return data->blue_mask_size;
-		break;
-	case IOCTL_FRAMEBUFFER_BS:
-		return data->blue_mask_shift;
-		break;
 	case IOCTL_FRAMEBUFFER_SCROLL:
 		return framebuffer_scroll(data,(uint64_t) arg);
 		break;
