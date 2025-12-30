@@ -108,6 +108,8 @@ int register_device(device_t *device) {
 		bus_t *bus = (bus_t*)device;
 		foreach (node, bus->addresses) {
 			bus_addr_t *addr = node->value;
+			// just in case the driver forgot
+			addr->bus = bus;
 			init_device(addr);
 		}
 	}

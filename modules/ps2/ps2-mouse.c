@@ -77,7 +77,7 @@ static int mouse_probe(bus_addr_t *addr) {
 	mouse->device.name = strdup("mouse0");
 	mouse->device.addr = addr;
 	register_input_device(mouse);
-	ps2_register_handler(mouse_handler,port,mouse);
+	bus_register_handler(addr, mouse_handler, mouse);
 	return 0;
 }
 

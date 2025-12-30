@@ -197,6 +197,7 @@ static void create_pci_addr(uint8_t bus,uint8_t device,uint8_t function,void *ar
 	memset(addr, 0, sizeof(pci_addr_t));
 	addr->addr.type = BUS_PCI;
 	addr->addr.name = strdup(name);
+	addr->addr.bus  = pci_bus;
 	addr->device_id = deviceID;
 	addr->vendor_id = vendorID;
 	addr->class     = pci_read_config_byte(bus, device, function, PCI_CONFIG_BASE_CLASS);

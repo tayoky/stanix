@@ -187,6 +187,7 @@ static int vga_probe(bus_addr_t *addr) {
     gpu->card.vram_size = 256 * 1024;
     gpu->ops = &vga_ops;
     gpu->device.driver = &vga_driver;
+    gpu->device.addr = addr;
 
     // setup one primary plane
     gpu->card.planes_count = 1;
@@ -212,7 +213,6 @@ static int vga_probe(bus_addr_t *addr) {
     gpu->card.connectors[0].crtc           = 1;
 
     register_trm_gpu(gpu);
-    addr->device = (device_t*)gpu;
     return 0;
 }
 

@@ -3,6 +3,7 @@
 #include <kernel/string.h>
 #include <kernel/ringbuf.h>
 #include <kernel/port.h>
+#include <kernel/bus.h>
 #include <kernel/irq.h>
 #include <module/ps2.h>
 #include <errno.h>
@@ -32,6 +33,7 @@
 
 int have_ports[2] = {1, 0};
 static ps2_addr_t ports[2];
+static bus_ops_t ps2_ops;
 static device_driver_t ps2_driver = {
 	.name = "8042",
 };
@@ -41,6 +43,7 @@ static bus_t ps2_bus = {
 		.driver = &ps2_driver,
 		.type = DEVICE_BUS,
 	},
+	.ops = &ps2_ops,
 };
 
 static int wait_output(){
@@ -94,19 +97,39 @@ int ps2_send(uint8_t port,uint8_t data){
 	return ps2_read();
 }
 
-void ps2_register_handler(void *handler,uint8_t port,void *data){
-	switch (port){
+static ssize_t ps2_bus_read(bus_addr_t *addr, void *buf, off_t offset, size_t count) {
+	(void)addr;
+	(void)offset;
+	unsigned char *c = buf;
+	ssize_t total = 0;
+	while (count > 0) {
+		int byte = ps2_read();
+		if (byte < 0) break;
+		*c = (unsigned char)byte;
+		count--;
+		c++;
+	}
+	return total;
+}
+
+static int ps2_register_handler(bus_addr_t *addr, interrupt_handler_t handler, void *data) {
+	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
+	switch (port) {
 	case 1:
-		kdebugf("registers handler for first ps2 irq\n");
 		irq_generic_map(handler,1, data);
-		break;
+		return 0;
 	case 2:
 		irq_generic_map(handler,12, data);
-		break;
+		return 0;
 	default:
-		break;
+		return -EINVAL;
 	}
 }
+
+static bus_ops_t ps2_ops = {
+	.read = ps2_bus_read,
+	.register_handler = ps2_register_handler,
+};
 
 static void print_device_name(int port){
 	if(port == 1){
@@ -181,6 +204,7 @@ static void setup_addr(int port){
 	sprintf(name, "port%d", port);
 	ports[port-1].addr.type = BUS_PS2;
 	ports[port-1].addr.name = strdup(name);
+	ports[port-1].addr.bus  = &ps2_bus;
 	ports[port-1].port = port;
 }
 
@@ -286,7 +310,6 @@ static int init_ps2(int argc,char **argv){
 	//the driver specfic to the device as to enable scaning itself
 
 	//export time
-	EXPORT(ps2_register_handler);
 	EXPORT(ps2_read);
 	EXPORT(ps2_send);
 
@@ -296,7 +319,6 @@ static int init_ps2(int argc,char **argv){
 static int fini_ps2(){
 	destroy_device((device_t*)&ps2_bus);
 	unregister_device_driver(&ps2_driver);
-	UNEXPORT(ps2_register_handler);
 	UNEXPORT(ps2_read);
 	UNEXPORT(ps2_send);
 	return 0;

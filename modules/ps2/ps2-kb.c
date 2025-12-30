@@ -123,7 +123,7 @@ static int kb_probe(bus_addr_t *addr) {
 	keyboard->device.name   = strdup("kb0");
 	keyboard->device.addr   = addr;
 	register_input_device(keyboard);
-	ps2_register_handler(keyboard_handler,port,keyboard);
+	bus_register_handler(addr, keyboard_handler, keyboard);
 	kdebugf("keyboard succefuly initialized\n");
 
 	return 0;
