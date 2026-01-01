@@ -8,7 +8,8 @@ Stanix has a lot of devices including
     - /dev/full
     - /dev/kmsg
     - /dev/ttyboot
-- [/dev/videoXX (uimplemented, TRM devices)](trm)
+- [/dev/videoXX (TRM devices)](trm)
 - /dev/fbXX (framebuffer)
 - /dev/kbXX (input devices, keyboard)
+- /dev/mouseXX (input devices, mouse)
 - /dev/ttySXX (tty devices, serial ports)

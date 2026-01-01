@@ -104,7 +104,7 @@ Three operations can be done on **framebuffers** they can be allocated, mapped o
 > [!NOTE] a fourth operation (opening framebuffer) can be done if the gpu fd is the master. It allows to get the framebuffer's fd using it's ID.
 
 ## crtc
-The **crtc** or **CRT controller** describe all setrings of the crtc. It is described as follows :
+The **crtc** or **CRT controller** describe all settings of the crtc. It is described as follows :
 ```c
 typedef struct trm_crtc {
     trm_timings_t *timings;

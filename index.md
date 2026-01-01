@@ -1,18 +1,18 @@
 ---
 title: stanix
 ---
-stanix is a 64-bit open source operating system made from scratch started in december 2024  
-the entire operating system is written from scratch with its own libc kernel shell and userspace (only a third-party bootloader called "Limine" is used)
-stanix aim to be unix-like (not a unix clone, somes things are differents) with the required posix functions to port programs
+Stanix is a 64-bit open source operating system made from scratch started in december 2024.  
+The entire operating system is written from scratch with its own libc kernel shell and userspace (only a third-party bootloader called "Limine" is used)
+stanix aim to be unix-like (not a unix clone, somes things are differents) with the required posix functions to port programs.
 
 ## download
-a new stable release is available every 3 months
+A new stable release is made sometimes...  
 - [source code](https://github.com/tayoky/stanix)
 - [lasted release](https://github.com/tayoky/stanix/releases)
 - [compile from source](miscellaneous/build)
 
 ## hardware
-list of all supported hardware  
+List of all supported hardware.
 - serial port (only on `x86_64`)
 - ps2 keyboard (only on `x86_64`)
 - cmos (only on `x86_64`)
@@ -21,18 +21,19 @@ list of all supported hardware
 - pci bus
 
 ## goal
-futures goals (once a goal is reached it is removed from the list)
+Futures goals (once a goal is reached it is removed from the list).
 - a GUI
 - a SDL3/2 port
 - a MESA port (in progress)
-- socket
 - dynamic linking
 - nvme support
 - atapi support
 - better blockfs interface at kernel level
-- better interface for buses at kernel level
 - ext2 support
 - fat write support
+- cirrus logic driver
+- automatic modesetting
+- better abstraction and management of framebuffers
 
 ## recommanded specs
 - at least 256 mb of ram (also run on 128 mb)
@@ -49,8 +50,10 @@ futures goals (once a goal is reached it is removed from the list)
 - pipes
 - pty system
 - usermode
+- socket stack
 - multi user
 - dynamic module loading
+- bus management system with hotplug support
 - fat32 support
 - a pretty complete libc with over 300 functions
 - somes ports (such as doom,binutils,...)
@@ -67,7 +70,7 @@ futures goals (once a goal is reached it is removed from the list)
 - fat12/16/32 (readonly)
 
 ## packages
-a list of availables packages and ports can be found [here](packages)
+A list of availables packages and ports can be found [here](packages).
 
 ## docs
-see [kernel docs](kernel) and [userspace docs](user)  
+See [kernel docs](kernel) and [userspace docs](user).
