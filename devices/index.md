@@ -13,3 +13,4 @@ Stanix has a lot of devices including
 - /dev/kbXX (input devices, keyboard)
 - /dev/mouseXX (input devices, mouse)
 - /dev/ttySXX (tty devices, serial ports)
+- [/dev/vtXX (uninplemented, virtual terminals)](vt)
