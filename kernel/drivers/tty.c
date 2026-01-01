@@ -176,7 +176,7 @@ static int tty_wait_check(vfs_fd_t *fd,short type){
 	return events;
 }
 
-static void tty_cleanup(device_t *device){
+static void tty_destroy(device_t *device){
 	tty_t *tty = (tty_t *)device;
 
 	// TODO : send SIGHUP
@@ -252,7 +252,7 @@ tty_t *new_tty(tty_t *tty) {
 	tty->canon_index = 0;
 	tty->device.type = DEVICE_CHAR;
 	tty->device.ops = &tty_ops;
-	tty->device.cleanup = tty_cleanup;
+	tty->device.destroy = tty_destroy;
 
 	return tty;
 }

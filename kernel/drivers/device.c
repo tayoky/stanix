@@ -117,9 +117,9 @@ int register_device(device_t *device) {
 }
 
 int destroy_device(device_t *device) {
-	device->type = DEVICE_UNPLUGED;
 	utils_hashmap_remove(&devices, device->number);
-	if (device->cleanup) device->cleanup(device);
+	device->type = DEVICE_UNPLUGED;
+	if (device->destroy) device->destroy(device);
 	// TODO : remove in devfs
 	return 0;
 }

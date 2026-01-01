@@ -6,6 +6,7 @@
 
 struct bus;
 struct bus_addr;
+struct device;
 
 typedef struct device_driver {
 	const char *name;
@@ -19,9 +20,10 @@ typedef struct device_driver {
 typedef struct device {
 	device_driver_t *driver;
 	struct bus_addr *addr;
+	void (*destroy)(struct device *);
+	void (*cleanup)(struct device *);
 	char *name;
 	vfs_ops_t *ops;
-	void (*cleanup)(struct device *);
 	dev_t number;
 	int type;
 } device_t;

@@ -227,7 +227,7 @@ static void trm_close(vfs_fd_t *fd) {
 	}
 }
 
-static void trm_cleanup(device_t *device) {
+static void trm_destroy(device_t *device) {
 	trm_gpu_t *gpu = (trm_gpu_t*)device;
 	if (gpu->ops->cleanup) {
 		gpu->ops->cleanup(gpu);
@@ -257,7 +257,7 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	sprintf(name, "video%d", video_count++);
 	gpu->device.name    = strdup(name);
 	gpu->device.ops     = &trm_ops;
-	gpu->device.cleanup = trm_cleanup;
+	gpu->device.destroy = trm_destroy;
 	gpu->device.type    = DEVICE_CHAR;
 	strcpy(gpu->card.driver, gpu->device.driver->name);
 
