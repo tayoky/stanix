@@ -61,7 +61,16 @@ typedef struct trm_connector {
     uint32_t possible_crtcs;
     uint32_t crtc;
     uint16_t dpms_state;
+    trm_timings_t *modes;
+    size_t modes_count;
 } trm_connector_t;
+
+#define TRM_CONNECTOR_UNDEF        0
+#define TRM_CONNECTOR_VGA          1
+#define TRM_CONNECTOR_DVI          2
+#define TRM_CONNECTOR_HDMI         3
+#define TRM_CONNECTOR_MDDI         4
+#define TRM_CONNECTOR_DISPLAY_PORT 5
 
 typedef struct trm_card {
     char name[64];

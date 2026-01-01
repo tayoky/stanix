@@ -47,7 +47,7 @@ static int vga_test_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 			if (timings->htotal - timings->hdisplay > 63) return -ENOTSUP;
 
 			// standard VGA only has two clocks
-			if (timings->pixel_clock != 25000000 && timings->pixel_clock != 28000000) return -ENOTSUP;
+			if (!(timings->pixel_clock >= 25000000 && timings->pixel_clock <= 25175000) && timings->pixel_clock != 28000000) return -ENOTSUP;
 		}
 	}
 	if (mode->palette) {
@@ -80,7 +80,7 @@ static int vga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	// select the right clock
 	if (timings) {
 		misc &= ~12;
-		if (timings->pixel_clock == 25000000) {
+		if (timings->pixel_clock >= 25000000 && timings->pixel_clock <= 25175000) {
 			misc |= 0;
 		} else if (timings->pixel_clock == 28000000) {
 			misc |= 4;
