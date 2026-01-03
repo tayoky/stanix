@@ -16,11 +16,26 @@ struct type_descriptor {
 	char type_name[1];
 };
 
+#define TK_INTEGER 0x0000
+#define TK_FLOAT   0x0001
+#define TK_UNKNOW  0xffff
+
 struct type_mismatch_data {
 	struct source_location loc;
 	const struct type_descriptor *type;
 	unsigned char log_alignment;
 	unsigned char type_check_kind;
+};
+
+struct overflow_data {
+	struct source_location loc;
+	const struct type_descriptor *type;
+};
+
+struct shift_out_of_bounds_data {
+	struct source_location loc;
+	const struct type_descriptor *shifted_type;
+	const struct type_descriptor *exponent_type;
 };
 
 //error types
@@ -50,6 +65,50 @@ static void print_loc(struct source_location loc) {
 	kdebugf("location : %s:%u %u\n", loc.filename, loc.line, loc.column);
 }
 
+static void print_typename(const struct type_descriptor *type) {
+	kprintf("%s", type->type_name);
+}
+
+static void print_typevalue(const struct type_descriptor *type, uintptr_t value) {
+	switch (type->type_kind) {
+	case TK_INTEGER:;
+		switch (type->type_info) {
+		case 0x0006:
+			kprintf("%hhu", value);
+			break;
+		case 0x0007:
+			kprintf("%hhd", value);
+			break;
+		case 0x0008:
+			kprintf("%hu", value);
+			break;
+		case 0x0009:
+			kprintf("%hd", value);
+			break;
+		case 0x000a:
+			kprintf("%u", value);
+			break;
+		case 0x000b:
+			kprintf("%d", value);
+			break;
+		case 0x000c:
+			kprintf("%llu", value);
+			break;
+		case 0x000d:
+			kprintf("%lld", value);
+			break;
+		default:
+			kprintf("%lx", value);
+			break;
+		}
+		break;
+	case TK_UNKNOW:
+	default:
+		kprintf("unknow");
+		break;
+	}
+}
+
 #define DEF(name) void name(){\
 	kdebugf("%s reached\n",#name);\
 	panic(#name,NULL);\
@@ -58,7 +117,9 @@ static void print_loc(struct source_location loc) {
 void __ubsan_handle_type_mismatch_v1(const struct type_mismatch_data *data, void *pointer) {
 	kdebugf("__ubsan_handle_type_mismatch_v1 reached\n");
 	print_loc(data->loc);
-	kdebugf("type : %hx:%hu\n", data->type->type_kind, data->type->type_info);
+	kdebugf("type : ");
+	print_typename(data->type);
+	kprintf("\n");
 
 	uintptr_t alignement = (uintptr_t)1 << data->log_alignment;
 
@@ -71,11 +132,12 @@ void __ubsan_handle_type_mismatch_v1(const struct type_mismatch_data *data, void
 		error = ERR_InsufficientObjectSize;
 	}
 	print_err(error);
-	kdebugf("at %p\n", pointer);
+	kdebugf("while %s %p\n", data->type_check_kind == 0x01 ? "writing" : "reading", pointer);
 
 	panic("__ubsan_handle_type_mismatch_v1 reached", NULL);
 }
 void __ubsan_handle_pointer_overflow(const struct source_location *loc, void *base, void *result) {
+	kdebugf("__ubsan_handle_pointer_overflow reached\n");
 	print_loc(*loc);
 
 	uint32_t error;
@@ -96,12 +158,46 @@ void __ubsan_handle_pointer_overflow(const struct source_location *loc, void *ba
 
 	panic("__ubsan_handle_pointer_overflow reached", NULL);
 }
-DEF(__ubsan_handle_add_overflow)
-DEF(__ubsan_handle_sub_overflow)
-DEF(__ubsan_handle_mul_overflow)
+
+static void handle_overflow(const char *type, const struct overflow_data *data, uintptr_t left, uintptr_t right) {
+	kdebugf("__ubsan_handle_%s_overflow reached\n", type);
+	print_loc(data->loc);
+	kdebugf("%s overflow between ", type);
+	print_typevalue(data->type, left);
+	kprintf(" and ");
+	print_typevalue(data->type, right);
+	kprintf("\n");
+
+	panic("__ubsan_handle_XXX_overflow reached", NULL);
+}
+
+void __ubsan_handle_add_overflow(const struct overflow_data *data, uintptr_t left, uintptr_t right) {
+	handle_overflow("add", data, left, right);
+}
+
+void __ubsan_handle_sub_overflow(const struct overflow_data *data, uintptr_t left, uintptr_t right) {
+	handle_overflow("sub", data, left, right);
+}
+
+void __ubsan_handle_mul_overflow(const struct overflow_data *data, uintptr_t left, uintptr_t right) {
+	handle_overflow("mul", data, left, right);
+}
+
+void __ubsan_handle_shift_out_of_bounds(const struct shift_out_of_bounds_data *data, uintptr_t shifted, uintptr_t exponent) {
+	kdebugf("__ubsan_handle_shift_out_of_bounds reached\n");
+	print_loc(data->loc);
+
+	kdebugf("shift out of bounds ");
+	print_typevalue(data->shifted_type, shifted);
+	kprintf(" by ");
+	print_typevalue(data->exponent_type, exponent);
+	kprintf(" bits\n");
+
+	panic("__ubsan_handle_shift_out_of_bounds reached", NULL);
+}
+
 DEF(__ubsan_handle_negate_overflow)
 DEF(__ubsan_handle_out_of_bounds)
-DEF(__ubsan_handle_shift_out_of_bounds)
 DEF(__ubsan_handle_divrem_overflow)
 DEF(__ubsan_handle_function_type_mismatch)
 DEF(__ubsan_handle_vla_bound_not_positive)
