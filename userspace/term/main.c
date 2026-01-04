@@ -15,14 +15,9 @@
 #include <sys/fb.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <libterm.h>
 
 //most basic terminal emumator
-
-struct cell {
-	wchar_t c;
-	color_t back_color;
-	color_t front_color;
-};
 
 struct layout {
 	char *keys[256];
@@ -109,25 +104,12 @@ struct layout kbd_fr = {
 	},
 };
 
-int flags;
-#define FLAG_CURSOR 0x01
-#define FLAG_INVERT 0x02
-
+term_t term;
 gfx_t *fb;
-int x = 1;
-int y = 1;
-int width;
-int height;
+font_t *font;
+FILE *master_file;
 int c_width;
 int c_height;
-struct cell *grid;
-color_t front_color;
-color_t back_color;
-font_t *font;
-int escape_state = 0;
-int escape_arg_start;
-int escape_args[8];
-FILE *master_file;
 
 uint32_t ansi_colours[] = {
 	0x000000, //black
@@ -148,258 +130,54 @@ uint32_t ansi_colours[] = {
 	0xFFFFFF, //light white
 };
 
-#define ansi2gfx(col) gfx_color(fb,(col >> 16) & 0xff,(col >> 8) & 0xff,col & 0xff)
 
-color_t parse_complex(int i){
-	//thanks bananymous for the calculation of colors
-	if(escape_args[i + 1] < 16){
-		return ansi2gfx(ansi_colours[escape_args[i + 1]]);
-	} else if(escape_args[i + 1] < 232) {
-		uint8_t r = (escape_args[i + 1] - 16) / 36 % 6 * 40 + 55;
-		uint8_t g = (escape_args[i + 1] - 16) /  6 % 6 * 40 + 55;
-		uint8_t b = (escape_args[i + 1] - 16) /  1 % 6 * 40 + 55;
-		return gfx_color(fb,r,g,b);
-	} else if (escape_args[i + 1] <= 255){
-		//grey scale
-		uint32_t color = (escape_args[i + 1] - 232) * 10 + 8;
-		return gfx_color(fb,color,color,color);
-	}
-
-	return 0x808080;
-}
-
-void parse_color(void){
-	for(int i = 0; i<escape_state - 2;i++){
-		switch(escape_args[i]){
-		case 0:
-			back_color = ansi2gfx(ansi_colours[0]);
-			front_color = ansi2gfx(ansi_colours[7]);
-			continue;
-		case 38:
-			i++;
-			if(escape_state - i >= 2)
-			front_color = parse_complex(i);
-			i+= 2;
-			continue;
-		case 39:
-			front_color = ansi2gfx(ansi_colours[7]);
-			continue;
-		case 48:
-			i++;
-			if(escape_state - i >= 2)
-			back_color = parse_complex(i);
-			i+= 2;
-			continue;
-		case 49:
-			back_color = ansi2gfx(ansi_colours[0]);
-			continue;
+color_t term_color2gfx(term_color_t *term_color, int bg) {
+	switch (term_color->type) {
+	case TERM_COLOR_DEFAULT:
+		return bg ?  gfx_color(fb, 0, 0, 0) : gfx_color(fb, 0xff, 0xff, 0xff);
+	case TERM_COLOR_ANSI:
+		if (term_color->index < 16) {
+			uint32_t col = ansi_colours[term_color->index];
+			return gfx_color(fb, (col >> 16) & 0xff, (col >> 8) & 0xff, col & 0xff);
+		} else if(term_color->index < 232) {
+			uint8_t r = (term_color->index - 16) / 36 % 6 * 40 + 55;
+			uint8_t g = (term_color->index - 16) /  6 % 6 * 40 + 55;
+			uint8_t b = (term_color->index - 16) /  1 % 6 * 40 + 55;
+			return gfx_color(fb, r, g, b);
+		} else {
+			//grey scale
+			uint32_t color = (term_color->index - 232) * 10 + 8;
+			return gfx_color(fb, color, color, color);
 		}
-		if(escape_args[i] >= 30 && escape_args[i] <= 37){
-			front_color = ansi2gfx(ansi_colours[escape_args[i] - 30]);
-		}
-		if(escape_args[i] >= 40 && escape_args[i] <= 47){
-			back_color = ansi2gfx(ansi_colours[escape_args[i] - 40]);
-		}
+	case TERM_COLOR_RGB:
+		return gfx_color(fb, term_color->r, term_color->g, term_color->b);
+	default:
+		return gfx_color(fb, 0x80, 0x80, 0x80);
 	}
 }
 
-void redraw(int cx,int cy){
-	struct cell cell = grid[(cy - 1) * width +  cx - 1];
-	gfx_draw_rect(fb,cell.back_color,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
-	gfx_draw_char(fb,font,cell.front_color,(cx-1) * c_width,(cy-1) * c_height,cell.c);
-	gfx_push_rect(fb,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
+void draw_cell(term_t *term, cell_t *cell, int x, int y) {
+	(void)term;
+	gfx_draw_rect(fb, term_color2gfx(&cell->bg_color, 1), x * c_width, y * c_height, c_width, c_height);
+	gfx_draw_char(fb, font, term_color2gfx(&cell->fg_color, 0), x * c_width, y * c_height, cell->c);
+	gfx_push_rect(fb, x * c_width, y * c_height, c_width, c_height);
 }
 
-void redraw_cursor(int cx,int cy){
-	if(!(flags & FLAG_CURSOR))return redraw(cx,cy);
-	struct cell cell = grid[(cy - 1) * width +  cx - 1];
-	gfx_draw_rect(fb,cell.front_color,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
-	gfx_draw_char(fb,font,cell.back_color,(cx-1) * c_width,(cy-1) * c_height,cell.c);
-	gfx_push_rect(fb,(cx-1) * c_width,(cy-1) * c_height,c_width,c_height);
+void draw_cursor(term_t *term, int x, int y) {
+	cell_t *cell = CELL_AT(term, x, y);
+	gfx_draw_rect(fb, term_color2gfx(&cell->fg_color, 0), x * c_width, y * c_height, c_width, c_height);
+	gfx_draw_char(fb, font, term_color2gfx(&cell->bg_color, 1), x * c_width, y * c_height, cell->c);
+	gfx_push_rect(fb, x * c_width, y * c_height, c_width, c_height);
 }
+
 
 void scroll(int s){
-	memmove(grid,&grid[s * width],(height - s) * width * sizeof(struct cell));
-	for(int i=(height - s) * width;i < width * height; i++){
-		grid[i].c = ' ';
-		grid[i].back_color = back_color;
-		grid[i].front_color = front_color;
-	}
-
-	memmove(fb->backbuffer,(char *)fb->backbuffer + fb->pitch * s * c_height,fb->pitch * (fb->height - s * c_height));
-	gfx_draw_rect(fb,back_color,0,fb->height - s * c_height,fb->width,s * c_height);
-	gfx_push_buffer(fb);
-	y -= s;
 }
 
-void draw_char(wchar_t c){
-	if(escape_state == 1){
-		if(c == L'['){
-			memset(escape_args,0,sizeof(escape_args));
-			escape_state = 2;
-			escape_arg_start = 1;
-			return;
-		} else {
-			//not ainsi TODO
-			escape_state = 0;
-		}
-	}
-	
-	if(escape_state >= 2){
-		if(isdigit((unsigned char)c)){
-			if(escape_arg_start){
-				escape_state++;
-				escape_arg_start = 0;
-			}
-			escape_args[escape_state-3] *= 10;
-			escape_args[escape_state-3] += (char)c - '0';
-			return;
-		} else if(c == L'?'){
-			return;
-		} else if(c == L';'){
-			escape_arg_start = 1;
-			return;
-		} else {
-			int escape_args_count = escape_state - 2;
-			switch((char)c){
-			case 'H':
-				if(escape_args_count < 2){
-					redraw(x,y);
-					x = 1;
-					y = 1;
-					redraw_cursor(x,y);
-					break;
-				}
-				//fallthrough
-			case 'f':
-				redraw(x,y);
-				x = escape_args[1];
-				y = escape_args[0];
-				if(x > width) x = width;
-				if(y > height) y = height;
-				redraw_cursor(x,y);
-				break;
-			case 'G':
-				redraw(x,y);
-				y = escape_args[0];
-				if(y > height)y = height;
-				redraw_cursor(x,y);
-				break;
-			case 'F':
-				redraw(x,y);
-				x = 0;
-				//fallthrough
-			case 'A':
-				if(escape_args_count < 1)break;
-				redraw(x,y);
-				y -= escape_args[0];
-				if(y < 1)y = 1;
-				redraw_cursor(x,y);
-				break;
-			case 'E':
-				redraw(x,y);
-				x = 0;
-				//fallthrough
-			case 'B':
-				if(escape_args_count < 1)break;
-				redraw(x,y);
-				y += escape_args[0];
-				if(y > height)y = height;
-				redraw_cursor(x,y);
-				break;
-			case 'D':
-				if(escape_args_count < 1)break;
-				redraw(x,y);
-				x -= escape_args[0];
-				if(x < 1)x = 1;
-				redraw_cursor(x,y);
-				break;
-			case 'C':
-				if(escape_args_count < 1)break;
-				redraw(x,y);
-				x += escape_args[0];
-				if(x > width)x = width;
-				redraw_cursor(x,y);
-				break;
-			case 'J':
-				for(int i =0;i < width * height; i++){
-					grid[i].c = ' ';
-					grid[i].back_color = back_color;
-					grid[i].front_color = front_color;
-				}
-				gfx_clear(fb,back_color);
-				gfx_push_buffer(fb);
-				break;
-			case 'm':
-				parse_color();
-				break;
-			case 'l':
-				if(escape_state < 1)break;
-				switch(escape_args[0]){
-				case 25:
-					flags &= ~FLAG_CURSOR;
-					break;
-				}
-				break;
-			case 'h':
-				if(escape_state < 1)break;
-				switch(escape_args[0]){
-				case 25:
-					flags |= FLAG_CURSOR;
-					break;
-				}
-				break;
-			}
-			escape_state = 0;
-			return;
-		}
-	}
-	
-	switch((char)c){
-	case '\r':
-		redraw(x,y);
-		x = 1;
-		redraw_cursor(x,y);
-		return;
-	case '\n':
-		redraw(x,y);
-		x = 1;
-		y++;
-		if(y > height){
-			scroll(y - height);
-		}
-		redraw_cursor(x,y);
-		return;
-	case '\b':
-		redraw(x,y);
-		x--;
-		redraw_cursor(x,y);
-		return;
-	case '\t':
-		redraw(x,y);
-		x += 8 - (x % 8);
-		redraw_cursor(x,y);
-		return;
-	case '\a':
-		//TODO : beep
-		return;
-	case '\e':
-		escape_state = 1;
-		return;
-	}
-
-	if(x == width){
-		draw_char('\n');
-	}
-
-	//put into grid
-	grid[(y - 1) * width +  x - 1].c = c;
-	grid[(y - 1) * width +  x - 1].back_color = back_color;
-	grid[(y - 1) * width +  x - 1].front_color = front_color;
-	redraw(x,y);
-	x++;
-	redraw_cursor(x,y);
-}
+term_ops_t term_ops = {
+	.draw_cell   = draw_cell,
+	.draw_cursor = draw_cursor,
+};
 
 //TODO : terminate when child die
 int main(int argc,const char **argv){
@@ -501,21 +279,14 @@ int main(int argc,const char **argv){
 	setvbuf(master_file, NULL, _IONBF, 0);
 
 	//clear screen and init color
-	front_color = ansi2gfx(ansi_colours[7]);
-	back_color  = ansi2gfx(ansi_colours[0]);
-	gfx_clear(fb,back_color);
+	gfx_clear(fb, gfx_color(fb, 0, 0, 0));
 	gfx_push_buffer(fb);
 
-	//create an empty grid and init flags
-	flags = FLAG_CURSOR;
-	width = fb->width / c_width;
-	height = fb->height / c_height;
-	grid = malloc(sizeof(struct cell) * width * height);
-	for(int i = 0;i < width * height; i++){
-			grid[i].c = L' ';
-			grid[i].back_color = back_color;
-			grid[i].front_color = front_color;
-	}
+	// init term
+	term.width  = fb->width / c_width;
+	term.height = fb->height / c_height;
+	term.ops = &term_ops;
+	term_init(&term);
 
 	int crtl = 0;
 	int shift = 0;
@@ -539,7 +310,7 @@ int main(int argc,const char **argv){
 				//read error ???
 				perror("read");
 			} else {
-				draw_char(c);
+				term_output_char(&term, c);
 			}
 		}
 

@@ -1,7 +1,7 @@
 MAKEFLAGS += --no-builtin-rules
-PREFIX = ${SYSROOT}/usr
+PREFIX = $(SYSROOT)/usr
 
-ifeq (${TOP},)
+ifeq ($(TOP),)
 CFLAGS += -O2 -g
 LDFLAGS += -g
 export CFLAGS
@@ -12,8 +12,8 @@ export PREFIX
 libs = $(shell find -name "*" -not -path "." -type d -maxdepth 1)
 
 all :
-	@$(foreach dir,${libs},${MAKE} -C ${dir} && ) true
+	@$(foreach dir,$(libs),$(MAKE) -C $(dir) && ) true
 install : all
-	@$(foreach dir,${libs},${MAKE} -C ${dir} install && ) true
+	@$(foreach dir,$(libs),$(MAKE) -C $(dir) install && ) true
 clean :
-	@$(foreach dir,${libs},${MAKE} -C ${dir} clean && ) true
+	@$(foreach dir,$(libs),$(MAKE) -C $(dir) clean && ) true

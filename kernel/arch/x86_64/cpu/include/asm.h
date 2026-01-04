@@ -7,6 +7,7 @@
 #define enable_interrupt() asm("sti")
 #define halt() while(1)
 
+#if defined(__KERNEL__) || defined(MODULE)
 static inline int have_interrupt(){
     uintptr_t flags;
     asm volatile ("pushf\n"
@@ -14,4 +15,6 @@ static inline int have_interrupt(){
 
     return (flags & (1 << 9)) ;
 }
+#endif
+
 #endif

@@ -8,3 +8,6 @@
 [submodule "ports"]
 	path = ports
 	url = https://github.com/tayoky/ports
+[submodule "libraries/libterm"]
+	path = libraries/libterm
+	url = https://github.com/tayoky/libterm
