@@ -73,6 +73,7 @@ int memseg_map(process_t *proc, uintptr_t address, size_t size, uint64_t prot, i
 	//kdebugf("map %p size : %lx\n",address,size);
 	int ret = 0;
 	if (flags & MAP_ANONYMOUS) {
+		fd = NULL;
 		uintptr_t end = address + size;
 		while (address < end) {
 			map_page(proc->addrspace, pmm_allocate_page(), address, prot);
