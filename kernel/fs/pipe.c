@@ -8,39 +8,39 @@
 #include <poll.h>
 #include <stdatomic.h>
 
-struct pipe{
+typedef struct pipe{
 	ring_buffer *ring;
 	atomic_int isbroken;
-};
+} pipe_t;
 
 #define PIPE_SIZE 4096
 
 static ssize_t pipe_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count){
 	(void)offset;
-	struct pipe *pipe_inode = (struct pipe *)fd->private;
+	pipe_t *pipe_inode = (pipe_t *)fd->private;
 
 	//broken pipe check
 	if(pipe_inode->isbroken){
 		return 0;
 	}
 
-	return ringbuffer_read(buffer,pipe_inode->ring,count);
+	return ringbuffer_read(pipe_inode->ring, buffer, count, fd->flags);
 }
 
 static ssize_t pipe_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count){
 	(void)offset;
-	struct pipe *pipe_inode = (struct pipe *)fd->private;
+	pipe_t *pipe_inode = (pipe_t *)fd->private;
 
 	//broken pipe check
 	if(pipe_inode->isbroken){
 		return -EPIPE;
 	}
 
-	return ringbuffer_write(buffer,pipe_inode->ring,count);
+	return ringbuffer_write(pipe_inode->ring, buffer, count, fd->flags);
 }
 
 static int pipe_wait_check(vfs_fd_t *fd, short type) {
-	struct pipe *pipe_inode = (struct pipe *)fd->private;
+	pipe_t *pipe_inode = (pipe_t *)fd->private;
 	int events = 0;
 	if(pipe_inode->isbroken){
 		events |= POLLHUP;
@@ -59,7 +59,7 @@ static int pipe_wait_check(vfs_fd_t *fd, short type) {
 }
 
 static void pipe_close(vfs_fd_t *fd) {
-	struct pipe *pipe_inode = (struct pipe *)fd->private;
+	pipe_t *pipe_inode = (pipe_t *)fd->private;
 
 	//if it's aready broken delete the pipe
 	if(atomic_exchange(&pipe_inode->isbroken,1)){
@@ -84,7 +84,7 @@ static vfs_ops_t pipe_read_ops = {
 };
 
 int create_pipe(vfs_fd_t **read, vfs_fd_t **write) {
-	struct pipe *pipe_inode = kmalloc(sizeof(struct pipe));
+	pipe_t *pipe_inode = kmalloc(sizeof(pipe_t));
 	pipe_inode->isbroken = 0;
 	pipe_inode->ring = new_ringbuffer(PIPE_SIZE);
 

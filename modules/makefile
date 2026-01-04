@@ -12,17 +12,17 @@ CFLAGS = -Wall \
 PREFIX = 
 
 SRC = $(shell find -name '*.c')
-MOD = ${SRC:.c=.ko}
+MOD = $(SRC:.c=.ko)
 
-all : ${MOD} header
+all : $(MOD) header
 
 %.ko : %.c
-	${CC} -D${ARCH} ${CFLAGS} -o $@ -c $^ -DMODULE
+	$(CC) -D$(ARCH) $(CFLAGS) -o $@ -c $^ -DMODULE
 install :
-	mkdir -p ${PREFIX}/mod
-	cp ${MOD} ${PREFIX}/mod/
+	mkdir -p $(PREFIX)/mod
+	cp $(MOD) $(PREFIX)/mod/
 header :
-	mkdir -p ${SYSROOT}/usr/include/module
-	cp include/*.h ${SYSROOT}/usr/include/module
+	mkdir -p $(SYSROOT)/usr/include/module
+	cp include/*.h $(SYSROOT)/usr/include/module
 clean :
-	rm -f *.ko
+	rm -f $(MOD)

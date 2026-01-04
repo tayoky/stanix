@@ -20,8 +20,8 @@ typedef struct {
 
 ring_buffer *new_ringbuffer(size_t buffer_size);
 void delete_ringbuffer(ring_buffer *ring);
-ssize_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count);
-ssize_t ringbuffer_write(const void *buf,ring_buffer *ring,size_t count);
+ssize_t ringbuffer_read(ring_buffer *ring, void *buf, size_t count, long flags);
+ssize_t ringbuffer_write(ring_buffer *ring, const void *buf, size_t count, long flags);
 size_t ringbuffer_read_available(ring_buffer *ring);
 size_t ringbuffer_write_available(ring_buffer *ring);
 

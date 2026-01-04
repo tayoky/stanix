@@ -33,7 +33,7 @@ static ssize_t input_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	// can only read full events
 	count -= count % sizeof(struct input_event);
 
-	return ringbuffer_read(buf, device->events, count);
+	return ringbuffer_read(device->events, buf, count, fd->flags);
 }
 
 static int input_wait_check(vfs_fd_t *fd, short events) {
@@ -60,9 +60,7 @@ static vfs_ops_t input_ops = {
 };
 
 int send_input_event(input_device_t *device, struct input_event *event) {
-	if (ringbuffer_write_available(device->events)) {
-		ringbuffer_write(event, device->events, sizeof(struct input_event));
-	}
+	ringbuffer_write(device->events, event, sizeof(struct input_event), O_NONBLOCK);
 	return 0;
 }
 

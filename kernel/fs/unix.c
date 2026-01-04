@@ -66,7 +66,7 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 	};
 
 	// ringbuf write can fail (syscall interrupted/server socket dies before accepting/...)
-	ssize_t ret = ringbuffer_write(&connection, server->queue, sizeof(unix_connection_t));
+	ssize_t ret = ringbuffer_write(server->queue, &connection,  sizeof(unix_connection_t), 0);
 	if (ret < 0) return ret;
 
 	// FIXME : if we get interrupted here we will still be in the connect queue
@@ -96,7 +96,7 @@ int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, sock
 	unix_connection_t connection;
 
 	// ringbuf write can fail (syscall interrupted/...)
-	ssize_t ret = ringbuffer_read(&connection, socket->queue, sizeof(unix_connection_t));
+	ssize_t ret = ringbuffer_read(socket->queue, &connection, sizeof(unix_connection_t), 0);
 	if (ret < 0) return ret;
 
 	// we can now connect to the socket
@@ -136,7 +136,7 @@ ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 		}
 
 		for (int i=0; i<message->msg_iovlen; i++) {
-			ssize_t ret = ringbuffer_read(message->msg_iov[i].iov_base, socket->queue, message->msg_iov[i].iov_len);
+			ssize_t ret = ringbuffer_read(socket->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, 0);
 			if (ret < 0) return ret;
 			total += ret;
 		}
@@ -159,7 +159,7 @@ ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 		if (message->msg_name) return -EISCONN;
 
 		for (int i=0; i<message->msg_iovlen; i++) {
-			ssize_t ret = ringbuffer_write(message->msg_iov[i].iov_base, socket->connected->queue, message->msg_iov[i].iov_len);
+			ssize_t ret = ringbuffer_write(socket->connected->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, 0);
 			if (ret < 0) return ret;
 			total += ret;
 		}

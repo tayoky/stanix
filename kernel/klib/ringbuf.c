@@ -30,11 +30,15 @@ size_t ringbuffer_write_available(ring_buffer *ring){
 	return ring->buffer_size - ringbuffer_read_available(ring);
 }
 
-ssize_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
+ssize_t ringbuffer_read(ring_buffer *ring, void *buf, size_t count, long flags) {
 	spinlock_acquire(&ring->lock);
 
 	//check if there are something to read or sleep
 	if(ringbuffer_read_available(ring) == 0){
+		if (flags & O_NONBLOCK) {
+			spinlock_release(&ring->lock);
+			return -EWOULDBLOCK;
+		}
 		spinlock_release(&ring->lock);
 		//what if things happend between when we release the lock and sleep
 		//RACE CONDITION
@@ -71,13 +75,17 @@ ssize_t ringbuffer_read(void *buf,ring_buffer *ring,size_t count){
 	return count;
 }
 
-ssize_t ringbuffer_write(const void *buf,ring_buffer *ring,size_t count){
+ssize_t ringbuffer_write(ring_buffer *ring, const void *buf, size_t count, long flags) {
 	char *buffer = (char *)buf;
 	
-	while(count){
+	while (count) {
 		spinlock_acquire(&ring->lock);
 
 		if(ringbuffer_write_available(ring) == 0){
+			if (flags & O_NONBLOCK) {
+				spinlock_release(&ring->lock);
+				return -EWOULDBLOCK;
+			}
 			spinlock_release(&ring->lock);
 			//what if things happend between when we release the lock and sleep
 			//RACE CONDITION

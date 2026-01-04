@@ -14,7 +14,7 @@
 // TODO : implement mmap
 
 typedef struct bga {
-	trm_gpu_t *gpu;
+	trm_gpu_t gpu;
 	uint16_t version;
 	uint16_t max_x;
 	uint16_t max_y;

@@ -11,7 +11,7 @@
 
 static ssize_t pty_output(tty_t *tty, const char *buf, size_t size) {
 	pty_t *pty = tty->private_data;
-	return ringbuffer_write(buf, pty->output_buffer, size);
+	return ringbuffer_write(pty->output_buffer, buf, size, 0);
 }
 
 static void pty_cleanup(pty_t *pty) {
@@ -30,7 +30,7 @@ static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t 
 		return -EIO;
 	}*/
 
-	return ringbuffer_read(buffer,pty->output_buffer,count);
+	return ringbuffer_read(pty->output_buffer, buffer, count, fd->flags);
 }
 
 static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
@@ -133,7 +133,7 @@ static ssize_t tty_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) 
 	tty_t *tty = (tty_t *)fd->private;
 
 	if(tty->termios.c_lflag & ICANON){
-		ssize_t rsize = ringbuffer_read(buffer,tty->input_buffer,count);
+		ssize_t rsize = ringbuffer_read(tty->input_buffer, buffer, count, fd->flags);
 		if(rsize < 0){
 			return rsize;
 		}
@@ -143,7 +143,7 @@ static ssize_t tty_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) 
 		return rsize;
 	}
 
-	return ringbuffer_read(buffer,tty->input_buffer,count);
+	return ringbuffer_read(tty->input_buffer, buffer, count, fd->flags);
 }
 
 static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count){
@@ -376,7 +376,7 @@ int tty_input(tty_t *tty, char c) {
 		tty->canon_buf[tty->canon_index] = c;
 		tty->canon_index++;
 		if (c == '\n' || c == tty->termios.c_cc[VEOL] || c == tty->termios.c_cc[VEOF]) {
-			if ((size_t)ringbuffer_write(tty->canon_buf, tty->input_buffer, tty->canon_index) < tty->canon_index) {
+			if ((size_t)ringbuffer_write(tty->input_buffer, tty->canon_buf, tty->canon_index, 0) < tty->canon_index) {
 				if (tty->termios.c_iflag & IMAXBEL){
 					tty_output(tty, '\a');
 				}
@@ -391,7 +391,7 @@ int tty_input(tty_t *tty, char c) {
 	}
 
 	//check for full ringbuffer
-	if (ringbuffer_write(&c, tty->input_buffer, 1) == 0) {
+	if (ringbuffer_write(tty->input_buffer, &c, 1, 0) == 0) {
 		if (tty->termios.c_iflag & IMAXBEL) {
 			tty_output(tty, '\a');
 		}
