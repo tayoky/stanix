@@ -85,7 +85,7 @@ typedef struct vfs_ops {
 	int (* wait_check)(vfs_fd_t *,short);
 	int (* wait)(vfs_fd_t *,short);
 	int (* mmap)(vfs_fd_t *,off_t,struct memseg_struct *);
-	voud (* munmap)(vfs_fd_t *, struct memseg_struct *);
+	void (* munmap)(vfs_fd_t *, struct memseg_struct *);
 	void (* close)(vfs_fd_t*);
 } vfs_ops_t;
 

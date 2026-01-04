@@ -39,13 +39,13 @@ static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, memseg_t *seg) {
 		return -EINVAL;
 	}
 	if (!fb->gpu->ops->mmap) {
-		if (!gpu->vram_mmio) return -EINVAL;
+		if (!fb->gpu->vram_mmio) return -EINVAL;
 		// we can map it ourself
 		if(!(seg->flags & MAP_SHARED)){
 			return -EINVAL;
 		}
 		uintptr_t vaddr = seg->addr;
-		uintptr_t paddr = fb->base + gpu->vram_mmio + PAGE_ALIGN_DOWN(offset);
+		uintptr_t paddr = fb->base + fb->gpu->vram_mmio + PAGE_ALIGN_DOWN(offset);
 		uintptr_t end   = paddr + seg->size;
 		kdebugf("map TRM framebuffer at %p in %p lenght : %p\n", vaddr, seg, seg->size);
 
@@ -171,7 +171,6 @@ static int trm_fix_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 
 static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	trm_gpu_t *gpu = fd->private;
-	int ret;
 	switch (req) {
 	case TRM_GET_RESSOURCES:;
 		trm_card_t *card = arg;

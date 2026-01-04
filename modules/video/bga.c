@@ -48,6 +48,7 @@ static int bga_test_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 }
 
 static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
+	bga_t *bga = (bga_t*)gpu;
 
 	bga_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
 
@@ -63,7 +64,7 @@ static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	if (mode->planes) {
 		trm_framebuffer_t *fb = trm_get_fb(gpu, mode->planes[0].fb_id);
 		uint16_t bpp;
-		switch (fb->format) {
+		switch (fb->fb.format) {
 		case TRM_C8:
 			bpp = VBE_DISPI_BPP_8;
 			break;
@@ -83,14 +84,14 @@ static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 		bga_write(VBE_DISPI_INDEX_BPP, bpp);
 		if (bga->version >= VBE_DISPI_ID1) {
 			// FIXME : not sure this is correct
-			bga_write(VBE_DISPI_VIRT_WIDTH, fb->width);
-			bga_write(VBE_DISPI_VIRT_HEIGHT, bga->gpu.card.vram_size / fb->pitch);
-			bga_write(VBE_DISPI_X_OFFSET, ((fb->base / trm_bpp(fb->format)) % fb->width) + plane->src_x);
-			bga_write(VBE_DISPI_Y_OFFSET, fb->base / fb->pitch + plane->src_y);
+			bga_write(VBE_DISPI_INDEX_VIRT_WIDTH, fb->fb.width);
+			bga_write(VBE_DISPI_INDEX_VIRT_HEIGHT, gpu->card.vram_size / fb->fb.pitch);
+			bga_write(VBE_DISPI_INDEX_X_OFFSET, ((fb->base / trm_bpp(fb->fb.format)) % fb->fb.width) + mode->planes->src_x);
+			bga_write(VBE_DISPI_INDEX_Y_OFFSET, fb->base / fb->fb.pitch + mode->planes->src_y);
 		}
 	}
 
-	uint16_t enable = VBE_DISPI_ENABLE;
+	uint16_t enable = VBE_DISPI_ENABLED;
 	if (bga->version >= VBE_DISPI_ID2) {
 		enable |= VBE_DISPI_LFB_ENABLED | VBE_DISPI_NOCLEARMEM;
 	}

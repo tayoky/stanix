@@ -2,7 +2,7 @@
 #define _KERNEL_BUS_H
 
 #include <kernel/device.h>
-#include <kernel/intterupt.h>
+#include <kernel/interrupt.h>
 #include <kernel/list.h>
 #include <sys/types.h>
 #include <errno.h>

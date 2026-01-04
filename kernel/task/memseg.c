@@ -89,7 +89,7 @@ int memseg_map(process_t *proc, uintptr_t address, size_t size, uint64_t prot, i
 		kfree(new_memseg);
 	} else {
 		if (seg) *seg = new_memseg;
-		if (fd) seg->fd = vfs_dup(fd);
+		if (fd) new_memseg->fd = vfs_dup(fd);
 	}
 	return ret;
 }

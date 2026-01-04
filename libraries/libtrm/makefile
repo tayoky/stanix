@@ -17,8 +17,8 @@ libtrm.a : ${OBJ}
 	
 install : all
 	@echo '[install headers]'
-	@mkdir -p ${PREFIX}/include/libtrm
-	@cp include/libtrm/*.h ${PREFIX}/include/libtrm
+	@mkdir -p ${PREFIX}/include/
+	@cp -r include/* ${PREFIX}/include/
 	@echo '[install libtrm.a]'
 	@mkdir -p ${PREFIX}/lib
 	@cp libtrm.a ${PREFIX}/lib

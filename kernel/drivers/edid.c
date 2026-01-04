@@ -34,7 +34,7 @@ static trm_timings_t established_modes[] = {
 	{800, 600, 1024, 625, 832, 904, 601, 603, 36000000, 56},
 
 	// Bit 7: 800 x 600 @ 60Hz
-	{800, 600, 1056, 628, 840, 968, 601, 605, 40000000, 60}
+	{800, 600, 1056, 628, 840, 968, 601, 605, 40000000, 60},
 
 	// established mode 2
 
@@ -126,45 +126,45 @@ int edid_parse_connector(edid_t *edid, struct trm_connector *connector, struct t
 		edid_detailed_timing_t *desc = &edid->detailed_timings[i];
 		if (desc->pixel_clock == 0) break;
 		// we have to convert the mode
-		trm_timing_t mode = {
-			.hdisplay = desc->pixel->hactive_low | (HIGH(desc->pixel->hactive_hblank_high) << 8),
-			.vdisplay = desc->pixel->vactive_low | (HIGH(desc->pixel->vactive_vblank_high) << 8),
+		trm_timings_t mode = {
+			.hdisplay = desc->pixel.hactive_low | (HIGH(desc->pixel.hactive_hblank_high) << 8),
+			.vdisplay = desc->pixel.vactive_low | (HIGH(desc->pixel.vactive_vblank_high) << 8),
 			.pixel_clock = desc->pixel_clock * 10000,
 		};
-		uint16_t hblank = (desc->pixel->hblank_low | (LOW(desc->pixel->hactive_hblank_high) << 8));
+		uint16_t hblank = (desc->pixel.hblank_low | (LOW(desc->pixel.hactive_hblank_high) << 8));
 		mode.htotal = mode.hdisplay + hblank;
-		uint16_t vblank = (desc->pixel->vblank_low | (LOW(desc->pixel->vactive_vblank_high) << 8)); 
+		uint16_t vblank = (desc->pixel.vblank_low | (LOW(desc->pixel.vactive_vblank_high) << 8)); 
 		mode.vtotal = mode.vdisplay + vblank;
 
-		uint16_t hfront_proch = desc->pixel->hfront_porch_low | ((desc->pixel->hsync_vsync_front_porch_width_high << 2) & 0x300);
+		uint16_t hfront_porch = desc->pixel.hfront_porch_low | ((desc->pixel.hsync_vsync_front_porch_width_high << 2) & 0x300);
 		mode.hsync_start = mode.hdisplay + hfront_porch;
 
-		uint16_t vfront_proch = HIGH(desc->pixel->vfront_porch_vsync_width_low) | ((desc->pixel->hsync_vsync_front_porch_width_high << 2) & 0x30);
+		uint16_t vfront_porch = HIGH(desc->pixel.vfront_porch_vsync_width_low) | ((desc->pixel.hsync_vsync_front_porch_width_high << 2) & 0x30);
 		mode.vsync_start = mode.vdisplay + vfront_porch;
 
-		uint16_t hsync_width = desc->pixel->hsync_width_low | ((desc->pixel->hsync_vsync_front_porch_width_high << 4) & 0x300);
+		uint16_t hsync_width = desc->pixel.hsync_width_low | ((desc->pixel.hsync_vsync_front_porch_width_high << 4) & 0x300);
 		mode.hsync_end = mode.hsync_start + hsync_width;
 
-		uint16_t vsync_width = LOW(desc->pixel->vfront_porch_vsync_width_low) | ((desc->pixel->hsync_vsync_front_porch_width_high << 4) & 0x30);
+		uint16_t vsync_width = LOW(desc->pixel.vfront_porch_vsync_width_low) | ((desc->pixel.hsync_vsync_front_porch_width_high << 4) & 0x30);
 		mode.vsync_end = mode.vsync_start + vsync_width;
 
 		mode.refresh = mode.pixel_clock / (mode.htotal * mode.vtotal);
 
-		add_mode(&mode_count, modes, &mode, gpu);
+		add_mode(&modes_count, modes, &mode, gpu);
 	}
 
 	// parse established modes
 	for (size_t i=0; i<16; i++) {
 		uint8_t byte = i < 8 ? edid->established_timings1 : edid->established_timings2;
 		if (byte & (1 << (i % 8))) {
-			add_mode(&mode_count, modes, &established_modes[i], gpu);
+			add_mode(&modes_count, modes, &established_modes[i], gpu);
 		}
 	}
 	// TODO : parse more modes
 	
 	// if we have no mod fallback on default
 	if (modes_count == 0) {
-		add_mode(&mode_count, modes, &default_mode, gpu);
+		add_mode(&modes_count, modes, &default_mode, gpu);
 	}
 
 	connector->modes_count = modes_count;

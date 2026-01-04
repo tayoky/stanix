@@ -44,7 +44,7 @@ typedef struct edid_detailed_timing {
 	};
 } edid_detailed_timing_t;
 
-typedef struct edid_header {
+typedef struct edid {
 	uint8_t magic[8];
 
 	// product
@@ -83,7 +83,7 @@ typedef struct edid_header {
 	uint8_t manufacturer_timings1;
 
 	// standard timings
-	edid_standard_timings_t standard_timings[8];
+	edid_standard_timing_t standard_timings[8];
 
 	// data block
 	edid_detailed_timing_t detailed_timings[4];
@@ -94,7 +94,7 @@ typedef struct edid_header {
 	// checksum
 	uint8_t checksum;
 
-} edid_header_t;
+} edid_t;
 
 // input field
 #define EDID_INPUT_SERRATION_VSYNC (1 << 0)

@@ -114,7 +114,7 @@ static ssize_t ps2_bus_read(bus_addr_t *addr, void *buf, off_t offset, size_t co
 
 static int ps2_register_handler(bus_addr_t *addr, interrupt_handler_t handler, void *data) {
 	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
-	switch (port) {
+	switch (ps2_addr->port) {
 	case 1:
 		irq_generic_map(handler,1, data);
 		return 0;
