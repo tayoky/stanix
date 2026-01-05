@@ -170,13 +170,32 @@ void draw_cursor(term_t *term, int x, int y) {
 	gfx_push_rect(fb, x * c_width, y * c_height, c_width, c_height);
 }
 
+void clear(term_t *term, term_rect_t *rect) {
+	if (rect->x == 0 && rect->y == 0 && rect->width == term->width && rect->height  == term->height) {
+		gfx_clear(fb, term_color2gfx(&term->cursor.bg_color, 1));
+		gfx_push_buffer(fb);
+	} else {
+		gfx_draw_rect(fb, term_color2gfx(&term->cursor.bg_color, 1), rect->x * c_width, rect->y * c_height, 
+		rect->width * c_width, rect->height * c_height);
+		gfx_push_rect(fb, rect->x * c_width, rect->y * c_height, rect->width * c_width, rect->height * c_height);
+	}
+}
 
-void scroll(int s){
+void move(term_t *term, term_rect_t *dest, term_rect_t *src) {
+	if (dest->width == term->width) {
+		memmove((void*)gfx_pixel_addr(fb, dest->x * c_width, dest->y * c_height), (void*)gfx_pixel_addr(fb, src->x * c_width, src->y * c_height), 
+		dest->width * dest->height * c_width * c_height * fb->bpp / 8);
+		gfx_push_rect(fb, dest->x * c_width, dest->y * c_height, dest->width * c_width, dest->height * c_height);
+	} else {
+		// TODO
+	}
 }
 
 term_ops_t term_ops = {
 	.draw_cell   = draw_cell,
 	.draw_cursor = draw_cursor,
+	.clear = clear,
+	.move = move,
 };
 
 //TODO : terminate when child die
@@ -278,10 +297,6 @@ int main(int argc,const char **argv){
 	master_file = fdopen(master, "r+");
 	setvbuf(master_file, NULL, _IONBF, 0);
 
-	//clear screen and init color
-	gfx_clear(fb, gfx_color(fb, 0, 0, 0));
-	gfx_push_buffer(fb);
-
 	// init term
 	term.width  = fb->width / c_width;
 	term.height = fb->height / c_height;
@@ -305,12 +320,10 @@ int main(int argc,const char **argv){
 
 		if(wait[0].revents & POLLIN){
 			//there data to print
-			wchar_t c;
-			if((c = fgetwc(master_file)) == WEOF){
-				//read error ???
-				perror("read");
-			} else {
-				term_output_char(&term, c);
+			char buf[1024];
+			ssize_t s = read(master, buf, sizeof(buf));
+			if (s > 0) {
+				term_output(&term, buf, s);
 			}
 		}
 
