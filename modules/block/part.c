@@ -117,6 +117,7 @@ static int create_part(vfs_fd_t *dev,const char *target,off_t offset,size_t size
 	sprintf(path,"%s%d",dev->inode->name,(*count)++);
 
 	part_t *p = kmalloc(sizeof(part_t));
+	memset(p, 0, sizeof(part_t));
 	p->dev    = vfs_dup(dev);
 	p->offset = offset;
 	p->size   = size;
