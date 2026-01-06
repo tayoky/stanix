@@ -6,7 +6,7 @@ int send_event(client_t *client, twm_event_t *event) {
 	return send(client->fd, event, event->size, 0);
 }
 
-int handle_create_window(client_t *client, twm_request_create_window_t *request) {
+static void handle_create_window(client_t *client, twm_request_create_window_t *request) {
 	puts("create window");
 	static twm_window_t id_count = 0;
 	window_t *window = malloc(sizeof(window_t));
@@ -34,6 +34,12 @@ int handle_create_window(client_t *client, twm_request_create_window_t *request)
 	return 0;
 }
 
+static void handle_init(client_t *client, twm_request_init_t *request) {
+	if (request->major != TWM_CURRENT_MAJOR || request->minor != TWM_CURRENT_MINOR) {
+		kick_client(client);
+	}
+}
+
 int handle_request(client_t *client){
 	char buf[TWM_MAX_PACKET_SIZE];
 	twm_request_t *request = (twm_request_t*)buf;
@@ -47,6 +53,9 @@ int handle_request(client_t *client){
 	switch (request->type) {
 	case TWM_REQUEST_CREATE_WINDOW:
 		handle_create_window(client, (twm_request_create_window_t*)request);
+		break;
+	case TWM_REQUEST_INIT:
+		handle_init(client, (twm_request_init_t*)request);
 		break;
 	}
 	

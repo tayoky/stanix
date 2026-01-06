@@ -39,5 +39,6 @@ void render_window_decor(window_t *window);
 void render_window_content(window_t *window);
 void error(const char *fmt, ...);
 int handle_request(client_t *client);
+void kick_client(client_t *client);
 
 #endif

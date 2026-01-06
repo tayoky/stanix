@@ -11,8 +11,7 @@
 
 gfx_t *gfx;
 font_t *font;
-theme_t theme = {
-};
+theme_t theme;
 int server_socket;
 utils_hashmap_t windows;
 utils_vector_t clients;
@@ -33,6 +32,11 @@ void load_theme(void) {
 	theme.font_color = gfx_color(gfx, 0xC0, 0xC0, 0xC0);
 	theme.primary = gfx_color(gfx, 0x10, 0x10, 0x10);
 	theme.secondary = gfx_color(gfx, 0x10, 0x50, 0x10);
+}
+
+void kick_client(client_t *client) {
+	// TODO
+	close(client->fd);
 }
 
 int main() {
@@ -102,8 +106,7 @@ int main() {
 				handle_request(client);
 			}
 			if (fds[i].revents & POLLHUP) {
-				close(client->fd);
-				// TODO
+				kick_client(client);
 			}
 		}
 		if (fds[clients.count].revents & POLLIN) {
