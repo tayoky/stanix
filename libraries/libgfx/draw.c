@@ -19,6 +19,13 @@ void gfx_draw_rect(gfx_t *gfx,color_t color,long x,long y,long width,long height
 	}
 }
 
+void gfx_draw_wire_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height, long border) {
+		gfx_draw_rect(gfx, color, x, y, border, height);
+		gfx_draw_rect(gfx, color, x + width, y, border, height);
+		gfx_draw_rect(gfx, color, x + border, y         , width - border, border);
+		gfx_draw_rect(gfx, color, x + border, y + height, width - border, border);
+}
+
 
 void gfx_clear(gfx_t *gfx,color_t color){
 	return gfx_draw_rect(gfx,color,0,0,gfx->width,gfx->height);

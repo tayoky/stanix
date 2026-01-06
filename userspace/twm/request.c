@@ -7,6 +7,7 @@ int send_event(client_t *client, twm_event_t *event) {
 }
 
 int handle_create_window(client_t *client, twm_request_create_window_t *request) {
+	puts("create window");
 	static twm_window_t id_count = 0;
 	window_t *window = malloc(sizeof(window_t));
 	memset(window, 0, sizeof(window_t));
@@ -15,6 +16,8 @@ int handle_create_window(client_t *client, twm_request_create_window_t *request)
 	window->client = client;
 	window->width  = request->width;
 	window->height = request->height;
+	window->x = 100;
+	window->y = 100;
 	window->title  = strnlen(request->title, sizeof(request->title)) < sizeof(request->title) ? strdup(request->title) : strdup("window");
 
 	utils_hashmap_add(&windows, window->id, window);
@@ -42,7 +45,9 @@ int handle_request(client_t *client){
 	if (size < 0) return -1;
 
 	switch (request->type) {
-		
+	case TWM_REQUEST_CREATE_WINDOW:
+		handle_create_window(client, (twm_request_create_window_t*)request);
+		break;
 	}
 	
 	return 0;

@@ -11,7 +11,8 @@
 
 gfx_t *gfx;
 font_t *font;
-theme_t theme;
+theme_t theme = {
+};
 int server_socket;
 utils_hashmap_t windows;
 utils_vector_t clients;
@@ -23,6 +24,15 @@ void error(const char *fmt, ...) {
 	vfprintf(stderr, fmt, args);
 	fputc('\n', stderr);
 	va_end(args);
+}
+
+void load_theme(void) {
+	// TODO : load this from conf file
+	theme.titlebar_height = 16;
+	theme.border_width = 1;
+	theme.font_color = gfx_color(gfx, 0xC0, 0xC0, 0xC0);
+	theme.primary = gfx_color(gfx, 0x10, 0x10, 0x10);
+	theme.secondary = gfx_color(gfx, 0x10, 0x50, 0x10);
 }
 
 int main() {
@@ -55,7 +65,7 @@ int main() {
 	pid_t child = fork();
 	if (!child) {
 		close(server_socket);
-		execlp("test-twm", "test-twm");
+		execlp("test-twm", "test-twm", NULL);
 		exit(0);
 	}
 
@@ -70,6 +80,8 @@ int main() {
 		error("no font");
 		return 1;
 	}
+
+	load_theme();
 
 	utils_init_hashmap(&windows, 512);
 	utils_init_vector(&clients, sizeof(client_t));
@@ -100,6 +112,7 @@ int main() {
 				error("fail to accept connection");
 				continue;
 			}
+			puts("client connected");
 			client_t client = {
 				.fd = client_fd,
 			};

@@ -48,6 +48,7 @@ color_t gfx_color(gfx_t *gfx,uint8_t r,uint8_t g,uint8_t b);
 
 void gfx_draw_pixel(gfx_t *gfx,color_t color,long x,long y);
 void gfx_draw_rect(gfx_t *gfx,color_t color,long x,long y,long width,long height);
+void gfx_draw_wire_rect(gfx_t *gfx,color_t color,long x,long y,long width,long height,long border);
 void gfx_clear(gfx_t *gfx,color_t color);
 
 font_t *gfx_load_font(const char *path);
