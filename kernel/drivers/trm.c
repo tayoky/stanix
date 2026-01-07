@@ -35,7 +35,7 @@ static uintptr_t trm_alloc(trm_gpu_t *gpu, size_t size) {
 
 static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, memseg_t *seg) {
 	trm_framebuffer_t *fb = fd->private;
-	if (offset + seg->size > fb->fb.pitch * fb->fb.height) {
+	if (offset + seg->size > PAGE_ALIGN_UP(fb->fb.pitch * fb->fb.height)) {
 		return -EINVAL;
 	}
 	if (!fb->gpu->ops->mmap) {
@@ -162,7 +162,7 @@ static int trm_fix_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	for (size_t i=0; i<mode->crtcs_count; i++) {
 		trm_crtc_t *crtc = &mode->crtcs[i];
 		if (crtc->timings) {
-			if (!crtc->timings->pixel_clock) crtc->timings->htotal * crtc->timings->vtotal * crtc->timings->refresh;
+			if (!crtc->timings->pixel_clock) crtc->timings->pixel_clock = crtc->timings->htotal * crtc->timings->vtotal * crtc->timings->refresh;
 		}
 	}
 	if (!gpu->ops->fix_mode) return -EINVAL;
