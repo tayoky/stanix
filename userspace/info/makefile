@@ -11,10 +11,12 @@ OUT = $(shell basename ${PWD})
 CFLAGS += -Wall -Wextra -std=c99
 CFLAGS += -I ./
 
+LDFLAGS += -ltrm
+
 all : ../bin/${OUT}
 
 ../bin/${OUT} : ${OBJ}
-	${CC} ${LDFLAGS} -o $@ $^
+	${CC} -o $@ $^ ${LDFLAGS}
 
 %.o : %.c
 	${CC} ${CFLAGS} -o $@ -c $^

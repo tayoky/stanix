@@ -1,11 +1,45 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
+#include <trm.h>
 #include <sys/ioctl.h>
 
 void help(void){
 	puts("info DEVICE");
 	puts("show information about a device");
+}
+
+const char *trm_plane_type(uint32_t type) {
+	switch (type) {
+	case TRM_PLANE_PRIMARY:
+		return "primary plane";
+	case TRM_PLANE_CURSOR:
+		return "cursor plane";
+	case TRM_PLANE_OVERLAY:
+		return "overlay plane";
+	default :
+		return "unknow plane type";
+	}
+}
+
+const char *byte_amount(size_t amount) {
+	static char *suffix[] = {
+		"b",
+		"Kb",
+		"Mb",
+		"Gb",
+		"Tb",
+		"Pb",
+		NULL,
+	};
+	int i = 0;
+	while(amount >= 1024 && suffix[i + 1]) {
+		i++;
+		amount /= 1024;
+	}
+	static char buf[32];
+	sprintf(buf, "%zu%s", amount, suffix[i]);
+	return buf;
 }
 
 int main(int argc,char **argv){
@@ -22,12 +56,27 @@ int main(int argc,char **argv){
 		perror(argv[1]);
 		return 1;
 	}
-	char model[256];
-	if(ioctl(fd,I_MODEL,model) < 0){
-		perror("ioctl");
-		return 1;
-	}
 	printf("%s :\n",argv[1]);
-	printf("model : %s\n",model);
+
+	// try to get model
+	char model[256];
+	if(ioctl(fd,I_MODEL,model) >= 0){
+		printf("model      : %s\n",model);
+	}
+
+	// try to print trm info
+	trm_card_t *card = trm_get_ressources(fd);
+	if (card) {
+		printf("card       : %s\n", card->name);
+		printf("driver     : %s\n", card->driver);
+		printf("vram       : %s\n", byte_amount(card->vram_size));
+		printf("planes     : %lu\n", card->planes_count);
+		printf("crtcs      : %lu\n", card->crtcs_count);
+		printf("connectors : %lu\n", card->connectors_count);
+		for (size_t i=0; i<card->planes_count; i++) {
+			trm_plane_t *plane = &card->planes[i];
+			printf("plane(%u) : %s\n", plane->id, trm_plane_type(plane->type));
+		}
+	}
 	return 0;
 }

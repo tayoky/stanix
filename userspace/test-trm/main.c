@@ -15,6 +15,12 @@ int main(int argc,char **argv){
 		return 1;
 	}
 
+
+	trm_timings_t timings = {
+		.hdisplay = 320,
+		.vdisplay = 200,
+	};
+
 	trm_card_t *card = trm_get_ressources(fd);
 	printf("card '%s', driver '%s'", card->name, card->driver);
 	printf("found %zd planes, %zd crtcs and %zd connectors\n", card->planes_count, card->crtcs_count, card->connectors_count);
@@ -22,16 +28,20 @@ int main(int argc,char **argv){
 	puts("=== PLANES ===");
 	for (size_t i=0; i<card->planes_count; i++) {
 		trm_plane_t *plane = &card->planes[i];
-		printf("plane (%d)\n", plane->id);
+		if (plane->type != TRM_PLANE_PRIMARY) continue;
+		plane->dest_x = 0;
+		plane->dest_y = 0;
+		plane->dest_w = timings.hdisplay;
+		plane->dest_h = timings.vdisplay;
+		plane->src_x = 0;
+		plane->src_y = 0;
+		plane->src_w = timings.hdisplay;
+		plane->src_h = timings.vdisplay;
 	}
 
 	trm_fb_t *fb = trm_allocate_framebuffer(fd, 320, 200, TRM_C8);
 	printf("framebuffer at fd %d\n", fb->fd);
 
-	trm_timings_t timings = {
-		.hdisplay = 320,
-		.vdisplay = 200,
-	};
 	trm_mode_t mode = {
 		.crtcs_count = 1,
 		.crtcs = card->crtcs,
@@ -40,7 +50,9 @@ int main(int argc,char **argv){
 	};
 	card->crtcs[0].timings = &timings;
 	card->planes[0].fb_id = fb->id;
-	trm_commit_mode(fd, &mode);
+	if (trm_commit_mode(fd, &mode) < 0){
+		perror("commit mode");
+	}
 
 	return 0;	
 }

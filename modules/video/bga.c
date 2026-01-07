@@ -11,8 +11,6 @@
 
 // TRM's BGA driver
 
-// TODO : implement mmap
-
 typedef struct bga {
 	trm_gpu_t gpu;
 	uint16_t version;
@@ -48,6 +46,7 @@ static int bga_test_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 }
 
 static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
+	kdebugf("bga commit mode\n");
 	bga_t *bga = (bga_t*)gpu;
 
 	bga_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
@@ -141,9 +140,11 @@ static int bga_probe(bus_addr_t *addr) {
 	memset(bga, 0, sizeof(bga_t));
 	bga->version = bga_read(VBE_DISPI_INDEX_ID);
 	if (bga->version >= VBE_DISPI_ID3) {
-		bga_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_GETCAPS);
+		uint16_t data = bga_read(VBE_DISPI_INDEX_ENABLE);
+		bga_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_GETCAPS | VBE_DISPI_NOCLEARMEM);
 		bga->max_x = bga_read(VBE_DISPI_INDEX_XRES);
 		bga->max_y = bga_read(VBE_DISPI_INDEX_YRES);
+		bga_write(VBE_DISPI_INDEX_ENABLE, data | VBE_DISPI_NOCLEARMEM);
 	} else {
 		bga->max_x = VBE_DISPI_MAX_XRES;
 		bga->max_y = VBE_DISPI_MAX_YRES;
