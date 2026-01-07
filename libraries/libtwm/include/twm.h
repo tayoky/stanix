@@ -46,6 +46,11 @@ typedef struct twm_request_create_window {
 } twm_request_create_window_t;
 
 
+typedef struct twm_request_destroy_window {
+	twm_request_t base;
+	twm_window_t id;
+} twm_request_destroy_window_t;
+
 typedef struct twm_event_window_created {
 	twm_event_t base;
 	twm_window_t id;
