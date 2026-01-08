@@ -9,6 +9,7 @@
 #include <module/ata.h>
 #include <module/pci.h>
 #include <kernel/device.h>
+#include <sys/block.h>
 #include <sys/ioctl.h>
 #include <errno.h>
 
@@ -243,6 +244,9 @@ static ssize_t ata_write(vfs_fd_t *fd,const void *buffer,off_t offset,size_t cou
 static int ide_ioctl(vfs_fd_t *fd,long req,void *arg){
 	ide_device_t *device = fd->private;
 	switch(req){
+	case I_BLOCK_GET_SIZE:
+		*(size_t*)arg = device->size;
+		return 0;
 	case I_MODEL:
 		strcpy(arg,device->model);
 		return 0;

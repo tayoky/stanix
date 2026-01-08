@@ -1,8 +1,11 @@
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <sys/block.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
 #include <trm.h>
-#include <sys/ioctl.h>
 
 void help(void){
 	puts("info DEVICE");
@@ -57,11 +60,21 @@ int main(int argc,char **argv){
 		return 1;
 	}
 	printf("%s :\n",argv[1]);
+	struct stat st;
+	if (fstat(fd, &st) >= 0) {
+		printf("device     : %u, %u\n", major(st.st_rdev), minor(st.st_rdev));
+	}
 
 	// try to get model
 	char model[256];
-	if(ioctl(fd,I_MODEL,model) >= 0){
-		printf("model      : %s\n",model);
+	if(ioctl(fd, I_MODEL, model) >= 0){
+		printf("model      : %s\n", model);
+	}
+
+	// try to get block size
+	size_t size;
+	if(ioctl(fd, I_BLOCK_GET_SIZE, &size) >= 0){
+		printf("size       : %s\n", byte_amount(size));
 	}
 
 	// try to print trm info
