@@ -46,7 +46,6 @@ static int framebuffer_ioctl(vfs_fd_t *fd,long request,void *arg){
 	framebuffer_t *framebuffer = fd->private;
 	struct limine_framebuffer *data = framebuffer->fb;
 	
-	//implent basic ioctl : width hight ...
 	switch (request){
 	case IOCTL_GET_FB_INFO:
 		struct fb *fb = arg;
@@ -61,12 +60,6 @@ static int framebuffer_ioctl(vfs_fd_t *fd,long request,void *arg){
 		fb->blue_mask_size   = data->blue_mask_size;
 		fb->blue_mask_shift  = data->blue_mask_shift;
 		return 0;
-	case IOCTL_FRAMEBUFFER_HEIGHT:
-		return data->height;
-		break;
-	case IOCTL_FRAMEBUFFER_WIDTH:
-		return data->width;
-		break;
 	case IOCTL_FRAMEBUFFER_SCROLL:
 		return framebuffer_scroll(data,(uint64_t) arg);
 		break;

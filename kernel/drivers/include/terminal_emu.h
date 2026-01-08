@@ -13,7 +13,7 @@ typedef struct terminal_emu {
 	void *font;
 	char font_type;
 	char activate;
-	vfs_fd_t *frambuffer_dev;
+	vfs_fd_t *framebuffer_dev;
 	uintmax_t x;
 	uintmax_t y;
 	uint32_t font_color;

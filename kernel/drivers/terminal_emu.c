@@ -25,7 +25,7 @@ void term_draw_char(char c,terminal_emu_t *terminal_dev){
 		terminal_dev->y += header->characterSize +1;
 		//some out of bound check
 		if(terminal_dev->y / header->characterSize + 1 >= terminal_dev->height){
-			vfs_ioctl(terminal_dev->frambuffer_dev,IOCTL_FRAMEBUFFER_SCROLL,(void *)(uintptr_t)header->characterSize + 1);
+			vfs_ioctl(terminal_dev->framebuffer_dev,IOCTL_FRAMEBUFFER_SCROLL,(void *)(uintptr_t)header->characterSize + 1);
 			terminal_dev->y -= header->characterSize + 1;
 		}
 		return;
@@ -79,9 +79,9 @@ void term_draw_char(char c,terminal_emu_t *terminal_dev){
 	for (uint16_t y = 0; y < header->characterSize; y++){
 		for (uint8_t x = 0; x < 8; x++){
 			if((font_data[current_byte] >> (7 - x)) & 0x01){
-				draw_pixel(terminal_dev->frambuffer_dev,terminal_dev->x + x,terminal_dev->y + y,font_color);
+				draw_pixel(terminal_dev->framebuffer_dev,terminal_dev->x + x,terminal_dev->y + y,font_color);
 			} else {
-				draw_pixel(terminal_dev->frambuffer_dev,terminal_dev->x + x,terminal_dev->y + y,back_color);
+				draw_pixel(terminal_dev->framebuffer_dev,terminal_dev->x + x,terminal_dev->y + y,back_color);
 			}
 		}
 		
@@ -161,40 +161,40 @@ void init_terminal_emualtor(void){
 	register_device_driver(&terminal_emulator);
 
 	//now find the framebuffer to use
-	char *frambuffer_path = ini_get_value(kernel->conf_file,"terminal_emulator","framebuffer");
-	if(!frambuffer_path){
+	char *framebuffer_path = ini_get_value(kernel->conf_file,"terminal_emulator","framebuffer");
+	if(!framebuffer_path){
 		kfail();
 		kinfof("can't find an frammebuffer to use in conf file\n");
 		return;
 	}
 
 	//and open the frammebuffer
-	vfs_fd_t *frambuffer_dev = vfs_open(frambuffer_path,O_WRONLY);
-	if(!frambuffer_dev){
+	vfs_fd_t *framebuffer_dev = vfs_open(framebuffer_path,O_WRONLY);
+	if(!framebuffer_dev){
 		kfail();
-		kinfof("fail to open device : %s\n",frambuffer_path);
-		kfree(frambuffer_path);
+		kinfof("fail to open device : %s\n", framebuffer_path);
+		kfree(framebuffer_path);
 		return;
 	}
-	kfree(frambuffer_path);
+	kfree(framebuffer_path);
 
 	char *font_path = ini_get_value(kernel->conf_file,"terminal_emulator","font");
-	if(!font_path){
+	if (!font_path) {
 		font_path = ini_get_value(kernel->conf_file,"terminal_emulator","font.path");
 	}
 
-	if(!font_path){
-		//can't find the key
+	if (!font_path) {
+		// can't find the key
 		kfail();
 		kinfof("can't find font key in conf file\n");
 		return;
 	}
 
-	//now open the file
-	vfs_fd_t *font_file = vfs_open(font_path,O_RDONLY);
-	if(!font_file){
+	// now open the file
+	vfs_fd_t *font_file = vfs_open(font_path, O_RDONLY);
+	if (!font_file) {
 		kfail();
-		kinfof("fail to open file : %s\n",font_path);
+		kinfof("fail to open file : %s\n", font_path);
 		kfree(font_path);
 		return;
 	}
@@ -215,7 +215,7 @@ void init_terminal_emualtor(void){
 	memset(terminal_dev, 0, sizeof(terminal_emu_t));
 
 	//save the framebuffer context
-	terminal_dev->frambuffer_dev = frambuffer_dev;
+	terminal_dev->framebuffer_dev = framebuffer_dev;
 
 	//start parse the font
 	terminal_dev->header = font;
@@ -227,8 +227,10 @@ void init_terminal_emualtor(void){
 	}
 
 	//init width height and the char buffer
-	terminal_dev->width = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_WIDTH,NULL) / 8;
-	terminal_dev->height = vfs_ioctl(frambuffer_dev,IOCTL_FRAMEBUFFER_HEIGHT,NULL) / (((PSF1_Header *)font)->characterSize + 1);
+	struct fb fb_info;
+	vfs_ioctl(framebuffer_dev, IOCTL_GET_FB_INFO, &fb_info);
+	terminal_dev->width = fb_info.width / 8;
+	terminal_dev->height = fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
 
 	terminal_dev->font_type = FONT_TYPE_PSF1;
 	terminal_dev->font = font + sizeof(PSF1_Header);
