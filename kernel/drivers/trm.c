@@ -77,7 +77,7 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 	}
 	if (!fb->pitch) {
 		// FIXME : maybee we should align this
-		fb->pitch = fb->width * (trm_bpp(fb->format) + 7) / 8;
+		fb->pitch = fb->width * ((trm_bpp(fb->format) + 7) / 8);
 	}
 	size_t size = fb->pitch * fb->height;
 	uintptr_t base = trm_alloc(gpu, size);

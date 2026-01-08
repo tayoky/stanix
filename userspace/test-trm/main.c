@@ -74,6 +74,7 @@ int main(int argc,char **argv){
 	gfx_clear(gfx, gfx_color(gfx, 0, 0, 0));
 	gfx_draw_string(gfx, font, gfx_color(gfx, 0xff, 0xff, 0xff), 0, 0, "hello from TRM !");
 	gfx_push_buffer(gfx);
+	for(;;);
 
 	return 0;	
 }
