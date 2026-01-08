@@ -180,6 +180,8 @@ uintptr_t pci_get_bar(pci_addr_t *addr, int ioport, int BAR) {
 	case 0x01:
 		// 16 bits BAR
 		return BAR_low & 0xfff0;
+	default:
+		return PCI_INVALID_BAR;
 	}
 }
 

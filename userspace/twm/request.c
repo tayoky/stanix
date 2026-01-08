@@ -1,5 +1,6 @@
 #include <twm-internal.h>
 #include <sys/socket.h>
+#include <stdio.h>
 #include <twm.h>
 
 int send_event(client_t *client, twm_event_t *event) {
@@ -31,7 +32,7 @@ static void handle_create_window(client_t *client, twm_request_create_window_t *
 	send_event(client, (twm_event_t*)&event);
 	render_window_decor(window);
 	render_window_content(window);
-	return 0;
+	return;
 }
 
 static void handle_init(client_t *client, twm_request_init_t *request) {
