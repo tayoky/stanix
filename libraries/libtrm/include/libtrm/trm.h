@@ -102,7 +102,7 @@ typedef struct trm_mode {
 #define TRM_CRTC_MASK(id) (1 << (id - 1))
 
 // IOCTLS
-#define TRM_GET_RESSOURCES    7000
+#define TRM_GET_RESOURCES     7000
 #define TRM_GET_MODE          7001
 #define TRM_GET_FRAMEBUFFER   7002
 #define TRM_GET_PLANE         7003

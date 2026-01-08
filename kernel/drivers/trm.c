@@ -172,7 +172,7 @@ static int trm_fix_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	trm_gpu_t *gpu = fd->private;
 	switch (req) {
-	case TRM_GET_RESSOURCES:;
+	case TRM_GET_RESOURCES:;
 		trm_card_t *card = arg;
 		card->vram_size        = gpu->card.vram_size;
 		card->planes_count     = gpu->card.planes_count;

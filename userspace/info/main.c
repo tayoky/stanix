@@ -65,7 +65,7 @@ int main(int argc,char **argv){
 	}
 
 	// try to print trm info
-	trm_card_t *card = trm_get_ressources(fd);
+	trm_card_t *card = trm_get_resources(fd);
 	if (card) {
 		printf("card       : %s\n", card->name);
 		printf("driver     : %s\n", card->driver);

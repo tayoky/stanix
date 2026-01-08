@@ -3,7 +3,7 @@
 
 #include "trm.h"
 
-trm_card_t *trm_get_ressources(int fd);
+trm_card_t *trm_get_resources(int fd);
 trm_fb_t *trm_get_framebuffer(int fd, uint32_t id);
 trm_plane_t *trm_get_plane(int fd, uint32_t id);
 trm_connector_t *trm_get_connector(int fd, uint32_t id);
