@@ -3,6 +3,7 @@
 
 #include <kernel/vfs.h>
 #include <kernel/device.h>
+#include <kernel/framebuffer.h>
 #include <stdint.h>
 
 #define FONT_TYPE_PSF1 0x01
@@ -14,6 +15,7 @@ typedef struct terminal_emu {
 	char font_type;
 	char activate;
 	vfs_fd_t *framebuffer_dev;
+	struct fb fb_info;
 	uintmax_t x;
 	uintmax_t y;
 	uint32_t font_color;

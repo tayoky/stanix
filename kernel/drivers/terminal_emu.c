@@ -79,9 +79,9 @@ void term_draw_char(char c,terminal_emu_t *terminal_dev){
 	for (uint16_t y = 0; y < header->characterSize; y++){
 		for (uint8_t x = 0; x < 8; x++){
 			if((font_data[current_byte] >> (7 - x)) & 0x01){
-				draw_pixel(terminal_dev->framebuffer_dev,terminal_dev->x + x,terminal_dev->y + y,font_color);
+				draw_pixel(terminal_dev->framebuffer_dev,terminal_dev->x + x,terminal_dev->y + y,font_color,&terminal_dev->fb_info);
 			} else {
-				draw_pixel(terminal_dev->framebuffer_dev,terminal_dev->x + x,terminal_dev->y + y,back_color);
+				draw_pixel(terminal_dev->framebuffer_dev,terminal_dev->x + x,terminal_dev->y + y,back_color,&terminal_dev->fb_info);
 			}
 		}
 		
@@ -227,10 +227,9 @@ void init_terminal_emualtor(void){
 	}
 
 	//init width height and the char buffer
-	struct fb fb_info;
-	vfs_ioctl(framebuffer_dev, IOCTL_GET_FB_INFO, &fb_info);
-	terminal_dev->width = fb_info.width / 8;
-	terminal_dev->height = fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
+	vfs_ioctl(framebuffer_dev, IOCTL_GET_FB_INFO, &terminal_dev->fb_info);
+	terminal_dev->width = terminal_dev->fb_info.width / 8;
+	terminal_dev->height = terminal_dev->fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
 
 	terminal_dev->font_type = FONT_TYPE_PSF1;
 	terminal_dev->font = font + sizeof(PSF1_Header);

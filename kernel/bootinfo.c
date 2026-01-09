@@ -41,7 +41,7 @@ struct limine_module_request module_request = {
 	.internal_module_count = 1
 };
 
-struct limine_framebuffer_request frambuffer_request ={
+struct limine_framebuffer_request framebuffer_request ={
 	.id = LIMINE_FRAMEBUFFER_REQUEST
 };
 LIMINE_REQUESTS_END_MARKER

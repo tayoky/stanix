@@ -8,7 +8,7 @@
 
 struct vfs_fd;
 
-typedef struct memseg_struct {
+typedef struct memseg {
 	uintptr_t addr;
 	size_t size;
 	uint64_t prot;

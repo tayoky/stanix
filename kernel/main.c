@@ -110,7 +110,7 @@ void kmain() {
 	init_tmpfs();
 	init_devices();
 	init_mem_devices();
-	init_frambuffer();
+	init_liminefb();
 	read_main_conf_file();
 	init_terminal_emualtor();
 	init_ptys();
