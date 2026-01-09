@@ -97,6 +97,12 @@ static ssize_t part_write(vfs_fd_t *fd,const void *buf,off_t offset,size_t count
 	return vfs_write(partition->dev,buf,offset + partition->offset,count);
 }
 
+static void part_destroy(device_t *device) {
+	part_t *part = (part_t*)device;
+	vfs_close(part->dev);
+	kfree(part->device.name);
+}
+
 static vfs_ops_t part_ops = {
 	.read  = part_read,
 	.write = part_write,
@@ -122,11 +128,12 @@ static int create_part(vfs_fd_t *dev,const char *target,off_t offset,size_t size
 	p->offset = offset;
 	p->size   = size;
 	p->info   = *info;
-	p->device.type   = DEVICE_BLOCK;
-	p->device.name   = strdup(path);
-	p->device.driver = &part_driver;
-	p->device.ops    = &part_ops;
-	int ret = register_device((device_t*)dev);
+	p->device.type    = DEVICE_BLOCK;
+	p->device.name    = strdup(path);
+	p->device.driver  = &part_driver;
+	p->device.ops     = &part_ops;
+	p->device.destroy = part_destroy;
+	int ret = register_device((device_t*)p);
 	if (ret < 0) {
 		kfree(p->device.name);
 		kfree(p);

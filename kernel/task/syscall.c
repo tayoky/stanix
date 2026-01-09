@@ -624,7 +624,7 @@ int sys_unlink(const char *pathname) {
 		return -EFAULT;
 	}
 
-	//unlink don't work on dir while vfs_unlink work on dir
+	// unlink don't work on dir while vfs_unlink work on dir
 	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY);
 	if (!node) {
 		return -ENOENT;
@@ -632,6 +632,12 @@ int sys_unlink(const char *pathname) {
 	if (node->flags & VFS_DIR) {
 		vfs_close_node(node);
 		return -EISDIR;
+	}
+	// check perm
+	if ((vfs_perm(node->parent) & 03) != 03) {
+		// TODO : sticky bit support
+		vfs_close_node(node);
+		return -EPERM;
 	}
 	vfs_close_node(node);
 
