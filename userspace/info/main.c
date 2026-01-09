@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/block.h>
+#include <libinput.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
@@ -75,6 +76,13 @@ int main(int argc,char **argv){
 	size_t size;
 	if(ioctl(fd, I_BLOCK_GET_SIZE, &size) >= 0){
 		printf("size       : %s\n", byte_amount(size));
+	}
+
+
+	// try to get input info
+	struct input_info input_info;
+	if(libinput_get_info(fd, &input_info) >= 0){
+		printf("class      : %s\n", libinput_subclass_string(input_info.if_class, input_info.if_subclass));
 	}
 
 	// try to print trm info

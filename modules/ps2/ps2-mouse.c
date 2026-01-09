@@ -26,6 +26,7 @@ static int set_mouse_rate(int port,int rate){
 
 static void mouse_handler(fault_frame *frame, void *arg){
 	(void)frame;
+	kdebugf("mouse event\n");
 	input_device_t *mouse = arg;
 	int flags = ps2_read();
 	int x = ps2_read();
@@ -76,6 +77,8 @@ static int mouse_probe(bus_addr_t *addr) {
 	mouse->device.driver = &ps2_mouse_driver;
 	mouse->device.name = strdup("mouse0");
 	mouse->device.addr = addr;
+	mouse->class = IE_CLASS_MOUSE;
+	mouse->subclass = IE_SUBCLASS_PS2_MOUSE;
 	register_input_device(mouse);
 	bus_register_handler(addr, mouse_handler, mouse);
 	return 0;

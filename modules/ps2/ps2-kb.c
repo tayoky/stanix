@@ -35,8 +35,6 @@ static void keyboard_handler(fault_frame *frame, void *arg){
 	struct input_event event;
 	memset(&event,0,sizeof(struct input_event));
 	event.timestamp = time;
-	event.ie_class = IE_CLASS_KEYBOARD;
-	event.ie_subclass = IE_SUBCLASS_PS2_KBD;
 	event.ie_type = IE_KEY_EVENT;
 	if(press){
 		event.ie_key.flags = IE_KEY_PRESS;
@@ -122,6 +120,8 @@ static int kb_probe(bus_addr_t *addr) {
 	keyboard->device.number = ps2_addr->port;
 	keyboard->device.name   = strdup("kb0");
 	keyboard->device.addr   = addr;
+	keyboard->class = IE_CLASS_KEYBOARD;
+	keyboard->subclass = IE_SUBCLASS_PS2_KBD;
 	register_input_device(keyboard);
 	bus_register_handler(addr, keyboard_handler, keyboard);
 	kdebugf("keyboard succefuly initialized\n");

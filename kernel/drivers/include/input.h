@@ -11,6 +11,8 @@ typedef struct input_device {
 	vfs_fd_t *controlling_fd;
 	vfs_ops_t *ops;
 	ring_buffer *events;
+    unsigned long class;
+    unsigned long subclass;
 } input_device_t;
 
 int register_input_device(input_device_t *device);

@@ -19,6 +19,11 @@ static int input_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		kdebugf("process %d drop control\n",get_current_proc()->pid);
 		device->controlling_fd = NULL;
 		return 0;
+	case I_INPUT_GET_INFO:;
+		struct input_info *info = arg;
+		info->if_class    = device->class;
+		info->if_subclass = device->subclass;
+		return 0;
 	default:
 		if (device->ops && device->ops->ioctl) ret = device->ops->ioctl(fd, req, arg);
 		return ret;
@@ -60,6 +65,8 @@ static vfs_ops_t input_ops = {
 };
 
 int send_input_event(input_device_t *device, struct input_event *event) {
+	event->ie_class    = device->class;
+	event->ie_subclass = device->subclass;
 	ringbuffer_write(device->events, event, sizeof(struct input_event), O_NONBLOCK);
 	return 0;
 }
