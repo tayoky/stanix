@@ -104,6 +104,8 @@ int create_pipe(vfs_fd_t **read, vfs_fd_t **write) {
 	(*write)->flags = O_WRONLY;
 	(*read)->type  = VFS_FILE;
 	(*write)->type = VFS_FILE;
+	(*read)->private  = pipe_inode;
+	(*write)->private = pipe_inode;
 
 	return 0;
 }
