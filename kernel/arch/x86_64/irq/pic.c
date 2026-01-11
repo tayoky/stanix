@@ -16,6 +16,11 @@
 #define ICW4_BUF_MASTER	0x0C		/* Buffered mode/master */
 #define ICW4_SFNM	0x10		/* Special fully nested (not) */
 
+static void surpirous_handler(fault_frame *frame, void *arg) {
+	(void)frame;
+	(void)arg;
+}
+
 void init_pic(){
 	// starts the initialization sequence (in cascade mode)
 	out_byte(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
@@ -43,11 +48,11 @@ void init_pic(){
 	kernel->pic_type = PIC_PIC;
 
 	//map the surpirous isr
-	irq_map(isr_ignore,7);
-	irq_map(isr_ignore,15);
+	irq_register_handler(7, surpirous_handler, NULL);
+	irq_register_handler(15, surpirous_handler, NULL);
 }
 
-void pic_mask(uintmax_t irq_num){
+void pic_mask(uintmax_t irq_num) {
 	uint8_t mask;
 	uint16_t port;
 	if(irq_num < 8){

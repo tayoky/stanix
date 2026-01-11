@@ -116,10 +116,10 @@ static int ps2_register_handler(bus_addr_t *addr, interrupt_handler_t handler, v
 	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
 	switch (ps2_addr->port) {
 	case 1:
-		irq_generic_map(handler,1, data);
+		irq_register_handler(1, handler, data);
 		return 0;
 	case 2:
-		irq_generic_map(handler,12, data);
+		irq_register_handler(12, handler, data);
 		return 0;
 	default:
 		return -EINVAL;

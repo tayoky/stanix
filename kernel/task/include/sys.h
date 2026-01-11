@@ -17,7 +17,7 @@ void init_syscall(void);
 #define SEEK_END 2
 #endif
 
-void syscall_handler(fault_frame *context);
+void syscall_handler(fault_frame *context, void *arg);
 int sys_open(const char *, int, mode_t);
 int sys_close(int);
 ssize_t sys_write(int, void *, size_t);
@@ -29,7 +29,6 @@ off_t sys_seek(int, int64_t, int);
 int sys_ioctl(int fd,uint64_t request,void *arg);
 int sys_usleep(useconds_t usec);
 int sys_sleepuntil(struct timeval *time);
-int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
 uint64_t sys_sbrk(intptr_t incr);
 pid_t sys_getpid();
 

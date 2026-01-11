@@ -17,7 +17,6 @@ typedef struct {
     uint64_t offset;
 } __attribute__((packed)) IDTR;
 
-void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags);
 void init_idt(void);
 void exception_handler();
 

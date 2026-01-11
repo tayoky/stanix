@@ -1,7 +1,7 @@
 %macro isr_no_code 2
     global %1
     %1:
-        push 0
+        push %2
         push %2
         jmp isr_base
 %endmacro
@@ -13,30 +13,43 @@
 %endmacro
 section .text
 extern isr_handler
-isr_no_code divide_exception, 0
-isr_no_code overflow_exception, 4
-isr_no_code invalid_op_exception, 6
-isr_code invalid_tss_exception, 10
-isr_code global_fault_exception, 13
-isr_code pagefault_exception, 14
-isr_no_code isr128, 128
 
-isr_no_code irq0 , 32
-isr_no_code irq1 , 33
-isr_no_code irq2 , 34
-isr_no_code irq3 , 35
-isr_no_code irq4 , 36
-isr_no_code irq5 , 37
-isr_no_code irq6 , 38
-isr_no_code irq7 , 39
-isr_no_code irq8 , 40
-isr_no_code irq9 , 41
-isr_no_code irq10, 42
-isr_no_code irq11, 43
-isr_no_code irq12, 44
-isr_no_code irq13, 45
-isr_no_code irq14, 46
-isr_no_code irq15, 47
+
+isr_no_code isr0, 0
+isr_no_code isr1, 1
+isr_no_code isr2, 2
+isr_no_code isr3, 3
+isr_no_code isr4, 4
+isr_no_code isr5, 5
+isr_no_code isr6, 6
+isr_no_code isr7, 7
+isr_code isr8, 8
+isr_no_code isr9, 9
+isr_code isr10, 10
+isr_code isr11, 11
+isr_code isr12, 12
+isr_code isr13, 13
+isr_code isr14, 14
+isr_no_code isr15, 15
+isr_no_code isr16, 16
+isr_code isr17, 17
+isr_no_code isr18, 18
+isr_no_code isr19, 19
+isr_no_code isr20, 20
+isr_code isr21, 21
+
+; futures interrupts
+%assign i 22
+%rep (32 - 22)
+    isr_no_code isr%+i, i
+    %assign i i+1
+%endrep
+
+%assign i 32
+%rep (256 - 32)
+    isr_no_code isr%+i, i
+    %assign i i+1
+%endrep
 
 isr_base:
     push r15
@@ -114,6 +127,4 @@ isr_base:
     pop r15
     add rsp,16
     iretq
-extern isr_ignore
-isr_ignore:
-	iretq
+    

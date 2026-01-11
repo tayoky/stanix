@@ -1,6 +1,7 @@
 #include <kernel/arch.h>
 #include <kernel/serial.h>
 #include <kernel/print.h>
+#include <kernel/asm.h>
 #include <errno.h>
 #include "idt.h"
 #include "gdt.h"
@@ -11,8 +12,9 @@
 void kmain();
 
 void _start(){
-	//init arch sepcfic stuff before launching
-	//generic main
+	// init arch sepcfic stuff before launching
+	// generic main
+	disable_interrupt();
 	init_serial();
 	init_gdt();
 	init_idt();
@@ -37,7 +39,7 @@ uintptr_t get_ptr_context(fault_frame *fault){
 
 
 void set_tls(void *tls){
-	//set fs base
+	// set fs base
 	asm volatile("wrmsr" : : "c"(0xc0000100), "d" ((uint32_t)(((uintptr_t)tls) >> 32)), "a" ((uint32_t)((uintptr_t)tls)));
 }
 
@@ -52,7 +54,7 @@ int arch_shutdown(int flags){
 		asm("lidt %0 ; int $16" : : "m" (zero_idtr));
 		__builtin_unreachable();
 	} else {
-		kdebugf("shutdown unimplemented");
+		kdebugf("shutdown unimplemented\n");
 		return -ENOSYS;
 	}
 }

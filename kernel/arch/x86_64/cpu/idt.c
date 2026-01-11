@@ -10,7 +10,7 @@
 #include "panic.h"
 #include "sys.h"
 
-void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){
+static void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){
 	idt[index].offset1 = (uint64_t)offset & 0xFFFF;
 	idt[index].offset2 = ((uint64_t)offset >> 16) & 0xFFFF;
 	idt[index].offset3 = ((uint64_t)offset >> 32) & 0xFFFFFFFF;
@@ -21,7 +21,7 @@ void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){
 	idt[index].selector = 0x08;
 }
 
-const char *error_msg[] = {
+static const char *error_msg[] = {
 	"divide by zero",
 	"debug",
 	"non maskable",
@@ -46,7 +46,7 @@ const char *error_msg[] = {
 	"control protection exception",
 };
 
-void page_fault_info(fault_frame *fault){
+static void page_fault_info(fault_frame *fault){
 	kprintf("page fault at address 0x%lx\n",fault->cr2);
 	if(fault->err_code & 0x04)kprintf("user");
 	else kprintf("OS");
@@ -60,53 +60,51 @@ void page_fault_info(fault_frame *fault){
 }
 
 void isr_handler(fault_frame *fault){
-	if(fault->err_type >= 32 && fault->err_type <= 47){
-		return irq_handler(fault);
-	}
-	//0x80 is syscall not a fault
-	if(fault->err_type == 0x80){
-		return syscall_handler(fault);
-	}
-	if(is_userspace(fault)){
-		if(fault->err_type == 14 && fault->cr2 != MAGIC_SIGRETURN){
-			kprintf("%p : segmentation fault (core dumped)\n",fault->rip);
-			page_fault_info(fault);
+	if (fault->err_type < 32) {
+		if (is_userspace(fault)) {
+			// debug info to debug userspace
+			if (fault->err_type == 14 && fault->cr2 != MAGIC_SIGRETURN) {
+				kprintf("%p : segmentation fault (core dumped)\n",fault->rip);
+				page_fault_info(fault);
+			}
+			fault_handler(fault);
+			return;
 		}
-		fault_handler(fault);
-		return;
-	}
-	kprintf("error : 0x%lx\n",fault->err_type);
-	if(fault->err_type < (sizeof(error_msg) / sizeof(char *))){
-		//show info for page fault
-		if(fault->err_type == 14){
-			page_fault_info(fault);
+		kprintf("error : 0x%lx\n",fault->err_type);
+		if (fault->err_type < (sizeof(error_msg) / sizeof(char *))) {
+			//show info for page fault
+			if (fault->err_type == 14) {
+				page_fault_info(fault);
+			}
+			panic(error_msg[fault->err_type],fault);
+		} else {
+			panic("unkown fault",fault);
 		}
-		panic(error_msg[fault->err_type],fault);
-	}else{
-		panic("unkown fault",fault);
+	} else {
+		irq_handler(fault);
 	}
-
 	return;
 }
 
 void init_idt(void){
 	kstatusf("init IDT... ");
 
-	//some exception other exceptions are not very important
-	set_idt_gate(kernel->arch.idt,0,&divide_exception,0x8E);
-	set_idt_gate(kernel->arch.idt,4,&overflow_exception,0x8E);
-	set_idt_gate(kernel->arch.idt,6,&invalid_op_exception,0x8E);
-	set_idt_gate(kernel->arch.idt,10,&invalid_tss_exception,0x8E);
-	set_idt_gate(kernel->arch.idt,13,&global_fault_exception,0x8E);
-	set_idt_gate(kernel->arch.idt,14,&pagefault_exception,0x8E);
+	// register exceptions handlers
+	#define X(name, i) set_idt_gate(kernel->arch.idt, i, name, 0x8E);
+	EXCEPTIONS();
+	#undef X
 
-	//syscall
-	set_idt_gate(kernel->arch.idt,0x80,&isr128,0xEF);
+	// irq
+	#define X(name, i) set_idt_gate(kernel->arch.idt, i, name, 0xEE);
+	IRQS();
+	#undef X
 
-	//create the IDTR
+	irq_register_handler(0x80 - 32, syscall_handler, NULL);
+
+	// create the IDTR
 	kernel->arch.idtr.size = sizeof(kernel->arch.idt) - 1;
 	kernel->arch.idtr.offset =(uint64_t) &kernel->arch.idt;
-	//and load it
+	// and load it
 	asm("lidt %0" : : "m" (kernel->arch.idtr));
 	kok();
 }

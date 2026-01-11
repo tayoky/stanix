@@ -1,6 +1,7 @@
 #include "irq.h"
 #include "idt.h"
 #include "pic.h"
+#include <kernel/interrupt.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include "panic.h"
@@ -22,29 +23,11 @@ extern void irq13();
 extern void irq14();
 extern void irq15();
 
-static void *handlers[16];
-static void *handlers_data[16];
+static interrupt_handler_t handlers[256 - 32];
+static void *handlers_data[256 - 32];
 
 void init_irq(void){
 	kstatusf("init irq chip... ");
-
-	//set generic handler
-	set_idt_gate(kernel->arch.idt,32,irq0,0x8E);
-	set_idt_gate(kernel->arch.idt,33,irq1,0x8E);
-	set_idt_gate(kernel->arch.idt,34,irq2,0x8E);
-	set_idt_gate(kernel->arch.idt,35,irq3,0x8E);
-	set_idt_gate(kernel->arch.idt,36,irq4,0x8E);
-	set_idt_gate(kernel->arch.idt,37,irq5,0x8E);
-	set_idt_gate(kernel->arch.idt,38,irq6,0x8E);
-	set_idt_gate(kernel->arch.idt,39,irq7,0x8E);
-	set_idt_gate(kernel->arch.idt,40,irq8,0x8E);
-	set_idt_gate(kernel->arch.idt,41,irq9,0x8E);
-	set_idt_gate(kernel->arch.idt,42,irq10,0x8E);
-	set_idt_gate(kernel->arch.idt,43,irq11,0x8E);
-	set_idt_gate(kernel->arch.idt,44,irq12,0x8E);
-	set_idt_gate(kernel->arch.idt,45,irq13,0x8E);
-	set_idt_gate(kernel->arch.idt,46,irq14,0x8E);
-	set_idt_gate(kernel->arch.idt,47,irq15,0x8E);
 
 	//TODO : implement and use APIC if avalible
 	init_pic();
@@ -58,48 +41,34 @@ void init_irq(void){
 	}
 }
 
-void irq_map(void *handler,int irq_num){
-	//first add it into the IDT
-	set_idt_gate(kernel->arch.idt,irq_num + 32,handler,0x8E);
 
-	//and then unmask it
-	switch (kernel->pic_type)
-	{
-	case PIC_PIC:
-		pic_unmask(irq_num);
-		break;
-	
-	default:
-		//well hum .. we use an unknow irq chip 
-		//should not be possible
-		break;
+int irq_allocate(interrupt_handler_t handler, void *data) {
+	int i = 64;
+	while (i<256 - 32) {
+		if (!handlers[i]) {
+			handlers[i] = handler;
+			irq_register_handler(i, handler, data);
+			return i;
+		}
+		i++;
 	}
+	return -1;
 }
 
-void irq_generic_map(void *handler,int irq_num, void *data){
+void irq_register_handler(int irq_num, interrupt_handler_t handler, void *data) {
 	// save the handler
 	handlers[irq_num] = handler;
 	handlers_data[irq_num] = data;
 
-	// and then unmask it
+	// and then mask/unmask it
 	switch (kernel->pic_type)
 	{
 	case PIC_PIC:
-		pic_unmask(irq_num);
-		break;
-	
-	default:
-		//well hum .. we use an unknow irq chip 
-		//should not be possible
-		break;
-	}
-}
-
-void irq_mask(int irq_num){
-	switch (kernel->pic_type)
-	{
-	case PIC_PIC:
-		pic_mask(irq_num);
+		if (handler) {
+			pic_unmask(irq_num);
+		} else {
+			pic_mask(irq_num);
+		}
 		break;
 	
 	default:
@@ -123,15 +92,15 @@ void irq_eoi(int irq_num){
 	}
 }
 
-void irq_handler(fault_frame *frame){
-	void (*handler)(fault_frame *, void *) = handlers[frame->err_type - 32];
+void irq_handler(fault_frame *frame) {
+	interrupt_handler_t handler = handlers[frame->err_type - 32];
 	void *data = handlers_data[frame->err_type - 32];
 	frame->err_code = frame->err_type - 32;
 	if(handler){
 		handler(frame, data);
 	}
 	// if the err_code is -1 then it aready send eoi
-	if(frame->err_code != (uintptr_t)-1){
+	if(frame->err_code != (uintptr_t)-1 && frame->err_type < 48){
 		irq_eoi(frame->err_code);
 	}
 }
