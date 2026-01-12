@@ -78,6 +78,9 @@ static void mouse_handler(fault_frame *frame, void *arg){
 	if(flags & (1 << 5)){
 		y = y - 256;
 	}
+	// FIXME : HACK to avoid jumping
+	if (x > 200 || x < -200) x = 0;
+	if (y > 200 || y < -200) y = 0;
 
 	if (x != 0 || y != 0) {
 		struct input_event event = {
