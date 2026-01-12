@@ -10,6 +10,8 @@ void handle_mouse(void) {
         long new_y = cursor.y + event.ie_move.y;
         if (new_x < 0) new_x = 0;
         if (new_y < 0) new_y = 0;
+        if (new_x + theme.cursor_texture->width  > gfx->width)  new_x = gfx->width  - theme.cursor_texture->width;
+        if (new_y + theme.cursor_texture->height > gfx->height) new_y = gfx->height - theme.cursor_texture->height;
         render_and_move_cursor(&cursor, new_x, new_y);
     }
 }

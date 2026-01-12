@@ -8,3 +8,8 @@ color_t gfx_color(gfx_t *gfx,uint8_t r,uint8_t g,uint8_t b){
 
 	return rs << gfx->red_mask_shift | gs << gfx->green_mask_shift | bs << gfx->blue_mask_shift;
 }
+
+
+color_t gfx_color_rgba(gfx_t *gfx,uint8_t r,uint8_t g,uint8_t b,uint8_t a) {
+	return gfx_color(gfx, r, g, b) | (a << 24);
+}

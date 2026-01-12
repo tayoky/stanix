@@ -44,6 +44,17 @@ void gfx_draw_texture(gfx_t *gfx,texture_t *texture,long x,long y){
 	}
 }
 
+void gfx_draw_texture_alpha(gfx_t *gfx,texture_t *texture,long x,long y){
+	// TODO : actual transparency
+	for(size_t tx=0; tx<texture->width; tx++){
+		for (size_t ty = 0; ty < texture->height; ty++){
+			if (texture->bitmap[tx + ty * texture->width] & 0xFF000000) {
+				gfx_draw_pixel(gfx,texture->bitmap[tx + ty * texture->width],tx + x,ty + y);
+			}
+		}
+	}
+}
+
 void gfx_draw_texture_scale(gfx_t *gfx,texture_t *texture,long x,long y,float scale_x,float scale_y){
 	size_t rx = 0;
 	scale_x = 1 / scale_x;

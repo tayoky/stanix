@@ -58,6 +58,6 @@ void render_and_move_cursor(cursor_t *cursor, long new_x, long new_y) {
 	cursor->x = new_x;
 	cursor->y = new_y;
 	save(cursor->saved, cursor->x, cursor->y, theme.cursor_texture->width, theme.cursor_texture->height);
-	gfx_draw_texture(gfx, theme.cursor_texture, cursor->x, cursor->y);
+	gfx_draw_texture_alpha(gfx, theme.cursor_texture, cursor->x, cursor->y);
 	gfx_push_rect(gfx, cursor->x, cursor->y, 32, 32);
 }
