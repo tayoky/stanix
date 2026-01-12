@@ -10,16 +10,23 @@ void render_window_decor(window_t *window) {
 	long border_width = window->width + theme.border_width;
 	long border_height = window->height + 2 * theme.border_width + theme.titlebar_height;
 
+	// titlebar
 	gfx_draw_rect(gfx, theme.primary, window->x, titlebar_y,
 		window->width, theme.titlebar_height);
 	gfx_draw_string(gfx, font, theme.font_color, window->x, titlebar_y, window->title);
+
+	// main border
 	gfx_draw_wire_rect(gfx, theme.secondary, border_x, border_y, border_width, border_height, theme.border_width);
+
+	// middle border
+	gfx_draw_rect(gfx, theme.secondary, window->x, window->y - theme.border_width, window->width, theme.border_width);
+	
 	gfx_push_rect(gfx, border_x, border_y, border_width + theme.border_width, border_height + theme.border_width);
 }
 
 void render_window_content(window_t *window) {
 	if (!window->fb_addr) {
-		gfx_draw_rect(gfx, 0,  window->x, window->y + theme.border_width + theme.titlebar_height, window->width, window->height);
+		gfx_draw_rect(gfx, 0,  window->x, window->y, window->width, window->height);
 		return;
 	}
 	uintptr_t dest_ptr = gfx_pixel_addr(gfx, window->x, window->y);
