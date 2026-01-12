@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <twm.h>
+#include <libinput.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,6 +14,9 @@ gfx_t *gfx;
 font_t *font;
 theme_t theme;
 int server_socket;
+int kb;
+int mouse;
+cursor_t cursor;
 utils_hashmap_t windows;
 utils_vector_t clients;
 
@@ -45,6 +49,20 @@ int main() {
 	if (!path) {
 		putenv("TWM=/tmp/twm0.sock");
 		path = "/tmp/twm0.sock";
+	}
+	char *kb_path = getenv("KB");
+	if (!kb_path) kb_path = "/dev/kb0";
+	char *mouse_path = getenv("MOUSE");
+	if (!mouse_path) mouse_path = "/dev/mouse0";
+	mouse = libinput_open(mouse_path, 0);
+	if (mouse < 0) {
+		perror(mouse_path);
+		return 1;
+	}
+	kb = libinput_open(kb_path, 0);
+	if (kb < 0) {
+		perror(kb_path);
+		return 1;
 	}
 
 	server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -87,11 +105,21 @@ int main() {
 
 	load_theme();
 
+
+	theme.cursor_texture = gfx_load_texture(gfx, "/usr/share/twm/cursor.qoi");
+	if (!font) {
+		error("no cursor image");
+		return 1;
+	}
+
 	utils_init_hashmap(&windows, 512);
 	utils_init_vector(&clients, sizeof(client_t));
 
+	init_cursor(&cursor);
+	render_and_move_cursor(&cursor, 0, 0);
+
 	for (;;) {
-		struct pollfd fds[clients.count + 1];
+		struct pollfd fds[clients.count + 3];
 		for (size_t i=0; i<clients.count; i++) {
 			client_t *client = utils_vectot_at(&clients, i);
 			fds[i].events = POLLIN | POLLHUP;
@@ -99,16 +127,11 @@ int main() {
 		}
 		fds[clients.count].events = POLLIN;
 		fds[clients.count].fd = server_socket;
-		poll(fds, clients.count+1, 0);
-		for (size_t i=0; i<clients.count; i++) {
-			client_t *client = utils_vectot_at(&clients, i);
-			if (fds[i].revents & POLLIN) {
-				handle_request(client);
-			}
-			if (fds[i].revents & POLLHUP) {
-				kick_client(client);
-			}
-		}
+		fds[clients.count + 1].events = POLLIN;
+		fds[clients.count + 1].fd = kb;
+		fds[clients.count + 2].events = POLLIN;
+		fds[clients.count + 2].fd = mouse;
+		poll(fds, clients.count+3, 0);
 		if (fds[clients.count].revents & POLLIN) {
 			int client_fd = accept(server_socket, NULL, NULL);
 			if (client_fd < 0) {
@@ -121,6 +144,21 @@ int main() {
 			};
 			utils_vector_push_back(&clients, &client);
 		}
+		if (fds[clients.count + 1].revents & POLLIN) {
+			handle_keyboard();
+		}
+		if (fds[clients.count + 2].revents & POLLIN) {
+			handle_mouse();
+		}
+		for (size_t i=0; i<clients.count; i++) {
+			client_t *client = utils_vectot_at(&clients, i);
+			if (fds[i].revents & POLLIN) {
+				handle_request(client);
+			}
+			if (fds[i].revents & POLLHUP) {
+				kick_client(client);
+			}
+		}
 	}
 
 	utils_free_hashmap(&windows);
@@ -129,5 +167,7 @@ int main() {
 	gfx_free_font(font);
 	gfx_free(gfx);
 	close(server_socket);
+	libinput_close(mouse);
+	libinput_close(kb);
 	return 0;
 }

@@ -31,3 +31,33 @@ void render_window_content(window_t *window) {
 		dest_ptr += gfx->pitch;
 	}
 }
+
+void init_cursor(cursor_t *cursor) {
+	cursor->saved = malloc(theme.cursor_texture->width * theme.cursor_texture->height * gfx->bpp / 8);
+}
+
+static void save(char *buf, long x, long y, long width, long height) {
+	for (long i=0; i<height; i++) {
+		void *src = (void*)gfx_pixel_addr(gfx, x, y + i);
+		memcpy(buf, src, width * gfx->bpp / 8);
+		buf += width * gfx->bpp / 8;
+	}
+}
+
+static void restore(const char *buf, long x, long y, long width, long height) {
+	for (long i=0; i<height; i++) {
+		void *dest = (void*)gfx_pixel_addr(gfx, x, y + i);
+		memcpy(dest, buf, width * gfx->bpp / 8);
+		buf += width * gfx->bpp / 8;
+	}
+}
+
+void render_and_move_cursor(cursor_t *cursor, long new_x, long new_y) {
+	restore(cursor->saved, cursor->x, cursor->y, theme.cursor_texture->width, theme.cursor_texture->height);
+	gfx_push_rect(gfx, cursor->x, cursor->y,theme.cursor_texture->width, theme.cursor_texture->height);
+	cursor->x = new_x;
+	cursor->y = new_y;
+	save(cursor->saved, cursor->x, cursor->y, theme.cursor_texture->width, theme.cursor_texture->height);
+	gfx_draw_texture(gfx, theme.cursor_texture, cursor->x, cursor->y);
+	gfx_push_rect(gfx, cursor->x, cursor->y, 32, 32);
+}

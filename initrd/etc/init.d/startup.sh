@@ -20,6 +20,7 @@ insmod /mod/part.ko
 insmod /mod/fat.ko
 insmod /mod/8042.ko
 insmod /mod/ps2-kb.ko
+insmod /mod/ps2-mouse.ko
 insmod /mod/serial.ko
 echo "mount partitions"
 automount

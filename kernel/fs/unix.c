@@ -54,8 +54,8 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 	if (socket->status != UNIX_STATUS_INIT) return -EINVAL;
 
 	vfs_node_t *node = vfs_get_node(address->sun_path, O_RDWR);
-	unix_socket_t *server = (unix_socket_t*)node->private_inode2;
 	if (!node) return -ECONNREFUSED;
+	unix_socket_t *server = (unix_socket_t*)node->private_inode2;
 	vfs_close_node(node);
 	if (!(node->flags & VFS_SOCK) || (server->status != UNIX_STATUS_LISTEN) || 
 		server->socket.type != sock->type || server->socket.domain != sock->domain) return -ECONNREFUSED;
