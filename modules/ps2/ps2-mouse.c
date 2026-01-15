@@ -15,6 +15,10 @@
 typedef struct ps2_mouse {
 	input_device_t device;
 	int button;
+	int packet;
+	int flags;
+	int y;
+	int x;
 } ps2_mouse_t;
 
 static device_driver_t ps2_mouse_driver;
@@ -32,19 +36,28 @@ static int set_mouse_rate(int port,int rate){
 static void mouse_handler(fault_frame *frame, void *arg){
 	(void)frame;
 	ps2_mouse_t *mouse = arg;
-	int flags = ps2_read();
-	int x = ps2_read();
-	int y = ps2_read();
+	switch (mouse->packet++) {
+	case 0:
+		mouse->flags = ps2_read();
+		return 0;
+	case 1:
+		mouse->x = ps2_read();
+		return 0;
+	case 2:
+		mouse->y = ps2_read();
+		mouse->packet = 0;
+		break;
+	}
 
-	if (flags & 0xC0) {
+	if (mouse->flags & 0xC0) {
 		// overflow so just ingore
 		return;
 	} 
 
 	// did buttons changes
-	if ((flags & 0x7) != mouse->button) {
-		kdebugf("button %d %d %d\n",flags & 2, flags & 4, flags & 1);
-		int change = (flags & 0x07) ^ mouse->button;
+	if ((mouse->flags & 0x7) != mouse->button) {
+		kdebugf("button %d %d %d\n", mouse->flags & 2, mouse->flags & 4, mouse->flags & 1);
+		int change = (mouse->flags & 0x07) ^ mouse->button;
 		for (int i = 0; i<3; i++) {
 			if (!(change & (1 << i))) continue;
 			struct input_event event = {
@@ -61,26 +74,26 @@ static void mouse_handler(fault_frame *frame, void *arg){
 				event.ie_key.scancode = INPUT_KEY_MOUSE_MIDDLE;
 				break;
 			}
-			if (flags & 0x7 & (1 << i)) {
+			if (mouse->flags & 0x7 & (1 << i)) {
 				event.ie_key.flags = IE_KEY_PRESS;
 			} else {
 				event.ie_key.flags = IE_KEY_RELEASE;
 			}
 			send_input_event((input_device_t*)mouse, &event);
 		}
-		mouse->button = flags & 0x7;
+		mouse->button = mouse->flags & 0x7;
 	}
 
-	if(flags & (1 << 4)){
+	int x = mouse->x;
+	int y = mouse->y;
+
+	if(mouse->flags & (1 << 4)){
 		x = x - 256;
 	}
 
-	if(flags & (1 << 5)){
+	if(mouse->flags & (1 << 5)){
 		y = y - 256;
 	}
-	// FIXME : HACK to avoid jumping
-	if (x > 200 || x < -200) x = 0;
-	if (y > 200 || y < -200) y = 0;
 
 	if (x != 0 || y != 0) {
 		struct input_event event = {
