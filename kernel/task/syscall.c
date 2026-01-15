@@ -67,7 +67,7 @@ int sys_open(const char *path, int flags, mode_t mode) {
 
 	file_descriptor *file = &FD_GET(fd);
 
-	int vfs_flags = flags & (O_RDONLY | O_WRONLY | O_RDWR | O_NOFOLLOW | O_NONBLOCK);
+	int vfs_flags = flags & (O_RDONLY | O_WRONLY | O_RDWR | O_NOFOLLOW | O_NONBLOCK | O_APPEND);
 
 	vfs_fd_t *vfs_fd = vfs_open(path, vfs_flags);
 
@@ -140,10 +140,7 @@ int sys_open(const char *path, int flags, mode_t mode) {
 
 	//now apply the flags on the fd
 	file->flags = 0;
-
-	if (flags & O_APPEND) {
-		file->flags |= FD_APPEND;
-	}
+	
 	if (flags & O_CLOEXEC) {
 		file->flags |= FD_CLOEXEC;
 	}
@@ -174,7 +171,7 @@ ssize_t sys_write(int fd, void *buffer, size_t count) {
 	file_descriptor *file = &FD_GET(fd);
 
 	//if append go to the end
-	if (FD_CHECK(fd, FD_APPEND)) {
+	if (FD_GET(fd).fd->flags & O_APPEND) {
 		struct stat st;
 		vfs_getattr(file->fd->inode, &st);
 		file->offset = st.st_size;
@@ -379,10 +376,14 @@ int sys_pipe(int pipefd[2]) {
 		FD_GET(read).present = 0;
 		return -ENXIO;
 	}
-	FD_GET(write).flags = 0;
 	FD_GET(write).present = 1;
-
-	create_pipe(&FD_GET(read).fd, &FD_GET(write).fd);
+	FD_GET(write).flags = 0;
+	int ret = create_pipe(&FD_GET(read).fd, &FD_GET(write).fd);
+	if (ret < 0) {
+		FD_GET(write).present = 0;
+		FD_GET(read).present = 0;
+		return ret;
+	}
 
 	pipefd[0] = read;
 	pipefd[1] = write;
@@ -1194,9 +1195,9 @@ int sys_fcntl(int fd, int op, int arg) {
 		//TODO respect arg
 		return sys_dup(fd);
 	case F_GETFD:
-		return FD_GET(fd).flags & ~0xFUL;
+		return FD_GET(fd).flags;
 	case F_SETFD:
-		FD_GET(fd).flags = (FD_GET(fd).flags & 0xFUL) | (arg & ~0xFUL);
+		FD_GET(fd).flags = arg;
 		return 0;
 	default:
 		return -EINVAL;

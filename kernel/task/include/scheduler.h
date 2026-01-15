@@ -26,8 +26,6 @@ typedef struct {
 	long flags;
 } file_descriptor;
 
-#define FD_APPEND   0x04
-
 struct process;
 
 typedef struct task {

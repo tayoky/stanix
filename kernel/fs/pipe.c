@@ -20,7 +20,7 @@ static ssize_t pipe_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count)
 	pipe_t *pipe_inode = (pipe_t *)fd->private;
 
 	//broken pipe check
-	if(pipe_inode->isbroken){
+	if(pipe_inode->isbroken && !ringbuffer_read_available(pipe_inode->ring)){
 		return 0;
 	}
 
