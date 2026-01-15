@@ -96,11 +96,10 @@ void irq_handler(fault_frame *frame) {
 	interrupt_handler_t handler = handlers[frame->err_type - 32];
 	void *data = handlers_data[frame->err_type - 32];
 	frame->err_code = frame->err_type - 32;
+	if(frame->err_type < 48){
+		irq_eoi(frame->err_code);
+	}
 	if(handler){
 		handler(frame, data);
-	}
-	// if the err_code is -1 then it aready send eoi
-	if(frame->err_code != (uintptr_t)-1 && frame->err_type < 48){
-		irq_eoi(frame->err_code);
 	}
 }

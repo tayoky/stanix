@@ -23,9 +23,6 @@ void pit_handler(fault_frame *frame, void *arg){
 		time.tv_sec++;
 	}
 
-	irq_eoi(frame->err_code);
-	frame->err_code = (uintptr_t)-1;
-
 	timer_handler(frame);
 }
 
