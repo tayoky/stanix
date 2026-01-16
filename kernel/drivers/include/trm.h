@@ -21,6 +21,7 @@ typedef struct trm_ops {
 } trm_ops_t;
 
 typedef struct trm_alloc_block {
+    list_node_t node;
 	uintptr_t base;
 	size_t size;
 	int free;
@@ -40,7 +41,7 @@ typedef struct trm_gpu {
     trm_card_t card;
     trm_mode_t mode;
     trm_ops_t *ops;
-    list_t *alloc_blocks;
+    list_t alloc_blocks;
     utils_hashmap_t fbs;
     struct vfs_fd *master;
     uintptr_t vram_mmio;

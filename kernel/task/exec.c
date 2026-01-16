@@ -91,11 +91,10 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	saved_envp[envc] = NULL; // last NULL entry at the end
 
 	//unmap everything;
-	list_node *current = get_current_proc()->memseg->frist_node;
+	memseg_node_t *current = (memseg_node_t*)get_current_proc()->memseg.first_node;
 	while (current) {
-		list_node *next = current->next;
-		memseg_unmap(get_current_proc(), current->value);
-		list_remove(get_current_proc()->memseg, current->value);
+		memseg_node_t *next = (memseg_node_t*)current->node.next;
+		memseg_unmap(get_current_proc(), current->seg);
 		current = next;
 	}
 

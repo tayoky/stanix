@@ -98,8 +98,8 @@ static void handle_default(int signum) {
 
 int send_sig_pgrp(pid_t pgrp, int signum) {
 	int ret = -1;
-	foreach(node, proc_list) {
-		process_t *proc = node->value;
+	foreach(node, &proc_list) {
+		process_t *proc = container_from_node(process_t*, proc_list_node, node);
 		if (proc->group == pgrp) {
 			send_sig(proc, signum);
 			ret = 0;

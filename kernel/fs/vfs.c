@@ -15,21 +15,21 @@
 //TODO : make this process specific
 vfs_node_t *root;
 
-list_t*fs_types;
+list_t fs_types;
 
 void init_vfs(void){
 	kstatusf("init vfs... ");
 	root = NULL;
-	fs_types  = new_list();
+	init_list(&fs_types);
 	kok();
 }
 
-void vfs_register_fs(vfs_filesystem *fs){
-	list_append(fs_types,fs);
+void vfs_register_fs(vfs_filesystem_t *fs){
+	list_append(&fs_types, &fs->node);
 }
 
-void vfs_unregister_fs(vfs_filesystem *fs){
-	list_remove(fs_types,fs);
+void vfs_unregister_fs(vfs_filesystem_t *fs){
+	list_remove(&fs_types, &fs->node);
 }
 
 //basename without modyfing anything
@@ -48,8 +48,8 @@ static const char *vfs_basename(const char *path){
 }
 
 int vfs_auto_mount(const char *source,const char *target,const char *filesystemtype,unsigned long mountflags,const void *data){
-	foreach(node,fs_types){
-		vfs_filesystem *fs = node->value;
+	foreach(node, &fs_types){
+		vfs_filesystem_t *fs = (vfs_filesystem_t*)node;
 		if(!strcmp(fs->name,filesystemtype)){
 			if(!fs->mount){
 				return -ENODEV;

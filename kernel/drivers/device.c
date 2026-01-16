@@ -61,8 +61,8 @@ static void __init_bus_with_driver_helper(void *element, void *arg) {
 	bus_t *bus = element;
 	device_driver_t *driver = arg;
 	if (bus->device.type != DEVICE_BUS) return;
-	foreach (node, bus->addresses) {
-		bus_addr_t *addr = node->value;
+	foreach (node, &bus->addresses) {
+		bus_addr_t *addr = (bus_addr_t*)node;
 		init_device_with_driver(addr, driver);
 	}
 }
@@ -106,8 +106,8 @@ int register_device(device_t *device) {
 	utils_hashmap_add(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
 		bus_t *bus = (bus_t*)device;
-		foreach (node, bus->addresses) {
-			bus_addr_t *addr = node->value;
+		foreach (node, &bus->addresses) {
+			bus_addr_t *addr = (bus_addr_t*)node;
 			// just in case the driver forgot
 			addr->bus = bus;
 			init_device(addr);

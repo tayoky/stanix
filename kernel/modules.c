@@ -35,7 +35,7 @@ static uintptr_t ptr = ((uintptr_t)&p_kernel_end) + PAGE_SIZE;
 
 
 exported_sym *exported_sym_list = NULL;
-list_t *loaded_mods;
+list_t loaded_mods;
 
 int check_mod_header(Elf_Ehdr *header) {
 	if (memcmp(header->e_ident, ELFMAG, 4)) {
@@ -114,13 +114,13 @@ int insmod(const char *pathname, const char **args, char **name) {
 	char *mod = map_mod(PAGE_ALIGN_UP(st.st_size));
 	vfs_read(file, mod, 0, st.st_size);
 
-	loaded_module *module = kmalloc(sizeof(loaded_module));
-	memset(module, 0, sizeof(loaded_module));
-	kmodule_section *main_section = kmalloc(sizeof(kmodule_section));
-	memset(main_section, 0, sizeof(kmodule_section));
+	loaded_module_t *module = kmalloc(sizeof(loaded_module_t));
+	memset(module, 0, sizeof(loaded_module_t));
+	kmodule_section_t *main_section = kmalloc(sizeof(kmodule_section_t));
+	memset(main_section, 0, sizeof(kmodule_section_t));
 
-	module->sections = new_list();
-	list_append(module->sections, main_section);
+	init_list(&module->sections);
+	list_append(&module->sections, &main_section->node);
 	main_section->base = mod;
 	main_section->size = PAGE_ALIGN_UP(st.st_size);
 
@@ -128,19 +128,19 @@ int insmod(const char *pathname, const char **args, char **name) {
 	for (int i=0; i < header.e_shnum; i++) {
 		Elf_Shdr *sheader = get_Shdr(i);
 		if (sheader->sh_type == SHT_NOBITS && sheader->sh_flags & SHF_ALLOC) {
-			kmodule_section *section = kmalloc(sizeof(kmodule_section));
-			memset(section, 0, sizeof(kmodule_section));
+			kmodule_section_t *section = kmalloc(sizeof(kmodule_section_t));
+			memset(section, 0, sizeof(kmodule_section_t));
 			section->base = map_mod(sheader->sh_size);
 			section->size = sheader->sh_size;
 			memset(section->base, 0, section->size);
 			sheader->sh_addr = (Elf_Addr)section->base;
-			list_append(module->sections, section);
+			list_append(&module->sections, &section->node);
 		} else {
 			sheader->sh_addr = (Elf_Addr)mod + sheader->sh_offset;
 		}
 	}
 
-	kmodule *module_meta = NULL;
+	kmodule_t *module_meta = NULL;
 
 	//relocate and link symbols
 	for (int i=0; i < header.e_shnum; i++) {
@@ -170,7 +170,7 @@ int insmod(const char *pathname, const char **args, char **name) {
 			}
 
 			if (!strcmp(strtab + symtab[i].st_name, "module_meta")) {
-				module_meta = (kmodule *)symtab[i].st_value;
+				module_meta = (kmodule_t *)symtab[i].st_value;
 			}
 			//kdebugf("sym %s : %p\n",strtab + symtab[i].st_name,symtab[i].st_value);
 		}
@@ -256,7 +256,7 @@ int insmod(const char *pathname, const char **args, char **name) {
 
 	//add the module to the list
 	module->meta = module_meta;
-	list_append(loaded_mods, module);
+	list_append(&loaded_mods, &module->node);
 
 close:
 	vfs_close(file);
@@ -277,7 +277,7 @@ void init_mod() {
 	kstatusf("init exported symbol list and module loader ... ");
 
 	//init the list to keep track of all modules
-	loaded_mods = new_list();
+	init_list(&loaded_mods);
 
 	//export all symbols of the core module
 	for (size_t i = 0; i < symbols_count; i++) {

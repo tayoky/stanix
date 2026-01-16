@@ -18,11 +18,12 @@ typedef struct bus_ops {
 
 typedef struct bus {
 	device_t device;
+	list_t addresses;
 	bus_ops_t *ops;
-	list_t *addresses;
 } bus_t;
 
 typedef struct bus_addr {
+	list_node_t node;
 	device_t *device;
 	char *name;
 	bus_t *bus;

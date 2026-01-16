@@ -5,8 +5,9 @@
 #include <kernel/list.h>
 
 typedef struct sysfs_inode {
+    list_node_t node;
     const char *name;
-    list_t *child;
+    list_t child;
     int type;
     vfs_node_t *linked_node;
 } sysfs_inode;

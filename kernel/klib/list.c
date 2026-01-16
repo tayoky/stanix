@@ -3,115 +3,72 @@
 #include <kernel/string.h>
 #include <kernel/spinlock.h>
 
-list_t *new_list(){
-	list_t *l = kmalloc(sizeof(list_t));
-	memset(l,0,sizeof(list_t));
-	return l;
+void init_list(list_t *list) {
+	memset(list, 0, sizeof(list_t));
 }
 
-void free_list(list_t *l){
-	spinlock_acquire(&l->lock);
-	list_node *prev = NULL;
-	foreach(node,l){
-		if(prev){
-			kfree(prev);
-		}
-		prev = node;
-	}
-	if(prev){
-		kfree(prev);
-	}
-
-	kfree(l);
+void destroy_list(list_t *list) {
+	(void)list;
 }
 
-void list_append(list_t *l,void *value){
-	list_node *new_node = kmalloc(sizeof(list_node));
-	memset(new_node,0,sizeof(list_node));
-	new_node->value = value;
+void list_append(list_t *list, list_node_t *node) {
+	memset(node, 0, sizeof(list_node_t));
 
-	spinlock_acquire(&l->lock);
+	spinlock_acquire(&list->lock);
 
-	//link
-	new_node->prev = l->last_node;
-	if(l->last_node){
-		l->last_node->next = new_node;
-	}else {
-		l->frist_node = new_node;
+	// link
+	node->prev = list->last_node;
+	if (list->last_node) {
+		list->last_node->next = node;
+	} else {
+		list->first_node = node;
 	}
-	l->last_node = new_node;
+	list->last_node = node;
 
-	l->node_count++;
-	spinlock_release(&l->lock);
+	list->node_count++;
+	spinlock_release(&list->lock);
 }
 
-void list_add_after(list_t *l,list_node *node,void *value){
-	if(node) {
-		list_node *new_node = kmalloc(sizeof(list_node));
-		new_node->value = value;
-		spinlock_acquire(&l->lock);
-		
-		//link
-		new_node->prev = node;
-		new_node->next = node->next;
-		node->next = new_node;
-		if(new_node->next){
-			new_node->next->prev = new_node;
+void list_add_after(list_t *list, list_node_t *ref, list_node_t *node) {
+	memset(node, 0, sizeof(list_node_t));
+	spinlock_acquire(&list->lock);
+	// link
+	if (ref) {
+		node->prev = ref;
+		node->next = ref->next;
+		ref->next = node;
+		if (ref->next) {
+			ref->next->prev = node;
 		} else {
-			l->last_node = new_node;
+			list->last_node = node;
 		}
 	} else {
-		list_node *new_node = kmalloc(sizeof(list_node));
-		new_node->value = value;
-		new_node->prev = NULL;
-		spinlock_acquire(&l->lock);
-
-		//link
-		if(l->frist_node){
-			l->frist_node->prev = new_node;
+		node->prev = list->first_node;
+		if (list->first_node) {
+			list->first_node->next = node;
+		} else {
+			list->last_node = node;
 		}
-		new_node->next = l->frist_node;
-		l->frist_node = new_node;
+		list->first_node = node;
 	}
-
-	l->node_count++;
-	spinlock_release(&l->lock);
+	list->node_count++;
+	spinlock_release(&list->lock);
 }
 
-void list_remove(list_t *l,void *value){
-	spinlock_acquire(&l->lock);
-	foreach(node,l){
-		if(node->value == value){
-			if(node->prev){
-				node->prev->next = node->next;
-			} else {
-				l->frist_node = node->next;
-			}
-			if(node->next){
-				node->next->prev = node->prev;
-			} else {
-				l->last_node = node->prev;
-			}
-			l->node_count--;
-			spinlock_release(&l->lock);
-			return;
-		}
-	}
-	spinlock_release(&l->lock);
-}
-
-void list_remove_node(list_t *l,list_node *node){
-	spinlock_acquire(&l->lock);
-	if(node->prev){
+void list_remove(list_t *list, list_node_t *node) {
+	if (!node) return;
+	spinlock_acquire(&list->lock);
+	if (node->prev) {
 		node->prev->next = node->next;
 	} else {
-		l->frist_node = node->next;
+		list->first_node = node->next;
 	}
-	if(node->next){
+	if (node->next) {
 		node->next->prev = node->prev;
 	} else {
-		l->last_node = node->prev;
+		list->last_node = node->prev;
 	}
-	l->node_count--;
-	spinlock_release(&l->lock);
+	list->node_count--;
+
+	spinlock_release(&list->lock);
 }

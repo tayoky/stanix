@@ -2,6 +2,7 @@
 #define _KERNEL_SOCKET_H
 
 #include <kernel/vfs.h>
+#include <kernel/list.h>
 #include <sys/socket.h>
 
 struct socket_domain;
@@ -23,6 +24,7 @@ typedef struct socket {
 } socket_t;
 
 typedef struct socket_domain {
+	list_node_t node;
 	const char *name;
 	int domain;
 	socket_t *(*create)(int type, int protocol);

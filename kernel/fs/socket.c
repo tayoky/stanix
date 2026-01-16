@@ -4,10 +4,10 @@
 #include <kernel/string.h>
 #include <errno.h>
 
-static list_t *socket_domains;
+static list_t socket_domains;
 
 void init_sockets(void) {
-	socket_domains = new_list();
+	init_list(&socket_domains);
 }
 
 static ssize_t socket_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
@@ -65,8 +65,8 @@ static vfs_fd_t *open_socket(socket_t *socket) {
 }
 
 vfs_fd_t *create_socket(int domain, int type, int protocol) {
-	foreach (node, socket_domains) {
-		socket_domain_t *cur_domain = node->value;
+	foreach (node, &socket_domains) {
+		socket_domain_t *cur_domain = (socket_domain_t*)node;
 		if (cur_domain->domain == domain) {
 			return open_socket(cur_domain->create(type, protocol));
 		}
@@ -154,9 +154,9 @@ int socket_listen(vfs_fd_t *socket, int backlog) {
 }
 
 void register_socket_domain(socket_domain_t *domain) {
-	list_append(socket_domains, domain);
+	list_append(&socket_domains, &domain->node);
 }
 
 void unregister_socket_domain(socket_domain_t *domain) {
-	list_remove(socket_domains, domain);
+	list_remove(&socket_domains, &domain->node);
 }

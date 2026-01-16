@@ -16,8 +16,8 @@
 
 static task_t *running_task_tail;
 static task_t *running_task_head;
-list_t *proc_list;
-list_t *task_list;
+list_t proc_list;
+list_t task_list;
 task_t *sleeping_proc;
 spinlock sleep_lock;
 
@@ -36,8 +36,8 @@ static void idle_task() {
 void init_task() {
 	kstatusf("init kernel task... ");
 	//init the scheduler first
-	proc_list     = new_list();
-	task_list     = new_list();
+	init_list(&proc_list);
+	init_list(&task_list);
 	sleeping_proc = NULL;
 
 	//init the kernel task
@@ -45,9 +45,9 @@ void init_task() {
 	memset(kernel_task, 0, sizeof(process_t));
 	kernel_task->parent = kernel_task;
 	kernel_task->pid = 0;
-	kernel_task->child   = new_list();
-	kernel_task->memseg  = new_list();
-	kernel_task->threads = new_list();
+	init_list(&kernel_task->child);
+	init_list(&kernel_task->memseg);
+	init_list(&kernel_task->threads);
 	kernel_task->umask = 022;
 
 	//get the address space
@@ -62,7 +62,7 @@ void init_task() {
 	//the current task is the kernel task
 	kernel->current_task = kernel_task->main_thread;
 
-	list_append(proc_list, kernel_task);
+	list_append(&proc_list, &kernel_task->proc_list_node);
 
 	running_task_head = running_task_tail = NULL;
 
@@ -118,8 +118,8 @@ task_t *new_task(process_t *proc) {
 
 	thread->process = proc;
 
-	list_append(proc->threads, thread);
-	list_append(task_list, thread);
+	list_append(&proc->threads, &thread->thread_list_node);
+	list_append(&task_list, &thread->task_list_node);
 
 	return thread;
 }
@@ -131,9 +131,9 @@ process_t *new_proc() {
 
 	proc->addrspace = create_addr_space();
 	proc->parent  = get_current_proc();
-	proc->child   = new_list();
-	proc->memseg  = new_list();
-	proc->threads = new_list();
+	init_list(&proc->child);
+	init_list(&proc->memseg);
+	init_list(&proc->threads);
 	proc->uid     = get_current_proc()->uid;
 	proc->uid     = get_current_proc()->uid;
 	proc->euid    = get_current_proc()->euid;
@@ -145,16 +145,16 @@ process_t *new_proc() {
 	proc->main_thread = new_task(proc);
 	proc->pid =  proc->main_thread->tid;
 
-	//add it the the list of the childreen of the parent
-	list_append(proc->parent->child, proc);
+	// add it the the list of the childreen of the parent
+	list_append(&proc->parent->child, &proc->child_list_node);
 
-	//add it to the global process list
-	list_append(proc_list, proc);
+	// add it to the global process list
+	list_append(&proc_list, &proc->proc_list_node);
 
 	return proc;
 }
 
-//TODO arg don't work
+// TODO arg don't work
 process_t *new_kernel_task(void (*func)(uint64_t, char **), uint64_t argc, char *argv[]) {
 	process_t *proc = new_proc();
 	(void)argc;(void)argv;
@@ -185,8 +185,10 @@ process_t *new_kernel_task(void (*func)(uint64_t, char **), uint64_t argc, char 
 	return proc;
 }
 
-/// @brief push an task at the top of the queue
-/// @param proc 
+/**
+ * @brief push an task at the top of the queue
+ * @param proc 
+ */
 static void push_task(task_t *t) {
 	if (running_task_head) {
 		running_task_head->next = t;
@@ -258,12 +260,12 @@ static void alert_parent(process_t *proc) {
 }
 
 void kill_proc() {
-	//just kill the main thread
+	// just kill the main thread
 	if (get_current_task() == get_current_proc()->main_thread) {
-		//we are the main thread, diying will kill the proc
+		// we are the main thread, diying will kill the proc
 		kill_task();
 	} else {
-		//we are not the main thread
+		// we are not the main thread
 		send_sig_task(get_current_proc()->main_thread, SIGKILL);
 		kill_task();
 	}
@@ -272,37 +274,40 @@ void kill_proc() {
 static void do_proc_deletion(void) {
 	//all the childreen become orphelan
 	//the parent of orphelan is init
-	foreach(node, get_current_proc()->child) {
-		process_t *child = node->value;
+	foreach (node, &get_current_proc()->child) {
+		process_t *child = container_from_node(process_t*, child_list_node, node);
 
 		//we prevent the child from diying between when we set the parent and when we signal
 		//wich could lead to a race condition
 		spinlock_acquire(&child->state_lock);
 		child->parent = init;
-		list_append(init->child, child);
+		list_append(&init->child, &child->child_list_node);
 		if (atomic_load(&child->main_thread->flags) & TASK_FLAG_ZOMBIE)alert_parent(child);
 		spinlock_acquire(&child->state_lock);
 	}
-	free_list(get_current_proc()->child);
+	destroy_list(&get_current_proc()->child);
 
-	//close every open fd
+	// close every open fd
 	for (size_t i = 0; i < MAX_FD; i++) {
 		if (get_current_proc()->fds[i].present) {
 			vfs_close(get_current_proc()->fds[i].fd);
 		}
 	}
 
-	//close cwd
+	// close cwd
 	vfs_close_node(get_current_proc()->cwd_node);
 	kfree(get_current_proc()->cwd_path);
 
-	//unmap everything
-	foreach(node, get_current_proc()->memseg) {
-		memseg_unmap(get_current_proc(), node->value);
+	// unmap everything
+	memseg_node_t *current = (memseg_node_t*)get_current_proc()->memseg.first_node;
+	while (current) {
+		memseg_node_t *next = (memseg_node_t*)current->node.next;
+		memseg_unmap(get_current_proc(), current->seg);
+		current = next;
 	}
-	free_list(get_current_proc()->memseg);
+	destroy_list(&get_current_proc()->memseg);
 
-	free_list(get_current_proc()->threads);
+	destroy_list(&get_current_proc()->threads);
 }
 
 void kill_task(void) {
@@ -342,8 +347,8 @@ process_t *pid2proc(pid_t pid) {
 		return get_current_proc();
 	}
 
-	foreach(node, proc_list) {
-		process_t *proc = node->value;
+	foreach (node, &proc_list) {
+		process_t *proc = container_from_node(process_t*, proc_list_node, node);
 		if (proc->pid == pid) {
 			return proc;
 		}
@@ -353,13 +358,13 @@ process_t *pid2proc(pid_t pid) {
 }
 
 task_t *tid2task(pid_t tid) {
-	//is it ourself ?
+	// is it ourself ?
 	if (get_current_task()->tid == tid) {
 		return get_current_task();
 	}
 
-	foreach(node, task_list) {
-		task_t *thread = node->value;
+	foreach (node, &task_list) {
+		task_t *thread = container_from_node(task_t*, task_list_node, node);
 		if (thread->tid == tid) {
 			return thread;
 		}
@@ -411,18 +416,18 @@ void unblock_task(task_t *thread) {
 }
 
 void final_task_cleanup(task_t *thread) {
-	list_remove(task_list, thread);
+	list_remove(&task_list, &thread->task_list_node);
 	kfree((void *)thread->kernel_stack);
 	kfree(thread);
 }
 
 void final_proc_cleanup(process_t *proc) {
-	list_remove(proc_list, proc);
-	if (proc->parent)list_remove(proc->parent->child, proc);
+	list_remove(&proc_list, &proc->proc_list_node);
+	if (proc->parent)list_remove(&proc->parent->child, &proc->child_list_node);
 
 	final_task_cleanup(proc->main_thread);
 
-	//now we can free the paging tables
+	// now we can free the paging tables
 	delete_addr_space(proc->addrspace);
 	kfree(proc);
 }

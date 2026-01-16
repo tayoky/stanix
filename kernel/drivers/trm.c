@@ -12,20 +12,21 @@ static uintptr_t trm_alloc(trm_gpu_t *gpu, size_t size) {
 	if (size % gpu->align) {
 		size += gpu->align - (size % gpu->align);
 	}
-	foreach (node, gpu->alloc_blocks) {
-		trm_alloc_block_t *block = node->value;
+	foreach (node, &gpu->alloc_blocks) {
+		trm_alloc_block_t *block = (trm_alloc_block_t*)block;
 		if (!block->free || block->size < size) {
 			continue;
 		}
 
 		// we found a correct block
 		if (block->size > size) {
+			// we can cut
 			trm_alloc_block_t *new_block = kmalloc(sizeof(trm_alloc_block_t));
 			new_block->size = block->size - size;
 			new_block->base = block->base + size;
 			new_block->free = 1;
 			block->size = size;
-			list_add_after(gpu->alloc_blocks, node, new_block);
+			list_add_after(&gpu->alloc_blocks, node, &new_block->node);
 		}
 		block->free = 0;
 		return block->base;
@@ -233,10 +234,10 @@ static void trm_destroy(device_t *device) {
 	}
 	// TODO : cleanup everything
 	utils_free_hashmap(&gpu->fbs);
+	destroy_list(&gpu->alloc_blocks);
 	kfree(gpu->card.planes);
 	kfree(gpu->card.crtcs);
 	kfree(gpu->card.connectors);
-	free_list(gpu->alloc_blocks);
 	kfree(device->name);
 }
 
@@ -283,12 +284,12 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 		gpu->card.connectors[i].id = i + 1;
 	}
 
-	gpu->alloc_blocks = new_list();
+	init_list(&gpu->alloc_blocks);
 	trm_alloc_block_t *main_block = kmalloc(sizeof(trm_alloc_block_t));
 	main_block->size = gpu->card.vram_size;
 	main_block->base = 0;
 	main_block->free = 1;
-	list_append(gpu->alloc_blocks, main_block);
+	list_append(&gpu->alloc_blocks, &main_block->node);
 	utils_init_hashmap(&gpu->fbs, 32);
 
 	return register_device((device_t*)gpu);

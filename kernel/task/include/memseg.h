@@ -18,6 +18,11 @@ typedef struct memseg {
 	void *private_data;
 } memseg_t;
 
+typedef struct memseg_node {
+	list_node_t node;
+	memseg_t *seg;
+} memseg_node_t;
+
 memseg_t *memseg_create(process_t *proc,uintptr_t address,size_t size,uint64_t prot,int flags);
 int memseg_map(process_t *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_fd_t *fd,off_t offset,memseg_t **seg);
 void memseg_unmap(process_t *proc,memseg_t *seg);

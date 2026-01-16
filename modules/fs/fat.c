@@ -386,7 +386,7 @@ static vfs_ops_t fat_ops = {
 	.getattr = fat_getattr,
 };
 
-static vfs_filesystem fat_fs = {
+static vfs_filesystem_t fat_fs = {
 	.mount = fat_mount,
 	.name = "fat",
 };

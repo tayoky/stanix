@@ -12,11 +12,12 @@
 void init_tmpfs();
 vfs_node_t *new_tmpfs();
 
-struct tmpfs_inode_struct;
+struct tmpfs_inode;
 
-typedef struct tmpfs_inode_struct{
-	struct tmpfs_inode_struct *parent;
-	list_t *entries;
+typedef struct tmpfs_inode{
+	list_node_t node;
+	struct tmpfs_inode *parent;
+	list_t entries;
 	uint64_t flags;
 	size_t buffer_size;
 	char *buffer;
@@ -30,12 +31,13 @@ typedef struct tmpfs_inode_struct{
 	size_t link_count;
 	size_t open_count;
 	void *data;
-}tmpfs_inode;
+} tmpfs_inode_t;
 
-typedef struct tmpfs_dirent_struct {
+typedef struct tmpfs_dirent {
+	list_node_t node;
 	char name[PATH_MAX];
-	tmpfs_inode *inode;
-} tmpfs_dirent;
+	tmpfs_inode_t *inode;
+} tmpfs_dirent_t;
 
 #define TMPFS_FLAGS_FILE  0x01
 #define TMPFS_FLAGS_DIR   0x02

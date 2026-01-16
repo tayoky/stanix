@@ -14,18 +14,20 @@ typedef struct kmodule_struct {
 	int (*init)(int,char **);
 	int (*fini)(void);
 	void *base;               //the base address of the module
-} kmodule;
+} kmodule_t;
 
 
-typedef struct kmodule_section_struct {
+typedef struct kmodule_section {
+	list_node_t node;
 	void *base;
 	size_t size;
-} kmodule_section;
+} kmodule_section_t;
 
 typedef struct loaded_module_struct {
-	list_t *sections;
-	kmodule *meta;
-} loaded_module;
+	list_node_t node;
+	list_t sections;
+	kmodule_t *meta;
+} loaded_module_t;
 
 void __export_symbol(void *sym,const char *name);
 void __unexport_symbol(void *sym,const char *name);

@@ -579,11 +579,11 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 
 	if (pid == -1) {
 		//wait for any
-		threads_count = get_current_proc()->child->node_count;
+		threads_count = get_current_proc()->child.node_count;
 		threads = kmalloc(sizeof(task_t *) * threads_count);
 		size_t i = 0;
-		foreach(node, get_current_proc()->child) {
-			threads[i++] = ((process_t *)node->value)->main_thread;
+		foreach(node, &get_current_proc()->child) {
+			threads[i++] = container_from_node(process_t*, child_list_node, node)->main_thread;
 		}
 	} else {
 		//wait for pid
@@ -1012,10 +1012,11 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 int sys_munmap(void *addr, size_t len) {
 	if (!len)return -EINVAL;
 	if (!CHECK_PTR_INRANGE((uintptr_t)addr + len))return -EINVAL;
-	foreach(node, get_current_proc()->memseg) {
-		memseg_t *seg = node->value;
-		if (seg->addr >= (uintptr_t)addr && seg->addr + seg->addr <= (uintptr_t)addr + len) {
-			memseg_unmap(get_current_proc(), seg);
+	// FIXME : this is unsafe
+	foreach(node, &get_current_proc()->memseg) {
+		memseg_node_t *memseg_node = (memseg_node_t*)node;
+		if (memseg_node->seg->addr >= (uintptr_t)addr && memseg_node->seg->addr + memseg_node->seg->addr <= (uintptr_t)addr + len) {
+			memseg_unmap(get_current_proc(), memseg_node->seg);
 		}
 	}
 	return 0;

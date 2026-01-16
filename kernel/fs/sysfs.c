@@ -13,7 +13,7 @@ vfs_node_t *sysfs_root;
 static sysfs_inode *new_sysfs_inode(void){
     sysfs_inode *inode = kmalloc(sizeof(sysfs_inode));
     memset(inode,0,sizeof(sysfs_inode));
-    inode->child = new_list();
+    init_list(&inode->child);
     return inode;
 }
 
@@ -21,7 +21,7 @@ void sysfs_register(const char *name,vfs_node_t *node){
     sysfs_inode *inode = new_sysfs_inode();
     inode->linked_node = node;
     inode->name = strdup(name);
-    list_append(((sysfs_inode *)sysfs_root->private_inode)->child,inode);
+    list_append(&((sysfs_inode *)sysfs_root->private_inode)->child, &inode->node);
 }
 
 int sysfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
@@ -37,9 +37,9 @@ int sysfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
 	}
 
     index -=2;
-	foreach(node,inode->child){
+	foreach(node, &inode->child){
 		if(!index){
-            sysfs_inode *entry = node->value;
+            sysfs_inode *entry = (sysfs_inode*)node;
 			strcpy(dirent->d_name,entry->name);
 			return 0;
 		}
@@ -51,8 +51,8 @@ int sysfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent){
 
 vfs_node_t *sysfs_lookup(vfs_node_t *node,const char *name){
     sysfs_inode *inode = node->private_inode;
-	foreach(node,inode->child){
-        sysfs_inode *entry = node->value;
+	foreach(node, &inode->child){
+        sysfs_inode *entry = (sysfs_inode*)node;
 		if(!strcmp(name,entry->name)){
             return sysfs_inode2vnode(entry);
         }
@@ -83,7 +83,7 @@ int sysfs_mount(const char *source,const char *target,unsigned long flags,const 
     return vfs_mount(target,sysfs_root);
 }
 
-static vfs_filesystem sys_fs = {
+static vfs_filesystem_t sys_fs = {
     .name = "sysfs",
     .mount = sysfs_mount,
 };

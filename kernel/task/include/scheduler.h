@@ -29,6 +29,8 @@ typedef struct {
 struct process;
 
 typedef struct task {
+	list_node_t task_list_node;
+	list_node_t thread_list_node;
 	acontext context;
 	struct process *process;
 	struct task *snext;
@@ -54,6 +56,8 @@ typedef struct task {
 } task_t;
 
 typedef struct process {
+	list_node_t proc_list_node;
+	list_node_t child_list_node;
 	addrspace_t addrspace;
 	pid_t pid;
 	struct process *parent;
@@ -63,9 +67,9 @@ typedef struct process {
 	char *cwd_path;
 	uintptr_t heap_start;
 	uintptr_t heap_end;
-	list_t *memseg;
-	list_t *child;
-	list_t *threads;
+	list_t memseg;
+	list_t child;
+	list_t threads;
 	pid_t group;
 	pid_t sid;
 	uid_t uid;
@@ -140,7 +144,7 @@ int add_fd(vfs_fd_t *fd);
 #define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))
 #define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)
 
-extern list_t*proc_list;
+extern list_t proc_list;
 extern task_t *sleeping_proc;
 extern spinlock sleep_lock;
 

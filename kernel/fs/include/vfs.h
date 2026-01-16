@@ -1,6 +1,7 @@
 #ifndef _KERNEL_VFS_H
 #define _KERNEL_VFS_H
 
+#include <kernel/list.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -99,9 +100,10 @@ typedef struct vfs_mount_point_struct{
 } vfs_mount_point;
 
 typedef struct vfs_filesystem_struct {
+	list_node_t node;
 	char name[16];
 	int (*mount)(const char *source,const char *target,unsigned long flags,const void *data);
-} vfs_filesystem;
+} vfs_filesystem_t;
 
 void init_vfs(void);
 
@@ -280,8 +282,8 @@ static inline void vfs_munmap(vfs_fd_t *fd, struct memseg *seg) {
 	return fd->ops->munmap(fd, seg);
 }
 
-void vfs_register_fs(vfs_filesystem *fs);
-void vfs_unregister_fs(vfs_filesystem *fs);
+void vfs_register_fs(vfs_filesystem_t *fs);
+void vfs_unregister_fs(vfs_filesystem_t *fs);
 int vfs_auto_mount(const char *source,const char *target,const char *filesystemtype,unsigned long mountflags,const void *data);
 
 int vfs_perm(vfs_node_t *node);

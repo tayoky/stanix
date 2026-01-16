@@ -15,31 +15,31 @@ void memseg_fault_report(uintptr_t addr) {
 }
 
 memseg_t *memseg_create(process_t *proc, uintptr_t address, size_t size, uint64_t prot, int flags) {
-	list_node *prev = NULL;
+	memseg_node_t *prev = NULL;
 	if (address) {
 		//we need to page align everything
 		uintptr_t end = PAGE_ALIGN_UP(address + size);
 		address = PAGE_ALIGN_DOWN(address);
 		size = end - address;
-		foreach(node, proc->memseg) {
-			memseg_t *current = node->value;
-			if (current->addr < end && current->addr + current->size > address) {
+		foreach(node, &proc->memseg) {
+			memseg_node_t *current = (memseg_node_t*)node;
+			if (current->seg->addr < end && current->seg->addr + current->seg->size > address) {
 				//there already a seg here
 				return NULL;
 			}
-			if (current->addr > end) {
+			if (current->seg->addr > end) {
 				break;
 			}
-			prev = node;
+			prev = current;
 		}
 	} else {
 		//no address ? we need to find one ourself
-		foreach(node, proc->memseg) {
-			memseg_t *current = node->value;
-			memseg_t *next = node->next ? node->next->value : NULL;
-			if (!next || next->addr - (current->addr + current->size) >= size) {
-				address = current->addr + current->size;
-				prev = node;
+		foreach(node, &proc->memseg) {
+			memseg_node_t *current = (memseg_node_t*)node;
+			memseg_node_t *next = (memseg_node_t*)node->next;
+			if (!next || next->seg->addr - (current->seg->addr + current->seg->size) >= size) {
+				address = current->seg->addr + current->seg->size;
+				prev = current;
 				break;
 			}
 		}
@@ -59,9 +59,23 @@ memseg_t *memseg_create(process_t *proc, uintptr_t address, size_t size, uint64_
 	new_memseg->flags = flags;
 	new_memseg->ref_count = 1;
 
-	list_add_after(proc->memseg, prev, new_memseg);
+	memseg_node_t *memseg_node = kmalloc(sizeof(memseg_node_t));
+	memset(memseg_node, 0, sizeof(memseg_node_t));
+	memseg_node->seg = new_memseg;
+
+	list_add_after(&proc->memseg, &prev->node, &memseg_node->node);
 
 	return new_memseg;
+}
+
+static void remove_seg(process_t *proc, memseg_t *seg) {
+	foreach(node, &proc->memseg) {
+		memseg_node_t *memseg_node = (memseg_node_t*)node;
+		if (memseg_node->seg == seg) {
+			list_remove(&proc->memseg, node);
+			return;
+		}
+	}
 }
 
 int memseg_map(process_t *proc, uintptr_t address, size_t size, uint64_t prot, int flags, vfs_fd_t *fd, off_t offset, memseg_t **seg) {
@@ -90,7 +104,7 @@ int memseg_map(process_t *proc, uintptr_t address, size_t size, uint64_t prot, i
 	}
 
 	if (ret < 0) {
-		list_remove(proc->memseg, new_memseg);
+		remove_seg(proc, new_memseg);
 		kfree(new_memseg);
 	} else {
 		if (seg) *seg = new_memseg;
@@ -111,10 +125,9 @@ void memseg_chflag(process_t *proc, memseg_t *seg, uint64_t prot) {
 }
 
 void memseg_unmap(process_t *proc, memseg_t *seg) {
-	list_remove(proc->memseg, seg);
+	remove_seg(proc, seg);
 
 	//kdebugf("unmap %p %p\n",seg->addr,seg->size);
-
 
 	uintptr_t addr = seg->addr;
 	uintptr_t end = seg->addr + seg->size;
@@ -144,17 +157,19 @@ void memseg_unmap(process_t *proc, memseg_t *seg) {
 void memseg_clone(process_t *parent, process_t *child, memseg_t *seg) {
 	if (seg->flags & MAP_SHARED) {
 		seg->ref_count++;
-		list_node *prev = NULL;
-		foreach(node, child->memseg) {
-			memseg_t *current = node->value;
-			if (current->addr > seg->addr + seg->size) {
+		memseg_node_t *prev = NULL;
+		foreach(node, &child->memseg) {
+			memseg_node_t *current = (memseg_node_t*)node;
+			if (current->seg->addr > seg->addr + seg->size) {
 				break;
 			}
-			prev = node;
+			prev = current;
 		}
-		list_add_after(child->memseg, prev, seg);
+		memseg_node_t *memseg_node = kmalloc(sizeof(memseg_node_t));
+		memseg_node->seg = seg;
+		list_add_after(&child->memseg, &prev->node, &memseg_node->node);
 
-		//now remap in child
+		// now remap in child
 		char *addr = (char *)seg->addr;
 		char *end = (char *)seg->addr + seg->size;
 		while (addr < end) {
@@ -164,7 +179,7 @@ void memseg_clone(process_t *parent, process_t *child, memseg_t *seg) {
 		}
 		return;
 	}
-	//TODO : what happend for device mapped as private ?
+	// TODO : what happend for device mapped as private ?
 	memseg_t *new_seg;
 	if (memseg_map(child, seg->addr, seg->size, PAGING_FLAG_RW_CPL0, seg->flags | MAP_ANONYMOUS, NULL, 0, &new_seg) < 0) {
 		return;
