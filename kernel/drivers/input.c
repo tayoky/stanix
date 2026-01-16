@@ -25,7 +25,7 @@ static int input_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		info->if_subclass = device->subclass;
 		return 0;
 	default:
-		if (device->ops && device->ops->ioctl) ret = device->ops->ioctl(fd, req, arg);
+		if (device->ops && device->ops->ioctl) ret = device->ops->ioctl(device, req, arg);
 		return ret;
 	}
 }
@@ -38,23 +38,30 @@ static ssize_t input_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	// can only read full events
 	count -= count % sizeof(struct input_event);
 
-	return ringbuffer_read(device->events, buf, count, fd->flags);
+	return ringbuffer_read(&device->events, buf, count, fd->flags);
 }
 
 static int input_wait_check(vfs_fd_t *fd, short events) {
 	input_device_t *device = fd->private;
 	check_control(0);
 	int ret = 0;
-	if ((events & POLLIN) && (ringbuffer_read_available(device->events))) ret |= POLLIN;
+	if ((events & POLLIN) && (ringbuffer_read_available(&device->events))) ret |= POLLIN;
 	return ret;
 }
 
 static void input_close(vfs_fd_t *fd) {
 	input_device_t *device = fd->private;
-	if (device->ops && device->ops->close) device->ops->close(fd);
 	if (fd == device->controlling_fd) {
 		device->controlling_fd = NULL;
 	}
+}
+
+static void input_destroy(device_t *device) {
+	input_device_t *input_device = (input_device_t*)device;
+	if (input_device->ops && input_device->ops->destroy) {
+		input_device->ops->destroy(input_device);
+	}
+	destroy_ringbuffer(&input_device->events);
 }
 
 static vfs_ops_t input_ops = {
@@ -67,13 +74,14 @@ static vfs_ops_t input_ops = {
 int send_input_event(input_device_t *device, struct input_event *event) {
 	event->ie_class    = device->class;
 	event->ie_subclass = device->subclass;
-	ringbuffer_write(device->events, event, sizeof(struct input_event), O_NONBLOCK);
+	ringbuffer_write(&device->events, event, sizeof(struct input_event), O_NONBLOCK);
 	return 0;
 }
 
 int register_input_device(input_device_t *device){
-	device->device.type = DEVICE_CHAR;
-	device->device.ops = &input_ops;
-	device->events = new_ringbuffer(sizeof(struct input_event) * 25);
+	device->device.type    = DEVICE_CHAR;
+	device->device.ops     = &input_ops;
+	device->device.destroy = input_destroy;
+	init_ringbuffer(&device->events, sizeof(struct input_event) * 25);
 	return register_device((device_t*)device);
 }

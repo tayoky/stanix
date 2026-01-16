@@ -39,10 +39,10 @@ static void mouse_handler(fault_frame *frame, void *arg){
 	switch (mouse->packet++) {
 	case 0:
 		mouse->flags = ps2_read();
-		return 0;
+		return;
 	case 1:
 		mouse->x = ps2_read();
-		return 0;
+		return;
 	case 2:
 		mouse->y = ps2_read();
 		mouse->packet = 0;

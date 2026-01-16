@@ -14,7 +14,7 @@ static ssize_t tty_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) 
 	tty_t *tty = (tty_t *)fd->private;
 
 	if(tty->termios.c_lflag & ICANON){
-		ssize_t rsize = ringbuffer_read(tty->input_buffer, buffer, count, fd->flags);
+		ssize_t rsize = ringbuffer_read(&tty->input_buffer, buffer, count, fd->flags);
 		if(rsize < 0){
 			return rsize;
 		}
@@ -24,7 +24,7 @@ static ssize_t tty_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) 
 		return rsize;
 	}
 
-	return ringbuffer_read(tty->input_buffer, buffer, count, fd->flags);
+	return ringbuffer_read(&tty->input_buffer, buffer, count, fd->flags);
 }
 
 static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count){
@@ -46,7 +46,7 @@ static int tty_wait_check(vfs_fd_t *fd,short type){
 		events |= POLLHUP;
 	}
 
-	if ((type & POLLIN) && ringbuffer_read_available(tty->input_buffer)) {
+	if ((type & POLLIN) && ringbuffer_read_available(&tty->input_buffer)) {
 		events |= POLLIN;
 	}
 
@@ -64,7 +64,7 @@ static void tty_destroy(device_t *device){
 
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
-	delete_ringbuffer(tty->input_buffer);
+	destroy_ringbuffer(&tty->input_buffer);
 	kfree(tty->canon_buf);
 }
 
@@ -114,7 +114,7 @@ tty_t *new_tty(tty_t *tty) {
 		memset(tty,0,sizeof(tty_t));
 	}
 
-	tty->input_buffer = new_ringbuffer(4096);
+	init_ringbuffer(&tty->input_buffer, 4096);
 
 	//reset termios to default value
 	memset(&tty->termios,0,sizeof(struct termios));
@@ -257,7 +257,7 @@ int tty_input(tty_t *tty, char c) {
 		tty->canon_buf[tty->canon_index] = c;
 		tty->canon_index++;
 		if (c == '\n' || c == tty->termios.c_cc[VEOL] || c == tty->termios.c_cc[VEOF]) {
-			if ((size_t)ringbuffer_write(tty->input_buffer, tty->canon_buf, tty->canon_index, 0) < tty->canon_index) {
+			if ((size_t)ringbuffer_write(&tty->input_buffer, tty->canon_buf, tty->canon_index, 0) < tty->canon_index) {
 				if (tty->termios.c_iflag & IMAXBEL){
 					tty_output(tty, '\a');
 				}
@@ -272,7 +272,7 @@ int tty_input(tty_t *tty, char c) {
 	}
 
 	//check for full ringbuffer
-	if (ringbuffer_write(tty->input_buffer, &c, 1, 0) == 0) {
+	if (ringbuffer_write(&tty->input_buffer, &c, 1, 0) == 0) {
 		if (tty->termios.c_iflag & IMAXBEL) {
 			tty_output(tty, '\a');
 		}

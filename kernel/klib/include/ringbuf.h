@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-typedef struct {
+typedef struct ringbuffer{
 	char *buffer;
 	size_t write_offset;
 	size_t read_offset;
@@ -16,13 +16,13 @@ typedef struct {
 	sleep_queue reader_queue;
 	sleep_queue writer_queue;
 	spinlock lock;
-} ring_buffer;
+} ringbuffer_t;
 
-ring_buffer *new_ringbuffer(size_t buffer_size);
-void delete_ringbuffer(ring_buffer *ring);
-ssize_t ringbuffer_read(ring_buffer *ring, void *buf, size_t count, long flags);
-ssize_t ringbuffer_write(ring_buffer *ring, const void *buf, size_t count, long flags);
-size_t ringbuffer_read_available(ring_buffer *ring);
-size_t ringbuffer_write_available(ring_buffer *ring);
+void init_ringbuffer(ringbuffer_t *ring, size_t buffer_size);
+void destroy_ringbuffer(ringbuffer_t *ring);
+ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count, long flags);
+ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long flags);
+size_t ringbuffer_read_available(ringbuffer_t *ring);
+size_t ringbuffer_write_available(ringbuffer_t *ring);
 
 #endif

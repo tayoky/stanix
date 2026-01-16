@@ -6,11 +6,18 @@
 #include <kernel/vfs.h>
 #include <sys/input.h>
 
+struct input_device;
+
+typedef struct input_ops {
+	int (*ioctl)(struct input_device *device, long req, void *arg);
+	int (*destroy)(struct input_device *device);
+} input_ops_t;
+
 typedef struct input_device {
 	device_t device;
 	vfs_fd_t *controlling_fd;
-	vfs_ops_t *ops;
-	ring_buffer *events;
+	input_ops_t *ops;
+	ringbuffer_t events;
     unsigned long class;
     unsigned long subclass;
 } input_device_t;

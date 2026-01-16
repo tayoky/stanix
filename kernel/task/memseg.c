@@ -10,6 +10,10 @@
 #include <stddef.h>
 #include <errno.h>
 
+void memseg_fault_report(uintptr_t addr) {
+	
+}
+
 memseg_t *memseg_create(process_t *proc, uintptr_t address, size_t size, uint64_t prot, int flags) {
 	list_node *prev = NULL;
 	if (address) {

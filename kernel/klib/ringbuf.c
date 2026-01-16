@@ -5,32 +5,29 @@
 #include <kernel/sleep.h>
 #include <errno.h>
 
-ring_buffer *new_ringbuffer(size_t buffer_size){
-	ring_buffer *ring = kmalloc(sizeof(ring_buffer));
-	memset(ring,0,sizeof(ring_buffer));
+void init_ringbuffer(ringbuffer_t *ring, size_t buffer_size){
+	memset(ring, 0, sizeof(ringbuffer_t));
 	ring->buffer_size = buffer_size;
 	ring->write_offset = 0;
 	ring->read_offset = 0;
 	ring->read_available = 0;
 	ring->buffer = kmalloc(buffer_size);
-	return ring;
 }
 
-void delete_ringbuffer(ring_buffer *ring){
+void destroy_ringbuffer(ringbuffer_t *ring){
 	kfree(ring->buffer);
-	kfree(ring);
 }
 
-size_t ringbuffer_read_available(ring_buffer *ring){
+size_t ringbuffer_read_available(ringbuffer_t *ring){
 	return ring->read_available;
 }
 
-size_t ringbuffer_write_available(ring_buffer *ring){
+size_t ringbuffer_write_available(ringbuffer_t *ring){
 	//take the buffer size and take what is used
 	return ring->buffer_size - ringbuffer_read_available(ring);
 }
 
-ssize_t ringbuffer_read(ring_buffer *ring, void *buf, size_t count, long flags) {
+ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count, long flags) {
 	spinlock_acquire(&ring->lock);
 
 	//check if there are something to read or sleep
@@ -75,7 +72,7 @@ ssize_t ringbuffer_read(ring_buffer *ring, void *buf, size_t count, long flags) 
 	return count;
 }
 
-ssize_t ringbuffer_write(ring_buffer *ring, const void *buf, size_t count, long flags) {
+ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long flags) {
 	char *buffer = (char *)buf;
 	
 	while (count) {

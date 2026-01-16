@@ -20,7 +20,7 @@ typedef struct tty_ops {
 typedef struct tty {
 	device_t device;
 	void *private_data;
-	ring_buffer *input_buffer;
+	ringbuffer_t input_buffer;
 	tty_ops_t *ops;
 	struct termios termios;
 	struct winsize size;
@@ -33,7 +33,7 @@ typedef struct tty {
 } tty_t;
 
 typedef struct pty {
-	ring_buffer *output_buffer;
+	ringbuffer_t output_buffer;
 	tty_t *slave;
 } pty_t;
 

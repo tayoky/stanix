@@ -8,11 +8,11 @@
 
 static ssize_t pty_output(tty_t *tty, const char *buf, size_t size) {
 	pty_t *pty = tty->private_data;
-	return ringbuffer_write(pty->output_buffer, buf, size, 0);
+	return ringbuffer_write(&pty->output_buffer, buf, size, 0);
 }
 
 static void pty_cleanup(pty_t *pty) {
-	delete_ringbuffer(pty->output_buffer);
+	destroy_ringbuffer(&pty->output_buffer);
 	kfree(pty);
 }
 
@@ -27,7 +27,7 @@ static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t 
 		return -EIO;
 	}*/
 
-	return ringbuffer_read(pty->output_buffer, buffer, count, fd->flags);
+	return ringbuffer_read(&pty->output_buffer, buffer, count, fd->flags);
 }
 
 static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
@@ -49,7 +49,7 @@ static int pty_master_wait_check(vfs_fd_t *fd, short type) {
 	if((type & POLLHUP) && pty->slave->ref_count == 1){
 		events |= POLLHUP;
 	}*/
-	if ((type & POLLIN) && ringbuffer_read_available(pty->output_buffer)) {
+	if ((type & POLLIN) && ringbuffer_read_available(&pty->output_buffer)) {
 		events |= POLLIN;
 	}
 	if (type & POLLOUT) {
@@ -86,7 +86,7 @@ static device_driver_t pty_driver = {
 int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep){
 	pty_t *pty = kmalloc(sizeof(pty_t));
 	memset(pty,0,sizeof(pty_t));
-	pty->output_buffer = new_ringbuffer(4096);
+	init_ringbuffer(&pty->output_buffer, 4096);
 
 	tty_t *slave = new_tty(NULL);
 	pty->slave = slave;

@@ -8,7 +8,7 @@
 
 typedef struct unix_socket {
 	socket_t socket;
-	ring_buffer *queue;
+	ringbuffer_t queue;
 	struct unix_socket *connected;
 	int status;
 	struct sockaddr_un bound;

@@ -23,8 +23,8 @@ static void unix_pair(unix_socket_t *a, unix_socket_t *b) {
 	b->connected = a;
 
 	// init the recieve buffers
-	a->queue = new_ringbuffer(QUEUE_SIZE);
-	b->queue = new_ringbuffer(QUEUE_SIZE);
+	init_ringbuffer(&a->queue, QUEUE_SIZE);
+	init_ringbuffer(&b->queue, QUEUE_SIZE);
 }
 
 int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
@@ -66,7 +66,7 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 	};
 
 	// ringbuf write can fail (syscall interrupted/server socket dies before accepting/...)
-	ssize_t ret = ringbuffer_write(server->queue, &connection,  sizeof(unix_connection_t), 0);
+	ssize_t ret = ringbuffer_write(&server->queue, &connection,  sizeof(unix_connection_t), 0);
 	if (ret < 0) return ret;
 
 	// FIXME : if we get interrupted here we will still be in the connect queue
@@ -81,7 +81,7 @@ int unix_listen(socket_t *sock, int backlog) {
 	if (socket->status == UNIX_STATUS_INIT) return -EDESTADDRREQ;
 	if (socket->status != UNIX_STATUS_BOUND) return -EINVAL;
 
-	socket->queue = new_ringbuffer(sizeof(unix_connection_t) * backlog);
+	init_ringbuffer(&socket->queue, sizeof(unix_connection_t) * backlog);
 	socket->status = UNIX_STATUS_LISTEN;
 	return 0;
 }
@@ -96,7 +96,7 @@ int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, sock
 	unix_connection_t connection;
 
 	// ringbuf write can fail (syscall interrupted/...)
-	ssize_t ret = ringbuffer_read(socket->queue, &connection, sizeof(unix_connection_t), 0);
+	ssize_t ret = ringbuffer_read(&socket->queue, &connection, sizeof(unix_connection_t), 0);
 	if (ret < 0) return ret;
 
 	// we can now connect to the socket
@@ -130,13 +130,13 @@ ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 	} else {
 		if (socket->status != UNIX_STATUS_CONNECTED && socket->status != UNIX_STATUS_DISCONNECTED) return -ENOTCONN;
 		if (message->msg_name) return -EISCONN;
-		if (socket->status == UNIX_STATUS_DISCONNECTED && !ringbuffer_read_available(socket->queue)) {
+		if (socket->status == UNIX_STATUS_DISCONNECTED && !ringbuffer_read_available(&socket->queue)) {
 			// disconnected and nothing to read, we will never use this socket again
 			return -ENOTCONN;
 		}
 
 		for (int i=0; i<message->msg_iovlen; i++) {
-			ssize_t ret = ringbuffer_read(socket->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, 0);
+			ssize_t ret = ringbuffer_read(&socket->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, 0);
 			if (ret < 0) return ret;
 			total += ret;
 		}
@@ -159,7 +159,7 @@ ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 		if (message->msg_name) return -EISCONN;
 
 		for (int i=0; i<message->msg_iovlen; i++) {
-			ssize_t ret = ringbuffer_write(socket->connected->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, 0);
+			ssize_t ret = ringbuffer_write(&socket->connected->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, 0);
 			if (ret < 0) return ret;
 			total += ret;
 		}
@@ -173,10 +173,10 @@ int unix_wait_check(socket_t *sock, short event) {
 	int ret = 0;
 	switch (socket->status) {
 	case UNIX_STATUS_CONNECTED:
-		if (ringbuffer_read_available(socket->queue)) ret |= POLLIN;
+		if (ringbuffer_read_available(&socket->queue)) ret |= POLLIN;
 		break;
 	case UNIX_STATUS_LISTEN:
-		if (ringbuffer_read_available(socket->queue)) ret |= POLLIN;
+		if (ringbuffer_read_available(&socket->queue)) ret |= POLLIN;
 		break;
 	default:
 		ret = event;
@@ -191,16 +191,16 @@ void unix_close(socket_t *sock) {
 	kdebugf("unix cleanup\n");
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
-		delete_ringbuffer(socket->queue);
+		destroy_ringbuffer(&socket->queue);
 		break;
 	case UNIX_STATUS_CONNECTED:
 		// FIXME : we need some kind of lock
 		// disconnect the peer
 		socket->connected->status = UNIX_STATUS_DISCONNECTED;
-		delete_ringbuffer(socket->queue);
+		destroy_ringbuffer(&socket->queue);
 		break;
 	case UNIX_STATUS_LISTEN:
-		delete_ringbuffer(socket->queue);
+		destroy_ringbuffer(&socket->queue);
 		if (socket->socket.type == SOCK_STREAM || socket->socket.type == SOCK_STREAM) {
 			wakeup_queue(&socket->sleep, 0);
 		}
