@@ -214,7 +214,7 @@ int part_mount(const char *source,const char *target,unsigned long flags,const v
 	return 0;
 }
 
-vfs_filesystem part_fs = {
+vfs_filesystem_t part_fs = {
 	.mount = part_mount,
 	.name = "part",
 };
@@ -232,7 +232,7 @@ int part_fini(){
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = part_init,
 	.fini = part_fini,

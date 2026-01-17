@@ -450,7 +450,7 @@ int ide_fini(){
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = ide_init,
 	.fini = ide_fini,

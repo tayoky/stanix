@@ -54,7 +54,7 @@ static int fini_nvme(){
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = init_nvme,
 	.fini = fini_nvme,

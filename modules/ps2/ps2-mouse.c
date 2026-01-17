@@ -170,7 +170,7 @@ int fini_mouse(){
 }
 
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = init_mouse,
 	.fini = fini_mouse,

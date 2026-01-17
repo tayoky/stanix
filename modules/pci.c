@@ -209,7 +209,7 @@ static void create_pci_addr(uint8_t bus,uint8_t device,uint8_t function,void *ar
 	addr->device    = device;
 	addr->function  = function;
 
-	list_append(pci_bus->addresses, addr);
+	list_append(&pci_bus->addresses, &addr->addr.node);
 }
 
 
@@ -231,7 +231,6 @@ int init_pci(int argc,char **argv){
 
 	register_device_driver(&pci_driver);
 
-	pci_bus.addresses = new_list();
 	pci_foreach(create_pci_addr,&pci_bus);
 	register_device((device_t*)&pci_bus);
 	
@@ -260,7 +259,7 @@ int rm_pci(){
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = init_pci,
 	.fini = rm_pci,

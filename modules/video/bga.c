@@ -214,7 +214,7 @@ int bga_fini(){
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = bga_init,
 	.fini = bga_fini,

@@ -199,7 +199,7 @@ static void print_device_name(int port){
 }
 
 static void setup_addr(int port){
-	list_append(ps2_bus.addresses, &ports[port-1]);
+	list_append(&ps2_bus.addresses, &ports[port-1].addr.node);
 	char name[32];
 	sprintf(name, "port%d", port);
 	ports[port-1].addr.type = BUS_PS2;
@@ -279,7 +279,6 @@ static int init_ps2(int argc,char **argv){
 
 	//setup driver and bus
 	register_device_driver(&ps2_driver);
-	ps2_bus.addresses = new_list();
 
 	//now scan the device on each port
 	for (int i=1; i<3; i++) {
@@ -324,7 +323,7 @@ static int fini_ps2(){
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = init_ps2,
 	.fini = fini_ps2,

@@ -61,7 +61,7 @@ uintptr_t sym_lookup(const char *name);
 #define MODULE_MAGIC 0x13082011
 
 #ifdef MODULE
-extern kmodule module_meta;
+extern kmodule_t module_meta;
 #endif
 
 #endif

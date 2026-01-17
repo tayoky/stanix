@@ -63,7 +63,7 @@ memseg_t *memseg_create(process_t *proc, uintptr_t address, size_t size, uint64_
 	memset(memseg_node, 0, sizeof(memseg_node_t));
 	memseg_node->seg = new_memseg;
 
-	list_add_after(&proc->memseg, &prev->node, &memseg_node->node);
+	list_add_after(&proc->memseg, prev ? &prev->node : NULL, &memseg_node->node);
 
 	return new_memseg;
 }

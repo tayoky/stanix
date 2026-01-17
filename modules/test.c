@@ -30,7 +30,7 @@ int fini(){
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = init,
 	.fini = fini,

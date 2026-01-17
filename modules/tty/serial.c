@@ -144,7 +144,7 @@ static int fini_serial() {
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = init_serial,
 	.fini = fini_serial,

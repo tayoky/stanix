@@ -404,7 +404,7 @@ int fat_fini(){
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = fat_init,
 	.fini = fat_fini,

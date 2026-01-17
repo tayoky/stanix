@@ -147,7 +147,7 @@ static int fini_ps2kb(){
 	return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
 	.init = init_ps2kb,
 	.fini = fini_ps2kb,
