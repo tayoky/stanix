@@ -1,6 +1,7 @@
 #ifndef _KERNEL_VFS_H
 #define _KERNEL_VFS_H
 
+#include <kernel/spinlock.h>
 #include <kernel/list.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -32,21 +33,20 @@ struct memseg;
 struct vfs_ops;
 
 typedef struct vfs_node {
+	list_node_t node;
 	void *private_inode;
 	void *private_inode2;
+	struct vfs_node *parent;
 	struct vfs_mount_point_struct *mount_point;
 	struct vfs_ops *ops;
+	struct vfs_node *linked_node; // used for mount point
 	long flags;
 	size_t ref_count;
+	list_t children;
+	spinlock_t lock;
 
 	// used for directories cache
 	char name[PATH_MAX];
-	struct vfs_node *parent;
-	struct vfs_node *brother;
-	struct vfs_node *child;
-	size_t childreen_count;
-
-	struct vfs_node *linked_node; // used for mount point
 } vfs_node_t;
 
 /**
