@@ -22,7 +22,7 @@ typedef struct {
 	uint64_t start;
 	uint64_t lenght;
 	heap_segment *first_seg;
-	spinlock lock;
+	spinlock_t lock;
 	void (*changes_size)(ssize_t);
 }heap_info;
 

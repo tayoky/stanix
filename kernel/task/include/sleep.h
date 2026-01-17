@@ -7,13 +7,13 @@
 struct task;
 
 typedef struct sleep_queue {
-	spinlock lock;
+	spinlock_t lock;
 	struct task *tail;
 	struct task *head;
-} sleep_queue;
+} sleep_queue_t;
 
 
-int sleep_on_queue(sleep_queue *queue);
-void wakeup_queue(sleep_queue *queue,size_t count);
+int sleep_on_queue(sleep_queue_t *queue);
+void wakeup_queue(sleep_queue_t *queue,size_t count);
 
 #endif

@@ -10,8 +10,25 @@
 #include <stddef.h>
 #include <errno.h>
 
-void memseg_fault_report(uintptr_t addr) {
-	
+static int memseg_handle_fault(memseg_t *seg, uintptr_t addr, int prot) {
+	// TODO : CoW and stuff
+	(void)seg;
+	(void)addr;
+	(void)prot;
+	return 0;
+}
+
+int memseg_fault_report(uintptr_t addr, int prot) {
+	foreach (node, &get_current_proc()->memseg) {
+		memseg_node_t *memseg_node = (memseg_node_t*)node;
+		memseg_t *seg = memseg_node->seg;
+		if (seg->addr > addr) break;
+		if (seg->addr + seg->size > addr) {
+			// we found a seg to report too
+			return memseg_handle_fault(seg, addr, prot);
+		} 
+	}
+	return 0;
 }
 
 memseg_t *memseg_create(process_t *proc, uintptr_t address, size_t size, uint64_t prot, int flags) {

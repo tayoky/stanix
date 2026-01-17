@@ -13,7 +13,7 @@ typedef struct list {
 	list_node_t *first_node;
 	list_node_t *last_node;
 	size_t node_count;
-	spinlock lock;
+	spinlock_t lock;
 } list_t;
 
 void init_list(list_t *list);

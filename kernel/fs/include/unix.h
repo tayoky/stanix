@@ -12,7 +12,7 @@ typedef struct unix_socket {
 	struct unix_socket *connected;
 	int status;
 	struct sockaddr_un bound;
-	sleep_queue sleep;
+	sleep_queue_t sleep;
 } unix_socket_t;
 
 typedef struct unix_connection {

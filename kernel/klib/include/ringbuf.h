@@ -13,9 +13,9 @@ typedef struct ringbuffer{
 	size_t read_offset;
 	size_t buffer_size;
 	size_t read_available;
-	sleep_queue reader_queue;
-	sleep_queue writer_queue;
-	spinlock lock;
+	sleep_queue_t reader_queue;
+	sleep_queue_t writer_queue;
+	spinlock_t lock;
 } ringbuffer_t;
 
 void init_ringbuffer(ringbuffer_t *ring, size_t buffer_size);

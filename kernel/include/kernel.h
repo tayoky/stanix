@@ -35,7 +35,7 @@ typedef struct kernel_table_struct{
 	pid_t tid_count;
 	task_t *current_task;
 	char can_task_switch;
-	spinlock PMM_lock;
+	spinlock_t PMM_lock;
 	int pty_count;
 }kernel_table;
 

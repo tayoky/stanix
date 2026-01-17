@@ -46,7 +46,7 @@ typedef struct task {
 	struct timeval wakeup_time;
 	pid_t waitfor;
 	atomic_int flags;
-	spinlock state_lock;
+	spinlock_t state_lock;
 	uintptr_t kernel_stack;
 
 	struct fault_frame *syscall_frame;
@@ -61,7 +61,7 @@ typedef struct process {
 	addrspace_t addrspace;
 	pid_t pid;
 	struct process *parent;
-	spinlock state_lock;
+	spinlock_t state_lock;
 	file_descriptor fds[MAX_FD];
 	vfs_node_t *cwd_node;
 	char *cwd_path;
@@ -146,7 +146,7 @@ int add_fd(vfs_fd_t *fd);
 
 extern list_t proc_list;
 extern task_t *sleeping_proc;
-extern spinlock sleep_lock;
+extern spinlock_t sleep_lock;
 
 #define EUID_ROOT 0
 #define KSTACK_TOP(kstack) (((kstack) + KERNEL_STACK_SIZE) & ~0xFUL)

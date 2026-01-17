@@ -7,7 +7,7 @@
 typedef struct spinlock {
     atomic_flag lock;
     int had_interrupt;
-} spinlock;
+} spinlock_t;
 
 //#define SPINLOCK_DEBUG
 

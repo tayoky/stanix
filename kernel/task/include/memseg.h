@@ -23,6 +23,13 @@ typedef struct memseg_node {
 	memseg_t *seg;
 } memseg_node_t;
 
+/**
+ * @brief report a seg fault to memseg
+ * @param addr the faulting address
+ * @param prot the type of fault
+ * @return 1 if the fault is handled or 0 if not
+ */
+int memseg_fault_report(uintptr_t addr, int prot);
 memseg_t *memseg_create(process_t *proc,uintptr_t address,size_t size,uint64_t prot,int flags);
 int memseg_map(process_t *proc, uintptr_t address,size_t size,uint64_t prot,int flags,vfs_fd_t *fd,off_t offset,memseg_t **seg);
 void memseg_unmap(process_t *proc,memseg_t *seg);

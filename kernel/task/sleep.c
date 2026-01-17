@@ -83,7 +83,7 @@ int micro_sleep(suseconds_t micro_second) {
 	return sleep_until(new_timeval);
 }
 
-int sleep_on_queue(sleep_queue *queue) {
+int sleep_on_queue(sleep_queue_t *queue) {
 	spinlock_acquire(&queue->lock);
 
 	if (queue->head) {
@@ -103,7 +103,7 @@ int sleep_on_queue(sleep_queue *queue) {
 	return block_task();
 }
 
-void wakeup_queue(sleep_queue *queue, size_t count) {
+void wakeup_queue(sleep_queue_t *queue, size_t count) {
 	spinlock_acquire(&queue->lock);
 
 	for (;;) {

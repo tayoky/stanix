@@ -19,7 +19,7 @@ static task_t *running_task_head;
 list_t proc_list;
 list_t task_list;
 task_t *sleeping_proc;
-spinlock sleep_lock;
+spinlock_t sleep_lock;
 
 process_t *idle;
 process_t *init;
