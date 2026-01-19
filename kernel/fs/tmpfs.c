@@ -8,7 +8,7 @@
 
 static vfs_node_t *inode2node(tmpfs_inode_t *inode);
 
-#define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - KHEAP_START)
+#define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - MEM_KHEAP_START)
 
 #define IS_DEV(flags) (flags & (TMPFS_FLAGS_CHAR | TMPFS_FLAGS_BLOCK))
 

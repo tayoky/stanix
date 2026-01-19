@@ -10,7 +10,7 @@
 void jump_userspace(void *address,void *stack,uintptr_t arg1,uintptr_t arg2,uintptr_t arg3,uintptr_t arg4);
 
 //some macro to check ptr
-#define CHECK_PTR_INRANGE(ptr) ((uintptr_t)ptr <= USERSPACE_LIMIT)
+#define CHECK_PTR_INRANGE(ptr) ((uintptr_t)ptr <= MEM_USERSPACE_END)
 #define CHECK_PTR(ptr) (CHECK_PTR_INRANGE(ptr) && virt2phys((void *)ptr))
 
 

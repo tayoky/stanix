@@ -9,7 +9,7 @@
 void init_kheap(void){
 	kstatusf("init kheap... ");
 
-	kernel->kheap.start = PAGE_ALIGN_DOWN(KHEAP_START);
+	kernel->kheap.start = PAGE_ALIGN_DOWN(MEM_KHEAP_START);
 	kernel->kheap.changes_size = change_kheap_size;
 
 	//map a page

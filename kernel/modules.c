@@ -11,7 +11,7 @@
 //dynamic module loading
 
 extern uintptr_t p_kernel_end[];
-static uintptr_t ptr = ((uintptr_t)&p_kernel_end) + PAGE_SIZE;
+static uintptr_t ptr = MEM_MODULE_START;
 
 #ifdef i386
 #define Elf_Ehdr Elf32_Ehdr
