@@ -3,7 +3,7 @@
 #include <kernel/string.h>
 #include <kernel/sysfs.h>
 #include <kernel/print.h>
-#include <kernel/kernel.h>
+#include <kernel/pmm.h>
 #include <errno.h>
 
 static vfs_node_t *sysfs_inode2vnode(sysfs_inode *inode);
@@ -91,7 +91,7 @@ static vfs_filesystem_t sys_fs = {
 static ssize_t mem_read(vfs_fd_t *fd,void *buf,off_t off,size_t count){
     (void)fd;
     char str[512];
-    sprintf(str,"total : %ld\nused  : %ld\n",kernel->total_memory,kernel->used_memory);
+    sprintf(str,"total : %ld\nused  : %ld\n", pmm_get_total_pages() * PAGE_SIZE, pmm_get_used_pages() * PAGE_SIZE);
     if((size_t)off > strlen(str))return 0;
     if(off + count > strlen(str))count = strlen(str) - off;
     memcpy(buf,&str[off],count);

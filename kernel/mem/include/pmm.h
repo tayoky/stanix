@@ -8,10 +8,10 @@
 #include <limits.h>
 #include <stdatomic.h>
 
-typedef struct PMM_entry_struct {
-	struct PMM_entry_struct *next;
+typedef struct pmm_entry {
+	struct pmm_entry *next;
 	size_t size; //size of the chunk in page
-} PMM_entry;
+} pmm_entry_t;
 
 typedef struct page {
 	atomic_size_t ref_count;
@@ -48,5 +48,17 @@ void pmm_free_page(uintptr_t page);
  * @param addr_space the address space to map into
  */
 void map_PMM_info(addrspace_t addr_space);
+
+/**
+ * @brief get the amount of currently used physical pages
+ * @return count of currently used pages
+ */
+size_t pmm_get_used_pages(void);
+
+/**
+ * @brief get the amount of total physical pages
+ * @return count of physical pages
+ */
+size_t pmm_get_total_pages(void);
 
 #endif

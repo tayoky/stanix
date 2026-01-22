@@ -78,11 +78,11 @@ void get_bootinfo(void) {
 	kernel->initrd = module_request.response->modules[0];
 
 	//cacul the total amount of memory
-	kernel->total_memory = 0;
+	size_t total_memory = 0;
 	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++) {
 		int type = kernel->memmap->entries[i]->type;
 		if (type == LIMINE_MEMMAP_USABLE || type == LIMINE_MEMMAP_KERNEL_AND_MODULES || type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
-			kernel->total_memory += kernel->memmap->entries[i]->length;
+			total_memory += kernel->memmap->entries[i]->length;
 		}
 	}
 
@@ -99,6 +99,6 @@ void get_bootinfo(void) {
 		kdebugf("		offset : %lx\n", kernel->memmap->entries[i]->base);
 		kdebugf("		size   : %lu\n", kernel->memmap->entries[i]->length);
 	}
-	kinfof("total memory amount : %dMB\n", kernel->total_memory / (1024 * 1024));
+	kinfof("total memory amount : %dMB\n", total_memory / (1024 * 1024));
 	kdebugf("initrd loaded at 0x%lx size : %ld KB\n", kernel->initrd->address, kernel->initrd->size / 1024);
 }

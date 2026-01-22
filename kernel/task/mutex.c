@@ -12,7 +12,7 @@ void init_mutex(mutex_t *mutex) {
 }
 
 int try_acquire_mutex(mutex_t *mutex) {
-	uintptr_t expected = NULL;
+	uintptr_t expected = 0;
 	if (atomic_compare_exchange_strong(&mutex->lock, &expected, (uintptr_t)get_current_task())) {
 		// we locked the mutex
 		mutex->depth = 1;

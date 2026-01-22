@@ -102,7 +102,7 @@ void kmain() {
 	print_license();
 	get_bootinfo();
 	init_PMM();
-	kprintf("used pages: 0x%lx\n", master_kernel_table.used_memory / PAGE_SIZE);
+	kprintf("used pages: 0x%lx\n", pmm_get_used_pages());
 	init_paging();
 	init_kheap();
 	init_vfs();

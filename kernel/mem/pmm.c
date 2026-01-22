@@ -7,15 +7,27 @@
 #include <kernel/spinlock.h>
 
 static page_t *pages_info = NULL;
+static pmm_entry_t *stack_head;
+static size_t used_pages;
+static size_t total_pages;
+static spinlock_t pmm_lock;
 
 void init_PMM() {
 	kstatusf("init PMM ... ");
 
-	kernel->used_memory = kernel->total_memory;
-	kernel->PMM_stack_head = NULL;
-
+	stack_head = NULL;
+	used_pages = 0;
+	total_pages = 0;
 	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++) {
-		if (kernel->memmap->entries[i]->type != LIMINE_MEMMAP_USABLE)continue;
+		uint64_t type = kernel->memmap->entries[i]->type;
+		if (type != LIMINE_MEMMAP_USABLE && type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && type != LIMINE_MEMMAP_KERNEL_AND_MODULES) {
+			continue;
+		}
+		total_pages += kernel->memmap->entries[i]->length / PAGE_SIZE;
+		used_pages += kernel->memmap->entries[i]->length / PAGE_SIZE;
+		if (type != LIMINE_MEMMAP_USABLE) {
+			continue;
+		}
 
 		//find start and end and page align it
 		uintptr_t start =  PAGE_ALIGN_UP(kernel->memmap->entries[i]->base);
@@ -26,19 +38,19 @@ void init_PMM() {
 			continue;
 		}
 
-		//create a new entry and push it to the top of the linked stack
-		PMM_entry *entry = (PMM_entry *)(start + kernel->hhdm);
+		//c reate a new entry and push it to the top of the linked stack
+		pmm_entry_t *entry = (pmm_entry_t *)(start + kernel->hhdm);
 		entry->size = (end - start) / PAGE_SIZE;
-		entry->next = kernel->PMM_stack_head;
-		kernel->PMM_stack_head = entry;
+		entry->next = stack_head;
+		stack_head = entry;
 
-		//update used memory count
-		kernel->used_memory -= PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->length);
+		// update used memory count
+		used_pages -= end - start;
 	}
 	kok();
 }
 
-void map_PMM_info(addrspace_t addr_space) {
+void pmm_map_info(addrspace_t addr_space) {
 	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++) {
 		if (kernel->memmap->entries[i]->type != LIMINE_MEMMAP_USABLE)continue;
 
@@ -71,39 +83,47 @@ page_t *pmm_page_info(uintptr_t addr) {
 }
 
 uintptr_t pmm_allocate_page(void) {
-	spinlock_acquire(&kernel->PMM_lock);
+	spinlock_acquire(&pmm_lock);
 
 	// first : out of memory check
-	if (!kernel->PMM_stack_head) {
+	if (!stack_head) {
 		return PMM_INVALID_PAGE;
 	}
 
 	// take the head entry and (maybee) pop it
 	uintptr_t page;
-	if (kernel->PMM_stack_head->size > 1) {
-		page = ((uintptr_t)kernel->PMM_stack_head) - kernel->hhdm + (kernel->PMM_stack_head->size - 1) * PAGE_SIZE;
-		kernel->PMM_stack_head->size--;
+	if (stack_head->size > 1) {
+		page = ((uintptr_t)stack_head) - kernel->hhdm + (stack_head->size - 1) * PAGE_SIZE;
+		stack_head->size--;
 	} else {
-		page = ((uintptr_t)kernel->PMM_stack_head) - kernel->hhdm;
-		kernel->PMM_stack_head = kernel->PMM_stack_head->next;
+		page = ((uintptr_t)stack_head) - kernel->hhdm;
+		stack_head = stack_head->next;
 	}
-	kernel->used_memory += PAGE_SIZE;
+	used_pages++;
 
 	if (pages_info) {
-		pmm_page_info(page)->ref_count = 1;
+		atomic_store(&pmm_page_info(page)->ref_count, 1);
 	}
-	spinlock_release(&kernel->PMM_lock);
+	spinlock_release(&pmm_lock);
 	return page;
 }
 
 void pmm_free_page(uintptr_t page) {
-	spinlock_acquire(&kernel->PMM_lock);
+	spinlock_acquire(&pmm_lock);
 
-	kernel->used_memory -= PAGE_SIZE;
-	PMM_entry *entry = (PMM_entry *)(page + kernel->hhdm);
+	used_pages--;
+	pmm_entry_t *entry = (pmm_entry_t *)(page + kernel->hhdm);
 	entry->size = 1;
-	entry->next = kernel->PMM_stack_head;
-	kernel->PMM_stack_head = entry;
+	entry->next = stack_head;
+	stack_head = entry;
 
-	spinlock_release(&kernel->PMM_lock);
+	spinlock_release(&pmm_lock);
+}
+
+size_t pmm_get_used_pages(void) {
+	return used_pages;
+}
+
+size_t pmm_get_total_pages(void) {
+	return total_pages;
 }

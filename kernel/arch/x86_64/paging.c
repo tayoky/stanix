@@ -35,7 +35,8 @@ void init_paging(void) {
 
 	//map kernel in it
 	map_kernel(PMLT4);
-	map_PMM_info(PMLT4);
+	map_hhdm(PMLT4);
+	//map_PMM_info(PMLT4);
 
 	set_addr_space(PMLT4);
 
@@ -51,9 +52,6 @@ addrspace_t create_addr_space() {
 
 	//copy the 32 higher PDP
 	memcpy(PMLT4 + (512 - 32), higger_PDP, sizeof(uint64_t) * 32);
-
-	//map the hhdm
-	map_hhdm(PMLT4);
 
 	kdebugf("create addrspace %p\n", PMLT4);
 	return PMLT4;

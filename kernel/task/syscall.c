@@ -16,6 +16,7 @@
 #include <kernel/module.h>
 #include <kernel/socket.h>
 #include <kernel/tty.h>
+#include <kernel/pmm.h>
 #include <kernel/signal.h>
 #include <kernel/asm.h>
 #include <sys/type.h>

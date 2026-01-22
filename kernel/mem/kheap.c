@@ -4,6 +4,7 @@
 #include <kernel/panic.h>
 #include <kernel/spinlock.h>
 #include <kernel/kernel.h>
+#include <kernel/pmm.h>
 #include <kernel/string.h>
 
 void init_kheap(void){

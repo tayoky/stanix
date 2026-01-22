@@ -4,6 +4,7 @@
 #include <kernel/tmpfs.h>
 #include <kernel/print.h>
 #include <kernel/asm.h>
+#include <kernel/pmm.h>
 
 static inline uint64_t octal2int(const char *octal){
 	uint64_t integer = 0;

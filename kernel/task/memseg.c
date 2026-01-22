@@ -5,6 +5,7 @@
 #include <kernel/kernel.h>
 #include <kernel/list.h>
 #include <kernel/print.h>
+#include <kernel/pmm.h>
 #include <sys/mman.h>
 #include <stdint.h>
 #include <stddef.h>

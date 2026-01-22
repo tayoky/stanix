@@ -4,7 +4,6 @@
 #include <sys/time.h>
 #include <kernel/limine.h>
 #include <kernel/bootinfo.h>
-#include <kernel/pmm.h>
 #include <kernel/kheap.h>
 #include <kernel/vfs.h>
 #include <kernel/terminal_emu.h>
@@ -16,13 +15,6 @@ typedef struct kernel_table_struct{
 	arch_specific arch;
 	bootinfo_table bootinfo;
 	struct limine_kernel_address_response *kernel_address;
-
-	//in bytes
-	uint64_t total_memory;
-	//in bytes
-	uint64_t used_memory;
-
-	PMM_entry *PMM_stack_head;
 	uint64_t hhdm;
 	struct limine_memmap_response *memmap;
 	uint64_t stack_start;

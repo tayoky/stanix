@@ -5,6 +5,7 @@
 #include <kernel/string.h>
 #include <kernel/paging.h>
 #include <kernel/sym.h>
+#include <kernel/pmm.h>
 #include <errno.h>
 #include <elf.h>
 
