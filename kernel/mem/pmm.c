@@ -29,23 +29,23 @@ void init_PMM() {
 			continue;
 		}
 
-		//find start and end and page align it
+		// find start and end and page align it
 		uintptr_t start =  PAGE_ALIGN_UP(kernel->memmap->entries[i]->base);
 		uintptr_t end = PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->length + kernel->memmap->entries[i]->base);
 
-		//when we page align it might become empty
+		// when we page align it might become empty
 		if (start >= end) {
 			continue;
 		}
 
-		//c reate a new entry and push it to the top of the linked stack
+		// create a new entry and push it to the top of the linked stack
 		pmm_entry_t *entry = (pmm_entry_t *)(start + kernel->hhdm);
 		entry->size = (end - start) / PAGE_SIZE;
 		entry->next = stack_head;
 		stack_head = entry;
 
 		// update used memory count
-		used_pages -= end - start;
+		used_pages -= (end - start) / PAGE_SIZE;
 	}
 	kok();
 }
@@ -109,6 +109,9 @@ uintptr_t pmm_allocate_page(void) {
 }
 
 void pmm_free_page(uintptr_t page) {
+	if (pages_info) {
+		// TODO : do ref counting
+	}
 	spinlock_acquire(&pmm_lock);
 
 	used_pages--;

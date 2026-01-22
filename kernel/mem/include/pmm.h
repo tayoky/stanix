@@ -47,7 +47,7 @@ void pmm_free_page(uintptr_t page);
  * @brief map the pmm's page_t
  * @param addr_space the address space to map into
  */
-void map_PMM_info(addrspace_t addr_space);
+void pmm_map_info(addrspace_t addr_space);
 
 /**
  * @brief get the amount of currently used physical pages
