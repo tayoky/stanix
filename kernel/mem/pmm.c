@@ -52,7 +52,10 @@ void init_PMM() {
 
 void pmm_map_info(addrspace_t addr_space) {
 	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++) {
-		if (kernel->memmap->entries[i]->type != LIMINE_MEMMAP_USABLE)continue;
+		uint64_t type = kernel->memmap->entries[i]->type;
+		if (type != LIMINE_MEMMAP_USABLE && type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && type != LIMINE_MEMMAP_KERNEL_AND_MODULES) {
+			continue;
+		}
 
 		// find start and end and page align it
 		uintptr_t start =  PAGE_ALIGN_UP(kernel->memmap->entries[i]->base);
