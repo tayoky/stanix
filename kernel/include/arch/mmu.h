@@ -2,8 +2,16 @@
 #define _KERNEL_MMU_H
 
 #include <kernel/arch.h>
-#include <sys/mman.h>
 #include <stddef.h>
+
+// inspired by etheral's API
+
+#define MMU_FLAG_PRESENT 0x1  // present in memory
+#define MMU_FLAG_READ    0x2  // readable memory
+#define MMU_FLAG_WRITE   0x4  // writable memory
+#define MMU_FLAG_EXEC    0x8  // executable memory
+#define MMU_FLAG_USER    0x10 // userspace memory
+#define MMU_FLAG_GLOBAL  0x20 // global memory (hhdm, kerne, ...)
 
 void init_mmu(void);
 
@@ -26,7 +34,7 @@ void mmu_delete_addr_space(addrspace_t addrspace);
  * @param virtual_page the virtual page to map
  * @param flags flag to use for the virtual page (eg readonly, not executable...)
  */
-void mmu_map_page(addrspace_t addrspace, uintptr_t physical_page, uintptr_t virtual_page, uint64_t flags);
+void mmu_map_page(addrspace_t addrspace, uintptr_t physical_page, uintptr_t virtual_page, long flags);
 
 /**
  * @brief unmap an page

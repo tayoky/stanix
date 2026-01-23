@@ -68,7 +68,7 @@ void *map_mod(size_t size) {
 	void *buf = (void *)ptr;
 	kdebugf("insmod : map module at 0x%p size : %ld\n", ptr, size);
 	while (size > 0) {
-		mmu_map_page(mmu_get_addr_space(), pmm_allocate_page(), ptr, PAGING_FLAG_RW_CPL0);
+		mmu_map_page(mmu_get_addr_space(), pmm_allocate_page(), ptr, MMU_FLAG_PRESENT | MMU_FLAG_EXEC | MMU_FLAG_WRITE | MMU_FLAG_READ | MMU_FLAG_GLOBAL);
 		size -= PAGE_SIZE;
 		ptr += PAGE_SIZE;
 	}

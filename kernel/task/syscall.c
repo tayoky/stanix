@@ -299,7 +299,7 @@ uint64_t sys_sbrk(intptr_t incr) {
 	process_t *proc = get_current_proc();
 
 	intptr_t incr_pages = PAGE_ALIGN_UP(incr) / PAGE_SIZE;
-
+	long heap_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
 	if (incr < 0) {
 		//make heap smaller
 		for (int64_t i = 0; i > incr_pages; i--) {
@@ -310,7 +310,7 @@ uint64_t sys_sbrk(intptr_t incr) {
 		}
 	} else {
 		//make heap bigger
-		memseg_map(get_current_proc(), proc->heap_end, PAGE_SIZE * incr_pages, PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE, MAP_PRIVATE | MAP_ANONYMOUS, NULL, 0, NULL);
+		memseg_map(get_current_proc(), proc->heap_end, PAGE_SIZE * incr_pages, heap_flags, MAP_PRIVATE | MAP_ANONYMOUS, NULL, 0, NULL);
 	}
 	proc->heap_end += incr_pages * PAGE_SIZE;
 	return proc->heap_end;
@@ -985,12 +985,15 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 		addr = 0;
 	}
 
-	uint64_t pflags = PAGING_FLAG_READONLY_CPL3;
-	if (prot & PROT_WRITE) {
-		pflags |= PAGING_FLAG_RW_CPL3;
+	long mmu_flags = MMU_FLAG_USER | MMU_FLAG_PRESENT;
+	if (prot & PROT_READ) {
+		mmu_flags |= MMU_FLAG_READ;
 	}
-	if (!(prot & PROT_EXEC)) {
-		pflags |= PAGING_FLAG_NO_EXE;
+	if (prot & PROT_WRITE) {
+		mmu_flags |= MMU_FLAG_WRITE;
+	}
+	if (prot & PROT_EXEC) {
+		mmu_flags |= MMU_FLAG_EXEC;
 	}
 
 	vfs_fd_t *vfs_fd;
@@ -1002,7 +1005,7 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 	}
 
 	memseg_t *seg;
-	int ret = memseg_map(get_current_proc(), addr, length, pflags, flags, vfs_fd, offset, &seg);
+	int ret = memseg_map(get_current_proc(), addr, length, mmu_flags, flags, vfs_fd, offset, &seg);
 	if (ret < 0) {
 		return (void *)(uintptr_t)ret;
 	} else {

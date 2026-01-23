@@ -199,7 +199,7 @@ void memseg_clone(process_t *parent, process_t *child, memseg_t *seg) {
 	}
 	// TODO : what happend for device mapped as private ?
 	memseg_t *new_seg;
-	if (memseg_map(child, seg->addr, seg->size, PAGING_FLAG_RW_CPL0, seg->flags | MAP_ANONYMOUS, NULL, 0, &new_seg) < 0) {
+	if (memseg_map(child, seg->addr, seg->size, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, seg->flags | MAP_ANONYMOUS, NULL, 0, &new_seg) < 0) {
 		return;
 	}
 

@@ -12,6 +12,22 @@ extern uint64_t p_kernel_text_end[];
 #define SHARED_PML4_ENTRIES_COUNT 256
 static uintptr_t shared_PML4_entries[SHARED_PML4_ENTRIES_COUNT];
 
+static uint64_t mmu2paging_flags(long mmu_flags) {
+	uint64_t flags = 0;
+	if (mmu_flags & MMU_FLAG_PRESENT) {
+		flags |= PAGING_FLAG_PRESENT;
+	}
+	if (mmu_flags & MMU_FLAG_WRITE) {
+		flags |= PAGING_FLAG_WRITE;
+	}
+	if (!(mmu_flags & MMU_FLAG_EXEC)) {
+		flags |= PAGING_FLAG_NO_EXE;
+	}
+	if (mmu_flags & MMU_FLAG_USER) {
+		flags |= PAGING_FLAG_USER;
+	}
+	return flags;
+}
 
 addrspace_t mmu_get_addr_space() {
 	uint64_t cr3;
@@ -119,7 +135,8 @@ uintptr_t mmu_space_virt2phys(addrspace_t PML4, void *address) {
 	return (PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF);
 }
 
-void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t virtual_addr, uint64_t falgs) {
+void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t virtual_addr, long mmu_flags) {
+	uint64_t flags = mmu2paging_flags(mmu_flags);
 	uint64_t PML4i= ((uint64_t)virtual_addr >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)virtual_addr >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)virtual_addr >> 21) & 0x1FF;
@@ -143,7 +160,7 @@ void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t virtual_a
 	}
 
 	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
-	PT[PTi] = (physical_page & ~0xFFFUL) | falgs;
+	PT[PTi] = (physical_page & ~0xFFFUL) | flags;
 
 	asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
 }
@@ -205,11 +222,14 @@ void mmu_map_kernel(uint64_t *PML4) {
 	uint64_t virt_page = PAGE_ALIGN_DOWN(kernel->kernel_address->virtual_base);
 
 	for (uint64_t i = 0; i < kernel_size; i++) {
-		uint64_t flags = PAGING_FLAG_READONLY_CPL0;
-		if (virt_page >= kernel_text_end) {
-			flags |= PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE;
+		long flags = MMU_FLAG_READ | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL;
+		if (virt_page < kernel_text_end) {
+			flags |= MMU_FLAG_EXEC;
+		} else {
+			flags |= MMU_FLAG_WRITE;
 		}
-		mmu_map_page(PML4, phys_page, virt_page, PAGING_FLAG_RW_CPL0);
+			
+		mmu_map_page(PML4, phys_page, virt_page, flags);
 		phys_page += PAGE_SIZE;
 		virt_page += PAGE_SIZE;
 	}
@@ -225,10 +245,11 @@ void mmu_map_hhdm(uint64_t *PML4) {
 			type == LIMINE_MEMMAP_KERNEL_AND_MODULES ||
 			type == LIMINE_MEMMAP_USABLE
 			) {
-			//map all the section
-			uint64_t flags = PAGING_FLAG_RW_CPL0;
+			// map all the section
+			long flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL;
 			if (type == LIMINE_MEMMAP_FRAMEBUFFER) {
-				flags |= PAGING_FLAG_WRITE_COMBINE;
+				// TODO : write combine
+				//flags |= PAGING_FLAG_WRITE_COMBINE;
 			}
 			uintptr_t phys_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base);
 			uintptr_t end = PAGE_ALIGN_UP(kernel->memmap->entries[index]->base + kernel->memmap->entries[index]->length);

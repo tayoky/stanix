@@ -59,4 +59,21 @@ size_t pmm_get_used_pages(void);
  */
 size_t pmm_get_total_pages(void);
 
+/**
+ * @brief add a ref count to a page if the page has a non null ref count
+ * @param page the page to hold
+ * @return 1 if succed or 0 if ref count is null
+ */
+static inline int pmm_retain(uintptr_t page) {
+	page_t *page_info = pmm_page_info(page);
+	size_t old = atomic_load(&page_info->ref_count);
+    while (old != 0) {
+        if (atomic_compare_exchange_weak(&page_info->ref_count, &old, old + 1)) {
+            return 1;
+		}
+        // we raced and need to retry
+    }
+    return 0;
+}
+
 #endif

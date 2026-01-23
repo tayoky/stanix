@@ -7,6 +7,8 @@
 #include <kernel/pmm.h>
 #include <kernel/string.h>
 
+#define KHEAP_MMU_FLAGS MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL
+
 void init_kheap(void){
 	kstatusf("init kheap... ");
 
@@ -14,7 +16,7 @@ void init_kheap(void){
 	kernel->kheap.changes_size = change_kheap_size;
 
 	//map a page
-	mmu_map_page(mmu_get_addr_space(),pmm_allocate_page(),kernel->kheap.start,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+	mmu_map_page(mmu_get_addr_space(),pmm_allocate_page(),kernel->kheap.start, KHEAP_MMU_FLAGS);
 
 	kernel->kheap.lenght = PAGE_SIZE;
 
@@ -47,7 +49,7 @@ void change_kheap_size(ssize_t offset){
 		//make kheap bigger
 		for (intptr_t i = 0; i < offset_page; i++){
 			uintptr_t virt_page = kernel->kheap.start + kernel->kheap.lenght + i * PAGE_SIZE;
-			mmu_map_page(addr_space,pmm_allocate_page(),virt_page, PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+			mmu_map_page(addr_space,pmm_allocate_page(),virt_page, KHEAP_MMU_FLAGS);
 		}
 	}
 	kernel->kheap.lenght += offset_page * PAGE_SIZE;

@@ -116,12 +116,15 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 		}
 
 		//convert elf header to paging header
-		uint64_t flags = PAGING_FLAG_READONLY_CPL3;
-		if (!(prog_header[i].p_flags & PF_X)) {
-			flags |= PAGING_FLAG_NO_EXE;
+		long flags = MMU_FLAG_PRESENT | MMU_FLAG_USER;
+		if (prog_header[i].p_flags & PF_R) {
+			flags |= MMU_FLAG_READ;
 		}
 		if (prog_header[i].p_flags & PF_W) {
-			flags |= PAGING_FLAG_RW_CPL3;
+			flags |= MMU_FLAG_WRITE;
+		}
+		if (prog_header[i].p_flags & PF_X) {
+			flags |= MMU_FLAG_EXEC;
 		}
 
 		//make sure heap start is after the segment
@@ -131,7 +134,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 		}
 
 		memseg_t *seg;
-		memseg_map(get_current_proc(), prog_header[i].p_vaddr, prog_header[i].p_memsz, PAGING_FLAG_RW_CPL0, MAP_PRIVATE | MAP_ANONYMOUS, NULL, 0, &seg);
+		memseg_map(get_current_proc(), prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, MAP_PRIVATE | MAP_ANONYMOUS, NULL, 0, &seg);
 		memset((void *)prog_header[i].p_vaddr, 0, prog_header[i].p_memsz);
 
 		//file size must be <= to virtual size
@@ -166,7 +169,8 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	vfs_close(file);
 
 	//map stack
-	memseg_map(get_current_proc(), USER_STACK_BOTTOM, USER_STACK_SIZE, PAGING_FLAG_RW_CPL3 | PAGING_FLAG_NO_EXE, MAP_PRIVATE | MAP_ANONYMOUS, NULL, 0, NULL);
+	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER;
+	memseg_map(get_current_proc(), USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, MAP_ANONYMOUS, NULL, 0, NULL);
 
 	//keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;

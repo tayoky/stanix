@@ -12,6 +12,8 @@ static size_t used_pages;
 static size_t total_pages;
 static spinlock_t pmm_lock;
 
+#define PAGES_INFO_MMU_FLAGS MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL
+
 void init_PMM() {
 	kstatusf("init PMM ... ");
 
@@ -74,7 +76,7 @@ void pmm_map_info(addrspace_t addr_space) {
 			if (mmu_virt2phys((void*)addr) == PAGE_INVALID) {
 				// we need to map a new page
 				uintptr_t page = pmm_allocate_page();
-				mmu_map_page(addr_space, page, addr, PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+				mmu_map_page(addr_space, page, addr, PAGES_INFO_MMU_FLAGS);
 			}
 		}
 	}
