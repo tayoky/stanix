@@ -169,7 +169,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	vfs_close(file);
 
 	//map stack
-	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER;
+	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
 	memseg_map(get_current_proc(), USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, MAP_ANONYMOUS, NULL, 0, NULL);
 
 	//keep a one page guard between the executable and the heap
