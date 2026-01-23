@@ -1,10 +1,7 @@
-#include "irq.h"
-#include "idt.h"
-#include "pic.h"
-#include <kernel/interrupt.h>
+#include <kernel/arch.h>
+#include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
-#include "panic.h"
 
 extern void irq0();
 extern void irq1();

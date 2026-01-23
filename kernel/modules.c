@@ -3,7 +3,7 @@
 #include <kernel/print.h>
 #include <kernel/vfs.h>
 #include <kernel/string.h>
-#include <kernel/paging.h>
+#include <kernel/mmu.h>
 #include <kernel/sym.h>
 #include <kernel/pmm.h>
 #include <errno.h>
@@ -68,7 +68,7 @@ void *map_mod(size_t size) {
 	void *buf = (void *)ptr;
 	kdebugf("insmod : map module at 0x%p size : %ld\n", ptr, size);
 	while (size > 0) {
-		map_page(get_addr_space(), pmm_allocate_page(), ptr, PAGING_FLAG_RW_CPL0);
+		mmu_map_page(mmu_get_addr_space(), pmm_allocate_page(), ptr, PAGING_FLAG_RW_CPL0);
 		size -= PAGE_SIZE;
 		ptr += PAGE_SIZE;
 	}

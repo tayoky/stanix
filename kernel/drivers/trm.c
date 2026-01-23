@@ -51,7 +51,7 @@ static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, memseg_t *seg) {
 		kdebugf("map TRM framebuffer at %p in %p lenght : %p\n", vaddr, seg, seg->size);
 
 		while(paddr < end){
-			map_page(get_current_proc()->addrspace,paddr,vaddr,seg->prot);
+			mmu_map_page(get_current_proc()->addrspace,paddr,vaddr,seg->prot);
 			paddr += PAGE_SIZE;
 			vaddr += PAGE_SIZE;
 		}

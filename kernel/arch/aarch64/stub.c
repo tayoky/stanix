@@ -3,9 +3,9 @@
 #define DEF(func,...) void func (__VA_ARGS__){panic(#func,NULL);}
 
 DEF(init_paging)
-DEF(map_page)
-DEF(unmap_page)
-DEF(virt2phys)
+DEF(mmu_map_page)
+DEF(mmu_unmap_page)
+DEF(mmu_virt2phys)
 DEF(space_virt2phys)
 DEF(create_addr_space)
 DEF(delete_addr_space)

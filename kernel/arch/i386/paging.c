@@ -81,7 +81,7 @@ void delete_addr_space(uint64_t *PMLT4){
 	//pmm_free_page((uintptr_t)PMLT4-kernel->hhdm);
 }
 
-void *virt2phys(void *address){
+void *mmu_virt2phys(void *address){
 	//find the PMLT4 of the current address space
 	uint64_t cr3;
 	asm volatile("mov %%cr3, %0" : "=r" (cr3));
@@ -119,7 +119,7 @@ void *space_virt2phys(uint64_t *PMLT4, void *address){
 	return (void *) ((PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF));
 }
 
-void map_page(uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint64_t falgs){
+void mmu_map_page(uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint64_t falgs){
 	uint64_t PMLT4i= ((uint64_t)virtual_page >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)virtual_page >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)virtual_page >> 21) & 0x1FF;
@@ -146,7 +146,7 @@ void map_page(uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint6
 	PT[PTi] = (physical_page & ~0xFFFUL) | falgs;
 }
 
-void unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
+void mmu_unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
 	uint64_t PMLT4i= ((uint64_t)virtual_page >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)virtual_page >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)virtual_page >> 21) & 0x1FF;
@@ -213,7 +213,7 @@ void map_kernel(uint64_t *PMLT4){
 		if(virt_page >= kernel_text_end){
 			flags |= PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE;
 		}
-		map_page(PMLT4,phys_page,virt_page,PAGING_FLAG_RW_CPL0);
+		mmu_map_page(PMLT4,phys_page,virt_page,PAGING_FLAG_RW_CPL0);
 		phys_page += PAGE_SIZE;
 		virt_page += PAGE_SIZE;
 	}
@@ -234,7 +234,7 @@ void map_hhdm(uint64_t *PMLT4){
 				uint64_t phys_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base);
 				uint64_t virt_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base + kernel->hhdm);
 				for (uint64_t i = 0; i < section_size; i++){
-					map_page(PMLT4,phys_page,virt_page,PAGING_FLAG_RW_CPL0);
+					mmu_map_page(PMLT4,phys_page,virt_page,PAGING_FLAG_RW_CPL0);
 					virt_page += PAGE_SIZE;
 					phys_page += PAGE_SIZE;
 				}

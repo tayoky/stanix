@@ -1,10 +1,17 @@
-#ifndef ARCH_H
-#define ARCH_H
+#ifndef _KERNEL_X86_64_H
+#define _KERNEL_X86_64_H
 
+#include "asm.h"
+#include "cmos.h"
 #include "gdt.h"
 #include "idt.h"
+#include "isr.h"
+#include "paging.h"
+#include "pic.h"
+#include "pit.h"
+#include "port.h"
+#include "serial.h"
 #include "tss.h"
-
 #include <sys/shutdown.h>
 #include <stdint.h>
 
@@ -81,5 +88,8 @@ int arch_shutdown(int flags);
 #define RET_REG(frame)  ( frame ).rax
 #define SP_REG(frame)   ( frame ).rsp
 #define PC_REG(frame)   ( frame ).rip
+
+#define PIC_APIC 0x01
+#define PIC_PIC  0x02
 
 #endif

@@ -2,7 +2,6 @@
 #include <kernel/scheduler.h>
 #include <kernel/kernel.h>
 #include <kernel/string.h>
-#include <kernel/paging.h>
 #include <kernel/print.h>
 #include <kernel/userspace.h>
 #include <kernel/memseg.h>

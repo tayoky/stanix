@@ -1,5 +1,5 @@
-#ifndef TSS_H
-#define TSS_H
+#ifndef _KERNEL_TSS_H
+#define _KERNEL_TSS_H
 
 #include <stdint.h>
 
@@ -12,7 +12,7 @@ typedef struct {
 	uint32_t rspl2;
 	uint32_t rsph2;
 	uint64_t bloat[22]; //yeah just some bloat not even used in long mode
-}TSS;
+} TSS;
 
 void init_tss();
 

@@ -1,4 +1,4 @@
-#include <kernel/paging.h>
+#include <kernel/mmu.h>
 #include <kernel/kheap.h>
 #include <kernel/print.h>
 #include <kernel/panic.h>
@@ -14,7 +14,7 @@ void init_kheap(void){
 	kernel->kheap.changes_size = change_kheap_size;
 
 	//map a page
-	map_page(get_addr_space(),pmm_allocate_page(),kernel->kheap.start,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+	mmu_map_page(mmu_get_addr_space(),pmm_allocate_page(),kernel->kheap.start,PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 
 	kernel->kheap.lenght = PAGE_SIZE;
 
@@ -30,24 +30,24 @@ void init_kheap(void){
 
 void change_kheap_size(ssize_t offset){
 	if(!offset)return;
-	int64_t offset_page = offset / PAGE_SIZE;
+	intptr_t offset_page = offset / PAGE_SIZE;
 
 	//get the addr space
-	addrspace_t addr_space = get_addr_space();
+	addrspace_t addr_space = mmu_get_addr_space();
 
 	if(offset < 0){
 		//make kheap smaller
-		for (int64_t i = 0; i > offset_page; i--){
-			uint64_t virt_page = kernel->kheap.start + kernel->kheap.lenght + i * PAGE_SIZE;
-			uint64_t phys_page = (uint64_t)virt2phys((void *)virt_page);
-			unmap_page(addr_space,virt_page);
+		for (intptr_t i = 0; i > offset_page; i--){
+			uintptr_t virt_page = kernel->kheap.start + kernel->kheap.lenght + i * PAGE_SIZE;
+			uintptr_t phys_page = mmu_virt2phys((void *)virt_page);
+			mmu_unmap_page(addr_space,virt_page);
 			pmm_free_page(phys_page);
 		}
 	} else {
 		//make kheap bigger
-		for (int64_t i = 0; i < offset_page; i++){
-			uint64_t virt_page = kernel->kheap.start + kernel->kheap.lenght + i * PAGE_SIZE;
-			map_page(addr_space,pmm_allocate_page(),virt_page, PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+		for (intptr_t i = 0; i < offset_page; i++){
+			uintptr_t virt_page = kernel->kheap.start + kernel->kheap.lenght + i * PAGE_SIZE;
+			mmu_map_page(addr_space,pmm_allocate_page(),virt_page, PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 		}
 	}
 	kernel->kheap.lenght += offset_page * PAGE_SIZE;

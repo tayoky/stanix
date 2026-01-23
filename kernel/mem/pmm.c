@@ -71,10 +71,10 @@ void pmm_map_info(addrspace_t addr_space) {
 		uintptr_t pages_end   = PAGE_ALIGN_UP  (MEM_PAGES_START + end   / PAGE_SIZE * sizeof(page_t));
 		kdebugf("map %lx to %lx\n", pages_start, pages_end);
 		for (uintptr_t addr = pages_start; addr < pages_end; addr += PAGE_SIZE) {
-			if (!virt2phys((void*)addr)) {
+			if (mmu_virt2phys((void*)addr) == PAGE_INVALID) {
 				// we need to map a new page
 				uintptr_t page = pmm_allocate_page();
-				map_page(addr_space, page, addr, PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
+				mmu_map_page(addr_space, page, addr, PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE);
 			}
 		}
 	}
@@ -90,7 +90,7 @@ uintptr_t pmm_allocate_page(void) {
 
 	// first : out of memory check
 	if (!stack_head) {
-		return PMM_INVALID_PAGE;
+		return PAGE_INVALID;
 	}
 
 	// take the head entry and (maybee) pop it

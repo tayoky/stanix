@@ -11,6 +11,9 @@
 #define PAGE_ALIGN_UP(address)  (((address) + PAGE_SIZE -1)/PAGE_SIZE * PAGE_SIZE)
 #define PAGE_DIV_UP(address)  (((address) + PAGE_SIZE -1)/PAGE_SIZE)
 
+
+#define PAGE_INVALID ULONG_MAX - PAGE_SIZE + 1
+
 #define KERNEL_STACK_SIZE (64 * 1024)
 #define USER_STACK_SIZE 64 *PAGE_SIZE
 #define USER_STACK_BOTTOM USER_STACK_TOP - USER_STACK_SIZE

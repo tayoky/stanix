@@ -2,8 +2,8 @@
 #define USERSPACE_H
 
 #include <kernel/page.h>
-#include <kernel/paging.h>
 #include <kernel/arch.h>
+#include <kernel/mmu.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -11,7 +11,7 @@ void jump_userspace(void *address,void *stack,uintptr_t arg1,uintptr_t arg2,uint
 
 //some macro to check ptr
 #define CHECK_PTR_INRANGE(ptr) ((uintptr_t)ptr <= MEM_USERSPACE_END)
-#define CHECK_PTR(ptr) (CHECK_PTR_INRANGE(ptr) && virt2phys((void *)ptr))
+#define CHECK_PTR(ptr) (CHECK_PTR_INRANGE(ptr) && mmu_virt2phys((void *)ptr) != PAGE_INVALID)
 
 
 int check_mem(void *ptr,size_t count);

@@ -1,6 +1,6 @@
 #include <kernel/scheduler.h>
 #include <kernel/memseg.h>
-#include <kernel/paging.h>
+#include <kernel/mmu.h>
 #include <kernel/string.h>
 #include <kernel/kernel.h>
 #include <kernel/list.h>
@@ -112,7 +112,7 @@ int memseg_map(process_t *proc, uintptr_t address, size_t size, uint64_t prot, i
 		fd = NULL;
 		uintptr_t end = address + size;
 		while (address < end) {
-			map_page(proc->addrspace, pmm_allocate_page(), address, prot);
+			mmu_map_page(proc->addrspace, pmm_allocate_page(), address, prot);
 			address += PAGE_SIZE;
 		}
 	} else if (fd) {
@@ -137,7 +137,7 @@ void memseg_chflag(process_t *proc, memseg_t *seg, uint64_t prot) {
 	uintptr_t addr = seg->addr;
 	uintptr_t end = seg->addr + seg->size;
 	while (addr < end) {
-		map_page(proc->addrspace, (uintptr_t)space_virt2phys(proc->addrspace, (void *)addr), addr, prot);
+		mmu_map_page(proc->addrspace, mmu_space_virt2phys(proc->addrspace, (void *)addr), addr, prot);
 		addr += PAGE_SIZE;
 	}
 }
@@ -159,7 +159,7 @@ void memseg_unmap(process_t *proc, memseg_t *seg) {
 			uintptr_t addr = seg->addr;
 			uintptr_t end = seg->addr + seg->size;
 			while (addr < end) {
-				pmm_free_page((uintptr_t)space_virt2phys(proc->addrspace, (void *)addr));
+				pmm_free_page(mmu_space_virt2phys(proc->addrspace, (void *)addr));
 				addr += PAGE_SIZE;
 			}
 		}
@@ -167,7 +167,7 @@ void memseg_unmap(process_t *proc, memseg_t *seg) {
 	}
 
 	while (addr < end) {
-		unmap_page(proc->addrspace, addr);
+		mmu_unmap_page(proc->addrspace, addr);
 		addr += PAGE_SIZE;
 	}
 }
@@ -191,8 +191,8 @@ void memseg_clone(process_t *parent, process_t *child, memseg_t *seg) {
 		char *addr = (char *)seg->addr;
 		char *end = (char *)seg->addr + seg->size;
 		while (addr < end) {
-			uintptr_t phys = (uintptr_t)space_virt2phys(parent->addrspace, addr);
-			map_page(child->addrspace, phys, (uintptr_t)addr, seg->prot);
+			uintptr_t phys = mmu_space_virt2phys(parent->addrspace, addr);
+			mmu_map_page(child->addrspace, phys, (uintptr_t)addr, seg->prot);
 			addr += PAGE_SIZE;
 		}
 		return;
@@ -207,7 +207,7 @@ void memseg_clone(process_t *parent, process_t *child, memseg_t *seg) {
 	char *addr = (char *)seg->addr;
 	char *end = (char *)seg->addr + seg->size;
 	while (addr < end) {
-		uintptr_t phys = (uintptr_t)space_virt2phys(child->addrspace, addr);
+		uintptr_t phys = mmu_space_virt2phys(child->addrspace, addr);
 		memcpy((void *)kernel->hhdm + phys, addr, PAGE_SIZE);
 		addr += PAGE_SIZE;
 	}

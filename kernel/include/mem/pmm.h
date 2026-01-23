@@ -1,8 +1,8 @@
-#ifndef BITMAP_H
-#define BITMAP_H
+#ifndef _KERNEL_PMM_H
+#define _KERNEL_PMM_H
 
-#include <kernel/paging.h>
 #include <kernel/page.h>
+#include <kernel/mmu.h>
 #include <sys/type.h>
 #include <stdint.h>
 #include <limits.h>
@@ -16,8 +16,6 @@ typedef struct pmm_entry {
 typedef struct page {
 	atomic_size_t ref_count;
 } page_t;
-
-#define PMM_INVALID_PAGE ULONG_MAX - PAGE_SIZE + 1
 
 /**
  * @brief get informations on a page

@@ -2,13 +2,12 @@
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/signal.h>
+#include <kernel/panic.h>
 #include <kernel/interrupt.h>
 #include <kernel/sys.h>
 #include <kernel/irq.h>
+#include <kernel/arch.h>
 #include <stdint.h>
-#include "idt.h"
-#include "isr.h"
-#include "panic.h"
 
 static void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){
 	idt[index].offset1 = (uint64_t)offset & 0xFFFF;

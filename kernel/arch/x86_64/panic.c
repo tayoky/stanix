@@ -1,11 +1,10 @@
 #include <kernel/print.h>
 #include <kernel/kernel.h>
 #include <kernel/scheduler.h>
-#include <kernel/serial.h>
+#include <kernel/arch.h>
 #include <kernel/module.h>
-#include "sym.h"
-#include "asm.h"
-#include "panic.h"
+#include <kernel/panic.h>
+#include <kernel/sym.h>
 
 int panic_count = 0;
 

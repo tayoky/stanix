@@ -1,8 +1,7 @@
-#include "cmos.h"
-#include <stdint.h>
-#include "port.h"
+#include <kernel/arch.h>
 #include <kernel/print.h>
 #include <sys/time.h>
+#include <stdint.h>
 
 #define CMOS_ADDRESS_PORT 0x70
 #define CMOS_DATA_PORT 0x71

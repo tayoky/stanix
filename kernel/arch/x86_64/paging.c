@@ -2,6 +2,7 @@
 #include <kernel/paging.h>
 #include <kernel/print.h>
 #include <kernel/pmm.h>
+#include <kernel/mmu.h> 
 #include <kernel/string.h>
 
 extern uint64_t p_kernel_start[];
@@ -12,17 +13,17 @@ extern uint64_t p_kernel_text_end[];
 static uintptr_t shared_PML4_entries[SHARED_PML4_ENTRIES_COUNT];
 
 
-addrspace_t get_addr_space() {
+addrspace_t mmu_get_addr_space() {
 	uint64_t cr3;
 	asm("mov %%cr3, %%rax" : "=a" (cr3));
 	return (addrspace_t)(cr3 + kernel->hhdm);
 }
 
-void set_addr_space(addrspace_t new_addrspace) {
+void mmu_set_addr_space(addrspace_t new_addrspace) {
 	asm volatile ("movq %0, %%cr3" : : "r" ((uintptr_t)new_addrspace - kernel->hhdm));
 }
 
-void init_paging(void) {
+void init_mmu(void) {
 	kstatusf("init paging... ");
 
 	// init the shared PML4 entries
@@ -33,19 +34,19 @@ void init_paging(void) {
 		memset((void *)((shared_PML4_entries[i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm), 0, PAGE_SIZE);
 	}
 
-	addrspace_t PML4 = create_addr_space();
+	addrspace_t PML4 = mmu_create_addr_space();
 
 	// map kernel in it
-	map_kernel(PML4);
-	map_hhdm(PML4);
+	mmu_map_kernel(PML4);
+	mmu_map_hhdm(PML4);
 	pmm_map_info(PML4);
 
-	set_addr_space(PML4);
+	mmu_set_addr_space(PML4);
 
 	kok();
 }
 
-addrspace_t create_addr_space() {
+addrspace_t mmu_create_addr_space() {
 	uint64_t *PML4 = (uint64_t *)(pmm_allocate_page() + kernel->hhdm);
 
 	// Set all entry as 0
@@ -58,7 +59,7 @@ addrspace_t create_addr_space() {
 	return PML4;
 }
 
-void delete_addr_space(addrspace_t PML4) {
+void mmu_delete_addr_space(addrspace_t PML4) {
 	//recusively free everythings
 	//EXCEPT THE SHARED PML4 entries
 	kdebugf("free addrspace %p\n", PML4);
@@ -86,39 +87,39 @@ void delete_addr_space(addrspace_t PML4) {
 	pmm_free_page((uintptr_t)PML4 - kernel->hhdm);
 }
 
-void *virt2phys(void *address) {
-	//ust wrap arround space_virt2phys
-	return space_virt2phys(get_addr_space(), address);
+uintptr_t mmu_virt2phys(void *address) {
+	// just wrap arround space_virt2phys
+	return mmu_space_virt2phys(mmu_get_addr_space(), address);
 }
 
-void *space_virt2phys(addrspace_t PML4, void *address) {
+uintptr_t mmu_space_virt2phys(addrspace_t PML4, void *address) {
 	uint64_t PML4i= ((uint64_t)address >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)address >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)address >> 21) & 0x1FF;
 	uint64_t PTi   = ((uint64_t)address >> 12) & 0x1FF;
 
 	if (!(PML4[PML4i] & 1)) {
-		return NULL;
+		return PAGE_INVALID;
 	}
 
 	uint64_t *PDP = (uint64_t *)((PML4[PML4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if (!(PDP[PDPi] & 1)) {
-		return NULL;
+		return PAGE_INVALID;
 	}
 
 	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if (!(PD[PDi] & 1)) {
-		return NULL;
+		return PAGE_INVALID;
 	}
 
 	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if (!(PT[PTi] & 1)) {
-		return NULL;
+		return PAGE_INVALID;
 	}
-	return (void *)((PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF));
+	return (PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF);
 }
 
-void map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t virtual_addr, uint64_t falgs) {
+void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t virtual_addr, uint64_t falgs) {
 	uint64_t PML4i= ((uint64_t)virtual_addr >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)virtual_addr >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)virtual_addr >> 21) & 0x1FF;
@@ -147,7 +148,7 @@ void map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t virtual_addr,
 	asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
 }
 
-void unmap_page(addrspace_t PML4, uintptr_t virtual_addr) {
+void mmu_unmap_page(addrspace_t PML4, uintptr_t virtual_addr) {
 	uint64_t PML4i= ((uint64_t)virtual_addr >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)virtual_addr >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)virtual_addr >> 21) & 0x1FF;
@@ -174,7 +175,7 @@ void unmap_page(addrspace_t PML4, uintptr_t virtual_addr) {
 
 	PT[PTi] = 0;
 
-	if (get_addr_space() == PML4)asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
+	if (mmu_get_addr_space() == PML4)asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
 
 	//if there are not more mapped entries in a table we can delete it
 	for (uint16_t i = 0; i < 512; i++) {
@@ -194,7 +195,7 @@ void unmap_page(addrspace_t PML4, uintptr_t virtual_addr) {
 	PDP[PDPi] = 0;
 }
 
-void map_kernel(uint64_t *PML4) {
+void mmu_map_kernel(uint64_t *PML4) {
 	uint64_t kernel_start      = (uint64_t) * (&p_kernel_start);
 	uint64_t kernel_end        = (uint64_t) * (&p_kernel_end);
 	uint64_t kernel_text_end   = (uint64_t) * (&p_kernel_text_end);
@@ -208,13 +209,13 @@ void map_kernel(uint64_t *PML4) {
 		if (virt_page >= kernel_text_end) {
 			flags |= PAGING_FLAG_RW_CPL0 | PAGING_FLAG_NO_EXE;
 		}
-		map_page(PML4, phys_page, virt_page, PAGING_FLAG_RW_CPL0);
+		mmu_map_page(PML4, phys_page, virt_page, PAGING_FLAG_RW_CPL0);
 		phys_page += PAGE_SIZE;
 		virt_page += PAGE_SIZE;
 	}
 }
 
-void map_hhdm(uint64_t *PML4) {
+void mmu_map_hhdm(uint64_t *PML4) {
 	for (uint64_t index = 0; index < kernel->memmap->entry_count; index++) {
 		uint64_t type = kernel->memmap->entries[index]->type;
 		if (type == LIMINE_MEMMAP_ACPI_NVS ||
@@ -233,7 +234,7 @@ void map_hhdm(uint64_t *PML4) {
 			uintptr_t end = PAGE_ALIGN_UP(kernel->memmap->entries[index]->base + kernel->memmap->entries[index]->length);
 			uintptr_t virt_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base + kernel->hhdm);
 			while (phys_page < end) {
-				map_page(PML4, phys_page, virt_page, flags);
+				mmu_map_page(PML4, phys_page, virt_page, flags);
 				virt_page += PAGE_SIZE;
 				phys_page += PAGE_SIZE;
 			}

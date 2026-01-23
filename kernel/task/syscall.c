@@ -4,7 +4,7 @@
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/page.h>
-#include <kernel/paging.h>
+#include <kernel/mmu.h>
 #include <kernel/time.h>
 #include <kernel/pipe.h>
 #include <kernel/exec.h>
@@ -304,8 +304,8 @@ uint64_t sys_sbrk(intptr_t incr) {
 		//make heap smaller
 		for (int64_t i = 0; i > incr_pages; i--) {
 			uintptr_t virt_page = kernel->kheap.start + kernel->kheap.lenght + i * PAGE_SIZE;
-			uintptr_t phys_page = (uintptr_t)virt2phys((void *)virt_page);
-			unmap_page(get_current_proc()->addrspace, virt_page);
+			uintptr_t phys_page = mmu_virt2phys((void *)virt_page);
+			mmu_unmap_page(get_current_proc()->addrspace, virt_page);
 			pmm_free_page(phys_page);
 		}
 	} else {

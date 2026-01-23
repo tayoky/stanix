@@ -1,5 +1,5 @@
-#ifndef GDT_H
-#define GDT_H
+#ifndef _KERNEL_GDT_H
+#define _KERNEL_GDT_H
 #include <stdint.h>
 
 #define GDT_SEGMENT_ACCESS_ACCESS 0x01

@@ -2,7 +2,7 @@
 #define PROCESS_H
 
 #include <kernel/arch.h>
-#include <kernel/paging.h>
+#include <kernel/mmu.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <kernel/mutex.h>

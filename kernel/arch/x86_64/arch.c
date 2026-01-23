@@ -1,13 +1,7 @@
 #include <kernel/arch.h>
 #include <kernel/serial.h>
 #include <kernel/print.h>
-#include <kernel/asm.h>
 #include <errno.h>
-#include "idt.h"
-#include "gdt.h"
-#include "tss.h"
-#include "pit.h"
-#include "cmos.h"
 
 void kmain();
 

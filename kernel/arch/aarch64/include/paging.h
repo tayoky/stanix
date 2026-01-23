@@ -18,12 +18,12 @@ void delete_addr_space(uint64_t *PMLT4);
 /// @param physical_page the physical page it will be map
 /// @param virtual_page the virtual page to map
 /// @param flags flag to use for the virtual page (eg readonly, not executable...)
-void map_page(uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint64_t flags);
+void mmu_map_page(uint64_t *PMLT4,uint64_t physical_page,uint64_t virtual_page,uint64_t flags);
 
 /// @brief unmap an page
 /// @param PMLT4 an pointer to the PMLT4
 /// @param virtual_page the virtual page to unmap
-void unmap_page(uint64_t *PMLT4,uint64_t virtual_page);
+void mmu_unmap_page(uint64_t *PMLT4,uint64_t virtual_page);
 
 /// @brief map the kernel code and global data 
 /// @param PMLT4 an pointer to the PMLT4
@@ -40,7 +40,7 @@ void map_kheap(uint64_t *PMLT4);
 /// @brief return the mapped physcal address of a virtual address
 /// @param address the virtual address
 /// @return the physical address it is mapped to
-void *virt2phys(void *address);
+void *mmu_virt2phys(void *address);
 
 /// @brief return the mapped physcal address of a virtual address in any PMLT4
 /// @param PMLT4 an pointer to the PMLT4

@@ -1,5 +1,5 @@
-#ifndef PIT_H
-#define PIT_H
+#ifndef _KERNEL_PIT_H
+#define _KERNEL_PIT_H
 
 #include <stdint.h>
 

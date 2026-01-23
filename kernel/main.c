@@ -4,7 +4,7 @@
 #include <kernel/asm.h>
 #include <kernel/print.h>
 #include <kernel/pmm.h>
-#include <kernel/paging.h>
+#include <kernel/mmu.h>
 #include <kernel/kheap.h>
 #include <kernel/tmpfs.h>
 #include <kernel/tarfs.h>
@@ -103,7 +103,7 @@ void kmain() {
 	get_bootinfo();
 	init_PMM();
 	kprintf("used pages: 0x%lx\n", pmm_get_used_pages());
-	init_paging();
+	init_mmu();
 	init_kheap();
 	init_vfs();
 	mount_initrd();

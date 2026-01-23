@@ -1,5 +1,5 @@
-#ifndef IDT_H
-#define IDT_H
+#ifndef _KERNEL_IDT_H
+#define _KERNEL_IDT_H
 #include <stdint.h>
 
 typedef struct {

@@ -1,5 +1,5 @@
-#ifndef SERIAL_H
-#define SERIAL_H
+#ifndef _KERNEL_SERIAL_H
+#define _KERNEL_SERIAL_H
 
 #define SERIAL_PORT 0X3F8
 

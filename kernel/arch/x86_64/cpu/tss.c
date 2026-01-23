@@ -1,8 +1,7 @@
-#include "tss.h"
+#include <kernel/string.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
-#include <kernel/string.h>
-#include <kernel/paging.h>
+#include <kernel/arch.h>
 
 void set_kernel_stack(uintptr_t stack){
 	kernel->arch.tss.rsph0 = ((stack) >> 32) & 0xFFFFFFFF;

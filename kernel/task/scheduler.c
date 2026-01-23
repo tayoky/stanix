@@ -3,7 +3,7 @@
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/kheap.h>
-#include <kernel/paging.h>
+#include <kernel/mmu.h>
 #include <kernel/string.h>
 #include <kernel/list.h>
 #include <kernel/arch.h>
@@ -51,7 +51,7 @@ void init_task() {
 	kernel_task->umask = 022;
 
 	//get the address space
-	kernel_task->addrspace = get_addr_space();
+	kernel_task->addrspace = mmu_get_addr_space();
 
 	kernel_task->main_thread = new_task(kernel_task);
 
@@ -129,7 +129,7 @@ process_t *new_proc() {
 	process_t *proc = kmalloc(sizeof(process_t));
 	memset(proc, 0, sizeof(process_t));
 
-	proc->addrspace = create_addr_space();
+	proc->addrspace = mmu_create_addr_space();
 	proc->parent  = get_current_proc();
 	init_list(&proc->child);
 	init_list(&proc->memseg);
@@ -234,7 +234,7 @@ void yield(int addback) {
 	}
 
 	if (old->process->addrspace != new->process->addrspace) {
-		set_addr_space(new->process->addrspace);
+		mmu_set_addr_space(new->process->addrspace);
 	}
 
 	if (new != old) {
@@ -428,7 +428,7 @@ void final_proc_cleanup(process_t *proc) {
 	final_task_cleanup(proc->main_thread);
 
 	// now we can free the paging tables
-	delete_addr_space(proc->addrspace);
+	mmu_delete_addr_space(proc->addrspace);
 	kfree(proc);
 }
 

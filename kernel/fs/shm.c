@@ -54,7 +54,7 @@ static int shm_mmap(vfs_fd_t *fd, off_t offset,memseg_t *seg){
 		shm_block_t *block = (shm_block_t*)node;
 		if(off >= offset && (size_t)off <= offset + seg->size){
 				if(vaddr >= seg->addr + seg->size)break;
-				map_page(get_addr_space(),block->block,vaddr,seg->prot);
+				mmu_map_page(mmu_get_addr_space(),block->block,vaddr,seg->prot);
 				vaddr += PAGE_SIZE;
 			}
 			off += PAGE_SIZE;
