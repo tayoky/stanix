@@ -115,7 +115,10 @@ uintptr_t pmm_allocate_page(void) {
 
 void pmm_free_page(uintptr_t page) {
 	if (pages_info) {
-		// TODO : do ref counting
+		if (atomic_fetch_sub(&pmm_page_info(page)->ref_count, 1) != 1) {
+			// ref remaning
+			return;
+		}
 	}
 	spinlock_acquire(&pmm_lock);
 

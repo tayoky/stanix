@@ -135,8 +135,13 @@ void vmm_unmap(process_t *proc, vmm_seg_t *seg) {
 	}
 	vfs_close(seg->fd);
 
+	// IO cannot be allocated/freed using the PMM
+	// so do not free them
+	// it's the driver job to do it
 	if (!(seg->flags & VMM_FLAG_IO)) {
-		// TODO : free the pages
+		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
+			pmm_free_page(mmu_space_virt2phys(proc->addrspace, (void *)addr));
+		}
 	}
 
 	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
