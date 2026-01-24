@@ -34,11 +34,13 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 			pmm_free_page(phys);
 			mmu_map_page(get_current_proc()->addrspace, new_page, vpage, seg->prot);
 		}
+		return 1;
 	}
 	return 0;
 }
 
 int vmm_fault_report(uintptr_t addr, int prot) {
+	kdebugf("got fault on %p\n", addr);
 	foreach (node, &get_current_proc()->vmm_seg) {
 		vmm_seg_t *seg = (vmm_seg_t*)node;
 		if (seg->start > addr) break;
