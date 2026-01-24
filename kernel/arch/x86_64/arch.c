@@ -1,6 +1,7 @@
 #include <kernel/arch.h>
 #include <kernel/serial.h>
 #include <kernel/print.h>
+#include <kernel/mmu.h>
 #include <errno.h>
 
 void kmain();
@@ -29,6 +30,12 @@ int is_userspace(fault_frame *frame){
 
 uintptr_t get_ptr_context(fault_frame *fault){
 	return fault->cr2;
+}
+
+long arch_get_prot_fault(fault_frame *fault) {
+	if (fault->err_code & 0x10) return MMU_FLAG_EXEC;
+	if (fault->err_code & 0x02) return MMU_FLAG_WRITE;
+	return MMU_FLAG_READ;
 }
 
 

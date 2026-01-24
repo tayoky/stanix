@@ -68,6 +68,7 @@ void set_kernel_stack(uintptr_t stack);
 int save_context(acontext *context);
 void load_context(acontext *context);
 uintptr_t get_ptr_context(fault_frame *fault);
+long arch_get_prot_fault(fault_frame *fault);
 
 /// @brief check if a specfied context is in userspace
 /// @param frame the context to check

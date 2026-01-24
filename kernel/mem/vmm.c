@@ -5,16 +5,36 @@
 #include <kernel/kernel.h>
 #include <kernel/list.h>
 #include <kernel/print.h>
+#include <kernel/signal.h>
 #include <kernel/pmm.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <errno.h>
 
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
-	// TODO : CoW and stuff
-	(void)seg;
-	(void)addr;
-	(void)prot;
+	uintptr_t vpage = PAGE_ALIGN_DOWN((uintptr_t)addr);
+	uintptr_t phys  = mmu_virt2phys((void*)vpage);
+
+	// FIXME : probably full of race conditons
+	if ((seg->flags & VMM_FLAG_PRIVATE) && (seg->prot & MMU_FLAG_WRITE) && prot == MMU_FLAG_WRITE) {
+		// we failed a write but we have write perm
+		// it's CoW
+		if (pmm_page_info(phys)->ref_count <= 1) {
+			// other processes already copied
+			mmu_map_page(get_current_proc()->addrspace, phys, vpage, seg->prot);
+		} else {
+			// we need to copy
+			uintptr_t new_page = pmm_allocate_page();
+			if (new_page == PAGE_INVALID) {
+				// not looking good
+				send_sig_task(get_current_task(), SIGBUS);
+				return 1;
+			}
+			memcpy((void*)(new_page + kernel->hhdm), (void*)vpage, PAGE_SIZE);
+			pmm_free_page(phys);
+			mmu_map_page(get_current_proc()->addrspace, new_page, vpage, seg->prot);
+		}
+	}
 	return 0;
 }
 
@@ -120,7 +140,13 @@ int vmm_chprot(process_t *proc, vmm_seg_t *seg, long prot) {
 	seg->prot = prot;
 
 	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		mmu_map_page(proc->addrspace, mmu_space_virt2phys(proc->addrspace, (void *)addr), addr, prot);
+		uintptr_t phys = mmu_space_virt2phys(proc->addrspace, (void *)addr);
+		if ((seg->flags & VMM_FLAG_PRIVATE) && pmm_page_info(phys)->ref_count > 1) {
+			// we are doing CoW
+			mmu_map_page(proc->addrspace, phys, addr, prot & ~MMU_FLAG_WRITE);
+		} else {
+			mmu_map_page(proc->addrspace, phys, addr, prot);
+		}
 	}
 	return 0;
 }
@@ -162,42 +188,35 @@ void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg) {
 	new_seg->private_data = seg->private_data;
 	new_seg->fd           = vfs_dup(seg->fd);
 
-	if (seg->flags & VMM_FLAG_SHARED) {
-		vmm_seg_t *prev = NULL;
-		foreach(node, &child->vmm_seg) {
-			vmm_seg_t *current = (vmm_seg_t*)node;
-			if (current->start > seg->end) {
-				break;
-			}
-			prev = current;
-		}
-		list_add_after(&child->vmm_seg, prev ? &prev->node : NULL, &new_seg->node);
-
-		// now remap in child
-		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-			uintptr_t phys = mmu_space_virt2phys(parent->addrspace, (void*)addr);
-			// do not touch ref count of IO mapping
-			// because they actually do not have a ref count
-			if (!(seg->flags & VMM_FLAG_IO)) {
-				pmm_retain(phys);
-			}
-			mmu_map_page(child->addrspace, phys, addr, seg->prot);
-		}
-		return;
+	long prot = seg->prot;
+	if (seg->flags & VMM_FLAG_PRIVATE) {
+		prot &= ~MMU_FLAG_WRITE;
 	}
-
-	// TODO : do CoW here
-
-	// TODO : what happend for device mapped as private ?
-	if (vmm_map(child, seg->start, VMM_SIZE(seg), MMU_FLAG_WRITE | MMU_FLAG_PRESENT, seg->flags | VMM_FLAG_ANONYMOUS, NULL, 0, &new_seg) < 0) {
-		return;
-	}
-
-	// copy content
+	// remap in child
 	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		uintptr_t phys = mmu_space_virt2phys(child->addrspace, (void*)addr);
-		memcpy((void *)(kernel->hhdm + phys), (void*)addr, PAGE_SIZE);
+		uintptr_t phys = mmu_space_virt2phys(parent->addrspace, (void*)addr);
+		// do not touch ref count of IO mapping
+		// because they actually do not have a ref count
+		if (!(seg->flags & VMM_FLAG_IO)) {
+			pmm_retain(phys);
+		}
+		mmu_map_page(child->addrspace, phys, addr, prot);
+	}
+ 
+	if (seg->flags & VMM_FLAG_PRIVATE) {
+		// we need to remap as readonly in the parent too
+		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
+			mmu_map_page(parent->addrspace, mmu_space_virt2phys(parent->addrspace, (void *)addr), addr, prot);
+		}
 	}
 
-	vmm_chprot(child, new_seg, seg->prot);
+	vmm_seg_t *prev = NULL;
+	foreach(node, &child->vmm_seg) {
+		vmm_seg_t *current = (vmm_seg_t*)node;
+		if (current->start > seg->end) {
+			break;
+		}
+		prev = current;
+	}
+	list_add_after(&child->vmm_seg, prev ? &prev->node : NULL, &new_seg->node);
 }
