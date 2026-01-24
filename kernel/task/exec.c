@@ -170,7 +170,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 
 	//map stack
 	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
-	vmm_map(get_current_proc(), USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS, NULL, 0, NULL);
+	vmm_map(get_current_proc(), USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS | VMM_FLAG_PRIVATE, NULL, 0, NULL);
 
 	//keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;
