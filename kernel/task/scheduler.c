@@ -10,7 +10,7 @@
 #include <kernel/time.h>
 #include <kernel/asm.h>
 #include <kernel/signal.h>
-#include <kernel/memseg.h>
+#include <kernel/vmm.h>
 #include <stdatomic.h>
 #include <errno.h>
 
@@ -46,7 +46,7 @@ void init_task() {
 	kernel_task->parent = kernel_task;
 	kernel_task->pid = 0;
 	init_list(&kernel_task->child);
-	init_list(&kernel_task->memseg);
+	init_list(&kernel_task->vmm_seg);
 	init_list(&kernel_task->threads);
 	kernel_task->umask = 022;
 
@@ -132,7 +132,7 @@ process_t *new_proc() {
 	proc->addrspace = mmu_create_addr_space();
 	proc->parent  = get_current_proc();
 	init_list(&proc->child);
-	init_list(&proc->memseg);
+	init_list(&proc->vmm_seg);
 	init_list(&proc->threads);
 	proc->uid     = get_current_proc()->uid;
 	proc->uid     = get_current_proc()->uid;
@@ -299,13 +299,13 @@ static void do_proc_deletion(void) {
 	kfree(get_current_proc()->cwd_path);
 
 	// unmap everything
-	memseg_node_t *current = (memseg_node_t*)get_current_proc()->memseg.first_node;
+	vmm_seg_t *current = (vmm_seg_t*)get_current_proc()->vmm_seg.first_node;
 	while (current) {
-		memseg_node_t *next = (memseg_node_t*)current->node.next;
-		memseg_unmap(get_current_proc(), current->seg);
+		vmm_seg_t *next = (vmm_seg_t*)current->node.next;
+		vmm_unmap(get_current_proc(), current);
 		current = next;
 	}
-	destroy_list(&get_current_proc()->memseg);
+	destroy_list(&get_current_proc()->vmm_seg);
 
 	destroy_list(&get_current_proc()->threads);
 }

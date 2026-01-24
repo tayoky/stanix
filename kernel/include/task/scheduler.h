@@ -67,7 +67,7 @@ typedef struct process {
 	char *cwd_path;
 	uintptr_t heap_start;
 	uintptr_t heap_end;
-	list_t memseg;
+	list_t vmm_seg;
 	list_t child;
 	list_t threads;
 	pid_t group;

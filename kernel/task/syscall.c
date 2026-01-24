@@ -8,7 +8,7 @@
 #include <kernel/time.h>
 #include <kernel/pipe.h>
 #include <kernel/exec.h>
-#include <kernel/memseg.h>
+#include <kernel/vmm.h>
 #include <kernel/fork.h>
 #include <kernel/userspace.h>
 #include <kernel/string.h>
@@ -310,7 +310,7 @@ uint64_t sys_sbrk(intptr_t incr) {
 		}
 	} else {
 		//make heap bigger
-		memseg_map(get_current_proc(), proc->heap_end, PAGE_SIZE * incr_pages, heap_flags, MAP_PRIVATE | MAP_ANONYMOUS, NULL, 0, NULL);
+		vmm_map(get_current_proc(), proc->heap_end, PAGE_SIZE * incr_pages, heap_flags, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, NULL);
 	}
 	proc->heap_end += incr_pages * PAGE_SIZE;
 	return proc->heap_end;
@@ -985,6 +985,17 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 		addr = 0;
 	}
 
+	long vmm_flags = 0;
+	if (flags & MAP_PRIVATE) {
+		vmm_flags |= VMM_FLAG_PRIVATE;
+	}
+	if (flags & MAP_SHARED) {
+		vmm_flags |= VMM_FLAG_SHARED;
+	}
+	if (flags & MAP_ANONYMOUS) {
+		vmm_flags |= VMM_FLAG_ANONYMOUS;
+	}
+
 	long mmu_flags = MMU_FLAG_USER | MMU_FLAG_PRESENT;
 	if (prot & PROT_READ) {
 		mmu_flags |= MMU_FLAG_READ;
@@ -1004,12 +1015,12 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 		vfs_fd = FD_GET(fd).fd;
 	}
 
-	memseg_t *seg;
-	int ret = memseg_map(get_current_proc(), addr, length, mmu_flags, flags, vfs_fd, offset, &seg);
+	vmm_seg_t *seg;
+	int ret = vmm_map(get_current_proc(), addr, length, mmu_flags, vmm_flags, vfs_fd, offset, &seg);
 	if (ret < 0) {
 		return (void *)(uintptr_t)ret;
 	} else {
-		return (void *)seg->addr;
+		return (void *)seg->start;
 	}
 }
 
@@ -1017,10 +1028,10 @@ int sys_munmap(void *addr, size_t len) {
 	if (!len)return -EINVAL;
 	if (!CHECK_PTR_INRANGE((uintptr_t)addr + len))return -EINVAL;
 	// FIXME : this is unsafe
-	foreach(node, &get_current_proc()->memseg) {
-		memseg_node_t *memseg_node = (memseg_node_t*)node;
-		if (memseg_node->seg->addr >= (uintptr_t)addr && memseg_node->seg->addr + memseg_node->seg->addr <= (uintptr_t)addr + len) {
-			memseg_unmap(get_current_proc(), memseg_node->seg);
+	foreach(node, &get_current_proc()->vmm_seg) {
+		vmm_seg_t *seg = (vmm_seg_t*)node;
+		if (seg->start >= (uintptr_t)addr && seg->end <= (uintptr_t)addr + len) {
+			vmm_unmap(get_current_proc(), seg);
 		}
 	}
 	return 0;

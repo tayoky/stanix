@@ -9,14 +9,14 @@
 
 struct vfs_fd;
 struct trm_gpu;
-struct memseg;
+struct vmm_seg;
 
 typedef struct trm_ops {
     int (*test_mode)(struct trm_gpu *gpu, trm_mode_t *mode);
     int (*fix_mode)(struct trm_gpu *gpu, trm_mode_t *mode);
     int (*commit_mode)(struct trm_gpu *gpu, trm_mode_t *mode);
     void (*cleanup)(struct trm_gpu *gpu);
-    int (*mmap)(struct trm_gpu *gpu, uintptr_t vaddr, struct memseg *seg);
+    int (*mmap)(struct trm_gpu *gpu, uintptr_t vaddr, struct vmm_seg *seg);
     int (*support_format)(struct trm_gpu *gpu, uint32_t format);
 } trm_ops_t;
 

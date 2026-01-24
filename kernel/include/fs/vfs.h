@@ -29,7 +29,7 @@
 
 struct vfs_node;
 struct vfs_mount_point;
-struct memseg;
+struct vmm_seg;
 struct vfs_ops;
 
 typedef struct vfs_node {
@@ -85,8 +85,7 @@ typedef struct vfs_ops {
 	int (* ioctl)(vfs_fd_t*,long,void*);
 	int (* wait_check)(vfs_fd_t *,short);
 	int (* wait)(vfs_fd_t *,short);
-	int (* mmap)(vfs_fd_t *,off_t,struct memseg *);
-	void (* munmap)(vfs_fd_t *, struct memseg *);
+	int (* mmap)(vfs_fd_t *,off_t,struct vmm_seg *);
 	void (* close)(vfs_fd_t*);
 } vfs_ops_t;
 
@@ -272,14 +271,9 @@ int vfs_wait_check(vfs_fd_t *node,short type);
  */
 int vfs_wait(vfs_fd_t *node,short type);
 
-static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct memseg *seg) {
+static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
 	if (!fd || !fd->ops->mmap) return -EBADF;
 	return fd->ops->mmap(fd, offset, seg);
-}
-
-static inline void vfs_munmap(vfs_fd_t *fd, struct memseg *seg) {
-	if (!fd || !fd->ops->munmap) return;
-	return fd->ops->munmap(fd, seg);
 }
 
 void vfs_register_fs(vfs_filesystem_t *fs);

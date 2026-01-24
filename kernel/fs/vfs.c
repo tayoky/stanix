@@ -3,7 +3,7 @@
 #include <kernel/print.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
-#include <kernel/memseg.h>
+#include <kernel/vmm.h>
 #include <kernel/time.h>
 #include <kernel/list.h>
 #include <kernel/device.h>
@@ -634,6 +634,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
 }
 
 void vfs_close(vfs_fd_t *fd) {
+	if (!fd) return;
 	fd->ref_count--;
 	if (fd->ref_count > 0) return;
 	vfs_close_node(fd->inode);

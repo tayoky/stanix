@@ -5,9 +5,8 @@
 #include <kernel/device.h>
 #include <kernel/print.h>
 #include <kernel/bootinfo.h>
-#include <kernel/memseg.h>
+#include <kernel/vmm.h>
 #include <kernel/tmpfs.h>
-#include <sys/mman.h>
 #include <sys/fb.h>
 #include <errno.h>
 
@@ -75,26 +74,25 @@ static int framebuffer_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	}
 }
 
-static int framebuffer_mmap(vfs_fd_t *fd, off_t offset, memseg_t *seg) {
+static int framebuffer_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 	framebuffer_t *framebuffer = fd->private;
-	if(!(seg->flags & MAP_SHARED)){
+	if(!(seg->flags & VMM_FLAG_SHARED)){
 		return -EINVAL;
 	}
+
+	// the framebuffer must be mapped as IO
+	seg->flags |= VMM_FLAG_IO;
 
 	if (framebuffer->ops->mmap) {
 		return framebuffer->ops->mmap(framebuffer, offset, seg);
 	}
 
-	uintptr_t vaddr = seg->addr;
+	kdebugf("map framebuffer at %p in %p lenght : %p\n", seg->start, seg, VMM_SIZE(seg));
+	
 	uintptr_t paddr = framebuffer->base + PAGE_ALIGN_DOWN(offset);
-	uintptr_t end   = paddr + seg->size;
-
-	kdebugf("map framebuffer at %p in %p lenght : %p\n", vaddr, seg, seg->size);
-
-	while (paddr < end) {
+	for (uintptr_t vaddr=seg->start; vaddr < seg->end; vaddr += PAGE_SIZE) {
 		mmu_map_page(get_current_proc()->addrspace, paddr, vaddr, seg->prot);
 		paddr += PAGE_SIZE;
-		vaddr += PAGE_SIZE;
 	}
 
 	return 0;

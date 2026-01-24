@@ -1,7 +1,7 @@
 #include <kernel/fork.h>
 #include <kernel/arch.h>
 #include <kernel/scheduler.h>
-#include <kernel/memseg.h>
+#include <kernel/vmm.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
 #include <kernel/arch.h>
@@ -13,9 +13,9 @@ pid_t fork(void) {
 
 	kdebugf("forking child : %ld\n", child->pid);
 
-	foreach(node, &parent->memseg) {
-		memseg_node_t *memseg_node = (memseg_node_t*)node;
-		memseg_clone(parent, child, memseg_node->seg);
+	foreach(node, &parent->vmm_seg) {
+		vmm_seg_t *seg = (vmm_seg_t*)node;
+		vmm_clone(parent, child, seg);
 	}
 
 	//clone metadata

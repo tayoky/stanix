@@ -4,7 +4,7 @@
 #include <kernel/string.h>
 #include <kernel/print.h>
 #include <kernel/userspace.h>
-#include <kernel/memseg.h>
+#include <kernel/vmm.h>
 #include <kernel/sys.h>
 #include <errno.h>
 #include <elf.h>
@@ -90,10 +90,10 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	saved_envp[envc] = NULL; // last NULL entry at the end
 
 	//unmap everything;
-	memseg_node_t *current = (memseg_node_t*)get_current_proc()->memseg.first_node;
+	vmm_seg_t *current = (vmm_seg_t*)get_current_proc()->vmm_seg.first_node;
 	while (current) {
-		memseg_node_t *next = (memseg_node_t*)current->node.next;
-		memseg_unmap(get_current_proc(), current->seg);
+		vmm_seg_t *next = (vmm_seg_t*)current->node.next;
+		vmm_unmap(get_current_proc(), current);
 		current = next;
 	}
 
@@ -133,8 +133,8 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz);
 		}
 
-		memseg_t *seg;
-		memseg_map(get_current_proc(), prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, MAP_PRIVATE | MAP_ANONYMOUS, NULL, 0, &seg);
+		vmm_seg_t *seg;
+		vmm_map(get_current_proc(), prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg);
 		memset((void *)prog_header[i].p_vaddr, 0, prog_header[i].p_memsz);
 
 		//file size must be <= to virtual size
@@ -146,8 +146,8 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 			goto error;
 		}
 
-		//set the flags
-		memseg_chflag(get_current_proc(), seg, flags);
+		// set the protection
+		vmm_chprot(get_current_proc(), seg, flags);
 	}
 	kfree(prog_header);
 
@@ -170,7 +170,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 
 	//map stack
 	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
-	memseg_map(get_current_proc(), USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, MAP_ANONYMOUS, NULL, 0, NULL);
+	vmm_map(get_current_proc(), USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS, NULL, 0, NULL);
 
 	//keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;

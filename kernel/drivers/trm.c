@@ -4,7 +4,7 @@
 #include <kernel/string.h>
 #include <kernel/paging.h>
 #include <kernel/kernel.h>
-#include <kernel/memseg.h>
+#include <kernel/vmm.h>
 
 #define TRM_NO_ALLOC ((uintptr_t)-1)
 
@@ -12,8 +12,8 @@ static uintptr_t trm_alloc(trm_gpu_t *gpu, size_t size) {
 	if (size % gpu->align) {
 		size += gpu->align - (size % gpu->align);
 	}
-	foreach (node, &gpu->alloc_blocks) {
-		trm_alloc_block_t *block = (trm_alloc_block_t*)block;
+	foreach(node, &gpu->alloc_blocks) {
+		trm_alloc_block_t *block = (trm_alloc_block_t *)block;
 		if (!block->free || block->size < size) {
 			continue;
 		}
@@ -34,26 +34,26 @@ static uintptr_t trm_alloc(trm_gpu_t *gpu, size_t size) {
 	return TRM_NO_ALLOC;
 }
 
-static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, memseg_t *seg) {
+static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 	trm_framebuffer_t *fb = fd->private;
-	if (offset + seg->size > PAGE_ALIGN_UP(fb->fb.pitch * fb->fb.height)) {
+	if (offset + VMM_SIZE(seg) > PAGE_ALIGN_UP(fb->fb.pitch * fb->fb.height)) {
 		return -EINVAL;
 	}
+	// map it as IO
+	seg->flags |= VMM_FLAG_IO;
+	
 	if (!fb->gpu->ops->mmap) {
 		if (!fb->gpu->vram_mmio) return -EINVAL;
 		// we can map it ourself
-		if(!(seg->flags & MAP_SHARED)){
+		if (!(seg->flags & VMM_FLAG_SHARED)) {
 			return -EINVAL;
 		}
-		uintptr_t vaddr = seg->addr;
+		kdebugf("map TRM framebuffer at %p in %p lenght : %p\n", seg->start, seg, VMM_SIZE(seg));
+		
 		uintptr_t paddr = fb->base + fb->gpu->vram_mmio + PAGE_ALIGN_DOWN(offset);
-		uintptr_t end   = paddr + seg->size;
-		kdebugf("map TRM framebuffer at %p in %p lenght : %p\n", vaddr, seg, seg->size);
-
-		while(paddr < end){
-			mmu_map_page(get_current_proc()->addrspace,paddr,vaddr,seg->prot);
+		for (uintptr_t vaddr=seg->start; vaddr < seg->end; vaddr += PAGE_SIZE) {
+			mmu_map_page(get_current_proc()->addrspace, paddr, vaddr, seg->prot);
 			paddr += PAGE_SIZE;
-			vaddr += PAGE_SIZE;
 		}
 		return 0;
 	}
@@ -112,7 +112,7 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 }
 
 static int trm_check_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
-	for (size_t i=0; i<mode->planes_count; i++) {
+	for (size_t i=0; i < mode->planes_count; i++) {
 		trm_plane_t *mode_plane = &mode->planes[i];
 		if (mode_plane->id > gpu->card.planes_count) return -EINVAL;
 		if (mode_plane->crtc > gpu->card.crtcs_count) return -EINVAL;
@@ -143,16 +143,16 @@ static int trm_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	if (ret < 0) return ret;
 
 	// update stuff
-	for (size_t i=0; i<mode->planes_count; i++) {
+	for (size_t i=0; i < mode->planes_count; i++) {
 		trm_plane_t *plane = &mode->planes[i];
 		gpu->card.planes[plane->id - 1] = *plane;
 	}
-	for (size_t i=0; i<mode->crtcs_count; i++) {
+	for (size_t i=0; i < mode->crtcs_count; i++) {
 		trm_crtc_t *crtc = &mode->crtcs[i];
 		gpu->card.crtcs[crtc->id - 1] = *crtc;
 		if (crtc->timings) *gpu->card.crtcs[crtc->id - 1].timings = *crtc->timings;
 	}
-	for (size_t i=0; i<mode->connectors_count; i++) {
+	for (size_t i=0; i < mode->connectors_count; i++) {
 		trm_connector_t *connector = &mode->connectors[i];
 		gpu->card.connectors[connector->id - 1] = *connector;
 	}
@@ -160,7 +160,7 @@ static int trm_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 }
 
 static int trm_fix_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
-	for (size_t i=0; i<mode->crtcs_count; i++) {
+	for (size_t i=0; i < mode->crtcs_count; i++) {
 		trm_crtc_t *crtc = &mode->crtcs[i];
 		if (crtc->timings) {
 			if (!crtc->timings->pixel_clock) crtc->timings->pixel_clock = crtc->timings->htotal * crtc->timings->vtotal * crtc->timings->refresh;
@@ -179,10 +179,10 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		card->planes_count     = gpu->card.planes_count;
 		card->crtcs_count      = gpu->card.crtcs_count;
 		card->connectors_count = gpu->card.connectors_count;
-		if (card->planes)     memcpy(card->planes    , gpu->card.planes    , gpu->card.planes_count     * sizeof(trm_plane_t));
-		if (card->crtcs)      memcpy(card->crtcs     , gpu->card.crtcs     , gpu->card.crtcs_count      * sizeof(trm_crtc_t));
+		if (card->planes)     memcpy(card->planes, gpu->card.planes, gpu->card.planes_count * sizeof(trm_plane_t));
+		if (card->crtcs)      memcpy(card->crtcs, gpu->card.crtcs, gpu->card.crtcs_count * sizeof(trm_crtc_t));
 		if (card->connectors) memcpy(card->connectors, gpu->card.connectors, gpu->card.connectors_count * sizeof(trm_connector_t));
-		memcpy(card->name  , gpu->card.name  , sizeof(gpu->card.name));
+		memcpy(card->name, gpu->card.name, sizeof(gpu->card.name));
 		memcpy(card->driver, gpu->card.driver, sizeof(gpu->card.name));
 		return 0;
 	case TRM_GET_FRAMEBUFFER:;
@@ -228,7 +228,7 @@ static void trm_close(vfs_fd_t *fd) {
 }
 
 static void trm_destroy(device_t *device) {
-	trm_gpu_t *gpu = (trm_gpu_t*)device;
+	trm_gpu_t *gpu = (trm_gpu_t *)device;
 	if (gpu->ops->cleanup) {
 		gpu->ops->cleanup(gpu);
 	}
@@ -264,8 +264,8 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	// default alignement
 	if (!gpu->align) gpu->align = 4 * 1024;
 
-	for (size_t i=0; i<gpu->card.planes_count; i++) {
-		trm_plane_t *plane =& gpu->card.planes[i];
+	for (size_t i=0; i < gpu->card.planes_count; i++) {
+		trm_plane_t *plane =&gpu->card.planes[i];
 		plane->id = i + 1;
 		if (plane->type == TRM_PLANE_PRIMARY) {
 			plane->dest_x = 0;
@@ -277,10 +277,10 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 			}
 		}
 	}
-	for (size_t i=0; i<gpu->card.crtcs_count; i++) {
+	for (size_t i=0; i < gpu->card.crtcs_count; i++) {
 		gpu->card.crtcs[i].id = i + 1;
 	}
-	for (size_t i=0; i<gpu->card.connectors_count; i++) {
+	for (size_t i=0; i < gpu->card.connectors_count; i++) {
 		gpu->card.connectors[i].id = i + 1;
 	}
 
@@ -292,5 +292,5 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	list_append(&gpu->alloc_blocks, &main_block->node);
 	utils_init_hashmap(&gpu->fbs, 32);
 
-	return register_device((device_t*)gpu);
+	return register_device((device_t *)gpu);
 }

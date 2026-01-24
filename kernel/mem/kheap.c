@@ -62,7 +62,7 @@ void show_memseg(){
 		"allocated"
 	};
 	while (current_seg){
-		kdebugf("memseg %s start : 0x%lx lenght : 0x%lx\n",labels[(current_seg->magic == HEAP_SEG_MAGIC_ALLOCATED)],current_seg,current_seg->lenght);
+		kdebugf("vmm_seg %s start : 0x%lx lenght : 0x%lx\n",labels[(current_seg->magic == HEAP_SEG_MAGIC_ALLOCATED)],current_seg,current_seg->lenght);
 		current_seg = current_seg->next;
 	}
 }

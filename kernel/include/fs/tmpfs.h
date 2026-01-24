@@ -4,7 +4,7 @@
 
 #include <kernel/list.h>
 #include <kernel/vfs.h>
-#include <kernel/memseg.h>
+#include <kernel/vmm.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <limits.h>

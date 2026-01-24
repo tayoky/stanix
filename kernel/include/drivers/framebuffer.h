@@ -8,12 +8,12 @@
 #include <stdarg.h>
 
 struct framebuffer;
-struct memseg;
+struct vmm_seg;
 
 typedef struct framebuffer_ops {
 	int (*get_info)(struct framebuffer *fb, struct fb *info);
 	int (*get_edid)(struct framebuffer *fb, edid_t **edid);
-	int (*mmap)(struct framebuffer *fb, off_t offset, struct memseg *seg);
+	int (*mmap)(struct framebuffer *fb, off_t offset, struct vmm_seg *seg);
 	int (*ioctl)(struct framebuffer *fb, long req, void *arg);
 	void (*cleanup)(struct framebuffer *fb);
 } framebuffer_ops_t;
