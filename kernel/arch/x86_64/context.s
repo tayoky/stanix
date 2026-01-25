@@ -1,7 +1,5 @@
-;please make sure intterupt flags is clear when entering this shit
-
-global save_context
-save_context:
+global arch_save_context
+arch_save_context:
 	mov [rdi + 512 + 8 * 0], gs
 	mov [rdi + 512 + 8 * 1], fs
 	mov [rdi + 512 + 8 * 2], es
@@ -48,8 +46,8 @@ save_context:
 	mov rax, 0
 	ret
 
-global load_context
-load_context:
+global arch_load_context
+arch_load_context:
 	;load rdi and flags/seg last
 
 	;load fs base

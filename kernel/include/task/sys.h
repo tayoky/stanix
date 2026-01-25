@@ -17,7 +17,7 @@ void init_syscall(void);
 #define SEEK_END 2
 #endif
 
-void syscall_handler(fault_frame *context, void *arg);
+void syscall_handler(fault_frame_t *context, void *arg);
 int sys_open(const char *, int, mode_t);
 int sys_close(int);
 ssize_t sys_write(int, void *, size_t);

@@ -7,7 +7,7 @@
 
 #include <stdint.h>
 
-typedef struct fault_frame{
+typedef struct fault_frame_t{
 	uint32_t cr2;
 	uint32_t cr3;
 	uint32_t eax;
@@ -24,7 +24,7 @@ typedef struct fault_frame{
 	uint32_t flags;
 	uint32_t esp;
 	uint32_t ss;
-} fault_frame;
+} fault_frame_t;
 
 typedef struct arch_specific {
 	gdt_segment gdt[6];

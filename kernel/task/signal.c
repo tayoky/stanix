@@ -141,7 +141,7 @@ int send_sig_task(task_t *thread, int signum) {
 	return 0;
 }
 
-void handle_signal(fault_frame *context) {
+void handle_signal(fault_frame_t *context) {
 	acquire_mutex(&get_current_task()->sig_lock);
 	sigset_t to_handle = get_current_task()->pending_sig & ~get_current_task()->sig_mask;
 
@@ -175,8 +175,8 @@ void handle_signal(fault_frame *context) {
 				ucontext->uc_sigmask = get_current_task()->sig_mask;
 
 				// save machine context
-				acontext *saved_context = (acontext*)&ucontext->uc_mcontext;
-				save_context(saved_context);
+				acontext_t *saved_context = (acontext_t*)&ucontext->uc_mcontext;
+				arch_save_context(saved_context);
 				saved_context->frame = *context;
 
 				//push the magic return value
@@ -192,7 +192,7 @@ void handle_signal(fault_frame *context) {
 	release_mutex(&get_current_task()->sig_lock);
 }
 
-void restore_signal_handler(fault_frame *context) {
+void restore_signal_handler(fault_frame_t *context) {
 	kdebugf("restore signal handler\n");
 
 	//since the magic return address as been poped,
@@ -202,8 +202,8 @@ void restore_signal_handler(fault_frame *context) {
 	//restore the old mask
 	get_current_task()->sig_mask = ucontext->uc_sigmask;
 
-	acontext *old_context = (acontext *)&ucontext->uc_mcontext;
+	acontext_t *old_context = (acontext_t *)&ucontext->uc_mcontext;
 	kdebugf("sp : %p\n", SP_REG(old_context->frame));
 
-	load_context((acontext *)&ucontext->uc_mcontext);
+	arch_load_context((acontext_t *)&ucontext->uc_mcontext);
 }

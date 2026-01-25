@@ -213,7 +213,7 @@ void yield(int addback) {
 	task_t *old = get_current_task();
 	task_t *new = schedule();
 
-	if (save_context(&old->context)) {
+	if (arch_save_context(&old->context)) {
 		if (prev_int) enable_interrupt();
 		return;
 	}
@@ -238,8 +238,8 @@ void yield(int addback) {
 	}
 
 	if (new != old) {
-		set_kernel_stack(KSTACK_TOP(new->kernel_stack));
-		load_context(&new->context);
+		arch_set_kernel_stack(KSTACK_TOP(new->kernel_stack));
+		arch_load_context(&new->context);
 	}
 	
 	if (prev_int) enable_interrupt();

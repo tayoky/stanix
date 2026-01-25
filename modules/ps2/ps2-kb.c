@@ -14,7 +14,7 @@
 
 static device_driver_t ps2_kb_driver;
 
-static void keyboard_handler(fault_frame *frame, void *arg){
+static void keyboard_handler(fault_frame_t *frame, void *arg){
 	(void)frame;
 	input_device_t *keyboard = arg;
 

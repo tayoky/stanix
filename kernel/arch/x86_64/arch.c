@@ -24,22 +24,22 @@ void init_timer(){
 	init_pit();
 }
 
-int is_userspace(fault_frame *frame){
+int is_userspace(fault_frame_t *frame){
 	return frame->cs == 0x1b;
 }
 
-uintptr_t get_ptr_context(fault_frame *fault){
+uintptr_t arch_get_fault_addr(fault_frame_t *fault){
 	return fault->cr2;
 }
 
-long arch_get_prot_fault(fault_frame *fault) {
+long arch_get_fault_prot(fault_frame_t *fault) {
 	if (fault->err_code & 0x10) return MMU_FLAG_EXEC;
 	if (fault->err_code & 0x02) return MMU_FLAG_WRITE;
 	return MMU_FLAG_READ;
 }
 
 
-void set_tls(void *tls){
+void arch_set_tls(void *tls){
 	// set fs base
 	asm volatile("wrmsr" : : "c"(0xc0000100), "d" ((uint32_t)(((uintptr_t)tls) >> 32)), "a" ((uint32_t)((uintptr_t)tls)));
 }

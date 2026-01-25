@@ -1309,7 +1309,7 @@ int sys_new_thread(void (*fn)(void *), void *stack, int flags, void *arg, pid_t 
 
 	task_t *new_thread = new_task(get_current_proc());
 
-	memcpy(&new_thread->context.frame, get_current_task()->syscall_frame, sizeof(fault_frame));
+	memcpy(&new_thread->context.frame, get_current_task()->syscall_frame, sizeof(fault_frame_t));
 	PC_REG(new_thread->context.frame) = (uintptr_t)fn;
 	ARG1_REG(new_thread->context.frame) = (uintptr_t)arg;
 	SP_REG(new_thread->context.frame) = (uintptr_t)stack;
@@ -1331,7 +1331,7 @@ pid_t sys_gettid(void) {
 }
 
 int sys_settls(void *tls) {
-	set_tls(tls);
+	arch_set_tls(tls);
 	return 0;
 }
 
@@ -1581,7 +1581,7 @@ void *syscall_table[] = {
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
 
-void syscall_handler(fault_frame *context, void *arg) {
+void syscall_handler(fault_frame_t *context, void *arg) {
 	(void)arg;
 	enable_interrupt();
 	if (ARG0_REG(*context) >= syscall_number) {

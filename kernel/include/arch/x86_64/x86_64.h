@@ -17,7 +17,7 @@
 
 //any change here must be replicataed in interrupt handler
 //and context switch
-typedef struct fault_frame{
+typedef struct fault_frame {
 	uint64_t gs;
 	uint64_t fs;
 	uint64_t es;
@@ -46,7 +46,7 @@ typedef struct fault_frame{
 	uint64_t flags;
 	uint64_t rsp;
 	uint64_t ss;
-} fault_frame;
+} fault_frame_t;
 
 typedef struct arch_specific {
 	gdt_segment gdt[7];
@@ -57,26 +57,26 @@ typedef struct arch_specific {
 	uint64_t hPDP[8];
 } arch_specific ;
 
-typedef struct acontext {
+typedef struct acontext_t {
 	char sse[512];
-	fault_frame frame;
+	fault_frame_t frame;
 	uint64_t fs_base;
-} acontext;
+} acontext_t;
 
-//arch specific functions
-void set_kernel_stack(uintptr_t stack);
-int save_context(acontext *context);
-void load_context(acontext *context);
-uintptr_t get_ptr_context(fault_frame *fault);
-long arch_get_prot_fault(fault_frame *fault);
+// arch specific functions
+void arch_set_kernel_stack(uintptr_t stack);
+int arch_save_context(acontext_t *context);
+void arch_load_context(acontext_t *context);
+uintptr_t arch_get_fault_addr(fault_frame_t *fault);
+long arch_get_fault_prot(fault_frame_t *fault);
 
 /// @brief check if a specfied context is in userspace
 /// @param frame the context to check
 /// @return 1 of if userspace 0 if kernel space
-int is_userspace(fault_frame *frame);
+int is_userspace(fault_frame_t *frame);
 
 void init_timer(void);
-void set_tls(void *tls);
+void arch_set_tls(void *tls);
 void enable_sse(void);
 int arch_shutdown(int flags);
 

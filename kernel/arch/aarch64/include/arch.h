@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef struct fault_frame{
+typedef struct fault_frame_t{
 	uint64_t x0;
 	uint64_t x1;
 	uint64_t x2;
@@ -37,7 +37,7 @@ typedef struct fault_frame{
 	uint64_t x30;
 	uint64_t err_code;
 	uint64_t err_type;
-} fault_frame;
+} fault_frame_t;
 
 #include <kernel/scheduler.h>
 

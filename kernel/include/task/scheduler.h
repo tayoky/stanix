@@ -31,7 +31,7 @@ struct process;
 typedef struct task {
 	list_node_t task_list_node;
 	list_node_t thread_list_node;
-	acontext context;
+	acontext_t context;
 	struct process *process;
 	struct task *snext;
 	struct task *sprev;

@@ -35,7 +35,7 @@ static const char *get_func_name(uintptr_t addr){
 	return name;
 }
 
-void panic(const char *error,fault_frame *fault){
+void panic(const char *error,fault_frame_t *fault){
 	disable_interrupt();
 	panic_count++;
 	if(panic_count > 1){

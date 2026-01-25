@@ -33,7 +33,7 @@ static int set_mouse_rate(int port,int rate){
 	return 0;
 }
 
-static void mouse_handler(fault_frame *frame, void *arg){
+static void mouse_handler(fault_frame_t *frame, void *arg){
 	(void)frame;
 	ps2_mouse_t *mouse = arg;
 	switch (mouse->packet++) {

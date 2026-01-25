@@ -43,7 +43,7 @@ const char *error_msg[] = {
 	"control protection exception",
 };
 
-void page_fault_info(fault_frame *fault){
+void page_fault_info(fault_frame_t *fault){
 	kprintf("page fault at address 0x%lx\n",fault->cr2);
 	if(fault->err_code & 0x04)kprintf("user");
 	else kprintf("OS");
@@ -56,7 +56,7 @@ void page_fault_info(fault_frame *fault){
 	kprintf("present page\n");
 }
 
-void exception_handler(fault_frame *fault){
+void exception_handler(fault_frame_t *fault){
 	//0x80 is syscall not a fault
 	if(fault->err_type == 0x80){
 		return syscall_handler(fault);

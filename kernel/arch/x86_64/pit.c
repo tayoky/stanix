@@ -14,7 +14,7 @@
 #define PIT_COMMAND  0x43
 #define TPS 100
 
-void pit_handler(fault_frame *frame, void *arg){
+void pit_handler(fault_frame_t *frame, void *arg){
 	(void)arg;
 	// update the time
 	time.tv_usec += 1000000/TPS;

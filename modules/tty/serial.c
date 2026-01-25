@@ -57,7 +57,7 @@ static uint16_t str2port(char *str) {
 int serial_count = 1;
 
 
-static void serial_handler(fault_frame *frame, void *data) {
+static void serial_handler(fault_frame_t *frame, void *data) {
 	(void)frame;
 	tty_t *serial_port = data;
 	
@@ -118,7 +118,7 @@ static int init_port(uint16_t port) {
 	return 0;
 }
 
-static int init_serial(int argc,char **argv) {
+static int serial_init(int argc,char **argv) {
 	serial_count = 0;
 	register_device_driver(&serial_driver);
 	if(have_opt(argc - 1,argv,"--port")){
@@ -139,15 +139,15 @@ static int init_serial(int argc,char **argv) {
 	}
 }
 
-static int fini_serial() {
+static int serial_fini() {
 	unregister_device_driver(&serial_driver);
 	return 0;
 }
 
 kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
-	.init = init_serial,
-	.fini = fini_serial,
+	.init = serial_init,
+	.fini = serial_fini,
 	.name = "serial",
 	.description = "COM serial port driver",
 	.author = "tayoky",

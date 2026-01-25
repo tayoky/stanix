@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <kernel/arch.h>
 
-void panic(const char *error,fault_frame *fault);
+void panic(const char *error,fault_frame_t *fault);
 
 #ifndef NULL
 #define NULL (void *)0

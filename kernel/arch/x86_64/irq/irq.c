@@ -89,7 +89,7 @@ void irq_eoi(int irq_num){
 	}
 }
 
-void irq_handler(fault_frame *frame) {
+void irq_handler(fault_frame_t *frame) {
 	interrupt_handler_t handler = handlers[frame->err_type - 32];
 	void *data = handlers_data[frame->err_type - 32];
 	frame->err_code = frame->err_type - 32;
