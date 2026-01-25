@@ -40,7 +40,6 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 }
 
 int vmm_fault_report(uintptr_t addr, int prot) {
-	kdebugf("got fault on %p\n", addr);
 	foreach (node, &get_current_proc()->vmm_seg) {
 		vmm_seg_t *seg = (vmm_seg_t*)node;
 		if (seg->start > addr) break;

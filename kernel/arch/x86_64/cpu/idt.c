@@ -61,11 +61,6 @@ static void page_fault_info(fault_frame *fault){
 void isr_handler(fault_frame *fault){
 	if (fault->err_type < 32) {
 		if (is_userspace(fault)) {
-			// debug info to debug userspace
-			if (fault->err_type == 14 && fault->cr2 != MAGIC_SIGRETURN) {
-				kprintf("%p : segmentation fault (core dumped)\n",fault->rip);
-				page_fault_info(fault);
-			}
 			fault_handler(fault);
 			return;
 		}

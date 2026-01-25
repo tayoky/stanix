@@ -113,13 +113,8 @@ uintptr_t pmm_allocate_page(void) {
 	return page;
 }
 
-void pmm_free_page(uintptr_t page) {
-	if (pages_info) {
-		if (atomic_fetch_sub(&pmm_page_info(page)->ref_count, 1) != 1) {
-			// ref remaning
-			return;
-		}
-	}
+
+void pmm_set_free_page(uintptr_t page) {
 	spinlock_acquire(&pmm_lock);
 
 	used_pages--;
@@ -130,6 +125,17 @@ void pmm_free_page(uintptr_t page) {
 
 	spinlock_release(&pmm_lock);
 }
+
+void pmm_free_page(uintptr_t page) {
+	if (pages_info) {
+		if (atomic_fetch_sub(&pmm_page_info(page)->ref_count, 1) != 1) {
+			// ref remaning
+			return;
+		}
+	}
+	pmm_set_free_page(page);
+}
+
 
 size_t pmm_get_used_pages(void) {
 	return used_pages;

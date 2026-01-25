@@ -31,15 +31,22 @@ void init_PMM();
 
 /**
  * @brief find an free page and allocate it
- * @return the address of the page (multiply it by 0x1000 to get it's real address)
+ * @return the physical address of the page
  */
 uintptr_t pmm_allocate_page();
 
 /**
- * @brief mark an page as allocated
- * @param page the page to mark as allocated
+ * @brief decrease ref count of a page and maybee free it
+ * @param page the page to release
  */
 void pmm_free_page(uintptr_t page);
+
+
+/**
+ * @brief unlike \ref pmm_free_page ignore ref count and direcly mark page as free
+ * @param page the page to mark as free
+ */
+void pmm_set_free_page(uintptr_t page);
 
 /**
  * @brief map the pmm's page_t

@@ -97,7 +97,7 @@ void mount_initrd(void){
 
 	//when we page align it might become empty
 	while(start < end){
-		pmm_free_page(mmu_virt2phys((void *)start));
+		pmm_set_free_page(mmu_virt2phys((void *)start));
 		start += PAGE_SIZE;
 	}
 	
