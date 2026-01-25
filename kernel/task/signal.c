@@ -69,6 +69,7 @@ static void handle_default(int signum) {
 		//FIXME : i'm pretty sure if main thread recive SIGSTOP the whole process should stop
 		//block until recive a continue signals or kill
 		get_current_task()->flags |= TASK_FLAG_STOPPED;
+		block_prepare();
 		while ((ret = block_task())) {
 			if (ret != EINTR) {
 				//uh
@@ -90,6 +91,7 @@ static void handle_default(int signum) {
 					return;
 				}
 				release_mutex(&get_current_task()->sig_lock);
+				block_prepare();
 			}
 		}
 		break;

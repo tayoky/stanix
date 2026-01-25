@@ -10,6 +10,7 @@
 //wait for any thread in a group to die
 int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker) {
 	if (waker) *waker = NULL;
+	if (!(flags & WNOHANG)) block_prepare();
 	size_t waitfor_count = 0;
 	for (size_t i=0; i < threads_count; i++) {
 		task_t *expected = NULL;
@@ -18,21 +19,21 @@ int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker) {
 			threads[i] = NULL;
 			continue;
 		}
-
+		
 		if (atomic_load(&threads[i]->flags) & TASK_FLAG_ZOMBIE) {
 			//already dead
 			get_current_task()->waker = threads[i];
 			goto ret;
 		}
-
+		
 		//register
 		waitfor_count++;
 	}
-
+	
 	if (waitfor_count == 0) {
 		return -ECHILD;
 	}
-
+	
 	int status = 0;
 
 	if (flags & WNOHANG) {

@@ -919,6 +919,7 @@ int sys_sigwait(const sigset_t *set, int *sig) {
 	sigset_t mask = *set & ~(SIGKILL | SIGSTOP);
 
 	for (;;) {
+		block_prepare();
 		if (block_task() != EINTR) {
 			//what the hell happend
 			return -EIO;

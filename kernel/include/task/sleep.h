@@ -2,14 +2,14 @@
 #define _KERNEL_SLEEP_H
 
 #include <kernel/spinlock.h>
+#include <kernel/list.h>
 #include <stddef.h>
 
 struct task;
 
 typedef struct sleep_queue {
 	spinlock_t lock;
-	struct task *tail;
-	struct task *head;
+	list_t waiters;
 } sleep_queue_t;
 
 

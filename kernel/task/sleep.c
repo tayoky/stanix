@@ -10,48 +10,31 @@ int sleep_until(struct timeval wakeup_time) {
 	kdebugf("wait until : %ld:%ld\n", wakeup_time.tv_sec, wakeup_time.tv_usec);
 	get_current_task()->wakeup_time = wakeup_time;
 	atomic_fetch_or(&get_current_task()->flags, TASK_FLAG_SLEEP);
-
-	//add us to the list
-	//keep the list organise from first awake to last
+	
+	// add us to the list
+	// keep the list organised from first awake to last
+	block_prepare();
 	spinlock_acquire(&sleep_lock);
-	task_t *thread = sleeping_proc;
-	while (thread) {
-		task_t *next = thread->snext;
-		if (!next || next->wakeup_time.tv_sec > wakeup_time.tv_usec || (next->wakeup_time.tv_sec == wakeup_time.tv_sec && next->wakeup_time.tv_usec > wakeup_time.tv_usec)) {
+	task_t *prev = NULL;
+	foreach (node, &sleeping_tasks) {
+		task_t *thread = container_from_node(task_t*, waiter_list_node, node);
+		if (!thread || thread->wakeup_time.tv_sec > wakeup_time.tv_usec || (thread->wakeup_time.tv_sec == wakeup_time.tv_sec && thread->wakeup_time.tv_usec > wakeup_time.tv_usec)) {
 			break;
 		}
-		thread = thread->snext;
+		prev = thread;
 	}
 
-	if (thread) {
-		get_current_task()->snext = thread->snext;
-		get_current_task()->sprev = thread;
-		if (thread->snext) thread->snext->sprev = get_current_task();
-		thread->snext   = get_current_task();
-	} else {
-		get_current_task()->snext = sleeping_proc;
-		get_current_task()->sprev = NULL;
-		if (sleeping_proc) sleeping_proc->sprev = get_current_task();
-		sleeping_proc = get_current_task();
-	}
+	list_add_after(&sleeping_tasks, prev ? &prev->waiter_list_node : NULL, &get_current_task()->waiter_list_node);
 	spinlock_release(&sleep_lock);
-
+	
 	if (block_task() == -EINTR) {
-		if (atomic_load(&get_current_task()->flags) & TASK_FLAG_SLEEP) {
+		if (atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_SLEEP) & TASK_FLAG_SLEEP) {
 			// we are still in the sleep queue
 			// remove us
 			spinlock_acquire(&sleep_lock);
-			if (get_current_task()->sprev) {
-				get_current_task()->sprev->snext = get_current_task()->snext;
-			} else {
-				sleeping_proc = get_current_task()->snext;
-			}
-			if (get_current_task()->snext) {
-				get_current_task()->snext->sprev = get_current_task()->sprev;
-			}
+			list_remove(&sleeping_tasks, &get_current_task()->waiter_list_node);
 			spinlock_release(&sleep_lock);
 		}
-		atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_SLEEP);
 		return -EINTR;
 	} else {
 		return 0;
@@ -84,21 +67,11 @@ int micro_sleep(suseconds_t micro_second) {
 }
 
 int sleep_on_queue(sleep_queue_t *queue) {
+	block_prepare();
+
 	spinlock_acquire(&queue->lock);
-
-	if (queue->head) {
-		queue->head->snext = get_current_task();
-	} else {
-		queue->tail = get_current_task();
-	}
-
-	queue->head = get_current_task();
-	get_current_task()->snext = NULL;
-
+	list_append(&queue->waiters, &get_current_task()->waiter_list_node);
 	spinlock_release(&queue->lock);
-
-	//what if we get unblocked between releasing the lock and block_task
-	//RACE CONDITION
 
 	return block_task();
 }
@@ -106,14 +79,8 @@ int sleep_on_queue(sleep_queue_t *queue) {
 void wakeup_queue(sleep_queue_t *queue, size_t count) {
 	spinlock_acquire(&queue->lock);
 
-	for (;;) {
-		if (!queue->tail)break;
-
-		task_t *thread = queue->tail;
-
-		queue->tail = queue->tail->snext;
-		if (!queue->tail)queue->head = NULL;
-
+	foreach (node, &sleeping_tasks) {
+		task_t *thread = container_from_node(task_t*, waiter_list_node, node);
 		unblock_task(thread);
 
 		if (count) {

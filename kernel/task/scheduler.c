@@ -18,7 +18,7 @@ static task_t *running_task_tail;
 static task_t *running_task_head;
 list_t proc_list;
 list_t task_list;
-task_t *sleeping_proc;
+list_t sleeping_tasks;
 spinlock_t sleep_lock;
 
 process_t *idle;
@@ -28,6 +28,7 @@ static void idle_task() {
 	for (;;) {
 		//if there are other process_t runnnig block us
 		if (get_current_task()->next != running_task_head) {
+			block_prepare();
 			block_task();
 		}
 	}
@@ -38,7 +39,7 @@ void init_task() {
 	//init the scheduler first
 	init_list(&proc_list);
 	init_list(&task_list);
-	sleeping_proc = NULL;
+	init_list(&sleeping_tasks);
 
 	//init the kernel task
 	process_t *kernel_task = kmalloc(sizeof(process_t));
@@ -54,6 +55,7 @@ void init_task() {
 	kernel_task->addrspace = mmu_get_addr_space();
 
 	kernel_task->main_thread = new_task(kernel_task);
+	arch_set_kernel_stack(KSTACK_TOP(kernel_task->main_thread->kernel_stack));
 
 	//let just the boot kernel task start with a cwd at initrd root
 	kernel_task->cwd_node = vfs_get_node("/", O_RDONLY);
@@ -83,18 +85,23 @@ void init_task() {
 task_t *schedule() {
 	//pop the next task from the queue
 	task_t *picked = running_task_tail;
-	running_task_tail = running_task_tail->next;
-	if (!running_task_tail)running_task_head = NULL;
+	if (picked) {
+		running_task_tail = running_task_tail->next;
+		if (!running_task_tail)running_task_head = NULL;
+	} else {
+		return idle->main_thread;
+	}
 
-	//see if we can wakeup anything
+	// see if we can wakeup anything
 	spinlock_acquire(&sleep_lock);
-	while (sleeping_proc) {
-		if (sleeping_proc->wakeup_time.tv_sec > time.tv_sec || (sleeping_proc->wakeup_time.tv_sec == time.tv_sec && sleeping_proc->wakeup_time.tv_usec > time.tv_usec)) {
+	foreach (node, &sleeping_tasks) {
+		task_t *thread = container_from_node(task_t*, waiter_list_node, node);
+		if (thread->wakeup_time.tv_sec > time.tv_sec || (thread->wakeup_time.tv_sec == time.tv_sec && thread->wakeup_time.tv_usec > time.tv_usec)) {
 			break;
 		}
-		atomic_fetch_and(&sleeping_proc->flags, ~TASK_FLAG_SLEEP);
-		unblock_task(sleeping_proc);
-		sleeping_proc = sleeping_proc->snext;
+		atomic_fetch_and(&thread->flags, ~TASK_FLAG_SLEEP);
+		list_remove(&sleeping_tasks, &thread->waiter_list_node);
+		unblock_task(thread);
 	}
 	spinlock_release(&sleep_lock);
 
@@ -209,7 +216,7 @@ void yield(int addback) {
 
 	if (addback) push_task(get_current_task());
 
-	//save old task
+	// save old task
 	task_t *old = get_current_task();
 	task_t *new = schedule();
 
@@ -217,25 +224,25 @@ void yield(int addback) {
 		if (prev_int) enable_interrupt();
 		return;
 	}
-	
-	//the old task isen't running anymore
-	atomic_fetch_and(&old->flags, ~TASK_FLAG_RUN);
 
-	//but the new one is ! 
+
+	// set the new task as running
 	atomic_fetch_or(&new->flags, TASK_FLAG_RUN);
 	kernel->current_task = new;
-
-	//set the blocked flag if needed
-	//we can't set it in block_proc cause the process is still running
-	//and setting the blocked flag while the proc is running could lead to an process un blocking us
-	//before we are even blocked
-	if (!addback) {
-		atomic_fetch_or(&old->flags, TASK_FLAG_BLOCKED);
-	}
 
 	if (old->process->addrspace != new->process->addrspace) {
 		mmu_set_addr_space(new->process->addrspace);
 	}
+
+
+	// the old task is not running anymore
+	atomic_fetch_and(&old->flags, ~TASK_FLAG_RUN);
+
+	if (!addback) {
+		spinlock_release(&old->sleep_lock);
+	}
+
+	// FIXME : race condition the old task is not running but we still use it's stack
 
 	if (new != old) {
 		arch_set_kernel_stack(KSTACK_TOP(new->kernel_stack));
@@ -335,10 +342,9 @@ void kill_task(void) {
 	spinlock_release(&get_current_proc()->state_lock);
 
 	//FIXME : not SMP safe
-	//another task could waitpid on us and free us between spinlock_release and block_proc
+	//another task could waitpid on us and free us between spinlock_release and yield
 	//which is a RACE CONDITION
-
-	block_task();
+	yield(0);
 }
 
 process_t *pid2proc(pid_t pid) {
@@ -372,6 +378,7 @@ task_t *tid2task(pid_t tid) {
 	return NULL;
 }
 
+
 int block_task(void) {
 	//clear the signal interrupt flags
 	atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_INTR);
@@ -379,21 +386,15 @@ int block_task(void) {
 	int save = have_interrupt();
 	disable_interrupt();
 
-	//kdebugf("block %ld\n",get_current_proc()->pid);
-	//if this is the last process unblock the idle task
-	if (!running_task_tail) {
-		unblock_task(idle->main_thread);
-	}
-
+	// kdebugf("block %ld\n",get_current_proc()->pid);
 
 	kernel->can_task_switch = 1;
 
-	//yeld will set the blocked flag for us
 	yield(0);
 
 	if (save)enable_interrupt();
 
-	//if we were interrupted return -EINTR
+	// if we were interrupted return -EINTR
 	if (atomic_load(&get_current_task()->flags) & TASK_FLAG_INTR) {
 		return -EINTR;
 	}
@@ -402,17 +403,28 @@ int block_task(void) {
 }
 
 void unblock_task(task_t *thread) {
-	//aready unblocked ?
-	if (!(atomic_fetch_and(&thread->flags, ~TASK_FLAG_BLOCKED) & TASK_FLAG_BLOCKED)) {
+	spinlock_acquire(&thread->sleep_lock);
+
+	// aready unblocked ?
+	int old_flags = atomic_fetch_and(&thread->flags, ~TASK_FLAG_BLOCKED);
+	if (!(old_flags & TASK_FLAG_BLOCKED)) {
+		spinlock_release(&thread->sleep_lock);
+		return;
+	}
+
+	// if the task is already running on another cpu don't push it back
+	if (old_flags & TASK_FLAG_RUN) {
+		spinlock_release(&thread->sleep_lock);
 		return;
 	}
 
 	int save = have_interrupt();
 	disable_interrupt();
-
+	
 	push_task(thread);
 
 	if (save)enable_interrupt();
+	spinlock_release(&thread->sleep_lock);
 }
 
 void final_task_cleanup(task_t *thread) {
