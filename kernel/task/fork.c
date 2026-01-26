@@ -9,8 +9,7 @@
 
 static void fork_trampoline(void *arg) {
 	kdebugf("reaching fork trampoline\n");
-	acontext_t context = get_current_task()->context;
-	context.frame = *(fault_frame_t*)arg;
+	acontext_t context = *(acontext_t*)arg;
 	kfree(arg);
 
 	// since we reconsituied the new context we can now load it
@@ -20,9 +19,10 @@ static void fork_trampoline(void *arg) {
 pid_t fork(void) {
 	// setup new context for child
 	// and return 0 to the child
-	fault_frame_t *new_context = kmalloc(sizeof(fault_frame_t));
-	*new_context = *get_current_task()->syscall_frame;
-	RET_REG(*new_context) = 0;
+	acontext_t *new_context = kmalloc(sizeof(acontext_t));
+	arch_save_context(new_context);
+	new_context->frame = *get_current_task()->syscall_frame;
+	RET_REG(new_context->frame) = 0;
 
 	process_t *parent = get_current_proc();
 	process_t *child = new_proc(fork_trampoline, new_context);
@@ -53,10 +53,6 @@ pid_t fork(void) {
 
 	child->cwd_node = vfs_dup_node(parent->cwd_node);
 	child->cwd_path = strdup(parent->cwd_path);
-
-	kdebugf("%p\n", child->main_thread);
-	// copy non regs context from parent to child (sse, fb base, ...)
-	arch_save_context(&child->main_thread->context);
 
 	// make it ruuuunnnnn !!!
 	unblock_task(child->main_thread);
