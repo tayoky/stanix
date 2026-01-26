@@ -16,6 +16,13 @@
 
 struct fault_frame;
 struct process;
+struct task;
+
+typedef struct run_queue {
+	spinlock_t lock;
+	list_t tasks;
+	struct task *prev;
+} run_queue_t;
 
 #define MAX_FD 32
 
@@ -32,10 +39,9 @@ typedef struct task {
 	list_node_t task_list_node;
 	list_node_t thread_list_node;
 	list_node_t waiter_list_node;
+	list_node_t run_list_node;
 	acontext_t context;
 	struct process *process;
-	struct task *next;
-	struct task *prev;
 	pid_t tid;
 	sigset_t sig_mask;
 	mutex_t sig_lock;
@@ -51,8 +57,8 @@ typedef struct task {
 	void *exit_arg;
 	struct task *waker;
 	struct task * _Atomic waiter; //task waiting on us
-	spinlock_t sleep_lock;
 	spinlock_t state_lock;
+	run_queue_t * _Atomic run_queue;
 } task_t;
 
 typedef struct process {
@@ -96,8 +102,17 @@ void init_task(void);
 process_t *get_current_proc(void);
 task_t *get_current_task(void);
 process_t *new_proc(void);
-task_t *new_task(process_t *proc);
-process_t *new_kernel_task(void (*func)(uint64_t,char**),uint64_t argc,char *argv[]);
+
+task_t *new_kernel_task(void (*func)(void *arg), void *arg);
+
+/**
+ * @brief create a new task
+ * @param proc the proc to create the task under
+ * @param func the kernel function to execute
+ * @param arg the argument to pass to the kernel function
+ * @return a pointer to the new task
+ */
+task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg);
 
 /**
  * @brief kill the current thread
@@ -127,16 +142,18 @@ task_t *tid2task(pid_t tid);
  * @brief prepare the current task to sleep
  */
 static inline void block_prepare(void) {
-	spinlock_acquire(&get_current_task()->sleep_lock);
+	spinlock_acquire(&get_current_task()->state_lock);
 	atomic_fetch_or(&get_current_task()->flags, TASK_FLAG_BLOCKED);
+	spinlock_release(&get_current_task()->state_lock);
 }
 
 /**
  * @brief cancel a preparetion to sleep
  */
 static inline void block_cancel(void) {
+	spinlock_acquire(&get_current_task()->state_lock);
 	atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_BLOCKED);
-	spinlock_release(&get_current_task()->sleep_lock);
+	spinlock_release(&get_current_task()->state_lock);
 }
 
 /**
@@ -156,6 +173,9 @@ void unblock_task(task_t *thread);
  * @param addback do we add the task back to the queue or running task
  */
 void yield(int addback);
+
+
+void finish_yield(void);
 
 /**
  * @brief wait for any thread in a group of threads to die

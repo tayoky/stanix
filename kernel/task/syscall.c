@@ -1303,17 +1303,30 @@ ssize_t sys_readlink(const char *path, char *buf, size_t bufsize) {
 	return ret;
 }
 
+typedef struct new_thread_data {
+	void (*fn)(void *);
+	void *stack;
+	void *arg;
+} new_thread_data_t;
+
+static void sys_new_thread_trampoline(void *arg) {
+	new_thread_data_t data = *(new_thread_data_t*)arg;
+	kfree(arg);
+	jump_userspace(data.fn, data.stack, (uintptr_t)data.arg, 0, 0, 0);
+}
+
 int sys_new_thread(void (*fn)(void *), void *stack, int flags, void *arg, pid_t *child_tid) {
 	if (child_tid && !CHECK_STRUCT(child_tid)) {
 		return -EFAULT;
 	}
+	(void)flags;
 
-	task_t *new_thread = new_task(get_current_proc());
+	new_thread_data_t *data = kmalloc(sizeof(new_thread_data_t));
+	data->stack = stack;
+	data->fn    = fn;
+	data->arg   = arg;
 
-	memcpy(&new_thread->context.frame, get_current_task()->syscall_frame, sizeof(fault_frame_t));
-	PC_REG(new_thread->context.frame) = (uintptr_t)fn;
-	ARG1_REG(new_thread->context.frame) = (uintptr_t)arg;
-	SP_REG(new_thread->context.frame) = (uintptr_t)stack;
+	task_t *new_thread = new_task(get_current_proc(), sys_new_thread_trampoline, data);
 
 	if (child_tid)*child_tid = new_thread->tid;
 	unblock_task(new_thread);

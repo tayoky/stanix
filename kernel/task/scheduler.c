@@ -14,82 +14,111 @@
 #include <stdatomic.h>
 #include <errno.h>
 
-static task_t *running_task_tail;
-static task_t *running_task_head;
+static run_queue_t main_run_queue;
 list_t proc_list;
 list_t task_list;
 list_t sleeping_tasks;
 spinlock_t sleep_lock;
 
-process_t *idle;
-process_t *init;
+static process_t *kernel_proc;
+static process_t *init;
+static task_t *idle;
 
 static void idle_task() {
 	for (;;) {
-		//if there are other process_t runnnig block us
-		if (get_current_task()->next != running_task_head) {
-			block_prepare();
-			block_task();
-		}
+		yield(0);
 	}
 }
 
 void init_task() {
 	kstatusf("init kernel task... ");
-	//init the scheduler first
+	// init the scheduler first
 	init_list(&proc_list);
 	init_list(&task_list);
 	init_list(&sleeping_tasks);
 
-	//init the kernel task
-	process_t *kernel_task = kmalloc(sizeof(process_t));
-	memset(kernel_task, 0, sizeof(process_t));
-	kernel_task->parent = kernel_task;
-	kernel_task->pid = 0;
-	init_list(&kernel_task->child);
-	init_list(&kernel_task->vmm_seg);
-	init_list(&kernel_task->threads);
-	kernel_task->umask = 022;
+	// init the boot task (task running since boot)
+	process_t *boot_task = kmalloc(sizeof(process_t));
+	memset(boot_task, 0, sizeof(process_t));
+	boot_task->parent = boot_task;
+	boot_task->pid = 0;
+	init_list(&boot_task->child);
+	init_list(&boot_task->vmm_seg);
+	init_list(&boot_task->threads);
+	boot_task->umask = 022;
 
-	//get the address space
-	kernel_task->addrspace = mmu_get_addr_space();
+	// get the address space
+	boot_task->addrspace = mmu_get_addr_space();
 
-	kernel_task->main_thread = new_task(kernel_task);
-	arch_set_kernel_stack(KSTACK_TOP(kernel_task->main_thread->kernel_stack));
+	boot_task->main_thread = new_task(boot_task, NULL, NULL);
+	arch_set_kernel_stack(KSTACK_TOP(boot_task->main_thread->kernel_stack));
 
-	//let just the boot kernel task start with a cwd at initrd root
-	kernel_task->cwd_node = vfs_get_node("/", O_RDONLY);
-	kernel_task->cwd_path = strdup("");
+	// let just the boot kernel task start with a cwd at initrd root
+	boot_task->cwd_node = vfs_get_node("/", O_RDONLY);
+	boot_task->cwd_path = strdup("");
 
-	//the current task is the kernel task
-	kernel->current_task = kernel_task->main_thread;
+	// the current task is the boot task
+	kernel->current_task = boot_task->main_thread;
 
-	list_append(&proc_list, &kernel_task->proc_list_node);
+	list_append(&proc_list, &boot_task->proc_list_node);
 
-	running_task_head = running_task_tail = NULL;
-
-	//the first task will be the init task
+	// the first task will be the init task
 	init = get_current_proc();
 	kernel->tid_count = 1;
 
-	//activate task switch
+	// activate task switch
 	kernel->can_task_switch = 1;
 
+	// setup the kernel proc
+	kernel_proc = new_proc();
 
 	kok();
 
 	//start idle task
-	idle = new_kernel_task(idle_task, 0, NULL);
+	idle = new_kernel_task(idle_task, NULL);
 }
 
-task_t *schedule() {
-	//pop the next task from the queue
-	task_t *picked = running_task_tail;
-	if (picked) {
-		running_task_tail = running_task_tail->next;
-		if (!running_task_tail)running_task_head = NULL;
-	} else {
-		return idle->main_thread;
+static run_queue_t *get_run_queue(void) {
+	return &main_run_queue;
+}
+
+static void run_queue_push_task(run_queue_t *run_queue, task_t *task) {
+	list_append(&run_queue->tasks, &task->run_list_node);
+}
+
+static task_t *run_queue_pop_task(run_queue_t *run_queue) {
+	task_t *task = container_from_node(task_t*, run_list_node, run_queue->tasks.first_node);
+	if (!task) return NULL;
+	list_remove(&run_queue->tasks, &task->run_list_node);
+	return task;
+}
+
+static void run_queue_acquire_lock(task_t *task) {
+	for (;;) {
+		run_queue_t *queue = atomic_load(&task->run_queue);
+		if (!queue) return;
+		spinlock_acquire(&queue->lock);
+		if (atomic_load(&task->run_queue) == queue) {
+			// the task didn't switch queue
+			break;
+		}
+
+		// the task switched queue
+		spinlock_release(&queue->lock);
+	}
+}
+
+static void run_queue_release_lock(task_t *task) {
+	if (task->run_queue) spinlock_release(&task->run_queue->lock);
+}
+
+static task_t *schedule() {
+	// pop the next task from the queue
+	task_t *picked = run_queue_pop_task(get_run_queue());
+
+	// pick idle when nothing
+	if (!picked) {
+		picked = idle;
 	}
 
 	// see if we can wakeup anything
@@ -104,31 +133,57 @@ task_t *schedule() {
 		unblock_task(thread);
 	}
 	spinlock_release(&sleep_lock);
-
+	
 	//kdebugf("switch to %p\n",get_current_proc());
 	return picked;
 }
 
+/**
+ * @brief called the first time a task is executed
+ */
+static void new_task_trampoline(void (*func)(void *arg), void *arg) {
+	finish_yield();
+	func(arg);
+	kill_task();
+}
 
-task_t *new_task(process_t *proc) {
-	task_t *thread = kmalloc(sizeof(task_t));
-	memset(thread, 0, sizeof(task_t));
-	init_mutex(&thread->sig_lock);
+task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
+	task_t *task = kmalloc(sizeof(task_t));
+	memset(task, 0, sizeof(task_t));
+	init_mutex(&task->sig_lock);
 
-	thread->tid    = atomic_fetch_add(&kernel->tid_count, 1);
-	thread->flags  = TASK_FLAG_PRESENT | TASK_FLAG_BLOCKED;
+	task->tid    = atomic_fetch_add(&kernel->tid_count, 1);
+	task->flags  = TASK_FLAG_PRESENT | TASK_FLAG_BLOCKED;
 
-	kdebugf("new task 0x%p tid : %ld\n", thread, thread->tid);
+	kdebugf("new task 0x%p tid : %ld\n", task, task->tid);
 
-	//setup a new kernel stack
-	thread->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
+	// setup a new kernel stack
+	task->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
 
-	thread->process = proc;
+	task->process = proc;
 
-	list_append(&proc->threads, &thread->thread_list_node);
-	list_append(&task_list, &thread->task_list_node);
+	list_append(&proc->threads, &task->task_list_node);
+	list_append(&task_list, &task->task_list_node);
 
-	return thread;
+	// setup registers
+	SP_REG(task->context.frame) = KSTACK_TOP(task->kernel_stack);
+	PC_REG(task->context.frame) = (uintptr_t)new_task_trampoline;
+	ARG1_REG(task->context.frame) = (uintptr_t)func;
+	ARG2_REG(task->context.frame) = (uintptr_t)arg;
+
+	// TODO : move this to arch specific stuff
+#ifdef __x86_64__
+	asm volatile("pushfq\n"
+		"pop %0" : "=r" (task->context.frame.flags));
+	task->context.frame.cs = 0x08;
+	task->context.frame.ss = 0x10;
+	task->context.frame.ds = 0x10;
+	task->context.frame.es = 0x10;
+	task->context.frame.gs = 0x10;
+	task->context.frame.fs = 0x10;
+#endif
+
+	return task;
 }
 
 process_t *new_proc() {
@@ -149,7 +204,7 @@ process_t *new_proc() {
 	proc->egid    = get_current_proc()->egid;
 	proc->sgid    = get_current_proc()->sgid;
 	proc->umask   = get_current_proc()->umask;
-	proc->main_thread = new_task(proc);
+	proc->main_thread = new_task(proc, NULL, NULL);
 	proc->pid =  proc->main_thread->tid;
 
 	// add it the the list of the childreen of the parent
@@ -161,71 +216,46 @@ process_t *new_proc() {
 	return proc;
 }
 
-// TODO arg don't work
-process_t *new_kernel_task(void (*func)(uint64_t, char **), uint64_t argc, char *argv[]) {
-	process_t *proc = new_proc();
-	(void)argc;(void)argv;
+task_t *new_kernel_task(void (*func)(void *arg), void *arg) {
+	task_t *task = new_task(kernel_proc, func, arg); 
 
+	// created task are blocked until with unblock them
+	unblock_task(task);
 
-	SP_REG(proc->main_thread->context.frame) = KSTACK_TOP(proc->main_thread->kernel_stack);
-	kdebugf("current rsp :%p\n", SP_REG(proc->main_thread->context.frame));
-
-#ifdef __x86_64__
-	asm volatile("pushfq\n"
-		"pop %0" : "=r" (proc->main_thread->context.frame.flags));
-	proc->main_thread->context.frame.cs = 0x08;
-	proc->main_thread->context.frame.ss = 0x10;
-	proc->main_thread->context.frame.ds = 0x10;
-	proc->main_thread->context.frame.es = 0x10;
-	proc->main_thread->context.frame.gs = 0x10;
-	proc->main_thread->context.frame.fs = 0x10;
-	proc->main_thread->context.frame.rip = (uint64_t)func;
-#endif
-
-	//just copy the cwd of the current task
-	proc->cwd_node = vfs_dup_node(get_current_proc()->cwd_node);
-	proc->cwd_path = strdup(get_current_proc()->cwd_path);
-
-	//created process are blocked until with unblock them
-	unblock_task(proc->main_thread);
-
-	return proc;
+	return task;
 }
 
-/**
- * @brief push an task at the top of the queue
- * @param proc 
- */
-static void push_task(task_t *t) {
-	if (running_task_head) {
-		running_task_head->next = t;
-	} else {
-		running_task_tail = t;
-	}
+void finish_yield(void) {
+	// the old task is not running anymore
+	atomic_fetch_and(&get_run_queue()->prev->flags, ~TASK_FLAG_RUN);
 
-	running_task_head = t;
-
-	t->next = NULL;
+	spinlock_release(&get_run_queue()->lock);
 }
 
 void yield(int addback) {
 	if (!kernel->can_task_switch)return;
-
+	
 	int prev_int = have_interrupt();
 	disable_interrupt();
 
-	if (addback) push_task(get_current_task());
+	spinlock_acquire(&get_run_queue()->lock);
 
+	if (addback) {
+		run_queue_push_task(get_run_queue(), get_current_task());
+	}
+	
 	// save old task
 	task_t *old = get_current_task();
 	task_t *new = schedule();
-
+	get_run_queue()->prev = old;
+	
 	if (arch_save_context(&old->context)) {
+		finish_yield();
 		if (prev_int) enable_interrupt();
 		return;
 	}
-
-
+	
+	
 	// set the new task as running
 	atomic_fetch_or(&new->flags, TASK_FLAG_RUN);
 	kernel->current_task = new;
@@ -234,21 +264,12 @@ void yield(int addback) {
 		mmu_set_addr_space(new->process->addrspace);
 	}
 
-
-	// the old task is not running anymore
-	atomic_fetch_and(&old->flags, ~TASK_FLAG_RUN);
-
-	if (!addback) {
-		spinlock_release(&old->sleep_lock);
-	}
-
-	// FIXME : race condition the old task is not running but we still use it's stack
-
 	if (new != old) {
 		arch_set_kernel_stack(KSTACK_TOP(new->kernel_stack));
 		arch_load_context(&new->context);
 	}
 	
+	finish_yield();
 	if (prev_int) enable_interrupt();
 	return;
 }
@@ -290,7 +311,7 @@ static void do_proc_deletion(void) {
 		child->parent = init;
 		list_append(&init->child, &child->child_list_node);
 		if (atomic_load(&child->main_thread->flags) & TASK_FLAG_ZOMBIE)alert_parent(child);
-		spinlock_acquire(&child->state_lock);
+		spinlock_release(&child->state_lock);
 	}
 	destroy_list(&get_current_proc()->child);
 
@@ -380,7 +401,7 @@ task_t *tid2task(pid_t tid) {
 
 
 int block_task(void) {
-	//clear the signal interrupt flags
+	// clear the signal interrupt flags
 	atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_INTR);
 
 	int save = have_interrupt();
@@ -402,29 +423,29 @@ int block_task(void) {
 	return 0;
 }
 
-void unblock_task(task_t *thread) {
-	spinlock_acquire(&thread->sleep_lock);
+void unblock_task(task_t *task) {
+	spinlock_acquire(&task->state_lock);
+	run_queue_acquire_lock(task);
 
 	// aready unblocked ?
-	int old_flags = atomic_fetch_and(&thread->flags, ~TASK_FLAG_BLOCKED);
+	int old_flags = atomic_fetch_and(&task->flags, ~TASK_FLAG_BLOCKED);
 	if (!(old_flags & TASK_FLAG_BLOCKED)) {
-		spinlock_release(&thread->sleep_lock);
+		run_queue_release_lock(task);
+		spinlock_release(&task->state_lock);
 		return;
 	}
 
 	// if the task is already running on another cpu don't push it back
 	if (old_flags & TASK_FLAG_RUN) {
-		spinlock_release(&thread->sleep_lock);
+		run_queue_release_lock(task);
+		spinlock_release(&task->state_lock);
 		return;
 	}
 
-	int save = have_interrupt();
-	disable_interrupt();
-	
-	push_task(thread);
+	run_queue_push_task(get_run_queue(), task);
 
-	if (save)enable_interrupt();
-	spinlock_release(&thread->sleep_lock);
+	run_queue_release_lock(task);
+	spinlock_release(&task->state_lock);
 }
 
 void final_task_cleanup(task_t *thread) {
