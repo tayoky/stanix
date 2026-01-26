@@ -69,13 +69,11 @@ void init_task() {
 	// activate task switch
 	kernel->can_task_switch = 1;
 
-	// setup the kernel proc
-	kernel_proc = new_proc();
+	// setup the kernel proc and the idle task
+	kernel_proc = new_proc(idle_task, NULL);
+	idle = kernel_proc->main_thread;
 
 	kok();
-
-	//start idle task
-	idle = new_kernel_task(idle_task, NULL);
 }
 
 static run_queue_t *get_run_queue(void) {
@@ -87,8 +85,8 @@ static void run_queue_push_task(run_queue_t *run_queue, task_t *task) {
 }
 
 static task_t *run_queue_pop_task(run_queue_t *run_queue) {
+	if (!run_queue->tasks.first_node) return NULL;
 	task_t *task = container_from_node(task_t*, run_list_node, run_queue->tasks.first_node);
-	if (!task) return NULL;
 	list_remove(&run_queue->tasks, &task->run_list_node);
 	return task;
 }
@@ -186,7 +184,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	return task;
 }
 
-process_t *new_proc() {
+process_t *new_proc(void (*func)(void *arg), void *arg){
 	//init the new proc
 	process_t *proc = kmalloc(sizeof(process_t));
 	memset(proc, 0, sizeof(process_t));
@@ -204,7 +202,7 @@ process_t *new_proc() {
 	proc->egid    = get_current_proc()->egid;
 	proc->sgid    = get_current_proc()->sgid;
 	proc->umask   = get_current_proc()->umask;
-	proc->main_thread = new_task(proc, NULL, NULL);
+	proc->main_thread = new_task(proc, func, arg);
 	proc->pid =  proc->main_thread->tid;
 
 	// add it the the list of the childreen of the parent
@@ -228,6 +226,7 @@ task_t *new_kernel_task(void (*func)(void *arg), void *arg) {
 void finish_yield(void) {
 	// the old task is not running anymore
 	atomic_fetch_and(&get_run_queue()->prev->flags, ~TASK_FLAG_RUN);
+	atomic_store(&get_run_queue()->prev->run_queue, NULL);
 
 	spinlock_release(&get_run_queue()->lock);
 }
@@ -258,6 +257,7 @@ void yield(int addback) {
 	
 	// set the new task as running
 	atomic_fetch_or(&new->flags, TASK_FLAG_RUN);
+	atomic_store(&new->run_queue, get_run_queue());
 	kernel->current_task = new;
 
 	if (old->process->addrspace != new->process->addrspace) {

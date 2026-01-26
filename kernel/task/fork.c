@@ -1,14 +1,31 @@
 #include <kernel/fork.h>
 #include <kernel/arch.h>
 #include <kernel/scheduler.h>
-#include <kernel/vmm.h>
 #include <kernel/print.h>
+#include <kernel/kheap.h>
 #include <kernel/string.h>
 #include <kernel/arch.h>
+#include <kernel/vmm.h>
+
+static void fork_trampoline(void *arg) {
+	kdebugf("reaching fork trampoline\n");
+	acontext_t context = get_current_task()->context;
+	context.frame = *(fault_frame_t*)arg;
+	kfree(arg);
+
+	// since we reconsituied the new context we can now load it
+	arch_load_context(&context);
+}
 
 pid_t fork(void) {
+	// setup new context for child
+	// and return 0 to the child
+	fault_frame_t *new_context = kmalloc(sizeof(fault_frame_t));
+	*new_context = *get_current_task()->syscall_frame;
+	RET_REG(*new_context) = 0;
+
 	process_t *parent = get_current_proc();
-	process_t *child = new_proc();
+	process_t *child = new_proc(fork_trampoline, new_context);
 	child->parent = parent;
 
 	kdebugf("forking child : %ld\n", child->pid);
@@ -37,12 +54,9 @@ pid_t fork(void) {
 	child->cwd_node = vfs_dup_node(parent->cwd_node);
 	child->cwd_path = strdup(parent->cwd_path);
 
-	// copy context parent to child but overload regs with userspace context
+	kdebugf("%p\n", child->main_thread);
+	// copy non regs context from parent to child (sse, fb base, ...)
 	arch_save_context(&child->main_thread->context);
-	child->main_thread->context.frame = *get_current_task()->syscall_frame;
-
-	// return 0 to the child
-	RET_REG(child->main_thread->context.frame) = 0;
 
 	// make it ruuuunnnnn !!!
 	unblock_task(child->main_thread);

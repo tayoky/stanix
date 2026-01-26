@@ -101,7 +101,8 @@ typedef struct process {
 void init_task(void);
 process_t *get_current_proc(void);
 task_t *get_current_task(void);
-process_t *new_proc(void);
+
+process_t *new_proc(void (*func)(void *arg), void *arg);
 
 task_t *new_kernel_task(void (*func)(void *arg), void *arg);
 
