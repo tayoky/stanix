@@ -51,6 +51,7 @@ void init_task() {
 	boot_task->addrspace = mmu_get_addr_space();
 
 	boot_task->main_thread = new_task(boot_task, NULL, NULL);
+	boot_task->main_thread->flags = TASK_FLAG_PRESENT | TASK_FLAG_RUN;
 	arch_set_kernel_stack(KSTACK_TOP(boot_task->main_thread->kernel_stack));
 
 	// let just the boot kernel task start with a cwd at initrd root
@@ -239,7 +240,7 @@ void yield(int addback) {
 
 	spinlock_acquire(&get_run_queue()->lock);
 
-	if (addback) {
+	if (addback || !(atomic_load(&get_current_task()->flags) & TASK_FLAG_BLOCKED)) {
 		run_queue_push_task(get_run_queue(), get_current_task());
 	}
 	
@@ -276,10 +277,6 @@ void yield(int addback) {
 
 task_t *get_current_task(void) {
 	return kernel->current_task;
-}
-
-process_t *get_current_proc(void) {
-	return get_current_task()->process;
 }
 
 static void alert_parent(process_t *proc) {

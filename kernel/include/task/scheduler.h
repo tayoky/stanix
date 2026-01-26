@@ -99,8 +99,12 @@ typedef struct process {
 #define TASK_FLAG_SLEEP   0x80
 
 void init_task(void);
-process_t *get_current_proc(void);
+
 task_t *get_current_task(void);
+
+static inline process_t *get_current_proc(void) {
+	return get_current_task()->process;
+}
 
 process_t *new_proc(void (*func)(void *arg), void *arg);
 
