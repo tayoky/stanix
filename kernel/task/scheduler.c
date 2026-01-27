@@ -152,7 +152,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	init_mutex(&task->sig_lock);
 
 	task->tid    = atomic_fetch_add(&kernel->tid_count, 1);
-	task->status = TASK_STATUS_RUNNING;
+	task->status = TASK_STATUS_BLOCKED;
 
 	kdebugf("new task 0x%p tid : %ld\n", task, task->tid);
 
@@ -424,7 +424,7 @@ int unblock_task(task_t *task) {
 	run_queue_acquire_lock(task);
 
 	// aready unblocked ?
-	if (atomic_load(&task->status) != TASK_STATUS_RUNNING) {
+	if (atomic_load(&task->status) != TASK_STATUS_BLOCKED) {
 		run_queue_release_lock(task);
 		spinlock_release(&task->state_lock);
 		return 0;
