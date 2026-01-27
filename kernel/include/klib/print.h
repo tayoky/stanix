@@ -1,18 +1,21 @@
-#ifndef PRINT_H
-#define PRINT_H
+#ifndef _KERNEL_PRINT_H
+#define _KERNEL_PRINT_H
+
+#include <sys/types.h>
 #include <stdarg.h>
-#include <kernel/vfs.h>
+
+struct vfs_fd;
 
 void kprint_buf(const char *buf, size_t size);
-int sprintf(char * str,const char *fmt,...);
-int vsprintf(char * buf,const char *fmt,va_list args);
-int snprintf(char * str,size_t maxlen, const char *fmt,...);
-int vsnprintf(char * buf,size_t maxlen, const char *fmt,va_list args);
+int sprintf(char *str, const char *fmt, ...);
+int vsprintf(char *buf, const char *fmt, va_list args);
+int snprintf(char *str, size_t maxlen, const char *fmt, ...);
+int vsnprintf(char *buf, size_t maxlen, const char *fmt, va_list args);
 
-void kvfprintf(vfs_fd_t *node,const char *fmt,va_list args);
-void kfprintf(vfs_fd_t *node,const char *fmt,...);
-void kvprintf(const char *fmt,va_list args);
-void kprintf(const char *fmt,...);
+void kvfprintf(struct vfs_fd *node, const char *fmt, va_list args);
+void kfprintf(struct vfs_fd *node, const char *fmt, ...);
+void kvprintf(const char *fmt, va_list args);
+void kprintf(const char *fmt, ...);
 void kok(void);
 void kfail(void);
 
@@ -37,9 +40,9 @@ void __kprint(const char *filename, long line, int level, const char *fmt, ...);
 
 // colors
 
-#define COLOR_RESET "\e[0m"
-#define COLOR_RED "\e[0;31m"
-#define COLOR_GREEN "\e[0;32m"
+#define COLOR_RESET  "\e[0m"
+#define COLOR_RED    "\e[0;31m"
+#define COLOR_GREEN  "\e[0;32m"
 #define COLOR_YELLOW "\e[0;33m"
-#define COLOR_BLUE "\e[0;34m"
+#define COLOR_BLUE   "\e[0;34m"
 #endif

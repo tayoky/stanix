@@ -1,6 +1,12 @@
 #ifndef SPINLOCK_H
 #define SPINLOCK_H
 
+//deadlock detection only work on non SMP
+//#define SPINLOCK_DEBUG
+
+#ifdef SPINLOCK_DEBUG
+#include <kernel/panic.h>
+#endif
 #include <kernel/asm.h>
 #include <stdatomic.h>
 
@@ -11,14 +17,22 @@ typedef struct spinlock {
 
 
 static inline void spinlock_acquire(spinlock_t *lock) {
-    while (atomic_flag_test_and_set_explicit(&lock->lock, memory_order_acquire));
     lock->had_interrupt = have_interrupt();
     disable_interrupt();
+    while (atomic_flag_test_and_set_explicit(&lock->lock, memory_order_acquire))
+#ifdef SPINLOCK_DEBUG
+    panic("deadlock", NULL)
+#endif
+    ;
 }
 
 static inline void spinlock_release(spinlock_t *lock) {
     atomic_flag_clear_explicit(&lock->lock, memory_order_release);
     if (lock->had_interrupt) enable_interrupt();
+}
+
+static inline void spinlock_raw_release(spinlock_t *lock) {
+    atomic_flag_clear_explicit(&lock->lock, memory_order_release);
 }
 
 #endif

@@ -51,7 +51,7 @@ typedef struct task {
 	struct timeval wakeup_time;
 	pid_t waitfor;
 	atomic_int flags;
-	atomic_int status;
+	int status;
 	uintptr_t kernel_stack;
 
 	struct fault_frame *syscall_frame;
@@ -87,7 +87,6 @@ typedef struct process {
 	mode_t umask;
 	task_t *main_thread;
 	long exit_status;
-	spinlock_t state_lock;
 } process_t;
 
 #define TASK_STATUS_RUNNING 1 // is the task actually running on a cpu
@@ -145,21 +144,27 @@ process_t *pid2proc(pid_t pid);
 task_t *tid2task(pid_t tid);
 
 /**
+ * @brief safely set the status of the current task
+ * @param status the status to set it to
+ */
+static inline void set_task_status(int status) {
+	spinlock_acquire(&get_current_task()->state_lock);
+	get_current_task()->status = status;
+	spinlock_release(&get_current_task()->state_lock);
+}
+
+/**
  * @brief prepare the current task to sleep
  */
 static inline void block_prepare(void) {
-	spinlock_acquire(&get_current_task()->state_lock);
-	atomic_store(&get_current_task()->status, TASK_STATUS_BLOCKED);
-	spinlock_release(&get_current_task()->state_lock);
+	set_task_status(TASK_STATUS_BLOCKED);
 }
 
 /**
  * @brief cancel a preparation to sleep
  */
 static inline void block_cancel(void) {
-	spinlock_acquire(&get_current_task()->state_lock);
-	atomic_store(&get_current_task()->status, TASK_STATUS_RUNNING);
-	spinlock_release(&get_current_task()->state_lock);
+	set_task_status(TASK_STATUS_RUNNING);
 }
 
 /**

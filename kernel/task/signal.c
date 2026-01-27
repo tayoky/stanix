@@ -75,7 +75,7 @@ static void handle_default(int signum) {
 			if (ret != EINTR) {
 				//uh
 				kdebugf("signal bug\n");
-				get_current_task()->flags = TASK_STATUS_RUNNING;
+				get_current_task()->status = TASK_STATUS_RUNNING;
 				return;
 			}
 			for (int i=0; i < NSIG; i++) {
@@ -88,7 +88,7 @@ static void handle_default(int signum) {
 						break;
 					}
 					release_mutex(&get_current_task()->sig_lock);
-					get_current_task()->flags = TASK_STATUS_RUNNING;
+					get_current_task()->status = TASK_STATUS_RUNNING;
 					return;
 				}
 				release_mutex(&get_current_task()->sig_lock);

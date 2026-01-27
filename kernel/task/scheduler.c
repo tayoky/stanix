@@ -93,6 +93,7 @@ static task_t *run_queue_pop_task(run_queue_t *run_queue) {
 }
 
 static void run_queue_acquire_lock(task_t *task) {
+	kdebugf("run queue lock\n");
 	for (;;) {
 		run_queue_t *queue = atomic_load(&task->run_queue);
 		if (!queue) return;
@@ -108,6 +109,7 @@ static void run_queue_acquire_lock(task_t *task) {
 }
 
 static void run_queue_release_lock(task_t *task) {
+	kdebugf("run queue unlock\n");
 	if (task->run_queue) spinlock_release(&task->run_queue->lock);
 }
 
@@ -142,6 +144,11 @@ static task_t *schedule() {
  */
 static void new_task_trampoline(void (*func)(void *arg), void *arg) {
 	finish_yield();
+
+	// the task with interrupt disabled to avoid chaos
+	// enable it ourself
+	enable_interrupt();
+
 	func(arg);
 	kill_task();
 }
@@ -172,8 +179,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 
 	// TODO : move this to arch specific stuff
 #ifdef __x86_64__
-	asm volatile("pushfq\n"
-		"pop %0" : "=r" (task->context.frame.flags));
+	task->context.frame.flags = 0x02;
 	task->context.frame.cs = 0x08;
 	task->context.frame.ss = 0x10;
 	task->context.frame.ds = 0x10;
@@ -228,7 +234,7 @@ void finish_yield(void) {
 	// the old task is not running anymore
 	atomic_store(&get_run_queue()->prev->run_queue, NULL);
 
-	spinlock_release(&get_run_queue()->lock);
+	spinlock_raw_release(&get_run_queue()->lock);
 }
 
 void yield(int preempt) {
@@ -240,7 +246,7 @@ void yield(int preempt) {
 	spinlock_acquire(&get_run_queue()->lock);
 
 	// we when preempt we continue to run an ignore status
-	if (preempt || atomic_load(&get_current_task()->flags) == TASK_STATUS_RUNNING) {
+	if (preempt || get_current_task()->status == TASK_STATUS_RUNNING) {
 		run_queue_push_task(get_run_queue(), get_current_task());
 	}
 	
@@ -296,18 +302,18 @@ void kill_proc() {
 }
 
 static void do_proc_deletion(void) {
-	//all the childreen become orphelan
-	//the parent of orphelan is init
+	// all the childreen become orphelan
+	// the parent of orphelan is init
 	foreach (node, &get_current_proc()->child) {
 		process_t *child = container_from_node(process_t*, child_list_node, node);
 
-		//we prevent the child from diying between when we set the parent and when we signal
-		//wich could lead to a race condition
-		spinlock_acquire(&child->state_lock);
+		// we prevent the child from diying between when we set the parent and when we signal
+		// wich could lead to a race condition
+		spinlock_acquire(&child->main_thread->state_lock);
 		child->parent = init;
 		list_append(&init->child, &child->child_list_node);
-		if (atomic_load(&child->main_thread->status) == TASK_STATUS_ZOMBIE)alert_parent(child);
-		spinlock_release(&child->state_lock);
+		if (child->main_thread->status == TASK_STATUS_ZOMBIE) alert_parent(child);
+		spinlock_release(&child->main_thread->state_lock);
 	}
 	destroy_list(&get_current_proc()->child);
 
@@ -339,28 +345,28 @@ void kill_task(void) {
 	spinlock_acquire(&get_current_task()->state_lock);
 
 	if (get_current_task() == get_current_proc()->main_thread) {
-		//we are the main thread, we need to kill the whole proc
-		//TODO : send SIGKILL to all threads and wait for it to be handled
+		// we are the main thread, we need to kill the whole proc
+		// TODO : send SIGKILL to all threads and wait for it to be handled
 		do_proc_deletion();
 		alert_parent(get_current_proc());
 	}
 
-	//if a task is waiting on us alert
+	// if a task is waiting on us alert
 	if (atomic_load(&get_current_task()->waiter)) {
-		//FIXME : not SMP safe
-		//a task could be waiting on multiples threads and if they all wakeup the waiter at the same time
-		//waker will still indicate only the last
-		//RACE CONDITION
+		// FIXME : not SMP safe
+		// a task could be waiting on multiples threads and if they all wakeup the waiter at the same time
+		// waker will still indicate only the last
+		// RACE CONDITION
 		get_current_task()->waiter->waker = get_current_task();
 		unblock_task(get_current_task()->waiter);
 	}
 
-	atomic_store(&get_current_task()->flags, TASK_STATUS_ZOMBIE);
-	spinlock_release(&get_current_proc()->state_lock);
+	get_current_task()->status = TASK_STATUS_ZOMBIE;
+	spinlock_release(&get_current_task()->state_lock);
 
-	//FIXME : not SMP safe
-	//another task could waitpid on us and free us between spinlock_release and yield
-	//which is a RACE CONDITION
+	// FIXME : not SMP safe
+	// another task could waitpid on us and free us between spinlock_release and yield
+	// which is a RACE CONDITION
 	yield(0);
 }
 

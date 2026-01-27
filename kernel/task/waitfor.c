@@ -20,7 +20,7 @@ int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker) {
 			continue;
 		}
 		
-		if (atomic_load(&threads[i]->flags) == TASK_STATUS_ZOMBIE) {
+		if (threads[i]->status == TASK_STATUS_ZOMBIE) {
 			//already dead
 			get_current_task()->waker = threads[i];
 			goto ret;
