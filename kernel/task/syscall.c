@@ -924,7 +924,7 @@ int sys_sigwait(const sigset_t *set, int *sig) {
 			//what the hell happend
 			return -EIO;
 		}
-		acquire_mutex(&get_current_task()->sig_lock);
+		spinlock_acquire(&get_current_task()->sig_lock);
 		if (get_current_task()->pending_sig & mask) {
 			for (int i=0; i < _NSIG; i++) {
 				if ((get_current_task()->pending_sig & mask) & sigmask(i)) {
@@ -932,14 +932,14 @@ int sys_sigwait(const sigset_t *set, int *sig) {
 					break;
 				}
 			}
-			release_mutex(&get_current_task()->sig_lock);
+			spinlock_release(&get_current_task()->sig_lock);
 			return 0;
 		} else if (get_current_task()->pending_sig & ~get_current_task()->sig_mask) {
 			//we didn't wait for this signal but the signal must be handled
-			release_mutex(&get_current_task()->sig_lock);
+			spinlock_release(&get_current_task()->sig_lock);
 			return -EINTR;
 		}
-		release_mutex(&get_current_task()->sig_lock);
+		spinlock_release(&get_current_task()->sig_lock);
 	}
 }
 

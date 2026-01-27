@@ -162,7 +162,7 @@ static ssize_t ata_access(vfs_fd_t *fd,void *buffer,size_t offset,size_t count,i
 		}
 	}
 
-	acquire_mutex(&device->channel->lock);
+	mutex_acquire(&device->channel->lock);
 
 	//select the drive
 	//TODO : don't reselect if is was already selected
@@ -175,7 +175,7 @@ static ssize_t ata_access(vfs_fd_t *fd,void *buffer,size_t offset,size_t count,i
 	}
 	ide_io_wait(device);
 	if(ide_poll(device,ATA_SR_BSY,0) < 0){
-		release_mutex(&device->channel->lock);
+		mutex_release(&device->channel->lock);
 		kfree(buf);
 		return -EIO;
 	}
@@ -206,7 +206,7 @@ static ssize_t ata_access(vfs_fd_t *fd,void *buffer,size_t offset,size_t count,i
 		ide_io_wait(device);
 		if(ide_poll(device,ATA_SR_BSY,0) < 0){
 			kfree(buf);
-			release_mutex(&device->channel->lock);
+			mutex_release(&device->channel->lock);
 			return -EIO;
 		}
 		for(size_t j=0; j<256; j++){
@@ -225,7 +225,7 @@ static ssize_t ata_access(vfs_fd_t *fd,void *buffer,size_t offset,size_t count,i
 		ide_io_wait(device);
 	}
 
-	release_mutex(&device->channel->lock);
+	mutex_release(&device->channel->lock);
 
 	memcpy(buffer,((char *)buf) + offset % 512,count);
 	kfree(buf);

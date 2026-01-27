@@ -8,11 +8,8 @@
 #include <kernel/vmm.h>
 
 static void fork_trampoline(void *arg) {
-	kdebugf("reaching fork trampoline\n");
 	acontext_t context = *(acontext_t*)arg;
 	kfree(arg);
-
-	// since we reconsituied the new context we can now load it
 	arch_load_context(&context);
 }
 
