@@ -54,7 +54,7 @@ static void handle_default(int signum) {
 	switch (default_handling[signum]) {
 	case CORE:
 	case KILL:
-		release_mutex(&get_current_task()->sig_lock);
+		spinlock_release(&get_current_task()->sig_lock);
 		kdebugf("task killed by signal %d\n", signum);
 		get_current_proc()->exit_status = ((uint64_t)1 << 17) | signum;
 		kill_task();
@@ -64,7 +64,7 @@ static void handle_default(int signum) {
 		break;
 	case STOP:
 		// FIXME : full of RACE CONDITION
-		release_mutex(&get_current_task()->sig_lock);
+		spinlock_release(&get_current_task()->sig_lock);
 		kdebugf("task stopped\n");
 		int ret = 0;
 		//FIXME : i'm pretty sure if main thread recive SIGSTOP the whole process should stop
@@ -79,7 +79,7 @@ static void handle_default(int signum) {
 				return;
 			}
 			for (int i=0; i < NSIG; i++) {
-				acquire_mutex(&get_current_task()->sig_lock);
+				spinlock_acquire(&get_current_task()->sig_lock);
 				if ((sigmask(i) & get_current_task()->pending_sig) && !(sigmask(i) & get_current_task()->sig_mask)
 					&& get_current_task()->sig_handling[i].sa_handler == SIG_DFL && default_handling[i] != IGN) {
 					if (default_handling[i] == STOP) {
@@ -87,11 +87,11 @@ static void handle_default(int signum) {
 						get_current_task()->pending_sig &= ~sigmask(i);
 						break;
 					}
-					release_mutex(&get_current_task()->sig_lock);
+					spinlock_release(&get_current_task()->sig_lock);
 					get_current_task()->status = TASK_STATUS_RUNNING;
 					return;
 				}
-				release_mutex(&get_current_task()->sig_lock);
+				spinlock_release(&get_current_task()->sig_lock);
 				block_prepare();
 			}
 		}
@@ -118,10 +118,10 @@ int send_sig(process_t *proc, int signum) {
 int send_sig_task(task_t *thread, int signum) {
 	kdebugf("send %d to %ld\n", signum, thread->tid);
 
-	acquire_mutex(&thread->sig_lock);
+	spinlock_acquire(&thread->sig_lock);
 	//if the process ignore just skip
 	if (thread->sig_handling[signum].sa_handler == SIG_IGN || (thread->sig_handling[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN)) {
-		release_mutex(&thread->sig_lock);
+		spinlock_release(&thread->sig_lock);
 		return 0;
 	}
 
@@ -129,7 +129,7 @@ int send_sig_task(task_t *thread, int signum) {
 
 	//if blocked don't handle
 	if (thread->sig_mask & sigmask(signum)) {
-		release_mutex(&thread->sig_lock);
+		spinlock_release(&thread->sig_lock);
 		return 0;
 	}
 
@@ -142,17 +142,17 @@ int send_sig_task(task_t *thread, int signum) {
 		thread->flags |= TASK_FLAG_INTR;
 	}
 
-	release_mutex(&thread->sig_lock);
+	spinlock_release(&thread->sig_lock);
 	return 0;
 }
 
 void handle_signal(fault_frame_t *context) {
-	acquire_mutex(&get_current_task()->sig_lock);
+	spinlock_acquire(&get_current_task()->sig_lock);
 	sigset_t to_handle = get_current_task()->pending_sig & ~get_current_task()->sig_mask;
 
 	//nothing to handle ? just return
 	if (!to_handle) {
-		release_mutex(&get_current_task()->sig_lock);
+		spinlock_release(&get_current_task()->sig_lock);
 		return;
 	}
 
@@ -166,7 +166,7 @@ void handle_signal(fault_frame_t *context) {
 				handle_default(signum);
 				continue;
 			} else {
-				release_mutex(&get_current_task()->sig_lock);
+				spinlock_release(&get_current_task()->sig_lock);
 				//this is the tricky part
 				uintptr_t sp = SP_REG(*context);
 				kdebugf("sp : %p\n", sp);
@@ -194,7 +194,7 @@ void handle_signal(fault_frame_t *context) {
 			}
 		}
 	}
-	release_mutex(&get_current_task()->sig_lock);
+	spinlock_release(&get_current_task()->sig_lock);
 }
 
 void restore_signal_handler(fault_frame_t *context) {

@@ -5,9 +5,7 @@
 #include <kernel/mmu.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
-#include <kernel/mutex.h>
 #include <kernel/spinlock.h>
-#include <kernel/sleep.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/signal.h>
@@ -44,7 +42,7 @@ typedef struct task {
 	struct process *process;
 	pid_t tid;
 	sigset_t sig_mask;
-	mutex_t sig_lock;
+	spinlock_t sig_lock;
 	sigset_t pending_sig;
 	struct sigaction sig_handling[32];
 

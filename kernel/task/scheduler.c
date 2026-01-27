@@ -93,7 +93,6 @@ static task_t *run_queue_pop_task(run_queue_t *run_queue) {
 }
 
 static void run_queue_acquire_lock(task_t *task) {
-	kdebugf("run queue lock\n");
 	for (;;) {
 		run_queue_t *queue = atomic_load(&task->run_queue);
 		if (!queue) return;
@@ -109,7 +108,6 @@ static void run_queue_acquire_lock(task_t *task) {
 }
 
 static void run_queue_release_lock(task_t *task) {
-	kdebugf("run queue unlock\n");
 	if (task->run_queue) spinlock_release(&task->run_queue->lock);
 }
 
@@ -156,7 +154,6 @@ static void new_task_trampoline(void (*func)(void *arg), void *arg) {
 task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	task_t *task = kmalloc(sizeof(task_t));
 	memset(task, 0, sizeof(task_t));
-	init_mutex(&task->sig_lock);
 
 	task->tid    = atomic_fetch_add(&kernel->tid_count, 1);
 	task->status = TASK_STATUS_BLOCKED;

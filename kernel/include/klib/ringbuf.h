@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-typedef struct ringbuffer{
+typedef struct ringbuffer {
 	char *buffer;
 	size_t write_offset;
 	size_t read_offset;
