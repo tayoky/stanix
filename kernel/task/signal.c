@@ -63,18 +63,19 @@ static void handle_default(int signum) {
 	case CONT:
 		break;
 	case STOP:
+		// FIXME : full of RACE CONDITION
 		release_mutex(&get_current_task()->sig_lock);
 		kdebugf("task stopped\n");
 		int ret = 0;
 		//FIXME : i'm pretty sure if main thread recive SIGSTOP the whole process should stop
 		//block until recive a continue signals or kill
-		get_current_task()->flags |= TASK_FLAG_STOPPED;
+		get_current_task()->status = TASK_STATUS_STOPPED;
 		block_prepare();
 		while ((ret = block_task())) {
 			if (ret != EINTR) {
 				//uh
 				kdebugf("signal bug\n");
-				get_current_task()->flags &= ~TASK_FLAG_STOPPED;
+				get_current_task()->flags = TASK_STATUS_RUNNING;
 				return;
 			}
 			for (int i=0; i < NSIG; i++) {
@@ -87,7 +88,7 @@ static void handle_default(int signum) {
 						break;
 					}
 					release_mutex(&get_current_task()->sig_lock);
-					get_current_task()->flags &= ~TASK_FLAG_STOPPED;
+					get_current_task()->flags = TASK_STATUS_RUNNING;
 					return;
 				}
 				release_mutex(&get_current_task()->sig_lock);
@@ -132,11 +133,13 @@ int send_sig_task(task_t *thread, int signum) {
 		return 0;
 	}
 
-	//if the task is blocked interrupt it
-	//FIXME : maybee we should acquire the state lock here
-	if (thread->flags & TASK_FLAG_BLOCKED) {
+	// if the task is blocked interrupt it
+	if (unblock_task(thread)) {
+		// FIXME : we should set the interrupt flag at the same time
+		// we unblock the task
+		// we need an interrupt_task()
+		// RACE CONDITION
 		thread->flags |= TASK_FLAG_INTR;
-		unblock_task(thread);
 	}
 
 	release_mutex(&thread->sig_lock);

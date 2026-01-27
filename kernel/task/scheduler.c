@@ -51,7 +51,7 @@ void init_task() {
 	boot_task->addrspace = mmu_get_addr_space();
 
 	boot_task->main_thread = new_task(boot_task, NULL, NULL);
-	boot_task->main_thread->flags = TASK_FLAG_PRESENT | TASK_FLAG_RUN;
+	boot_task->main_thread->status = TASK_STATUS_RUNNING;
 	arch_set_kernel_stack(KSTACK_TOP(boot_task->main_thread->kernel_stack));
 
 	// let just the boot kernel task start with a cwd at initrd root
@@ -152,7 +152,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	init_mutex(&task->sig_lock);
 
 	task->tid    = atomic_fetch_add(&kernel->tid_count, 1);
-	task->flags  = TASK_FLAG_PRESENT | TASK_FLAG_BLOCKED;
+	task->status = TASK_STATUS_RUNNING;
 
 	kdebugf("new task 0x%p tid : %ld\n", task, task->tid);
 
@@ -226,13 +226,12 @@ task_t *new_kernel_task(void (*func)(void *arg), void *arg) {
 
 void finish_yield(void) {
 	// the old task is not running anymore
-	atomic_fetch_and(&get_run_queue()->prev->flags, ~TASK_FLAG_RUN);
 	atomic_store(&get_run_queue()->prev->run_queue, NULL);
 
 	spinlock_release(&get_run_queue()->lock);
 }
 
-void yield(int addback) {
+void yield(int preempt) {
 	if (!kernel->can_task_switch)return;
 	
 	int prev_int = have_interrupt();
@@ -240,7 +239,8 @@ void yield(int addback) {
 
 	spinlock_acquire(&get_run_queue()->lock);
 
-	if (addback || !(atomic_load(&get_current_task()->flags) & TASK_FLAG_BLOCKED)) {
+	// we when preempt we continue to run an ignore status
+	if (preempt || atomic_load(&get_current_task()->flags) == TASK_STATUS_RUNNING) {
 		run_queue_push_task(get_run_queue(), get_current_task());
 	}
 	
@@ -257,7 +257,6 @@ void yield(int addback) {
 	
 	
 	// set the new task as running
-	atomic_fetch_or(&new->flags, TASK_FLAG_RUN);
 	atomic_store(&new->run_queue, get_run_queue());
 	kernel->current_task = new;
 
@@ -307,7 +306,7 @@ static void do_proc_deletion(void) {
 		spinlock_acquire(&child->state_lock);
 		child->parent = init;
 		list_append(&init->child, &child->child_list_node);
-		if (atomic_load(&child->main_thread->flags) & TASK_FLAG_ZOMBIE)alert_parent(child);
+		if (atomic_load(&child->main_thread->status) == TASK_STATUS_ZOMBIE)alert_parent(child);
 		spinlock_release(&child->state_lock);
 	}
 	destroy_list(&get_current_proc()->child);
@@ -337,7 +336,7 @@ static void do_proc_deletion(void) {
 
 void kill_task(void) {
 	disable_interrupt();
-	spinlock_acquire(&get_current_proc()->state_lock);
+	spinlock_acquire(&get_current_task()->state_lock);
 
 	if (get_current_task() == get_current_proc()->main_thread) {
 		//we are the main thread, we need to kill the whole proc
@@ -356,7 +355,7 @@ void kill_task(void) {
 		unblock_task(get_current_task()->waiter);
 	}
 
-	atomic_fetch_or(&get_current_task()->flags, TASK_FLAG_ZOMBIE);
+	atomic_store(&get_current_task()->flags, TASK_STATUS_ZOMBIE);
 	spinlock_release(&get_current_proc()->state_lock);
 
 	//FIXME : not SMP safe
@@ -420,29 +419,33 @@ int block_task(void) {
 	return 0;
 }
 
-void unblock_task(task_t *task) {
+int unblock_task(task_t *task) {
 	spinlock_acquire(&task->state_lock);
 	run_queue_acquire_lock(task);
 
 	// aready unblocked ?
-	int old_flags = atomic_fetch_and(&task->flags, ~TASK_FLAG_BLOCKED);
-	if (!(old_flags & TASK_FLAG_BLOCKED)) {
+	if (atomic_load(&task->status) != TASK_STATUS_RUNNING) {
 		run_queue_release_lock(task);
 		spinlock_release(&task->state_lock);
-		return;
+		return 0;
 	}
 
 	// if the task is already running on another cpu don't push it back
-	if (old_flags & TASK_FLAG_RUN) {
+	// FIXME : this does not guarantee the task is not in another queue
+	// just quaratee it is not being executed
+	// RACE CONDITION
+	// TODO : maybee make run_queue always point to the queue of task no matter what ???
+	if (task->run_queue) {
 		run_queue_release_lock(task);
 		spinlock_release(&task->state_lock);
-		return;
+		return 0;
 	}
 
 	run_queue_push_task(get_run_queue(), task);
 
 	run_queue_release_lock(task);
 	spinlock_release(&task->state_lock);
+	return 1;
 }
 
 void final_task_cleanup(task_t *thread) {

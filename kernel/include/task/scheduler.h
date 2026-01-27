@@ -51,6 +51,7 @@ typedef struct task {
 	struct timeval wakeup_time;
 	pid_t waitfor;
 	atomic_int flags;
+	atomic_int status;
 	uintptr_t kernel_stack;
 
 	struct fault_frame *syscall_frame;
@@ -89,14 +90,14 @@ typedef struct process {
 	spinlock_t state_lock;
 } process_t;
 
-#define TASK_FLAG_PRESENT 0x01
-#define TASK_FLAG_ZOMBIE  0x02
-#define TASK_FLAG_RUN     0x04 // is the task actually running on a cpu
-#define TASK_FLAG_WAIT    0x08
-#define TASK_FLAG_INTR    0x10
-#define TASK_FLAG_BLOCKED 0x20 // is the task blocked ?
-#define TASK_FLAG_STOPPED 0x40
-#define TASK_FLAG_SLEEP   0x80
+#define TASK_STATUS_RUNNING 1 // is the task actually running on a cpu
+#define TASK_STATUS_ZOMBIE  2
+#define TASK_STATUS_BLOCKED 3 // is the task blocked ?
+#define TASK_STATUS_STOPPED 4
+
+#define TASK_FLAG_INTR  0x01
+#define TASK_FLAG_WAIT  0x02
+#define TASK_FLAG_SLEEP 0x04
 
 void init_task(void);
 
@@ -148,16 +149,16 @@ task_t *tid2task(pid_t tid);
  */
 static inline void block_prepare(void) {
 	spinlock_acquire(&get_current_task()->state_lock);
-	atomic_fetch_or(&get_current_task()->flags, TASK_FLAG_BLOCKED);
+	atomic_store(&get_current_task()->status, TASK_STATUS_BLOCKED);
 	spinlock_release(&get_current_task()->state_lock);
 }
 
 /**
- * @brief cancel a preparetion to sleep
+ * @brief cancel a preparation to sleep
  */
 static inline void block_cancel(void) {
 	spinlock_acquire(&get_current_task()->state_lock);
-	atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_BLOCKED);
+	atomic_store(&get_current_task()->status, TASK_STATUS_RUNNING);
 	spinlock_release(&get_current_task()->state_lock);
 }
 
@@ -170,14 +171,15 @@ int block_task(void);
 /**
  * @brief unblock a task
  * @param proc the task to unblock
+ * @return 1 if unblocked the task else 0
  */
-void unblock_task(task_t *thread);
+int unblock_task(task_t *thread);
 
 /**
  * @brief yield to next task
- * @param addback do we add the task back to the queue or running task
+ * @param preempt was this yield volontary
  */
-void yield(int addback);
+void yield(int preempt);
 
 
 void finish_yield(void);
