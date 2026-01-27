@@ -453,6 +453,7 @@ int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
 }
 
 int vfs_getattr(vfs_node_t *node, struct stat *st) {
+	if (!node) return -EINVAL;
 	memset(st, 0, sizeof(struct stat));
 	st->st_nlink = 1; //in case a driver forgot to set :D
 	st->st_mode  = 0744; //default mode

@@ -165,7 +165,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	list_append(&task_list, &task->task_list_node);
 
 	// setup registers
-	SP_REG(task->context.frame) = KSTACK_TOP(task->kernel_stack);
+	SP_REG(task->context.frame) = KSTACK_TOP(task->kernel_stack) - 8;
 	PC_REG(task->context.frame) = (uintptr_t)new_task_trampoline;
 	ARG1_REG(task->context.frame) = (uintptr_t)func;
 	ARG2_REG(task->context.frame) = (uintptr_t)arg;

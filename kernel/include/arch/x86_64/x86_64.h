@@ -55,13 +55,13 @@ typedef struct arch_specific {
 	IDTR idtr;
 	TSS tss;
 	uint64_t hPDP[8];
-} arch_specific ;
+} arch_specific;
 
 typedef struct acontext_t {
 	char sse[512];
 	fault_frame_t frame;
 	uint64_t fs_base;
-} acontext_t;
+} __attribute__((aligned(16))) acontext_t;
 
 // arch specific functions
 void arch_set_kernel_stack(uintptr_t stack);
