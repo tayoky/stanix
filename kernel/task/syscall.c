@@ -830,12 +830,15 @@ int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *oldset) {
 		return -EFAULT;
 	}
 
+	spinlock_acquire(&get_current_task()->sig_lock);
+
 	if (oldset) {
 		*oldset = get_current_task()->sig_mask;
 	}
 
 	//if set is null then we have finished our jobs
 	if (!set) {
+		spinlock_release(&get_current_task()->sig_lock);
 		return 0;
 	}
 
@@ -850,8 +853,10 @@ int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *oldset) {
 		get_current_task()->sig_mask = *set;
 		break;
 	default:
+		spinlock_release(&get_current_task()->sig_lock);
 		return -EINVAL;
 	}
+	spinlock_release(&get_current_task()->sig_lock);
 	return 0;
 }
 
@@ -888,7 +893,9 @@ int sys_sigpending(sigset_t *set) {
 		return -EFAULT;
 	}
 
+	spinlock_acquire(&get_current_task()->sig_lock);
 	*set = get_current_task()->pending_sig;
+	spinlock_release(&get_current_task()->sig_lock);
 
 	return 0;
 }
@@ -1607,6 +1614,9 @@ void syscall_handler(fault_frame_t *context, void *arg) {
 
 	long (*syscall)(long, long, long, long, long) = syscall_table[ARG0_REG(*context)];
 	RET_REG(*context) = syscall(ARG1_REG(*context), ARG2_REG(*context), ARG3_REG(*context), ARG4_REG(*context), ARG5_REG(*context));
+
+	// reactive preemption in case the syscall forgot
+	kernel->can_task_switch = 1;
 
 	//now handle any unlblocked pending syscall
 	handle_signal(context);

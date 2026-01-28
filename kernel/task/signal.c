@@ -67,8 +67,8 @@ static void handle_default(int signum) {
 		spinlock_release(&get_current_task()->sig_lock);
 		kdebugf("task stopped\n");
 		int ret = 0;
-		//FIXME : i'm pretty sure if main thread recive SIGSTOP the whole process should stop
-		//block until recive a continue signals or kill
+		// FIXME : i'm pretty sure if main thread recive SIGSTOP the whole process should stop
+		// block until recive a continue signals or kill
 		get_current_task()->status = TASK_STATUS_STOPPED;
 		block_prepare();
 		while ((ret = block_task())) {
@@ -127,7 +127,7 @@ int send_sig_task(task_t *thread, int signum) {
 
 	thread->pending_sig |= sigmask(signum);
 
-	//if blocked don't handle
+	// if the sig is blocked don't handle
 	if (thread->sig_mask & sigmask(signum)) {
 		spinlock_release(&thread->sig_lock);
 		return 0;
@@ -150,7 +150,7 @@ void handle_signal(fault_frame_t *context) {
 	spinlock_acquire(&get_current_task()->sig_lock);
 	sigset_t to_handle = get_current_task()->pending_sig & ~get_current_task()->sig_mask;
 
-	//nothing to handle ? just return
+	// nothing to handle ? just return
 	if (!to_handle) {
 		spinlock_release(&get_current_task()->sig_lock);
 		return;
@@ -159,7 +159,10 @@ void handle_signal(fault_frame_t *context) {
 	for (int signum = 1; signum < NSIG; signum++) {
 		if (to_handle & sigmask(signum)) {
 			kdebugf("signal %d recived\n", signum);
+
+			// clear the pending bit
 			get_current_task()->pending_sig &= ~sigmask(signum);
+
 			if (get_current_task()->sig_handling[signum].sa_handler == SIG_IGN) {
 				continue;
 			} else if (get_current_task()->sig_handling[signum].sa_handler == SIG_DFL) {
@@ -167,13 +170,13 @@ void handle_signal(fault_frame_t *context) {
 				continue;
 			} else {
 				spinlock_release(&get_current_task()->sig_lock);
-				//this is the tricky part
+				// this is the tricky part
 				uintptr_t sp = SP_REG(*context);
 				kdebugf("sp : %p\n", sp);
 				//align the stack
 				sp &= ~0xfUL;
 
-				//we need make the ucontext on the userspace stack
+				// we need make the ucontext on the userspace stack
 				sp -= sizeof(ucontext_t);
 				ucontext_t *ucontext = (ucontext_t *)sp;
 				memset(ucontext, 0, sizeof(ucontext_t));
@@ -184,12 +187,12 @@ void handle_signal(fault_frame_t *context) {
 				arch_save_context(saved_context);
 				saved_context->frame = *context;
 
-				//push the magic return value
+				// push the magic return value
 				sp -= sizeof(uintptr_t);
 				*(uintptr_t *)sp = MAGIC_SIGRETURN;
-				//apply the new mask
+				// apply the new mask
 				get_current_task()->sig_mask |= get_current_task()->sig_handling[signum].sa_mask;
-				//then we can jump to the signal handler
+				// then we can jump to the signal handler
 				jump_userspace((void *)get_current_task()->sig_handling[signum].sa_handler, (void *)sp, signum, 0, (uintptr_t)ucontext, 0);
 			}
 		}
@@ -200,12 +203,14 @@ void handle_signal(fault_frame_t *context) {
 void restore_signal_handler(fault_frame_t *context) {
 	kdebugf("restore signal handler\n");
 
-	//since the magic return address as been poped,
-	//this mean there only the ucontext left
+	// since the magic return address as been poped,
+	// this mean there only the ucontext left
 	ucontext_t *ucontext = (ucontext_t *)SP_REG(*context);
 
-	//restore the old mask
+	// restore the old mask
+	spinlock_acquire(&get_current_task()->sig_lock);
 	get_current_task()->sig_mask = ucontext->uc_sigmask;
+	spinlock_release(&get_current_task()->sig_lock);
 
 	acontext_t *old_context = (acontext_t *)&ucontext->uc_mcontext;
 	kdebugf("sp : %p\n", SP_REG(old_context->frame));

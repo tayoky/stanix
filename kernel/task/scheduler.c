@@ -26,6 +26,7 @@ static task_t *idle;
 
 static void idle_task() {
 	for (;;) {
+		block_prepare();
 		yield(0);
 	}
 }
@@ -235,7 +236,7 @@ void finish_yield(void) {
 }
 
 void yield(int preempt) {
-	if (!kernel->can_task_switch)return;
+	if (!kernel->can_task_switch && preempt)return;
 	
 	int prev_int = have_interrupt();
 	disable_interrupt();
@@ -365,6 +366,7 @@ void kill_task(void) {
 	// another task could waitpid on us and free us between spinlock_release and yield
 	// which is a RACE CONDITION
 	yield(0);
+	__builtin_unreachable();
 }
 
 process_t *pid2proc(pid_t pid) {
@@ -425,13 +427,14 @@ int block_task(void) {
 int unblock_task(task_t *task) {
 	spinlock_acquire(&task->state_lock);
 	run_queue_acquire_lock(task);
-
+	
 	// aready unblocked ?
-	if (atomic_load(&task->status) != TASK_STATUS_BLOCKED) {
+	if (task->status != TASK_STATUS_BLOCKED) {
 		run_queue_release_lock(task);
 		spinlock_release(&task->state_lock);
 		return 0;
 	}
+	task->status = TASK_STATUS_RUNNING;
 
 	// if the task is already running on another cpu don't push it back
 	// FIXME : this does not guarantee the task is not in another queue
