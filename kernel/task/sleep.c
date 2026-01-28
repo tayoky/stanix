@@ -17,11 +17,11 @@ int sleep_until(struct timeval wakeup_time) {
 	spinlock_acquire(&sleep_lock);
 	task_t *prev = NULL;
 	foreach (node, &sleeping_tasks) {
-		task_t *thread = container_from_node(task_t*, waiter_list_node, node);
-		if (!thread || thread->wakeup_time.tv_sec > wakeup_time.tv_usec || (thread->wakeup_time.tv_sec == wakeup_time.tv_sec && thread->wakeup_time.tv_usec > wakeup_time.tv_usec)) {
+		task_t *task = container_from_node(task_t*, waiter_list_node, node);
+		if (!task || task->wakeup_time.tv_sec > wakeup_time.tv_usec || (task->wakeup_time.tv_sec == wakeup_time.tv_sec && task->wakeup_time.tv_usec > wakeup_time.tv_usec)) {
 			break;
 		}
-		prev = thread;
+		prev = task;
 	}
 
 	list_add_after(&sleeping_tasks, prev ? &prev->waiter_list_node : NULL, &get_current_task()->waiter_list_node);
@@ -79,9 +79,12 @@ int sleep_on_queue(sleep_queue_t *queue) {
 void wakeup_queue(sleep_queue_t *queue, size_t count) {
 	spinlock_acquire(&queue->lock);
 
-	foreach (node, &sleeping_tasks) {
-		task_t *thread = container_from_node(task_t*, waiter_list_node, node);
-		unblock_task(thread);
+	list_node_t *current = queue->waiters.first_node;
+	while (current) {
+		task_t *task = container_from_node(task_t*, waiter_list_node, current);
+		current = current->next;
+		list_remove(&queue->waiters, &task->waiter_list_node);
+		unblock_task(task);
 
 		if (count) {
 			if (--count == 0)break;
