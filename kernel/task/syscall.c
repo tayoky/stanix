@@ -1177,8 +1177,8 @@ int sys_fchown(int fd, uid_t owner, gid_t group) {
 //TODO : check if group exist
 int sys_setpgid(pid_t pid, pid_t pgid) {
 	kdebugf("setpgid %ld %ld\n", pid, pgid);
-	if (pid == 0)pid = get_current_proc()->pid;
-	if (pgid == 0)pgid = get_current_proc()->pid;
+	if (pid == 0) pid = get_current_proc()->pid;
+	if (pgid == 0) pgid = pid;
 	if (pgid < 0) {
 		return -EINVAL;
 	}
