@@ -1,5 +1,6 @@
 ---
 title: syscall
+permalink: /syscall/
 ---
 list of all syscall
 - 00 [exit](exit)

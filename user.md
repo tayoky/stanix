@@ -1,5 +1,6 @@
 ---
 title: user documentation
+permalink: /user/
 ---
 The user documentation is decomposed in multiples parts according to the man page convention.
 - 1 [command and executables](commands)
