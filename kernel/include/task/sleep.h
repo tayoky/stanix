@@ -20,16 +20,17 @@ typedef struct sleep_queue {
 		if (cond) break;\
 \
 		block_prepare();\
+		spinlock_acquire(&(queue)->lock);\
 		if (cond) {\
 			block_cancel();\
+			spinlock_raw_release(&(queue)->lock);\
 			break;\
 		}\
 		\
-		if (l) spinlock_release(l);\
+		if (l) spinlock_raw_release(l);\
 		\
-		spinlock_acquire(&(queue)->lock);\
 		list_append(&(queue)->waiters, &get_current_task()->waiter_list_node);\
-		spinlock_release(&(queue)->lock);\
+		spinlock_raw_release(&(queue)->lock);\
 \
 		ret = block_task();\
 		if (ret < 0) break;\
