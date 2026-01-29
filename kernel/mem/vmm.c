@@ -13,7 +13,7 @@
 
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	uintptr_t vpage = PAGE_ALIGN_DOWN((uintptr_t)addr);
-	uintptr_t phys  = mmu_virt2phys((void*)vpage);
+	uintptr_t phys  = mmu_virt2phys((void *)vpage);
 
 	// FIXME : probably full of race conditons
 	if ((seg->flags & VMM_FLAG_PRIVATE) && (seg->prot & MMU_FLAG_WRITE) && prot == MMU_FLAG_WRITE) {
@@ -30,7 +30,7 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 				send_sig_task(get_current_task(), SIGBUS);
 				return 1;
 			}
-			memcpy((void*)(new_page + kernel->hhdm), (void*)vpage, PAGE_SIZE);
+			memcpy((void *)(new_page + kernel->hhdm), (void *)vpage, PAGE_SIZE);
 			pmm_free_page(phys);
 			mmu_map_page(get_current_proc()->addrspace, new_page, vpage, seg->prot);
 		}
@@ -40,13 +40,13 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 }
 
 int vmm_fault_report(uintptr_t addr, int prot) {
-	foreach (node, &get_current_proc()->vmm_seg) {
-		vmm_seg_t *seg = (vmm_seg_t*)node;
+	foreach(node, &get_current_proc()->vmm_seg) {
+		vmm_seg_t *seg = (vmm_seg_t *)node;
 		if (seg->start > addr) break;
 		if (seg->end > addr) {
 			// we found a seg to report too
 			return vmm_handle_fault(seg, addr, prot);
-		} 
+		}
 	}
 	return 0;
 }
@@ -58,7 +58,7 @@ vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size, long 
 		uintptr_t end = PAGE_ALIGN_UP(address + size);
 		address = PAGE_ALIGN_DOWN(address);
 		foreach(node, &proc->vmm_seg) {
-			vmm_seg_t *current = (vmm_seg_t*)node;
+			vmm_seg_t *current = (vmm_seg_t *)node;
 			if (current->start < end && current->end > address) {
 				// there is aready a seg here
 				return NULL;
@@ -74,8 +74,8 @@ vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size, long 
 
 		// no address ? we need to find one ourself
 		foreach(node, &proc->vmm_seg) {
-			vmm_seg_t *current = (vmm_seg_t*)node;
-			vmm_seg_t *next = (vmm_seg_t*)node->next;
+			vmm_seg_t *current = (vmm_seg_t *)node;
+			vmm_seg_t *next = (vmm_seg_t *)node->next;
 			if (!next || next->start - current->end >= size) {
 				address = current->end;
 				prev = current;
@@ -109,7 +109,7 @@ int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flag
 	vmm_seg_t *new_seg = vmm_create_seg(proc, address, size, prot, flags);
 	if (!new_seg) return -EEXIST;
 
-	//kdebugf("map %p size : %lx\n",address,size);
+	//kdebugf("map %p size : %lx\n", new_seg->start, size);
 	int ret = 0;
 	if (flags & VMM_FLAG_ANONYMOUS) {
 		fd = NULL;
@@ -195,7 +195,7 @@ void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg) {
 	}
 	// remap in child
 	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		uintptr_t phys = mmu_space_virt2phys(parent->addrspace, (void*)addr);
+		uintptr_t phys = mmu_space_virt2phys(parent->addrspace, (void *)addr);
 		// do not touch ref count of IO mapping
 		// because they actually do not have a ref count
 		if (!(seg->flags & VMM_FLAG_IO)) {
@@ -203,7 +203,7 @@ void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg) {
 		}
 		mmu_map_page(child->addrspace, phys, addr, prot);
 	}
- 
+
 	if (seg->flags & VMM_FLAG_PRIVATE) {
 		// we need to remap as readonly in the parent too
 		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
@@ -213,7 +213,7 @@ void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg) {
 
 	vmm_seg_t *prev = NULL;
 	foreach(node, &child->vmm_seg) {
-		vmm_seg_t *current = (vmm_seg_t*)node;
+		vmm_seg_t *current = (vmm_seg_t *)node;
 		if (current->start > seg->end) {
 			break;
 		}

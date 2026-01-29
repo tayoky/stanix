@@ -1,0 +1,28 @@
+#ifndef _KERNEL_RWLOCK_H
+#define _KERNEL_RWLOCK_H
+
+#include <kernel/spinlock.h>
+#include <kernel/scheduler.h>
+#include <kernel/sleep.h>
+
+/**
+ * @brief represent a read-write lock
+ * @note you can acqurie another write/read inside a write but not a write inside a read
+ */
+typedef struct rwlock {
+	spinlock_t lock;
+	sleep_queue_t writer_queue;
+	sleep_queue_t reader_queue;
+	size_t waiting_writers_count;
+	size_t readers_count;
+	size_t lock_depth;
+	task_t *writer_active;
+} rwlock_t;
+
+void init_rwlock(rwlock_t *rwlock);
+int rwlock_acquire_read(rwlock_t *rwlock);
+int rwlock_release_read(rwlock_t *rwlock);
+int rwlock_acquire_write(rwlock_t *rwlock);
+int rwlock_release_write(rwlock_t *rwlock);
+
+#endif

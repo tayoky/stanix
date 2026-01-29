@@ -1,5 +1,5 @@
-#ifndef PROCESS_H
-#define PROCESS_H
+#ifndef _KERNEL_SCHEDULER_H
+#define _KERNEL_SCHEDULER_H
 
 #include <kernel/arch.h>
 #include <kernel/mmu.h>
