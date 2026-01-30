@@ -1,6 +1,6 @@
 ---
 title: miscellaneous
-permalink: /miscellaneous
+permalink: /miscellaneous/
 ---
 - [build](build)
 - [build and install ports](ports)

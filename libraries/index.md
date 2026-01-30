@@ -1,6 +1,6 @@
 ---
 title: libraires
-permalink: libraries
+permalink: /libraries/
 ---
 
 **Stanix** comes with multiples system libraries.  

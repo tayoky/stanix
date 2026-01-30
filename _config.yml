@@ -13,11 +13,11 @@ minima:
   skin: auto
   
   nav_pages:
-    - syscall
-    - libraries
-    - miscellaneous
-    - user
-    - kernel
+    - syscall/index.md
+    - libraries/index.md
+    - miscellaneous/index.md
+    - user.md
+    - kernel/index.md
     - todo.md
 
 #social media link

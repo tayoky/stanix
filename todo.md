@@ -6,10 +6,10 @@ title : todo
 - half life port
 - GUI
 - kernel subsystem manager
-- new kernel buses api (with hotplug support)
-- dynamic module loading
-- socket stack
-- unix socket
+- ~~new kernel buses api (with hotplug support)~~
+- ~~dynamic module loading~~
+- ~~socket stack~~
+- ~~unix socket~~
 - atapi driver
 - fat32 driver (write)
 - iso fs driver
