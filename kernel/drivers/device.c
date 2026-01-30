@@ -1,12 +1,12 @@
-#include <libutils/hashmap.h>
+#include <kernel/hashmap.h>
 #include <kernel/device.h>
 #include <kernel/tmpfs.h>
 #include <kernel/print.h>
 #include <kernel/bus.h>
 #include <errno.h>
 
-utils_hashmap_t device_drivers;
-utils_hashmap_t devices;
+hashmap_t device_drivers;
+hashmap_t devices;
 vfs_node_t *devfs_root;
 
 static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_driver) {	
@@ -52,7 +52,7 @@ static int init_device(bus_addr_t *addr) {
 		.ret = -ENOTSUP,
 	};
 
-	utils_hashmap_foreach(&device_drivers, __init_device_helper, &data); 
+	hashmap_foreach(&device_drivers, __init_device_helper, &data); 
 
 	return data.ret;
 }
@@ -75,16 +75,16 @@ int register_device_driver(device_driver_t *device_driver) {
 		static int major_dyn = 256;
 		device_driver->major = major_dyn++;
 	}
-	if (utils_hashmap_get(&device_drivers, device_driver->major)) return -EEXIST;
-	utils_hashmap_add(&device_drivers, device_driver->major, device_driver);
+	if (hashmap_get(&device_drivers, device_driver->major)) return -EEXIST;
+	hashmap_add(&device_drivers, device_driver->major, device_driver);
 
 	// try to use this new driver on all already existing devices
-	utils_hashmap_foreach(&devices, __init_bus_with_driver_helper, device_driver);
+	hashmap_foreach(&devices, __init_bus_with_driver_helper, device_driver);
 	return 0;
 }
 
 int unregister_device_driver(device_driver_t *device_driver) {
-	utils_hashmap_remove(&device_drivers, device_driver->major);
+	hashmap_remove(&device_drivers, device_driver->major);
 	return 0;
 }
 
@@ -103,7 +103,7 @@ int register_device(device_t *device) {
 		vfs_createat_ext(devfs_root, device->name, 0666, device->type == DEVICE_CHAR ? VFS_CHAR : VFS_BLOCK, &device->number);
 	}
 	kdebugf("register device %s as %d,%d (%lx)\n", device->name, major(device->number), minor(device->number), device->number);
-	utils_hashmap_add(&devices, device->number, device);
+	hashmap_add(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
 		bus_t *bus = (bus_t*)device;
 		foreach (node, &bus->addresses) {
@@ -117,7 +117,7 @@ int register_device(device_t *device) {
 }
 
 int destroy_device(device_t *device) {
-	utils_hashmap_remove(&devices, device->number);
+	hashmap_remove(&devices, device->number);
 	device->type = DEVICE_UNPLUGED;
 	if (device->destroy) device->destroy(device);
 	// TODO : remove in devfs
@@ -125,7 +125,7 @@ int destroy_device(device_t *device) {
 }
 
 device_t *device_from_number(dev_t dev) {
-	return utils_hashmap_get(&devices, dev);
+	return hashmap_get(&devices, dev);
 }
 
 vfs_fd_t *open_device(device_t *device, long flags) {
@@ -147,8 +147,8 @@ vfs_fd_t *open_device(device_t *device, long flags) {
 
 void init_devices(void) {
 	kstatusf("init devices ... ");
-	utils_init_hashmap(&devices, 256);
-	utils_init_hashmap(&device_drivers, 256);
+	init_hashmap(&devices, 256);
+	init_hashmap(&device_drivers, 256);
 	devfs_root = new_tmpfs();
 	vfs_mount("/dev", devfs_root);
 	kok();

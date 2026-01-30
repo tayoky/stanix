@@ -2,7 +2,7 @@
 #define _LIBUTILS_HASHMAP_H
 
 #include "vector.h"
-#include "base.h"
+#include <stdlib.h>
 #include <stdint.h>
 
 typedef struct utils_hashmap_entry {
