@@ -33,7 +33,8 @@ struct __init_device_struct_helper {
 	int ret;
 };
 
-static void __init_device_helper(void *element, void *arg) {
+static void __init_device_helper(void *element, long key, void *arg) {
+	(void)key;
 	struct __init_device_struct_helper *data = arg;
 	device_driver_t *driver = element;
 
@@ -57,7 +58,8 @@ static int init_device(bus_addr_t *addr) {
 	return data.ret;
 }
 
-static void __init_bus_with_driver_helper(void *element, void *arg) {
+static void __init_bus_with_driver_helper(void *element, long key, void *arg) {
+	(void)key;
 	bus_t *bus = element;
 	device_driver_t *driver = arg;
 	if (bus->device.type != DEVICE_BUS) return;

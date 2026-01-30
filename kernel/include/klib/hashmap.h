@@ -81,13 +81,13 @@ static inline int hashmap_remove(hashmap_t *hashmap, long key) {
 	return 0;
 }
 
-static inline void hashmap_foreach(hashmap_t *hashmap, void (*func)(void *element, void *arg), void *arg) {
+static inline void hashmap_foreach(hashmap_t *hashmap, void (*func)(void *element, long key, void *arg), void *arg) {
 	for (size_t i=0; i<hashmap->capacity; i++) {
 		vector_t *vector = &hashmap->vectors[i];
 		hashmap_entry_t *entries = vector->data;
 		if (!entries) continue;
 		for (size_t j=0; j<vector->count; j++) {
-			func(entries[j].element, arg);
+			func(entries[j].element, entries[j].key, arg);
 		}
 	}
 }

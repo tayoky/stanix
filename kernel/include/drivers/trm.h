@@ -4,7 +4,7 @@
 #include <libtrm/trm.h>
 #include <kernel/device.h>
 #include <kernel/list.h>
-#include <libutils/hashmap.h>
+#include <kernel/hashmap.h>
 #include <stdint.h>
 
 struct vfs_fd;
@@ -42,7 +42,7 @@ typedef struct trm_gpu {
     trm_mode_t mode;
     trm_ops_t *ops;
     list_t alloc_blocks;
-    utils_hashmap_t fbs;
+    hashmap_t fbs;
     struct vfs_fd *master;
     uintptr_t vram_mmio;
     uint32_t fbs_count;

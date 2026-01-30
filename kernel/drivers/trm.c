@@ -62,7 +62,7 @@ static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 
 static void trm_fb_close(vfs_fd_t *fd) {
 	trm_framebuffer_t *fb = fd->private;
-	utils_hashmap_remove(&fb->gpu->fbs, fb->fb.id);
+	hashmap_remove(&fb->gpu->fbs, fb->fb.id);
 	// TODO : free used vram
 	kfree(fb);
 }
@@ -96,7 +96,7 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 	framebuffer->base = base;
 	framebuffer->owner = fd;
 	framebuffer->gpu = gpu;
-	utils_hashmap_add(&gpu->fbs, fb->id, framebuffer);
+	hashmap_add(&gpu->fbs, fb->id, framebuffer);
 
 	vfs_fd_t *fb_fd = kmalloc(sizeof(vfs_fd_t));
 	memset(fb_fd, 0, sizeof(vfs_fd_t));
@@ -233,7 +233,7 @@ static void trm_destroy(device_t *device) {
 		gpu->ops->cleanup(gpu);
 	}
 	// TODO : cleanup everything
-	utils_free_hashmap(&gpu->fbs);
+	free_hashmap(&gpu->fbs);
 	destroy_list(&gpu->alloc_blocks);
 	kfree(gpu->card.planes);
 	kfree(gpu->card.crtcs);
@@ -248,7 +248,7 @@ static vfs_ops_t trm_ops = {
 };
 
 trm_framebuffer_t *trm_get_fb(trm_gpu_t *gpu, uint32_t id) {
-	return utils_hashmap_get(&gpu->fbs, id);
+	return hashmap_get(&gpu->fbs, id);
 }
 
 int register_trm_gpu(trm_gpu_t *gpu) {
@@ -290,7 +290,7 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	main_block->base = 0;
 	main_block->free = 1;
 	list_append(&gpu->alloc_blocks, &main_block->node);
-	utils_init_hashmap(&gpu->fbs, 32);
+	init_hashmap(&gpu->fbs, 32);
 
 	return register_device((device_t *)gpu);
 }
