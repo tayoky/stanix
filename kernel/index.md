@@ -2,11 +2,13 @@
 title: kernel docs
 permalink : /kernel/
 ---
-This is the kernel docs it's made for kernel devlopers. 
+This section contain documentation for kernel internal.
 
 ## note
-The kernel docs are highly incomplete
+The kernel docs are highly incomplete.
 
-## index
+## subsystems
 - [vfs](vfs)
+- [vmm](vmm)
+- [kheap](kheap)
 - [modules](modules)

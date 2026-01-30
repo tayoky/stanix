@@ -22,7 +22,7 @@ int fini(){
     return 0;
 }
 
-kmodule module_meta = {
+kmodule_t module_meta = {
     .init = init,
     .fini = fini,
     .description = "hello world",
