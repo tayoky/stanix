@@ -20,14 +20,28 @@ Some notable behaviour of mutexes include :
 - A task that already own a mutex can reacquire it incrementing the `lock_depth` (one more `mutex_release` become necessary to release it).
 
 ## rwlocks
-**Rwlocks** (`rwlock_t` in `<kernel/rwlock.h>`) can have writer or multiples reader at the same time. A writer lock can be acquired using `rwlock_acquire_write` and released using `rwlock_release_write`. A reader lock can be acquired using `rwlock_acquire_read` and released using `rwlock_release_read`.
+**Rwlocks** (`rwlock_t` in `<kernel/rwlock.h>`) can have one writer or multiples readers at the same time.
+Unlike rwsemaphores, rwlocks do not block and instead spin, they are safe to use in any context (including irq handlers).
+A writer lock can be acquired using `rwlock_acquire_write` and released using `rwlock_release_write`.
+A reader lock can be acquired using `rwlock_acquire_read` and released using `rwlock_release_read`.
+Rwlocks disable interrupts when they are acquired and restore them when they are realased thus, rwlock locks must be released in the reverse order they were acquired.
 
-Some notable behaviour of rwlocks include :
-- A rwlock must be released by the task that acquire it.
-- Rwlocks cannot be used in irq handlers.
-- Rwlocks can block.
-- A task that aready own a writer lock on a rwlock can reacquire a writer or reader lock incrementing the `lock_depth` (one more `rwlock_release_writer`/`rwlock_release_reader` become necessary to release it).
-- A task that aready own a reader lock on a rwlock can reacquire a reader lock but not a writer lock (except if the task also aready own a writer lock, see rule above).
+## rwsems
+**Rwsemaphores** (`rwsem_t` in `<kernel/rwsem.h>`) can have one writer or multiples readers at the same time.
+A writer lock can be acquired using `rwsem_acquire_write` and released using `rwsem_release_write`.
+A reader lock can be acquired using `rwsem_acquire_read` and released using `rwsem_release_read`.
+
+Some notable behaviour of rwsemaphores include :
+- A rwsemaphore must be released by the task that acquire it.
+- Rwsemaphore cannot be used in irq handlers.
+- Rwsemaphore can block.
+- A task that aready own a writer lock on a rwsemaphore can reacquire a writer or reader lock incrementing the `lock_depth` (one more `rwsem_release_writer`/`rwsem_release_reader` become necessary to release it).
+- A task that aready own a reader lock on a rwsemaphore can reacquire a reader lock but not a writer lock (except if the task also aready own a writer lock, see rule above).
+
+## conditions variables
+**Conditions variables** (`cond_t` in `<kernel/cond.h>`) allow to sleep until a variable is set to a specific value using `cond_wait` and `cond_wait_interruptible` the later being interruptible by signals.
+The value of a condition variable can be set usinf `cond_set`.
+Conditions variables are blocking and are not safe to use from an irq handler except for `cond_set` which does not block but only unblock tasks.
 
 ## sleep queues
 **Sleep queues** (`sleep_queue_t` in `<kernel/sleep.h>`) are the lowest level syncronisation primitive that can block. It is made only of spinlocks and `block_task`/`unblock_task`.

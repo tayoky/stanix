@@ -13,4 +13,5 @@ The kernel docs are highly incomplete.
 - [kheap](kheap)
 - [devices manager](device)
 - [locking and syncronisation](locking)
+- [page cache](cache)
 - [modules](modules)
