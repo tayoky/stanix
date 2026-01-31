@@ -20,7 +20,7 @@ Each segment have flags and protections, they indicate how the mapping should be
 ### segments operations
 Various operations can be done on segments.
 - `vmm_map`
-  Create a new mapping in memory and can map files/devices (by calling [`vfs_mmap`](vmm#files-operations)).
+  Create a new mapping in memory and can map files/devices (by calling [`vfs_mmap`](vmm#files-functions)).
 - `vmm_unmap`
   Unmap and destroy a mapping and can free the pages used by it (if not marked as `VMM_FLAG_IO`).
 - `vmm_clone`

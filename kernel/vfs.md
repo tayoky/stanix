@@ -2,11 +2,12 @@
 title: kernel vfs
 ---
 The **vfs (virtual filesystem)** provide filesystem abstraction and allows opening devices as files.
+The prototype of most vfs functions is in `<kernel/kheap.h>`.
 
 ## inodes
 A `vfs_node_t` represent an inode. Various operations can be done using an inode.
 
-### inodes operations
+### inodes functions
 - `vfs_get_node_at`
 - `vfs_get_node`
   Get the inode at a specified path.
@@ -36,9 +37,10 @@ A `vfs_node_t` represent an inode. Various operations can be done using an inode
   Lookup an entry on the inode of a directory.
 
 ## files context
-To read or write a file or a device, a `vfs_fd_t` (file/device context) is required. It is possible to get one using various functions such as `vfs_open` or `open_device`.
+To read or write a file or a device, a `vfs_fd_t` (file/device context) is required.
+It is possible to get one using various functions such as `vfs_open` or `open_device`.
 
-### files operations
+### files functions
 - `vfs_open`
 - `vfs_openat`
   Open a new context from a path.
@@ -59,6 +61,6 @@ To read or write a file or a device, a `vfs_fd_t` (file/device context) is requi
 - `vfs_truncate`
   Truncate the file/device.
 
-### vfs operations
-- `vfs_register_fs`
-- `vfs_unregister_fs`
+### filesystems
+**File systems** are represented by a `vfs_filesystem_t`.
+A file system type can be registered using `vfs_register_fs` and unregistered using `vfs_unregister_fs`.

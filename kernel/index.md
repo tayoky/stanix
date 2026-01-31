@@ -1,5 +1,5 @@
 ---
-title: kernel docs
+title: kernel documentation
 permalink : /kernel/
 ---
 This section contain documentation for kernel internal.
@@ -12,4 +12,5 @@ The kernel docs are highly incomplete.
 - [vmm](vmm)
 - [kheap](kheap)
 - [devices manager](device)
+- [locking and syncronisation](locking)
 - [modules](modules)
