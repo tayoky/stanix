@@ -11,4 +11,5 @@ The kernel docs are highly incomplete.
 - [vfs](vfs)
 - [vmm](vmm)
 - [kheap](kheap)
+- [devices manager](device)
 - [modules](modules)
