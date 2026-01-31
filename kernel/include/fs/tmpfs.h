@@ -2,6 +2,7 @@
 #define TMPFS_H
 
 
+#include <kernel/cache.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
@@ -16,11 +17,12 @@ struct tmpfs_inode;
 
 typedef struct tmpfs_inode{
 	list_node_t node;
+	cache_t cache;
 	struct tmpfs_inode *parent;
-	list_t entries;
-	uint64_t flags;
+	void *buffer;
 	size_t buffer_size;
-	char *buffer;
+	list_t entries;
+	long type;
 	mode_t perm;
 	uid_t owner;
 	gid_t group_owner;
@@ -39,11 +41,11 @@ typedef struct tmpfs_dirent {
 	tmpfs_inode_t *inode;
 } tmpfs_dirent_t;
 
-#define TMPFS_FLAGS_FILE  0x01
-#define TMPFS_FLAGS_DIR   0x02
-#define TMPFS_FLAGS_LINK  0x04
-#define TMPFS_FLAGS_SOCK  0x08
-#define TMPFS_FLAGS_CHAR  0x10
-#define TMPFS_FLAGS_BLOCK 0x20
+#define TMPFS_TYPE_FILE  0x01
+#define TMPFS_TYPE_DIR   0x02
+#define TMPFS_TYPE_LINK  0x04
+#define TMPFS_TYPE_SOCK  0x08
+#define TMPFS_TYPE_CHAR  0x10
+#define TMPFS_TYPE_BLOCK 0x20
 
 #endif

@@ -215,10 +215,16 @@ static int cache_ops_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	return cache->ops->ioctl(cache, req, arg);
 }
 
+static int cache_ops_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
+	cache_t *cache = fd->private;
+	return cache_mmap(cache, offset, seg);
+}
+
 static vfs_ops_t cache_ops = {
 	.read  = cache_ops_read,
 	.write = cache_ops_write,
 	.ioctl = cache_ops_ioctl,
+	.mmap  = cache_ops_mmap,
 };
 
 int cache_open(cache_t *cache, vfs_fd_t *fd) {
