@@ -12,13 +12,13 @@ static vfs_node_t *inode2node(tmpfs_inode_t *inode);
 #define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - MEM_KHEAP_START)
 
 // page cache ops
-static int tmpfs_cache_read(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
+static int tmpfs_cache_read(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr=offset; addr<end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		memset((void*)(kernel->hhdm + page), 0, PAGE_SIZE);
 	}
-	cache_call_callback(cache, callback, arg);
+	cache_read_terminate(cache, offset, size);
 	return 0;
 }
 

@@ -33,34 +33,68 @@ static void set_condition(cache_t *cache, void *arg) {
 	cond_set(cond, 1);
 }
 
-int cache_cache_async(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
+static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t end) {
+	for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
+		uintptr_t page = cache_get_page(cache, addr);
+		if (page == PAGE_INVALID) continue;
+		pmm_free_page(page);
+	}
+}
+
+void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
+	uintptr_t end = offset + size;
+	for (uintptr_t addr=offset; addr<end; addr += PAGE_SIZE) {
+		uintptr_t page = cache_get_page(cache, addr);
+		atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_READY);
+		pmm_free_page(page);
+	}
+}
+
+void cache_write_terminate(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
+	releases_pages_in_range(cache, offset, offset + size);
+	cache_callback(cache, callback, arg);
+}
+
+int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t start = PAGE_ALIGN_DOWN(offset);
 	uintptr_t end  = PAGE_ALIGN_UP(offset + size);
 
 	if (!cache->ops || !cache->ops->read) return -EINVAL;
-	
+
+	uintptr_t batch_start = start;
 	for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page != PAGE_INVALID) {
 			// the page is already cached
 			// there is nothing to cache
+			if (batch_start != addr) {
+				cache->ops->read(cache, batch_start, addr - batch_start);
+			}
+			batch_start = addr + PAGE_SIZE;
 			continue;
 		}
+
 		page = pmm_allocate_page();
 		if (page == PAGE_INVALID) return -ENOMEM;
+		pmm_page_info(page)->flags = 0;
 		int have_interrupt;
 
 		rwlock_acquire_write(&cache->lock, &have_interrupt);
 		if (cache_get_page(cache, addr) == PAGE_INVALID) {
 			hashmap_add(&cache->pages, (long)addr, (void*)page);
+			// prevent it from being freed before we populate it
+			pmm_retain(page);
 		} else {
 			// we lost a race
 			pmm_free_page(page);
 		}
 		rwlock_release_write(&cache->lock, &have_interrupt);
 	}
-	
-	int ret = cache->ops->read(cache, start, end - start, callback, arg);
+
+	int ret = 0;
+	if (batch_start != end) {
+		ret = cache->ops->read(cache, batch_start, end - batch_start);
+	}
 	
 	if (ret < 0) {
 		for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
@@ -74,13 +108,10 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 }
 
 int cache_cache(cache_t *cache, off_t offset, size_t size) {
-	cond_t condition;
-	init_cond(&condition);
-
-	cond_set(&condition, 0);
-	int ret = cache_cache_async(cache, offset, size, set_condition, &condition);
+	int ret = cache_cache_async(cache, offset, size);
 	if (ret < 0) return ret;
-	return cond_wait_interruptible(&condition, 1);	
+	// TODO : wait until pages are marked as ready
+	return 0;
 }
 
 typedef struct uncache_req {
@@ -141,8 +172,34 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 	uintptr_t end  = PAGE_ALIGN_UP(offset + size);
 
 	if (!cache->ops || !cache->ops->write) return -EINVAL;
+
+	uintptr_t batch_start = start;
+	for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
+		int have_interrupt;
+		rwlock_acquire_read(&cache->lock, &have_interrupt);
+		uintptr_t page = cache_get_page(cache, addr);
+		// prevent the page from being freed
+		pmm_retain(page);
+		rwlock_release_read(&cache->lock, &have_interrupt);
+		long flags = 0;
+		if (page != PAGE_INVALID) {
+			flags = atomic_fetch_and(&pmm_page_info(page)->flags, ~PAGE_FLAG_DIRTY);
+		}
+
+		if (!(flags & PAGE_FLAG_DIRTY)) {
+			pmm_free_page(page);
+			if (batch_start != addr) {
+				// we reached end of the batch
+				cache->ops->write(cache, batch_start, addr - batch_start, callback, arg);
+			}
+			batch_start = addr + PAGE_SIZE;
+		}
+	}
 	
-	return cache->ops->write(cache, start, end - start, callback, arg);
+	if (batch_start != end) {
+		cache->ops->write(cache, batch_start, end - batch_start, callback, arg);
+	}
+	return 0;
 }
 
 int cache_flush(cache_t *cache, off_t offset, size_t size) {
@@ -218,8 +275,8 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 	rwlock_acquire_read(&cache->lock, &interrupt_save);
 	const char *buf = buffer;
 	for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
-		uintptr_t phys = cache_get_page(cache, addr);
-		if (phys == PAGE_INVALID) {
+		uintptr_t page = cache_get_page(cache, addr);
+		if (page == PAGE_INVALID) {
 			rwlock_release_read(&cache->lock, &interrupt_save);
 			return -EIO;
 		}
@@ -232,7 +289,11 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 			page_end = (offset + size) % PAGE_SIZE;
 			if (page_end == 0) page_end = PAGE_SIZE;
 		}
-		memcpy((void*)(kernel->hhdm + phys + page_start), buf, page_end - page_start);
+		memcpy((void*)(kernel->hhdm + page + page_start), buf, page_end - page_start);
+
+		// mark as dirty
+		atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_DIRTY);
+
 		buf += page_end - page_start;
 	}
 	rwlock_release_read(&cache->lock, &interrupt_save);
