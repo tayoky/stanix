@@ -7,7 +7,6 @@
 #include <kernel/vmm.h>
 #include <kernel/vfs.h>
 #include <kernel/pmm.h>
-#include <kernel/print.h>
 
 void init_cache(cache_t *cache) {
 	memset(cache, 0, sizeof(cache_t));
@@ -48,18 +47,19 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 			continue;
 		}
 		page = pmm_allocate_page();
-		// FIXME : make this safer
 		if (page == PAGE_INVALID) return -ENOMEM;
 		int have_interrupt;
+
 		rwlock_acquire_write(&cache->lock, &have_interrupt);
 		if (cache_get_page(cache, addr) == PAGE_INVALID) {
-			hashmap_add(&cache->pages, addr, (void*)page);
+			hashmap_add(&cache->pages, (long)addr, (void*)page);
 		} else {
 			// we lost a race
 			pmm_free_page(page);
 		}
 		rwlock_release_write(&cache->lock, &have_interrupt);
 	}
+	
 	int ret = cache->ops->read(cache, start, end - start, callback, arg);
 	
 	if (ret < 0) {
@@ -214,7 +214,6 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 
 	uintptr_t start = PAGE_ALIGN_DOWN(offset);
 	uintptr_t end  = PAGE_ALIGN_UP(offset + size);
-
 	int interrupt_save;
 	rwlock_acquire_read(&cache->lock, &interrupt_save);
 	const char *buf = buffer;
@@ -233,7 +232,6 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 			page_end = (offset + size) % PAGE_SIZE;
 			if (page_end == 0) page_end = PAGE_SIZE;
 		}
-		kdebugf("write to page %p, start %p, end %p\n", phys, page_start, page_end);
 		memcpy((void*)(kernel->hhdm + phys + page_start), buf, page_end - page_start);
 		buf += page_end - page_start;
 	}

@@ -11,8 +11,6 @@ static vfs_node_t *inode2node(tmpfs_inode_t *inode);
 
 #define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - MEM_KHEAP_START)
 
-#define IS_DEV(flags) (flags & (TMPFS_TYPE_CHAR | TMPFS_TYPE_BLOCK))
-
 // page cache ops
 static int tmpfs_cache_read(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
 	uintptr_t end = offset + size;

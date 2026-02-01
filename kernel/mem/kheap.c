@@ -195,7 +195,7 @@ void *krealloc(void *ptr, size_t new_size) {
 	if(new_size > seg->lenght){
 		memcpy(new_buf,ptr,seg->lenght);
 	} else {
-		memcpy(new_buf,ptr,seg->lenght);
+		memcpy(new_buf,ptr,new_size);
 	}
 	kfree(ptr);
 	return new_buf;
