@@ -353,7 +353,7 @@ static int tmpfs_setattr(vfs_node_t *node, struct stat *st) {
 
 static int tmpfs_getattr(vfs_node_t *node, struct stat *st) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
-	st->st_size        = inode->type == TMPFS_TYPE_FILE ? inode->cache.size : 0;
+	st->st_size        = inode->cache.size;
 	st->st_mode        = inode->perm;
 	st->st_uid         = inode->owner;
 	st->st_gid         = inode->group_owner;
