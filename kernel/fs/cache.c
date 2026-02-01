@@ -171,8 +171,8 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	uintptr_t start = PAGE_ALIGN_DOWN(offset);
 	uintptr_t end  = PAGE_ALIGN_UP(offset + size);
 
-	// TODO : do the read here
-	rwlock_acquire_read(&cache->lock);
+	int interrupt_save;
+	rwlock_acquire_read(&cache->lock, &interrupt_save);
 	char *buf = buffer;
 	for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
 		uintptr_t phys = cache_get_page(cache, addr);
@@ -189,7 +189,7 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 		memcpy(buf, (void*)(kernel->hhdm + phys + page_start), page_end - page_start);
 		buf += page_end - page_start;
 	}
-	rwlock_release_read(&cache->lock);
+	rwlock_release_read(&cache->lock, &interrupt_save);
 	return size;
 }
 
