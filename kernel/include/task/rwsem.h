@@ -23,6 +23,6 @@ void init_rwsem(rwsem_t *rwsem);
 int rwsem_acquire_read(rwsem_t *rwsem);
 int rwsem_release_read(rwsem_t *rwsem);
 int rwsem_acquire_write(rwsem_t *rwsem);
-int rwsem_release_write(rwlock_t *rwlock);
+int rwsem_release_write(rwsem_t *rwsem);
 
 #endif

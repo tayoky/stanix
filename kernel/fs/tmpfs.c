@@ -13,12 +13,28 @@ static vfs_node_t *inode2node(tmpfs_inode_t *inode);
 
 #define IS_DEV(flags) (flags & (TMPFS_TYPE_CHAR | TMPFS_TYPE_BLOCK))
 
+// page cache ops
+static int tmpfs_cache_read(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
+	uintptr_t end = offset + size;
+	for (uintptr_t addr=offset; addr<end; addr += PAGE_SIZE) {
+		uintptr_t page = cache_get_page(cache, addr);
+		memset((void*)(kernel->hhdm + page), 0, PAGE_SIZE);
+	}
+	cache_call_callback(cache, callback, arg);
+	return 0;
+}
+
+static cache_ops_t tmpfs_cache_ops = {
+	.read = tmpfs_cache_read,
+};
+
 static tmpfs_inode_t *new_inode(long type) {
 	tmpfs_inode_t *inode = kmalloc(sizeof(tmpfs_inode_t));
 	memset(inode, 0, sizeof(tmpfs_inode_t));
 	switch (type) {
 	case TMPFS_TYPE_FILE:
 		init_cache(&inode->cache);
+		inode->cache.ops = &tmpfs_cache_ops;
 		break;
 	case TMPFS_TYPE_DIR:
 		init_list(&inode->entries);
@@ -110,13 +126,11 @@ static ssize_t tmpfs_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count
 
 static int tmpfs_truncate(vfs_node_t *node, size_t size) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
-	inode->cache.size = size;
-	// TODO : free unused pages
-
+	
 	// update mtime
 	inode->mtime = NOW();
-
-	return 0;
+	
+	return cache_truncate(&inode->cache, size);
 }
 
 static ssize_t tmpfs_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {

@@ -19,11 +19,11 @@ static inline void rwlock_raw_acquire_write(rwlock_t *rwlock) {
 }
 
 static inline void rwlock_raw_release_write(rwlock_t *rwlock) {
-	atomic_store(&rwlock->lock, 0, memory_order_release);
+	atomic_store_explicit(&rwlock->lock, 0, memory_order_release);
 }
 
 static inline int rwlock_raw_try_acquire_read(rwlock_t *rwlock) {
-	size_t old = atomic_load(&rwlock->lock, memory_order_acquire);
+	size_t old = atomic_load_explicit(&rwlock->lock, memory_order_acquire);
 	size_t new;
 
 	// retry until we don't race

@@ -35,6 +35,7 @@ int cache_flush(cache_t *cache, off_t offset, size_t size);
 int cache_mmap(cache_t *cache, off_t offset, struct vmm_seg *seg);
 ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size);
 ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t size);
+int cache_truncate(cache_t *cache, size_t size);
 int cache_open(cache_t *cache, struct vfs_fd *fd);
 
 static inline uintptr_t cache_get_page(cache_t *cache, off_t offset) {

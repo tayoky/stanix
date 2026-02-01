@@ -7,6 +7,7 @@
 #include <kernel/vmm.h>
 #include <kernel/vfs.h>
 #include <kernel/pmm.h>
+#include <kernel/print.h>
 
 void init_cache(cache_t *cache) {
 	memset(cache, 0, sizeof(cache_t));
@@ -49,7 +50,15 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 		page = pmm_allocate_page();
 		// FIXME : make this safer
 		if (page == PAGE_INVALID) return -ENOMEM;
-		hashmap_add(&cache->pages, addr, (void*)page);
+		int have_interrupt;
+		rwlock_acquire_write(&cache->lock, &have_interrupt);
+		if (cache_get_page(cache, addr) == PAGE_INVALID) {
+			hashmap_add(&cache->pages, addr, (void*)page);
+		} else {
+			// we lost a race
+			pmm_free_page(page);
+		}
+		rwlock_release_write(&cache->lock, &have_interrupt);
 	}
 	int ret = cache->ops->read(cache, start, end - start, callback, arg);
 	
@@ -87,6 +96,8 @@ static void uncache_callback(cache_t *cache, void *arg) {
 	uintptr_t start = PAGE_ALIGN_DOWN(req->offset);
 	uintptr_t end  = PAGE_ALIGN_UP(req->offset + req->size);
 	
+	int have_interrupt;
+	rwlock_acquire_write(&cache->lock, &have_interrupt);
 	for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) {
@@ -97,6 +108,7 @@ static void uncache_callback(cache_t *cache, void *arg) {
 		hashmap_remove(&cache->pages, addr);
 		pmm_free_page(page);
 	}
+	rwlock_release_write(&cache->lock, &have_interrupt);
 	cache_callback_t callback = req->callback;
 	void *callback_arg = req->arg;
 	kfree(req);
@@ -164,7 +176,7 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	if ((size_t)offset >= cache->size) return 0;
 	if (offset + size > cache->size) size = cache->size - offset;
-	// TODO : lock around this
+
 	int ret = cache_cache(cache, offset, size);
 	if (ret < 0) return ret;
 
@@ -194,7 +206,45 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 }
 
 ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t size) {
-	cache_cache(cache, offset, size);
+	if ((size_t)offset >= cache->size) return 0;
+	if (offset + size > cache->size) size = cache->size - offset;
+
+	int ret = cache_cache(cache, offset, size);
+	if (ret < 0) return ret;
+
+	uintptr_t start = PAGE_ALIGN_DOWN(offset);
+	uintptr_t end  = PAGE_ALIGN_UP(offset + size);
+
+	int interrupt_save;
+	rwlock_acquire_read(&cache->lock, &interrupt_save);
+	const char *buf = buffer;
+	for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
+		uintptr_t phys = cache_get_page(cache, addr);
+		if (phys == PAGE_INVALID) {
+			rwlock_release_read(&cache->lock, &interrupt_save);
+			return -EIO;
+		}
+		uintptr_t page_start = 0;
+		uintptr_t page_end   = PAGE_SIZE;
+		if (addr == start) {
+			page_start = offset % PAGE_SIZE;
+		}
+		if (addr == end - PAGE_SIZE) {
+			page_end = (offset + size) % PAGE_SIZE;
+			if (page_end == 0) page_end = PAGE_SIZE;
+		}
+		kdebugf("write to page %p, start %p, end %p\n", phys, page_start, page_end);
+		memcpy((void*)(kernel->hhdm + phys + page_start), buf, page_end - page_start);
+		buf += page_end - page_start;
+	}
+	rwlock_release_read(&cache->lock, &interrupt_save);
+	return size;
+}
+
+int cache_truncate(cache_t *cache, size_t size) {
+	// TODO : free pages after the truncate
+	cache->size = size;
+	return 0;
 }
 
 // vfs support
