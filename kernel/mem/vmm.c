@@ -128,7 +128,10 @@ int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flag
 		kfree(new_seg);
 	} else {
 		if (seg) *seg = new_seg;
-		if (fd) new_seg->fd = vfs_dup(fd);
+		if (fd) {
+			new_seg->fd     = vfs_dup(fd);
+			new_seg->offset = offset;
+		}
 	}
 	return ret;
 }

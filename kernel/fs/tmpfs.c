@@ -145,6 +145,12 @@ static ssize_t tmpfs_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_
 	return cache_write(&inode->cache, buffer, offset, count);
 }
 
+static int tmpfs_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
+	tmpfs_inode_t *inode = (tmpfs_inode_t *)fd->private;
+
+	return cache_mmap(&inode->cache, offset, seg);
+}
+
 static int tmpfs_unlink(vfs_node_t *node, const char *name) {
 	kdebugf("unlink %s\n", name);
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
@@ -381,6 +387,7 @@ static vfs_ops_t tmfps_ops = {
 	.readlink   = tmpfs_readlink,
 	.read       = tmpfs_read,
 	.write      = tmpfs_write,
+	.mmap       = tmpfs_mmap,
 	.truncate   = tmpfs_truncate,
 	.getattr    = tmpfs_getattr,
 	.setattr    = tmpfs_setattr,

@@ -1,7 +1,9 @@
 #include <kernel/hashmap.h>
 #include <kernel/string.h>
 #include <kernel/assert.h>
+#include <kernel/signal.h>
 #include <kernel/kernel.h>
+#include <kernel/print.h>
 #include <kernel/cache.h>
 #include <kernel/cond.h>
 #include <kernel/vmm.h>
@@ -210,23 +212,80 @@ int cache_flush(cache_t *cache, off_t offset, size_t size) {
 	int ret = cache_flush_async(cache, offset, size, set_condition, &condition);
 	if (ret < 0) return ret;
 	return cond_wait_interruptible(&condition, 1);	
-} 
+}
+
+// mapping cache
+
+static void cache_vmm_close(vmm_seg_t *seg) {
+	(void)seg;
+	// TODO : read flags and mark the page as dirty/access
+}
+
+// we have a RACE CONDITION in this
+static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
+	if (prot != MMU_FLAG_READ) return 0;
+	cache_t *cache = seg->private_data;
+	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
+	off_t offset = vpage - seg->start + seg->offset;
+
+	
+	int interrupt_save;
+	rwlock_acquire_read(&cache->lock, &interrupt_save);
+	
+	uintptr_t page = cache_get_page(cache, offset);
+	if (page == PAGE_INVALID) {
+		// the page is not cached
+		// we are cooked
+		kdebugf("uncached mapped page access\n");
+		send_sig_task(get_current_task(), SIGBUS);
+		rwlock_release_read(&cache->lock, &interrupt_save);
+		return 1;
+	}
+
+	// Copy on Write check
+	long mapping_prot = seg->prot;
+	if (seg->flags & VMM_FLAG_PRIVATE) {
+		mapping_prot &= ~MMU_FLAG_WRITE;
+	}
+
+	pmm_retain(page);
+	mmu_map_page(get_current_proc()->addrspace, page, vpage, mapping_prot);
+	rwlock_release_read(&cache->lock, &interrupt_save);
+	return 1;
+}
+
+static vmm_ops_t cache_vmm_ops = {
+	.close = cache_vmm_close,
+	.fault = cache_vmm_fault,
+};
 
 int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 	if (offset % PAGE_SIZE) return -EINVAL;
-	cache_cache(cache, offset, VMM_SIZE(seg));
+	cache_cache_async(cache, offset, VMM_SIZE(seg));
+
+	seg->ops = &cache_vmm_ops;
+	seg->private_data = cache;
 	
 	uintptr_t start = PAGE_ALIGN_DOWN(offset);
 	uintptr_t end  = PAGE_ALIGN_UP(offset + VMM_SIZE(seg));
 	uintptr_t vaddr = seg->start;
 
+	// Copy on Write check
+	long prot = seg->prot;
+	if (seg->flags & VMM_FLAG_PRIVATE) {
+		prot &= ~MMU_FLAG_WRITE;
+	}
+	
+	int interrupt_save;
+	rwlock_acquire_read(&cache->lock, &interrupt_save);
 	for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
-		kassert(page != PAGE_INVALID);
+		if (page == PAGE_INVALID) continue;
 		pmm_retain(page);
-		mmu_map_page(get_current_proc()->addrspace, page, vaddr, seg->prot);
+		mmu_map_page(get_current_proc()->addrspace, page, vaddr, prot);
 		vaddr += PAGE_SIZE;
 	}
+	rwlock_release_read(&cache->lock, &interrupt_save);
 	return 0;
 }
 

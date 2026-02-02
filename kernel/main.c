@@ -21,7 +21,6 @@
 #include <kernel/module.h>
 #include <kernel/proc.h>
 #include <kernel/sysfs.h>
-#include <kernel/shm.h>
 #include <kernel/socket.h>
 #include <kernel/unix.h>
 #include <sys/time.h>
@@ -121,7 +120,6 @@ void kmain() {
 	init_mod();
 	init_proc();
 	init_sysfs();
-	init_shm();
 	init_sockets();
 	init_unix_socket();
 

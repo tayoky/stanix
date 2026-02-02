@@ -16,6 +16,7 @@ typedef struct vmm_ops {
 	int (*can_mprotect)(struct vmm_seg *seg, long prot);
 	int (*can_split)(struct vmm_seg *seg, uintptr_t cut);
 	int (*msync)(struct vmm_seg *seg, uintptr_t start, uintptr_t end, int flags);
+	int (*fault)(struct vmm_seg *seg, uintptr_t addr, long prot);
 } vmm_ops_t;
 
 typedef struct vmm_seg {
@@ -27,6 +28,7 @@ typedef struct vmm_seg {
 	struct vfs_fd *fd;
 	void *private_data;
 	vmm_ops_t *ops;
+	off_t offset;
 } vmm_seg_t;
 
 #define VMM_FLAG_ANONYMOUS 0x01
