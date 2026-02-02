@@ -981,6 +981,20 @@ int sys_umount(const char *target) {
 	return vfs_unmount(target);
 }
 
+static long prot2mmu(long prot) {
+	long mmu_flags = MMU_FLAG_USER | MMU_FLAG_PRESENT;
+	if (prot & PROT_READ) {
+		mmu_flags |= MMU_FLAG_READ;
+	}
+	if (prot & PROT_WRITE) {
+		mmu_flags |= MMU_FLAG_WRITE;
+	}
+	if (prot & PROT_EXEC) {
+		mmu_flags |= MMU_FLAG_EXEC;
+	}
+	return mmu_flags;
+}
+
 void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t offset) {
 	int check = flags & (MAP_SHARED | MAP_PRIVATE);
 	if (check == 0 || check == (MAP_PRIVATE & MAP_SHARED))return (void *)-EINVAL;
@@ -1004,16 +1018,7 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 		vmm_flags |= VMM_FLAG_ANONYMOUS;
 	}
 
-	long mmu_flags = MMU_FLAG_USER | MMU_FLAG_PRESENT;
-	if (prot & PROT_READ) {
-		mmu_flags |= MMU_FLAG_READ;
-	}
-	if (prot & PROT_WRITE) {
-		mmu_flags |= MMU_FLAG_WRITE;
-	}
-	if (prot & PROT_EXEC) {
-		mmu_flags |= MMU_FLAG_EXEC;
-	}
+	long mmu_flags = prot2mmu(prot);
 
 	vfs_fd_t *vfs_fd;
 	if (!(flags & MAP_ANONYMOUS)) {
@@ -1039,7 +1044,30 @@ int sys_munmap(void *addr, size_t len) {
 	foreach(node, &get_current_proc()->vmm_seg) {
 		vmm_seg_t *seg = (vmm_seg_t*)node;
 		if (seg->start >= (uintptr_t)addr && seg->end <= (uintptr_t)addr + len) {
-			vmm_unmap(get_current_proc(), seg);
+			vmm_unmap(seg);
+		}
+	}
+	return 0;
+}
+
+int sys_mprotect(void *addr, size_t length, int prot) {
+	long mmu_flags = prot2mmu(prot);
+	if (prot & PROT_READ)
+	foreach(node, &get_current_proc()->vmm_seg) {
+		vmm_seg_t *seg = (vmm_seg_t*)node;
+		if (seg->start >= (uintptr_t)addr && seg->end <= (uintptr_t)addr + length) {
+			vmm_chprot(seg, mmu_flags);
+		}
+	}
+	return 0;
+}
+
+int sys_msync(void *addr, size_t length, int flags) {
+	foreach(node, &get_current_proc()->vmm_seg) {
+		vmm_seg_t *seg = (vmm_seg_t*)node;
+		if ((uintptr_t)addr < seg->end && (uintptr_t)addr + length > seg->start) {
+			int ret = vmm_sync(seg, (uintptr_t)addr, (uintptr_t)addr + length, flags);
+			if (ret < 0) return ret;
 		}
 	}
 	return 0;
@@ -1486,7 +1514,6 @@ ssize_t sys_recvmsg(int socket, struct msghdr *message, int flags) {
 		return -EBADF;
 	}
 
-
 	return socket_recvmsg(FD_GET(socket).fd, message, flags);
 }
 
@@ -1552,8 +1579,8 @@ void *syscall_table[] = {
 	(void *)sys_umount,
 	(void *)sys_mmap,
 	(void *)sys_munmap,
-	(void *)sys_stub, //sys_mprotect
-	(void *)sys_stub, //sys_msync
+	(void *)sys_mprotect,
+	(void *)sys_msync,
 	(void *)sys_setuid,
 	(void *)sys_seteuid,
 	(void *)sys_getuid,

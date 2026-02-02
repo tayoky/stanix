@@ -19,7 +19,7 @@ typedef struct page {
 } page_t;
 
 #define PAGE_FLAG_DIRTY 0x1
-#define FLAG_FLAG_READY 0x2
+#define PAGE_FLAG_READY 0x2
 
 /**
  * @brief get informations on a page

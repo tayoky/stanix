@@ -51,8 +51,8 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 }
 
 void cache_write_terminate(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
-	releases_pages_in_range(cache, offset, offset + size);
-	cache_callback(cache, callback, arg);
+	release_pages_in_range(cache, offset, offset + size);
+	cache_call_callback(cache, callback, arg);
 }
 
 int cache_cache_async(cache_t *cache, off_t offset, size_t size) {

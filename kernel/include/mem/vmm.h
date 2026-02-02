@@ -15,6 +15,7 @@ typedef struct vmm_ops {
 	void (*close)(struct vmm_seg *seg);
 	int (*can_mprotect)(struct vmm_seg *seg, long prot);
 	int (*can_split)(struct vmm_seg *seg, uintptr_t cut);
+	int (*msync)(struct vmm_seg *seg, uintptr_t start, uintptr_t end, int flags);
 } vmm_ops_t;
 
 typedef struct vmm_seg {
@@ -44,8 +45,9 @@ int vmm_fault_report(uintptr_t addr, int prot);
 
 vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size, long prot, int flags);
 int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg);
-void vmm_unmap(process_t *proc, vmm_seg_t *seg);
 void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg);
-int vmm_chprot(process_t *proc, vmm_seg_t *seg, long prot);
+void vmm_unmap(vmm_seg_t *seg);
+int vmm_chprot(vmm_seg_t *seg, long prot);
+int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags);
 
 #endif

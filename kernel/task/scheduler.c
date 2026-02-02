@@ -330,7 +330,7 @@ static void do_proc_deletion(void) {
 	vmm_seg_t *current = (vmm_seg_t*)get_current_proc()->vmm_seg.first_node;
 	while (current) {
 		vmm_seg_t *next = (vmm_seg_t*)current->node.next;
-		vmm_unmap(get_current_proc(), current);
+		vmm_unmap(current);
 		current = next;
 	}
 	destroy_list(&get_current_proc()->vmm_seg);

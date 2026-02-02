@@ -133,7 +133,7 @@ int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flag
 	return ret;
 }
 
-int vmm_chprot(process_t *proc, vmm_seg_t *seg, long prot) {
+int vmm_chprot(vmm_seg_t *seg, long prot) {
 	if (seg->ops && seg->ops->can_mprotect) {
 		int ret = seg->ops->can_mprotect(seg, prot);
 		if (ret < 0) return ret;
@@ -141,19 +141,19 @@ int vmm_chprot(process_t *proc, vmm_seg_t *seg, long prot) {
 	seg->prot = prot;
 
 	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		uintptr_t phys = mmu_space_virt2phys(proc->addrspace, (void *)addr);
+		uintptr_t phys = mmu_space_virt2phys(get_current_proc()->addrspace, (void *)addr);
 		if ((seg->flags & VMM_FLAG_PRIVATE) && pmm_page_info(phys)->ref_count > 1) {
 			// we are doing CoW
-			mmu_map_page(proc->addrspace, phys, addr, prot & ~MMU_FLAG_WRITE);
+			mmu_map_page(get_current_proc()->addrspace, phys, addr, prot & ~MMU_FLAG_WRITE);
 		} else {
-			mmu_map_page(proc->addrspace, phys, addr, prot);
+			mmu_map_page(get_current_proc()->addrspace, phys, addr, prot);
 		}
 	}
 	return 0;
 }
 
-void vmm_unmap(process_t *proc, vmm_seg_t *seg) {
-	list_remove(&proc->vmm_seg, &seg->node);
+void vmm_unmap(vmm_seg_t *seg) {
+	list_remove(&get_current_proc()->vmm_seg, &seg->node);
 
 	//kdebugf("unmap %p %p\n",seg->addr,seg->size);
 
@@ -167,15 +167,25 @@ void vmm_unmap(process_t *proc, vmm_seg_t *seg) {
 	// it's the driver job to do it
 	if (!(seg->flags & VMM_FLAG_IO)) {
 		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-			pmm_free_page(mmu_space_virt2phys(proc->addrspace, (void *)addr));
+			pmm_free_page(mmu_space_virt2phys(get_current_proc()->addrspace, (void *)addr));
 		}
 	}
 
 	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		mmu_unmap_page(proc->addrspace, addr);
+		mmu_unmap_page(get_current_proc()->addrspace, addr);
 	}
 
 	kfree(seg);
+}
+
+int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
+	if (!seg->ops || !seg->ops->msync) {
+		return 0;
+	}
+	// cap start/end
+	if (start < seg->start) start = seg->start;
+	if (end   > seg->end  ) end   = seg->end;
+	return seg->ops->msync(seg, start, end, flags);
 }
 
 void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg) {

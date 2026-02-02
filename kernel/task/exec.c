@@ -93,7 +93,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	vmm_seg_t *current = (vmm_seg_t*)get_current_proc()->vmm_seg.first_node;
 	while (current) {
 		vmm_seg_t *next = (vmm_seg_t*)current->node.next;
-		vmm_unmap(get_current_proc(), current);
+		vmm_unmap(current);
 		current = next;
 	}
 
@@ -147,7 +147,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 		}
 
 		// set the protection
-		vmm_chprot(get_current_proc(), seg, flags);
+		vmm_chprot(seg, flags);
 	}
 	kfree(prog_header);
 
