@@ -18,7 +18,7 @@ all : $(MOD) header
 
 %.ko : %.c
 	$(CC) -D$(ARCH) $(CFLAGS) -o $@ -c $^ -DMODULE
-install :
+install : all
 	mkdir -p $(PREFIX)/mod
 	cp $(MOD) $(PREFIX)/mod/
 header :
