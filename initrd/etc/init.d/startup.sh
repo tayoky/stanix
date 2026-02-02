@@ -8,7 +8,7 @@ echo "mounting /sys"
 mount -t sysfs -S / -T /sys
 echo "mounting shmfs"
 mkdir -p /dev/shm
-mount -t shmfs -S / -T /dev/shm
+mount -t tmpfs -S / -T /dev/shm
 chmod 01777 /dev/shm
 chmod 0755 /dev
 echo "loading modules"
