@@ -81,15 +81,15 @@ static inline int hashmap_remove(hashmap_t *hashmap, long key) {
 	return 0;
 }
 
-static inline void hashmap_foreach(hashmap_t *hashmap, void (*func)(void *element, long key, void *arg), void *arg) {
-	for (size_t i=0; i<hashmap->capacity; i++) {
-		vector_t *vector = &hashmap->vectors[i];
-		hashmap_entry_t *entries = vector->data;
-		if (!entries) continue;
-		for (size_t j=0; j<vector->count; j++) {
-			func(entries[j].element, entries[j].key, arg);
-		}
-	}
-}
+
+/**
+ * @brief the foreach macro from hell
+ * @note continue inside foreach does work but not break
+ */
+#define hashmap_foreach(_key, _element, _hashmap) for(size_t i=0; i<(_hashmap)->capacity; i++) \
+for (size_t j=0; j<(_hashmap)->vectors[i].count; j++) \
+for (long _key      = ((hashmap_entry_t*)((_hashmap)->vectors[i].data))[j].key    , _1=1; _1; _1=0)\
+for (void *_element = ((hashmap_entry_t*)((_hashmap)->vectors[i].data))[j].element, *_2=(void*)1; _2; _2=NULL)
+
 
 #endif

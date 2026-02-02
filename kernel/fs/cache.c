@@ -15,17 +15,12 @@ void init_cache(cache_t *cache) {
 	init_hashmap(&cache->pages, 256);
 }
 
-static void cleanup_page(void *element, long off, void *arg) {
-	uintptr_t page = (uintptr_t)element;
-	cache_t *cache = arg;
-	
-	cache->ops->write(cache, off, PAGE_SIZE, NULL, NULL);
-	
-	pmm_free_page(page);
-}
-
 void free_cache(cache_t *cache) {
-	hashmap_foreach(&cache->pages, cleanup_page, cache);
+	hashmap_foreach(offset, element, &cache->pages) {
+		uintptr_t page = (uintptr_t)element;
+		if (cache->ops->write) cache->ops->write(cache, offset, PAGE_SIZE, NULL, NULL);
+		pmm_free_page(page);
+	}
 	free_hashmap(&cache->pages);
 }
 

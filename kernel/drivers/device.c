@@ -28,45 +28,21 @@ static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_dri
 	return device_driver->probe(addr);
 }
 
-struct __init_device_struct_helper {
-	bus_addr_t *addr;
-	int ret;
-};
-
-static void __init_device_helper(void *element, long key, void *arg) {
-	(void)key;
-	struct __init_device_struct_helper *data = arg;
-	device_driver_t *driver = element;
-
-	if (data->ret >= 0) return;
-	data->ret = init_device_with_driver(data->addr, driver);
-}
-
 static int init_device(bus_addr_t *addr) {
 	if (addr->device) {
 		// a driver already control this address
 		return -EBUSY;
 	}
 	
-	struct __init_device_struct_helper data = {
-		.addr = addr,
-		.ret = -ENOTSUP,
-	};
+	int ret = -ENOTSUP;
 
-	hashmap_foreach(&device_drivers, __init_device_helper, &data); 
-
-	return data.ret;
-}
-
-static void __init_bus_with_driver_helper(void *element, long key, void *arg) {
-	(void)key;
-	bus_t *bus = element;
-	device_driver_t *driver = arg;
-	if (bus->device.type != DEVICE_BUS) return;
-	foreach (node, &bus->addresses) {
-		bus_addr_t *addr = (bus_addr_t*)node;
-		init_device_with_driver(addr, driver);
+	hashmap_foreach(major, driver, &device_drivers) {
+		(void)major;
+		ret = init_device_with_driver(addr, driver);
+		return ret;
 	}
+
+	return ret;
 }
 
 int register_device_driver(device_driver_t *device_driver) {
@@ -81,7 +57,15 @@ int register_device_driver(device_driver_t *device_driver) {
 	hashmap_add(&device_drivers, device_driver->major, device_driver);
 
 	// try to use this new driver on all already existing devices
-	hashmap_foreach(&devices, __init_bus_with_driver_helper, device_driver);
+	hashmap_foreach(number, device, &devices) {
+		(void)number;
+		bus_t *bus = (bus_t*)device;
+		if (bus->device.type != DEVICE_BUS) continue;
+		foreach (node, &bus->addresses) {
+			bus_addr_t *addr = (bus_addr_t*)node;
+			init_device_with_driver(addr, device_driver);
+		}
+	}
 	return 0;
 }
 
