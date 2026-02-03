@@ -20,7 +20,7 @@ Most operations of a cache are async and described in a `cache_ops_t`.
   Read the specified amount of pages at an offset.
 - `write`
   Write the specified amount of pages at an offset.
-For `read` and `write` operations, the implemenation must call `cache_callback` at the end of the operation and call `cache_get_page` to get the physical addresses of the pages to read/write.
+For `read` and `write` operations, the implemenation must call `cache_read_finished` and `cache_write_finished` at the end of the operation and call `cache_get_page` to get the physical addresses of the pages to read/write.
 
 ## callbacks
 Most of the async API of the page cache take a callback called once the operation is finished.
