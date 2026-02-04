@@ -133,21 +133,48 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz);
 		}
 
-		vmm_seg_t *seg;
-		vmm_map(get_current_proc(), prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg);
-		memset((void *)prog_header[i].p_vaddr, 0, prog_header[i].p_memsz);
+		if (prog_header[i].p_offset % PAGE_SIZE == prog_header[i].p_vaddr % PAGE_SIZE) {
+			uintptr_t vaddr = PAGE_ALIGN_DOWN(prog_header[i].p_vaddr);
+			off_t offset = PAGE_ALIGN_DOWN(prog_header[i].p_offset);
+			size_t vaddr_off = prog_header[i].p_vaddr % PAGE_SIZE;
+			size_t filesz = prog_header[i].p_filesz > 0 ? PAGE_ALIGN_UP(prog_header[i].p_filesz + vaddr_off) : 0;
+			size_t memsz  = prog_header[i].p_memsz  > 0 ? PAGE_ALIGN_UP(prog_header[i].p_memsz  + vaddr_off) : 0;
+			if (prog_header[i].p_memsz > prog_header[i].p_filesz) {
+				// to avoid chaos with bss use slow path
+				// FIXME : there is probably a better way to do this
+				goto slow_path;
+			}
+			if (filesz > 0) {
+				if (vmm_map(get_current_proc(), vaddr, filesz, flags, VMM_FLAG_PRIVATE, file, offset, NULL) < 0) {
+					goto error;
+				}
+			}
+			if (memsz > filesz) {
+				// we need to fill with anonymous mapping
+				vaddr += filesz;
+				if (vmm_map(get_current_proc(), vaddr, memsz - filesz, flags, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, NULL) < 0) {
+					goto error;
+				}
+			}
+		} else {
+			slow_path:
+			vmm_seg_t *seg;
+			vmm_map(get_current_proc(), prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg);
+			memset((void *)prog_header[i].p_vaddr, 0, prog_header[i].p_memsz);
 
-		//file size must be <= to virtual size
-		if (prog_header[i].p_filesz > prog_header[i].p_memsz) {
-			prog_header[i].p_filesz = prog_header[i].p_memsz;
+			//file size must be <= to virtual size
+			if (prog_header[i].p_filesz > prog_header[i].p_memsz) {
+				prog_header[i].p_filesz = prog_header[i].p_memsz;
+			}
+
+			if (vfs_read(file, (void *)prog_header[i].p_vaddr, prog_header[i].p_offset, prog_header[i].p_filesz) < 0) {
+				goto error;
+			}
+			// set the protection
+			vmm_chprot(seg, flags);
 		}
 
-		if (vfs_read(file, (void *)prog_header[i].p_vaddr, prog_header[i].p_offset, prog_header[i].p_filesz) < 0) {
-			goto error;
-		}
 
-		// set the protection
-		vmm_chprot(seg, flags);
 	}
 	kfree(prog_header);
 

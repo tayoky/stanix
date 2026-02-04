@@ -115,7 +115,9 @@ int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flag
 		fd = NULL;
 		for (uintptr_t addr=new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
 			// TODO : handle error from pmm_allocate_page
-			mmu_map_page(proc->addrspace, pmm_allocate_page(), addr, prot);
+			uintptr_t page = pmm_allocate_page();
+			memset((void*)(kernel->hhdm + page), 0, PAGE_SIZE);
+			mmu_map_page(proc->addrspace, page, addr, prot);
 		}
 	} else if (fd) {
 		ret = vfs_mmap(fd, offset, new_seg);

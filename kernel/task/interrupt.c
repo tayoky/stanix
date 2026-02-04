@@ -1,6 +1,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/scheduler.h>
 #include <kernel/signal.h>
+#include <kernel/print.h>
 #include <kernel/arch.h>
 #include <kernel/vmm.h>
 
@@ -29,6 +30,20 @@ void fault_handler(fault_frame_t *frame) {
 		}
 		return;
 	}
+
+	// print some info for debuging
+	switch(arch_get_fault_prot(frame)) {
+	case MMU_FLAG_READ:
+		kdebugf("userspace (%lx) tryied to read %lx\n", PC_REG(*frame), arch_get_fault_addr(frame));
+		break;
+	case MMU_FLAG_WRITE:
+		kdebugf("userspace (%lx) tryied to write %lx\n", PC_REG(*frame), arch_get_fault_addr(frame));
+		break;
+	case MMU_FLAG_EXEC:
+		kdebugf("userspace (%lx) tryied to execute %lx\n", PC_REG(*frame), arch_get_fault_addr(frame));
+		break;
+	}
+	
 	//TODO : send appropriate signal
 	send_sig_task(get_current_task(), SIGSEGV);
 

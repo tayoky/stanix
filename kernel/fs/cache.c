@@ -218,7 +218,7 @@ static void cache_vmm_close(vmm_seg_t *seg) {
 
 // we have a RACE CONDITION in this
 static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
-	if (prot != MMU_FLAG_READ) return 0;
+	if (!(prot & seg->prot)) return 0;
 	cache_t *cache = seg->private_data;
 	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
 	off_t offset = vpage - seg->start + seg->offset;
