@@ -60,10 +60,8 @@ static void page_fault_info(fault_frame_t *fault){
 
 void isr_handler(fault_frame_t *fault){
 	if (fault->err_type < 32) {
-		if (is_userspace(fault)) {
-			fault_handler(fault);
-			return;
-		}
+		if (fault_handler(fault)) return;
+		
 		kprintf("error : 0x%lx\n",fault->err_type);
 		if (fault->err_type < (sizeof(error_msg) / sizeof(char *))) {
 			//show info for page fault

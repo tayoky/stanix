@@ -24,13 +24,12 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 			mmu_map_page(get_current_proc()->addrspace, phys, vpage, seg->prot);
 		} else {
 			// we need to copy
-			uintptr_t new_page = pmm_allocate_page();
+			uintptr_t new_page = pmm_dup_page(phys);
 			if (new_page == PAGE_INVALID) {
 				// not looking good
 				send_sig_task(get_current_task(), SIGBUS);
 				return 1;
 			}
-			memcpy((void *)(new_page + kernel->hhdm), (void *)vpage, PAGE_SIZE);
 			pmm_free_page(phys);
 			mmu_map_page(get_current_proc()->addrspace, new_page, vpage, seg->prot);
 		}
@@ -115,9 +114,15 @@ int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flag
 		fd = NULL;
 		for (uintptr_t addr=new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
 			// TODO : handle error from pmm_allocate_page
-			uintptr_t page = pmm_allocate_page();
-			memset((void*)(kernel->hhdm + page), 0, PAGE_SIZE);
-			mmu_map_page(proc->addrspace, page, addr, prot);
+			uintptr_t page;
+			if (flags & VMM_FLAG_SHARED) {
+				page = pmm_allocate_page();
+				memset((void*)(kernel->hhdm + page), 0, PAGE_SIZE);
+				mmu_map_page(proc->addrspace, page, addr, prot);
+			} else {
+				page = pmm_get_zero_page();
+				mmu_map_page(proc->addrspace, page, addr, prot & ~MMU_FLAG_WRITE);
+			}
 		}
 	} else if (fd) {
 		ret = vfs_mmap(fd, offset, new_seg);

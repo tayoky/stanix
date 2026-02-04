@@ -103,6 +103,7 @@ void kmain() {
 	init_PMM();
 	kprintf("used pages: 0x%lx\n", pmm_get_used_pages());
 	init_mmu();
+	init_second_stage_pmm();
 	init_kheap();
 	init_vfs();
 	mount_initrd();

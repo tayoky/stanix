@@ -55,10 +55,8 @@ void init_mmu(void) {
 	// map kernel in it
 	mmu_map_kernel(PML4);
 	mmu_map_hhdm(PML4);
-	pmm_map_info(PML4);
-
 	mmu_set_addr_space(PML4);
-
+	
 	kok();
 }
 

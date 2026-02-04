@@ -1,16 +1,18 @@
-#include <kernel/pmm.h>
+#include <kernel/spinlock.h>
 #include <kernel/kernel.h>
-#include <kernel/print.h>
+#include <kernel/string.h>
 #include <kernel/limine.h>
+#include <kernel/print.h>
 #include <kernel/panic.h>
 #include <kernel/page.h>
-#include <kernel/spinlock.h>
+#include <kernel/pmm.h>
 
 static page_t *pages_info = NULL;
 static pmm_entry_t *stack_head;
 static size_t used_pages;
 static size_t total_pages;
 static spinlock_t pmm_lock;
+static uintptr_t zero_page = PAGE_INVALID;
 
 #define PAGES_INFO_MMU_FLAGS MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL
 
@@ -52,7 +54,7 @@ void init_PMM() {
 	kok();
 }
 
-void pmm_map_info(addrspace_t addr_space) {
+void init_second_stage_pmm(void) {
 	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++) {
 		uint64_t type = kernel->memmap->entries[i]->type;
 		if (type != LIMINE_MEMMAP_USABLE && type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && type != LIMINE_MEMMAP_KERNEL_AND_MODULES) {
@@ -76,11 +78,13 @@ void pmm_map_info(addrspace_t addr_space) {
 			if (mmu_virt2phys((void*)addr) == PAGE_INVALID) {
 				// we need to map a new page
 				uintptr_t page = pmm_allocate_page();
-				mmu_map_page(addr_space, page, addr, PAGES_INFO_MMU_FLAGS);
+				mmu_map_page(mmu_get_addr_space(), page, addr, PAGES_INFO_MMU_FLAGS);
 			}
 		}
 	}
 	pages_info = (page_t*)MEM_PAGES_START;
+	zero_page = pmm_allocate_page();
+	memset((void*)(kernel->hhdm + zero_page), 0, PAGE_SIZE);
 }
 
 page_t *pmm_page_info(uintptr_t addr) {
@@ -136,6 +140,17 @@ void pmm_free_page(uintptr_t page) {
 	pmm_set_free_page(page);
 }
 
+uintptr_t pmm_dup_page(uintptr_t page) {
+	uintptr_t new_page = pmm_allocate_page();
+	if (new_page == PAGE_INVALID) return PAGE_INVALID;
+	memcpy((void*)(kernel->hhdm + new_page), (void*)(kernel->hhdm + page), PAGE_SIZE);
+	return new_page;
+}
+
+uintptr_t pmm_get_zero_page(void) {
+	pmm_retain(zero_page);
+	return zero_page;
+}
 
 size_t pmm_get_used_pages(void) {
 	return used_pages;

@@ -53,10 +53,9 @@ void pmm_free_page(uintptr_t page);
 void pmm_set_free_page(uintptr_t page);
 
 /**
- * @brief map the pmm's page_t
- * @param addr_space the address space to map into
+ * @brief setup the second stage of pmm (zero page, page_t info, ...)
  */
-void pmm_map_info(addrspace_t addr_space);
+void init_second_stage_pmm(void);
 
 /**
  * @brief get the amount of currently used physical pages
@@ -69,6 +68,19 @@ size_t pmm_get_used_pages(void);
  * @return count of physical pages
  */
 size_t pmm_get_total_pages(void);
+
+/**
+ * @brief duplicate a page
+ * @param page the physical address of the page to duplicate
+ * @return the physical address of the new page
+ */
+uintptr_t pmm_dup_page(uintptr_t page);
+
+/**
+ * @brief get and add a refcount to a page alaways full of zero
+ * @return the physcial address of the zero page
+ */
+uintptr_t pmm_get_zero_page(void);
 
 /**
  * @brief add a ref count to a page if the page has a non null ref count

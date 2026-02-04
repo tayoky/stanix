@@ -15,9 +15,9 @@ void timer_handler(fault_frame_t *frame) {
 	}
 }
 
-//called when a fault/interrupt occur in userspace
-void fault_handler(fault_frame_t *frame) {
-	if (arch_get_fault_addr(frame) == MAGIC_SIGRETURN) {
+// called when a fault/interrupt
+int fault_handler(fault_frame_t *frame) {
+	if (is_userspace(frame) && arch_get_fault_addr(frame) == MAGIC_SIGRETURN) {
 		restore_signal_handler(frame);
 	}
 
@@ -28,7 +28,11 @@ void fault_handler(fault_frame_t *frame) {
 		if (is_userspace(frame)) {
 			handle_signal(frame);
 		}
-		return;
+		return 1;
+	}
+	if (!is_userspace(frame)) {
+		// at this point if it's kernel it's probably a panic
+		return 0;
 	}
 
 	// print some info for debuging
@@ -43,11 +47,12 @@ void fault_handler(fault_frame_t *frame) {
 		kdebugf("userspace (%lx) tryied to execute %lx\n", PC_REG(*frame), arch_get_fault_addr(frame));
 		break;
 	}
-	
+
 	//TODO : send appropriate signal
 	send_sig_task(get_current_task(), SIGSEGV);
 
 	if (is_userspace(frame)) {
 		handle_signal(frame);
 	}
+	return 1;
 }
