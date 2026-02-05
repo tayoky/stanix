@@ -117,7 +117,7 @@ int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, 
 			uintptr_t page;
 			if (flags & VMM_FLAG_SHARED) {
 				page = pmm_allocate_page();
-				memset((void*)(kernel->hhdm + page), 0, PAGE_SIZE);
+				memset((void *)(kernel->hhdm + page), 0, PAGE_SIZE);
 				mmu_map_page(get_current_proc()->addrspace, page, addr, prot);
 			} else {
 				page = pmm_get_zero_page();
@@ -165,7 +165,7 @@ int vmm_chprot(vmm_seg_t *seg, long prot) {
 void vmm_unmap(vmm_seg_t *seg) {
 	list_remove(&get_current_proc()->vmm_seg, &seg->node);
 
-	//kdebugf("unmap %p %p\n",seg->addr,seg->size);
+	//kdebugf("unmap %p to %p\n", seg->start, seg->end);
 
 	if (seg->ops && seg->ops->close) {
 		seg->ops->close(seg);
@@ -177,7 +177,9 @@ void vmm_unmap(vmm_seg_t *seg) {
 	// it's the driver job to do it
 	if (!(seg->flags & VMM_FLAG_IO)) {
 		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-			pmm_free_page(mmu_space_virt2phys(get_current_proc()->addrspace, (void *)addr));
+			uintptr_t page = mmu_virt2phys((void *)addr);
+			if (page == PAGE_INVALID) continue;;
+			pmm_free_page(page);
 		}
 	}
 
@@ -189,11 +191,11 @@ void vmm_unmap(vmm_seg_t *seg) {
 }
 
 int vmm_unmap_range(uintptr_t start, uintptr_t end) {
-	
-	vmm_seg_t *seg = (vmm_seg_t*)get_current_proc()->vmm_seg.first_node;
+
+	vmm_seg_t *seg = (vmm_seg_t *)get_current_proc()->vmm_seg.first_node;
 	for (vmm_seg_t *next; seg; seg = next) {
-		next = (vmm_seg_t*)seg->node.next;
-		
+		next = (vmm_seg_t *)seg->node.next;
+
 		if (seg->end <= start) continue;
 		if (seg->start >= end) break;
 		if (start > seg->start) {
@@ -217,7 +219,7 @@ int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
 	}
 	// cap start/end
 	if (start < seg->start) start = seg->start;
-	if (end   > seg->end  ) end   = seg->end;
+	if (end > seg->end) end   = seg->end;
 	return seg->ops->msync(seg, start, end, flags);
 }
 

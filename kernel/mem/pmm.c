@@ -2,6 +2,7 @@
 #include <kernel/kernel.h>
 #include <kernel/string.h>
 #include <kernel/limine.h>
+#include <kernel/assert.h>
 #include <kernel/print.h>
 #include <kernel/panic.h>
 #include <kernel/page.h>
@@ -88,6 +89,7 @@ void init_second_stage_pmm(void) {
 }
 
 page_t *pmm_page_info(uintptr_t addr) {
+	kassert(addr != PAGE_INVALID);
 	return &pages_info[addr >> PAGE_SHIFT];
 }
 
@@ -119,6 +121,7 @@ uintptr_t pmm_allocate_page(void) {
 
 
 void pmm_set_free_page(uintptr_t page) {
+	kassert(page != PAGE_INVALID);
 	spinlock_acquire(&pmm_lock);
 
 	used_pages--;
@@ -131,6 +134,7 @@ void pmm_set_free_page(uintptr_t page) {
 }
 
 void pmm_free_page(uintptr_t page) {
+	kassert(page != PAGE_INVALID);
 	if (pages_info) {
 		if (atomic_fetch_sub(&pmm_page_info(page)->ref_count, 1) != 1) {
 			// ref remaning
@@ -141,6 +145,7 @@ void pmm_free_page(uintptr_t page) {
 }
 
 uintptr_t pmm_dup_page(uintptr_t page) {
+	kassert(page != PAGE_INVALID);
 	uintptr_t new_page = pmm_allocate_page();
 	if (new_page == PAGE_INVALID) return PAGE_INVALID;
 	memcpy((void*)(kernel->hhdm + new_page), (void*)(kernel->hhdm + page), PAGE_SIZE);
