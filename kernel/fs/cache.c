@@ -216,9 +216,14 @@ static void cache_vmm_close(vmm_seg_t *seg) {
 	// TODO : read flags and mark the page as dirty/access
 }
 
-// we have a RACE CONDITION in this
 static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	if (!(prot & seg->prot)) return 0;
+
+	if (mmu_virt2phys((void*)addr) != PAGE_INVALID) {
+		// the page is already mapped it's not out job
+		return 0;
+	}
+
 	cache_t *cache = seg->private_data;
 	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
 	off_t offset = vpage - seg->start + seg->offset;
@@ -240,10 +245,22 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	// Copy on Write check
 	long mapping_prot = seg->prot;
 	if (seg->flags & VMM_FLAG_PRIVATE) {
-		mapping_prot &= ~MMU_FLAG_WRITE;
+		if (prot == MMU_FLAG_WRITE) {
+			// if we faulted for write duplicate now
+			page = pmm_dup_page(page);
+			if (page == PAGE_INVALID) {
+				send_sig_task(get_current_task(), SIGBUS);
+				rwlock_release_read(&cache->lock, &interrupt_save);
+				return 1;
+			}
+		} else {
+			mapping_prot &= ~MMU_FLAG_WRITE;
+			pmm_retain(page);
+		}
+	} else {
+		pmm_retain(page);
 	}
 
-	pmm_retain(page);
 	mmu_map_page(get_current_proc()->addrspace, page, vpage, mapping_prot);
 	rwlock_release_read(&cache->lock, &interrupt_save);
 	return 1;

@@ -2,6 +2,7 @@
 #define _KERNEL_VMM_H
 
 #include <kernel/scheduler.h>
+#include <kernel/spinlock.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <stdint.h>
@@ -29,6 +30,7 @@ typedef struct vmm_seg {
 	void *private_data;
 	vmm_ops_t *ops;
 	off_t offset;
+	spinlock_t lock;
 } vmm_seg_t;
 
 #define VMM_FLAG_ANONYMOUS 0x01
@@ -44,8 +46,6 @@ typedef struct vmm_seg {
  * @return 1 if the fault is handled or 0 if not
  */
 int vmm_fault_report(uintptr_t addr, int prot);
-
-vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size, long prot, int flags);
 
 /**
  * @brief mmap memory and create a segment for it

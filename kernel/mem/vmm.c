@@ -12,14 +12,21 @@
 #include <errno.h>
 
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
+	spinlock_acquire(&seg->lock);
 	uintptr_t vpage = PAGE_ALIGN_DOWN((uintptr_t)addr);
 	uintptr_t phys  = mmu_virt2phys((void *)vpage);
 
-	// FIXME : probably full of race conditons
+	if (seg->ops && seg->ops->fault) {
+		if (seg->ops->fault(seg, addr, prot)) {
+			spinlock_release(&seg->lock);
+			return 1;
+		}
+	}
+
 	if ((seg->flags & VMM_FLAG_PRIVATE) && (seg->prot & MMU_FLAG_WRITE) && prot == MMU_FLAG_WRITE) {
 		// we failed a write but we have write perm
 		// it's CoW
-		if (pmm_page_info(phys)->ref_count <= 1) {
+		if (atomic_load(&pmm_page_info(phys)->ref_count) <= 1) {
 			// other processes already copied
 			mmu_map_page(get_current_proc()->addrspace, phys, vpage, seg->prot);
 		} else {
@@ -28,13 +35,16 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 			if (new_page == PAGE_INVALID) {
 				// not looking good
 				send_sig_task(get_current_task(), SIGBUS);
+				spinlock_release(&seg->lock);
 				return 1;
 			}
 			pmm_free_page(phys);
 			mmu_map_page(get_current_proc()->addrspace, new_page, vpage, seg->prot);
 		}
+		spinlock_release(&seg->lock);
 		return 1;
 	}
+	spinlock_release(&seg->lock);
 	return 0;
 }
 
@@ -43,14 +53,14 @@ int vmm_fault_report(uintptr_t addr, int prot) {
 		vmm_seg_t *seg = (vmm_seg_t *)node;
 		if (seg->start > addr) break;
 		if (seg->end > addr) {
-			// we found a seg to report too
+			// we found a seg to report to
 			return vmm_handle_fault(seg, addr, prot);
 		}
 	}
 	return 0;
 }
 
-vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size, long prot, int flags) {
+static vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size, long prot, int flags) {
 	vmm_seg_t *prev = NULL;
 	if (address) {
 		// we need to page align everything
@@ -144,9 +154,13 @@ int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, 
 }
 
 int vmm_chprot(vmm_seg_t *seg, long prot) {
+	spinlock_acquire(&seg->lock);
 	if (seg->ops && seg->ops->can_mprotect) {
 		int ret = seg->ops->can_mprotect(seg, prot);
-		if (ret < 0) return ret;
+		if (ret < 0) {
+			spinlock_release(&seg->lock);
+			return ret;
+		}
 	}
 	seg->prot = prot;
 
@@ -159,13 +173,15 @@ int vmm_chprot(vmm_seg_t *seg, long prot) {
 			mmu_map_page(get_current_proc()->addrspace, phys, addr, prot);
 		}
 	}
+	spinlock_release(&seg->lock);
 	return 0;
 }
 
 void vmm_unmap(vmm_seg_t *seg) {
+	spinlock_acquire(&seg->lock);
 	list_remove(&get_current_proc()->vmm_seg, &seg->node);
 
-	//kdebugf("unmap %p to %p\n", seg->start, seg->end);
+	kdebugf("unmap %p to %p\n", seg->start, seg->end);
 
 	if (seg->ops && seg->ops->close) {
 		seg->ops->close(seg);
@@ -178,7 +194,7 @@ void vmm_unmap(vmm_seg_t *seg) {
 	if (!(seg->flags & VMM_FLAG_IO)) {
 		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
 			uintptr_t page = mmu_virt2phys((void *)addr);
-			if (page == PAGE_INVALID) continue;;
+			if (page == PAGE_INVALID) continue;
 			pmm_free_page(page);
 		}
 	}
@@ -191,7 +207,6 @@ void vmm_unmap(vmm_seg_t *seg) {
 }
 
 int vmm_unmap_range(uintptr_t start, uintptr_t end) {
-
 	vmm_seg_t *seg = (vmm_seg_t *)get_current_proc()->vmm_seg.first_node;
 	for (vmm_seg_t *next; seg; seg = next) {
 		next = (vmm_seg_t *)seg->node.next;
