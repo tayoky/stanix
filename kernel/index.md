@@ -10,6 +10,7 @@ The kernel docs are highly incomplete.
 ## subsystems
 - [vfs](vfs)
 - [vmm](vmm)
+- [pmm](pmm)
 - [kheap](kheap)
 - [devices manager](device)
 - [locking and syncronisation](locking)
