@@ -134,15 +134,15 @@ uint32_t ansi_colours[] = {
 color_t term_color2gfx(term_color_t *term_color, int bg) {
 	switch (term_color->type) {
 	case TERM_COLOR_DEFAULT:
-		return bg ?  gfx_color(fb, 0, 0, 0) : gfx_color(fb, 0xff, 0xff, 0xff);
+		return bg ? gfx_color(fb, 0, 0, 0) : gfx_color(fb, 0xff, 0xff, 0xff);
 	case TERM_COLOR_ANSI:
 		if (term_color->index < 16) {
 			uint32_t col = ansi_colours[term_color->index];
 			return gfx_color(fb, (col >> 16) & 0xff, (col >> 8) & 0xff, col & 0xff);
-		} else if(term_color->index < 232) {
+		} else if (term_color->index < 232) {
 			uint8_t r = (term_color->index - 16) / 36 % 6 * 40 + 55;
-			uint8_t g = (term_color->index - 16) /  6 % 6 * 40 + 55;
-			uint8_t b = (term_color->index - 16) /  1 % 6 * 40 + 55;
+			uint8_t g = (term_color->index - 16) / 6 % 6 * 40 + 55;
+			uint8_t b = (term_color->index - 16) / 1 % 6 * 40 + 55;
 			return gfx_color(fb, r, g, b);
 		} else {
 			//grey scale
@@ -171,20 +171,20 @@ void draw_cursor(term_t *term, int x, int y) {
 }
 
 void clear(term_t *term, term_rect_t *rect) {
-	if (rect->x == 0 && rect->y == 0 && rect->width == term->width && rect->height  == term->height) {
+	if (rect->x == 0 && rect->y == 0 && rect->width == term->width && rect->height == term->height) {
 		gfx_clear(fb, term_color2gfx(&term->cursor.bg_color, 1));
 		gfx_push_buffer(fb);
 	} else {
-		gfx_draw_rect(fb, term_color2gfx(&term->cursor.bg_color, 1), rect->x * c_width, rect->y * c_height, 
-		rect->width * c_width, rect->height * c_height);
+		gfx_draw_rect(fb, term_color2gfx(&term->cursor.bg_color, 1), rect->x * c_width, rect->y * c_height,
+			rect->width * c_width, rect->height * c_height);
 		gfx_push_rect(fb, rect->x * c_width, rect->y * c_height, rect->width * c_width, rect->height * c_height);
 	}
 }
 
 void move(term_t *term, term_rect_t *dest, term_rect_t *src) {
 	if (dest->width == term->width) {
-		memmove((void*)gfx_pixel_addr(fb, dest->x * c_width, dest->y * c_height), (void*)gfx_pixel_addr(fb, src->x * c_width, src->y * c_height), 
-		dest->width * dest->height * c_width * c_height * fb->bpp / 8);
+		memmove((void *)gfx_pixel_addr(fb, dest->x * c_width, dest->y * c_height), (void *)gfx_pixel_addr(fb, src->x * c_width, src->y * c_height),
+			dest->width * dest->height * c_width * c_height * fb->bpp / 8);
 		gfx_push_rect(fb, dest->x * c_width, dest->y * c_height, dest->width * c_width, dest->height * c_height);
 	} else {
 		// TODO
@@ -199,14 +199,14 @@ term_ops_t term_ops = {
 };
 
 //TODO : terminate when child die
-int main(int argc,const char **argv){
+int main(int argc, const char **argv) {
 	struct layout *layout = &kbd_us;
-	for (int i = 1; i < argc-1; i++){
-		if((!strcmp(argv[i],"--layout")) || !strcmp(argv[i],"-i")){
+	for (int i = 1; i < argc - 1; i++) {
+		if ((!strcmp(argv[i], "--layout")) || !strcmp(argv[i], "-i")) {
 			i++;
-			if((!strcasecmp(argv[i],"azerty")) || !strcasecmp(argv[i],"french")){
+			if ((!strcasecmp(argv[i], "azerty")) || !strcasecmp(argv[i], "french")) {
 				layout = &kbd_fr;
-			} else if((!strcasecmp(argv[i],"qwerty")) || !strcasecmp(argv[i],"english")){
+			} else if ((!strcasecmp(argv[i], "qwerty")) || !strcasecmp(argv[i], "english")) {
 				layout = &kbd_us;
 			}
 		}
@@ -214,27 +214,27 @@ int main(int argc,const char **argv){
 
 	printf("starting userspace terminal emulator...\n");
 
-	if(!getenv("FB") || !getenv("FONT")){
-		fprintf(stderr,"no FB or FONT variable\n");
+	if (!getenv("FB") || !getenv("FONT")) {
+		fprintf(stderr, "no FB or FONT variable\n");
 		return EXIT_FAILURE;
 	}
 
 	//open gtx context
 	fb = gfx_open_framebuffer(NULL);
-	if(!fb){
+	if (!fb) {
 		perror("open gfx context");
 		return EXIT_FAILURE;
 	}
 
 	//load font
 	font = gfx_load_font(NULL);
-	if(!font){
+	if (!font) {
 		perror(getenv("FONT"));
 		return EXIT_FAILURE;
 	}
-	c_width  = gfx_char_width(font,' ');
-	c_height = gfx_char_height(font,' ');
-	
+	c_width  = gfx_char_width(font, ' ');
+	c_height = gfx_char_height(font, ' ');
+
 
 	//create a new pty
 	struct winsize size = {
@@ -246,25 +246,25 @@ int main(int argc,const char **argv){
 
 	int master;
 	int slave;
-	if(openpty(&master,&slave,NULL,NULL,&size)){
+	if (openpty(&master, &slave, NULL, NULL, &size)) {
 		perror("openpty");
 		return EXIT_FAILURE;
 	}
 
 	//disable NL to NL CR converstion and other termios stuff
 	struct termios attr;
-	if(tcgetattr(slave,&attr)){
+	if (tcgetattr(slave, &attr)) {
 		perror("tcgetattr");
 	}
 	attr.c_oflag &= ~(ONLCR | OCRNL | ONOCR);
 	attr.c_oflag |= OPOST;
-	if(tcsetattr(slave,TCSANOW,&attr)){
+	if (tcsetattr(slave, TCSANOW, &attr)) {
 		perror("tcsetattr");
 	}
 
 	//try open keyboard
-	int kbd_fd = open("/dev/kb0",O_RDONLY);
-	if(kbd_fd < 0){
+	int kbd_fd = open("/dev/kb0", O_RDONLY);
+	if (kbd_fd < 0) {
 		perror("/dev/kb0");
 		return EXIT_FAILURE;
 	}
@@ -272,10 +272,10 @@ int main(int argc,const char **argv){
 
 	//fork and launch login with std stream set to the slave
 	pid_t child = fork();
-	if(!child){
-		dup2(slave,STDIN_FILENO);
-		dup2(slave,STDOUT_FILENO);
-		dup2(slave,STDERR_FILENO);
+	if (!child) {
+		dup2(slave, STDIN_FILENO);
+		dup2(slave, STDOUT_FILENO);
+		dup2(slave, STDERR_FILENO);
 		close(master);
 		close(slave);
 		close(kbd_fd);
@@ -287,7 +287,7 @@ int main(int argc,const char **argv){
 			"-f",
 			NULL
 		};
-		execvp(arg[0],arg);
+		execvp(arg[0], arg);
 		perror("/bin/login");
 
 		exit(EXIT_FAILURE);
@@ -307,18 +307,18 @@ int main(int argc,const char **argv){
 	int shift = 0;
 	int altgr = 0;
 
-	for(;;){
+	for (;;) {
 		struct pollfd wait[] = {
 			{.fd = master,.events = POLLIN,.revents = 0},
 			{.fd = kbd_fd,.events = POLLIN,.revents = 0}
 		};
 
-		if(poll(wait,2,-1) < 0){
+		if (poll(wait, 2, -1) < 0) {
 			perror("poll");
 			return EXIT_FAILURE;
 		}
 
-		if(wait[0].revents & POLLIN){
+		if (wait[0].revents & POLLIN) {
 			//there data to print
 			char buf[1024];
 			ssize_t s = read(master, buf, sizeof(buf));
@@ -327,22 +327,22 @@ int main(int argc,const char **argv){
 			}
 		}
 
-		if(wait[1].revents & POLLIN){
+		if (wait[1].revents & POLLIN) {
 			//there keyboard data to read
 			struct input_event event;
 
-			if(read(kbd_fd,&event,sizeof(event)) < 1){
+			if (read(kbd_fd, &event, sizeof(event)) < 1) {
 				goto ignore;
 			}
 
 			//ignore not key event
-			if(event.ie_type != IE_KEY_EVENT){
+			if (event.ie_type != IE_KEY_EVENT) {
 				goto ignore;
 			}
 
 			//special case for crtl and shift
-			if(event.ie_key.scancode == 0x1D){
-				if(event.ie_key.flags & IE_KEY_RELEASE){
+			if (event.ie_key.scancode == 0x1D) {
+				if (event.ie_key.flags & IE_KEY_RELEASE) {
 					crtl = 0;
 				} else {
 					crtl = 1;
@@ -350,44 +350,44 @@ int main(int argc,const char **argv){
 				goto ignore;
 			}
 			//alt gr
-			if(event.ie_key.scancode == 0x80 + 0x38){
-				if(event.ie_key.flags & IE_KEY_RELEASE){
+			if (event.ie_key.scancode == 0x80 + 0x38) {
+				if (event.ie_key.flags & IE_KEY_RELEASE) {
 					altgr = 0;
 				} else {
 					altgr = 1;
 				}
 				goto ignore;
 			}
-			if(event.ie_key.scancode == 0x2A || event.ie_key.scancode == 0x36 || (event.ie_key.scancode == 0x3A && event.ie_key.flags & IE_KEY_PRESS)){
+			if (event.ie_key.scancode == 0x2A || event.ie_key.scancode == 0x36 || (event.ie_key.scancode == 0x3A && event.ie_key.flags & IE_KEY_PRESS)) {
 				shift = 1 - shift;
 				goto ignore;
 			}
 
 			//ignore key release
-			if(event.ie_key.flags & IE_KEY_RELEASE){
+			if (event.ie_key.flags & IE_KEY_RELEASE) {
 				goto ignore;
 			}
 
 			//put into the pipe and to the screen
 			char *str;
-			if(altgr && layout->altgr[event.ie_key.scancode]){
+			if (altgr && layout->altgr[event.ie_key.scancode]) {
 				str = layout->altgr[event.ie_key.scancode];
 			} else {
-				if(shift){
+				if (shift) {
 					str = layout->shift[event.ie_key.scancode];
 				} else {
 					str = layout->keys[event.ie_key.scancode];
 				}
 			}
-			if(str){
+			if (str) {
 				//if crtl is pressed send special crtl + XXX char
-				if(crtl && strlen(str) == 1){
+				if (crtl && strlen(str) == 1) {
 					char c = str[0] - 'a' + 1;
 					fputc(c, master_file);
 				} else {
 					fputs(str, master_file);
 				}
-				ignore:
+			ignore:
 			}
 		}
 	}

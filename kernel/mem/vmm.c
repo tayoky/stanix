@@ -181,7 +181,7 @@ void vmm_unmap(vmm_seg_t *seg) {
 	spinlock_acquire(&seg->lock);
 	list_remove(&get_current_proc()->vmm_seg, &seg->node);
 
-	kdebugf("unmap %p to %p\n", seg->start, seg->end);
+	//kdebugf("unmap %p to %p\n", seg->start, seg->end);
 
 	if (seg->ops && seg->ops->close) {
 		seg->ops->close(seg);
