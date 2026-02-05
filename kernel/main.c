@@ -19,7 +19,7 @@
 #include <kernel/sys.h>
 #include <kernel/exec.h>
 #include <kernel/module.h>
-#include <kernel/proc.h>
+#include <kernel/procfs.h>
 #include <kernel/sysfs.h>
 #include <kernel/socket.h>
 #include <kernel/unix.h>
