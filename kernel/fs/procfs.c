@@ -3,6 +3,7 @@
 #include <kernel/kheap.h>
 #include <kernel/print.h>
 #include <kernel/procfs.h>
+#include <kernel/vmm.h>
 #include <kernel/vfs.h>
 #include <errno.h>
 
@@ -12,8 +13,9 @@ typedef struct proc_inode {
 } proc_inode_t;
 
 #define INODE_SELF 1
-#define INODE_DIR 2
-#define INODE_CWD 3
+#define INODE_DIR  2
+#define INODE_CWD  3
+#define INODE_MAPS 4
 
 static vfs_ops_t proc_ops;
 long strtol(const char *str, char **end, int base);
@@ -32,6 +34,9 @@ static vfs_node_t *proc_new_node(process_t *proc, int type) {
 	case INODE_CWD:
 		node->flags = VFS_LINK;
 		break;
+	case INODE_MAPS:
+		node->flags = VFS_FILE;
+		break;
 	case INODE_DIR:
 		node->flags = VFS_DIR;
 		break;
@@ -45,6 +50,7 @@ static int proc_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent
 		".",
 		"..",
 		"cwd",
+		"maps",
 	};
 
 	if (index >= sizeof(content) / sizeof(*content))return -ENOENT;
@@ -57,7 +63,15 @@ static int proc_getattr(vfs_node_t *node, struct stat *st) {
 	proc_inode_t *inode = node->private_inode;
 	st->st_uid  = inode->proc->euid;
 	st->st_gid  = inode->proc->egid;
-	st->st_mode = 0555;
+	switch (node->flags) {
+	case VFS_FILE:
+		st->st_mode = 0444;
+		break;
+	case VFS_DIR:
+	case VFS_LINK:
+		st->st_mode = 0555;
+		break;
+	}
 	st->st_ino  = (inode->proc->pid << 3) | inode->type;
 	return 0;
 }
@@ -85,7 +99,36 @@ static vfs_node_t *proc_lookup(vfs_node_t *node, const char *name) {
 	if (!strcmp(name, "cwd")) {
 		return proc_new_node(inode->proc, INODE_CWD);
 	}
+	if (!strcmp(name, "maps")) {
+		return proc_new_node(inode->proc, INODE_MAPS);
+	}
 	return NULL;
+}
+
+static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
+	proc_inode_t *inode = fd->private;
+	char str[4096];
+	size_t i=0;
+	switch (inode->type) {
+	case INODE_MAPS:
+		foreach (node, &inode->proc->vmm_seg) {
+			vmm_seg_t *seg = (vmm_seg_t*)node;
+			char prot[5];
+			prot[0] = seg->prot & MMU_FLAG_READ    ? 'r' : '-';
+			prot[1] = seg->prot & MMU_FLAG_WRITE   ? 'w' : '-';
+			prot[2] = seg->prot & MMU_FLAG_EXEC    ? 'x' : '-';
+			prot[3] = seg->prot & MMU_FLAG_PRESENT ? 'p' : '-';
+			prot[4] = '\0';
+			i += sprintf(str + i, "%012lx-%012lx %s %zd\n", seg->start, seg->end, prot, seg->offset);
+		}
+		break;
+	default:
+		return -EINVAL;
+	}
+	if ((size_t)offset >= strlen(str)) return 0;
+	if (offset + count > strlen(str)) count = strlen(str) - offset;
+	memcpy(buf, str, count);
+	return count;
 }
 
 static void proc_cleanup(vfs_node_t *node) {
@@ -100,6 +143,7 @@ static vfs_ops_t proc_ops = {
 	.readlink = proc_readlink,
 	.getattr  = proc_getattr,
 	.cleanup  = proc_cleanup,
+	.read     = proc_read,
 };
 
 static vfs_node_t *proc_root_lookup(vfs_node_t *root, const char *name) {
