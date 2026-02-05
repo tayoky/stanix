@@ -101,11 +101,11 @@ vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size, long 
 	return new_seg;
 }
 
-int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
+int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
 
-	vmm_seg_t *new_seg = vmm_create_seg(proc, address, size, prot, flags);
+	vmm_seg_t *new_seg = vmm_create_seg(get_current_proc(), address, size, prot, flags);
 	if (!new_seg) return -EEXIST;
 
 	//kdebugf("map %p size : %lx\n", new_seg->start, size);
@@ -118,10 +118,10 @@ int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flag
 			if (flags & VMM_FLAG_SHARED) {
 				page = pmm_allocate_page();
 				memset((void*)(kernel->hhdm + page), 0, PAGE_SIZE);
-				mmu_map_page(proc->addrspace, page, addr, prot);
+				mmu_map_page(get_current_proc()->addrspace, page, addr, prot);
 			} else {
 				page = pmm_get_zero_page();
-				mmu_map_page(proc->addrspace, page, addr, prot & ~MMU_FLAG_WRITE);
+				mmu_map_page(get_current_proc()->addrspace, page, addr, prot & ~MMU_FLAG_WRITE);
 			}
 		}
 	} else if (fd) {
@@ -131,7 +131,7 @@ int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flag
 	}
 
 	if (ret < 0) {
-		list_remove(&proc->vmm_seg, &new_seg->node);
+		list_remove(&get_current_proc()->vmm_seg, &new_seg->node);
 		kfree(new_seg);
 	} else {
 		if (seg) *seg = new_seg;
@@ -188,6 +188,29 @@ void vmm_unmap(vmm_seg_t *seg) {
 	kfree(seg);
 }
 
+int vmm_unmap_range(uintptr_t start, uintptr_t end) {
+	
+	vmm_seg_t *seg = (vmm_seg_t*)get_current_proc()->vmm_seg.first_node;
+	for (vmm_seg_t *next; seg; seg = next) {
+		next = (vmm_seg_t*)seg->node.next;
+		
+		if (seg->end <= start) continue;
+		if (seg->start >= end) break;
+		if (start > seg->start) {
+			int ret = vmm_split(seg, start, NULL);
+			if (ret > 0) return ret;
+
+			// on the next iteration we will land on the newly created segment
+			continue;
+		}
+		if (end < seg->end) {
+			vmm_split(seg, end, NULL);
+		}
+		vmm_unmap(seg);
+	}
+	return 0;
+}
+
 int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
 	if (!seg->ops || !seg->ops->msync) {
 		return 0;
@@ -196,6 +219,37 @@ int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
 	if (start < seg->start) start = seg->start;
 	if (end   > seg->end  ) end   = seg->end;
 	return seg->ops->msync(seg, start, end, flags);
+}
+
+int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
+	if (cut <= seg->start || cut >= seg->end) {
+		return -EINVAL;
+	}
+	if (seg->ops && seg->ops->can_split) {
+		int ret = seg->ops->can_split(seg, cut);
+		if (ret < 0) return ret;
+	}
+
+	vmm_seg_t *new_seg = kmalloc(sizeof(vmm_seg_t));
+	memset(new_seg, 0, sizeof(vmm_seg_t));
+	new_seg->prot         = seg->prot;
+	new_seg->flags        = seg->flags;
+	new_seg->start        = cut;
+	new_seg->end          = seg->end;
+	new_seg->ops          = seg->ops;
+	new_seg->private_data = seg->private_data;
+	new_seg->fd           = vfs_dup(seg->fd);
+
+	seg->end = cut;
+
+	if (seg->ops && seg->ops->open) {
+		seg->ops->open(new_seg);
+	}
+
+	list_add_after(&get_current_proc()->vmm_seg, &seg->node, &new_seg->node);
+
+	if (out_seg) *out_seg = new_seg;
+	return 0;
 }
 
 void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg) {

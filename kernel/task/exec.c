@@ -153,7 +153,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 			}
 
 			if (filesz > 0) {
-				if (vmm_map(get_current_proc(), vaddr, filesz, prot, VMM_FLAG_PRIVATE, file, offset, NULL) < 0) {
+				if (vmm_map(vaddr, filesz, prot, VMM_FLAG_PRIVATE, file, offset, NULL) < 0) {
 					goto error;
 				}
 			}
@@ -161,7 +161,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 				// we need to fill with anonymous mapping
 				vaddr += filesz;
 				vmm_seg_t *seg;
-				if (vmm_map(get_current_proc(), vaddr, memsz - filesz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg) < 0) {
+				if (vmm_map(vaddr, memsz - filesz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg) < 0) {
 					goto error;
 				}
 				vfs_read(file, (void*)vaddr, offset + filesz, filesz_remainer);
@@ -169,7 +169,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 			}
 		} else {
 			vmm_seg_t *seg;
-			vmm_map(get_current_proc(), prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg);
+			vmm_map(prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg);
 
 			//file size must be <= to virtual size
 			if (prog_header[i].p_filesz > prog_header[i].p_memsz) {
@@ -206,7 +206,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 
 	//map stack
 	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
-	vmm_map(get_current_proc(), USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS | VMM_FLAG_PRIVATE, NULL, 0, NULL);
+	vmm_map(USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS | VMM_FLAG_PRIVATE, NULL, 0, NULL);
 
 	//keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;

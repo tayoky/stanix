@@ -290,27 +290,22 @@ off_t sys_seek(int fd, int64_t offset, int whence) {
 }
 
 uint64_t sys_sbrk(intptr_t incr) {
-	//get rid of the 0 case
+	// get rid of the 0 case
 	if (!incr) {
 		return get_current_proc()->heap_end;
 	}
 
-	//get proc
+	// get proc
 	process_t *proc = get_current_proc();
 
 	intptr_t incr_pages = PAGE_ALIGN_UP(incr) / PAGE_SIZE;
 	long heap_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
 	if (incr < 0) {
-		//make heap smaller
-		for (int64_t i = 0; i > incr_pages; i--) {
-			uintptr_t virt_page = kernel->kheap.start + kernel->kheap.lenght + i * PAGE_SIZE;
-			uintptr_t phys_page = mmu_virt2phys((void *)virt_page);
-			mmu_unmap_page(get_current_proc()->addrspace, virt_page);
-			pmm_free_page(phys_page);
-		}
+		// make heap smaller
+		vmm_unmap_range(PAGE_ALIGN_UP(proc->heap_end + incr), proc->heap_end);
 	} else {
 		//make heap bigger
-		vmm_map(get_current_proc(), proc->heap_end, PAGE_SIZE * incr_pages, heap_flags, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, NULL);
+		vmm_map(proc->heap_end, PAGE_SIZE * incr_pages, heap_flags, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, NULL);
 	}
 	proc->heap_end += incr_pages * PAGE_SIZE;
 	return proc->heap_end;
@@ -1029,7 +1024,7 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 	}
 
 	vmm_seg_t *seg;
-	int ret = vmm_map(get_current_proc(), addr, length, mmu_flags, vmm_flags, vfs_fd, offset, &seg);
+	int ret = vmm_map(addr, length, mmu_flags, vmm_flags, vfs_fd, offset, &seg);
 	if (ret < 0) {
 		return (void *)(uintptr_t)ret;
 	} else {
@@ -1040,14 +1035,7 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 int sys_munmap(void *addr, size_t len) {
 	if (!len)return -EINVAL;
 	if (!CHECK_PTR_INRANGE((uintptr_t)addr + len))return -EINVAL;
-	// FIXME : this is unsafe
-	foreach(node, &get_current_proc()->vmm_seg) {
-		vmm_seg_t *seg = (vmm_seg_t*)node;
-		if (seg->start >= (uintptr_t)addr && seg->end <= (uintptr_t)addr + len) {
-			vmm_unmap(seg);
-		}
-	}
-	return 0;
+	return vmm_unmap_range((uintptr_t)addr, (uintptr_t)addr + len);
 }
 
 int sys_mprotect(void *addr, size_t length, int prot) {

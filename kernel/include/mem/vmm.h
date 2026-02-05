@@ -46,10 +46,59 @@ typedef struct vmm_seg {
 int vmm_fault_report(uintptr_t addr, int prot);
 
 vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size, long prot, int flags);
-int vmm_map(process_t *proc, uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg);
+
+/**
+ * @brief mmap memory and create a segment for it
+ */
+int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg);
+
+/**
+ * @brief clone a segment from the parent to the child
+ * @param parent the parent to clone the segment from
+ * @param child the child to clone the segment to
+ * @param seg the segment to clone
+ */
 void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg);
+
+/**
+ * @brief unmap a segment
+ * @param seg the segment to unmap
+ */
 void vmm_unmap(vmm_seg_t *seg);
+
+/**
+ * @brief unmap all segment in a range, spliting them if necessary
+ * @param start the start of the range
+ * @param end the end of the range
+ * @return 0 on success or error code on failure
+ */
+int vmm_unmap_range(uintptr_t start, uintptr_t end);
+
+/**
+ * @brief change the protections flags of a segment
+ * @param seg the segment to change the protection of
+ * @param prot the new protection flags
+ * @return 0 on succes or error code on failure
+ */
 int vmm_chprot(vmm_seg_t *seg, long prot);
+
+/**
+ * @brief split a segment
+ * @param seg the segment to split
+ * @param cur where to split (must be in the segment's bounds)
+ * @param out_seg return a pointer to the newly created sgement (after the current one)
+ * @return 0 on succes or error code on failure
+ */
+int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg);
+
+/**
+ * @brief flush a segment to the disk/device
+ * @param seg the segment to flush
+ * @param start the start of the region to flush (must be in the segment's bounds)
+ * @param end the end of the region to flush (must be in the segment's bounds)
+ * @param flags the flags to flush with
+ * @return 0 on succes or error code on failure
+ */
 int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags);
 
 #endif
