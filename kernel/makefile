@@ -26,8 +26,9 @@ ASMFLAGS += -Wall
 
 include include.mk
 
+ifeq (,$(filter clean,$(MAKECMDGOALS)))
 include arch/$(ARCH)/arch.mk
-
+endif
 
 $(PREFIX)/boot/$(KERNEL) : $(OBJ) sym.o
 	@mkdir -p $(shell dirname $@)
