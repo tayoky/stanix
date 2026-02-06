@@ -119,10 +119,10 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 		foreach (node, &inode->proc->vmm_space.segs) {
 			vmm_seg_t *seg = (vmm_seg_t*)node;
 			char prot[5];
-			prot[0] = seg->prot & MMU_FLAG_READ    ? 'r' : '-';
-			prot[1] = seg->prot & MMU_FLAG_WRITE   ? 'w' : '-';
-			prot[2] = seg->prot & MMU_FLAG_EXEC    ? 'x' : '-';
-			prot[3] = seg->prot & MMU_FLAG_PRESENT ? 'p' : '-';
+			prot[0] = seg->prot  & MMU_FLAG_READ    ? 'r' : '-';
+			prot[1] = seg->prot  & MMU_FLAG_WRITE   ? 'w' : '-';
+			prot[2] = seg->prot  & MMU_FLAG_EXEC    ? 'x' : '-';
+			prot[3] = seg->flags & VMM_FLAG_PRIVATE ? 'p' : 's';
 			prot[4] = '\0';
 			i += sprintf(str_buf + i, "%012lx-%012lx %s %zd\n", seg->start, seg->end, prot, seg->offset);
 		}
