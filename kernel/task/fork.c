@@ -45,9 +45,6 @@ pid_t fork(void) {
 		}
 	}
 
-	child->cwd_node = vfs_dup_node(parent->cwd_node);
-	child->cwd_path = strdup(parent->cwd_path);
-
 	// make it ruuuunnnnn !!!
 	unblock_task(child->main_thread);
 

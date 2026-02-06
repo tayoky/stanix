@@ -12,10 +12,11 @@ typedef struct proc_inode {
 	int type;
 } proc_inode_t;
 
-#define INODE_SELF 1
-#define INODE_DIR  2
-#define INODE_CWD  3
-#define INODE_MAPS 4
+#define INODE_SELF    1
+#define INODE_DIR     2
+#define INODE_CWD     3
+#define INODE_MAPS    4
+#define INODE_CMDLINE 5
 
 static vfs_ops_t proc_ops;
 long strtol(const char *str, char **end, int base);
@@ -35,6 +36,7 @@ static vfs_node_t *proc_new_node(process_t *proc, int type) {
 		node->flags = VFS_LINK;
 		break;
 	case INODE_MAPS:
+	case INODE_CMDLINE:
 		node->flags = VFS_FILE;
 		break;
 	case INODE_DIR:
@@ -51,6 +53,7 @@ static int proc_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent
 		"..",
 		"cwd",
 		"maps",
+		"cmdline",
 	};
 
 	if (index >= sizeof(content) / sizeof(*content))return -ENOENT;
@@ -98,16 +101,18 @@ static vfs_node_t *proc_lookup(vfs_node_t *node, const char *name) {
 
 	if (!strcmp(name, "cwd")) {
 		return proc_new_node(inode->proc, INODE_CWD);
-	}
-	if (!strcmp(name, "maps")) {
+	} else if (!strcmp(name, "maps")) {
 		return proc_new_node(inode->proc, INODE_MAPS);
+	} else if (!strcmp(name, "cmdline")) {
+		return proc_new_node(inode->proc, INODE_CMDLINE);
 	}
 	return NULL;
 }
 
 static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	proc_inode_t *inode = fd->private;
-	char str[4096];
+	char str_buf[4096];
+	char *str;
 	size_t i=0;
 	switch (inode->type) {
 	case INODE_MAPS:
@@ -119,8 +124,12 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 			prot[2] = seg->prot & MMU_FLAG_EXEC    ? 'x' : '-';
 			prot[3] = seg->prot & MMU_FLAG_PRESENT ? 'p' : '-';
 			prot[4] = '\0';
-			i += sprintf(str + i, "%012lx-%012lx %s %zd\n", seg->start, seg->end, prot, seg->offset);
+			i += sprintf(str_buf + i, "%012lx-%012lx %s %zd\n", seg->start, seg->end, prot, seg->offset);
 		}
+		str = str_buf;
+		break;
+	case INODE_CMDLINE:
+		str = inode->proc->cmdline;
 		break;
 	default:
 		return -EINVAL;

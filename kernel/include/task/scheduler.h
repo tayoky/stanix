@@ -3,6 +3,7 @@
 
 #include <kernel/arch.h>
 #include <kernel/spinlock.h>
+#include <kernel/string.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
@@ -70,6 +71,7 @@ typedef struct process {
 	file_descriptor fds[MAX_FD];
 	vfs_node_t *cwd_node;
 	char *cwd_path;
+	char *cmdline;
 	uintptr_t heap_start;
 	uintptr_t heap_end;
 	list_t child;
@@ -163,6 +165,25 @@ static inline void block_prepare(void) {
  */
 static inline void block_cancel(void) {
 	set_task_status(TASK_STATUS_RUNNING);
+}
+
+
+/**
+ * @brief set cmdline of a process
+ * @param proc the process to set the cmdline of
+ * @param cmdline the new cmdline
+ */
+static inline void proc_set_cmdline(process_t *proc, const char *cmdline) {
+	kfree(proc->cmdline);
+	proc->cmdline = strdup(cmdline);
+}
+
+/**
+ * @brief set cmdline of current process
+ * @param cmdline the new cmdline
+ */
+static inline void set_cmdline(const char *cmdline) {
+	proc_set_cmdline(get_current_proc(), cmdline);
 }
 
 /**

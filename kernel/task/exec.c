@@ -198,60 +198,63 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 
 	vfs_close(file);
 
-	//map stack
+	// map stack
 	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
 	vmm_map(USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS | VMM_FLAG_PRIVATE, NULL, 0, NULL);
 
-	//keep a one page guard between the executable and the heap
+	// setup new cmdline
+	set_cmdline(saved_argv[0]);
+
+	// keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;
 
-	//set the heap end
+	// set the heap end
 	get_current_proc()->heap_end = get_current_proc()->heap_start;
 
-	//make place for argv
+	// make place for argv
 	argv = (const char **)get_current_proc()->heap_start;
 	sys_sbrk(PAGE_ALIGN_UP(total_arg_size));
 	char *ptr = (char *)(((uintptr_t)argv) + (argc + 1) * sizeof(char *));
 
 
-	//restore argv
+	// restore argv
 	for (int i = 0; i < argc; i++) {
 		argv[i] = ptr;
-		//copy saved arg to userpsace heap
+		// copy saved arg to userpsace heap
 		strcpy(ptr, saved_argv[i]);
 		ptr += strlen(saved_argv[i]) + 1;
 		kdebugf("arg %d : %s\n", i, saved_argv[i]);
 
-		//free the saved arg in kernel space
+		// free the saved arg in kernel space
 		kfree(saved_argv[i]);
 	}
 	argv[argc] = NULL;
 
-	//align the pointer
+	// align the pointer
 	if ((uintptr_t)ptr % 8) {
 		ptr += 8 - ((uintptr_t)ptr % 8);
 	}
 
-	//restore envp
+	// restore envp
 	envp = (const char **)ptr;
 	ptr += (envc + 1) * sizeof(char *);
 	for (int i = 0; i < envc; i++) {
 		envp[i] = ptr;
-		//copy saved arg to userpsace heap
+		// copy saved arg to userpsace heap
 		strcpy(ptr, saved_envp[i]);
 		ptr += strlen(saved_envp[i]) + 1;
 
-		//free the saved env in kernel space
+		// free the saved env in kernel space
 		kfree(saved_envp[i]);
 	}
 	envp[envc] = NULL;
 
-	//free argv list
+	// free argv list
 	kfree(saved_argv);
-	//and envp too
+	// and envp too
 	kfree(saved_envp);
 
-	//reset signal handling of handled signals
+	// reset signal handling of handled signals
 	for (size_t i=0; i < sizeof(get_current_task()->sig_handling) / sizeof(*get_current_task()->sig_handling); i++) {
 		if (get_current_task()->sig_handling[i].sa_handler != SIG_IGN) {
 			get_current_task()->sig_handling[i].sa_handler = SIG_DFL;

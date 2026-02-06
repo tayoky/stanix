@@ -60,6 +60,7 @@ void init_task() {
 
 	// the current task is the boot task
 	kernel->current_task = boot_task->main_thread;
+	set_cmdline("init");
 
 	list_append(&proc_list, &boot_task->proc_list_node);
 
@@ -72,6 +73,7 @@ void init_task() {
 
 	// setup the kernel proc and the idle task
 	kernel_proc = new_proc(idle_task, NULL);
+	proc_set_cmdline(kernel_proc, "stanix kernel");
 	idle = kernel_proc->main_thread;
 
 	kok();
@@ -197,14 +199,17 @@ process_t *new_proc(void (*func)(void *arg), void *arg){
 	vmm_init_space(&proc->vmm_space);
 	init_list(&proc->child);
 	init_list(&proc->threads);
-	proc->uid     = get_current_proc()->uid;
-	proc->uid     = get_current_proc()->uid;
-	proc->euid    = get_current_proc()->euid;
-	proc->suid    = get_current_proc()->suid;
-	proc->gid     = get_current_proc()->gid;
-	proc->egid    = get_current_proc()->egid;
-	proc->sgid    = get_current_proc()->sgid;
-	proc->umask   = get_current_proc()->umask;
+	proc->uid      = get_current_proc()->uid;
+	proc->uid      = get_current_proc()->uid;
+	proc->euid     = get_current_proc()->euid;
+	proc->suid     = get_current_proc()->suid;
+	proc->gid      = get_current_proc()->gid;
+	proc->egid     = get_current_proc()->egid;
+	proc->sgid     = get_current_proc()->sgid;
+	proc->umask    = get_current_proc()->umask;
+	proc->cmdline  = strdup(get_current_proc()->cmdline);
+	proc->cwd_node = vfs_dup_node(get_current_proc()->cwd_node);
+	proc->cwd_path = strdup(get_current_proc()->cwd_path);
 	proc->main_thread = new_task(proc, func, arg);
 	proc->pid =  proc->main_thread->tid;
 
@@ -323,6 +328,8 @@ static void do_proc_deletion(void) {
 	// close cwd
 	vfs_close_node(get_current_proc()->cwd_node);
 	kfree(get_current_proc()->cwd_path);
+
+	kfree(get_current_proc()->cmdline);
 	
 	vmm_unmap_all();
 
