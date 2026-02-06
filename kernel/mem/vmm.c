@@ -31,7 +31,7 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 		// it's CoW
 		if (atomic_load(&pmm_page_info(phys)->ref_count) <= 1) {
 			// other processes already copied
-			mmu_map_page(get_current_proc()->vmm_space.addrspace, phys, vpage, seg->prot);
+			mmu_set_flags(get_current_proc()->vmm_space.addrspace, vpage, seg->prot);
 		} else {
 			// we need to copy
 			uintptr_t new_page = pmm_dup_page(phys);
@@ -187,9 +187,9 @@ int vmm_chprot(vmm_seg_t *seg, long prot) {
 		uintptr_t phys = mmu_space_virt2phys(get_current_proc()->vmm_space.addrspace, (void *)addr);
 		if ((seg->flags & VMM_FLAG_PRIVATE) && pmm_page_info(phys)->ref_count > 1) {
 			// we are doing CoW
-			mmu_map_page(get_current_proc()->vmm_space.addrspace, phys, addr, prot & ~MMU_FLAG_WRITE);
+			mmu_set_flags(get_current_proc()->vmm_space.addrspace, addr, prot & ~MMU_FLAG_WRITE);
 		} else {
-			mmu_map_page(get_current_proc()->vmm_space.addrspace, phys, addr, prot);
+			mmu_set_flags(get_current_proc()->vmm_space.addrspace, addr, prot);
 		}
 	}
 	spinlock_release(&seg->lock);
@@ -344,7 +344,7 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 	if (seg->flags & VMM_FLAG_PRIVATE) {
 		// we need to remap as readonly in the parent too
 		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-			mmu_map_page(parent->addrspace, mmu_space_virt2phys(parent->addrspace, (void *)addr), addr, prot);
+			mmu_set_flags(parent->addrspace, addr, prot);
 		}
 	}
 
@@ -357,6 +357,10 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 		prev = current;
 	}
 	list_add_after(&child->segs, prev ? &prev->node : NULL, &new_seg->node);
+
+	if (seg->ops && seg->ops->open) {
+		seg->ops->open(new_seg);
+	}
 }
 
 

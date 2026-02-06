@@ -29,6 +29,29 @@ static uint64_t mmu2paging_flags(long mmu_flags) {
 	return flags;
 }
 
+static long paging2mmu_flags(uint64_t paging_flags) {
+	long flags = 0;
+	if (paging_flags & PAGING_FLAG_PRESENT) {
+		flags |= MMU_FLAG_PRESENT | MMU_FLAG_READ;
+	}
+	if (paging_flags & PAGING_FLAG_WRITE) {
+		flags |= MMU_FLAG_WRITE;
+	}
+	if (!(paging_flags & PAGING_FLAG_NO_EXE)) {
+		flags |= MMU_FLAG_EXEC;
+	}
+	if (paging_flags & PAGING_FLAG_USER) {
+		flags |= MMU_FLAG_USER;
+	}
+	if (paging_flags & PAGING_FLAG_ACCESS) {
+		flags |= MMU_FLAG_ACCESS;
+	}
+	if (paging_flags & PAGING_FLAG_DIRTY) {
+		flags |= MMU_FLAG_DIRTY;
+	}
+	return flags;
+}
+
 addrspace_t mmu_get_addr_space() {
 	uint64_t cr3;
 	asm("mov %%cr3, %%rax" : "=a" (cr3));
@@ -133,12 +156,12 @@ uintptr_t mmu_space_virt2phys(addrspace_t PML4, void *address) {
 	return (PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF);
 }
 
-void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t virtual_addr, long mmu_flags) {
+void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t vaddr, long mmu_flags) {
 	uint64_t flags = mmu2paging_flags(mmu_flags);
-	uint64_t PML4i= ((uint64_t)virtual_addr >> 39) & 0x1FF;
-	uint64_t PDPi  = ((uint64_t)virtual_addr >> 30) & 0x1FF;
-	uint64_t PDi   = ((uint64_t)virtual_addr >> 21) & 0x1FF;
-	uint64_t PTi   = ((uint64_t)virtual_addr >> 12) & 0x1FF;
+	uint64_t PML4i= ((uint64_t)vaddr >> 39) & 0x1FF;
+	uint64_t PDPi  = ((uint64_t)vaddr >> 30) & 0x1FF;
+	uint64_t PDi   = ((uint64_t)vaddr >> 21) & 0x1FF;
+	uint64_t PTi   = ((uint64_t)vaddr >> 12) & 0x1FF;
 
 	if (!(PML4[PML4i] & 1)) {
 		PML4[PML4i] = pmm_allocate_page() | PAGING_FLAG_RW_CPL3;
@@ -160,54 +183,60 @@ void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t virtual_a
 	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	PT[PTi] = (physical_page & ~0xFFFUL) | flags;
 
-	asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
+	asm volatile("invlpg (%0)" ::"r" (vaddr) : "memory");
 }
 
-void mmu_unmap_page(addrspace_t PML4, uintptr_t virtual_addr) {
-	uint64_t PML4i= ((uint64_t)virtual_addr >> 39) & 0x1FF;
-	uint64_t PDPi  = ((uint64_t)virtual_addr >> 30) & 0x1FF;
-	uint64_t PDi   = ((uint64_t)virtual_addr >> 21) & 0x1FF;
-	uint64_t PTi   = ((uint64_t)virtual_addr >> 12) & 0x1FF;
+static uint64_t *mmu_get_entry(addrspace_t PML4, uintptr_t vaddr) {uint64_t PML4i= ((uint64_t)vaddr >> 39) & 0x1FF;
+	uint64_t PDPi  = ((uint64_t)vaddr >> 30) & 0x1FF;
+	uint64_t PDi   = ((uint64_t)vaddr >> 21) & 0x1FF;
+	uint64_t PTi   = ((uint64_t)vaddr >> 12) & 0x1FF;
 
 	if (!(PML4[PML4i] & 1)) {
-		return;
+		return NULL;
 	}
 
 	uint64_t *PDP = (uint64_t *)((PML4[PML4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if (!(PDP[PDPi] & 1)) {
-		return;
+		return NULL;
 	}
 
 	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if (!(PD[PDi] & 1)) {
-		return;
+		return NULL;
 	}
 
 	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 	if (!(PT[PTi] & 1)) {
-		return;
+		return NULL;
 	}
 
-	PT[PTi] = 0;
+	return &PT[PTi];
+}
 
-	if (mmu_get_addr_space() == PML4)asm volatile("invlpg (%0)" ::"r" (virtual_addr) : "memory");
-
-	//if there are not more mapped entries in a table we can delete it
-	for (uint16_t i = 0; i < 512; i++) {
-		if (PT[i] & 1) {
-			return;
-		}
+long mmu_get_flags(addrspace_t PML4, uintptr_t vaddr) {
+	uint64_t *entry = mmu_get_entry(PML4, vaddr);
+	if (!entry) return 0;
+	if (*entry & PAGING_FLAG_PRESENT) {
+		return paging2mmu_flags(*entry);
+	} else {
+		return 0;
 	}
-	pmm_free_page((uintptr_t)PT - kernel->hhdm);
-	PD[PDi] = 0;
+}
 
-	for (uint16_t i = 0; i < 512; i++) {
-		if (PD[i] & 1) {
-			return;
-		}
-	}
-	pmm_free_page((uintptr_t)PD - kernel->hhdm);
-	PDP[PDPi] = 0;
+int mmu_set_flags(addrspace_t PML4, uintptr_t vaddr, long flags) {
+	uint64_t *entry = mmu_get_entry(PML4, vaddr);
+	if (!entry) return -EFAULT;
+	uint64_t paging_flags = mmu2paging_flags(flags);
+	*entry = (*entry & PAGING_ENTRY_ADDRESS) | paging_flags;
+	return 0;
+}
+
+void mmu_unmap_page(addrspace_t PML4, uintptr_t vaddr) {
+	uint64_t *entry = mmu_get_entry(PML4, vaddr);
+	if (!entry) return;
+	*entry = 0;
+
+	if (mmu_get_addr_space() == PML4) asm volatile("invlpg (%0)" ::"r" (vaddr) : "memory");
 }
 
 void mmu_map_kernel(uint64_t *PML4) {
