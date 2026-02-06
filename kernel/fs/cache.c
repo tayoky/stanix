@@ -211,9 +211,19 @@ int cache_flush(cache_t *cache, off_t offset, size_t size) {
 
 // mapping cache
 
-static void cache_vmm_close(vmm_seg_t *seg) {
-	(void)seg;
-	// TODO : read flags and mark the page as dirty/access
+static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
+	(void)flags;
+	// never sync private mappings
+	if (seg->flags & VMM_FLAG_PRIVATE) return 0;
+	
+	for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
+		uintptr_t page = mmu_virt2phys((void*)addr);
+		long mmu_flags = mmu_get_flags(get_current_proc()->vmm_space.addrspace, addr);
+		if (mmu_flags & MMU_FLAG_DIRTY) {
+			atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_DIRTY);
+		}
+	}
+	return 0;
 }
 
 static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
@@ -267,7 +277,7 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 }
 
 static vmm_ops_t cache_vmm_ops = {
-	.close = cache_vmm_close,
+	.msync = cache_vmm_msync,
 	.fault = cache_vmm_fault,
 };
 

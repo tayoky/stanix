@@ -202,6 +202,11 @@ static void vmm_raw_unmap(vmm_seg_t *seg) {
 
 	//kdebugf("unmap %p to %p\n", seg->start, seg->end);
 
+	// flush shared mappings so we don't lost changes
+	if ((seg->flags & VMM_FLAG_SHARED) && seg->ops && seg->ops->msync) {
+		seg->ops->msync(seg, seg->start, seg->end, 0);
+	}
+
 	if (seg->ops && seg->ops->close) {
 		seg->ops->close(seg);
 	}
