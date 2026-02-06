@@ -27,10 +27,7 @@ pid_t fork(void) {
 
 	kdebugf("forking child : %ld\n", child->pid);
 
-	foreach (node, &parent->vmm_seg) {
-		vmm_seg_t *seg = (vmm_seg_t *)node;
-		vmm_clone(parent, child, seg);
-	}
+	vmm_clone(&parent->vmm_space, &child->vmm_space);
 
 	// clone metadata
 	child->heap_end   = parent->heap_end;

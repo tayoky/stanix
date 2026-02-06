@@ -2,10 +2,11 @@
 #define _KERNEL_SCHEDULER_H
 
 #include <kernel/arch.h>
-#include <kernel/mmu.h>
+#include <kernel/spinlock.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
-#include <kernel/spinlock.h>
+#include <kernel/mmu.h>
+#include <kernel/vmm.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/signal.h>
@@ -63,7 +64,7 @@ typedef struct task {
 typedef struct process {
 	list_node_t proc_list_node;
 	list_node_t child_list_node;
-	addrspace_t addrspace;
+	vmm_space_t vmm_space;
 	pid_t pid;
 	struct process *parent;
 	file_descriptor fds[MAX_FD];
@@ -71,7 +72,6 @@ typedef struct process {
 	char *cwd_path;
 	uintptr_t heap_start;
 	uintptr_t heap_end;
-	list_t vmm_seg;
 	list_t child;
 	list_t threads;
 	pid_t group;

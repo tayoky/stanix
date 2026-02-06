@@ -11,6 +11,9 @@
 #include <stddef.h>
 #include <errno.h>
 
+
+static void vmm_unmap_all_space(vmm_space_t *space);
+
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	spinlock_acquire(&seg->lock);
 	uintptr_t vpage = PAGE_ALIGN_DOWN((uintptr_t)addr);
@@ -28,7 +31,7 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 		// it's CoW
 		if (atomic_load(&pmm_page_info(phys)->ref_count) <= 1) {
 			// other processes already copied
-			mmu_map_page(get_current_proc()->addrspace, phys, vpage, seg->prot);
+			mmu_map_page(get_current_proc()->vmm_space.addrspace, phys, vpage, seg->prot);
 		} else {
 			// we need to copy
 			uintptr_t new_page = pmm_dup_page(phys);
@@ -39,7 +42,7 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 				return 1;
 			}
 			pmm_free_page(phys);
-			mmu_map_page(get_current_proc()->addrspace, new_page, vpage, seg->prot);
+			mmu_map_page(get_current_proc()->vmm_space.addrspace, new_page, vpage, seg->prot);
 		}
 		spinlock_release(&seg->lock);
 		return 1;
@@ -49,24 +52,40 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 }
 
 int vmm_fault_report(uintptr_t addr, int prot) {
-	foreach(node, &get_current_proc()->vmm_seg) {
+	int interrupt_save;
+	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	foreach(node, &get_current_proc()->vmm_space.segs) {
 		vmm_seg_t *seg = (vmm_seg_t *)node;
 		if (seg->start > addr) break;
 		if (seg->end > addr) {
 			// we found a seg to report to
-			return vmm_handle_fault(seg, addr, prot);
+			int ret = vmm_handle_fault(seg, addr, prot);
+			rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+			return ret;
 		}
 	}
+	rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	return 0;
 }
 
-static vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size, long prot, int flags) {
+void vmm_init_space(vmm_space_t *space) {
+	memset(space, 0, sizeof(vmm_space_t));
+	space->addrspace = mmu_create_addr_space();
+}
+
+void vmm_destroy_space(vmm_space_t *space) {
+	vmm_unmap_all_space(space);
+	mmu_delete_addr_space(space->addrspace);
+	destroy_list(&space->segs);
+}
+
+static vmm_seg_t *vmm_create_seg(vmm_space_t *vmm_space, uintptr_t address, size_t size, long prot, int flags) {
 	vmm_seg_t *prev = NULL;
 	if (address) {
 		// we need to page align everything
 		uintptr_t end = PAGE_ALIGN_UP(address + size);
 		address = PAGE_ALIGN_DOWN(address);
-		foreach(node, &proc->vmm_seg) {
+		foreach(node, &vmm_space->segs) {
 			vmm_seg_t *current = (vmm_seg_t *)node;
 			if (current->start < end && current->end > address) {
 				// there is aready a seg here
@@ -82,7 +101,7 @@ static vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size
 		size = PAGE_ALIGN_UP(size);
 
 		// no address ? we need to find one ourself
-		foreach(node, &proc->vmm_seg) {
+		foreach(node, &vmm_space->segs) {
 			vmm_seg_t *current = (vmm_seg_t *)node;
 			vmm_seg_t *next = (vmm_seg_t *)node->next;
 			if (!next || next->start - current->end >= size) {
@@ -106,7 +125,7 @@ static vmm_seg_t *vmm_create_seg(process_t *proc, uintptr_t address, size_t size
 	new_seg->prot  = prot;
 	new_seg->flags = flags;
 
-	list_add_after(&proc->vmm_seg, prev ? &prev->node : NULL, &new_seg->node);
+	list_add_after(&vmm_space->segs, prev ? &prev->node : NULL, &new_seg->node);
 
 	return new_seg;
 }
@@ -115,7 +134,7 @@ int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, 
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
 
-	vmm_seg_t *new_seg = vmm_create_seg(get_current_proc(), address, size, prot, flags);
+	vmm_seg_t *new_seg = vmm_create_seg(&get_current_proc()->vmm_space, address, size, prot, flags);
 	if (!new_seg) return -EEXIST;
 
 	//kdebugf("map %p size : %lx\n", new_seg->start, size);
@@ -128,10 +147,10 @@ int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, 
 			if (flags & VMM_FLAG_SHARED) {
 				page = pmm_allocate_page();
 				memset((void *)(kernel->hhdm + page), 0, PAGE_SIZE);
-				mmu_map_page(get_current_proc()->addrspace, page, addr, prot);
+				mmu_map_page(get_current_proc()->vmm_space.addrspace, page, addr, prot);
 			} else {
 				page = pmm_get_zero_page();
-				mmu_map_page(get_current_proc()->addrspace, page, addr, prot & ~MMU_FLAG_WRITE);
+				mmu_map_page(get_current_proc()->vmm_space.addrspace, page, addr, prot & ~MMU_FLAG_WRITE);
 			}
 		}
 	} else if (fd) {
@@ -141,7 +160,7 @@ int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, 
 	}
 
 	if (ret < 0) {
-		list_remove(&get_current_proc()->vmm_seg, &new_seg->node);
+		list_remove(&get_current_proc()->vmm_space.segs, &new_seg->node);
 		kfree(new_seg);
 	} else {
 		if (seg) *seg = new_seg;
@@ -165,21 +184,21 @@ int vmm_chprot(vmm_seg_t *seg, long prot) {
 	seg->prot = prot;
 
 	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		uintptr_t phys = mmu_space_virt2phys(get_current_proc()->addrspace, (void *)addr);
+		uintptr_t phys = mmu_space_virt2phys(get_current_proc()->vmm_space.addrspace, (void *)addr);
 		if ((seg->flags & VMM_FLAG_PRIVATE) && pmm_page_info(phys)->ref_count > 1) {
 			// we are doing CoW
-			mmu_map_page(get_current_proc()->addrspace, phys, addr, prot & ~MMU_FLAG_WRITE);
+			mmu_map_page(get_current_proc()->vmm_space.addrspace, phys, addr, prot & ~MMU_FLAG_WRITE);
 		} else {
-			mmu_map_page(get_current_proc()->addrspace, phys, addr, prot);
+			mmu_map_page(get_current_proc()->vmm_space.addrspace, phys, addr, prot);
 		}
 	}
 	spinlock_release(&seg->lock);
 	return 0;
 }
 
-void vmm_unmap(vmm_seg_t *seg) {
+static void vmm_raw_unmap(vmm_seg_t *seg) {
 	spinlock_acquire(&seg->lock);
-	list_remove(&get_current_proc()->vmm_seg, &seg->node);
+	list_remove(&get_current_proc()->vmm_space.segs, &seg->node);
 
 	//kdebugf("unmap %p to %p\n", seg->start, seg->end);
 
@@ -200,14 +219,24 @@ void vmm_unmap(vmm_seg_t *seg) {
 	}
 
 	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		mmu_unmap_page(get_current_proc()->addrspace, addr);
+		mmu_unmap_page(get_current_proc()->vmm_space.addrspace, addr);
 	}
 
 	kfree(seg);
 }
 
+
+void vmm_unmap(vmm_seg_t *seg) {
+	int interrupt_save;
+	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	vmm_raw_unmap(seg);
+	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+}
+
 int vmm_unmap_range(uintptr_t start, uintptr_t end) {
-	vmm_seg_t *seg = (vmm_seg_t *)get_current_proc()->vmm_seg.first_node;
+	int interrupt_save;
+	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	vmm_seg_t *seg = (vmm_seg_t *)get_current_proc()->vmm_space.segs.first_node;
 	for (vmm_seg_t *next; seg; seg = next) {
 		next = (vmm_seg_t *)seg->node.next;
 
@@ -223,9 +252,26 @@ int vmm_unmap_range(uintptr_t start, uintptr_t end) {
 		if (end < seg->end) {
 			vmm_split(seg, end, NULL);
 		}
-		vmm_unmap(seg);
+		vmm_raw_unmap(seg);
 	}
+	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	return 0;
+}
+
+static void vmm_unmap_all_space(vmm_space_t *space) {
+	vmm_seg_t *current = (vmm_seg_t*)space->segs.first_node;
+	while (current) {
+		vmm_seg_t *next = (vmm_seg_t*)current->node.next;
+		vmm_raw_unmap(current);
+		current = next;
+	}
+}
+
+void vmm_unmap_all(void) {
+	int interrupt_save;
+	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	vmm_unmap_all_space(&get_current_proc()->vmm_space);
+	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
 }
 
 int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
@@ -263,13 +309,13 @@ int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
 		seg->ops->open(new_seg);
 	}
 
-	list_add_after(&get_current_proc()->vmm_seg, &seg->node, &new_seg->node);
+	list_add_after(&get_current_proc()->vmm_space.segs, &seg->node, &new_seg->node);
 
 	if (out_seg) *out_seg = new_seg;
 	return 0;
 }
 
-void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg) {
+static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg) {
 	vmm_seg_t *new_seg = kmalloc(sizeof(vmm_seg_t));
 	memset(new_seg, 0, sizeof(vmm_seg_t));
 	new_seg->prot         = seg->prot;
@@ -303,12 +349,21 @@ void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg) {
 	}
 
 	vmm_seg_t *prev = NULL;
-	foreach(node, &child->vmm_seg) {
+	foreach(node, &child->segs) {
 		vmm_seg_t *current = (vmm_seg_t *)node;
 		if (current->start > seg->end) {
 			break;
 		}
 		prev = current;
 	}
-	list_add_after(&child->vmm_seg, prev ? &prev->node : NULL, &new_seg->node);
+	list_add_after(&child->segs, prev ? &prev->node : NULL, &new_seg->node);
+}
+
+
+int vmm_clone(vmm_space_t *parent, vmm_space_t *child) {
+	foreach (node, &parent->segs) {
+		vmm_seg_t *seg = (vmm_seg_t *)node;
+		vmm_clone_seg(parent, child, seg);
+	}
+	return 0;
 }

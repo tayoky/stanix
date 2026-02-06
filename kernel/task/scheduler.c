@@ -44,12 +44,11 @@ void init_task() {
 	boot_task->parent = boot_task;
 	boot_task->pid = 0;
 	init_list(&boot_task->child);
-	init_list(&boot_task->vmm_seg);
 	init_list(&boot_task->threads);
 	boot_task->umask = 022;
 
 	// get the address space
-	boot_task->addrspace = mmu_get_addr_space();
+	boot_task->vmm_space.addrspace = mmu_get_addr_space();
 
 	boot_task->main_thread = new_task(boot_task, NULL, NULL);
 	boot_task->main_thread->status = TASK_STATUS_RUNNING;
@@ -193,11 +192,10 @@ process_t *new_proc(void (*func)(void *arg), void *arg){
 	//init the new proc
 	process_t *proc = kmalloc(sizeof(process_t));
 	memset(proc, 0, sizeof(process_t));
-
-	proc->addrspace = mmu_create_addr_space();
+	
 	proc->parent  = get_current_proc();
+	vmm_init_space(&proc->vmm_space);
 	init_list(&proc->child);
-	init_list(&proc->vmm_seg);
 	init_list(&proc->threads);
 	proc->uid     = get_current_proc()->uid;
 	proc->uid     = get_current_proc()->uid;
@@ -264,8 +262,8 @@ void yield(int preempt) {
 	atomic_store(&new->run_queue, get_run_queue());
 	kernel->current_task = new;
 
-	if (old->process->addrspace != new->process->addrspace) {
-		mmu_set_addr_space(new->process->addrspace);
+	if (old->process->vmm_space.addrspace != new->process->vmm_space.addrspace) {
+		mmu_set_addr_space(new->process->vmm_space.addrspace);
 	}
 
 	if (new != old) {
@@ -325,15 +323,8 @@ static void do_proc_deletion(void) {
 	// close cwd
 	vfs_close_node(get_current_proc()->cwd_node);
 	kfree(get_current_proc()->cwd_path);
-
-	// unmap everything
-	vmm_seg_t *current = (vmm_seg_t*)get_current_proc()->vmm_seg.first_node;
-	while (current) {
-		vmm_seg_t *next = (vmm_seg_t*)current->node.next;
-		vmm_unmap(current);
-		current = next;
-	}
-	destroy_list(&get_current_proc()->vmm_seg);
+	
+	vmm_unmap_all();
 
 	destroy_list(&get_current_proc()->threads);
 }
@@ -467,7 +458,7 @@ void final_proc_cleanup(process_t *proc) {
 	final_task_cleanup(proc->main_thread);
 
 	// now we can free the paging tables
-	mmu_delete_addr_space(proc->addrspace);
+	vmm_destroy_space(&proc->vmm_space);
 	kfree(proc);
 }
 

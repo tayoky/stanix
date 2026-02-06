@@ -1041,7 +1041,7 @@ int sys_munmap(void *addr, size_t len) {
 int sys_mprotect(void *addr, size_t length, int prot) {
 	long mmu_flags = prot2mmu(prot);
 	if (prot & PROT_READ)
-	foreach(node, &get_current_proc()->vmm_seg) {
+	foreach(node, &get_current_proc()->vmm_space.segs) {
 		vmm_seg_t *seg = (vmm_seg_t*)node;
 		if (seg->start >= (uintptr_t)addr && seg->end <= (uintptr_t)addr + length) {
 			vmm_chprot(seg, mmu_flags);
@@ -1051,7 +1051,7 @@ int sys_mprotect(void *addr, size_t length, int prot) {
 }
 
 int sys_msync(void *addr, size_t length, int flags) {
-	foreach(node, &get_current_proc()->vmm_seg) {
+	foreach(node, &get_current_proc()->vmm_space.segs) {
 		vmm_seg_t *seg = (vmm_seg_t*)node;
 		if ((uintptr_t)addr < seg->end && (uintptr_t)addr + length > seg->start) {
 			int ret = vmm_sync(seg, (uintptr_t)addr, (uintptr_t)addr + length, flags);

@@ -261,7 +261,7 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 		pmm_retain(page);
 	}
 
-	mmu_map_page(get_current_proc()->addrspace, page, vpage, mapping_prot);
+	mmu_map_page(get_current_proc()->vmm_space.addrspace, page, vpage, mapping_prot);
 	rwlock_release_read(&cache->lock, &interrupt_save);
 	return 1;
 }
@@ -294,7 +294,7 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
 		pmm_retain(page);
-		mmu_map_page(get_current_proc()->addrspace, page, vaddr, prot);
+		mmu_map_page(get_current_proc()->vmm_space.addrspace, page, vaddr, prot);
 		vaddr += PAGE_SIZE;
 	}
 	rwlock_release_read(&cache->lock, &interrupt_save);

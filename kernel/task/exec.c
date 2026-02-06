@@ -89,13 +89,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	}
 	saved_envp[envc] = NULL; // last NULL entry at the end
 
-	//unmap everything;
-	vmm_seg_t *current = (vmm_seg_t*)get_current_proc()->vmm_seg.first_node;
-	while (current) {
-		vmm_seg_t *next = (vmm_seg_t*)current->node.next;
-		vmm_unmap(current);
-		current = next;
-	}
+	vmm_unmap_all();
 
 	//cose fd with CLOEXEC flags
 	for (size_t i = 0; i < MAX_FD; i++) {

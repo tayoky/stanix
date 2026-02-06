@@ -1,8 +1,8 @@
 #ifndef _KERNEL_VMM_H
 #define _KERNEL_VMM_H
 
-#include <kernel/scheduler.h>
 #include <kernel/spinlock.h>
+#include <kernel/rwlock.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <stdint.h>
@@ -10,6 +10,7 @@
 
 struct vfs_fd;
 struct vmm_seg;
+struct process;
 
 typedef struct vmm_ops {
 	void (*open)(struct vmm_seg *seg);
@@ -39,6 +40,12 @@ typedef struct vmm_seg {
 #define VMM_FLAG_IO        0x08
 #define VMM_SIZE(seg) (seg->end - seg->start)
 
+typedef struct vmm_space {
+	addrspace_t addrspace;
+	list_t segs;
+	rwlock_t lock;
+} vmm_space_t;
+
 /**
  * @brief report a seg fault to vmm_seg
  * @param addr the faulting address
@@ -47,18 +54,30 @@ typedef struct vmm_seg {
  */
 int vmm_fault_report(uintptr_t addr, int prot);
 
+
+/**
+ * @brief initalize a new vmm address space
+ * @param space the address space to initalize
+ */
+void vmm_init_space(vmm_space_t *space);
+
+/**
+ * @brief destroy a vmm address space
+ * @param space the address space to destroy
+ */
+void vmm_destroy_space(vmm_space_t *space);
+
 /**
  * @brief mmap memory and create a segment for it
  */
-int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg);
+int vmm_map(uintptr_t address, size_t size, long prot, int flags, struct vfs_fd *fd, off_t offset, vmm_seg_t **seg);
 
 /**
- * @brief clone a segment from the parent to the child
- * @param parent the parent to clone the segment from
- * @param child the child to clone the segment to
- * @param seg the segment to clone
+ * @brief clone a vmm address space from the parent to the child
+ * @param parent the parent address space to clone from
+ * @param child the child address space to clone to
  */
-void vmm_clone(process_t *parent, process_t *child, vmm_seg_t *seg);
+int vmm_clone(vmm_space_t *parent, vmm_space_t *child);
 
 /**
  * @brief unmap a segment
@@ -73,6 +92,11 @@ void vmm_unmap(vmm_seg_t *seg);
  * @return 0 on success or error code on failure
  */
 int vmm_unmap_range(uintptr_t start, uintptr_t end);
+
+/**
+ * @brief unmap all segments
+ */
+void vmm_unmap_all(void);
 
 /**
  * @brief change the protections flags of a segment
