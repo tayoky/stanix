@@ -226,7 +226,6 @@ static void vmm_raw_unmap(vmm_seg_t *seg) {
 	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
 		mmu_unmap_page(get_current_proc()->vmm_space.addrspace, addr);
 	}
-
 	kfree(seg);
 }
 
@@ -249,7 +248,10 @@ int vmm_unmap_range(uintptr_t start, uintptr_t end) {
 		if (seg->start >= end) break;
 		if (start > seg->start) {
 			int ret = vmm_split(seg, start, NULL);
-			if (ret > 0) return ret;
+			if (ret > 0) {
+				rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+				return ret;
+			}
 
 			// on the next iteration we will land on the newly created segment
 			continue;

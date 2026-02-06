@@ -36,16 +36,16 @@ void list_add_after(list_t *list, list_node_t *ref, list_node_t *node) {
 	if (ref) {
 		node->prev = ref;
 		node->next = ref->next;
-		ref->next = node;
 		if (ref->next) {
 			ref->next->prev = node;
 		} else {
 			list->last_node = node;
 		}
+		ref->next = node;
 	} else {
-		node->prev = list->first_node;
+		node->next = list->first_node;
 		if (list->first_node) {
-			list->first_node->next = node;
+			list->first_node->prev = node;
 		} else {
 			list->last_node = node;
 		}
