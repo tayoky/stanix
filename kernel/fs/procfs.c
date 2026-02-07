@@ -190,7 +190,7 @@ static int proc_root_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *d
 	index -=3;
 	foreach(node, &proc_list) {
 		if (!index) {
-			process_t *proc = container_from_node(process_t*, proc_list_node, node);
+			process_t *proc = container_of(node, process_t, proc_list_node);
 			sprintf(dirent->d_name, "%d", proc->pid);
 			return 0;
 		}

@@ -17,7 +17,7 @@ int sleep_until(struct timeval wakeup_time) {
 	spinlock_acquire(&sleep_lock);
 	task_t *prev = NULL;
 	foreach (node, &sleeping_tasks) {
-		task_t *task = container_from_node(task_t*, waiter_list_node, node);
+		task_t *task = container_of(node, task_t, waiter_list_node);
 		if (!task || task->wakeup_time.tv_sec > wakeup_time.tv_usec || (task->wakeup_time.tv_sec == wakeup_time.tv_sec && task->wakeup_time.tv_usec > wakeup_time.tv_usec)) {
 			break;
 		}
@@ -81,7 +81,7 @@ void wakeup_queue(sleep_queue_t *queue, size_t count) {
 
 	list_node_t *current = queue->waiters.first_node;
 	while (current) {
-		task_t *task = container_from_node(task_t*, waiter_list_node, current);
+		task_t *task = container_of(current, task_t, waiter_list_node);
 		current = current->next;
 		list_remove(&queue->waiters, &task->waiter_list_node);
 		unblock_task(task);

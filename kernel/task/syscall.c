@@ -579,7 +579,7 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 		threads = kmalloc(sizeof(task_t *) * threads_count);
 		size_t i = 0;
 		foreach(node, &get_current_proc()->child) {
-			threads[i++] = container_from_node(process_t*, child_list_node, node)->main_thread;
+			threads[i++] = container_of(node, process_t, child_list_node)->main_thread;
 		}
 	} else {
 		//wait for pid

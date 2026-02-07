@@ -89,7 +89,7 @@ static void run_queue_push_task(run_queue_t *run_queue, task_t *task) {
 
 static task_t *run_queue_pop_task(run_queue_t *run_queue) {
 	if (!run_queue->tasks.first_node) return NULL;
-	task_t *task = container_from_node(task_t*, run_list_node, run_queue->tasks.first_node);
+	task_t *task = container_of(run_queue->tasks.first_node, task_t, run_list_node);
 	list_remove(&run_queue->tasks, &task->run_list_node);
 	return task;
 }
@@ -125,7 +125,7 @@ static task_t *schedule() {
 	// see if we can wakeup anything
 	spinlock_acquire(&sleep_lock);
 	foreach (node, &sleeping_tasks) {
-		task_t *thread = container_from_node(task_t*, waiter_list_node, node);
+		task_t *thread = container_of(node, task_t, waiter_list_node);
 		if (thread->wakeup_time.tv_sec > time.tv_sec || (thread->wakeup_time.tv_sec == time.tv_sec && thread->wakeup_time.tv_usec > time.tv_usec)) {
 			break;
 		}
@@ -306,7 +306,7 @@ static void do_proc_deletion(void) {
 	// all the childreen become orphelan
 	// the parent of orphelan is init
 	foreach (node, &get_current_proc()->child) {
-		process_t *child = container_from_node(process_t*, child_list_node, node);
+		process_t *child = container_of(node, process_t, child_list_node);
 
 		// we prevent the child from diying between when we set the parent and when we signal
 		// wich could lead to a race condition
@@ -374,7 +374,7 @@ process_t *pid2proc(pid_t pid) {
 	}
 
 	foreach (node, &proc_list) {
-		process_t *proc = container_from_node(process_t*, proc_list_node, node);
+		process_t *proc = container_of(node, process_t, proc_list_node);
 		if (proc->pid == pid) {
 			return proc;
 		}
@@ -390,7 +390,7 @@ task_t *tid2task(pid_t tid) {
 	}
 
 	foreach (node, &task_list) {
-		task_t *thread = container_from_node(task_t*, task_list_node, node);
+		task_t *thread = container_of(node, task_t, task_list_node);
 		if (thread->tid == tid) {
 			return thread;
 		}

@@ -1,7 +1,8 @@
-#ifndef LIST_H
-#define LIST_H
+#ifndef _KERNEL_LIST_H
+#define _KERNEL_LIST_H
 
 #include <kernel/spinlock.h>
+#include <kernel/macro.h>
 #include <sys/type.h>
 
 typedef struct list_node {
@@ -23,6 +24,5 @@ void list_remove(list_t *list, list_node_t *node);
 void list_add_after(list_t *list, list_node_t *ref, list_node_t *node);
 
 #define foreach(var,l) for(list_node_t * var = (l)->first_node ; var ; var = var ->next)
-#define container_from_node(type,member,node) ((type)(((char*)node) - (size_t)&((type)NULL)->member))
 
 #endif
