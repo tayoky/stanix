@@ -106,8 +106,8 @@ void kmain() {
 	init_second_stage_pmm();
 	init_kheap();
 	init_vfs();
-	mount_initrd();
 	init_tmpfs();
+	mount_initrd();
 	init_devices();
 	init_mem_devices();
 	init_liminefb();

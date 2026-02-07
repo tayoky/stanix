@@ -15,12 +15,18 @@
 //TODO : make this process specific
 vfs_node_t *root;
 
-list_t fs_types;
+static list_t fs_types;
+static list_t superblocks;
 
 void init_vfs(void) {
 	kstatusf("init vfs... ");
-	root = NULL;
+	root = kmalloc(sizeof(vfs_node_t));
+	memset(root, 0, sizeof(vfs_node_t));
+	root->flags = VFS_DIR;
+	root->ref_count = 1;
+
 	init_list(&fs_types);
+	init_list(&superblocks);
 	kok();
 }
 
@@ -47,54 +53,74 @@ static const char *vfs_basename(const char *path) {
 	return base;
 }
 
+static void vfs_destroy_superblock(vfs_superblock_t *superblock) {
+	if (!superblock) return;
+	if (superblock->ops && superblock->ops->destroy) {
+		superblock->ops->destroy(superblock);
+	} else {
+		vfs_close_node(superblock->root);
+		kfree(superblock);
+	}
+}
+
 int vfs_auto_mount(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data) {
+	vfs_superblock_t *superblock = NULL;
 	foreach(node, &fs_types) {
 		vfs_filesystem_t *fs = (vfs_filesystem_t *)node;
 		if (!strcmp(fs->name, filesystemtype)) {
 			if (!fs->mount) {
 				return -ENODEV;
 			}
-			return fs->mount(source, target, mountflags, data);
+			int ret = fs->mount(source, target, mountflags, data, &superblock);
+			if (ret < 0) return ret;
+			if (!superblock) return ret;
+
+			// mount the superblock
+			ret = vfs_mount(target, superblock);
+			superblock->root->superblock = superblock;
+			if (ret < 0) {
+				vfs_destroy_superblock(superblock);
+			}
+			return ret;
 		}
 	}
 
 	return -ENODEV;
 }
 
-int vfs_mount_on(vfs_node_t *mount_point, vfs_node_t *local_root) {
-	//something is aready mounted ?
+int vfs_mount_on(vfs_node_t *mount_point, vfs_superblock_t *superblock) {
+	// something is aready mounted ?
 	if (mount_point->flags & VFS_MOUNT) {
 		return -EBUSY;
 	}
 
-	mount_point->linked_node = local_root;
+	mount_point->linked_node = superblock->root;
 
-	//make a new ref to the local root and mount point to prevent it from being close
-	local_root->ref_count++;
+	// make a new ref to the mount point to prevent it from being close
 	mount_point->ref_count++;
 
 	mount_point->flags |= VFS_MOUNT;
 
-	local_root->parent = mount_point->parent;
+	superblock->root->parent = mount_point->parent;
 	return 0;
 }
 
-int vfs_mountat(vfs_node_t *at, const char *name, vfs_node_t *local_root) {
-	//first open the mount point or create it
+int vfs_mountat(vfs_node_t *at, const char *name, vfs_superblock_t *superblock) {
+	// first open the mount point
 	vfs_node_t *mount_point = vfs_get_node_at(at, name, O_RDWR);
 	if (!mount_point) {
 		return -ENOENT;
 	}
 
-	int ret = vfs_mount_on(mount_point, local_root);
+	int ret = vfs_mount_on(mount_point, superblock);
 
 	vfs_close_node(mount_point);
 
 	return ret;
 }
 
-int vfs_mount(const char *name, vfs_node_t *local_root) {
-	return vfs_mountat(NULL, name, local_root);
+int vfs_mount(const char *name, vfs_superblock_t *superblock) {
+	return vfs_mountat(NULL, name, superblock);
 }
 
 int vfs_unmount(const char *path) {
@@ -116,14 +142,14 @@ int vfs_unmountat(vfs_node_t *at, const char *path) {
 	vfs_node_t *mount_point = vfs_lookup(parent, child);
 	vfs_close_node(parent);
 	if (!(mount_point->flags & VFS_MOUNT)) {
-		//not even a mount point
+		// not even a mount point
 		return -EINVAL;
 	}
-	vfs_node_t *local_root = mount_point->linked_node;
+
+	vfs_destroy_superblock(mount_point->linked_node->superblock);
 
 	mount_point->flags  &= ~VFS_MOUNT;
 
-	vfs_close_node(local_root);
 	vfs_close_node(mount_point);
 	return 0;
 }
@@ -243,6 +269,7 @@ vfs_node_t *vfs_lookup(vfs_node_t *node, const char *name) {
 
 		// link it in the directories cache
 		child->parent = node;
+		child->superblock = node->superblock;
 		list_append(&node->children, &child->node);
 		strcpy(child->name, name);
 		return child;
@@ -537,6 +564,13 @@ vfs_node_t *vfs_get_node_at(vfs_node_t *at, const char *path, long flags) {
 
 	vfs_node_t *current_node = vfs_dup_node(at);
 	int loop_max = SYMLOOP_MAX;
+
+	
+	if (current_node->flags & VFS_MOUNT) {
+		vfs_node_t *mount_point = current_node;
+		current_node = vfs_dup_node(current_node->linked_node);
+		vfs_close_node(mount_point);
+	}
 
 	for (int i = 0; i < path_depth; i++) {
 		if (!current_node)return NULL;

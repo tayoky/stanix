@@ -22,7 +22,7 @@ void mount_initrd(void){
 	kstatusf("unpack initrd ...");
 	
 	//create an tmpfs for it
-	if(vfs_chroot(new_tmpfs())){
+	if (vfs_auto_mount(NULL, "/", "tmpfs", 0, NULL) < 0) {
 		kfail();
 		halt();
 	}

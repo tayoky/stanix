@@ -28,16 +28,16 @@
 #define VFS_SOCK  0x100
 
 struct vfs_node;
-struct vfs_mount_point;
 struct vmm_seg;
 struct vfs_ops;
+struct superblock;
 
 typedef struct vfs_node {
 	list_node_t node;
 	void *private_inode;
 	void *private_inode2;
 	struct vfs_node *parent;
-	struct vfs_mount_point_struct *mount_point;
+	struct vfs_superblock *superblock;
 	struct vfs_ops *ops;
 	struct vfs_node *linked_node; // used for mount point
 	long flags;
@@ -66,42 +66,46 @@ typedef struct vfs_fd {
  */
 typedef struct vfs_ops {
 	// inode operations
-	vfs_node_t*(* lookup)(vfs_node_t*,const char *name);
-	int (* create)(vfs_node_t*,const char *name,mode_t perm,long,void*);
-	int (* unlink)(vfs_node_t*,const char *);
-	int (* link)(vfs_node_t*,const char*,vfs_node_t*,const char*);
-	int (* symlink)(vfs_node_t*,const char*,const char*);
-	ssize_t (*readlink)(vfs_node_t*,char*,size_t);
-	int (* setattr)(vfs_node_t *,struct stat *);
-	int (* getattr)(vfs_node_t*,struct stat *);
-	int (* truncate)(vfs_node_t*,size_t);
-	void (* cleanup)(vfs_node_t*);
-	
+	vfs_node_t *(*lookup)(vfs_node_t *, const char *name);
+	int (*create)(vfs_node_t *, const char *name, mode_t perm, long, void *);
+	int (*unlink)(vfs_node_t *, const char *);
+	int (*link)(vfs_node_t *, const char *, vfs_node_t *, const char *);
+	int (*symlink)(vfs_node_t *, const char *, const char *);
+	ssize_t(*readlink)(vfs_node_t *, char *, size_t);
+	int (*setattr)(vfs_node_t *, struct stat *);
+	int (*getattr)(vfs_node_t *, struct stat *);
+	int (*truncate)(vfs_node_t *, size_t);
+	void (*cleanup)(vfs_node_t *);
+
 	// fd operations
-	int (* open)(vfs_fd_t*);
-	int (* readdir)(vfs_fd_t*,unsigned long index,struct dirent*);
-	ssize_t (* read)(vfs_fd_t*,void *buf,off_t off,size_t count);
-	ssize_t (* write)(vfs_fd_t*,const void *buf,off_t off,size_t count);
-	int (* ioctl)(vfs_fd_t*,long,void*);
-	int (* wait_check)(vfs_fd_t *,short);
-	int (* wait)(vfs_fd_t *,short);
-	int (* mmap)(vfs_fd_t *,off_t,struct vmm_seg *);
-	void (* close)(vfs_fd_t*);
+	int (*open)(vfs_fd_t *);
+	int (*readdir)(vfs_fd_t *, unsigned long index, struct dirent *);
+	ssize_t(*read)(vfs_fd_t *, void *buf, off_t off, size_t count);
+	ssize_t(*write)(vfs_fd_t *, const void *buf, off_t off, size_t count);
+	int (*ioctl)(vfs_fd_t *, long, void *);
+	int (*wait_check)(vfs_fd_t *, short);
+	int (*wait)(vfs_fd_t *, short);
+	int (*mmap)(vfs_fd_t *, off_t, struct vmm_seg *);
+	void (*close)(vfs_fd_t *);
 } vfs_ops_t;
 
+typedef struct vfs_superblock_ops {
+	void (*destroy)(struct vfs_superblock *superblock);
+} vfs_superblock_ops_t;
 
-typedef struct vfs_mount_point_struct{
-	char name[PATH_MAX];
-	struct vfs_mount_point_struct *prev;
-	struct vfs_mount_point_struct *next;
+typedef struct vfs_superblock {
+	list_node_t node;
+	list_t nodes;
 	vfs_node_t *root;
+	vfs_superblock_ops_t *ops;
 	long flags;
-} vfs_mount_point;
+	char name[PATH_MAX];
+} vfs_superblock_t;
 
 typedef struct vfs_filesystem_struct {
 	list_node_t node;
 	char name[16];
-	int (*mount)(const char *source,const char *target,unsigned long flags,const void *data);
+	int (*mount)(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **mount_point);
 } vfs_filesystem_t;
 
 void init_vfs(void);
@@ -114,24 +118,24 @@ void init_vfs(void);
  * @param local_root the vfs_node_t to mount
  * @return 0 on success else error code
  */
-int vfs_mount(const char *path,vfs_node_t *local_root);
+int vfs_mount(const char *path, vfs_superblock_t *superblock);
 
 
-int vfs_mount_on(vfs_node_t *mount_point, vfs_node_t *local_root);
-int vfs_mountat(vfs_node_t *at,const char *name,vfs_node_t *local_root);
+int vfs_mount_on(vfs_node_t *mount_point, vfs_superblock_t *superblock);
+int vfs_mountat(vfs_node_t *at, const char *name, vfs_superblock_t *superblock);
 
 int vfs_chroot(vfs_node_t *new_root);
 
 
-vfs_node_t *vfs_lookup(vfs_node_t *node,const char *name);
-ssize_t vfs_read(vfs_fd_t *node,void *buffer,uint64_t offset,size_t count);
-ssize_t vfs_write(vfs_fd_t *node,const void *buffer,uint64_t offset,size_t count);
-int vfs_create(const char *path,int perm,long flags);
-int vfs_createat(vfs_node_t *at,const char *path,int perm,long flags);
-int vfs_create_ext(const char *path,int perm,long flags,void *arg);
-int vfs_createat_ext(vfs_node_t *at,const char *path,int perm,long flags,void *arg);
+vfs_node_t *vfs_lookup(vfs_node_t *node, const char *name);
+ssize_t vfs_read(vfs_fd_t *node, void *buffer, uint64_t offset, size_t count);
+ssize_t vfs_write(vfs_fd_t *node, const void *buffer, uint64_t offset, size_t count);
+int vfs_create(const char *path, int perm, long flags);
+int vfs_createat(vfs_node_t *at, const char *path, int perm, long flags);
+int vfs_create_ext(const char *path, int perm, long flags, void *arg);
+int vfs_createat_ext(vfs_node_t *at, const char *path, int perm, long flags, void *arg);
 
-static inline int vfs_mkdir(const char *path, mode_t perm){
+static inline int vfs_mkdir(const char *path, mode_t perm) {
 	return vfs_create(path, perm, VFS_DIR);
 }
 
@@ -142,12 +146,12 @@ static inline int vfs_mkdir(const char *path, mode_t perm){
  */
 int vfs_unlink(const char *path);
 
-int vfs_link(const char *src,const char *dest);
+int vfs_link(const char *src, const char *dest);
 
 int vfs_symlink(const char *target, const char *linkpath);
-ssize_t vfs_readlink(vfs_node_t *node,char *buf,size_t bufsiz);
-int vfs_getattr(vfs_node_t *node,struct stat *st);
-int vfs_setattr(vfs_node_t *node,struct stat *st);
+ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
+int vfs_getattr(vfs_node_t *node, struct stat *st);
+int vfs_setattr(vfs_node_t *node, struct stat *st);
 
 int vfs_unmount(const char *path);
 int vfs_unmountat(vfs_node_t *at, const char *path);
@@ -168,7 +172,7 @@ void vfs_close_node(vfs_node_t *node);
 // fds operations
 /**
  * @brief open a context for a given path relative to at
- * @param at 
+ * @param at
  * @param path the path (even if this absolute it will be interptreted as relative)
  * @param flags open flags (VFS_READONLY,...)
  * @return an pointer to the vfs_node_t context or NULL if an error happend
@@ -177,7 +181,7 @@ vfs_fd_t *vfs_openat(vfs_node_t *at, const char *path, long flags);
 
 /**
  * @brief open a context for a given path (absolute)
- * @param path 
+ * @param path
  * @param flags open flags (VFS_READONLY,...)
  * @return an pointer to the vfs_node_t or NULL if fail
  */
@@ -199,7 +203,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags);
 void vfs_close(vfs_fd_t *fd);
 
 
-int vfs_readdir(vfs_fd_t *fd,unsigned long index,struct dirent *dirent);
+int vfs_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent);
 
 /**
  * @brief duplicate a file descriptor
@@ -219,9 +223,9 @@ static inline vfs_fd_t *vfs_dup(vfs_fd_t *fd) {
  * @param size the new size
  * @return 0 on success else error code
  */
-static inline int vfs_truncate(vfs_node_t *node, size_t size){
+static inline int vfs_truncate(vfs_node_t *node, size_t size) {
 	if (!node || !node->ops->truncate) return -EBADF;
-	if(node->flags & VFS_DIR){
+	if (node->flags & VFS_DIR) {
 		return -EISDIR;
 	}
 	return node->ops->truncate(node, size);
@@ -233,7 +237,7 @@ static inline int vfs_truncate(vfs_node_t *node, size_t size){
  * @param perm new permission
  * @return 0 on succes else error code
  */
-int vfs_chmod(vfs_node_t *node,mode_t perm);
+int vfs_chmod(vfs_node_t *node, mode_t perm);
 
 /**
  * @brief change owner of a file/dir
@@ -242,16 +246,16 @@ int vfs_chmod(vfs_node_t *node,mode_t perm);
  * @param group_owner gid of new group_owner
  * @return 0 on succes else error code
  */
-int vfs_chown(vfs_node_t *node,uid_t owner,gid_t group_owner);
+int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner);
 
-/** 
+/**
  * @brief device specific operation
  * @param node the context of the file/dev
  * @param request the id of the request
  * @param arg device/request specific
  * @return device/request specific
  */
-int vfs_ioctl(vfs_fd_t *fd, long request, void *arg); 
+int vfs_ioctl(vfs_fd_t *fd, long request, void *arg);
 
 /**
  * @brief check if a vfs_node_t is ready for write/read
@@ -259,7 +263,7 @@ int vfs_ioctl(vfs_fd_t *fd, long request, void *arg);
  * @param type the type to check (read and/or write)
  * @return 1 if is ready or 0 if not
  */
-int vfs_wait_check(vfs_fd_t *node,short type);
+int vfs_wait_check(vfs_fd_t *node, short type);
 
 /**
  * @brief wait on a file for read/write
@@ -269,7 +273,7 @@ int vfs_wait_check(vfs_fd_t *node,short type);
  * @note vfs_wait don't block the wait start only after calling block_task()
  * @note this is unimplemented
  */
-int vfs_wait(vfs_fd_t *node,short type);
+int vfs_wait(vfs_fd_t *node, short type);
 
 static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
 	if (!fd || !fd->ops->mmap) return -EBADF;
@@ -278,7 +282,7 @@ static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
 
 void vfs_register_fs(vfs_filesystem_t *fs);
 void vfs_unregister_fs(vfs_filesystem_t *fs);
-int vfs_auto_mount(const char *source,const char *target,const char *filesystemtype,unsigned long mountflags,const void *data);
+int vfs_auto_mount(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data);
 
 int vfs_perm(vfs_node_t *node);
 int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid);

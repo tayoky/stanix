@@ -11,7 +11,7 @@
 #include <limits.h>
 
 void init_tmpfs();
-vfs_node_t *new_tmpfs();
+vfs_superblock_t *new_tmpfs(void);
 
 struct tmpfs_inode;
 

@@ -204,17 +204,24 @@ static vfs_ops_t proc_root_ops = {
 	.lookup  = proc_root_lookup,
 };
 
-int proc_mount(const char *source, const char *target, unsigned long flags, const void *data) {
+int proc_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)data;
 	(void)source;
 	(void)flags;
-
+    (void)target;
+	
 	vfs_node_t *node = kmalloc(sizeof(vfs_node_t));
 	memset(node, 0, sizeof(vfs_node_t));
-	node->flags   = VFS_DIR;
-	node->ops     = &proc_root_ops;
-
-	return vfs_mount(target, node);
+	node->flags     = VFS_DIR;
+	node->ops       = &proc_root_ops;
+	node->ref_count = 1;
+	
+	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
+	memset(superblock, 0, sizeof(vfs_superblock_t));
+	superblock->root = node;
+	
+    *superblock_out = superblock;
+	return 0;
 }
 
 vfs_filesystem_t proc_fs = {

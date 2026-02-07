@@ -65,12 +65,14 @@ static void free_inode(tmpfs_inode_t *inode) {
 }
 
 
-static int tmpfs_mount(const char *source, const char *target, unsigned long flags, const void *data) {
+static int tmpfs_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)data;
 	(void)source;
 	(void)flags;
+	(void)target;
 
-	return vfs_mount(target, new_tmpfs());
+	*superblock_out = new_tmpfs();
+	return 0;
 }
 
 static vfs_filesystem_t tmpfs = {
@@ -84,10 +86,15 @@ void init_tmpfs() {
 	kok();
 }
 
-vfs_node_t *new_tmpfs() {
+vfs_superblock_t *new_tmpfs(void) {
+	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
+	memset(superblock, 0, sizeof(vfs_superblock_t));
+
 	tmpfs_inode_t *root_inode = new_inode(TMPFS_TYPE_DIR);
-	root_inode->link_count = 0; //so it get freed when the tmpfs is unmounted
-	return inode2node(root_inode);
+	root_inode->link_count = 0; // so it get freed when the tmpfs is unmounted
+	superblock->root = inode2node(root_inode);
+	superblock->root->ref_count = 1;
+	return superblock;
 }
 
 
