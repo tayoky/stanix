@@ -425,6 +425,9 @@ static vfs_node_t *inode2node(tmpfs_inode_t *inode) {
 	case TMPFS_TYPE_BLOCK:
 		node->flags |= VFS_BLOCK;
 		break;
+	case TMPFS_TYPE_LINK:
+		node->flags |= VFS_LINK;
+		break;
 	}
 
 	inode->open_count++;
