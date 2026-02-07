@@ -18,6 +18,7 @@
 #include <kernel/tty.h>
 #include <kernel/pmm.h>
 #include <kernel/signal.h>
+#include <kernel/futex.h>
 #include <kernel/asm.h>
 #include <sys/type.h>
 #include <sys/stat.h>
@@ -1521,6 +1522,13 @@ ssize_t sys_sendmsg(int socket, const struct msghdr *message, int flags) {
 	return socket_sendmsg(FD_GET(socket).fd, message, flags);
 }
 
+int sys_futex(long *addr, int op, long val) {
+	if (!CHECK_PTR(addr)) {
+		return -EFAULT;
+	}
+	return do_futex(addr, op, val);
+}
+
 int sys_stub(void) {
 	return -ENOSYS;
 }
@@ -1614,6 +1622,7 @@ void *syscall_table[] = {
 	(void *)sys_stub, // sys_getpeername
 	(void *)sys_stub, // sys_getsockopt
 	(void *)sys_stub, // sys_setsockopt
+	(void *)sys_futex,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

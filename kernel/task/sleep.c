@@ -69,9 +69,7 @@ int micro_sleep(suseconds_t micro_second) {
 int sleep_on_queue(sleep_queue_t *queue) {
 	block_prepare();
 
-	spinlock_acquire(&queue->lock);
-	list_append(&queue->waiters, &get_current_task()->waiter_list_node);
-	spinlock_release(&queue->lock);
+	sleep_add_to_queue(queue);
 
 	return block_task();
 }

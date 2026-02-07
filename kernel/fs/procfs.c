@@ -72,7 +72,7 @@ static int proc_getattr(vfs_node_t *node, struct stat *st) {
 		break;
 	case VFS_DIR:
 	case VFS_LINK:
-		st->st_mode = 0555;
+		st->st_mode = 0550;
 		break;
 	}
 	st->st_ino  = (inode->proc->pid << 3) | inode->type;
@@ -165,7 +165,6 @@ static vfs_node_t *proc_root_lookup(vfs_node_t *root, const char *name) {
 	if (end == name)return NULL;
 	process_t *proc = pid2proc(pid);
 	if (!proc)return NULL;
-
 
 	return proc_new_node(proc, INODE_DIR);
 }

@@ -22,6 +22,7 @@
 #include <kernel/procfs.h>
 #include <kernel/sysfs.h>
 #include <kernel/socket.h>
+#include <kernel/futex.h>
 #include <kernel/unix.h>
 #include <sys/time.h>
 
@@ -123,6 +124,7 @@ void kmain() {
 	init_sysfs();
 	init_sockets();
 	init_unix_socket();
+	init_futexes();
 
 	kstatusf("finish init kernel\n");
 	spawn_init();

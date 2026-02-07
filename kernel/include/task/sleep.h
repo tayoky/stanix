@@ -41,6 +41,12 @@ typedef struct sleep_queue {
 
 #define sleep_on_queue_condition(queue, cond) sleep_on_queue_lock(queue, cond, NULL)
 
+static inline void sleep_add_to_queue(sleep_queue_t *queue) {
+	spinlock_acquire(&queue->lock);
+	list_append(&queue->waiters, &get_current_task()->waiter_list_node);
+	spinlock_release(&queue->lock);
+}
+
 int sleep_on_queue(sleep_queue_t *queue);
 void wakeup_queue(sleep_queue_t *queue,size_t count);
 
