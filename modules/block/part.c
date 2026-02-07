@@ -177,9 +177,10 @@ int init_gpt(off_t offset,vfs_fd_t *dev,const char *target){
 	return 0;
 }
 
-int part_mount(const char *source,const char *target,unsigned long flags,const void *data){
+int part_mount(const char *source,const char *target,unsigned long flags,const void *data,vfs_superblock_t **superblock_out){
 	(void)data;
 	(void)flags;
+	(void)superblock_out;
 
 	kdebugf("mount %s to %s\n",source,target);
 

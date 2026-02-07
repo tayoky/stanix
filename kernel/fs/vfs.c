@@ -58,6 +58,7 @@ static void vfs_destroy_superblock(vfs_superblock_t *superblock) {
 	if (superblock->ops && superblock->ops->destroy) {
 		superblock->ops->destroy(superblock);
 	} else {
+		vfs_close(superblock->device);
 		vfs_close_node(superblock->root);
 		kfree(superblock);
 	}

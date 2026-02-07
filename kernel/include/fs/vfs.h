@@ -98,6 +98,7 @@ typedef struct vfs_superblock {
 	list_t nodes;
 	vfs_node_t *root;
 	vfs_superblock_ops_t *ops;
+	vfs_fd_t *device;
 	long flags;
 	char name[PATH_MAX];
 } vfs_superblock_t;

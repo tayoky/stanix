@@ -27,7 +27,7 @@ typedef struct fat16_bpb {
 	char fs_type[8];
 	uint8_t reserved1[448];
 	uint16_t signature;
-} __attribute__((packed)) fat16_bpb;
+} __attribute__((packed)) fat16_bpb_t;
 
 typedef struct fat32_bpb {
 	uint32_t sectors_per_fat32;
@@ -45,7 +45,7 @@ typedef struct fat32_bpb {
 	char fs_type[8];
 	char reserved2[420];
 	uint16_t signature;
-} __attribute__((packed)) fat32_bpb;
+} __attribute__((packed)) fat32_bpb_t;
 
 typedef struct fat_bpb {
 	char jmp_boot[3];
@@ -63,8 +63,8 @@ typedef struct fat_bpb {
 	uint32_t hidden_sectors;
 	uint32_t sectors_count32;    //32 bits version of total sectors count (must be not 0 if 16bits version is 0 or fat32)
 	union {
-		fat32_bpb fat32;
-		fat16_bpb fat16;
+		fat32_bpb_t fat32;
+		fat16_bpb_t fat16;
 	} extended;
 } __attribute__((packed)) fat_bpb;
 
@@ -81,27 +81,26 @@ typedef struct fat_entry {
 	uint16_t write_date;
 	uint16_t cluster_lower;  //low 16 bits of first cluser
 	uint32_t file_size;
-} __attribute__((packed)) fat_entry;
+} __attribute__((packed)) fat_entry_t;
 
-typedef struct fat {
+typedef struct fat_superblock {
+	vfs_superblock_t superblock;
 	int fat_type;
-	vfs_fd_t *dev;
 	uint16_t reserved_sectors;
 	uint16_t sector_size;
 	uint32_t sectors_per_fat;
 	uint32_t cluster_size;
 	off_t data_start;          //start of root/data section start
-} fat;
+} fat_superblock_t;
 
 //in memory inode
 typedef struct fat_inode {
-	fat_entry entry;
+	fat_entry_t entry;
 	uint32_t first_cluster;
-	fat fat_info;
 	//used for fat16/12 root
 	int is_fat16_root;
 	uint64_t start;
 	uint16_t entries_count;
-} fat_inode;
+} fat_inode_t;
 
 #endif
