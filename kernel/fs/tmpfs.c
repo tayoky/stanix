@@ -5,8 +5,11 @@
 #include <kernel/print.h>
 #include <kernel/time.h>
 #include <kernel/list.h>
+#include <kernel/slab.h>
 #include <errno.h>
 
+static slab_cache_t tmpfs_inode_slab;
+static slab_cache_t tmpfs_entry_slab;
 static vfs_node_t *inode2node(tmpfs_inode_t *inode);
 
 #define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - MEM_KHEAP_START)
@@ -27,7 +30,7 @@ static cache_ops_t tmpfs_cache_ops = {
 };
 
 static tmpfs_inode_t *new_inode(long type) {
-	tmpfs_inode_t *inode = kmalloc(sizeof(tmpfs_inode_t));
+	tmpfs_inode_t *inode = slab_alloc(&tmpfs_inode_slab);
 	memset(inode, 0, sizeof(tmpfs_inode_t));
 	switch (type) {
 	case TMPFS_TYPE_FILE:
@@ -61,7 +64,7 @@ static void free_inode(tmpfs_inode_t *inode) {
 		kfree(inode->buffer);
 		break;
 	}
-	kfree(inode);
+	slab_free(inode);
 }
 
 
@@ -82,6 +85,8 @@ static vfs_filesystem_t tmpfs = {
 
 void init_tmpfs() {
 	kstatusf("init tmpfs... ");
+	slab_init(&tmpfs_inode_slab, sizeof(tmpfs_inode_t), "tmpfs inode");
+	slab_init(&tmpfs_entry_slab, sizeof(tmpfs_dirent_t), "tmpfs entry");
 	vfs_register_fs(&tmpfs);
 	kok();
 }
@@ -178,7 +183,7 @@ static int tmpfs_unlink(vfs_node_t *node, const char *name) {
 		//nobody uses it we can free
 		free_inode(entry->inode);
 	}
-	kfree(entry);
+	slab_free(entry);
 
 	return 0;
 }
@@ -212,7 +217,7 @@ static int tmpfs_link(vfs_node_t *parent_src, const char *src, vfs_node_t *paren
 
 	//create new entry
 	src_inode->link_count++;
-	tmpfs_dirent_t *entry = kmalloc(sizeof(tmpfs_dirent_t));
+	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
 	strcpy(entry->name, dest);
 	entry->inode = src_inode;
 	list_append(&parent_dest_inode->entries, &entry->node);
@@ -229,7 +234,7 @@ static int tmpfs_symlink(vfs_node_t *node, const char *name, const char *target)
 	symlink->buffer = strdup(target);
 
 	//create new entry
-	tmpfs_dirent_t *entry = kmalloc(sizeof(tmpfs_dirent_t));
+	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
 	strcpy(entry->name, name);
 	entry->inode = symlink;
 	list_append(&inode->entries, &entry->node);
@@ -344,7 +349,7 @@ int tmpfs_create(vfs_node_t *node, const char *name, mode_t perm, long type, voi
 	}
 
 	//create new entry
-	tmpfs_dirent_t *entry = kmalloc(sizeof(tmpfs_dirent_t));
+	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
 	memset(entry, 0, sizeof(tmpfs_dirent_t));
 	strcpy(entry->name, name);
 	entry->inode = child_inode;

@@ -16,6 +16,8 @@ typedef struct pmm_entry {
 typedef struct page {
 	atomic_size_t ref_count;
 	atomic_long flags;
+	void *private;
+	size_t size;
 } page_t;
 
 #define PAGE_FLAG_DIRTY 0x1
