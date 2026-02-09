@@ -107,7 +107,7 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 	root_dentry->type   = mount_point->type;
 	root_dentry->parent = vfs_dup_dentry(mount_point->parent);
 	memcpy(root_dentry->name, mount_point->name, sizeof(mount_point->name));
-	root_dentry->inode     = superblock->root;
+	root_dentry->inode     = vfs_dup_node(superblock->root);
 	root_dentry->ref_count = 1;
 	root_dentry->flags     = VFS_DENTRY_MOUNT;
 
@@ -118,6 +118,9 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 	if (mount_point->parent) {
 		list_remove(&mount_point->parent->children, &mount_point->node);
 		list_append(&mount_point->parent->children, &root_dentry->node);
+	} else if(mount_point == root) {
+		// special case for root
+		root = root_dentry;
 	}
 	return 0;
 }
@@ -159,9 +162,11 @@ int vfs_unmountat(vfs_dentry_t *at, const char *path) {
 	vfs_destroy_superblock(mount_point->inode->superblock);
 
 	// replace the fake dentry by the one before it
-	if (mount_point->parent) {
-		list_remove(&mount_point->parent->children, &mount_point->node);
-		list_append(&mount_point->parent->children, &mount_point->old->node);
+	vfs_dentry_t *parent = mount_point->parent;
+	if (parent) {
+		mount_point->parent = NULL;
+		list_remove(&parent->children, &mount_point->node);
+		list_append(&parent->children, &mount_point->old->node);
 	}
 
 	vfs_release_dentry(mount_point);
@@ -247,11 +252,11 @@ int vfs_wait(vfs_fd_t *fd, short type) {
 	}
 }
 
-
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	if (entry->type != VFS_DIR) {
 		return NULL;
 	}
+	kdebugf("lookup %s on %s\n", name, entry->name);
 
 	// cannot do lookup on negative entry
 	if (vfs_dentry_is_negative(entry)) {
@@ -349,18 +354,19 @@ int vfs_create_ext(const char *path, int perm, long flags, void *arg) {
 
 int vfs_createat_ext(vfs_dentry_t *at, const char *path, int perm, long flags, void *arg) {
 	//open the parent
-	vfs_node_t *parent = vfs_get_node_at(at, path, O_WRONLY | O_PARENT);
+	vfs_node_t *parent = vfs_get_node_at(at, path, O_PARENT);
 	if (!parent) {
+		kdebugf("no parent\n");
 		return -ENOENT;
 	}
-	if (!(parent->flags & VFS_DIR)) {
+	if (parent->flags != VFS_DIR) {
 		vfs_close_node(parent);
 		return -ENOTDIR;
 	}
 
 	const char *child = vfs_basename(path);
 
-	//call create on the parent
+	// call create on the parent
 	int ret;
 	if (parent->ops->create) {
 		ret = parent->ops->create(parent, child, perm, flags, arg);
@@ -368,34 +374,35 @@ int vfs_createat_ext(vfs_dentry_t *at, const char *path, int perm, long flags, v
 		ret = -EIO;
 	}
 
-	//close
 	vfs_close_node(parent);
 	return ret;
 }
 
 int vfs_unlink(const char *path) {
-	//open parent
-	vfs_node_t *parent = vfs_get_node(path, O_WRONLY | O_PARENT);
-	if (!parent) {
+	vfs_dentry_t *entry = vfs_get_dentry(path, O_NOFOLLOW);
+	if (!entry) {
 		return -ENOENT;
 	}
-	if (!(parent->flags & VFS_DIR)) {
-		vfs_close_node(parent);
-		return -ENOTDIR;
+
+	vfs_dentry_t *parent_entry = vfs_dup_dentry(entry->parent);
+	if (!parent_entry) {
+		// as far as i know you cannot unlink root
+		vfs_release_dentry(entry);
+		return -ENOENT;
 	}
+	vfs_release_dentry(entry);
 
-	const char *child = vfs_basename(path);
-
-	//call unlink on the parent
+	// call unlink on the parent
+	vfs_node_t *parent = parent_entry->inode;
 	int ret;
 	if (parent->ops->create) {
-		ret = parent->ops->unlink(parent, child);
+		ret = parent->ops->unlink(parent, entry->name);
 	} else {
-		ret = -EIO;
+		ret = -EINVAL;
 	}
 
-	//cleanup
-	vfs_close_node(parent);
+	// cleanup
+	vfs_release_dentry(parent_entry);
 	return ret;
 }
 

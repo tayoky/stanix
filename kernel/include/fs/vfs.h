@@ -330,7 +330,7 @@ static vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentr
 }
 
 static int vfs_dentry_is_negative(vfs_dentry_t *dentry) {
-	return dentry->inode != NULL;
+	return dentry->inode == NULL;
 }
 
 //flags

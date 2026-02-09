@@ -115,9 +115,11 @@ static int tmpfs_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name
 	if (!strcmp(name, "..")) {
 		if (inode->parent) {
 			dentry->inode = inode2node(inode->parent);
+			dentry->inode->ref_count = 1;
 			dentry->inode_number = INODE_NUMBER(inode->parent);
 		} else {
 			dentry->inode = inode2node(inode);
+			dentry->inode->ref_count = 1;
 			dentry->inode_number = INODE_NUMBER(inode);
 		}
 		dentry->type = dentry->inode->flags;
@@ -128,6 +130,7 @@ static int tmpfs_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name
 		tmpfs_dirent_t *entry = (tmpfs_dirent_t *)node;
 		if (!strcmp(name, entry->name)) {
 			dentry->inode = inode2node(entry->inode);
+			dentry->inode->ref_count = 1;
 			dentry->inode_number = INODE_NUMBER(entry->inode);
 			dentry->type = dentry->inode->flags;
 			return 0;
