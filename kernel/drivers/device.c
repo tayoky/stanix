@@ -7,7 +7,7 @@
 
 hashmap_t device_drivers;
 hashmap_t devices;
-vfs_node_t *devfs_root;
+vfs_dentry_t *devfs_root;
 
 static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_driver) {	
 	if (!device_driver->check || !device_driver->probe) return -ENOTSUP;
@@ -138,7 +138,7 @@ void init_devices(void) {
 
 	vfs_superblock_t *devfs_superblock = new_tmpfs();
 	vfs_mount("/dev", devfs_superblock);
-	devfs_root = devfs_superblock->root;
+	devfs_root = vfs_get_dentry("/dev", 0);
 	
 	kok();
 }

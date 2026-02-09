@@ -49,15 +49,17 @@ int sysfs_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent) {
 }
 
 
-vfs_node_t *sysfs_lookup(vfs_node_t *node, const char *name) {
+int sysfs_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) {
     sysfs_inode *inode = node->private_inode;
     foreach(node, &inode->child) {
         sysfs_inode *entry = (sysfs_inode *)node;
         if (!strcmp(name, entry->name)) {
-            return sysfs_inode2vnode(entry);
+            dentry->inode = sysfs_inode2vnode(entry);
+            dentry->type  = dentry->inode->flags;
+            return 0;
         }
     }
-    return NULL;
+    return -ENOENT;
 }
 
 vfs_ops_t sysfs_ops = {

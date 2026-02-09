@@ -527,12 +527,12 @@ int sys_chdir(const char *path) {
 	}
 
 	//check if exist
-	vfs_node_t *node = vfs_get_node(path, O_RDONLY);
-	if (!node) {
+	vfs_dentry_t *entry = vfs_get_dentry(path, 0);
+	if (!entry) {
 		return -ENOENT;
 	}
 
-	if (!(node->flags & VFS_DIR)) {
+	if (entry->type != VFS_DIR) {
 		return -ENOTDIR;
 	}
 
@@ -547,10 +547,10 @@ int sys_chdir(const char *path) {
 
 	//free old cwd
 	kfree(get_current_proc()->cwd_path);
-	vfs_close_node(get_current_proc()->cwd_node);
+	vfs_release_dentry(get_current_proc()->cwd_node);
 
 	//set new cwd
-	get_current_proc()->cwd_node = node;
+	get_current_proc()->cwd_node = entry;
 	get_current_proc()->cwd_path = cwd;
 
 	return 0;
@@ -631,12 +631,7 @@ int sys_unlink(const char *pathname) {
 		vfs_close_node(node);
 		return -EISDIR;
 	}
-	// check perm
-	if ((vfs_perm(node->parent) & 03) != 03) {
-		// TODO : sticky bit support
-		vfs_close_node(node);
-		return -EPERM;
-	}
+	// TODO : check perm
 	vfs_close_node(node);
 
 	return vfs_unlink(pathname);

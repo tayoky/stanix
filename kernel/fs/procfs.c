@@ -44,7 +44,7 @@ static vfs_node_t *proc_new_node(process_t *proc, int type) {
 		break;
 	}
 	return node;
-} 
+}
 
 static int proc_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent) {
 	(void)fd;
@@ -96,17 +96,23 @@ static ssize_t proc_readlink(vfs_node_t *node, char *buffer, size_t count) {
 	return count;
 }
 
-static vfs_node_t *proc_lookup(vfs_node_t *node, const char *name) {
+static int proc_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) {
 	proc_inode_t *inode = node->private_inode;
 
 	if (!strcmp(name, "cwd")) {
-		return proc_new_node(inode->proc, INODE_CWD);
+		dentry->inode = proc_new_node(inode->proc, INODE_CWD);
+		dentry->type  = VFS_LINK;
+		return 0;
 	} else if (!strcmp(name, "maps")) {
-		return proc_new_node(inode->proc, INODE_MAPS);
+		dentry->inode = proc_new_node(inode->proc, INODE_MAPS);
+		dentry->type  = VFS_FILE;
+		return 0;
 	} else if (!strcmp(name, "cmdline")) {
-		return proc_new_node(inode->proc, INODE_CMDLINE);
+		dentry->inode = proc_new_node(inode->proc, INODE_CMDLINE);
+		dentry->type  = VFS_FILE;
+		return 0;
 	}
-	return NULL;
+	return -ENOENT;
 }
 
 static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
@@ -116,12 +122,12 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	size_t i=0;
 	switch (inode->type) {
 	case INODE_MAPS:
-		foreach (node, &inode->proc->vmm_space.segs) {
-			vmm_seg_t *seg = (vmm_seg_t*)node;
+		foreach(node, &inode->proc->vmm_space.segs) {
+			vmm_seg_t *seg = (vmm_seg_t *)node;
 			char prot[5];
-			prot[0] = seg->prot  & MMU_FLAG_READ    ? 'r' : '-';
-			prot[1] = seg->prot  & MMU_FLAG_WRITE   ? 'w' : '-';
-			prot[2] = seg->prot  & MMU_FLAG_EXEC    ? 'x' : '-';
+			prot[0] = seg->prot & MMU_FLAG_READ ? 'r' : '-';
+			prot[1] = seg->prot & MMU_FLAG_WRITE ? 'w' : '-';
+			prot[2] = seg->prot & MMU_FLAG_EXEC ? 'x' : '-';
 			prot[3] = seg->flags & VMM_FLAG_PRIVATE ? 'p' : 's';
 			prot[4] = '\0';
 			i += sprintf(str_buf + i, "%012lx-%012lx %s %zd\n", seg->start, seg->end, prot, seg->offset);
@@ -155,18 +161,22 @@ static vfs_ops_t proc_ops = {
 	.read     = proc_read,
 };
 
-static vfs_node_t *proc_root_lookup(vfs_node_t *root, const char *name) {
+static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry, const char *name) {
 	(void)root;
 	if (!strcmp(name, "self")) {
-		return proc_new_node(get_current_proc(), INODE_SELF);
+		dentry->inode = proc_new_node(get_current_proc(), INODE_SELF);
+		dentry->type  = VFS_LINK;
+		return 0;
 	}
 	char *end;
 	pid_t pid = strtol(name, &end, 10);
-	if (end == name)return NULL;
+	if (end == name)return -ENOENT;
 	process_t *proc = pid2proc(pid);
-	if (!proc)return NULL;
+	if (!proc)return -ENOENT;
 
-	return proc_new_node(proc, INODE_DIR);
+	dentry->inode = proc_new_node(proc, INODE_DIR);
+	dentry->type  = VFS_DIR;
+	return 0;
 }
 
 static int proc_root_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent) {
@@ -207,19 +217,19 @@ int proc_mount(const char *source, const char *target, unsigned long flags, cons
 	(void)data;
 	(void)source;
 	(void)flags;
-    (void)target;
-	
+	(void)target;
+
 	vfs_node_t *node = kmalloc(sizeof(vfs_node_t));
 	memset(node, 0, sizeof(vfs_node_t));
 	node->flags     = VFS_DIR;
 	node->ops       = &proc_root_ops;
 	node->ref_count = 1;
-	
+
 	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
 	memset(superblock, 0, sizeof(vfs_superblock_t));
 	superblock->root = node;
-	
-    *superblock_out = superblock;
+
+	*superblock_out = superblock;
 	return 0;
 }
 

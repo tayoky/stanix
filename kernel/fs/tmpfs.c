@@ -103,26 +103,38 @@ vfs_superblock_t *new_tmpfs(void) {
 }
 
 
-static vfs_node_t *tmpfs_lookup(vfs_node_t *node, const char *name) {
+static int tmpfs_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
 	if (!strcmp(name, ".")) {
-		return inode2node(inode);
+		dentry->inode = inode2node(inode);
+		dentry->inode_number = INODE_NUMBER(inode);
+		dentry->type = dentry->inode->flags;
+		return 0;
 	}
 
 	if (!strcmp(name, "..")) {
-		if (inode->parent)
-			return inode2node(inode->parent);
-		return inode2node(inode);
+		if (inode->parent) {
+			dentry->inode = inode2node(inode->parent);
+			dentry->inode_number = INODE_NUMBER(inode->parent);
+		} else {
+			dentry->inode = inode2node(inode);
+			dentry->inode_number = INODE_NUMBER(inode);
+		}
+		dentry->type = dentry->inode->flags;
+		return 0;
 	}
 
 	foreach(node, &inode->entries) {
 		tmpfs_dirent_t *entry = (tmpfs_dirent_t *)node;
 		if (!strcmp(name, entry->name)) {
-			return inode2node(entry->inode);
+			dentry->inode = inode2node(entry->inode);
+			dentry->inode_number = INODE_NUMBER(entry->inode);
+			dentry->type = dentry->inode->flags;
+			return 0;
 		}
 	}
 
-	return NULL;
+	return -ENOENT;
 }
 
 static ssize_t tmpfs_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {

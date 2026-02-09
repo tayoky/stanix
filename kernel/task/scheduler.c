@@ -55,7 +55,7 @@ void init_task() {
 	arch_set_kernel_stack(KSTACK_TOP(boot_task->main_thread->kernel_stack));
 
 	// let just the boot kernel task start with a cwd at initrd root
-	boot_task->cwd_node = vfs_get_node("/", O_RDONLY);
+	boot_task->cwd_node = vfs_get_dentry("/", 0);
 	boot_task->cwd_path = strdup("");
 
 	// the current task is the boot task
@@ -208,7 +208,7 @@ process_t *new_proc(void (*func)(void *arg), void *arg){
 	proc->sgid     = get_current_proc()->sgid;
 	proc->umask    = get_current_proc()->umask;
 	proc->cmdline  = strdup(get_current_proc()->cmdline);
-	proc->cwd_node = vfs_dup_node(get_current_proc()->cwd_node);
+	proc->cwd_node = vfs_dup_dentry(get_current_proc()->cwd_node);
 	proc->cwd_path = strdup(get_current_proc()->cwd_path);
 	proc->main_thread = new_task(proc, func, arg);
 	proc->pid =  proc->main_thread->tid;
@@ -326,7 +326,7 @@ static void do_proc_deletion(void) {
 	}
 
 	// close cwd
-	vfs_close_node(get_current_proc()->cwd_node);
+	vfs_release_dentry(get_current_proc()->cwd_node);
 	kfree(get_current_proc()->cwd_path);
 
 	kfree(get_current_proc()->cmdline);

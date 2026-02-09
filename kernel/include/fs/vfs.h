@@ -2,6 +2,7 @@
 #define _KERNEL_VFS_H
 
 #include <kernel/spinlock.h>
+#include <kernel/hashmap.h>
 #include <kernel/list.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -33,21 +34,33 @@ struct vfs_ops;
 struct superblock;
 
 typedef struct vfs_node {
-	list_node_t node;
 	void *private_inode;
 	void *private_inode2;
-	struct vfs_node *parent;
 	struct vfs_superblock *superblock;
 	struct vfs_ops *ops;
 	struct vfs_node *linked_node; // used for mount point
 	long flags;
 	size_t ref_count;
-	list_t children;
 	spinlock_t lock;
-
-	// used for directories cache
-	char name[PATH_MAX];
 } vfs_node_t;
+
+/**
+ * @brief represent a directory entry
+ */
+typedef struct vfs_dentry {
+	list_node_t node;
+	char name[256];
+	vfs_node_t *inode;
+	ino_t inode_number;
+	int type;
+	int flags;
+	struct vfs_dentry *parent;
+	struct vfs_dentry *old; // used for mount point
+	list_t children;
+	size_t ref_count;
+} vfs_dentry_t;
+
+#define VFS_DENTRY_MOUNT 0x01 // the dentry is a mount point
 
 /**
  * @brief represent an open context with a file/dir/device
@@ -66,7 +79,7 @@ typedef struct vfs_fd {
  */
 typedef struct vfs_ops {
 	// inode operations
-	vfs_node_t *(*lookup)(vfs_node_t *, const char *name);
+	int (*lookup)(vfs_node_t *, vfs_dentry_t *, const char *name);
 	int (*create)(vfs_node_t *, const char *name, mode_t perm, long, void *);
 	int (*unlink)(vfs_node_t *, const char *);
 	int (*link)(vfs_node_t *, const char *, vfs_node_t *, const char *);
@@ -95,7 +108,7 @@ typedef struct vfs_superblock_ops {
 
 typedef struct vfs_superblock {
 	list_node_t node;
-	list_t nodes;
+	hashmap_t inodes;
 	vfs_node_t *root;
 	vfs_superblock_ops_t *ops;
 	vfs_fd_t *device;
@@ -122,19 +135,19 @@ void init_vfs(void);
 int vfs_mount(const char *path, vfs_superblock_t *superblock);
 
 
-int vfs_mount_on(vfs_node_t *mount_point, vfs_superblock_t *superblock);
-int vfs_mountat(vfs_node_t *at, const char *name, vfs_superblock_t *superblock);
+int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock);
+int vfs_mountat(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock);
 
 int vfs_chroot(vfs_node_t *new_root);
 
 
-vfs_node_t *vfs_lookup(vfs_node_t *node, const char *name);
+vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
 ssize_t vfs_read(vfs_fd_t *node, void *buffer, uint64_t offset, size_t count);
 ssize_t vfs_write(vfs_fd_t *node, const void *buffer, uint64_t offset, size_t count);
 int vfs_create(const char *path, int perm, long flags);
-int vfs_createat(vfs_node_t *at, const char *path, int perm, long flags);
+int vfs_createat(vfs_dentry_t *at, const char *path, int perm, long flags);
 int vfs_create_ext(const char *path, int perm, long flags, void *arg);
-int vfs_createat_ext(vfs_node_t *at, const char *path, int perm, long flags, void *arg);
+int vfs_createat_ext(vfs_dentry_t *at, const char *path, int perm, long flags, void *arg);
 
 static inline int vfs_mkdir(const char *path, mode_t perm) {
 	return vfs_create(path, perm, VFS_DIR);
@@ -155,9 +168,9 @@ int vfs_getattr(vfs_node_t *node, struct stat *st);
 int vfs_setattr(vfs_node_t *node, struct stat *st);
 
 int vfs_unmount(const char *path);
-int vfs_unmountat(vfs_node_t *at, const char *path);
+int vfs_unmountat(vfs_dentry_t *at, const char *path);
 
-vfs_node_t *vfs_get_node_at(vfs_node_t *at, const char *pathname, long flags);
+vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *pathname, long flags);
 static inline vfs_node_t *vfs_get_node(const char *pathname, long flags) {
 	return vfs_get_node_at(NULL, pathname, flags);
 }
@@ -178,7 +191,7 @@ void vfs_close_node(vfs_node_t *node);
  * @param flags open flags (VFS_READONLY,...)
  * @return an pointer to the vfs_node_t context or NULL if an error happend
  */
-vfs_fd_t *vfs_openat(vfs_node_t *at, const char *path, long flags);
+vfs_fd_t *vfs_openat(vfs_dentry_t *at, const char *path, long flags);
 
 /**
  * @brief open a context for a given path (absolute)
@@ -287,6 +300,38 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 
 int vfs_perm(vfs_node_t *node);
 int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid);
+
+static vfs_dentry_t *vfs_dup_dentry(vfs_dentry_t *dentry) {
+	if (dentry) dentry->ref_count++;
+	return dentry;
+}
+
+vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags);
+vfs_dentry_t *vfs_get_dentry(const char *path, long flags);
+void vfs_release_dentry(vfs_dentry_t *dentry);
+
+static void vfs_add_dentry(vfs_dentry_t *parent, vfs_dentry_t *child) {
+	// child hold a ref to the parent
+	vfs_dup_dentry(parent);
+	list_append(&parent->children, &child->node);
+}
+
+static vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentry_t *dentry) {
+	vfs_node_t *node = dentry->inode;
+	if (node) {
+		return vfs_dup_node(node);
+	}
+	node = hashmap_get(&superblock->inodes, dentry->inode_number);
+	if (node) {
+		dentry->inode = vfs_dup_node(node);
+		return vfs_dup_node(node);
+	}
+	return NULL;
+}
+
+static int vfs_dentry_is_negative(vfs_dentry_t *dentry) {
+	return dentry->inode != NULL;
+}
 
 //flags
 #define O_PARENT       0x4000 //open the parent

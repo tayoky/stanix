@@ -7,22 +7,34 @@
 #include <kernel/time.h>
 #include <kernel/list.h>
 #include <kernel/device.h>
+#include <kernel/slab.h>
+#include <kernel/assert.h>
 #include <limits.h>
 #include <stddef.h>
 #include <errno.h>
 #include <poll.h>
 
 //TODO : make this process specific
-vfs_node_t *root;
+vfs_dentry_t *root;
 
 static list_t fs_types;
 static list_t superblocks;
+static slab_cache_t dentries_slab;
+
+static int dentry_constructor(slab_cache_t *cache, void *data) {
+	(void)cache;
+	vfs_dentry_t *dentry = data;
+	memset(dentry, 0, sizeof(vfs_dentry_t));
+	return 0;
+}
 
 void init_vfs(void) {
 	kstatusf("init vfs... ");
-	root = kmalloc(sizeof(vfs_node_t));
-	memset(root, 0, sizeof(vfs_node_t));
-	root->flags = VFS_DIR;
+	slab_init(&dentries_slab, sizeof(vfs_dentry_t), "vfs dentries");
+	dentries_slab.constructor = dentry_constructor;
+
+	root = slab_alloc(&dentries_slab);
+	root->type = VFS_DIR;
 	root->ref_count = 1;
 
 	init_list(&fs_types);
@@ -89,33 +101,37 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 	return -ENODEV;
 }
 
-int vfs_mount_on(vfs_node_t *mount_point, vfs_superblock_t *superblock) {
-	// something is aready mounted ?
-	if (mount_point->flags & VFS_MOUNT) {
-		return -EBUSY;
-	}
-
-	mount_point->linked_node = superblock->root;
+int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
+	// create a new fake dentry for the root of the superblock
+	vfs_dentry_t *root_dentry = slab_alloc(&dentries_slab);
+	root_dentry->type   = mount_point->type;
+	root_dentry->parent = vfs_dup_dentry(mount_point->parent);
+	memcpy(root_dentry->name, mount_point->name, sizeof(mount_point->name));
+	root_dentry->inode     = superblock->root;
+	root_dentry->ref_count = 1;
+	root_dentry->flags     = VFS_DENTRY_MOUNT;
 
 	// make a new ref to the mount point to prevent it from being close
-	mount_point->ref_count++;
+	root_dentry->old = vfs_dup_dentry(mount_point);
 
-	mount_point->flags |= VFS_MOUNT;
-
-	superblock->root->parent = mount_point->parent;
+	// insert the new fake dentry at the place of the original one
+	if (mount_point->parent) {
+		list_remove(&mount_point->parent->children, &mount_point->node);
+		list_append(&mount_point->parent->children, &root_dentry->node);
+	}
 	return 0;
 }
 
-int vfs_mountat(vfs_node_t *at, const char *name, vfs_superblock_t *superblock) {
+int vfs_mountat(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock) {
 	// first open the mount point
-	vfs_node_t *mount_point = vfs_get_node_at(at, name, O_RDWR);
+	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, name, O_RDWR);
 	if (!mount_point) {
 		return -ENOENT;
 	}
 
 	int ret = vfs_mount_on(mount_point, superblock);
 
-	vfs_close_node(mount_point);
+	vfs_release_dentry(mount_point);
 
 	return ret;
 }
@@ -128,30 +144,27 @@ int vfs_unmount(const char *path) {
 	return vfs_unmountat(NULL, path);
 }
 
-//TODO : we don't handle the case where a parent of the mount point get closed
-//the local_root stay open but somebody try to open it's parent
-int vfs_unmountat(vfs_node_t *at, const char *path) {
-	vfs_node_t *parent = vfs_get_node_at(at, path, O_PARENT);
-	if (!parent) {
+int vfs_unmountat(vfs_dentry_t *at, const char *path) {
+	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, path, O_PARENT);
+	if (!mount_point) {
 		return -ENOENT;
 	}
 
-	// i think we don't handle trailling / very well
-	const char *child = vfs_basename(path);
-
-	// we can use vfs_lookup cause it don't folow mount point (only vfs_openat does)
-	vfs_node_t *mount_point = vfs_lookup(parent, child);
-	vfs_close_node(parent);
-	if (!(mount_point->flags & VFS_MOUNT)) {
+	if (!(mount_point->flags & VFS_DENTRY_MOUNT)) {
 		// not even a mount point
+		vfs_release_dentry(mount_point);
 		return -EINVAL;
 	}
 
-	vfs_destroy_superblock(mount_point->linked_node->superblock);
+	vfs_destroy_superblock(mount_point->inode->superblock);
 
-	mount_point->flags  &= ~VFS_MOUNT;
+	// replace the fake dentry by the one before it
+	if (mount_point->parent) {
+		list_remove(&mount_point->parent->children, &mount_point->node);
+		list_append(&mount_point->parent->children, &mount_point->old->node);
+	}
 
-	vfs_close_node(mount_point);
+	vfs_release_dentry(mount_point);
 	return 0;
 }
 
@@ -235,47 +248,73 @@ int vfs_wait(vfs_fd_t *fd, short type) {
 }
 
 
-vfs_node_t *vfs_lookup(vfs_node_t *node, const char *name) {
-	if (!(node->flags & VFS_DIR)) {
+vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
+	if (entry->type != VFS_DIR) {
 		return NULL;
 	}
 
-	//handle .. here so we can handle the parent of mount point
-	if ((!strcmp("..", name)) && node->parent) {
-		return vfs_dup_node(node->parent);
+	// cannot do lookup on negative entry
+	if (vfs_dentry_is_negative(entry)) {
+		return NULL;
+	}
+
+	// handle .. here so we can handle the parent of mount point
+	if ((!strcmp("..", name)) && entry->parent) {
+		return vfs_dup_dentry(entry->parent);
 	}
 
 	if ((!strcmp(".", name))) {
-		return vfs_dup_node(node);
+		return vfs_dup_dentry(entry);
 	}
 
-	// first search in the directory cache
-	foreach (list_node, &node->children) {
-		vfs_node_t *current = (vfs_node_t*)list_node;
-		if (!strcmp(current->name, name)) {
-			current->ref_count++;
-			return current;
+	// first search in the dentries cache
+	foreach(list_node, &entry->children) {
+		vfs_dentry_t *current_entry = container_of(list_node, vfs_dentry_t, node);
+		if (!strcmp(current_entry->name, name)) {
+			// cached entries must not be negative
+			kassert(!vfs_dentry_is_negative(current_entry));
+			return vfs_dup_dentry(current_entry);
 		}
 	}
+
 
 	// it isen't chached
 	// ask the fs for it
-
-	if (node->ops->lookup) {
-		vfs_node_t *child = node->ops->lookup(node, name);
-		if (!child) {
-			return NULL;
-		}
-		if (!child->ref_count)child->ref_count = 1;
-
-		// link it in the directories cache
-		child->parent = node;
-		child->superblock = node->superblock;
-		list_append(&node->children, &child->node);
-		strcpy(child->name, name);
-		return child;
-	} else {
+	if (!entry->inode->ops->lookup) {
 		return NULL;
+	}
+
+	vfs_dentry_t *child_entry = slab_alloc(&dentries_slab);
+	strcpy(entry->name, name);
+	entry->ref_count = 2;
+
+	if (entry->inode->ops->lookup(entry->inode, child_entry, name) < 0) {
+		slab_free(child_entry);
+		return NULL;
+	}
+
+	// link it in the dentry cache
+	vfs_add_dentry(entry, child_entry);
+	return entry;
+}
+
+void vfs_release_dentry(vfs_dentry_t *dentry) {
+	while (dentry) {
+		dentry->ref_count--;
+		if (dentry->ref_count > 0) {
+			return;
+		}
+		vfs_close_node(dentry->inode);
+		vfs_dentry_t *parent = dentry->parent;
+		if (parent == dentry) parent = NULL;
+
+		// unlink from dentry cache
+		if (parent) {
+			list_remove(&parent->children, &dentry->node);
+		}
+
+		slab_free(dentry);
+		dentry = parent;
 	}
 }
 
@@ -287,47 +326,20 @@ void vfs_close_node(vfs_node_t *node) {
 		return;
 	}
 
-	if (node->flags & VFS_MOUNT || node == root) {
-		//don't close a mount point
-		return;
-	}
-
-	//if childreen can't close
-	if (node->children.node_count > 0) {
-		return;
-	}
-
 	// we can finaly close
-	// but before remove the node from the directories cache
-	if (node->parent && node->parent != node) {
-		list_remove(&node->parent->children, &node->node);
-	}
-
-	vfs_node_t *parent = node->parent;
-	if (parent == node) {
-		parent = NULL;
-	}
 
 	if (node->ops->cleanup) {
 		node->ops->cleanup(node);
 	}
 
 	kfree(node);
-
-	//maybee we can close the parent too ?
-	if (parent) {
-		if (parent->children.node_count == 0 && parent->ref_count == 0) {
-			parent->ref_count++;
-			return vfs_close_node(parent);
-		}
-	}
 }
 
 int vfs_create(const char *path, int perm, long flags) {
 	return vfs_createat(NULL, path, perm, flags);
 }
 
-int vfs_createat(vfs_node_t *at, const char *path, int perm, long flags) {
+int vfs_createat(vfs_dentry_t *at, const char *path, int perm, long flags) {
 	return vfs_createat_ext(at, path, perm, flags, NULL);
 }
 
@@ -335,7 +347,7 @@ int vfs_create_ext(const char *path, int perm, long flags, void *arg) {
 	return vfs_createat_ext(NULL, path, perm, flags, arg);
 }
 
-int vfs_createat_ext(vfs_node_t *at, const char *path, int perm, long flags, void *arg) {
+int vfs_createat_ext(vfs_dentry_t *at, const char *path, int perm, long flags, void *arg) {
 	//open the parent
 	vfs_node_t *parent = vfs_get_node_at(at, path, O_WRONLY | O_PARENT);
 	if (!parent) {
@@ -521,13 +533,25 @@ int vfs_chroot(vfs_node_t *new_root) {
 	return 0;
 }
 
-vfs_node_t *vfs_get_node_at(vfs_node_t *at, const char *path, long flags) {
+vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *path, long flags) {
+	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, flags);
+	if (!dentry) return NULL;
+	vfs_node_t *node = vfs_dup_node(dentry->inode);
+	vfs_release_dentry(dentry);
+	return node;
+}
+
+vfs_dentry_t *vfs_get_dentry(const char *path, long flags) {
+	return vfs_get_dentry_at(NULL, path, flags);
+}
+
+vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags) {
 	if (!at) {
 		//if absolute relative to root else relative to cwd
 		if (path[0] == '/' || path[0] == '\0') {
-			return vfs_get_node_at(root, path, flags);
+			return vfs_get_dentry_at(root, path, flags);
 		}
-		return vfs_get_node_at(get_current_proc()->cwd_node, path, flags);
+		return vfs_get_dentry_at(get_current_proc()->cwd_node, path, flags);
 	}
 
 	//we are going to modify it
@@ -563,59 +587,51 @@ vfs_node_t *vfs_get_node_at(vfs_node_t *at, const char *path, long flags) {
 		path_depth--;
 	}
 
-	vfs_node_t *current_node = vfs_dup_node(at);
+	vfs_dentry_t *current_entry = vfs_dup_dentry(at);
 	int loop_max = SYMLOOP_MAX;
 
-	
-	if (current_node->flags & VFS_MOUNT) {
-		vfs_node_t *mount_point = current_node;
-		current_node = vfs_dup_node(current_node->linked_node);
-		vfs_close_node(mount_point);
-	}
-
 	for (int i = 0; i < path_depth; i++) {
-		if (!current_node)return NULL;
+		if (!current_entry)return NULL;
 
-		vfs_node_t *next_node = vfs_lookup(current_node, path_array[i]);
-		//folow mount points and symlink
-		while (next_node) {
-			if (next_node->flags & VFS_MOUNT) {
-				vfs_node_t *mount_point = next_node;
-				next_node = vfs_dup_node(next_node->linked_node);
-				vfs_close_node(mount_point);
-				continue;
-			}
-			if ((next_node->flags & VFS_LINK) && (!(flags & O_NOFOLLOW) || i < path_depth - 1)) {
+		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i]);
+		// folows symlink
+		while (next_entry) {
+			if ((next_entry->type == VFS_LINK) && (!(flags & O_NOFOLLOW) || i < path_depth - 1)) {
 				//TODO : maybee cache linked node ?
-				vfs_node_t *symlink = next_node;
 				if (loop_max-- <= 0) {
-					vfs_close_node(symlink);
+					vfs_release_dentry(next_entry);
+					vfs_release_dentry(current_entry);
 					return NULL;
 				}
+				vfs_node_t *symlink = vfs_dup_node(next_entry->inode);
 				char linkpath[PATH_MAX];
 				ssize_t size;
 				if ((size = vfs_readlink(symlink, linkpath, sizeof(linkpath))) < 0) {
 					vfs_close_node(symlink);
+					vfs_release_dentry(next_entry);
+					vfs_release_dentry(current_entry);
 					return NULL;
 				}
 				linkpath[size] = '\0';
 
-				//TODO : prevent infinite recursion
-				next_node = vfs_get_node(linkpath, flags);
+				vfs_release_dentry(next_entry);
 				vfs_close_node(symlink);
+
+				//TODO : prevent infinite recursion
+				next_entry = vfs_get_dentry(linkpath, flags);
 			}
 			break;
 		}
-		vfs_close_node(current_node);
-		current_node = next_node;
+		vfs_release_dentry(current_entry);
+		current_entry = next_entry;
 	}
 
-	if (!current_node)return NULL;
+	if (!current_entry) return NULL;
 
-	return current_node;
+	return current_entry;
 }
 
-vfs_fd_t *vfs_openat(vfs_node_t *at, const char *path, long flags) {
+vfs_fd_t *vfs_openat(vfs_dentry_t *at, const char *path, long flags) {
 	vfs_node_t *node = vfs_get_node_at(at, path, flags);
 	if (!node) return NULL;
 
