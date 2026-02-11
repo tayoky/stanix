@@ -18,7 +18,8 @@ typedef struct proc_inode {
 #define INODE_MAPS    4
 #define INODE_CMDLINE 5
 
-static vfs_ops_t proc_ops;
+static vfs_inode_ops_t proc_inode_ops;
+static vfs_fd_ops_t proc_fd_ops;
 long strtol(const char *str, char **end, int base);
 
 static vfs_node_t *proc_new_node(process_t *proc, int type) {
@@ -29,7 +30,7 @@ static vfs_node_t *proc_new_node(process_t *proc, int type) {
 	vfs_node_t *node = kmalloc(sizeof(vfs_node_t));
 	memset(node, 0, sizeof(vfs_node_t));
 	node->private_inode = inode;
-	node->ops           = &proc_ops;
+	node->ops           = &proc_inode_ops;
 	switch (type) {
 	case INODE_SELF:
 	case INODE_CWD:
@@ -46,8 +47,8 @@ static vfs_node_t *proc_new_node(process_t *proc, int type) {
 	return node;
 }
 
-static int proc_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent) {
-	(void)fd;
+static int proc_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
+	(void)node;
 	static char *content[] = {
 		".",
 		"..",
@@ -115,6 +116,11 @@ static int proc_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name)
 	return -ENOENT;
 }
 
+static int proc_open(vfs_fd_t *fd) {
+	fd->ops = &proc_fd_ops;
+	return 0;
+}
+
 static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	proc_inode_t *inode = fd->private;
 	char str_buf[4096];
@@ -152,12 +158,16 @@ static void proc_cleanup(vfs_node_t *node) {
 	kfree(inode);
 }
 
-static vfs_ops_t proc_ops = {
+static vfs_inode_ops_t proc_inode_ops = {
 	.lookup   = proc_lookup,
 	.readdir  = proc_readdir,
 	.readlink = proc_readlink,
 	.getattr  = proc_getattr,
 	.cleanup  = proc_cleanup,
+	.open     = proc_open,
+};
+
+static vfs_fd_ops_t proc_fd_ops = {
 	.read     = proc_read,
 };
 
@@ -179,8 +189,8 @@ static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry, const char *
 	return 0;
 }
 
-static int proc_root_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent) {
-	(void)fd;
+static int proc_root_readdir(vfs_node_t *root, unsigned long index, struct dirent *dirent) {
+	(void)root;
 	if (index == 0) {
 		strcpy(dirent->d_name, ".");
 		return 0;
@@ -208,7 +218,7 @@ static int proc_root_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *d
 	return -ENOENT;
 }
 
-static vfs_ops_t proc_root_ops = {
+static vfs_inode_ops_t proc_root_ops = {
 	.readdir = proc_root_readdir,
 	.lookup  = proc_root_lookup,
 };

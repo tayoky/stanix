@@ -265,8 +265,8 @@ static ssize_t tmpfs_readlink(vfs_node_t *node, char *buf, size_t bufsize) {
 	return bufsize;
 }
 
-static int tmpfs_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent) {
-	tmpfs_inode_t *inode = (tmpfs_inode_t *)fd->private;
+static int tmpfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
+	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
 
 	//update atime
 	inode->atime = NOW();
@@ -404,7 +404,19 @@ static int tmpfs_getattr(vfs_node_t *node, struct stat *st) {
 	return 0;
 }
 
-static vfs_ops_t tmfps_ops = {
+
+static vfs_fd_ops_t tmpfs_fd_ops = {
+	.read    = tmpfs_read,
+	.write   = tmpfs_write,
+	.mmap    = tmpfs_mmap,
+};
+
+static int tmpfs_open(vfs_fd_t *fd) {
+	fd->ops = &tmpfs_fd_ops;
+	return 0;
+}
+
+static vfs_inode_ops_t tmpfs_inode_ops = {
 	.lookup     = tmpfs_lookup,
 	.readdir    = tmpfs_readdir,
 	.create     = tmpfs_create,
@@ -412,13 +424,11 @@ static vfs_ops_t tmfps_ops = {
 	.link       = tmpfs_link,
 	.symlink    = tmpfs_symlink,
 	.readlink   = tmpfs_readlink,
-	.read       = tmpfs_read,
-	.write      = tmpfs_write,
-	.mmap       = tmpfs_mmap,
 	.truncate   = tmpfs_truncate,
 	.getattr    = tmpfs_getattr,
 	.setattr    = tmpfs_setattr,
 	.cleanup    = tmpfs_cleanup,
+	.open       = tmpfs_open,
 };
 
 static vfs_node_t *inode2node(tmpfs_inode_t *inode) {
@@ -426,7 +436,7 @@ static vfs_node_t *inode2node(tmpfs_inode_t *inode) {
 	memset(node, 0, sizeof(vfs_node_t));
 	node->private_inode = (void *)inode;
 	node->flags = 0;
-	node->ops = &tmfps_ops;
+	node->ops = &tmpfs_inode_ops;
 
 	switch (inode->type) {
 	case TMPFS_TYPE_DIR:

@@ -410,7 +410,7 @@ static int cache_ops_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 	return cache_mmap(cache, offset, seg);
 }
 
-static vfs_ops_t cache_ops = {
+static vfs_fd_ops_t cache_ops = {
 	.read  = cache_ops_read,
 	.write = cache_ops_write,
 	.ioctl = cache_ops_ioctl,

@@ -46,7 +46,7 @@ void *socket_new(size_t size) {
 	return socket;
 }
 
-static vfs_ops_t socket_ops = {
+static vfs_fd_ops_t socket_ops = {
 	.wait_check = socket_wait_check,
 	.read       = socket_read,
 	.close      = socket_close,

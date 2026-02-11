@@ -30,14 +30,15 @@
 
 struct vfs_node;
 struct vmm_seg;
-struct vfs_ops;
+struct vfs_inode_ops;
+struct vfs_fd_ops;
 struct superblock;
 
 typedef struct vfs_node {
 	void *private_inode;
 	void *private_inode2;
 	struct vfs_superblock *superblock;
-	struct vfs_ops *ops;
+	struct vfs_inode_ops *ops;
 	struct vfs_node *linked_node; // used for mount point
 	long flags;
 	size_t ref_count;
@@ -67,7 +68,7 @@ typedef struct vfs_dentry {
  */
 typedef struct vfs_fd {
 	vfs_node_t *inode;
-	struct vfs_ops *ops;
+	struct vfs_fd_ops *ops;
 	void *private;
 	size_t ref_count;
 	long flags;
@@ -75,11 +76,11 @@ typedef struct vfs_fd {
 } vfs_fd_t;
 
 /**
- * @brief all operations that can be done on a \ref vfs_fd_t or a \ref vfs_node_t
+ * @brief all operations that can be done on a \ref vfs_node_t
  */
-typedef struct vfs_ops {
-	// inode operations
+typedef struct vfs_inode_ops {
 	int (*lookup)(vfs_node_t *, vfs_dentry_t *, const char *name);
+	int (*readdir)(vfs_node_t *, unsigned long index, struct dirent *);
 	int (*create)(vfs_node_t *, const char *name, mode_t perm, long, void *);
 	int (*unlink)(vfs_node_t *, const char *);
 	int (*link)(vfs_node_t *, const char *, vfs_node_t *, const char *);
@@ -89,10 +90,14 @@ typedef struct vfs_ops {
 	int (*getattr)(vfs_node_t *, struct stat *);
 	int (*truncate)(vfs_node_t *, size_t);
 	void (*cleanup)(vfs_node_t *);
-
-	// fd operations
 	int (*open)(vfs_fd_t *);
-	int (*readdir)(vfs_fd_t *, unsigned long index, struct dirent *);
+} vfs_inode_ops_t;
+
+/**
+ * @brief contain all \ref vfs_fd_t operations
+ */
+typedef struct vfs_fd_ops {
+	int (*open)(vfs_fd_t *);
 	ssize_t(*read)(vfs_fd_t *, void *buf, off_t off, size_t count);
 	ssize_t(*write)(vfs_fd_t *, const void *buf, off_t off, size_t count);
 	int (*ioctl)(vfs_fd_t *, long, void *);
@@ -100,7 +105,7 @@ typedef struct vfs_ops {
 	int (*wait)(vfs_fd_t *, short);
 	int (*mmap)(vfs_fd_t *, off_t, struct vmm_seg *);
 	void (*close)(vfs_fd_t *);
-} vfs_ops_t;
+} vfs_fd_ops_t;
 
 typedef struct vfs_superblock_ops {
 	void (*destroy)(struct vfs_superblock *superblock);
@@ -217,7 +222,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags);
 void vfs_close(vfs_fd_t *fd);
 
 
-int vfs_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent);
+int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent);
 
 /**
  * @brief duplicate a file descriptor

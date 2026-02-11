@@ -103,7 +103,7 @@ void draw_pixel(vfs_fd_t *fd, size_t x, size_t y, uint32_t color, struct fb *inf
 	vfs_write(fd, &color, location, sizeof(uint32_t));
 }
 
-static vfs_ops_t framebuffer_ops = {
+static vfs_fd_ops_t framebuffer_ops = {
 	.write = framebuffer_write,
 	.mmap  = framebuffer_mmap,
 	.ioctl = framebuffer_ioctl,

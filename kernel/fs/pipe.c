@@ -71,13 +71,13 @@ static void pipe_close(vfs_fd_t *fd) {
 	return;
 }
 
-static vfs_ops_t pipe_write_ops = {
+static vfs_fd_ops_t pipe_write_ops = {
 	.write = pipe_write,
 	.wait_check = pipe_wait_check,
 	.close = pipe_close,
 };
 
-static vfs_ops_t pipe_read_ops = {
+static vfs_fd_ops_t pipe_read_ops = {
 	.read = pipe_read,
 	.wait_check = pipe_wait_check,
 	.close = pipe_close,

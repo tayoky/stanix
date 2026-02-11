@@ -131,7 +131,7 @@ ssize_t term_write(vfs_fd_t *fd,const void *vbuffer,off_t offset,size_t count){
 	return count;
 }
 
-vfs_ops_t terminal_ops = {
+vfs_fd_ops_t terminal_ops = {
 	.ioctl =  term_ioctl,
 	.write = term_write,
 };

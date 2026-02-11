@@ -470,14 +470,17 @@ int vfs_link(const char *src, const char *dest) {
 	return ret;
 }
 
-int vfs_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent) {
-	if (!(fd->type & VFS_DIR)) {
+int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
+	if (!node) {
+		return -EINVAL;
+	}
+	if (!(node->flags & VFS_DIR)) {
 		return -ENOTDIR;
 	}
 	dirent->d_type = DT_UNKNOWN;
 	dirent->d_ino  = 1; //some programs want non NULL inode
-	if (fd->ops->readdir) {
-		return fd->ops->readdir(fd, index, dirent);
+	if (node->ops->readdir) {
+		return node->ops->readdir(node, index, dirent);
 	} else {
 		return -EINVAL;
 	}
@@ -506,7 +509,7 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	st->st_nlink = 1; //in case a driver forgot to set :D
 	st->st_mode  = 0744; //default mode
 	//make sure we can actually sync
-	if (node->ops->getattr) {
+	if (node->ops && node->ops->getattr) {
 		int ret = node->ops->getattr(node, st);
 		if (ret < 0)return ret;
 	}
@@ -654,12 +657,17 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
 	memset(fd, 0, sizeof(vfs_fd_t));
 	vfs_getattr(node, &st);
 
-	fd->ops       = node->ops;
+	fd->ops       = NULL;
 	fd->private   = node->private_inode;
 	fd->inode     = vfs_dup_node(node);
 	fd->flags     = flags;
 	fd->ref_count = 1;
 	fd->type      = node->flags;
+
+	// call inode specific open before fd specific open
+	if (node->ops && node->ops->open) {
+		node->ops->open(fd);
+	}
 
 	if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode)) {
 		device_t *device = device_from_number(st.st_rdev);
@@ -668,7 +676,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
 		fd->private = device;
 	}
 
-	if (fd->ops->open) {
+	if (fd->ops && fd->ops->open) {
 		int ret = fd->ops->open(fd);
 		if (ret < 0) {
 		error:
@@ -699,7 +707,7 @@ void vfs_close(vfs_fd_t *fd) {
 	if (fd->ref_count > 0) return;
 	vfs_close_node(fd->inode);
 
-	if (fd->ops->close) {
+	if (fd->ops && fd->ops->close) {
 		fd->ops->close(fd);
 	}
 

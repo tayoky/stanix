@@ -101,7 +101,7 @@ static int tty_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	}
 }
 
-static vfs_ops_t tty_ops = {
+static vfs_fd_ops_t tty_ops = {
 	.read       = tty_read,
 	.write      = tty_write,
 	.ioctl      = tty_ioctl,

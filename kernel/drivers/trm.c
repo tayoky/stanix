@@ -67,7 +67,7 @@ static void trm_fb_close(vfs_fd_t *fd) {
 	kfree(fb);
 }
 
-static vfs_ops_t trm_fb_ops = {
+static vfs_fd_ops_t trm_fb_ops = {
 	.mmap  = trm_fb_mmap,
 	.close = trm_fb_close,
 };
@@ -241,7 +241,7 @@ static void trm_destroy(device_t *device) {
 	kfree(device->name);
 }
 
-static vfs_ops_t trm_ops = {
+static vfs_fd_ops_t trm_ops = {
 	.ioctl = trm_ioctl,
 	.open  = trm_open,
 	.close = trm_close,

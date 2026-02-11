@@ -23,7 +23,7 @@ typedef struct device {
 	void (*destroy)(struct device *);
 	void (*cleanup)(struct device *);
 	char *name;
-	vfs_ops_t *ops;
+	vfs_fd_ops_t *ops;
 	dev_t number;
 	int type;
 } device_t;

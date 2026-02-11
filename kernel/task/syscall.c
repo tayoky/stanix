@@ -453,7 +453,7 @@ int sys_readdir(int fd, struct dirent *ret, long int index) {
 	if (!is_valid_fd(fd)) {
 		return -EBADF;
 	}
-	return vfs_readdir(FD_GET(fd).fd, index, ret);
+	return vfs_readdir(FD_GET(fd).fd->inode, index, ret);
 }
 
 int sys_stat(const char *pathname, struct stat *st) {
@@ -652,7 +652,7 @@ int sys_rmdir(const char *pathname) {
 		return -ENOTDIR;
 	}
 	struct dirent entry;
-	if (vfs_readdir(fd, 2, &entry) != -ENOENT) {
+	if (vfs_readdir(fd->inode, 2, &entry) != -ENOENT) {
 		vfs_close(fd);
 		return -ENOTEMPTY;
 	}

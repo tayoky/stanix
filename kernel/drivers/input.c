@@ -64,7 +64,7 @@ static void input_destroy(device_t *device) {
 	destroy_ringbuffer(&input_device->events);
 }
 
-static vfs_ops_t input_ops = {
+static vfs_fd_ops_t input_ops = {
 	.read       = input_read,
 	.ioctl      = input_ioctl,
 	.wait_check = input_wait_check,

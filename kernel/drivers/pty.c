@@ -68,7 +68,7 @@ void pty_master_close(vfs_fd_t *fd) {
 	pty_cleanup(pty);
 }
 
-static vfs_ops_t pty_master_ops = {
+static vfs_fd_ops_t pty_master_ops = {
 	.read       = pty_master_read,
 	.write      = pty_master_write,
 	.wait_check = pty_master_wait_check,

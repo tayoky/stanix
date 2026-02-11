@@ -54,7 +54,7 @@ static ssize_t mem_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t cou
 	}
 }
 
-static vfs_ops_t mem_ops = {
+static vfs_fd_ops_t mem_ops = {
 	.read  = mem_read,
 	.write = mem_write,
 };

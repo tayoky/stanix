@@ -24,8 +24,8 @@ void sysfs_register(const char *name, vfs_node_t *node) {
 	list_append(&((sysfs_inode *)sysfs_root->private_inode)->child, &inode->node);
 }
 
-int sysfs_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent) {
-	sysfs_inode *inode = fd->private;
+int sysfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
+	sysfs_inode *inode = node->private_inode;
 	if (index == 0) {
 		strcpy(dirent->d_name, ".");
 		return 0;
@@ -62,7 +62,7 @@ int sysfs_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) {
 	return -ENOENT;
 }
 
-vfs_ops_t sysfs_ops = {
+vfs_inode_ops_t sysfs_ops = {
 	.readdir = sysfs_readdir,
 	.lookup  = sysfs_lookup,
 };
@@ -106,12 +106,15 @@ static ssize_t mem_read(vfs_fd_t *fd, void *buf, off_t off, size_t count) {
 	return count;
 }
 
-static vfs_ops_t mem_ops = {
+static vfs_fd_ops_t mem_ops = {
 	.read = mem_read,
 };
 
 void init_sysfs(void) {
 	kstatusf("init sysfs ... ");
+	kfail();
+	kdebugf("TODO : birng back sysfs\n");
+	/**
 	sysfs_root = sysfs_inode2vnode(new_sysfs_inode());
 
 	// simple /sys/mem
@@ -124,4 +127,5 @@ void init_sysfs(void) {
 
 	vfs_register_fs(&sys_fs);
 	kok();
+	*/
 }
