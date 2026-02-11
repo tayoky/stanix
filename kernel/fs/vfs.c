@@ -256,7 +256,6 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	if (entry->type != VFS_DIR) {
 		return NULL;
 	}
-	kdebugf("lookup %s on %s\n", name, entry->name);
 
 	// cannot do lookup on negative entry
 	if (vfs_dentry_is_negative(entry)) {
@@ -290,8 +289,8 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	}
 
 	vfs_dentry_t *child_entry = slab_alloc(&dentries_slab);
-	strcpy(entry->name, name);
-	entry->ref_count = 2;
+	strcpy(child_entry->name, name);
+	child_entry->ref_count = 2;
 
 	if (entry->inode->ops->lookup(entry->inode, child_entry, name) < 0) {
 		slab_free(child_entry);
@@ -300,7 +299,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 
 	// link it in the dentry cache
 	vfs_add_dentry(entry, child_entry);
-	return entry;
+	return child_entry;
 }
 
 void vfs_release_dentry(vfs_dentry_t *dentry) {
