@@ -4,6 +4,11 @@ title: kernel vfs
 The **vfs (virtual filesystem)** provide filesystem abstraction and allows opening devices as files.
 The prototype of most vfs functions is in `<kernel/kheap.h>`.
 
+## dentry
+A `vfs_dentry` represent a directory entry, a cached entry must be **positive** (linked to an **inode**) but non cached entry can be **negative** (not linked to an inode).
+The full path of a dentry can be obtained using `vfs_dentry_path`.
+Dentries keep a reference to their inodes, but not the other way around, the dentries of an inode can be freed if not used.
+
 ## inodes
 A `vfs_node_t` represent an inode. Various operations can be done using an inode.
 
