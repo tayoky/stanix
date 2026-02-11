@@ -33,9 +33,6 @@
 #include <poll.h>
 #include <sched.h>
 
-//we can't include stdlib
-char *realpath(const char *path, char *res);
-
 static int find_fd() {
 	int fd = 0;
 	while (is_valid_fd(fd)) {
@@ -513,10 +510,13 @@ int sys_getcwd(char *buf, size_t size) {
 		return -EFAULT;
 	}
 
-	if (size < strlen(get_current_proc()->cwd_path) + 1) {
+	char *cwd = vfs_dentry_path(get_current_proc()->cwd_node);
+
+	if (size < strlen(cwd) + 1) {
+		kfree(cwd);
 		return -ERANGE;
 	}
-	strcpy(buf, get_current_proc()->cwd_path);
+	strcpy(buf, cwd);
 
 	return 0;
 }
@@ -536,22 +536,11 @@ int sys_chdir(const char *path) {
 		return -ENOTDIR;
 	}
 
-
-	//make the cwd absolute
-	char *cwd = realpath(path, NULL);
-
-	//cwd should never finish with /
-	if (cwd[strlen(cwd) - 1] == '/') {
-		cwd[strlen(cwd) - 1] = '\0';
-	}
-
 	//free old cwd
-	kfree(get_current_proc()->cwd_path);
 	vfs_release_dentry(get_current_proc()->cwd_node);
 
 	//set new cwd
 	get_current_proc()->cwd_node = entry;
-	get_current_proc()->cwd_path = cwd;
 
 	return 0;
 }

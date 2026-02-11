@@ -68,6 +68,7 @@ typedef struct vfs_dentry {
  */
 typedef struct vfs_fd {
 	vfs_node_t *inode;
+	vfs_dentry_t *dentry;
 	struct vfs_fd_ops *ops;
 	void *private;
 	size_t ref_count;
@@ -211,9 +212,10 @@ static inline vfs_fd_t *vfs_open(const char *path, long flags) {
 /**
  * @brief open an inode
  * @param node the inode to open
+ * @param dentry the dentry of the inodes
  * @param flags the flags to open with
  */
-vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags);
+vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags);
 
 /**
  * @brief close a file descritor
@@ -234,7 +236,12 @@ static inline vfs_fd_t *vfs_dup(vfs_fd_t *fd) {
 	return fd;
 }
 
-
+/**
+ * @brief get a path from a dentry
+ * @param dentry the dentry to get the path of
+ * @return a dynamicly allocated string that must be freed !
+ */
+char *vfs_dentry_path(vfs_dentry_t *dentry);
 
 /**
  * @brief truncate a file to a specfied size

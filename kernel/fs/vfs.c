@@ -643,15 +643,15 @@ vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags) 
 }
 
 vfs_fd_t *vfs_openat(vfs_dentry_t *at, const char *path, long flags) {
-	vfs_node_t *node = vfs_get_node_at(at, path, flags);
-	if (!node) return NULL;
+	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, flags);
+	if (!dentry) return NULL;
 
-	vfs_fd_t *fd = vfs_open_node(node, flags);
-	vfs_close_node(node);
+	vfs_fd_t *fd = vfs_open_node(dentry->inode, dentry, flags);
+	vfs_release_dentry(dentry);
 	return fd;
 }
 
-vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
+vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 	struct stat st;
 	vfs_fd_t *fd = kmalloc(sizeof(vfs_fd_t));
 	memset(fd, 0, sizeof(vfs_fd_t));
@@ -660,6 +660,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, long flags) {
 	fd->ops       = NULL;
 	fd->private   = node->private_inode;
 	fd->inode     = vfs_dup_node(node);
+	fd->dentry    = vfs_dup_dentry(dentry);
 	fd->flags     = flags;
 	fd->ref_count = 1;
 	fd->type      = node->flags;
@@ -742,4 +743,26 @@ int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid) {
 
 int vfs_perm(vfs_node_t *node) {
 	return vfs_user_perm(node, get_current_proc()->euid, get_current_proc()->egid);
+}
+
+char *vfs_dentry_path(vfs_dentry_t *dentry) {
+	// TODO : use a dynamic buffer
+	char path[PATH_MAX];
+	size_t i = PATH_MAX;
+	path[--i] = '\0';
+	while (dentry && dentry != root) {
+		size_t len = strlen(dentry->name);
+		i -= len;
+		memcpy(path + i, dentry->name, len);
+		path[--i] = '/';
+		dentry = dentry->parent;
+	}
+	if (dentry != root) {
+		return strdup("(unreachable)");
+	}
+	if (!path[i]) {
+		// we do not want root to appear as an empty string
+		return strdup("/");
+	}
+	return strdup(path + i);
 }
