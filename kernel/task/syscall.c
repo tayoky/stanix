@@ -1513,6 +1513,27 @@ int sys_futex(long *addr, int op, long val) {
 	return do_futex(addr, op, val);
 }
 
+int sys_fdname(int fd, char *buf, size_t size) {
+	if (!CHECK_MEM(buf, size)) {
+		return -EFAULT;
+	}
+	if (!is_valid_fd(fd)) {
+		return -EBADF;
+	}
+
+	char *path = vfs_dentry_path(FD_GET(fd).fd->dentry);
+
+	if (size < strlen(path) + 1) {
+		kfree(path);
+		return -ERANGE;
+	}
+
+	strcpy(buf, path);
+	kfree(path);
+
+	return 0;
+}
+
 int sys_stub(void) {
 	return -ENOSYS;
 }
@@ -1606,7 +1627,9 @@ void *syscall_table[] = {
 	(void *)sys_stub, // sys_getpeername
 	(void *)sys_stub, // sys_getsockopt
 	(void *)sys_stub, // sys_setsockopt
+	(void *)sys_stub, // sys_shutdown
 	(void *)sys_futex,
+	(void *)sys_fdname,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
