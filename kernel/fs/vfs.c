@@ -292,7 +292,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 
 	vfs_dentry_t *child_entry = slab_alloc(&dentries_slab);
 	strcpy(child_entry->name, name);
-	child_entry->ref_count = 2;
+	child_entry->ref_count = 1;
 
 	if (entry->inode->ops->lookup(entry->inode, child_entry, name) < 0) {
 		slab_free(child_entry);

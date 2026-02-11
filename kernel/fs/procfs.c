@@ -30,6 +30,7 @@ static vfs_node_t *proc_new_node(process_t *proc, int type) {
 	vfs_node_t *node = kmalloc(sizeof(vfs_node_t));
 	memset(node, 0, sizeof(vfs_node_t));
 	node->private_inode = inode;
+	node->ref_count = 1;
 	node->ops           = &proc_inode_ops;
 	switch (type) {
 	case INODE_SELF:
