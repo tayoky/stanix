@@ -69,7 +69,7 @@ typedef struct process {
 	pid_t pid;
 	struct process *parent;
 	file_descriptor fds[MAX_FD];
-	vfs_dentry_t *cwd_node;
+	vfs_dentry_t *cwd;
 	char *cmdline;
 	uintptr_t heap_start;
 	uintptr_t heap_end;

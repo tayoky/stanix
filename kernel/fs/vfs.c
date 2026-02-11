@@ -562,7 +562,7 @@ vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags) 
 		if (path[0] == '/' || path[0] == '\0') {
 			return vfs_get_dentry_at(root, path, flags);
 		}
-		return vfs_get_dentry_at(get_current_proc()->cwd_node, path, flags);
+		return vfs_get_dentry_at(get_current_proc()->cwd, path, flags);
 	}
 
 	//we are going to modify it

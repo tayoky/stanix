@@ -510,7 +510,7 @@ int sys_getcwd(char *buf, size_t size) {
 		return -EFAULT;
 	}
 
-	char *cwd = vfs_dentry_path(get_current_proc()->cwd_node);
+	char *cwd = vfs_dentry_path(get_current_proc()->cwd);
 
 	if (size < strlen(cwd) + 1) {
 		kfree(cwd);
@@ -537,10 +537,10 @@ int sys_chdir(const char *path) {
 	}
 
 	//free old cwd
-	vfs_release_dentry(get_current_proc()->cwd_node);
+	vfs_release_dentry(get_current_proc()->cwd);
 
 	//set new cwd
-	get_current_proc()->cwd_node = entry;
+	get_current_proc()->cwd = entry;
 
 	return 0;
 }
