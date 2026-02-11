@@ -255,7 +255,7 @@ static int ide_ioctl(vfs_fd_t *fd,long req,void *arg){
 	}
 }
 
-static vfs_ops_t ata_ops = {
+static vfs_fd_ops_t ata_ops = {
 	.read  = ata_read,
 	.write = ata_write,
 	.ioctl = ide_ioctl,

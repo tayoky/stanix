@@ -10,7 +10,8 @@
 #undef min
 #define min(a,b) (a < b ? a : b)
 
-static vfs_ops_t fat_ops;
+static vfs_inode_ops_t fat_inode_ops;
+static vfs_fd_ops_t fat_fd_ops;
 
 static int fat_getattr(vfs_node_t *node, struct stat *st) {
 	fat_inode_t *inode = node->private_inode;
@@ -74,8 +75,9 @@ static vfs_node_t *fat_entry2node(fat_entry_t *entry, fat_superblock_t *fat_supe
 	vfs_node_t *node = kmalloc(sizeof(vfs_node_t));
 	memset(node, 0, sizeof(vfs_node_t));
 	node->private_inode = inode;
-	node->ops           = &fat_ops;
+	node->ops           = &fat_inode_ops;
 	node->superblock    = &fat_superblock->superblock;
+	node->ref_count = 1;
 	if (entry->attribute & ATTR_DIRECTORY) {
 		node->flags = VFS_DIR;
 	} else {
@@ -137,9 +139,9 @@ static ssize_t fat_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	return data_read;
 }
 
-static int fat_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent) {
-	fat_inode_t *inode = fd->private;
-	fat_superblock_t *fat_superblock = container_of(fd->inode->superblock, fat_superblock_t, superblock);
+static int fat_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
+	fat_inode_t *inode = node->private_inode;
+	fat_superblock_t *fat_superblock = container_of(node->superblock, fat_superblock_t, superblock);
 
 	uint64_t offset   = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
 	uint32_t remaning = inode->is_fat16_root ? inode->entries_count : UINT32_MAX;
@@ -231,7 +233,7 @@ static int fat_readdir(vfs_fd_t *fd, unsigned long index, struct dirent *dirent)
 	return 0;
 }
 
-static vfs_node_t *fat_lookup(vfs_node_t *node, const char *name) {
+static int fat_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) {
 	fat_inode_t *inode = node->private_inode;
 	fat_superblock_t *fat_superblock = container_of(node->superblock, fat_superblock_t, superblock);
 
@@ -247,7 +249,7 @@ static vfs_node_t *fat_lookup(vfs_node_t *node, const char *name) {
 			//end of cluster
 			//jump to next
 			cluster = fat_get_next_cluster(fat_superblock, cluster);
-			if (cluster == FAT_EOF)return NULL;
+			if (cluster == FAT_EOF)return -ENOENT;
 			offset = fat_cluster2offset(fat_superblock, cluster);
 		}
 		if (inode->is_fat16_root)remaning--;
@@ -255,7 +257,7 @@ static vfs_node_t *fat_lookup(vfs_node_t *node, const char *name) {
 		if (entry.name[0] == 0x00) {
 			//everything is free after that
 			//we hit last
-			return NULL;
+			return -ENOENT;
 		}
 		//TODO : long name support
 		if ((entry.attribute & ATTR_VOLUME_ID) || (entry.name[0] == (char)0xe5))cont: continue;
@@ -277,14 +279,21 @@ static vfs_node_t *fat_lookup(vfs_node_t *node, const char *name) {
 		if (name[j])continue;
 
 		//we found it
-		return fat_entry2node(&entry, fat_superblock);
+		dentry->inode = fat_entry2node(&entry, fat_superblock);
+		// TODO : inode number
+		return 0;
 	}
 
-	return NULL;
+	return -ENOENT;
 }
 
 static void fat_cleanup(vfs_node_t *node) {
 	kfree(node->private_inode);
+}
+
+static int fat_open(vfs_fd_t *fd) {
+	fd->ops = &fat_fd_ops;
+	return 0;
 }
 
 int fat_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
@@ -371,7 +380,7 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 		memset(local_root, 0, sizeof(vfs_node_t));
 		local_root->private_inode = root;
 		local_root->flags = VFS_DIR;
-		local_root->ops = &fat_ops;
+		local_root->ops = &fat_inode_ops;
 	}
 	local_root->ref_count = 1;
 	fat_superblock->superblock.root = local_root;
@@ -379,12 +388,16 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 	return 0;
 }
 
-static vfs_ops_t fat_ops = {
-	.read    = fat_read,
+static vfs_inode_ops_t fat_inode_ops = {
 	.readdir = fat_readdir,
 	.lookup  = fat_lookup,
 	.getattr = fat_getattr,
 	.cleanup = fat_cleanup,
+	.open    = fat_open,
+};
+
+static vfs_fd_ops_t fat_fd_ops = {
+	.read    = fat_read,
 };
 
 static vfs_filesystem_t fat_fs = {

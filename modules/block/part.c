@@ -63,7 +63,7 @@ typedef struct part {
 	struct part_info info;
 } part_t;
 
-static int part_ioctl(vfs_fd_t *fd,long req,void *arg){
+static int part_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	// expose partiton info to userspace
 	part_t *partition = fd->private;
 	switch (req) {
@@ -75,35 +75,35 @@ static int part_ioctl(vfs_fd_t *fd,long req,void *arg){
 	}
 }
 
-static ssize_t part_read(vfs_fd_t *fd,void *buf,off_t offset,size_t count){
+static ssize_t part_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	part_t *partition = fd->private;
-	if((size_t)offset > partition->size){
+	if ((size_t)offset > partition->size) {
 		return 0;
 	}
-	if((size_t)offset + count > partition->size){
+	if ((size_t)offset + count > partition->size) {
 		count = partition->size - offset;
 	}
-	return vfs_read(partition->dev,buf,offset + partition->offset,count);
+	return vfs_read(partition->dev, buf, offset + partition->offset, count);
 }
 
-static ssize_t part_write(vfs_fd_t *fd,const void *buf,off_t offset,size_t count){
+static ssize_t part_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t count) {
 	part_t *partition = fd->private;
-	if((size_t)offset > partition->size){
+	if ((size_t)offset > partition->size) {
 		return 0;
 	}
-	if((size_t)offset + count > partition->size){
+	if ((size_t)offset + count > partition->size) {
 		count = partition->size - offset;
 	}
-	return vfs_write(partition->dev,buf,offset + partition->offset,count);
+	return vfs_write(partition->dev, buf, offset + partition->offset, count);
 }
 
 static void part_destroy(device_t *device) {
-	part_t *part = (part_t*)device;
+	part_t *part = (part_t *)device;
 	vfs_close(part->dev);
 	kfree(part->device.name);
 }
 
-static vfs_ops_t part_ops = {
+static vfs_fd_ops_t part_ops = {
 	.read  = part_read,
 	.write = part_write,
 	.ioctl = part_ioctl,
@@ -113,14 +113,16 @@ static device_driver_t part_driver = {
 	.name = "partitions",
 };
 
-static void swap_guid(struct gpt_guid *guid){
+static void swap_guid(struct gpt_guid *guid) {
 	guid->e4 = ((guid->e4 & 0xff) << 8) | ((guid->e4 >> 8) & 0xff);
 }
 
-static int create_part(vfs_fd_t *dev,const char *target,off_t offset,size_t size,int *count,struct part_info *info){
-	kdebugf("find partition offset : %lx size : %ld\n",offset,size);
+static int create_part(vfs_fd_t *dev, const char *target, off_t offset, size_t size, int *count, struct part_info *info) {
+	kdebugf("find partition offset : %lx size : %ld\n", offset, size);
 	char path[strlen(target) + 16];
-	sprintf(path,"%s%d",dev->inode->name,(*count)++);
+	// TODO : use dentry on fd when we get it
+	sprintf(path, "STUUUBBB%d", (*count)++);
+	//sprintf(path, "%s%d", dev->inode->name, (*count)++);
 
 	part_t *p = kmalloc(sizeof(part_t));
 	memset(p, 0, sizeof(part_t));
@@ -133,7 +135,7 @@ static int create_part(vfs_fd_t *dev,const char *target,off_t offset,size_t size
 	p->device.driver  = &part_driver;
 	p->device.ops     = &part_ops;
 	p->device.destroy = part_destroy;
-	int ret = register_device((device_t*)p);
+	int ret = register_device((device_t *)p);
 	if (ret < 0) {
 		kfree(p->device.name);
 		kfree(p);
@@ -141,10 +143,10 @@ static int create_part(vfs_fd_t *dev,const char *target,off_t offset,size_t size
 	return ret;
 }
 
-int init_gpt(off_t offset,vfs_fd_t *dev,const char *target){
+int init_gpt(off_t offset, vfs_fd_t *dev, const char *target) {
 	gpt_header_t gpt;
-	vfs_read(dev,&gpt,offset,sizeof(gpt));
-	if(memcmp(gpt.signature,"EFI PART",8)){
+	vfs_read(dev, &gpt, offset, sizeof(gpt));
+	if (memcmp(gpt.signature, "EFI PART", 8)) {
 		vfs_close(dev);
 		return -EIO; //what error to return ?
 	}
@@ -155,46 +157,46 @@ int init_gpt(off_t offset,vfs_fd_t *dev,const char *target){
 	struct part_info info = {
 		.type = PART_TYPE_GPT,
 	};
-	memcpy(&info.gpt.disk_uuid,&gpt.guid,sizeof(gpt.guid));
+	memcpy(&info.gpt.disk_uuid, &gpt.guid, sizeof(gpt.guid));
 	swap_guid(&info.gpt.disk_uuid);
-	for (size_t i = 0; i < gpt.part_count; i++,off += gpt.part_ent_size){
+	for (size_t i = 0; i < gpt.part_count; i++, off += gpt.part_ent_size) {
 		gpt_entry_t entry;
-		vfs_read(dev,&entry,off,sizeof(entry));
+		vfs_read(dev, &entry, off, sizeof(entry));
 
 		//ignore empty partitions
 		struct gpt_guid zero;
-		memset(&zero,0,sizeof(zero));
-		if(!memcmp(&entry.guid,&zero,sizeof(struct gpt_guid)))continue;
+		memset(&zero, 0, sizeof(zero));
+		if (!memcmp(&entry.guid, &zero, sizeof(struct gpt_guid)))continue;
 
-		memcpy(&info.gpt.part_uuid,&entry.guid,sizeof(entry.guid));
-		memcpy(&info.gpt.type     ,&entry.type,sizeof(entry.type));
+		memcpy(&info.gpt.part_uuid, &entry.guid, sizeof(entry.guid));
+		memcpy(&info.gpt.type, &entry.type, sizeof(entry.type));
 		swap_guid(&info.gpt.part_uuid);
 		swap_guid(&info.gpt.type);
 
-		create_part(dev,target,entry.lba_start * 512,(entry.lba_end - entry.lba_start)*512,&counter,&info);
+		create_part(dev, target, entry.lba_start * 512, (entry.lba_end - entry.lba_start) * 512, &counter, &info);
 	}
-	
+
 	return 0;
 }
 
-int part_mount(const char *source,const char *target,unsigned long flags,const void *data,vfs_superblock_t **superblock_out){
+int part_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)data;
 	(void)flags;
 	(void)superblock_out;
 
-	kdebugf("mount %s to %s\n",source,target);
+	kdebugf("mount %s to %s\n", source, target);
 
-	vfs_fd_t *dev = vfs_open(source,O_RDONLY);
-	if(!dev)return -ENOENT;
+	vfs_fd_t *dev = vfs_open(source, O_RDONLY);
+	if (!dev)return -ENOENT;
 
 	mbr_table_t mbr;
-	vfs_read(dev,&mbr,0,sizeof(mbr));
+	vfs_read(dev, &mbr, 0, sizeof(mbr));
 
 	//check for gpt first
-	for (size_t i = 0; i < 4; i++){
-		if(mbr.entries[i].type == GPT_ID){
+	for (size_t i = 0; i < 4; i++) {
+		if (mbr.entries[i].type == GPT_ID) {
 			//gpt !
-			return init_gpt((off_t)mbr.entries[i].lba_start * 512,dev,target);
+			return init_gpt((off_t)mbr.entries[i].lba_start * 512, dev, target);
 		}
 	}
 
@@ -205,10 +207,10 @@ int part_mount(const char *source,const char *target,unsigned long flags,const v
 			.disk_uuid = mbr.uuid,
 		},
 	};
-	for (size_t i = 0; i < 4; i++){
-		if(!mbr.entries[i].sectors_count)continue;
+	for (size_t i = 0; i < 4; i++) {
+		if (!mbr.entries[i].sectors_count)continue;
 		info.type = mbr.entries[i].type;
-		create_part(dev,target,mbr.entries[i].lba_start * 512,mbr.entries[i].lba_start * 512,&counter,&info);
+		create_part(dev, target, mbr.entries[i].lba_start * 512, mbr.entries[i].lba_start * 512, &counter, &info);
 	}
 	vfs_close(dev);
 
@@ -220,7 +222,7 @@ vfs_filesystem_t part_fs = {
 	.name = "part",
 };
 
-int part_init(int argc,char **argv){
+int part_init(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
 	register_device_driver(&part_driver);
@@ -228,7 +230,7 @@ int part_init(int argc,char **argv){
 	return 0;
 }
 
-int part_fini(){
+int part_fini() {
 	//TODO : unregister
 	return 0;
 }
