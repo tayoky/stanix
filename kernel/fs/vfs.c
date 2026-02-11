@@ -36,6 +36,7 @@ void init_vfs(void) {
 	root = slab_alloc(&dentries_slab);
 	root->type = VFS_DIR;
 	root->ref_count = 1;
+	strcpy(root->name, "[root]");
 
 	init_list(&fs_types);
 	init_list(&superblocks);
@@ -102,6 +103,7 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 }
 
 int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
+	kdebugf("mount superblock on %s\n", mount_point->name);
 	// create a new fake dentry for the root of the superblock
 	vfs_dentry_t *root_dentry = slab_alloc(&dentries_slab);
 	root_dentry->type   = mount_point->type;

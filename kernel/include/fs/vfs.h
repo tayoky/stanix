@@ -312,7 +312,7 @@ void vfs_release_dentry(vfs_dentry_t *dentry);
 
 static void vfs_add_dentry(vfs_dentry_t *parent, vfs_dentry_t *child) {
 	// child hold a ref to the parent
-	vfs_dup_dentry(parent);
+	child->parent = vfs_dup_dentry(parent);
 	list_append(&parent->children, &child->node);
 }
 
