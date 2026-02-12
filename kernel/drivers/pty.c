@@ -35,8 +35,8 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 	pty_t *pty = (pty_t *)fd->private;
 	tty_t *tty = pty->slave;
 
-	for (size_t i=0; i<count; i++) {
-		tty_input(tty,*(char *)buffer);
+	for (size_t i=0; i < count; i++) {
+		tty_input(tty, *(char *)buffer);
 		(char *)buffer++;
 	}
 	return (ssize_t)count;
@@ -64,7 +64,7 @@ void pty_master_close(vfs_fd_t *fd) {
 	pty_t *pty = fd->private;
 
 	// the master close so remove the slave
-	destroy_device((device_t*)pty->slave);
+	destroy_device((device_t *)pty->slave);
 	pty_cleanup(pty);
 }
 
@@ -83,9 +83,9 @@ static device_driver_t pty_driver = {
 	.name = "pty driver",
 };
 
-int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep){
+int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	pty_t *pty = kmalloc(sizeof(pty_t));
-	memset(pty,0,sizeof(pty_t));
+	memset(pty, 0, sizeof(pty_t));
 	init_ringbuffer(&pty->output_buffer, 4096);
 
 	tty_t *slave = new_tty(NULL);
@@ -104,16 +104,18 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep){
 	(*master_fd)->type      = VFS_FILE;
 	(*master_fd)->flags     = O_RDWR;
 
-	(*slave_fd) = open_device((device_t*)slave, O_RDWR);
-
 	// register and save the slave
 	char path[32];
-	sprintf(path,"pts/%d",kernel->pty_count);
+	sprintf(path, "pts/%d", kernel->pty_count);
 	slave->device.name = strdup(path);
-	if(register_device((device_t*)slave) < 0){
+	if (register_device((device_t *)slave) < 0) {
 		// TODO : delete tty
 		return -ENOENT;
 	}
+
+	// FIXME : maybee there is a better way to do this
+	sprintf(path, "/dev/%s", slave->device.name);
+	(*slave_fd) = vfs_open(path, O_RDWR);
 
 	return kernel->pty_count++;
 }

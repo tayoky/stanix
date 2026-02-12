@@ -1,8 +1,9 @@
 #include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 
 int main(){
-	char *tty = ttyname(STDERR_FILENO);
+	char *tty = fdname(STDERR_FILENO);
 	if (!tty) {
 		return 1;
 	}
