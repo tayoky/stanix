@@ -341,72 +341,191 @@ void vfs_close_node(vfs_node_t *node) {
 	kfree(node);
 }
 
-int vfs_create(const char *path, int perm, long flags) {
-	return vfs_createat(NULL, path, perm, flags);
-}
-
-int vfs_createat(vfs_dentry_t *at, const char *path, int perm, long flags) {
-	return vfs_createat_ext(at, path, perm, flags, NULL);
-}
-
-int vfs_create_ext(const char *path, int perm, long flags, void *arg) {
-	return vfs_createat_ext(NULL, path, perm, flags, arg);
-}
-
-int vfs_createat_ext(vfs_dentry_t *at, const char *path, int perm, long flags, void *arg) {
-	//open the parent
-	vfs_node_t *parent = vfs_get_node_at(at, path, O_PARENT);
+static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **_parent, vfs_dentry_t **_dentry) {
+	vfs_dentry_t *parent = vfs_get_dentry_at(at, path, 0);
 	if (!parent) {
-		kdebugf("no parent\n");
-		return -ENOENT;
+		return -ENONET;
 	}
-	if (parent->flags != VFS_DIR) {
-		vfs_close_node(parent);
+
+	if (parent->inode->flags != VFS_DIR) {
+		vfs_release_dentry(parent);
 		return -ENOTDIR;
 	}
 
-	const char *child = vfs_basename(path);
+	vfs_dentry_t *dentry = slab_alloc(&dentries_slab);
+	if (!dentry) {
+		vfs_release_dentry(parent);
+		return -ENOMEM;
+	}
+	strcpy(dentry->name, vfs_basename(path));
 
-	// call create on the parent
-	int ret;
-	if (parent->ops->create) {
-		ret = parent->ops->create(parent, child, perm, flags, arg);
-	} else {
-		ret = -EIO;
+	*_parent = parent;
+	*_dentry = dentry;
+	
+	return 0;
+}
+
+int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {
+	vfs_dentry_t *parent;
+	vfs_dentry_t *dentry;
+	int ret = vfs_create_dentry(at, path, &parent, &dentry);
+	if (ret < 0) return ret;
+
+	if (!parent->inode->ops || !parent->inode->ops->create) {
+		ret = -EINVAL;
+		goto error;
 	}
 
-	vfs_close_node(parent);
+	ret = parent->inode->ops->create(parent->inode, dentry, mode);
+	if (ret < 0) {
+		goto error;
+	}
+
+	// now we can link the dentry if the fs filled it
+	if (!vfs_dentry_is_negative(dentry)) {
+		vfs_add_dentry(parent, dentry);
+	}
+
+	vfs_release_dentry(parent);
+
+	return 0;
+error:
+	vfs_release_dentry(parent);
+	vfs_release_dentry(dentry);
 	return ret;
 }
 
-int vfs_unlink(const char *path) {
-	vfs_dentry_t *entry = vfs_get_dentry(path, O_NOFOLLOW);
-	if (!entry) {
+int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode) {
+	vfs_dentry_t *parent;
+	vfs_dentry_t *dentry;
+	int ret = vfs_create_dentry(at, path, &parent, &dentry);
+	if (ret < 0) return ret;
+
+	if (!parent->inode->ops || !parent->inode->ops->mkdir) {
+		ret = -EINVAL;
+		goto error;
+	}
+
+	ret = parent->inode->ops->mkdir(parent->inode, dentry, mode);
+	if (ret < 0) {
+		goto error;
+	}
+
+	// now we can link the dentry if the fs filled it
+	if (!vfs_dentry_is_negative(dentry)) {
+		vfs_add_dentry(parent, dentry);
+	}
+
+	vfs_release_dentry(parent);
+
+	return 0;
+error:
+	vfs_release_dentry(parent);
+	vfs_release_dentry(dentry);
+	return ret;
+}
+
+int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev) {
+	vfs_dentry_t *parent;
+	vfs_dentry_t *dentry;
+	int ret = vfs_create_dentry(at, path, &parent, &dentry);
+	if (ret < 0) return ret;
+
+	if (!parent->inode->ops || !parent->inode->ops->mknod) {
+		ret = -EINVAL;
+		goto error;
+	}
+
+	ret = parent->inode->ops->mknod(parent->inode, dentry, mode, dev);
+	if (ret < 0) {
+		goto error;
+	}
+
+	// now we can link the dentry if the fs filled it
+	if (!vfs_dentry_is_negative(dentry)) {
+		vfs_add_dentry(parent, dentry);
+	}
+
+	vfs_release_dentry(parent);
+
+	return 0;
+error:
+	vfs_release_dentry(parent);
+	vfs_release_dentry(dentry);
+	return ret;
+}
+
+int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
+	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, O_NOFOLLOW);
+	if (!dentry) {
 		return -ENOENT;
 	}
 
-	vfs_dentry_t *parent_entry = vfs_dup_dentry(entry->parent);
+	int ret = 0;
+
+	
+	if (dentry->inode->flags == VFS_DIR) {
+		ret = -EISDIR;
+		goto error;
+	}
+
+	vfs_dentry_t *parent_entry = dentry->parent;
 	if (!parent_entry) {
 		// as far as i know you cannot unlink root
-		vfs_release_dentry(entry);
-		return -ENOENT;
+		ret = -ENOENT;
+		goto error;
 	}
-	vfs_release_dentry(entry);
 
 	// call unlink on the parent
 	vfs_node_t *parent = parent_entry->inode;
-	int ret;
-	if (parent->ops->create) {
-		ret = parent->ops->unlink(parent, entry->name);
-	} else {
+	if (!parent->ops || !parent->ops->unlink) {
 		ret = -EINVAL;
+		goto error;
 	}
 
+	ret = parent->ops->unlink(parent, dentry);
+
+error:
 	// cleanup
 	vfs_release_dentry(parent_entry);
 	return ret;
 }
 
+
+int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
+	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, 0);
+	if (!dentry) {
+		return -ENOENT;
+	}
+
+	int ret = 0;
+
+	if (dentry->inode->flags != VFS_DIR) {
+		ret = -ENOTDIR;
+		goto error;
+	}
+
+	vfs_dentry_t *parent_entry = dentry->parent;
+	if (!parent_entry) {
+		// as far as i know you cannot unlink root
+		ret = -ENOENT;
+		goto error;
+	}
+
+	// call unlink on the parent
+	vfs_node_t *parent = parent_entry->inode;
+	if (!parent->ops || !parent->ops->unlink) {
+		ret = -EINVAL;
+		goto error;
+	}
+
+	ret = parent->ops->unlink(parent, dentry);
+
+error:
+	// cleanup
+	vfs_release_dentry(parent_entry);
+	return ret;
+}
 
 int vfs_symlink(const char *target, const char *linkpath) {
 	//open parent
@@ -552,10 +671,6 @@ vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *path, long flags) {
 	return node;
 }
 
-vfs_dentry_t *vfs_get_dentry(const char *path, long flags) {
-	return vfs_get_dentry_at(NULL, path, flags);
-}
-
 vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags) {
 	if (!at) {
 		//if absolute relative to root else relative to cwd
@@ -642,7 +757,7 @@ vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags) 
 	return current_entry;
 }
 
-vfs_fd_t *vfs_openat(vfs_dentry_t *at, const char *path, long flags) {
+vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags) {
 	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, flags);
 	if (!dentry) return NULL;
 

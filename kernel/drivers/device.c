@@ -84,9 +84,9 @@ int register_device(device_t *device) {
 		device->addr->device = device;
 	}
 	if (device->type == DEVICE_BUS) {
-		vfs_createat(devfs_root, device->name, 0666, VFS_DIR);
+		vfs_mkdir_at(devfs_root, device->name, 0666);
 	} else {
-		vfs_createat_ext(devfs_root, device->name, 0666, device->type == DEVICE_CHAR ? VFS_CHAR : VFS_BLOCK, &device->number);
+		vfs_mknod_at(devfs_root, device->name, 0666 | (device->type == DEVICE_CHAR ? S_IFCHR : S_IFBLK), device->number);
 	}
 	kdebugf("register device %s as %d,%d (%lx)\n", device->name, major(device->number), minor(device->number), device->number);
 	hashmap_add(&devices, device->number, device);

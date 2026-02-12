@@ -22,7 +22,6 @@
 #define VFS_FILE  0x001
 #define VFS_DIR   0x002
 #define VFS_LINK  0x004
-#define VFS_MOUNT 0x010
 #define VFS_CHAR  0x020
 #define VFS_BLOCK 0x040
 #define VFS_TTY   0x080
@@ -82,8 +81,12 @@ typedef struct vfs_fd {
 typedef struct vfs_inode_ops {
 	int (*lookup)(vfs_node_t *, vfs_dentry_t *, const char *name);
 	int (*readdir)(vfs_node_t *, unsigned long index, struct dirent *);
-	int (*create)(vfs_node_t *, const char *name, mode_t perm, long, void *);
-	int (*unlink)(vfs_node_t *, const char *);
+	int (*create)(vfs_node_t *, vfs_dentry_t *, mode_t perm);
+	int (*mkdir)(vfs_node_t *, vfs_dentry_t *, mode_t perm);
+	int (*mknod)(vfs_node_t *, vfs_dentry_t *, mode_t perm, dev_t dev);
+	int (*unlink)(vfs_node_t *, vfs_dentry_t *);
+	int (*rmdir)(vfs_node_t *, vfs_dentry_t *);
+	int (*rename)(vfs_node_t *old_dir, vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry, int flags);
 	int (*link)(vfs_node_t *, const char *, vfs_node_t *, const char *);
 	int (*symlink)(vfs_node_t *, const char *, const char *);
 	ssize_t(*readlink)(vfs_node_t *, char *, size_t);
@@ -150,21 +153,34 @@ int vfs_chroot(vfs_node_t *new_root);
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
 ssize_t vfs_read(vfs_fd_t *node, void *buffer, uint64_t offset, size_t count);
 ssize_t vfs_write(vfs_fd_t *node, const void *buffer, uint64_t offset, size_t count);
-int vfs_create(const char *path, int perm, long flags);
-int vfs_createat(vfs_dentry_t *at, const char *path, int perm, long flags);
-int vfs_create_ext(const char *path, int perm, long flags, void *arg);
-int vfs_createat_ext(vfs_dentry_t *at, const char *path, int perm, long flags, void *arg);
 
-static inline int vfs_mkdir(const char *path, mode_t perm) {
-	return vfs_create(path, perm, VFS_DIR);
+
+
+int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode);
+int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode);
+int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev);
+int vfs_unlink_at(vfs_dentry_t *at, const char *path);
+int vfs_rmdir_at(vfs_dentry_t *at, const char *path);
+
+static inline int vfs_create(const char *path, mode_t mode) {
+	return vfs_create_at(NULL, path, mode);
 }
 
-/**
- * @brief unlink a path
- * @param path the path to unlink
- * @return 0 on success else error code
- */
-int vfs_unlink(const char *path);
+static inline int vfs_mkdir(const char *path, mode_t mode) {
+	return vfs_mkdir_at(NULL, path, mode);
+}
+
+static inline int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
+	return vfs_mknod_at(NULL, path, mode, dev);
+}
+
+static inline vfs_unlink(const char *path) {
+	return vfs_unlink_at(NULL, path);
+}
+
+static inline vfs_rmdir(const char *path) {
+	return vfs_rmdir_at(NULL, path);
+}
 
 int vfs_link(const char *src, const char *dest);
 
@@ -197,7 +213,7 @@ void vfs_close_node(vfs_node_t *node);
  * @param flags open flags (VFS_READONLY,...)
  * @return an pointer to the vfs_node_t context or NULL if an error happend
  */
-vfs_fd_t *vfs_openat(vfs_dentry_t *at, const char *path, long flags);
+vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags);
 
 /**
  * @brief open a context for a given path (absolute)
@@ -206,7 +222,7 @@ vfs_fd_t *vfs_openat(vfs_dentry_t *at, const char *path, long flags);
  * @return an pointer to the vfs_node_t or NULL if fail
  */
 static inline vfs_fd_t *vfs_open(const char *path, long flags) {
-	return vfs_openat(NULL, path, flags);
+	return vfs_open_at(NULL, path, flags);
 }
 
 /**
@@ -319,7 +335,11 @@ static vfs_dentry_t *vfs_dup_dentry(vfs_dentry_t *dentry) {
 }
 
 vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags);
-vfs_dentry_t *vfs_get_dentry(const char *path, long flags);
+
+static inline vfs_dentry_t *vfs_get_dentry(const char *path, long flags) {
+	return vfs_get_dentry_at(NULL, path, flags);
+}
+
 void vfs_release_dentry(vfs_dentry_t *dentry);
 
 static void vfs_add_dentry(vfs_dentry_t *parent, vfs_dentry_t *child) {

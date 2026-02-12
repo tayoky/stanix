@@ -96,7 +96,7 @@ int sys_open(const char *path, int flags, mode_t mode) {
 
 		if (!vfs_fd) {
 			//the user want to create the file
-			int result = vfs_create(path, mode & ~get_current_proc()->umask, VFS_FILE);
+			int result = vfs_create(path, mode & ~get_current_proc()->umask);
 
 			if (result) {
 				//vfs_create failed
@@ -611,18 +611,6 @@ int sys_unlink(const char *pathname) {
 		return -EFAULT;
 	}
 
-	// unlink don't work on dir while vfs_unlink work on dir
-	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY);
-	if (!node) {
-		return -ENOENT;
-	}
-	if (node->flags & VFS_DIR) {
-		vfs_close_node(node);
-		return -EISDIR;
-	}
-	// TODO : check perm
-	vfs_close_node(node);
-
 	return vfs_unlink(pathname);
 }
 
@@ -631,29 +619,7 @@ int sys_rmdir(const char *pathname) {
 		return -EFAULT;
 	}
 
-	//check for dir and empty
-	vfs_fd_t *fd = vfs_open(pathname, O_RDONLY);
-	if (!fd) {
-		return -ENOENT;
-	}
-	if (!(fd->inode->flags & VFS_DIR)) {
-		vfs_close(fd);
-		return -ENOTDIR;
-	}
-	struct dirent entry;
-	if (vfs_readdir(fd->inode, 2, &entry) != -ENOENT) {
-		vfs_close(fd);
-		return -ENOTEMPTY;
-	}
-
-	//now check if it in use
-	if (fd->inode->ref_count > 1) {
-		vfs_close(fd);
-		return -EBUSY;
-	}
-	vfs_close(fd);
-
-	return vfs_unlink(pathname);
+	return vfs_rmdir(pathname);
 }
 
 int sys_insmod(const char *pathname, const char **arg) {
