@@ -36,17 +36,6 @@ void init_kheap(void);
 
 void change_kheap_size(ssize_t offset);
 
-/// @brief allocate space in a heap
-/// @param heap the heap to search memory into
-/// @param amount the amount of memory to allocate
-/// @return an pointer to the allocated region
-void *malloc(heap_info *heap,size_t amount);
-
-/// @brief free memory in a heap
-/// @param heap the heap that contain the block of memory
-/// @param ptr the pointer to the allocated region
-void free(heap_info *heap,void *ptr);
-
 /// @brief allocate space in kernel heap
 /// @param amount the amount of memory to allocate
 /// @return an pointer to the allocated region
