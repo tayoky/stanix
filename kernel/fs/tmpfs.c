@@ -67,6 +67,15 @@ static void free_inode(tmpfs_inode_t *inode) {
 	slab_free(inode);
 }
 
+static int tmpfs_add_entry(tmpfs_inode_t *dir, tmpfs_inode_t *child, const char *name) {
+	// create new entry
+	child->link_count++;
+	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
+	strcpy(entry->name, name);
+	entry->inode = child;
+	list_append(&dir->entries, &entry->node);
+	return 0;
+}
 
 static int tmpfs_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)data;
@@ -231,11 +240,7 @@ static int tmpfs_link(vfs_node_t *parent_src, const char *src, vfs_node_t *paren
 	if (!src_inode)return -ENOENT;
 
 	//create new entry
-	src_inode->link_count++;
-	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
-	strcpy(entry->name, dest);
-	entry->inode = src_inode;
-	list_append(&parent_dest_inode->entries, &entry->node);
+	tmpfs_add_entry(parent_dest_inode, src_inode, dest);
 	return 0;
 }
 
@@ -248,11 +253,7 @@ static int tmpfs_symlink(vfs_node_t *node, const char *name, const char *target)
 	symlink->buffer_size = strlen(target);
 	symlink->buffer = strdup(target);
 
-	//create new entry
-	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
-	strcpy(entry->name, name);
-	entry->inode = symlink;
-	list_append(&inode->entries, &entry->node);
+	tmpfs_add_entry(inode, symlink, name);
 
 	return 0;
 }
@@ -329,46 +330,34 @@ static void tmpfs_cleanup(vfs_node_t *node) {
 	}
 }
 
-int tmpfs_create(vfs_node_t *node, const char *name, mode_t perm, long type, void *arg) {
+int tmpfs_create(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
-	if (tmpfs_exist(inode, name))return -EEXIST;
+	if (tmpfs_exist(inode, dentry->name))return -EEXIST;
 
-	//turn vfs flag into tmpfs flags
-	long inode_type = 0;
-	switch (type) {
-	case VFS_FILE:
-		inode_type = TMPFS_TYPE_FILE;
-		break;
-	case VFS_SOCK:
-		inode_type = TMPFS_TYPE_SOCK;
-		break;
-	case VFS_DIR:
-		inode_type = TMPFS_TYPE_DIR;
-		break;
-	case VFS_CHAR:
-		inode_type = TMPFS_TYPE_CHAR;
-		break;
-	case VFS_BLOCK:
-		inode_type = TMPFS_TYPE_BLOCK;
-		break;
-	}
 
 	//create new inode
-	tmpfs_inode_t *child_inode = new_inode(inode_type);
+	tmpfs_inode_t *child_inode = new_inode(TMPFS_TYPE_FILE);
 	child_inode->link_count = 1;
 	child_inode->parent = inode;
 	child_inode->perm = perm;
-	child_inode->data = arg;
-	if ((type == VFS_BLOCK) || (type == VFS_CHAR)) {
-		child_inode->dev = *(dev_t *)arg;
-	}
 
-	//create new entry
-	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
-	memset(entry, 0, sizeof(tmpfs_dirent_t));
-	strcpy(entry->name, name);
-	entry->inode = child_inode;
-	list_append(&inode->entries, &entry->node);
+	tmpfs_add_entry(inode, child_inode, dentry->name);
+
+	return 0;
+}
+
+int tmpfs_mkdir(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm) {
+	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
+	if (tmpfs_exist(inode, dentry->name))return -EEXIST;
+
+
+	//create new inode
+	tmpfs_inode_t *child_inode = new_inode(TMPFS_TYPE_DIR);
+	child_inode->link_count = 1;
+	child_inode->parent = inode;
+	child_inode->perm = perm;
+
+	tmpfs_add_entry(inode, child_inode, dentry->name);
 
 	return 0;
 }
@@ -420,6 +409,7 @@ static vfs_inode_ops_t tmpfs_inode_ops = {
 	.lookup     = tmpfs_lookup,
 	.readdir    = tmpfs_readdir,
 	.create     = tmpfs_create,
+	.mkdir      = tmpfs_mkdir,
 	.unlink     = tmpfs_unlink,
 	.link       = tmpfs_link,
 	.symlink    = tmpfs_symlink,
