@@ -9,5 +9,6 @@
 #define _STRINGIFY(a) #a
 
 #define container_of(ptr, type, member) ((type*)((char*)(ptr) - offsetof(type, member)))
+#define arraylen(array) (sizeof(array)/sizeof(*(array)))
 
 #endif

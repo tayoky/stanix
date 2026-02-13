@@ -658,7 +658,7 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 
 int vfs_setattr(vfs_node_t *node, struct stat *st) {
 	//make sure we can actually sync
-	if (!node->ops->setattr) {
+	if (!node || !node->ops || !node->ops->setattr) {
 		return -EINVAL; //should be another error ... but what ???
 	}
 	return node->ops->setattr(node, st);

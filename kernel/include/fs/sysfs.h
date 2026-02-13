@@ -5,7 +5,9 @@
 #include <kernel/list.h>
 
 typedef struct sysfs_inode {
-    
+	vfs_node_t node;
+    int type;
+	void *ptr;
 } sysfs_inode_t;
 
 void init_sysfs(void);
