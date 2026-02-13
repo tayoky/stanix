@@ -35,7 +35,6 @@ struct superblock;
 
 typedef struct vfs_node {
 	void *private_inode;
-	void *private_inode2;
 	struct vfs_superblock *superblock;
 	struct vfs_inode_ops *ops;
 	struct vfs_node *linked_node; // used for mount point

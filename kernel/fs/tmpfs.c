@@ -265,44 +265,44 @@ static void tmpfs_cleanup(vfs_node_t *node) {
 	}
 }
 
-static int tmpfs_create(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm) {
+static int tmpfs_create(vfs_node_t *node, vfs_dentry_t *dentry, mode_t mode) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
 	if (tmpfs_exist(inode, dentry)) return -EEXIST;
 
 	// create new inode
 	tmpfs_inode_t *child_inode = new_inode(TMPFS_TYPE_FILE);
 	child_inode->parent = inode;
-	child_inode->perm = perm;
+	child_inode->perm = mode;
 
 	tmpfs_add_entry(inode, child_inode, dentry);
 
 	return 0;
 }
 
-static int tmpfs_mkdir(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm) {
+static int tmpfs_mkdir(vfs_node_t *node, vfs_dentry_t *dentry, mode_t mode) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
 	if (tmpfs_exist(inode, dentry)) return -EEXIST;
 
 	// create new inode
 	tmpfs_inode_t *child_inode = new_inode(TMPFS_TYPE_DIR);
 	child_inode->parent = inode;
-	child_inode->perm = perm;
+	child_inode->perm = mode;
 
 	tmpfs_add_entry(inode, child_inode, dentry);
 
 	return 0;
 }
 
-static int tmpfs_mknod(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm, dev_t dev) {
+static int tmpfs_mknod(vfs_node_t *node, vfs_dentry_t *dentry, mode_t mode, dev_t dev) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
 	if (tmpfs_exist(inode, dentry)) return -EEXIST;
 
 	int type = 0;
-	if (S_ISBLK(perm)) {
+	if (S_ISBLK(mode)) {
 		type = TMPFS_TYPE_BLOCK;
-	} else if (S_ISCHR(perm)) {
+	} else if (S_ISCHR(mode)) {
 		type = TMPFS_TYPE_CHAR;
-	} else if (S_ISSOCK(perm)) {
+	} else if (S_ISSOCK(mode)) {
 		type = TMPFS_TYPE_SOCK;
 	} else {
 		return -EINVAL;
@@ -311,7 +311,7 @@ static int tmpfs_mknod(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm, dev_
 	// create new inode
 	tmpfs_inode_t *child_inode = new_inode(type);
 	child_inode->parent = inode;
-	child_inode->perm = perm;
+	child_inode->perm = mode;
 	child_inode->dev  = dev;
 
 	tmpfs_add_entry(inode, child_inode, dentry);
@@ -459,7 +459,6 @@ static vfs_node_t *inode2node(tmpfs_inode_t *inode) {
 		node->flags |= VFS_FILE;
 		break;
 	case TMPFS_TYPE_SOCK:
-		node->private_inode2 = inode->data;
 		node->flags |= VFS_SOCK;
 		break;
 	case TMPFS_TYPE_CHAR:

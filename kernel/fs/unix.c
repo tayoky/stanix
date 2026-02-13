@@ -34,7 +34,6 @@ int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
 	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) return -EINVAL;
 	if (socket->status != UNIX_STATUS_INIT) return -EINVAL;
 
-	// FIXME : this is broken
 	int ret = vfs_mknod(address->sun_path, 0777 | S_IFSOCK, (dev_t)sock);
 	if (ret < 0) {
 		if (ret == -EEXIST) ret = -EADDRINUSE;
@@ -56,9 +55,11 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 
 	vfs_node_t *node = vfs_get_node(address->sun_path, O_RDWR);
 	if (!node) return -ECONNREFUSED;
-	unix_socket_t *server = (unix_socket_t*)node->private_inode2;
+	struct stat stat;
+	vfs_getattr(node, &stat);
+	unix_socket_t *server = (unix_socket_t*)stat.st_rdev;
 	vfs_close_node(node);
-	if (!(node->flags & VFS_SOCK) || (server->status != UNIX_STATUS_LISTEN) || 
+	if (!S_ISSOCK(stat.st_mode) || (server->status != UNIX_STATUS_LISTEN) || 
 		server->socket.type != sock->type || server->socket.domain != sock->domain) return -ECONNREFUSED;
 
 	// send the connection struct
