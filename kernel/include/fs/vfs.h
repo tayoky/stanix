@@ -52,8 +52,7 @@ typedef struct vfs_dentry {
 	char name[256];
 	vfs_node_t *inode;
 	ino_t inode_number;
-	int type;
-	int flags;
+	long flags;
 	struct vfs_dentry *parent;
 	struct vfs_dentry *old; // used for mount point
 	list_t children;
@@ -87,8 +86,8 @@ typedef struct vfs_inode_ops {
 	int (*unlink)(vfs_node_t *, vfs_dentry_t *);
 	int (*rmdir)(vfs_node_t *, vfs_dentry_t *);
 	int (*rename)(vfs_node_t *old_dir, vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry, int flags);
-	int (*link)(vfs_node_t *, const char *, vfs_node_t *, const char *);
-	int (*symlink)(vfs_node_t *, const char *, const char *);
+	int (*link)(vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry);
+	int (*symlink)(vfs_node_t *, vfs_dentry_t *, const char *target);
 	ssize_t(*readlink)(vfs_node_t *, char *, size_t);
 	int (*setattr)(vfs_node_t *, struct stat *);
 	int (*getattr)(vfs_node_t *, struct stat *);
@@ -159,6 +158,8 @@ ssize_t vfs_write(vfs_fd_t *node, const void *buffer, uint64_t offset, size_t co
 int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode);
 int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode);
 int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev);
+int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path);
+int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path);
 int vfs_unlink_at(vfs_dentry_t *at, const char *path);
 int vfs_rmdir_at(vfs_dentry_t *at, const char *path);
 
@@ -174,6 +175,14 @@ static inline int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
 	return vfs_mknod_at(NULL, path, mode, dev);
 }
 
+static inline vfs_link(const char *old_path, const char *new_path) {
+	return vfs_link_at(NULL, old_path, NULL, new_path);
+}
+
+static inline int vfs_symlink(const char *target, const char *path) {
+	return vfs_symlink_at(target, NULL, path);
+}
+
 static inline vfs_unlink(const char *path) {
 	return vfs_unlink_at(NULL, path);
 }
@@ -182,9 +191,6 @@ static inline vfs_rmdir(const char *path) {
 	return vfs_rmdir_at(NULL, path);
 }
 
-int vfs_link(const char *src, const char *dest);
-
-int vfs_symlink(const char *target, const char *linkpath);
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
 int vfs_getattr(vfs_node_t *node, struct stat *st);
 int vfs_setattr(vfs_node_t *node, struct stat *st);

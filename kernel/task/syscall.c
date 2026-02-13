@@ -526,20 +526,20 @@ int sys_chdir(const char *path) {
 		return -EFAULT;
 	}
 
-	//check if exist
+	// check if exist
 	vfs_dentry_t *entry = vfs_get_dentry(path, 0);
 	if (!entry) {
 		return -ENOENT;
 	}
 
-	if (entry->type != VFS_DIR) {
+	if (entry->inode->flags != VFS_DIR) {
 		return -ENOTDIR;
 	}
 
-	//free old cwd
+	// free old cwd
 	vfs_release_dentry(get_current_proc()->cwd);
 
-	//set new cwd
+	// set new cwd
 	get_current_proc()->cwd = entry;
 
 	return 0;

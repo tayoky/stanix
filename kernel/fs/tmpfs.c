@@ -43,7 +43,7 @@ static tmpfs_inode_t *new_inode(long type) {
 	}
 	inode->type = type;
 	inode->parent = NULL;
-	inode->link_count = 1;
+	inode->link_count = 0;
 
 	//set times
 	inode->atime = NOW();
@@ -67,14 +67,24 @@ static void free_inode(tmpfs_inode_t *inode) {
 	slab_free(inode);
 }
 
-static int tmpfs_add_entry(tmpfs_inode_t *dir, tmpfs_inode_t *child, const char *name) {
+static int tmpfs_add_entry(tmpfs_inode_t *dir, tmpfs_inode_t *child, vfs_dentry_t *dentry) {
 	// create new entry
 	child->link_count++;
 	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
-	strcpy(entry->name, name);
+	strcpy(entry->name, dentry->name);
 	entry->inode = child;
 	list_append(&dir->entries, &entry->node);
 	return 0;
+}
+
+static tmpfs_dirent_t *tmpfs_get_entry(tmpfs_inode_t *dir, vfs_dentry_t *dentry) {
+	foreach(node, &dir->entries) {
+		tmpfs_dirent_t *current_entry = container_of(node, tmpfs_dirent_t, node);
+		if (!strcmp(current_entry->name, dentry->name)) {
+			return current_entry;
+		}
+	}
+	return NULL;
 }
 
 static int tmpfs_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
@@ -117,7 +127,6 @@ static int tmpfs_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name
 	if (!strcmp(name, ".")) {
 		dentry->inode = inode2node(inode);
 		dentry->inode_number = INODE_NUMBER(inode);
-		dentry->type = dentry->inode->flags;
 		return 0;
 	}
 
@@ -131,22 +140,15 @@ static int tmpfs_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name
 			dentry->inode->ref_count = 1;
 			dentry->inode_number = INODE_NUMBER(inode);
 		}
-		dentry->type = dentry->inode->flags;
 		return 0;
 	}
 
-	foreach(node, &inode->entries) {
-		tmpfs_dirent_t *entry = (tmpfs_dirent_t *)node;
-		if (!strcmp(name, entry->name)) {
-			dentry->inode = inode2node(entry->inode);
-			dentry->inode->ref_count = 1;
-			dentry->inode_number = INODE_NUMBER(entry->inode);
-			dentry->type = dentry->inode->flags;
-			return 0;
-		}
-	}
-
-	return -ENOENT;
+	tmpfs_dirent_t *entry = tmpfs_get_entry(inode, dentry);
+	if (!entry) return -ENOENT;
+	dentry->inode = inode2node(entry->inode);
+	dentry->inode->ref_count = 1;
+	dentry->inode_number = INODE_NUMBER(entry->inode);
+	return 0;
 }
 
 static ssize_t tmpfs_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
@@ -187,75 +189,8 @@ static int tmpfs_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 	return cache_mmap(&inode->cache, offset, seg);
 }
 
-static int tmpfs_unlink(vfs_node_t *node, const char *name) {
-	kdebugf("unlink %s\n", name);
-	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
-
-	tmpfs_dirent_t *entry = NULL;
-	foreach(node, &inode->entries) {
-		tmpfs_dirent_t *cur_entry = (tmpfs_dirent_t *)node;
-		if (!strcmp(cur_entry->name, name)) {
-			entry = cur_entry;
-			break;
-		}
-	}
-
-	if (!entry)return ENOENT;
-
-	list_remove(&inode->entries, &entry->node);
-	if ((--entry->inode->link_count) == 0 && entry->inode->open_count == 0) {
-		//nobody uses it we can free
-		free_inode(entry->inode);
-	}
-	slab_free(entry);
-
-	return 0;
-}
-
-static int tmpfs_exist(tmpfs_inode_t *inode, const char *name) {
-	foreach(node, &inode->entries) {
-		tmpfs_dirent_t *entry = (tmpfs_dirent_t *)node;
-		if (!strcmp(name, entry->name)) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static int tmpfs_link(vfs_node_t *parent_src, const char *src, vfs_node_t *parent_dest, const char *dest) {
-	kdebugf("link %s %s\n", src, dest);
-	tmpfs_inode_t *parent_src_inode  = (tmpfs_inode_t *)parent_src->private_inode;
-	tmpfs_inode_t *parent_dest_inode = (tmpfs_inode_t *)parent_dest->private_inode;
-
-	if (tmpfs_exist(parent_dest_inode, dest))return -EEXIST;
-
-	tmpfs_inode_t *src_inode = NULL;
-	foreach(node, &parent_src_inode->entries) {
-		tmpfs_dirent_t *entry = (tmpfs_dirent_t *)node;
-		if (!strcmp(entry->name, src)) {
-			src_inode = entry->inode;
-			break;
-		}
-	}
-	if (!src_inode)return -ENOENT;
-
-	//create new entry
-	tmpfs_add_entry(parent_dest_inode, src_inode, dest);
-	return 0;
-}
-
-static int tmpfs_symlink(vfs_node_t *node, const char *name, const char *target) {
-	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
-
-	if (tmpfs_exist(inode, name))return -EEXIST;
-
-	tmpfs_inode_t *symlink = new_inode(TMPFS_TYPE_LINK);
-	symlink->buffer_size = strlen(target);
-	symlink->buffer = strdup(target);
-
-	tmpfs_add_entry(inode, symlink, name);
-
-	return 0;
+static int tmpfs_exist(tmpfs_inode_t *inode, vfs_dentry_t *dentry) {
+	return tmpfs_get_entry(inode, dentry) != NULL;
 }
 
 static ssize_t tmpfs_readlink(vfs_node_t *node, char *buf, size_t bufsize) {
@@ -325,39 +260,125 @@ static void tmpfs_cleanup(vfs_node_t *node) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
 	inode->open_count--;
 	if (inode->open_count == 0 && inode->link_count == 0) {
-		//nobody use it
+		// nobody use it
 		free_inode(inode);
 	}
 }
 
-int tmpfs_create(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm) {
+static int tmpfs_create(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
-	if (tmpfs_exist(inode, dentry->name))return -EEXIST;
+	if (tmpfs_exist(inode, dentry)) return -EEXIST;
 
-
-	//create new inode
+	// create new inode
 	tmpfs_inode_t *child_inode = new_inode(TMPFS_TYPE_FILE);
-	child_inode->link_count = 1;
 	child_inode->parent = inode;
 	child_inode->perm = perm;
 
-	tmpfs_add_entry(inode, child_inode, dentry->name);
+	tmpfs_add_entry(inode, child_inode, dentry);
 
 	return 0;
 }
 
-int tmpfs_mkdir(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm) {
+static int tmpfs_mkdir(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
-	if (tmpfs_exist(inode, dentry->name))return -EEXIST;
+	if (tmpfs_exist(inode, dentry)) return -EEXIST;
 
-
-	//create new inode
+	// create new inode
 	tmpfs_inode_t *child_inode = new_inode(TMPFS_TYPE_DIR);
-	child_inode->link_count = 1;
 	child_inode->parent = inode;
 	child_inode->perm = perm;
 
-	tmpfs_add_entry(inode, child_inode, dentry->name);
+	tmpfs_add_entry(inode, child_inode, dentry);
+
+	return 0;
+}
+
+static int tmpfs_mknod(vfs_node_t *node, vfs_dentry_t *dentry, mode_t perm, dev_t dev) {
+	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
+	if (tmpfs_exist(inode, dentry)) return -EEXIST;
+
+	int type = 0;
+	if (S_ISBLK(perm)) {
+		type = TMPFS_TYPE_BLOCK;
+	} else if (S_ISCHR(perm)) {
+		type = TMPFS_TYPE_CHAR;
+	} else if (S_ISSOCK(perm)) {
+		type = TMPFS_TYPE_SOCK;
+	} else {
+		return -EINVAL;
+	}
+
+	// create new inode
+	tmpfs_inode_t *child_inode = new_inode(type);
+	child_inode->parent = inode;
+	child_inode->perm = perm;
+	child_inode->dev  = dev;
+
+	tmpfs_add_entry(inode, child_inode, dentry);
+
+	return 0;
+}
+
+static int tmpfs_link( vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry) {
+	kdebugf("link %s %s\n", old_dentry->name, new_dentry->name);
+	tmpfs_inode_t *new_dir_inode = (tmpfs_inode_t *)new_dir->private_inode;
+	tmpfs_inode_t *old_inode = (tmpfs_inode_t*)old_dentry->inode->private_inode;
+
+	if (tmpfs_exist(new_dir_inode, new_dentry)) return -EEXIST;
+
+	tmpfs_add_entry(new_dir_inode, old_inode, new_dentry);
+	return 0;
+}
+
+static int tmpfs_symlink(vfs_node_t *node, vfs_dentry_t *dentry, const char *target) {
+	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
+	if (tmpfs_exist(inode, dentry)) return -EEXIST;
+
+	tmpfs_inode_t *symlink = new_inode(TMPFS_TYPE_LINK);
+	symlink->buffer_size = strlen(target);
+	symlink->buffer = strdup(target);
+
+	tmpfs_add_entry(inode, symlink, dentry);
+
+	return 0;
+}
+
+static int tmpfs_unlink(vfs_node_t *node, vfs_dentry_t *dentry) {
+	kdebugf("unlink %s\n", dentry->name);
+	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
+
+	tmpfs_dirent_t *entry = tmpfs_get_entry(inode, dentry);
+	if (!entry) return ENOENT;
+	if (entry->inode->type == TMPFS_TYPE_DIR) return -EISDIR;
+
+	list_remove(&inode->entries, &entry->node);
+	if ((--entry->inode->link_count) == 0 && entry->inode->open_count == 0) {
+		// nobody uses it we can free
+		free_inode(entry->inode);
+	}
+	slab_free(entry);
+
+	return 0;
+}
+
+static int tmpfs_rmdir(vfs_node_t *node, vfs_dentry_t *dentry) {
+	kdebugf("rmdir %s\n", dentry->name);
+	tmpfs_inode_t *inode = (tmpfs_inode_t *)node->private_inode;
+
+	tmpfs_dirent_t *entry = tmpfs_get_entry(inode, dentry);
+	if (!entry) return ENOENT;
+	if (entry->inode->type != TMPFS_TYPE_DIR) return -ENOTDIR;
+
+	// check if the directory is empty
+	tmpfs_inode_t *child_inode = entry->inode;
+	if (child_inode->entries.first_node) return -ENOTEMPTY;
+
+	list_remove(&inode->entries, &entry->node);
+	if ((--entry->inode->link_count) == 0 && entry->inode->open_count == 0) {
+		// nobody uses it we can free
+		free_inode(entry->inode);
+	}
+	slab_free(entry);
 
 	return 0;
 }
@@ -410,10 +431,12 @@ static vfs_inode_ops_t tmpfs_inode_ops = {
 	.readdir    = tmpfs_readdir,
 	.create     = tmpfs_create,
 	.mkdir      = tmpfs_mkdir,
-	.unlink     = tmpfs_unlink,
+	.mknod      = tmpfs_mknod,
 	.link       = tmpfs_link,
 	.symlink    = tmpfs_symlink,
 	.readlink   = tmpfs_readlink,
+	.unlink     = tmpfs_unlink,
+	.rmdir      = tmpfs_rmdir,
 	.truncate   = tmpfs_truncate,
 	.getattr    = tmpfs_getattr,
 	.setattr    = tmpfs_setattr,

@@ -34,7 +34,6 @@ void init_vfs(void) {
 	dentries_slab.constructor = dentry_constructor;
 
 	root = slab_alloc(&dentries_slab);
-	root->type = VFS_DIR;
 	root->ref_count = 1;
 	strcpy(root->name, "[root]");
 
@@ -106,7 +105,6 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 	kdebugf("mount superblock on %s\n", mount_point->name);
 	// create a new fake dentry for the root of the superblock
 	vfs_dentry_t *root_dentry = slab_alloc(&dentries_slab);
-	root_dentry->type   = mount_point->type;
 	root_dentry->parent = vfs_dup_dentry(mount_point->parent);
 	memcpy(root_dentry->name, mount_point->name, sizeof(mount_point->name));
 	root_dentry->inode     = vfs_dup_node(superblock->root);
@@ -150,7 +148,7 @@ int vfs_unmount(const char *path) {
 }
 
 int vfs_unmountat(vfs_dentry_t *at, const char *path) {
-	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, path, O_PARENT);
+	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, path, 0);
 	if (!mount_point) {
 		return -ENOENT;
 	}
@@ -255,14 +253,15 @@ int vfs_wait(vfs_fd_t *fd, short type) {
 }
 
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
-	if (entry->type != VFS_DIR) {
-		return NULL;
-	}
-
 	// cannot do lookup on negative entry
 	if (vfs_dentry_is_negative(entry)) {
 		return NULL;
 	}
+
+	if (entry->inode->flags != VFS_DIR) {
+		return NULL;
+	}
+
 
 	// handle .. here so we can handle the parent of mount point
 	if ((!strcmp("..", name)) && entry->parent) {
@@ -342,7 +341,7 @@ void vfs_close_node(vfs_node_t *node) {
 }
 
 static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **_parent, vfs_dentry_t **_dentry) {
-	vfs_dentry_t *parent = vfs_get_dentry_at(at, path, 0);
+	vfs_dentry_t *parent = vfs_get_dentry_at(at, path, O_PARENT);
 	if (!parent) {
 		return -ENONET;
 	}
@@ -358,6 +357,7 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 		return -ENOMEM;
 	}
 	strcpy(dentry->name, vfs_basename(path));
+	dentry->ref_count = 0;
 
 	*_parent = parent;
 	*_dentry = dentry;
@@ -375,11 +375,8 @@ int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 		ret = -EINVAL;
 		goto error;
 	}
-
 	ret = parent->inode->ops->create(parent->inode, dentry, mode);
-	if (ret < 0) {
-		goto error;
-	}
+	if (ret < 0) goto error;
 
 	// now we can link the dentry if the fs filled it
 	if (!vfs_dentry_is_negative(dentry)) {
@@ -387,7 +384,6 @@ int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 	}
 
 	vfs_release_dentry(parent);
-
 	return 0;
 error:
 	vfs_release_dentry(parent);
@@ -405,11 +401,8 @@ int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 		ret = -EINVAL;
 		goto error;
 	}
-
 	ret = parent->inode->ops->mkdir(parent->inode, dentry, mode);
-	if (ret < 0) {
-		goto error;
-	}
+	if (ret < 0) goto error;
 
 	// now we can link the dentry if the fs filled it
 	if (!vfs_dentry_is_negative(dentry)) {
@@ -417,7 +410,6 @@ int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 	}
 
 	vfs_release_dentry(parent);
-
 	return 0;
 error:
 	vfs_release_dentry(parent);
@@ -435,11 +427,8 @@ int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev) {
 		ret = -EINVAL;
 		goto error;
 	}
-
 	ret = parent->inode->ops->mknod(parent->inode, dentry, mode, dev);
-	if (ret < 0) {
-		goto error;
-	}
+	if (ret < 0) goto error;
 
 	// now we can link the dentry if the fs filled it
 	if (!vfs_dentry_is_negative(dentry)) {
@@ -447,6 +436,63 @@ int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev) {
 	}
 
 	vfs_release_dentry(parent);
+	return 0;
+error:
+	vfs_release_dentry(parent);
+	vfs_release_dentry(dentry);
+	return ret;
+}
+
+int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path) {
+	vfs_dentry_t *old_dentry = vfs_get_dentry_at(old_at, old_path, O_NOFOLLOW);
+	if (!old_dentry) return -EINVAL;
+
+	vfs_dentry_t *new_parent = NULL;
+	vfs_dentry_t *new_dentry = NULL;
+	int ret = vfs_create_dentry(new_at, new_path, &new_parent, &new_dentry);
+	if (ret < 0) goto error;
+
+	// hardlink cannot cross mount point boundaries
+	if (old_dentry->inode->superblock != new_parent->inode->superblock) {
+		ret = -EXDEV;
+		goto error;
+	}
+
+	// call link on the parents
+	if (!new_parent->inode->ops || !new_parent->inode->ops->link) {
+		ret = -EINVAL;
+		goto error;
+	}
+	ret = new_parent->inode->ops->link(old_dentry, new_parent->inode, new_dentry);
+	if (ret < 0) goto error;
+
+	// now we can link the dentry if the fs filled it
+	if (!vfs_dentry_is_negative(new_dentry)) {
+		vfs_add_dentry(new_parent, new_dentry);
+	}
+
+	vfs_release_dentry(old_dentry);
+	vfs_release_dentry(new_parent);
+	return 0;
+error:
+	vfs_release_dentry(old_dentry);
+	vfs_release_dentry(new_parent);
+	vfs_release_dentry(new_dentry);
+	return ret;
+}
+
+int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path) {
+	vfs_dentry_t *parent;
+	vfs_dentry_t *dentry;
+	int ret = vfs_create_dentry(at, path, &parent, &dentry);
+	if (ret < 0) return ret;
+	
+	if (!parent->inode->ops || !parent->inode->ops->symlink) {
+		ret = -EINVAL;
+		goto error;
+	}
+	ret = parent->inode->ops->symlink(parent->inode, dentry, target);
+	if (ret < 0) goto error;
 
 	return 0;
 error:
@@ -463,6 +509,11 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 
 	int ret = 0;
 
+	// cannot unlink mount points
+	if (dentry->flags & VFS_DENTRY_MOUNT) {
+		ret = -EBUSY;
+		goto error;
+	}
 	
 	if (dentry->inode->flags == VFS_DIR) {
 		ret = -EISDIR;
@@ -486,8 +537,7 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	ret = parent->ops->unlink(parent, dentry);
 
 error:
-	// cleanup
-	vfs_release_dentry(parent_entry);
+	vfs_release_dentry(dentry);
 	return ret;
 }
 
@@ -499,6 +549,12 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	}
 
 	int ret = 0;
+
+	// cannot rmdir mount points
+	if (dentry->flags & VFS_DENTRY_MOUNT) {
+		ret = -EBUSY;
+		goto error;
+	}
 
 	if (dentry->inode->flags != VFS_DIR) {
 		ret = -ENOTDIR;
@@ -522,70 +578,7 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	ret = parent->ops->unlink(parent, dentry);
 
 error:
-	// cleanup
-	vfs_release_dentry(parent_entry);
-	return ret;
-}
-
-int vfs_symlink(const char *target, const char *linkpath) {
-	//open parent
-	vfs_node_t *parent = vfs_get_node(linkpath, O_WRONLY | O_PARENT);
-	if (!parent) {
-		return -ENOENT;
-	}
-	if (!(parent->flags & VFS_DIR)) {
-		vfs_close_node(parent);
-		return -ENOTDIR;
-	}
-
-	const char *child  = vfs_basename(linkpath);
-	int ret;
-	if (parent->ops->symlink) {
-		ret = parent->ops->symlink(parent, child, target);
-	} else {
-		ret = -EIO;
-	}
-
-	vfs_close_node(parent);
-	return ret;
-}
-
-int vfs_link(const char *src, const char *dest) {
-	//open parent
-	vfs_node_t *parent_src = vfs_get_node(src, O_WRONLY | O_PARENT);
-	if (!parent_src) {
-		return -ENOENT;
-	}
-	vfs_node_t *parent_dest = vfs_get_node(dest, O_WRONLY | O_PARENT);
-	if (!parent_dest) {
-		vfs_close_node(parent_src);
-		return -ENOENT;
-	}
-	if (!(parent_src->flags & VFS_DIR)) {
-		vfs_close_node(parent_src);
-		vfs_close_node(parent_dest);
-		return -ENOTDIR;
-	}
-	if (!(parent_dest->flags & VFS_DIR)) {
-		vfs_close_node(parent_src);
-		vfs_close_node(parent_dest);
-		return -ENOTDIR;
-	}
-
-	const char *child_src  = vfs_basename(src);
-	const char *child_dest = vfs_basename(dest);
-
-	//call link on the parents
-	int ret;
-	if (parent_src->ops->link) {
-		ret = parent_src->ops->link(parent_src, child_src, parent_dest, child_dest);
-	} else {
-		ret = -EIO;
-	}
-
-	//cleanup
-	vfs_close_node(parent_src);
-	vfs_close_node(parent_dest);
+	vfs_release_dentry(dentry);
 	return ret;
 }
 
@@ -722,7 +715,7 @@ vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags) 
 		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i]);
 		// folows symlink
 		while (next_entry) {
-			if ((next_entry->type == VFS_LINK) && (!(flags & O_NOFOLLOW) || i < path_depth - 1)) {
+			if ((next_entry->inode->flags == VFS_LINK) && (!(flags & O_NOFOLLOW) || i < path_depth - 1)) {
 				//TODO : maybee cache linked node ?
 				if (loop_max-- <= 0) {
 					vfs_release_dentry(next_entry);

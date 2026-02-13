@@ -105,15 +105,12 @@ static int proc_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name)
 
 	if (!strcmp(name, "cwd")) {
 		dentry->inode = proc_new_node(inode->proc, INODE_CWD);
-		dentry->type  = VFS_LINK;
 		return 0;
 	} else if (!strcmp(name, "maps")) {
 		dentry->inode = proc_new_node(inode->proc, INODE_MAPS);
-		dentry->type  = VFS_FILE;
 		return 0;
 	} else if (!strcmp(name, "cmdline")) {
 		dentry->inode = proc_new_node(inode->proc, INODE_CMDLINE);
-		dentry->type  = VFS_FILE;
 		return 0;
 	}
 	return -ENOENT;
@@ -178,7 +175,6 @@ static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry, const char *
 	(void)root;
 	if (!strcmp(name, "self")) {
 		dentry->inode = proc_new_node(get_current_proc(), INODE_SELF);
-		dentry->type  = VFS_LINK;
 		return 0;
 	}
 	char *end;
@@ -188,7 +184,6 @@ static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry, const char *
 	if (!proc)return -ENOENT;
 
 	dentry->inode = proc_new_node(proc, INODE_DIR);
-	dentry->type  = VFS_DIR;
 	return 0;
 }
 

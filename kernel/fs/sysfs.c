@@ -55,7 +55,6 @@ int sysfs_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) {
 		sysfs_inode *entry = (sysfs_inode *)node;
 		if (!strcmp(name, entry->name)) {
 			dentry->inode = sysfs_inode2vnode(entry);
-			dentry->type  = dentry->inode->flags;
 			return 0;
 		}
 	}
