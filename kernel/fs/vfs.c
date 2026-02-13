@@ -501,6 +501,15 @@ error:
 	return ret;
 }
 
+static void vfs_unlink_dentry(vfs_dentry_t *dentry) {
+	// remove from dentry cache
+	if (dentry->parent) {
+		list_remove(&dentry->parent->children, &dentry->node);
+		dentry->parent = NULL;
+	}
+	dentry->flags |= VFS_DENTRY_UNLINKED;
+}
+
 int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, O_NOFOLLOW);
 	if (!dentry) {
@@ -533,8 +542,10 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 		ret = -EINVAL;
 		goto error;
 	}
-
 	ret = parent->ops->unlink(parent, dentry);
+	if (ret < 0) goto error;
+
+	vfs_unlink_dentry(dentry);
 
 error:
 	vfs_release_dentry(dentry);
@@ -574,8 +585,10 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 		ret = -EINVAL;
 		goto error;
 	}
-
-	ret = parent->ops->unlink(parent, dentry);
+	ret = parent->ops->rmdir(parent, dentry);
+	if (ret < 0) goto error;
+	
+	vfs_unlink_dentry(dentry);
 
 error:
 	vfs_release_dentry(dentry);
@@ -854,6 +867,13 @@ int vfs_perm(vfs_node_t *node) {
 }
 
 char *vfs_dentry_path(vfs_dentry_t *dentry) {
+	if (!dentry) {
+		goto unreachable;
+	}
+	if (dentry->flags & VFS_DENTRY_UNLINKED) {
+		return strdup("(deleted)");
+	}
+
 	// TODO : use a dynamic buffer
 	char path[PATH_MAX];
 	size_t i = PATH_MAX;
@@ -866,6 +886,7 @@ char *vfs_dentry_path(vfs_dentry_t *dentry) {
 		dentry = dentry->parent;
 	}
 	if (dentry != root) {
+unreachable:
 		return strdup("(unreachable)");
 	}
 	if (!path[i]) {

@@ -24,7 +24,7 @@
 #define VFS_LINK  0x004
 #define VFS_CHAR  0x020
 #define VFS_BLOCK 0x040
-#define VFS_TTY   0x080
+#define VFS_FIFO  0x080
 #define VFS_SOCK  0x100
 
 struct vfs_node;
@@ -59,7 +59,8 @@ typedef struct vfs_dentry {
 	size_t ref_count;
 } vfs_dentry_t;
 
-#define VFS_DENTRY_MOUNT 0x01 // the dentry is a mount point
+#define VFS_DENTRY_MOUNT    0x01 // the dentry is a mount point
+#define VFS_DENTRY_UNLINKED 0x02 // the dentry is unlinked
 
 /**
  * @brief represent an open context with a file/dir/device
