@@ -39,7 +39,6 @@ void mount_initrd(void) {
 
 		//find file size
 		size_t file_size = octal2int(current_file->file_size);
-
 		if (current_file->type == USTAR_DIRTYPE) {
 			full_path[strlen(full_path) - 1] = '\0';
 
@@ -82,12 +81,9 @@ void mount_initrd(void) {
 
 			//now close and free
 			vfs_close(file);
-		} else if (current_file->type == USTAR_LNKTYPE) {
+		} else if (current_file->type == USTAR_SYMTYPE) {
 			//symlink
-			char *target = kmalloc(strlen(current_file->linked_file) + 2);
-			sprintf(target, "/%s", current_file->linked_file);
-			vfs_symlink(target, full_path);
-			kfree(target);
+			vfs_symlink(current_file->linked_file, full_path);
 		}
 
 		addr += (((uint64_t)file_size + 1023) / 512) * 512;
