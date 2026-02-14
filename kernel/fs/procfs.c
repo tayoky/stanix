@@ -92,7 +92,7 @@ static ssize_t proc_readlink(vfs_node_t *node, char *buffer, size_t count) {
 		kfree(cwd);
 		break;
 	case INODE_SELF:
-		sprintf(buf, "/proc/%ld", inode->proc->pid);
+		sprintf(buf, "%ld", inode->proc->pid);
 		if (count > strlen(buf) + 1) count = strlen(buf) + 1;
 		memcpy(buffer, buf, count);
 		break;

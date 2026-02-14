@@ -47,7 +47,8 @@ typedef struct vfs_node {
  * @brief represent a directory entry
  */
 typedef struct vfs_dentry {
-	list_node_t node;
+	list_node_t children_node;
+	list_node_t lru_node;
 	char name[256];
 	vfs_node_t *inode;
 	ino_t inode_number;
@@ -347,12 +348,6 @@ static inline vfs_dentry_t *vfs_get_dentry(const char *path, long flags) {
 }
 
 void vfs_release_dentry(vfs_dentry_t *dentry);
-
-static void vfs_add_dentry(vfs_dentry_t *parent, vfs_dentry_t *child) {
-	// child hold a ref to the parent
-	child->parent = vfs_dup_dentry(parent);
-	list_append(&parent->children, &child->node);
-}
 
 static vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentry_t *dentry) {
 	vfs_node_t *node = dentry->inode;
