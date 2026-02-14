@@ -26,6 +26,7 @@ typedef struct slab {
 typedef struct slab_cache {
     int (*constructor)(struct slab_cache*,void *);
     int (*destructor)(struct slab_cache*,void *);
+    void *(*evict)(struct slab_cache*);
     const char *name;
     list_t free;
     list_t partial;
@@ -38,5 +39,6 @@ int slab_init(slab_cache_t *slab_cache, size_t size, const char *name);
 void slab_destroy(slab_cache_t *slab_cache);
 void *slab_alloc(slab_cache_t *slab_cache);
 void slab_free(void *ptr);
+void *slab_evict(slab_cache_t *slab_cache);
 
 #endif

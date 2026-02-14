@@ -19,7 +19,19 @@ vfs_dentry_t *root;
 
 static list_t fs_types;
 static list_t superblocks;
+static list_t dentries_lru;
 static slab_cache_t dentries_slab;
+
+static void vfs_remove_dentry(vfs_dentry_t *dentry) {
+	if (!dentry->parent) return;
+	list_remove(&dentry->parent->children, &dentry->children_node);
+	dentry->parent = NULL;
+}
+
+static void vfs_just_cleanup_dentry(vfs_dentry_t *dentry) {
+	vfs_close_node(dentry->inode);
+	vfs_remove_dentry(dentry);
+}
 
 static int dentry_constructor(slab_cache_t *cache, void *data) {
 	(void)cache;
@@ -28,10 +40,25 @@ static int dentry_constructor(slab_cache_t *cache, void *data) {
 	return 0;
 }
 
+static void *dentry_evict(slab_cache_t *cache) {
+	(void)cache;
+	if (!dentries_lru.first_node) return NULL;
+	vfs_dentry_t *dentry = container_of(dentries_lru.first_node, vfs_dentry_t, lru_node);
+	list_remove(&dentries_lru, &dentry->lru_node);
+	vfs_dentry_t *parent = dentry->parent;
+	vfs_just_cleanup_dentry(dentry);
+	vfs_release_dentry(parent);
+}
+
+static void dentry_add_lru(vfs_dentry_t *dentry) {
+	list_append(&dentries_lru, &dentry->lru_node);
+}
+
 void init_vfs(void) {
 	kstatusf("init vfs... ");
 	slab_init(&dentries_slab, sizeof(vfs_dentry_t), "vfs dentries");
 	dentries_slab.constructor = dentry_constructor;
+	dentries_slab.evict       = dentry_evict;
 
 	root = slab_alloc(&dentries_slab);
 	root->ref_count = 1;
@@ -94,12 +121,6 @@ static void vfs_add_dentry(vfs_dentry_t *parent, vfs_dentry_t *child) {
 	// child hold a ref to the parent
 	child->parent = vfs_dup_dentry(parent);
 	list_append(&parent->children, &child->children_node);
-}
-
-static void vfs_remove_dentry(vfs_dentry_t *dentry) {
-	if (!dentry->parent) return;
-	list_remove(&dentry->parent->children, &dentry->children_node);
-	dentry->parent = NULL;
 }
 
 static void vfs_unlink_dentry(vfs_dentry_t *dentry) {
@@ -350,14 +371,19 @@ void vfs_release_dentry(vfs_dentry_t *dentry) {
 		if (dentry->ref_count > 0) {
 			return;
 		}
-		vfs_close_node(dentry->inode);
-		vfs_dentry_t *parent = dentry->parent;
-		if (parent == dentry) parent = NULL;
 
-		vfs_remove_dentry(dentry);
+		if (vfs_dentry_is_negative(dentry) || (dentry->inode->superblock->flags & VFS_SUPERBLOCK_NO_DCACHE)) {
+			vfs_dentry_t *parent = dentry->parent;
+			if (parent == dentry) parent = NULL;
+			vfs_just_cleanup_dentry(dentry);
+			slab_free(dentry);
+			dentry = parent;
+			continue;
+		}
 
-		slab_free(dentry);
-		dentry = parent;
+		// we can cache
+		dentry_add_lru(dentry);
+		return;
 	}
 }
 

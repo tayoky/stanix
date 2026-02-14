@@ -125,6 +125,8 @@ typedef struct vfs_superblock {
 	char name[PATH_MAX];
 } vfs_superblock_t;
 
+#define VFS_SUPERBLOCK_NO_DCACHE 0x01
+
 typedef struct vfs_filesystem_struct {
 	list_node_t node;
 	char name[16];

@@ -121,3 +121,9 @@ void slab_free(void *ptr) {
 
 	spinlock_release(&slab_cache->lock);
 }
+
+
+void *slab_evict(slab_cache_t *slab_cache) {
+	if (!slab_cache->evict) return NULL;
+	return slab_cache->evict(slab_cache);
+}
