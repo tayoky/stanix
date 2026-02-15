@@ -136,20 +136,10 @@ typedef struct vfs_filesystem_struct {
 void init_vfs(void);
 
 // inode operations
-//
-/**
- * @brief mount a vfs_node_t to the specified path and create a directory fpr it if needed
- * @param path the path to mount to
- * @param local_root the vfs_node_t to mount
- * @return 0 on success else error code
- */
-int vfs_mount(const char *path, vfs_superblock_t *superblock);
-
 
 int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock);
-int vfs_mountat(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock);
 
-int vfs_chroot(vfs_node_t *new_root);
+int vfs_chroot(vfs_dentry_t *new_root);
 
 
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
@@ -165,6 +155,8 @@ int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at
 int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path);
 int vfs_unlink_at(vfs_dentry_t *at, const char *path);
 int vfs_rmdir_at(vfs_dentry_t *at, const char *path);
+int vfs_mount_at(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock);
+int vfs_unmount_at(vfs_dentry_t *at, const char *path);
 
 static inline int vfs_create(const char *path, mode_t mode) {
 	return vfs_create_at(NULL, path, mode);
@@ -194,12 +186,23 @@ static inline vfs_rmdir(const char *path) {
 	return vfs_rmdir_at(NULL, path);
 }
 
+/**
+ * @brief mount a \ref vfs_superblock_t to the specified path
+ * @param path the path to mount to
+ * @param sueprblock the superblock to mount
+ * @return 0 on success else error code
+ */
+static inline int vfs_mount(const char *name, vfs_superblock_t *superblock) {
+	return vfs_mount_at(NULL, name, superblock);
+}
+
+static inline int vfs_unmount(const char *path) {
+	return vfs_unmount_at(NULL, path);
+}
+
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
 int vfs_getattr(vfs_node_t *node, struct stat *st);
 int vfs_setattr(vfs_node_t *node, struct stat *st);
-
-int vfs_unmount(const char *path);
-int vfs_unmountat(vfs_dentry_t *at, const char *path);
 
 vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *pathname, long flags);
 static inline vfs_node_t *vfs_get_node(const char *pathname, long flags) {

@@ -15,7 +15,7 @@ int slab_init(slab_cache_t *slab_cache, size_t size, const char *name) {
 }
 
 void slab_destroy(slab_cache_t *slab_cache) {
-
+	(void)slab_cache;
 }
 
 static slab_t *new_slab(slab_cache_t *slab_cache) {
@@ -44,6 +44,14 @@ static slab_t *new_slab(slab_cache_t *slab_cache) {
 	return slab;
 }
 
+static void *slab_evict(slab_cache_t *slab_cache) {
+	if (!slab_cache->evict) return NULL;
+	void *data = slab_cache->evict(slab_cache);
+	if (!data) return NULL;
+	if (slab_cache->destructor) slab_cache->destructor(slab_cache, data);
+	return data;
+}
+
 static void free_slab(slab_t *slab) {
 	uintptr_t page = PAGE_ALIGN_DOWN(mmu_virt2phys(slab));
 	pmm_free_page(page);
@@ -62,8 +70,15 @@ void *slab_alloc(slab_cache_t *slab_cache) {
 			// we need to create a new slab
 			slab = new_slab(slab_cache);
 			if (!slab) {
+				// FIXME : maybee we should release later
 				spinlock_release(&slab_cache->lock);
-				return NULL;
+				// mayee we can evict ?
+				void *data = slab_evict(slab_cache);
+				if (!data) return NULL;
+				if (slab_cache->constructor) {
+					slab_cache->constructor(slab_cache, data);
+				}
+				return data;
 			}
 		}
 
@@ -120,10 +135,4 @@ void slab_free(void *ptr) {
 	}
 
 	spinlock_release(&slab_cache->lock);
-}
-
-
-void *slab_evict(slab_cache_t *slab_cache) {
-	if (!slab_cache->evict) return NULL;
-	return slab_cache->evict(slab_cache);
 }

@@ -22,15 +22,19 @@ static list_t superblocks;
 static list_t dentries_lru;
 static slab_cache_t dentries_slab;
 
+
+static void vfs_add_dentry(vfs_dentry_t *parent, vfs_dentry_t *child) {
+	// child hold a ref to the parent
+	child->parent = vfs_dup_dentry(parent);
+	list_append(&parent->children, &child->children_node);
+}
+
 static void vfs_remove_dentry(vfs_dentry_t *dentry) {
 	if (!dentry->parent) return;
 	list_remove(&dentry->parent->children, &dentry->children_node);
+	// child hold a ref to the parent
+	vfs_release_dentry(dentry->parent);
 	dentry->parent = NULL;
-}
-
-static void vfs_just_cleanup_dentry(vfs_dentry_t *dentry) {
-	vfs_close_node(dentry->inode);
-	vfs_remove_dentry(dentry);
 }
 
 static int dentry_constructor(slab_cache_t *cache, void *data) {
@@ -40,14 +44,20 @@ static int dentry_constructor(slab_cache_t *cache, void *data) {
 	return 0;
 }
 
+static int dentry_destructor(slab_cache_t *cache, void *data) {
+	(void)cache;
+	vfs_dentry_t *dentry = data;
+	vfs_close_node(dentry->inode);
+	vfs_remove_dentry(dentry);
+	return 0;
+}
+
 static void *dentry_evict(slab_cache_t *cache) {
 	(void)cache;
 	if (!dentries_lru.first_node) return NULL;
 	vfs_dentry_t *dentry = container_of(dentries_lru.first_node, vfs_dentry_t, lru_node);
 	list_remove(&dentries_lru, &dentry->lru_node);
-	vfs_dentry_t *parent = dentry->parent;
-	vfs_just_cleanup_dentry(dentry);
-	vfs_release_dentry(parent);
+	return dentry;
 }
 
 static void dentry_add_lru(vfs_dentry_t *dentry) {
@@ -58,6 +68,7 @@ void init_vfs(void) {
 	kstatusf("init vfs... ");
 	slab_init(&dentries_slab, sizeof(vfs_dentry_t), "vfs dentries");
 	dentries_slab.constructor = dentry_constructor;
+	dentries_slab.destructor  = dentry_destructor;
 	dentries_slab.evict       = dentry_evict;
 
 	root = slab_alloc(&dentries_slab);
@@ -117,12 +128,6 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 	return 0;
 }
 
-static void vfs_add_dentry(vfs_dentry_t *parent, vfs_dentry_t *child) {
-	// child hold a ref to the parent
-	child->parent = vfs_dup_dentry(parent);
-	list_append(&parent->children, &child->children_node);
-}
-
 static void vfs_unlink_dentry(vfs_dentry_t *dentry) {
 	vfs_remove_dentry(dentry);
 	dentry->flags |= VFS_DENTRY_UNLINKED;
@@ -166,6 +171,7 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 
 int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 	kdebugf("mount superblock on %s\n", mount_point->name);
+
 	// create a new fake dentry for the root of the superblock
 	vfs_dentry_t *root_dentry = slab_alloc(&dentries_slab);
 	root_dentry->parent = vfs_dup_dentry(mount_point->parent);
@@ -188,7 +194,7 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 	return 0;
 }
 
-int vfs_mountat(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock) {
+int vfs_mount_at(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock) {
 	// first open the mount point
 	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, name, O_RDWR);
 	if (!mount_point) {
@@ -202,15 +208,7 @@ int vfs_mountat(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock
 	return ret;
 }
 
-int vfs_mount(const char *name, vfs_superblock_t *superblock) {
-	return vfs_mountat(NULL, name, superblock);
-}
-
-int vfs_unmount(const char *path) {
-	return vfs_unmountat(NULL, path);
-}
-
-int vfs_unmountat(vfs_dentry_t *at, const char *path) {
+int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, path, 0);
 	if (!mount_point) {
 		return -ENOENT;
@@ -373,9 +371,10 @@ void vfs_release_dentry(vfs_dentry_t *dentry) {
 		}
 
 		if (vfs_dentry_is_negative(dentry) || (dentry->inode->superblock->flags & VFS_SUPERBLOCK_NO_DCACHE)) {
+			// we cannot cache
 			vfs_dentry_t *parent = dentry->parent;
 			if (parent == dentry) parent = NULL;
-			vfs_just_cleanup_dentry(dentry);
+			vfs_remove_dentry(dentry);
 			slab_free(dentry);
 			dentry = parent;
 			continue;
@@ -694,7 +693,7 @@ int vfs_setattr(vfs_node_t *node, struct stat *st) {
 	return node->ops->setattr(node, st);
 }
 
-int vfs_chroot(vfs_node_t *new_root) {
+int vfs_chroot(vfs_dentry_t *new_root) {
 	root = new_root;
 	return 0;
 }

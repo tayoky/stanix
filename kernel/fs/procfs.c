@@ -236,6 +236,7 @@ int proc_mount(const char *source, const char *target, unsigned long flags, cons
 	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
 	memset(superblock, 0, sizeof(vfs_superblock_t));
 	superblock->root = node;
+	superblock->flags |= VFS_SUPERBLOCK_NO_DCACHE;
 
 	*superblock_out = superblock;
 	return 0;
