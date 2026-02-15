@@ -208,6 +208,7 @@ process_t *new_proc(void (*func)(void *arg), void *arg){
 	proc->umask    = get_current_proc()->umask;
 	proc->cmdline  = strdup(get_current_proc()->cmdline);
 	proc->cwd = vfs_dup_dentry(get_current_proc()->cwd);
+	proc->exe = vfs_dup_dentry(get_current_proc()->exe);
 	proc->main_thread = new_task(proc, func, arg);
 	proc->pid =  proc->main_thread->tid;
 
@@ -323,8 +324,9 @@ static void do_proc_deletion(void) {
 		}
 	}
 
-	// close cwd
+	// release locked dentry
 	vfs_release_dentry(get_current_proc()->cwd);
+	vfs_release_dentry(get_current_proc()->exe);
 
 	kfree(get_current_proc()->cmdline);
 	

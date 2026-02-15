@@ -202,8 +202,10 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
 	vmm_map(USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS | VMM_FLAG_PRIVATE, NULL, 0, NULL);
 
-	// setup new cmdline
+	// setup new cmdline and exe path
 	set_cmdline(saved_argv[0]);
+	vfs_release_dentry(get_current_proc()->exe);
+	get_current_proc()->exe = vfs_dup_dentry(file->dentry);
 
 	// keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;

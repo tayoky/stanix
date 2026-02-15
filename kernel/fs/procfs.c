@@ -15,8 +15,9 @@ typedef struct proc_inode {
 #define INODE_SELF    1
 #define INODE_DIR     2
 #define INODE_CWD     3
-#define INODE_MAPS    4
-#define INODE_CMDLINE 5
+#define INODE_EXE     4
+#define INODE_MAPS    5
+#define INODE_CMDLINE 6
 
 static vfs_inode_ops_t proc_inode_ops;
 static vfs_fd_ops_t proc_fd_ops;
@@ -36,6 +37,7 @@ static vfs_node_t *proc_new_node(vfs_superblock_t *superblock, process_t *proc, 
 	switch (type) {
 	case INODE_SELF:
 	case INODE_CWD:
+	case INODE_EXE:
 		vnode->flags = VFS_LINK;
 		break;
 	case INODE_MAPS:
@@ -57,6 +59,7 @@ static int proc_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *d
 		"cwd",
 		"maps",
 		"cmdline",
+		"exe",
 	};
 
 	if (index >= sizeof(content) / sizeof(*content))return -ENOENT;
@@ -92,6 +95,12 @@ static ssize_t proc_readlink(vfs_node_t *vnode, char *buffer, size_t count) {
 		memcpy(buffer, cwd, count);
 		kfree(cwd);
 		break;
+	case INODE_EXE:;
+		char *exe = vfs_dentry_path(inode->proc->exe);
+		if (count > strlen(exe) + 1) count = strlen(exe) + 1;
+		memcpy(buffer, exe, count);
+		kfree(exe);
+		break;
 	case INODE_SELF:
 		sprintf(buf, "%ld", inode->proc->pid);
 		if (count > strlen(buf) + 1) count = strlen(buf) + 1;
@@ -112,6 +121,9 @@ static int proc_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry, const char *name
 		return 0;
 	} else if (!strcmp(name, "cmdline")) {
 		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_CMDLINE);
+		return 0;
+	} else if (!strcmp(name, "exe")) {
+		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_EXE);
 		return 0;
 	}
 	return -ENOENT;
