@@ -139,23 +139,104 @@ static ssize_t fat_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	return data_read;
 }
 
+/**
+ * @brief parse fat entries and make a dirent from it
+ */
+static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, size_t offset, struct dirent *dirent) {
+	fat_entry_t entry;
+	vfs_read(fat_superblock->superblock.device, &entry, offset, sizeof(entry));
+
+	if (entry.name[0] == 0x00) {
+		// everything is free after that
+		// we hit last
+		return -ENOENT;
+	}
+
+	if ((entry.attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
+		kdebugf("long name\n");
+		// we a long name
+		size_t j=0;
+		size_t ord = 0;
+		fat_long_entry_t long_entry;
+
+		for (;;) {
+			vfs_read(fat_superblock->superblock.device, &long_entry, offset, sizeof(entry));
+			if ((long_entry.ord & ~LAST_LONG_ENTRY) != ord++) {
+				// corrupted
+				return -EIO;
+			}
+			if (!(long_entry.attribute & ATTR_LONG_NAME)) {
+				// corrupted
+				return -EIO;
+			}
+
+			// append
+			for (size_t i=0; i < sizeof(long_entry.name1); i++) {
+				dirent->d_name[j++] = long_entry.name1[i];
+			}
+			for (size_t i=0; i < sizeof(long_entry.name2); i++) {
+				dirent->d_name[j++] = long_entry.name2[i];
+			}
+			for (size_t i=0; i < sizeof(long_entry.name3); i++) {
+				dirent->d_name[j++] = long_entry.name3[i];
+			}
+
+			// next entry
+			offset += sizeof(fat_entry_t);
+			if (!inode->is_fat16_root && !(offset % fat_superblock->cluster_size)) {
+				// end of cluster
+				// jump to next cluster
+				uint32_t cluster = fat_get_next_cluster(fat_superblock, cluster);
+				if (cluster == FAT_EOF)return -ENOENT;
+				offset = fat_cluster2offset(fat_superblock, cluster);
+			}
+
+			if (long_entry.ord & LAST_LONG_ENTRY) break;
+		}
+		vfs_read(fat_superblock->superblock.device, &entry, offset, sizeof(entry));
+		dirent->d_name[j] = '\0';
+	} else {
+		size_t j=0;
+		for (int i=0; i < 8; i++) {
+			if (entry.name[i] == ' ')break;
+			dirent->d_name[j++] = entry.name[i];
+		}
+		//don't add . for directories without extention
+		if (!((entry.attribute & ATTR_DIRECTORY) && entry.name[8] == ' ')) {
+			dirent->d_name[j++] = '.';
+		}
+		for (int i=8; i < 11; i++) {
+			if (entry.name[i] == ' ')break;
+			dirent->d_name[j++] = entry.name[i];
+		}
+		dirent->d_name[j] = '\0';
+	}
+
+	if (entry.attribute & ATTR_DIRECTORY) {
+		dirent->d_type = DT_DIR;
+	} else {
+		dirent->d_type = DT_REG;
+	}
+	return 0;
+}
+
 static int fat_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
 	fat_inode_t *inode = node->private_inode;
 	fat_superblock_t *fat_superblock = container_of(node->superblock, fat_superblock_t, superblock);
 
-	uint64_t offset   = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
+	size_t offset   = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
 	uint32_t remaning = inode->is_fat16_root ? inode->entries_count : UINT32_MAX;
 	uint32_t cluster  = inode->first_cluster;
 	kdebugf("readdir on %s , first cluster is %lx\n", inode->is_fat16_root ? "root" : "not root", cluster);
 	while (index > 0) {
-		if (!remaning)return -ENOENT;
-		//skip everything with VOLUME_ID attr or free
+		if (!remaning) return -ENOENT;
+		// skip everything with VOLUME_ID attr or free
 		for (;;) {
 			fat_entry_t entry;
 			vfs_read(fat_superblock->superblock.device, &entry, offset, sizeof(entry));
 			if (entry.name[0] == 0x00) {
-				//everything is free after that
-				//we hit last
+				// everything is free after that
+				// we hit last
 				return -ENOENT;
 			}
 			if (!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5))break;
@@ -176,61 +257,14 @@ static int fat_readdir(vfs_node_t *node, unsigned long index, struct dirent *dir
 			//end of cluster
 			//jump to next
 			cluster = fat_get_next_cluster(fat_superblock, cluster);
-			if (cluster == FAT_EOF)return -ENOENT;
+			if (cluster == FAT_EOF) return -ENOENT;
 			offset = fat_cluster2offset(fat_superblock, cluster);
 		}
 		remaning--;
 	}
-	if (!remaning)return -ENOENT;
+	if (!remaning) return -ENOENT;
 
-	//skip everything with VOLUME_ID attr
-	//TODO : handle long name
-	for (;;) {
-		fat_entry_t entry;
-		vfs_read(fat_superblock->superblock.device, &entry, offset, sizeof(entry));
-		if (entry.name[0] == 0x00) {
-			//everything is free after that
-			//we hit last
-			return -ENOENT;
-		}
-		if (!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5))break;
-		offset += sizeof(fat_entry_t);
-		if (!inode->is_fat16_root && !(offset % fat_superblock->cluster_size)) {
-			//end of cluster
-			//jump to next
-			cluster = fat_get_next_cluster(fat_superblock, cluster);
-			if (cluster == FAT_EOF)return -ENOENT;
-			offset = fat_cluster2offset(fat_superblock, cluster);
-		}
-		remaning--;
-		if (!remaning)return -ENOENT;
-	}
-
-	//now parse the entry
-	fat_entry_t entry;
-	vfs_read(fat_superblock->superblock.device, &entry, offset, sizeof(entry));
-
-	size_t j=0;
-	for (int i=0; i < 8; i++) {
-		if (entry.name[i] == ' ')break;
-		dirent->d_name[j++] = entry.name[i];
-	}
-	//don't add . for directories without extention
-	if (!((entry.attribute & ATTR_DIRECTORY) && entry.name[8] == ' ')) {
-		dirent->d_name[j++] = '.';
-	}
-	for (int i=8; i < 11; i++) {
-		if (entry.name[i] == ' ')break;
-		dirent->d_name[j++] = entry.name[i];
-	}
-	dirent->d_name[j] = '\0';
-
-	if (entry.attribute & ATTR_DIRECTORY) {
-		dirent->d_type = DT_DIR;
-	} else {
-		dirent->d_type = DT_REG;
-	}
-	return 0;
+	return fat2dirent(fat_superblock, inode, offset, dirent);
 }
 
 static int fat_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) {

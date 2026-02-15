@@ -16,6 +16,8 @@
 #define ATTR_VOLUME_ID 0x08
 #define ATTR_DIRECTORY 0x10
 #define ATTR_ARCHIVE   0x20
+#define ATTR_LONG_NAME (ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID)
+#define LAST_LONG_ENTRY 0x40
 
 //also for fat12
 typedef struct fat16_bpb {
@@ -82,6 +84,18 @@ typedef struct fat_entry {
 	uint16_t cluster_lower;  //low 16 bits of first cluser
 	uint32_t file_size;
 } __attribute__((packed)) fat_entry_t;
+
+
+typedef struct fat_long_entry {
+	uint8_t ord;
+	char name1[10];
+	uint8_t attribute;
+	uint8_t type;
+	uint8_t checksum;
+	char name2[12];
+	uint16_t first_cluster;
+	char name3[4];
+} __attribute__((packed)) fat_long_entry_t;
 
 typedef struct fat_superblock {
 	vfs_superblock_t superblock;
