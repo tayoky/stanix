@@ -120,9 +120,7 @@ static void swap_guid(struct gpt_guid *guid) {
 static int create_part(vfs_fd_t *dev, const char *target, off_t offset, size_t size, int *count, struct part_info *info) {
 	kdebugf("find partition offset : %lx size : %ld\n", offset, size);
 	char path[strlen(target) + 16];
-	// TODO : use dentry on fd when we get it
-	sprintf(path, "STUUUBBB%d", (*count)++);
-	//sprintf(path, "%s%d", dev->inode->name, (*count)++);
+	sprintf(path, "%s%d", dev->dentry->name, (*count)++);
 
 	part_t *p = kmalloc(sizeof(part_t));
 	memset(p, 0, sizeof(part_t));
