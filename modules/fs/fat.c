@@ -381,6 +381,7 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 		local_root->private_inode = root;
 		local_root->flags = VFS_DIR;
 		local_root->ops = &fat_inode_ops;
+		local_root->superblock = &fat_superblock->superblock;
 	}
 	local_root->ref_count = 1;
 	fat_superblock->superblock.root = local_root;
