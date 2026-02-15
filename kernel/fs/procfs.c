@@ -22,34 +22,35 @@ static vfs_inode_ops_t proc_inode_ops;
 static vfs_fd_ops_t proc_fd_ops;
 long strtol(const char *str, char **end, int base);
 
-static vfs_node_t *proc_new_node(process_t *proc, int type) {
+static vfs_node_t *proc_new_node(vfs_superblock_t *superblock, process_t *proc, int type) {
 	proc_inode_t *inode = kmalloc(sizeof(proc_inode_t));
 	inode->proc = proc;
 	inode->type = type;
 
-	vfs_node_t *node = kmalloc(sizeof(vfs_node_t));
-	memset(node, 0, sizeof(vfs_node_t));
-	node->private_inode = inode;
-	node->ref_count = 1;
-	node->ops           = &proc_inode_ops;
+	vfs_node_t *vnode = kmalloc(sizeof(vfs_node_t));
+	memset(vnode, 0, sizeof(vfs_node_t));
+	vnode->private_inode = inode;
+	vnode->ref_count  = 1;
+	vnode->ops        = &proc_inode_ops;
+	vnode->superblock = superblock;
 	switch (type) {
 	case INODE_SELF:
 	case INODE_CWD:
-		node->flags = VFS_LINK;
+		vnode->flags = VFS_LINK;
 		break;
 	case INODE_MAPS:
 	case INODE_CMDLINE:
-		node->flags = VFS_FILE;
+		vnode->flags = VFS_FILE;
 		break;
 	case INODE_DIR:
-		node->flags = VFS_DIR;
+		vnode->flags = VFS_DIR;
 		break;
 	}
-	return node;
+	return vnode;
 }
 
-static int proc_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
-	(void)node;
+static int proc_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
+	(void)vnode;
 	static char *content[] = {
 		".",
 		"..",
@@ -64,11 +65,11 @@ static int proc_readdir(vfs_node_t *node, unsigned long index, struct dirent *di
 	return 0;
 }
 
-static int proc_getattr(vfs_node_t *node, struct stat *st) {
-	proc_inode_t *inode = node->private_inode;
+static int proc_getattr(vfs_node_t *vnode, struct stat *st) {
+	proc_inode_t *inode = vnode->private_inode;
 	st->st_uid  = inode->proc->euid;
 	st->st_gid  = inode->proc->egid;
-	switch (node->flags) {
+	switch (vnode->flags) {
 	case VFS_FILE:
 		st->st_mode = 0444;
 		break;
@@ -81,8 +82,8 @@ static int proc_getattr(vfs_node_t *node, struct stat *st) {
 	return 0;
 }
 
-static ssize_t proc_readlink(vfs_node_t *node, char *buffer, size_t count) {
-	proc_inode_t *inode = node->private_inode;
+static ssize_t proc_readlink(vfs_node_t *vnode, char *buffer, size_t count) {
+	proc_inode_t *inode = vnode->private_inode;
 	static char buf[64];
 	switch (inode->type) {
 	case INODE_CWD:;
@@ -100,17 +101,17 @@ static ssize_t proc_readlink(vfs_node_t *node, char *buffer, size_t count) {
 	return count;
 }
 
-static int proc_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) {
-	proc_inode_t *inode = node->private_inode;
+static int proc_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry, const char *name) {
+	proc_inode_t *inode = vnode->private_inode;
 
 	if (!strcmp(name, "cwd")) {
-		dentry->inode = proc_new_node(inode->proc, INODE_CWD);
+		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_CWD);
 		return 0;
 	} else if (!strcmp(name, "maps")) {
-		dentry->inode = proc_new_node(inode->proc, INODE_MAPS);
+		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_MAPS);
 		return 0;
 	} else if (!strcmp(name, "cmdline")) {
-		dentry->inode = proc_new_node(inode->proc, INODE_CMDLINE);
+		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_CMDLINE);
 		return 0;
 	}
 	return -ENOENT;
@@ -152,8 +153,8 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	return count;
 }
 
-static void proc_cleanup(vfs_node_t *node) {
-	proc_inode_t *inode = node->private_inode;
+static void proc_cleanup(vfs_node_t *vnode) {
+	proc_inode_t *inode = vnode->private_inode;
 
 	kfree(inode);
 }
@@ -172,9 +173,8 @@ static vfs_fd_ops_t proc_fd_ops = {
 };
 
 static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry, const char *name) {
-	(void)root;
 	if (!strcmp(name, "self")) {
-		dentry->inode = proc_new_node(get_current_proc(), INODE_SELF);
+		dentry->inode = proc_new_node(root->superblock, get_current_proc(), INODE_SELF);
 		return 0;
 	}
 	char *end;
@@ -183,7 +183,7 @@ static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry, const char *
 	process_t *proc = pid2proc(pid);
 	if (!proc)return -ENOENT;
 
-	dentry->inode = proc_new_node(proc, INODE_DIR);
+	dentry->inode = proc_new_node(root->superblock, proc, INODE_DIR);
 	return 0;
 }
 
@@ -227,16 +227,17 @@ int proc_mount(const char *source, const char *target, unsigned long flags, cons
 	(void)flags;
 	(void)target;
 
-	vfs_node_t *node = kmalloc(sizeof(vfs_node_t));
-	memset(node, 0, sizeof(vfs_node_t));
-	node->flags     = VFS_DIR;
-	node->ops       = &proc_root_ops;
-	node->ref_count = 1;
+	vfs_node_t *vnode = kmalloc(sizeof(vfs_node_t));
+	memset(vnode, 0, sizeof(vfs_node_t));
+	vnode->flags     = VFS_DIR;
+	vnode->ops       = &proc_root_ops;
+	vnode->ref_count = 1;
 
 	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
 	memset(superblock, 0, sizeof(vfs_superblock_t));
-	superblock->root = node;
+	superblock->root = vnode;
 	superblock->flags |= VFS_SUPERBLOCK_NO_DCACHE;
+	vnode->superblock = superblock;
 
 	*superblock_out = superblock;
 	return 0;

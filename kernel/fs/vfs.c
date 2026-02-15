@@ -47,6 +47,7 @@ static int dentry_constructor(slab_cache_t *cache, void *data) {
 static int dentry_destructor(slab_cache_t *cache, void *data) {
 	(void)cache;
 	vfs_dentry_t *dentry = data;
+	kassert(dentry->ref_count == 0);
 	vfs_close_node(dentry->inode);
 	vfs_remove_dentry(dentry);
 	return 0;
@@ -374,7 +375,10 @@ void vfs_release_dentry(vfs_dentry_t *dentry) {
 			// we cannot cache
 			vfs_dentry_t *parent = dentry->parent;
 			if (parent == dentry) parent = NULL;
-			vfs_remove_dentry(dentry);
+			
+			// we cannot use vfs_remove_entry cause it call vfs_release_dentry
+			list_remove(&parent->children, &dentry->children_node);
+			dentry->parent = NULL;
 			slab_free(dentry);
 			dentry = parent;
 			continue;
