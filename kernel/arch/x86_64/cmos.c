@@ -1,5 +1,6 @@
 #include <kernel/arch.h>
 #include <kernel/print.h>
+#include <kernel/time.h>
 #include <sys/time.h>
 #include <stdint.h>
 
@@ -66,79 +67,15 @@ void init_cmos(void){
 	uint8_t hours   = read_cmos(0x04);
 	uintmax_t day    = read_cmos(0x07);
 	uint8_t month   = read_cmos(0x08);
-	uintmax_t years  = read_cmos(0x09);
+	uintmax_t year  = read_cmos(0x09);
 
-	//remove today day
-	day--;
-
-	if(years > 90){
-		years += 1900;
+	if(year > 90){
+		year += 1900;
 	} else {
-		years += 2000;
+		year += 2000;
 	}
 
-	switch (month)
-	{
-	case 12:
-		day += 30;
-		//fallthrough
-	case 11:
-		day += 31;
-		//fallthrough
-	case 10:
-		day += 30;
-		//fallthrough
-	case 9:
-		day += 31;
-		//fallthrough
-	case 8:
-		day += 31;
-		//fallthrough
-	case 7:
-		day += 30;
-		//fallthrough
-	case 6:
-		day += 31;
-		//fallthrough
-	case 5:
-		day += 30;
-		//fallthrough
-	case 4:
-		day += 31;
-		//fallthrough
-	case 3:
-		if(is_leap(years)){
-			day += 29;
-		} else
-		{
-			day += 28;
-		}
-		//fallthrough
-	case 2:
-		day += 31;
-		//fallthrough
-	case 1:
-		break;
-	
-	default:
-		kfail();
-		kinfof("can't read : month is %d\n",month);
-		return;
-		break;
-	}
-
-	//now convert years in day
-	while(years > 1970){
-		years--;
-		if(is_leap(years)){
-			day += 366;
-		} else {
-			day += 365;
-		}
-		
-	}
-
-	time.tv_sec = seconds + minutes * 60 + hours * 3600 + day * 86400;
+	time.tv_sec = date2time(year, month, day, hours, minutes, seconds);
 	kok();
 
 	kinfof("current time : %ld\n",time.tv_sec);

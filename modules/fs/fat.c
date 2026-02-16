@@ -2,6 +2,7 @@
 #include <kernel/string.h>
 #include <kernel/kheap.h>
 #include <kernel/print.h>
+#include <kernel/time.h>s
 #include <kernel/vfs.h>
 #include <module/fat.h>
 #include <stdint.h>
@@ -13,6 +14,13 @@
 static vfs_inode_ops_t fat_inode_ops;
 static vfs_fd_ops_t fat_fd_ops;
 
+static time_t fat_date2time(uint16_t data) {
+	int day = data & 0x1f;
+	int month = (data >> 5) & 0xf;
+	int year = ((data >> 9) & 0x7f) + 1980;
+	return date2time(year, month, day, 0, 0, 0);
+}
+
 static int fat_getattr(vfs_node_t *node, struct stat *st) {
 	fat_inode_t *inode = node->private_inode;
 	//no meta data on root (emulated on fat 32 root)
@@ -21,6 +29,10 @@ static int fat_getattr(vfs_node_t *node, struct stat *st) {
 	//TODO : parse times
 	st->st_ino  = inode->first_cluster;
 	st->st_size = inode->entry.file_size;
+	st->st_atime = fat_date2time(inode->entry.access_date);
+	st->st_mtime = fat_date2time(inode->entry.write_date);
+	// technicly the ctime is not creation but change, but fat does not have ctime
+	st->st_ctime = fat_date2time(inode->entry.creation_date);
 	st->st_mode = 0777;
 	return 0;
 }
