@@ -2,7 +2,7 @@
 #include <kernel/string.h>
 #include <kernel/kheap.h>
 #include <kernel/print.h>
-#include <kernel/time.h>s
+#include <kernel/time.h>
 #include <kernel/vfs.h>
 #include <module/fat.h>
 #include <stdint.h>
@@ -168,7 +168,7 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, size
 		kdebugf("long name\n");
 		// we a long name
 		size_t j=0;
-		size_t ord = 0;
+		size_t ord = 1;
 		fat_long_entry_t long_entry;
 
 		for (;;) {
@@ -184,16 +184,20 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, size
 
 			// append
 			for (size_t i=0; i < sizeof(long_entry.name1); i++) {
+				if (!long_entry.name1[i]) goto cont;
 				dirent->d_name[j++] = long_entry.name1[i];
 			}
 			for (size_t i=0; i < sizeof(long_entry.name2); i++) {
+				if (!long_entry.name2[i]) goto cont;
 				dirent->d_name[j++] = long_entry.name2[i];
 			}
 			for (size_t i=0; i < sizeof(long_entry.name3); i++) {
+				if (!long_entry.name3[i]) goto cont;
 				dirent->d_name[j++] = long_entry.name3[i];
 			}
 
 			// next entry
+			cont:
 			offset += sizeof(fat_entry_t);
 			if (!inode->is_fat16_root && !(offset % fat_superblock->cluster_size)) {
 				// end of cluster
