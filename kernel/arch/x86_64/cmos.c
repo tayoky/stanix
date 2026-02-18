@@ -42,22 +42,6 @@ uint8_t read_cmos(uint8_t address){
 	return data;
 }
 
-extern struct timeval time;
-
-static int is_leap(uintmax_t year){
-	//not divisible by 4
-	if(year % 4){
-		return 0;
-	}
-
-	//excecptioh for mutiple of 100 tha can't be divide by 400
-	if((year % 400) && !(year % 100)){
-		return 0;
-	}
-
-	return 1;
-}
-
 void init_cmos(void){
 	kstatusf("start reading cmos... ");
 	cmos_wait();

@@ -1,10 +1,10 @@
 #include <kernel/limine.h>
 #include <kernel/framebuffer.h>
+#include <kernel/scheduler.h>
 #include <kernel/kernel.h>
 #include <kernel/string.h>
 #include <kernel/device.h>
 #include <kernel/print.h>
-#include <kernel/bootinfo.h>
 #include <kernel/vmm.h>
 #include <kernel/tmpfs.h>
 #include <sys/fb.h>

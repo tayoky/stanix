@@ -7,9 +7,10 @@
 #include <kernel/kheap.h>
 #include <kernel/vfs.h>
 #include <kernel/terminal_emu.h>
-#include <kernel/scheduler.h>
 #include <kernel/arch.h>
 #include <kernel/spinlock.h>
+
+struct task;
 
 typedef struct kernel_table_struct{
 	arch_specific arch;
@@ -24,7 +25,7 @@ typedef struct kernel_table_struct{
 	vfs_fd_t **outs;
 	uint8_t pic_type;
 	pid_t tid_count;
-	task_t *current_task;
+	struct task *current_task;
 	char can_task_switch;
 	spinlock_t PMM_lock;
 	int pty_count;

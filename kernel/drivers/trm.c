@@ -1,10 +1,11 @@
-#include <kernel/trm.h>
-#include <kernel/vfs.h>
-#include <kernel/print.h>
+#include <kernel/scheduler.h>
 #include <kernel/string.h>
 #include <kernel/paging.h>
 #include <kernel/kernel.h>
+#include <kernel/print.h>
 #include <kernel/vmm.h>
+#include <kernel/vfs.h>
+#include <kernel/trm.h>
 
 #define TRM_NO_ALLOC ((uintptr_t)-1)
 
@@ -106,7 +107,7 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 	fb_fd->type = VFS_BLOCK;
 	fb_fd->flags = O_WRONLY;
 	fb_fd->ref_count = 1;
-	fb->fd = add_fd(fb_fd);
+	fb->fd = add_fd(fb_fd, 0);
 
 	return 0;
 }

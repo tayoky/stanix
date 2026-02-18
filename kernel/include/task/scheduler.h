@@ -3,6 +3,7 @@
 
 #include <kernel/arch.h>
 #include <kernel/spinlock.h>
+#include <kernel/rwlock.h>
 #include <kernel/string.h>
 #include <kernel/list.h>
 #include <kernel/vfs.h>
@@ -26,12 +27,17 @@ typedef struct run_queue {
 
 #define MAX_FD 32
 
-typedef struct {
+typedef struct file_descriptor {
 	vfs_fd_t *fd;
 	size_t offset;
 	long present;
 	long flags;
-} file_descriptor;
+} file_descriptor_t;
+
+typedef struct fd_table {
+	file_descriptor_t fds[MAX_FD];
+	rwlock_t lock;
+} fd_table_t;
 
 struct process;
 
@@ -68,7 +74,7 @@ typedef struct process {
 	vmm_space_t vmm_space;
 	pid_t pid;
 	struct process *parent;
-	file_descriptor fds[MAX_FD];
+	fd_table_t fd_table;
 	vfs_dentry_t *cwd;
 	vfs_dentry_t *exe;
 	char *cmdline;
@@ -219,11 +225,28 @@ void finish_yield(void);
 int waitfor(task_t **threads,size_t threads_count,int flags,task_t **waker);
 
 
-int add_fd(vfs_fd_t *fd);
+/**
+ * @brief add a file descriptor to the current's process fd table
+ * @param fd the \ref vfs_fd_t to add
+ * @param flags the fd flags to add with (FD_CLOEXEC, ...)
+ * @return the fd number on success else an error code
+ */
+int add_fd(vfs_fd_t *fd, long flags);
 
-#define FD_GET(fd) get_current_proc()->fds[fd]
-#define is_valid_fd(fd)  (fd >= 0 && fd < MAX_FD && (FD_GET(fd).present))
-#define FD_CHECK(fd,flag) (FD_GET(fd).flags & flag)
+/**
+ * @brief get a file descriptor from the current's process fd table
+ * @param fd the fd number to get the data of
+ * @param file_descriptor where to store the fetched data (can be NULL)
+ * @return the fd number on success else an error code
+ */
+int get_fd(int fd, file_descriptor_t *file_descriptor);
+
+/**
+ * @brief remove and close a file descriptor from the current's process fd table
+ * @param fd the fd number to close
+ * @return the fd number on succes else an error code
+ */
+int close_fd(int fd);
 
 extern list_t proc_list;
 extern list_t sleeping_tasks;

@@ -1,6 +1,7 @@
 #include <kernel/tmpfs.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
+#include <kernel/kernel.h>
 #include <kernel/cache.h>
 #include <kernel/print.h>
 #include <kernel/time.h>

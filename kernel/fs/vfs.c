@@ -7,6 +7,7 @@
 #include <kernel/time.h>
 #include <kernel/list.h>
 #include <kernel/device.h>
+#include <kernel/scheduler.h>
 #include <kernel/slab.h>
 #include <kernel/assert.h>
 #include <limits.h>

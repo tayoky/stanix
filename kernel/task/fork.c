@@ -35,13 +35,12 @@ pid_t fork(void) {
 	child->main_thread->sig_mask   = get_current_task()->sig_mask;
 	memcpy(child->main_thread->sig_handling, get_current_task()->sig_handling, sizeof(get_current_task()->sig_handling));
 
-	// clone fd
+	// clone fd table
 	for (int i = 0;i < MAX_FD;i++) {
-		child->fds[i] = parent->fds[i];
-		if (child->fds[i].present) {
-			child->fds[i].fd   = vfs_dup(parent->fds[i].fd);
-			child->fds[i].offset = parent->fds[i].offset;
-			child->fds[i].flags  = parent->fds[i].flags;
+		if (child->fd_table.fds[i].present) {
+			child->fd_table.fds[i].fd   = vfs_dup(parent->fd_table.fds[i].fd);
+			child->fd_table.fds[i].offset = parent->fd_table.fds[i].offset;
+			child->fd_table.fds[i].flags  = parent->fd_table.fds[i].flags;
 		}
 	}
 

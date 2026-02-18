@@ -1,5 +1,6 @@
 #include <kernel/scheduler.h>
 #include <kernel/spinlock.h>
+#include <kernel/rwlock.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/kheap.h>
@@ -319,8 +320,8 @@ static void do_proc_deletion(void) {
 
 	// close every open fd
 	for (size_t i = 0; i < MAX_FD; i++) {
-		if (get_current_proc()->fds[i].present) {
-			vfs_close(get_current_proc()->fds[i].fd);
+		if (get_current_proc()->fd_table.fds[i].present) {
+			close_fd(i);
 		}
 	}
 
@@ -468,20 +469,67 @@ void final_proc_cleanup(process_t *proc) {
 	kfree(proc);
 }
 
-int add_fd(vfs_fd_t *fd) {
+int add_fd(vfs_fd_t *fd, long flags) {
+	int interrupt_save;
+	rwlock_acquire_write(&get_current_proc()->fd_table.lock, &interrupt_save);
+
 	int index = 0;
-	while (is_valid_fd(index)) {
+	while (get_current_proc()->fd_table.fds[index].present) {
 		index++;
+		if (index >= MAX_FD) {
+			// to many fds open
+			return -ENXIO;
+		}
 	}
 
-	if (index >= MAX_FD) {
-		//to much fd open
-		return -1;
-	}
+	file_descriptor_t *fd_data = &get_current_proc()->fd_table.fds[index];
+	fd_data->present = 1;
+	fd_data->fd      = fd;
+	fd_data->flags   = flags;
+	fd_data->offset  = 0;
 
-	FD_GET(index).present = 1;
-	FD_GET(index).fd = fd;
-	FD_GET(index).flags = 0;
-	FD_GET(index).offset = 0;
+	rwlock_release_write(&get_current_proc()->fd_table.lock, &interrupt_save);
 	return index;
+}
+
+
+int get_fd(int fd, file_descriptor_t *file_descriptor) {
+	if (fd < 0 || fd >= MAX_FD) {
+		return -EBADF;
+	}
+
+	int interrupt_save;
+	rwlock_acquire_read(&get_current_proc()->fd_table.lock, &interrupt_save);
+
+	file_descriptor_t *fd_data = &get_current_proc()->fd_table.fds[fd];
+	if (!fd_data->present) {
+		rwlock_release_read(&get_current_proc()->fd_table.lock, &interrupt_save);
+		return -EBADF;
+	}
+	if (file_descriptor) *file_descriptor = *fd_data;
+
+	rwlock_release_read(&get_current_proc()->fd_table.lock, &interrupt_save);
+	return fd;
+}
+
+
+int close_fd(int fd) {
+	if (fd < 0 || fd >= MAX_FD) {
+		return -EBADF;
+	}
+
+	int interrupt_save;
+	rwlock_acquire_write(&get_current_proc()->fd_table.lock, &interrupt_save);
+
+	
+	file_descriptor_t *fd_data = &get_current_proc()->fd_table.fds[fd];
+	if (!fd_data->present) {
+		rwlock_release_write(&get_current_proc()->fd_table.lock, &interrupt_save);
+		return -EBADF;
+	}
+	vfs_close(fd_data->fd);
+	fd_data->present = 0;
+	
+	rwlock_release_write(&get_current_proc()->fd_table.lock, &interrupt_save);
+	return fd;
 }
