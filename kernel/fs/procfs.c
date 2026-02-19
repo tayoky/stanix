@@ -149,7 +149,14 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 			prot[2] = seg->prot & MMU_FLAG_EXEC ? 'x' : '-';
 			prot[3] = seg->flags & VMM_FLAG_PRIVATE ? 'p' : 's';
 			prot[4] = '\0';
-			i += sprintf(str_buf + i, "%012lx-%012lx %s %zd\n", seg->start, seg->end, prot, seg->offset);
+			char *name = NULL;
+			if (seg->flags & VMM_FLAG_ANONYMOUS) {
+				name = strdup("[anonymous]");
+			} else {
+				name = vfs_dentry_path(seg->fd->dentry);
+			}
+			i += sprintf(str_buf + i, "%012lx-%012lx %s %6zd %s\n", seg->start, seg->end, prot, seg->offset, name);
+			free(name);
 		}
 		str = str_buf;
 		break;
