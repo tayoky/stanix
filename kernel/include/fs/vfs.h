@@ -185,7 +185,9 @@ static inline off_t vfs_generic_seek(vfs_fd_t *fd, off_t offset, int whence) {
 }
 
 static inline off_t vfs_seek(vfs_fd_t *fd, off_t offset, int whence) {
-	if (fd->ops && fd->ops->seek) {
+	if (fd->type == VFS_DIR) {
+		return -EISDIR;
+	} else if (fd->ops && fd->ops->seek) {
 		return fd->ops->seek(fd, offset, whence);
 	} else if(fd->type == VFS_FILE || fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
 		return vfs_generic_seek(fd, offset, whence);
