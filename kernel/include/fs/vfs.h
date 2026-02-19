@@ -155,7 +155,7 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock);
 int vfs_chroot(vfs_dentry_t *new_root);
 
 
-vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
+vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name, int *status);
 ssize_t vfs_read(vfs_fd_t *node, void *buffer, uint64_t offset, size_t count);
 ssize_t vfs_write(vfs_fd_t *node, const void *buffer, uint64_t offset, size_t count);
 
@@ -408,6 +408,10 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 
 int vfs_perm(vfs_node_t *node);
 int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid);
+
+#define PERM_READ    04
+#define PERM_WRITE   02
+#define PERM_EXECUTE 01
 
 static vfs_dentry_t *vfs_dup_dentry(vfs_dentry_t *dentry) {
 	if (dentry) dentry->ref_count++;

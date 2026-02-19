@@ -45,6 +45,7 @@ static tmpfs_inode_t *new_inode(long type) {
 	inode->type = type;
 	inode->parent = NULL;
 	inode->link_count = 0;
+	inode->perm = 0777;
 
 	//set times
 	inode->atime = NOW();

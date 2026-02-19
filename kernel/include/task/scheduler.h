@@ -103,12 +103,25 @@ typedef struct process {
 #define TASK_FLAG_WAIT  0x02
 #define TASK_FLAG_SLEEP 0x04
 
+#define EUID_ROOT 0
+
 void init_task(void);
 
 task_t *get_current_task(void);
 
 static inline process_t *get_current_proc(void) {
-	return get_current_task()->process;
+	task_t *task = get_current_task();
+	return task ? task->process : NULL;
+}
+
+static inline uid_t get_current_euid(void) {
+	process_t *proc = get_current_proc();
+	return proc ? proc->euid : EUID_ROOT;
+}
+
+static inline gid_t get_current_egid(void) {
+	process_t *proc = get_current_proc();
+	return proc ? proc->egid : EUID_ROOT;
 }
 
 process_t *new_proc(void (*func)(void *arg), void *arg);
@@ -251,7 +264,6 @@ extern list_t proc_list;
 extern list_t sleeping_tasks;
 extern spinlock_t sleep_lock;
 
-#define EUID_ROOT 0
 #define KSTACK_TOP(kstack) (((kstack) + KERNEL_STACK_SIZE) & ~0xFUL)
 
 #endif

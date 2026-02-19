@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <elf.h>
 
+int sys_sbrk(size_t);
+
 int verfiy_elf(Elf64_Ehdr *header) {
 	if (memcmp(header, ELFMAG, 4)) {
 		return 0;
@@ -38,6 +40,10 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 
 	if (!file) {
 		return -ENOENT;
+	}
+
+	if (!(vfs_perm(file->inode) & PERM_EXECUTE)) {
+		return -EACCES;
 	}
 
 	//first read the header

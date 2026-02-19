@@ -67,8 +67,10 @@ static void dentry_add_lru(vfs_dentry_t *dentry) {
 }
 
 static int fd_constructor(slab_cache_t *cache, void *data) {
+	(void)cache;
 	vfs_fd_t *fd = data;
 	memset(fd, 0, sizeof(vfs_fd_t));
+	return 0;
 }
 
 void init_vfs(void) {
@@ -121,6 +123,10 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 	if (parent->inode->flags != VFS_DIR) {
 		vfs_release_dentry(parent);
 		return -ENOTDIR;
+	}
+
+	if (!(vfs_perm(parent->inode) & PERM_WRITE)) {
+		return -EACCES;
 	}
 
 	vfs_dentry_t *dentry = slab_alloc(&dentries_slab);
@@ -322,13 +328,21 @@ int vfs_wait(vfs_fd_t *fd, short type) {
 	}
 }
 
-vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
+vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name, int *ret) {
+	// check perm
+	if (!(vfs_perm(entry->inode) & PERM_EXECUTE)) {
+		if (ret) *ret = -EACCES;
+		return NULL;
+	}
+
 	// cannot do lookup on negative entry
 	if (vfs_dentry_is_negative(entry)) {
+		if (ret) *ret = -EINVAL;
 		return NULL;
 	}
 
 	if (entry->inode->flags != VFS_DIR) {
+		if (ret) *ret = -ENOTDIR;
 		return NULL;
 	}
 
@@ -355,6 +369,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	// it isen't chached
 	// ask the fs for it
 	if (!entry->inode->ops->lookup) {
+		if (ret) *ret = -EINVAL;
 		return NULL;
 	}
 
@@ -362,8 +377,10 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	strcpy(child_entry->name, name);
 	child_entry->ref_count = 1;
 
-	if (entry->inode->ops->lookup(entry->inode, child_entry, name) < 0) {
+	int op_ret = entry->inode->ops->lookup(entry->inode, child_entry, name);
+	if (op_ret < 0) {
 		slab_free(child_entry);
+		if (ret) *ret = op_ret;
 		return NULL;
 	}
 
@@ -765,7 +782,8 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 	for (int i = 0; i < path_depth; i++) {
 		if (!current_entry) return NULL;
 
-		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i]);
+		int ret;
+		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i], &ret);
 		if (!next_entry) goto error;
 		vfs_release_dentry(current_entry);
 		current_entry = next_entry;
@@ -887,25 +905,29 @@ int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid) {
 	if (uid == 0) {
 		// root can read/write anything
 		perm |= 06;
+		// root can search in any dir
+		if (S_ISDIR(st.st_mode)) {
+			perm |= 01;
+		}
 	}
 
 	if (uid == st.st_uid) {
 		is_other = 0;
-		perm |= st.st_mode & 07;
+		perm |= (st.st_mode >> 6) & 07;
 	}
 	if (gid == st.st_gid) {
 		is_other = 0;
 		perm |= (st.st_mode >> 3) & 07;
 	}
 	if (is_other) {
-		perm |= (st.st_mode >> 6) & 07;
+		perm |= st.st_mode & 07;
 	}
 
 	return perm;
 }
 
 int vfs_perm(vfs_node_t *node) {
-	return vfs_user_perm(node, get_current_proc()->euid, get_current_proc()->egid);
+	return vfs_user_perm(node, get_current_euid(), get_current_egid());
 }
 
 char *vfs_dentry_path(vfs_dentry_t *dentry) {
