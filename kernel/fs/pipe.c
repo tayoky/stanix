@@ -88,14 +88,8 @@ int create_pipe(vfs_fd_t **read, vfs_fd_t **write) {
 	pipe->isbroken = 0;
 	init_ringbuffer(&pipe->ring, PIPE_SIZE);
 
-	*read  = kmalloc(sizeof(vfs_fd_t));
-	*write = kmalloc(sizeof(vfs_fd_t));
-
-	//reset
-	memset(*read, 0, sizeof(vfs_fd_t));
-	memset(*write, 0, sizeof(vfs_fd_t));
-	(*read)->ref_count  = 1;
-	(*write)->ref_count = 1;
+	*read  = vfs_alloc_fd();
+	*write = vfs_alloc_fd();
 
 	//set the data
 	(*read)->ops  = &pipe_read_ops;

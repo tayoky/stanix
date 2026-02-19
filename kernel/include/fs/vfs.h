@@ -332,6 +332,8 @@ static inline vfs_fd_t *vfs_dup(vfs_fd_t *fd) {
 	return fd;
 }
 
+vfs_fd_t *vfs_alloc_fd(void);
+
 /**
  * @brief get a path from a dentry
  * @param dentry the dentry to get the path of

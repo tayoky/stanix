@@ -70,6 +70,7 @@ static int fd_constructor(slab_cache_t *cache, void *data) {
 	(void)cache;
 	vfs_fd_t *fd = data;
 	memset(fd, 0, sizeof(vfs_fd_t));
+	fd->ref_count = 1;
 	return 0;
 }
 
@@ -867,6 +868,10 @@ vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags) {
 	return fd;
 }
 
+vfs_fd_t *vfs_alloc_fd(void) {
+	return slab_alloc(&fd_slab);
+}
+
 vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 	// permission checking
 	mode_t required_perm = PERM_READ;
@@ -879,7 +884,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 		return NULL;
 	}
 
-	vfs_fd_t *fd = slab_alloc(&fd_slab);
+	vfs_fd_t *fd = vfs_alloc_fd();
 	struct stat st;
 	vfs_getattr(node, &st);
 
