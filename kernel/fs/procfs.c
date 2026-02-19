@@ -235,9 +235,18 @@ static int proc_root_readdir(vfs_node_t *root, unsigned long index, struct diren
 	return -ENOENT;
 }
 
+static int proc_root_getattr(vfs_node_t *root, struct stat *st) {
+	(void)root;
+	st->st_mode = 0555;
+	st->st_uid = EUID_ROOT;
+	st->st_gid = EUID_ROOT;
+	return 0;
+}
+
 static vfs_inode_ops_t proc_root_ops = {
 	.readdir = proc_root_readdir,
 	.lookup  = proc_root_lookup,
+	.getattr = proc_root_getattr,
 };
 
 int proc_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
