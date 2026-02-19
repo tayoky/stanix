@@ -868,8 +868,19 @@ vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags) {
 }
 
 vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
-	struct stat st;
+	// permission checking
+	mode_t required_perm = PERM_READ;
+	if (flags & O_RDWR) {
+		required_perm = PERM_READ | PERM_WRITE;
+	} else if (flags & O_WRONLY) {
+		required_perm = PERM_WRITE;
+	}
+	if ((vfs_perm(node) & required_perm) != required_perm) {
+		return NULL;
+	}
+
 	vfs_fd_t *fd = slab_alloc(&fd_slab);
+	struct stat st;
 	vfs_getattr(node, &st);
 
 	fd->ops       = NULL;
