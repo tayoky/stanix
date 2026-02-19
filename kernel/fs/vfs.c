@@ -594,6 +594,23 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 		goto error;
 	}
 
+	// permission checking
+	struct stat parent_st;
+	struct stat child_st;
+	vfs_getattr(parent_entry->inode, &parent_st);
+	vfs_getattr(dentry->inode, &child_st);
+	if (parent_st.st_mode & S_ISVTX) {
+		// special case for sticky bit
+		if (parent_st.st_uid != get_current_euid() && child_st.st_uid != get_current_euid()) {
+			return -EACCES;
+		}
+
+	} else {
+		if (!(vfs_perm(parent_entry->inode) & PERM_WRITE)) {
+			return -EACCES;
+		}
+	}
+
 	// call unlink on the parent
 	vfs_node_t *parent = parent_entry->inode;
 	if (!parent->ops || !parent->ops->unlink) {
@@ -632,14 +649,31 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 
 	vfs_dentry_t *parent_entry = dentry->parent;
 	if (!parent_entry) {
-		// as far as i know you cannot unlink root
+		// as far as i know you cannot rmdir root
 		ret = -ENOENT;
 		goto error;
 	}
 
-	// call unlink on the parent
+	// permission checking
+	struct stat parent_st;
+	struct stat child_st;
+	vfs_getattr(parent_entry->inode, &parent_st);
+	vfs_getattr(dentry->inode, &child_st);
+	if (parent_st.st_mode & S_ISVTX) {
+		// special case for sticky bit
+		if (parent_st.st_uid != get_current_euid() && child_st.st_uid != get_current_euid()) {
+			return -EACCES;
+		}
+
+	} else {
+		if (!(vfs_perm(parent_entry->inode) & PERM_WRITE)) {
+			return -EACCES;
+		}
+	}
+
+	// call rmdir on the parent
 	vfs_node_t *parent = parent_entry->inode;
-	if (!parent->ops || !parent->ops->unlink) {
+	if (!parent->ops || !parent->ops->rmdir) {
 		ret = -EINVAL;
 		goto error;
 	}
