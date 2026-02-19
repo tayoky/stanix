@@ -29,7 +29,6 @@ typedef struct run_queue {
 
 typedef struct file_descriptor {
 	vfs_fd_t *fd;
-	size_t offset;
 	long present;
 	long flags;
 } file_descriptor_t;

@@ -94,10 +94,9 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	//cose fd with CLOEXEC flags
 	for (size_t i = 0; i < MAX_FD; i++) {
 		file_descriptor_t file;
-		int ret = get_fd(i, &file);
-		if (ret < 0) continue;
+		if (get_fd(i, &file) < 0) continue;
 		if (file.flags & FD_CLOEXEC) {
-			sys_close(i);
+			close_fd(i);
 		}
 	}
 

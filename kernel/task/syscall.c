@@ -128,7 +128,7 @@ int sys_close(int fd) {
 	return close_fd(fd);
 }
 
-ssize_t sys_write(int fd, void *buffer, size_t count) {
+ssize_t sys_write(int fd, const void *buffer, size_t count) {
 	if (!CHECK_MEM(buffer, count)) {
 		return -EFAULT;
 	}
@@ -137,20 +137,7 @@ ssize_t sys_write(int fd, void *buffer, size_t count) {
 	int ret = get_fd(fd, &file);
 	if (ret < 0) return ret;
 
-	// if append go to the end
-	if (file.flags & O_APPEND) {
-		struct stat st;
-		vfs_getattr(file.fd->inode, &st);
-		file.offset = st.st_size;
-	}
-
-	ssize_t wsize = vfs_write(file.fd, buffer, file.offset, count);
-
-	if (wsize > 0) {
-		file.offset += wsize;
-	}
-
-	return wsize;
+	return vfs_user_write(file.fd, buffer, count);
 }
 
 ssize_t sys_read(int fd, void *buffer, size_t count) {
@@ -161,14 +148,8 @@ ssize_t sys_read(int fd, void *buffer, size_t count) {
 	file_descriptor_t file;
 	int ret = get_fd(fd, &file);
 	if (ret < 0) return ret;
-
-	ssize_t rsize = vfs_read(file.fd, buffer, file.offset, count);
-
-	if (rsize > 0) {
-		file.offset += rsize;
-	}
-
-	return rsize;
+	
+	return vfs_user_read(file.fd, buffer, count);
 }
 
 void sys_exit(int error_code) {
@@ -215,12 +196,11 @@ int sys_dup2(int oldfd, int newfd) {
 	// make the actual copy
 	new_file->fd = vfs_dup(old_file.fd);
 	new_file->present = 1;
-	new_file->offset = old_file.offset;
 	new_file->flags  = old_file.flags;
 	return newfd;
 }
 
-off_t sys_seek(int fd, int64_t offset, int whence) {
+off_t sys_seek(int fd, off_t offset, int whence) {
 	if (whence > 2) {
 		return -EINVAL;
 	}
@@ -229,24 +209,7 @@ off_t sys_seek(int fd, int64_t offset, int whence) {
 	int ret = get_fd(fd, &file);
 	if (ret < 0) return ret;
 
-	struct stat st;
-	vfs_getattr(file.fd->inode, &st);
-
-	switch (whence) {
-	case SEEK_SET:
-		file.offset = offset;
-		break;
-	case SEEK_CUR:
-		file.offset += offset;
-		break;
-	case SEEK_END:
-		file.offset = st.st_size + offset;
-		break;
-	default:
-		break;
-	}
-
-	return file.offset;
+	return vfs_seek(file.fd, offset, whence);
 }
 
 uint64_t sys_sbrk(intptr_t incr) {

@@ -38,9 +38,9 @@ pid_t fork(void) {
 	// clone fd table
 	for (int i = 0;i < MAX_FD;i++) {
 		if (parent->fd_table.fds[i].present) {
-			child->fd_table.fds[i].fd   = vfs_dup(parent->fd_table.fds[i].fd);
-			child->fd_table.fds[i].offset = parent->fd_table.fds[i].offset;
-			child->fd_table.fds[i].flags  = parent->fd_table.fds[i].flags;
+			child->fd_table.fds[i].fd      = vfs_dup(parent->fd_table.fds[i].fd);
+			child->fd_table.fds[i].flags   = parent->fd_table.fds[i].flags;
+			child->fd_table.fds[i].present = 1;
 		}
 	}
 

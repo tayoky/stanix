@@ -19,6 +19,17 @@
 #define PATH_MAX 256
 #endif
 
+// we cannot include unistd.h
+#ifndef SEEK_SET
+#define SEEK_SET 0
+#endif
+#ifndef SEEK_CUR
+#define SEEK_CUR 1
+#endif
+#ifndef SEEK_END
+#define SEEK_END 2
+#endif
+
 #define VFS_FILE  0x001
 #define VFS_DIR   0x002
 #define VFS_LINK  0x004
@@ -73,6 +84,7 @@ typedef struct vfs_fd {
 	size_t ref_count;
 	long flags;
 	long type;
+	off_t offset;
 } vfs_fd_t;
 
 /**
@@ -109,6 +121,7 @@ typedef struct vfs_fd_ops {
 	int (*wait)(vfs_fd_t *, short);
 	int (*mmap)(vfs_fd_t *, off_t, struct vmm_seg *);
 	void (*close)(vfs_fd_t *);
+	off_t (*seek)(vfs_fd_t *, off_t offset, int whence);
 } vfs_fd_ops_t;
 
 typedef struct vfs_superblock_ops {
@@ -147,6 +160,59 @@ ssize_t vfs_read(vfs_fd_t *node, void *buffer, uint64_t offset, size_t count);
 ssize_t vfs_write(vfs_fd_t *node, const void *buffer, uint64_t offset, size_t count);
 
 
+/**
+ * @brief generic seek operations for file/devices
+ */
+static inline off_t vfs_generic_seek(vfs_fd_t *fd, off_t offset, int whence) {
+	struct stat st;
+	vfs_getattr(fd->inode, &st);
+
+	switch (whence) {
+	case SEEK_SET:
+		fd->offset = offset;
+		break;
+	case SEEK_CUR:
+		fd->offset += offset;
+		break;
+	case SEEK_END:
+		fd->offset = st.st_size + offset;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return fd->offset;
+}
+
+static inline off_t vfs_seek(vfs_fd_t *fd, off_t offset, int whence) {
+	if (fd->ops && fd->ops->seek) {
+		return fd->ops->seek(fd, offset, whence);
+	} else if(fd->type == VFS_FILE || fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+		return vfs_generic_seek(fd, offset, whence);
+	} else {
+		return -ESPIPE;
+	}
+}
+
+static inline ssize_t vfs_user_read(vfs_fd_t *fd, void *buffer, size_t size) {
+	ssize_t ret = vfs_read(fd, buffer, fd->offset, size);
+	if (ret > 0) {
+		fd->offset += ret;
+	}
+	return ret;
+}
+
+static inline ssize_t vfs_user_write(vfs_fd_t *fd, const void *buffer, size_t size) {
+	if (fd->flags & O_APPEND) {
+		// seek to the end before each write
+		vfs_seek(fd, 0, SEEK_END);
+	}
+	ssize_t ret = vfs_write(fd, buffer, fd->offset, size);
+	if (ret > 0) {
+		fd->offset += ret;
+	}
+	return ret;
+}
 
 int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode);
 int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode);

@@ -486,7 +486,6 @@ int add_fd(vfs_fd_t *fd, long flags) {
 	fd_data->present = 1;
 	fd_data->fd      = fd;
 	fd_data->flags   = flags;
-	fd_data->offset  = 0;
 
 	rwlock_release_write(&get_current_proc()->fd_table.lock, &interrupt_save);
 	return index;
