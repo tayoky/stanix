@@ -22,7 +22,7 @@ static list_t fs_types;
 static list_t superblocks;
 static list_t dentries_lru;
 static slab_cache_t dentries_slab;
-
+static slab_cache_t fd_slab;
 
 static void vfs_add_dentry(vfs_dentry_t *parent, vfs_dentry_t *child) {
 	// child hold a ref to the parent
@@ -66,8 +66,15 @@ static void dentry_add_lru(vfs_dentry_t *dentry) {
 	list_append(&dentries_lru, &dentry->lru_node);
 }
 
+static int fd_constructor(slab_cache_t *cache, void *data) {
+	vfs_fd_t *fd = data;
+	memset(fd, 0, sizeof(vfs_fd_t));
+}
+
 void init_vfs(void) {
 	kstatusf("init vfs... ");
+	slab_init(&fd_slab, sizeof(vfs_fd_t), "vfs file descriptors");
+	fd_slab.constructor = fd_constructor;
 	slab_init(&dentries_slab, sizeof(vfs_dentry_t), "vfs dentries");
 	dentries_slab.constructor = dentry_constructor;
 	dentries_slab.destructor  = dentry_destructor;
@@ -810,8 +817,7 @@ vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags) {
 
 vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 	struct stat st;
-	vfs_fd_t *fd = kmalloc(sizeof(vfs_fd_t));
-	memset(fd, 0, sizeof(vfs_fd_t));
+	vfs_fd_t *fd = slab_alloc(&fd_slab);
 	vfs_getattr(node, &st);
 
 	fd->ops       = NULL;
@@ -869,7 +875,7 @@ void vfs_close(vfs_fd_t *fd) {
 		fd->ops->close(fd);
 	}
 
-	kfree(fd);
+	slab_free(fd);
 }
 
 int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid) {
