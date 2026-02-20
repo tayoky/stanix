@@ -54,11 +54,9 @@ static vfs_fd_ops_t socket_ops = {
 
 static vfs_fd_t *open_socket(socket_t *socket) {
 	if (!socket) return NULL;
-	vfs_fd_t *fd = kmalloc(sizeof(vfs_fd_t));
-	memset(fd, 0, sizeof(vfs_fd_t));
+	vfs_fd_t *fd = vfs_alloc_fd();
 	fd->ops       = &socket_ops;
 	fd->private   = socket;
-	fd->ref_count = 1;
 	fd->type      = VFS_SOCK;
 	fd->flags     = O_RDWR;
 	return fd;
