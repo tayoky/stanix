@@ -873,7 +873,6 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 	if (!length)return (void *)-EINVAL;
 
 	if (flags & MAP_FIXED) {
-		if (!CHECK_PTR_INRANGE(addr + length))return (void *)-EEXIST;
 		if (addr % PAGE_SIZE || length % PAGE_SIZE) return (void *)-EINVAL;
 	} else {
 		addr = 0;
@@ -911,7 +910,7 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 
 int sys_munmap(void *addr, size_t len) {
 	if (!len)return -EINVAL;
-	if (!CHECK_PTR_INRANGE((uintptr_t)addr + len)) return -EINVAL;
+	if (!CHECK_PTR((uintptr_t)addr + len)) return -EINVAL;
 	if ((uintptr_t)addr % PAGE_SIZE) return -EINVAL;
 	return vmm_unmap_range((uintptr_t)addr, (uintptr_t)addr + len);
 }

@@ -8,17 +8,14 @@
 #include <stddef.h>
 
 void jump_userspace(void *address,void *stack,uintptr_t arg1,uintptr_t arg2,uintptr_t arg3,uintptr_t arg4);
+int safe_copy_to(void *dest, const void *src, size_t count);
+int safe_copy_from(void *dest, const void *src, size_t count);
 
 //some macro to check ptr
-#define CHECK_PTR_INRANGE(ptr) ((uintptr_t)ptr <= MEM_USERSPACE_END)
-#define CHECK_PTR(ptr) (CHECK_PTR_INRANGE(ptr) && mmu_virt2phys((void *)ptr) != PAGE_INVALID)
+#define CHECK_PTR(ptr) ((uintptr_t)ptr <= MEM_USERSPACE_END)
 
-
-int check_mem(void *ptr,size_t count);
-int check_str(char *str);
-
-#define CHECK_MEM(ptr,count) check_mem((void *)ptr,count)
-#define CHECK_STR(str) check_str((char *)str)
-#define CHECK_STRUCT(struc) CHECK_MEM(struc,sizeof(*struc))
+#define CHECK_MEM(ptr,count) (CHECK_PTR(ptr) && CHECK_PTR((uintptr_t)ptr + count))
+#define CHECK_STR(str) CHECK_PTR(str)
+#define CHECK_STRUCT(struc) CHECK_PTR((uintptr_t)struc + sizeof(*struc))
 
 #endif

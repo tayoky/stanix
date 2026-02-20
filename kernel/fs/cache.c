@@ -1,3 +1,4 @@
+#include <kernel/userspace.h>
 #include <kernel/hashmap.h>
 #include <kernel/string.h>
 #include <kernel/assert.h>
@@ -336,7 +337,10 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 			page_end = (offset + size) % PAGE_SIZE;
 			if (page_end == 0) page_end = PAGE_SIZE;
 		}
-		memcpy(buf, (void*)(kernel->hhdm + phys + page_start), page_end - page_start);
+		if (safe_copy_to(buf, (void*)(kernel->hhdm + phys + page_start), page_end - page_start) < 0) {
+			rwlock_release_read(&cache->lock, &interrupt_save);
+			return -EFAULT;
+		}
 		buf += page_end - page_start;
 	}
 	rwlock_release_read(&cache->lock, &interrupt_save);
@@ -370,7 +374,10 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 			page_end = (offset + size) % PAGE_SIZE;
 			if (page_end == 0) page_end = PAGE_SIZE;
 		}
-		memcpy((void*)(kernel->hhdm + page + page_start), buf, page_end - page_start);
+		if (safe_copy_from((void*)(kernel->hhdm + page + page_start), buf, page_end - page_start) < 0) {
+			rwlock_release_read(&cache->lock, &interrupt_save);
+			return -EFAULT;
+		}
 
 		// mark as dirty
 		atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_DIRTY);

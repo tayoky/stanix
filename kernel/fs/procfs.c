@@ -156,7 +156,7 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 				name = vfs_dentry_path(seg->fd->dentry);
 			}
 			i += sprintf(str_buf + i, "%012lx-%012lx %s %6zd %s\n", seg->start, seg->end, prot, seg->offset, name);
-			free(name);
+			kfree(name);
 		}
 		str = str_buf;
 		break;

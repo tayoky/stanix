@@ -9,6 +9,9 @@
 #include <kernel/arch.h>
 #include <stdint.h>
 
+void safe_copy_fault(void);
+void safe_copy_resolve_fault(void);
+
 static void set_idt_gate(idt_gate *idt,uint8_t index,void *offset,uint8_t flags){
 	idt[index].offset1 = (uint64_t)offset & 0xFFFF;
 	idt[index].offset2 = ((uint64_t)offset >> 16) & 0xFFFF;
@@ -61,6 +64,13 @@ static void page_fault_info(fault_frame_t *fault){
 void isr_handler(fault_frame_t *fault){
 	if (fault->err_type < 32) {
 		if (fault_handler(fault)) return;
+
+		// special case for safe copy
+		if (fault->err_type == 14 && fault->rip == (uintptr_t)safe_copy_fault) {
+			fault->rip = (uintptr_t)safe_copy_resolve_fault;
+			fault->rax = (uintptr_t)-EFAULT;
+			return;
+		}
 		
 		kprintf("error : 0x%lx\n",fault->err_type);
 		if (fault->err_type < (sizeof(error_msg) / sizeof(char *))) {
