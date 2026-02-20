@@ -1,5 +1,6 @@
 #include <kernel/limine.h>
 #include <kernel/framebuffer.h>
+#include <kernel/userspace.h>
 #include <kernel/scheduler.h>
 #include <kernel/kernel.h>
 #include <kernel/string.h>
@@ -42,7 +43,9 @@ static ssize_t framebuffer_write(vfs_fd_t *fd, const void *buffer, off_t offset,
 	}
 
 	// write to the framebuffer is easy just memcpy
-	memcpy((char*)framebuffer->base + offset + kernel->hhdm, buffer, count);
+	if (safe_copy_from((char*)framebuffer->base + offset + kernel->hhdm, buffer, count) < 0) {
+		return -EFAULT;
+	}
 
 	return count;
 }

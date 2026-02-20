@@ -2,6 +2,7 @@
 #include <kernel/kheap.h>
 #include <kernel/string.h>
 #include <kernel/scheduler.h>
+#include <kernel/userspace.h>
 #include <kernel/sleep.h>
 #include <errno.h>
 
@@ -51,14 +52,20 @@ ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count, long flags)
 	// if the read go farther than the end cut in two
 	size_t rest_count = count;
 	if (count + ring->read_offset >= ring->buffer_size) {
-		memcpy(buffer, ring->buffer + ring->read_offset, ring->buffer_size - ring->read_offset);
+		if (safe_copy_to(buffer, ring->buffer + ring->read_offset, ring->buffer_size - ring->read_offset) < 0) {
+			spinlock_release(&ring->lock);
+			return -EFAULT;
+		}
 		rest_count -= ring->buffer_size - ring->read_offset;
 		buffer += ring->buffer_size - ring->read_offset;
 		ring->read_offset = 0;
 	}
 
 	// now read the rest
-	memcpy(buffer, ring->buffer + ring->read_offset, rest_count);
+	if (safe_copy_to(buffer, ring->buffer + ring->read_offset, rest_count) < 0){
+		spinlock_release(&ring->lock);
+		return -EFAULT;
+	}
 	ring->read_offset += rest_count;
 
 	wakeup_queue(&ring->writer_queue, 1);
@@ -94,14 +101,20 @@ ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long
 
 		// if the write go farther than the end cut in two
 		if (rest_count + ring->write_offset >= ring->buffer_size) {
-			memcpy(ring->buffer + ring->write_offset, buffer, ring->buffer_size - ring->write_offset);
+			if (safe_copy_from(ring->buffer + ring->write_offset, buffer, ring->buffer_size - ring->write_offset) < 0) {
+				spinlock_release(&ring->lock);
+				return -EFAULT;
+			}
 			rest_count -= ring->buffer_size - ring->write_offset;
 			buffer += ring->buffer_size - ring->write_offset;
 			ring->write_offset = 0;
 		}
 
 		// now write the rest
-		memcpy(ring->buffer + ring->write_offset, buffer, rest_count);
+		if (safe_copy_from(ring->buffer + ring->write_offset, buffer, rest_count)) {
+			spinlock_release(&ring->lock);
+			return -EFAULT;
+		}
 		ring->write_offset += rest_count;
 		buffer += rest_count;
 
