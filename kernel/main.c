@@ -24,6 +24,7 @@
 #include <kernel/socket.h>
 #include <kernel/futex.h>
 #include <kernel/unix.h>
+#include <kernel/vmm.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -116,6 +117,7 @@ void kmain() {
 	init_terminal_emualtor();
 	init_ptys();
 	init_kout();
+	init_vmm();
 	init_irq();
 	init_task();
 	init_timer();

@@ -102,16 +102,26 @@ void vmm_unmap_all(void);
  * @brief change the protections flags of a segment
  * @param seg the segment to change the protection of
  * @param prot the new protection flags
- * @return 0 on succes or error code on failure
+ * @return 0 on success or error code on failure
  */
 int vmm_chprot(vmm_seg_t *seg, long prot);
+
+
+/**
+ * @brief change the protections flags of segments in a range, spliting them if necessary
+ * @param start the start of the range
+ * @param end the end of the range
+ * @param prot the new protection flags
+ * @return 0 on success or error code on failure
+ */
+int vmm_chprot_range(uintptr_t start, uintptr_t end, long prot);
 
 /**
  * @brief split a segment
  * @param seg the segment to split
  * @param cur where to split (must be in the segment's bounds)
  * @param out_seg return a pointer to the newly created sgement (after the current one)
- * @return 0 on succes or error code on failure
+ * @return 0 on success or error code on failure
  */
 int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg);
 
@@ -121,8 +131,19 @@ int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg);
  * @param start the start of the region to flush (must be in the segment's bounds)
  * @param end the end of the region to flush (must be in the segment's bounds)
  * @param flags the flags to flush with
- * @return 0 on succes or error code on failure
+ * @return 0 on success or error code on failure
  */
 int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags);
+
+/**
+ * @brief flush segments in a rnage to the disk/device
+ * @param start the start of the range
+ * @param end the end of the range
+ * @param flags the flags to flush with
+ * @return 0 on success or error code on failure
+ */
+int vmm_sync_range(uintptr_t start, uintptr_t end, int flags);
+
+void init_vmm(void);
 
 #endif
