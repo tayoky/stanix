@@ -132,7 +132,7 @@ int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg)  {
 	return 0;
 }
 
-static vmm_seg_t *vmm_create_seg(vmm_space_t *vmm_space, uintptr_t address, size_t size, long prot, int flags) {
+static int vmm_create_seg(uintptr_t address, size_t size, long prot, int flags, vmm_seg_t **seg) {
 	int interrupt_save;
 	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	vmm_seg_t *prev = NULL;
@@ -140,10 +140,14 @@ static vmm_seg_t *vmm_create_seg(vmm_space_t *vmm_space, uintptr_t address, size
 		uintptr_t end = address + size;
 
 		// first remove any mapping
-		vmm_raw_unmap_range(address, end);
+		int ret = vmm_raw_unmap_range(address, end);
+		if (ret < 0) {
+			rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+			return ret;
+		}
 
 		// then find where we need to insert
-		foreach(node, &vmm_space->segs) {
+		foreach(node, &get_current_proc()->vmm_space.segs) {
 			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
 			if (current->start >= end) {
 				break;
@@ -155,7 +159,7 @@ static vmm_seg_t *vmm_create_seg(vmm_space_t *vmm_space, uintptr_t address, size
 		size = PAGE_ALIGN_UP(size);
 
 		// no address ? we need to find one ourself
-		foreach(node, &vmm_space->segs) {
+		foreach(node, &get_current_proc()->vmm_space.segs) {
 			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
 			vmm_seg_t *next = container_of(node->next, vmm_seg_t, node);
 			if (!next || next->start - current->end >= size) {
@@ -177,22 +181,23 @@ static vmm_seg_t *vmm_create_seg(vmm_space_t *vmm_space, uintptr_t address, size
 	new_seg->end   = address + size;
 	new_seg->prot  = prot;
 	new_seg->flags = flags;
+	*seg = new_seg;
 
-	list_add_after(&vmm_space->segs, prev ? &prev->node : NULL, &new_seg->node);
+	list_add_after(&get_current_proc()->vmm_space.segs, prev ? &prev->node : NULL, &new_seg->node);
 
 	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	return new_seg;
+	return 0;
 }
 
 int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
 
-	vmm_seg_t *new_seg = vmm_create_seg(&get_current_proc()->vmm_space, address, size, prot, flags);
-	if (!new_seg) return -EEXIST;
+	vmm_seg_t *new_seg;
+	int ret = vmm_create_seg(address, size, prot, flags, &new_seg);
+	if (ret < 0) return ret;
 
 	//kdebugf("map %p size : %lx\n", new_seg->start, size);
-	int ret = 0;
 	if (flags & VMM_FLAG_ANONYMOUS) {
 		fd = NULL;
 		for (uintptr_t addr=new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
