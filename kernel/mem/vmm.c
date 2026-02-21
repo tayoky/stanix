@@ -15,6 +15,7 @@
 static slab_cache_t vmm_seg_slab;
 
 static void vmm_unmap_all_space(vmm_space_t *space);
+static int vmm_raw_unmap_range(uintptr_t start, uintptr_t end);
 
 static int vmm_seg_constructor(slab_cache_t *cache, void *data) {
 	(void)cache;
@@ -132,18 +133,19 @@ int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg)  {
 }
 
 static vmm_seg_t *vmm_create_seg(vmm_space_t *vmm_space, uintptr_t address, size_t size, long prot, int flags) {
+	int interrupt_save;
+	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	vmm_seg_t *prev = NULL;
 	if (address) {
-		// we need to page align everything
-		uintptr_t end = PAGE_ALIGN_UP(address + size);
-		address = PAGE_ALIGN_DOWN(address);
+		uintptr_t end = address + size;
+
+		// first remove any mapping
+		vmm_raw_unmap_range(address, end);
+
+		// then find where we need to insert
 		foreach(node, &vmm_space->segs) {
 			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
-			if (current->start < end && current->end > address) {
-				// there is aready a seg here
-				return NULL;
-			}
-			if (current->start > end) {
+			if (current->start >= end) {
 				break;
 			}
 			prev = current;
@@ -178,6 +180,7 @@ static vmm_seg_t *vmm_create_seg(vmm_space_t *vmm_space, uintptr_t address, size
 
 	list_add_after(&vmm_space->segs, prev ? &prev->node : NULL, &new_seg->node);
 
+	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	return new_seg;
 }
 
@@ -317,6 +320,30 @@ void vmm_unmap(vmm_seg_t *seg) {
 	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	vmm_raw_unmap(seg);
 	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+}
+
+static int vmm_raw_unmap_range(uintptr_t start, uintptr_t end) {
+	vmm_seg_t *seg = (vmm_seg_t *)get_current_proc()->vmm_space.segs.first_node;
+	for (vmm_seg_t *next; seg; seg = next) {
+		next = (vmm_seg_t *)seg->node.next;
+
+		if (seg->end <= start) continue;
+		if (seg->start >= end) break;
+		if (start > seg->start) {
+			int ret = vmm_split(seg, start, NULL);
+			if (ret < 0) {
+				return ret;
+			}
+
+			// on the next iteration we will land on the newly created segment
+			continue;
+		}
+		if (end < seg->end) {
+			vmm_split(seg, end, NULL);
+		}
+		vmm_raw_unmap(seg);
+	}
+	return 0;
 }
 
 int vmm_unmap_range(uintptr_t start, uintptr_t end) {
