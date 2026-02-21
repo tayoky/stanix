@@ -265,6 +265,7 @@ static void tmpfs_cleanup(vfs_node_t *vnode) {
 		// nobody use it
 		free_inode(inode);
 	}
+	kfree(vnode);
 }
 
 static int tmpfs_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {

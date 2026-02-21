@@ -428,9 +428,9 @@ void vfs_close_node(vfs_node_t *node) {
 
 	if (node->ops->cleanup) {
 		node->ops->cleanup(node);
+	} else {
+		kfree(node);
 	}
-
-	kfree(node);
 }
 
 int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {

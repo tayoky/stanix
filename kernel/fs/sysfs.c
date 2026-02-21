@@ -108,10 +108,16 @@ static int sysfs_getattr(vfs_node_t *vnode, struct stat *stat) {
 	return 0;
 }
 
+static void sysfs_cleanup(vfs_node_t *vnode) {
+	sysfs_inode_t *inode = container_of(vnode, sysfs_inode_t, node);
+	slab_free(inode);
+}
+
 static vfs_inode_ops_t sysfs_inode_ops = {
 	.lookup  = sysfs_lookup,
 	.readdir = sysfs_readdir,
 	.getattr = sysfs_getattr,
+	.cleanup = sysfs_cleanup,
 };
 
 static int sysfs_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **out_superblock) {

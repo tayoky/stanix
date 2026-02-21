@@ -176,6 +176,7 @@ static void proc_cleanup(vfs_node_t *vnode) {
 	proc_inode_t *inode = vnode->private_inode;
 
 	kfree(inode);
+	kfree(vnode);
 }
 
 static vfs_inode_ops_t proc_inode_ops = {
