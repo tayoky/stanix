@@ -378,7 +378,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name, int *ret) {
 	strcpy(child_entry->name, name);
 	child_entry->ref_count = 1;
 
-	int op_ret = entry->inode->ops->lookup(entry->inode, child_entry, name);
+	int op_ret = entry->inode->ops->lookup(entry->inode, child_entry);
 	if (op_ret < 0) {
 		slab_free(child_entry);
 		if (ret) *ret = op_ret;

@@ -66,4 +66,6 @@ vfs_fd_t *open_device(device_t *device, long flags);
 void init_devices(void);
 void init_mem_devices(void);
 
+extern hashmap_t devices;
+
 #endif

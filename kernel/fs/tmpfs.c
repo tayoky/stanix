@@ -124,15 +124,15 @@ vfs_superblock_t *new_tmpfs(void) {
 }
 
 
-static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry, const char *name) {
+static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)vnode->private_inode;
-	if (!strcmp(name, ".")) {
+	if (!strcmp(dentry->name, ".")) {
 		dentry->inode = inode2node(vnode->superblock, inode);
 		dentry->inode_number = INODE_NUMBER(inode);
 		return 0;
 	}
 
-	if (!strcmp(name, "..")) {
+	if (!strcmp(dentry->name, "..")) {
 		if (inode->parent) {
 			dentry->inode = inode2node(vnode->superblock, inode->parent);
 			dentry->inode->ref_count = 1;

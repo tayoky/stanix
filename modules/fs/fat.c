@@ -283,7 +283,7 @@ static int fat_readdir(vfs_node_t *node, unsigned long index, struct dirent *dir
 	return fat2dirent(fat_superblock, inode, offset, dirent);
 }
 
-static int fat_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) {
+static int fat_lookup(vfs_node_t *node, vfs_dentry_t *dentry) {
 	fat_inode_t *inode = node->private_inode;
 	fat_superblock_t *fat_superblock = container_of(node->superblock, fat_superblock_t, superblock);
 
@@ -317,16 +317,16 @@ static int fat_lookup(vfs_node_t *node, vfs_dentry_t *dentry, const char *name) 
 			if (entry.name[i] == ' ')break;
 			//broken entry check
 			if (entry.name[i] < 0x20)goto cont;
-			if (name[j++] != entry.name[i])goto cont;
+			if (dentry->name[j++] != entry.name[i])goto cont;
 		}
-		if (name[j] == '.')j++;
+		if (dentry->name[j] == '.')j++;
 		for (int i=8; i < 11; i++) {
 			if (entry.name[i] == ' ')break;
 			//broken entry check
 			if (entry.name[i] < 0x20)goto cont;
-			if (name[j++] != entry.name[i])goto cont;
+			if (dentry->name[j++] != entry.name[i])goto cont;
 		}
-		if (name[j])continue;
+		if (dentry->name[j])continue;
 
 		//we found it
 		dentry->inode = fat_entry2node(&entry, fat_superblock);

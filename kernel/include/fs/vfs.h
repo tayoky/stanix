@@ -91,20 +91,20 @@ typedef struct vfs_fd {
  * @brief all operations that can be done on a \ref vfs_node_t
  */
 typedef struct vfs_inode_ops {
-	int (*lookup)(vfs_node_t *, vfs_dentry_t *, const char *name);
-	int (*readdir)(vfs_node_t *, unsigned long index, struct dirent *);
-	int (*create)(vfs_node_t *, vfs_dentry_t *, mode_t perm);
-	int (*mkdir)(vfs_node_t *, vfs_dentry_t *, mode_t perm);
-	int (*mknod)(vfs_node_t *, vfs_dentry_t *, mode_t perm, dev_t dev);
-	int (*unlink)(vfs_node_t *, vfs_dentry_t *);
-	int (*rmdir)(vfs_node_t *, vfs_dentry_t *);
+	int (*lookup)(vfs_node_t *vnode, vfs_dentry_t *dentry);
+	int (*readdir)(vfs_node_t *vnode, unsigned long index, struct dirent *);
+	int (*create)(vfs_node_t *vnode, vfs_dentry_t *, mode_t perm);
+	int (*mkdir)(vfs_node_t *vnode, vfs_dentry_t *, mode_t perm);
+	int (*mknod)(vfs_node_t *vnode, vfs_dentry_t *, mode_t perm, dev_t dev);
+	int (*unlink)(vfs_node_t *vnode, vfs_dentry_t *);
+	int (*rmdir)(vfs_node_t *vnode, vfs_dentry_t *);
 	int (*rename)(vfs_node_t *old_dir, vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry, int flags);
 	int (*link)(vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry);
-	int (*symlink)(vfs_node_t *, vfs_dentry_t *, const char *target);
-	ssize_t(*readlink)(vfs_node_t *, char *, size_t);
-	int (*setattr)(vfs_node_t *, struct stat *);
-	int (*getattr)(vfs_node_t *, struct stat *);
-	int (*truncate)(vfs_node_t *, size_t);
+	int (*symlink)(vfs_node_t *vnode, vfs_dentry_t *, const char *target);
+	ssize_t(*readlink)(vfs_node_t *vnode, char *, size_t);
+	int (*setattr)(vfs_node_t *vnode, struct stat *);
+	int (*getattr)(vfs_node_t *vnode, struct stat *);
+	int (*truncate)(vfs_node_t *vnode, size_t);
 	void (*cleanup)(vfs_node_t *);
 	int (*open)(vfs_fd_t *);
 } vfs_inode_ops_t;

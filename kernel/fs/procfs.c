@@ -110,19 +110,19 @@ static ssize_t proc_readlink(vfs_node_t *vnode, char *buffer, size_t count) {
 	return count;
 }
 
-static int proc_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry, const char *name) {
+static int proc_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	proc_inode_t *inode = vnode->private_inode;
 
-	if (!strcmp(name, "cwd")) {
+	if (!strcmp(dentry->name, "cwd")) {
 		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_CWD);
 		return 0;
-	} else if (!strcmp(name, "maps")) {
+	} else if (!strcmp(dentry->name, "maps")) {
 		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_MAPS);
 		return 0;
-	} else if (!strcmp(name, "cmdline")) {
+	} else if (!strcmp(dentry->name, "cmdline")) {
 		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_CMDLINE);
 		return 0;
-	} else if (!strcmp(name, "exe")) {
+	} else if (!strcmp(dentry->name, "exe")) {
 		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_EXE);
 		return 0;
 	}
@@ -191,14 +191,14 @@ static vfs_fd_ops_t proc_fd_ops = {
 	.read     = proc_read,
 };
 
-static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry, const char *name) {
-	if (!strcmp(name, "self")) {
+static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry) {
+	if (!strcmp(dentry->name, "self")) {
 		dentry->inode = proc_new_node(root->superblock, get_current_proc(), INODE_SELF);
 		return 0;
 	}
 	char *end;
-	pid_t pid = strtol(name, &end, 10);
-	if (end == name)return -ENOENT;
+	pid_t pid = strtol(dentry->name, &end, 10);
+	if (end == dentry->name)return -ENOENT;
 	process_t *proc = pid2proc(pid);
 	if (!proc)return -ENOENT;
 
