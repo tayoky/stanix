@@ -48,9 +48,12 @@ typedef struct vfs_node {
 	void *private_inode;
 	struct vfs_superblock *superblock;
 	struct vfs_inode_ops *ops;
-	struct vfs_node *linked_node; // used for mount point
-	long flags;
+	unsigned long flags;
 	size_t ref_count;
+	uid_t uid;
+	gid_t gid;
+	mode_t mode;
+	ino_t number;
 	spinlock_t lock;
 } vfs_node_t;
 

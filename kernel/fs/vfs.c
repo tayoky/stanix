@@ -754,7 +754,12 @@ int vfs_setattr(vfs_node_t *node, struct stat *st) {
 	if (!node || !node->ops || !node->ops->setattr) {
 		return -EINVAL; //should be another error ... but what ???
 	}
-	return node->ops->setattr(node, st);
+	int ret =  node->ops->setattr(node, st);
+	if (ret < 0) return ret;
+	node->mode = st->st_mode;
+	node->gid  = st->st_gid;
+	node->uid  = st->st_uid;
+	return ret;
 }
 
 int vfs_chroot(vfs_dentry_t *new_root) {
