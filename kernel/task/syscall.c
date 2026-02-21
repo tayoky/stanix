@@ -1154,11 +1154,7 @@ int sys_rename(const char *oldpath, const char *newpath) {
 	if (!CHECK_STR(oldpath) || !CHECK_STR(newpath)) {
 		return -EFAULT;
 	}
-	//only supprot rename inside same fs sadly
-	//TODO/FIXME : need to check if inside same fs
-	int ret = vfs_link(oldpath, newpath);
-	if (ret < 0)return ret;
-	return vfs_unlink(oldpath);
+	return vfs_rename(oldpath, newpath, 0);
 }
 
 int sys_symlink(const char *target, const char *linkpath) {

@@ -89,6 +89,15 @@ static tmpfs_dirent_t *tmpfs_get_entry(tmpfs_inode_t *dir, vfs_dentry_t *dentry)
 	return NULL;
 }
 
+static void tmpfs_remove_entry(tmpfs_inode_t *dir, tmpfs_dirent_t *entry) {
+	list_remove(&dir->entries, &entry->node);
+	if ((--entry->inode->link_count) == 0 && entry->inode->open_count == 0) {
+		// nobody uses it we can free
+		free_inode(entry->inode);
+	}
+	slab_free(entry);
+}
+
 static int tmpfs_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)data;
 	(void)source;
@@ -346,6 +355,19 @@ static int tmpfs_symlink(vfs_node_t *vnode, vfs_dentry_t *dentry, const char *ta
 	return 0;
 }
 
+static int tmpfs_rename(vfs_node_t *old_vnode, vfs_dentry_t *old_dentry, vfs_node_t *new_vnode, vfs_dentry_t *new_dentry, unsigned int flags) {
+	(void)flags;
+	kdebugf("rename %s to %s\n", old_dentry->name, new_dentry->name);
+	tmpfs_inode_t *old_parent = (tmpfs_inode_t*)old_vnode->private_inode;
+	tmpfs_inode_t *new_parent = (tmpfs_inode_t*)new_vnode->private_inode;
+	tmpfs_dirent_t *old_entry = tmpfs_get_entry(old_parent, old_dentry);
+
+	tmpfs_add_entry(new_parent, old_entry->inode, new_dentry);
+	tmpfs_remove_entry(old_parent, old_entry);
+
+	return 0;
+}
+
 static int tmpfs_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	kdebugf("unlink %s\n", dentry->name);
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)vnode->private_inode;
@@ -354,12 +376,7 @@ static int tmpfs_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	if (!entry) return ENOENT;
 	if (entry->inode->type == TMPFS_TYPE_DIR) return -EISDIR;
 
-	list_remove(&inode->entries, &entry->node);
-	if ((--entry->inode->link_count) == 0 && entry->inode->open_count == 0) {
-		// nobody uses it we can free
-		free_inode(entry->inode);
-	}
-	slab_free(entry);
+	tmpfs_remove_entry(inode, entry);
 
 	return 0;
 }
@@ -438,6 +455,7 @@ static vfs_inode_ops_t tmpfs_inode_ops = {
 	.link       = tmpfs_link,
 	.symlink    = tmpfs_symlink,
 	.readlink   = tmpfs_readlink,
+	.rename     = tmpfs_rename,
 	.unlink     = tmpfs_unlink,
 	.rmdir      = tmpfs_rmdir,
 	.truncate   = tmpfs_truncate,

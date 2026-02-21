@@ -101,7 +101,7 @@ typedef struct vfs_inode_ops {
 	int (*mknod)(vfs_node_t *vnode, vfs_dentry_t *, mode_t perm, dev_t dev);
 	int (*unlink)(vfs_node_t *vnode, vfs_dentry_t *);
 	int (*rmdir)(vfs_node_t *vnode, vfs_dentry_t *);
-	int (*rename)(vfs_node_t *old_dir, vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry, int flags);
+	int (*rename)(vfs_node_t *old_dir, vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry, unsigned int flags);
 	int (*link)(vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry);
 	int (*symlink)(vfs_node_t *vnode, vfs_dentry_t *, const char *target);
 	ssize_t(*readlink)(vfs_node_t *vnode, char *, size_t);
@@ -224,6 +224,7 @@ int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode);
 int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev);
 int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path);
 int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path);
+int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags);
 int vfs_unlink_at(vfs_dentry_t *at, const char *path);
 int vfs_rmdir_at(vfs_dentry_t *at, const char *path);
 int vfs_mount_at(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock);
@@ -247,6 +248,10 @@ static inline vfs_link(const char *old_path, const char *new_path) {
 
 static inline int vfs_symlink(const char *target, const char *path) {
 	return vfs_symlink_at(target, NULL, path);
+}
+
+static inline vfs_rename(const char *old_path, const char *new_path, unsigned int flags) {
+	return vfs_rename_at(NULL, old_path, NULL, new_path, flags);
 }
 
 static inline vfs_unlink(const char *path) {

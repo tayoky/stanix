@@ -513,7 +513,7 @@ error:
 
 int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path) {
 	vfs_dentry_t *old_dentry = vfs_get_dentry_at(old_at, old_path, O_NOFOLLOW);
-	if (!old_dentry) return -EINVAL;
+	if (!old_dentry) return -ENOENT;
 
 	vfs_dentry_t *new_parent = NULL;
 	vfs_dentry_t *new_dentry = NULL;
@@ -567,6 +567,53 @@ error:
 	vfs_release_dentry(parent);
 	vfs_release_dentry(dentry);
 	return ret;
+}
+
+int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags) {
+	vfs_dentry_t *old_dentry = vfs_get_dentry_at(old_at, old_path, O_NOFOLLOW);
+	if (!old_dentry) return -ENOENT;
+
+	vfs_dentry_t *new_parent = NULL;
+	vfs_dentry_t *new_dentry = NULL;
+	int ret = vfs_create_dentry(new_at, new_path, &new_parent, &new_dentry);
+	if (ret < 0) goto error;
+
+	// rename cannot cross mount point boundaries
+	if (old_dentry->inode->superblock != new_parent->inode->superblock) {
+		ret = -EXDEV;
+		goto error;
+	}
+
+	vfs_dentry_t *old_parent = old_dentry->parent;
+	if (!old_parent) {
+		// cannot rename root
+		ret = -EINVAL;
+		goto error;
+	}
+
+	// call rename on the parent
+	if (!new_parent->inode->ops || !new_parent->inode->ops->rename) {
+		ret = -EINVAL;
+		goto error;
+	}
+	ret = new_parent->inode->ops->rename(old_parent->inode, old_dentry, new_parent->inode, new_dentry, flags);
+	if (ret < 0) goto error;
+
+	// now we can link the dentry if the fs filled it
+	if (!vfs_dentry_is_negative(new_dentry)) {
+		vfs_add_dentry(new_parent, new_dentry);
+	}
+
+	vfs_release_dentry(old_dentry);
+	vfs_release_dentry(new_parent);
+	return 0;
+	
+error:
+	vfs_release_dentry(old_dentry);
+	vfs_release_dentry(new_parent);
+	vfs_release_dentry(new_dentry);
+	return ret;
+
 }
 
 int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
