@@ -33,7 +33,7 @@ int verfiy_elf(Elf64_Ehdr *header) {
 	return 1;
 }
 
-int exec(const char *path, int argc, const char **argv, int envc, const char **envp) {
+int exec_elf(const char *path, int argc, const char **argv, int envc, const char **envp, uintptr_t base) {
 	int ret = 0;
 
 	vfs_fd_t *file = vfs_open(path, O_RDONLY);
@@ -46,7 +46,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 		return -EACCES;
 	}
 
-	//first read the header
+	// first read the header
 	Elf64_Ehdr header;
 	if (vfs_read(file, &header, 0, sizeof(header)) < 0) {
 		ret = -ENOMEM;
@@ -55,24 +55,27 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 		return ret;
 	}
 
-	//then verify it
+	// then verify it
 	if (!verfiy_elf(&header)) {
 		ret = -ENOEXEC;
 		goto error;
 	}
-	if (header.e_type != ET_EXEC) {
+	if (header.e_type != ET_EXEC && header.e_type != ET_DYN) {
 		ret = -ENOEXEC;
 		goto error;
 	}
+	if (header.e_type == ET_EXEC) {
+		base = 0;
+	}
 
-	//now read all program headers
+	// now read all program headers
 	Elf64_Phdr *prog_header = kmalloc(header.e_phentsize * header.e_phnum);
 	if (vfs_read(file, prog_header, header.e_phoff, header.e_phentsize * header.e_phnum) < 0) {
 		kfree(prog_header);
 		goto error;
 	}
 
-	//save argv
+	// save argv
 	size_t total_arg_size = (argc + 1) * sizeof(char *);
 	char **saved_argv = kmalloc((argc + 1) * sizeof(char *));
 	for (int i = 0; i < argc; i++) {
@@ -81,12 +84,12 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	}
 	saved_argv[argc] = NULL; // last NULL entry at the end
 
-	//align this
+	// align this
 	if (total_arg_size % 8) {
 		total_arg_size += 8 - (total_arg_size % 8);
 	}
 
-	//save envp
+	// save envp
 	total_arg_size += (envc + 1) * sizeof(char *);
 	char **saved_envp = kmalloc((envc + 1) * sizeof(char *));
 	for (int i = 0; i < envc; i++) {
@@ -97,7 +100,7 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 
 	vmm_unmap_all();
 
-	//cose fd with CLOEXEC flags
+	// cose fd with CLOEXEC flags
 	for (size_t i = 0; i < MAX_FD; i++) {
 		file_descriptor_t file;
 		if (get_fd(i, &file) < 0) continue;
@@ -106,18 +109,18 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 		}
 	}
 
-	//set the heap start to 0 for future comparaison
+	// set the heap start to 0 for future comparaison
 	get_current_proc()->heap_start = 0;
 
-	//then iterate trought each prog header
+	// then iterate trought each prog header
 	for (size_t i = 0; i < header.e_phnum; i++) {
-		//only load porgram header with PT_LOAD
+		// only load porgram header with PT_LOAD
 		if (prog_header[i].p_type != PT_LOAD) {
 			kdebugf("ignored header of type\n", prog_header[i].p_type);
 			continue;
 		}
 
-		//convert elf header to paging header
+		// convert elf header to paging header
 		long prot = MMU_FLAG_PRESENT | MMU_FLAG_USER;
 		if (prog_header[i].p_flags & PF_R) {
 			prot |= MMU_FLAG_READ;
@@ -129,45 +132,46 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 			prot |= MMU_FLAG_EXEC;
 		}
 
-		//make sure heap start is after the segment
-		//so at the end the heap start is right after the end of excetuable
+		// make sure heap start is after the segment
+		// so at the end the heap start is right after the end of excetuable
 		if (get_current_proc()->heap_start < PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz)) {
 			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz);
 		}
 
 		if (prog_header[i].p_offset % PAGE_SIZE == prog_header[i].p_vaddr % PAGE_SIZE) {
+			// we can use mmap
+			
 			// page align everything
-			uintptr_t vaddr = PAGE_ALIGN_DOWN(prog_header[i].p_vaddr);
-			off_t offset = PAGE_ALIGN_DOWN(prog_header[i].p_offset);
+			uintptr_t vaddr = PAGE_ALIGN_DOWN(prog_header[i].p_vaddr) + base;
 			size_t vaddr_off = prog_header[i].p_vaddr % PAGE_SIZE;
-
-			size_t filesz;
+			off_t offset = PAGE_ALIGN_DOWN(prog_header[i].p_offset);
+			size_t filesz = PAGE_ALIGN_UP(prog_header[i].p_filesz + vaddr_off);
+			size_t memsz  = PAGE_ALIGN_UP(prog_header[i].p_memsz + vaddr_off);
 			size_t filesz_remainer = 0;
-			size_t memsz;
-			if (prog_header[i].p_memsz == prog_header[i].p_filesz) {
-				filesz = memsz = prog_header[i].p_memsz + vaddr_off;
-			} else {
-				// in this case we might have to fill the page of intersection between file and mem with a manual read
-				// cause if we mmap the file it might not contain zeros
-				filesz = PAGE_ALIGN_DOWN(prog_header[i].p_filesz + vaddr_off);
-				filesz_remainer = prog_header[i].p_filesz + vaddr_off - filesz;
-				memsz  = PAGE_ALIGN_UP(prog_header[i].p_memsz + vaddr_off);
+
+			if (prog_header[i].p_memsz > prog_header[i].p_filesz && (prog_header[i].p_filesz + vaddr_off) % PAGE_SIZE) {
+				filesz_remainer = (prog_header[i].p_filesz + vaddr_off) % PAGE_SIZE;
 			}
 
 			if (filesz > 0) {
-				if (vmm_map(vaddr, filesz, prot, VMM_FLAG_PRIVATE, file, offset, NULL) < 0) {
+				vmm_seg_t *seg;
+				if (vmm_map(vaddr, filesz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE, file, offset, &seg) < 0) {
 					goto error;
 				}
+				// zero the last page
+				if (filesz_remainer) {
+					kdebugf("%ld\n", filesz_remainer);
+					uintptr_t start_bss = vaddr + filesz - PAGE_SIZE + filesz_remainer;
+					memset((void*)start_bss, 0, PAGE_SIZE - filesz_remainer);
+				}
+				vmm_chprot(seg, prot);
 			}
 			if (memsz > filesz) {
 				// we need to fill with anonymous mapping
 				vaddr += filesz;
-				vmm_seg_t *seg;
-				if (vmm_map(vaddr, memsz - filesz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg) < 0) {
+				if (vmm_map(vaddr, memsz - filesz, prot, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, NULL) < 0) {
 					goto error;
 				}
-				vfs_read(file, (void*)vaddr, offset + filesz, filesz_remainer);
-				vmm_chprot(seg, prot);
 			}
 		} else {
 			vmm_seg_t *seg;
@@ -275,7 +279,11 @@ int exec(const char *path, int argc, const char **argv, int envc, const char **e
 	kdebugf("exec entry : %p\n", header.e_entry);
 
 
-	jump_userspace((void *)header.e_entry, (void *)USER_STACK_TOP, (uintptr_t)argc, (uintptr_t)argv, (uintptr_t)envc, (uintptr_t)envp);
+	jump_userspace((void *)(header.e_entry + base), (void *)USER_STACK_TOP, (uintptr_t)argc, (uintptr_t)argv, (uintptr_t)envc, (uintptr_t)envp);
 
 	return 0;
+}
+
+int exec(const char *path, int argc, const char **argv, int envc, const char **envp) {
+	return exec_elf(path, argc, argv, envc, envp, 0x10000000);
 }
