@@ -125,7 +125,7 @@ make -C ../tlibc header PREFIX=$SYSROOT/usr TARGET=stanix ARCH=$ARCH
 #don't compile if aready done
 if [ ! -e bin/$TARGET-ld ] ; then
   cd binutils-$BINUTILS_VERSION
-  ./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror
+  ./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror --enable-shared
   make -j$NPROC
   make install
   cd ..

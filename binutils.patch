@@ -97,6 +97,14 @@ index ea01ccf9..e7bb14bd 100644
  x86_64-*-solaris2*)	targ_emul=elf_x86_64_sol2
  			targ_extra_emuls="elf_x86_64 elf_i386_sol2 elf_i386_ldso elf_i386 elf_iamcu"
  			targ_extra_libpath=$targ_extra_emuls
+diff --git a/ld/emulparams/elf_stanix.sh b/ld/emulparams/elf_stanix.sh
+new file mode 100644
+index 00000000..49151fff
+--- /dev/null
++++ b/ld/emulparams/elf_stanix.sh.sh
+@@ -0,0 +1,2 @@
++ELF_INTERPRETER_NAME=\"/usr/lib/ld-tlibc.so\"
++TEXT_START_ADDR=0x04000000
 diff --git a/ld/emulparams/elf_i386_stanix.sh b/ld/emulparams/elf_i386_stanix.sh
 new file mode 100644
 index 00000000..4915133a
@@ -104,8 +112,7 @@ index 00000000..4915133a
 +++ b/ld/emulparams/elf_i386_stanix.sh
 @@ -0,0 +1,2 @@
 +source_sh ${srcdir}/emulparams/elf_i386.sh
-+TEXT_START_ADDR=0x04000000
-\ No newline at end of file
++source_sh ${srcdir}/emulparams/elf_stanix.sh
 diff --git a/ld/emulparams/elf_x86_64_stanix.sh b/ld/emulparams/elf_x86_64_stanix.sh
 new file mode 100644
 index 00000000..cb59921c
@@ -113,5 +120,4 @@ index 00000000..cb59921c
 +++ b/ld/emulparams/elf_x86_64_stanix.sh
 @@ -0,0 +1,2 @@
 +source_sh ${srcdir}/emulparams/elf_x86_64.sh
-+TEXT_START_ADDR=0x04000000
-\ No newline at end of file
++source_sh ${srcdir}/emulparams/elf_stanix.sh
