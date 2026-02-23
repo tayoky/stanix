@@ -161,7 +161,7 @@ if [ ! -f ./tlibc/configure ] ; then
 	git submodule update tlibc
 fi
 
-(cd tlibc && ./configure --with-sysroot=$SYSROOT --cflags="$CFLAGS" --cc=$CC --ar=$AR --ld=$LD --as=$AS --host=$HOST --prefix=$SYSROOT/usr)
+(cd tlibc && ./configure --with-sysroot=$SYSROOT --dynamic --cflags="$CFLAGS" --cc=$CC --ar=$AR --ld=$LD --as=$AS --host=$HOST --prefix=$SYSROOT/usr)
 
 if [ ! -f ./ports/configure ] ; then
 	git submodule init

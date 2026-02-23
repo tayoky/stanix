@@ -3,7 +3,7 @@ PREFIX =
 KERNEL = stanix.elf
 
 SYSROOT =
-KLIBC = ../tlibc/tlibk.a
+KLIBC = ../tlibc/libk.a
 
 #flag
 LDFLAGS = 
