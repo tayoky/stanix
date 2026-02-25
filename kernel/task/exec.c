@@ -33,7 +33,7 @@ int verfiy_elf(Elf64_Ehdr *header) {
 	return 1;
 }
 
-int exec_elf(const char *path, int argc, const char **argv, int envc, const char **envp, uintptr_t base) {
+int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uintptr_t base, size_t depth) {
 	int ret = 0;
 
 	vfs_fd_t *file = vfs_open(path, O_RDONLY);
@@ -66,6 +66,12 @@ int exec_elf(const char *path, int argc, const char **argv, int envc, const char
 	}
 	if (header.e_type == ET_EXEC) {
 		base = 0;
+	} else {
+		// for ET_DYN it must have an entry point
+		if (!header.e_entry) {
+			ret =-ENOEXEC;
+			goto error;
+		}
 	}
 
 	// now read all program headers
@@ -75,45 +81,70 @@ int exec_elf(const char *path, int argc, const char **argv, int envc, const char
 		goto error;
 	}
 
-	// save argv
-	size_t total_arg_size = (argc + 1) * sizeof(char *);
-	char **saved_argv = kmalloc((argc + 1) * sizeof(char *));
-	for (int i = 0; i < argc; i++) {
-		total_arg_size += strlen(argv[i]) + 1;
-		saved_argv[i] = strdup(argv[i]);
-	}
-	saved_argv[argc] = NULL; // last NULL entry at the end
+	if (depth == 0) {
+		// save argv
+		char **saved_argv = kmalloc((argc + 1) * sizeof(char *));
+		for (int i = 0; i < argc; i++) {
+			saved_argv[i] = strdup(argv[i]);
+		}
+		saved_argv[argc] = NULL; // last NULL entry at the end
 
-	// align this
-	if (total_arg_size % 8) {
-		total_arg_size += 8 - (total_arg_size % 8);
-	}
+		// save envp
+		char **saved_envp = kmalloc((envc + 1) * sizeof(char *));
+		for (int i = 0; i < envc; i++) {
+			saved_envp[i] = strdup(envp[i]);
+		}
+		saved_envp[envc] = NULL; // last NULL entry at the end
+		argv = saved_argv;
+		envp = saved_envp;
 
-	// save envp
-	total_arg_size += (envc + 1) * sizeof(char *);
-	char **saved_envp = kmalloc((envc + 1) * sizeof(char *));
-	for (int i = 0; i < envc; i++) {
-		total_arg_size += strlen(envp[i]) + 1;
-		saved_envp[i] = strdup(envp[i]);
-	}
-	saved_envp[envc] = NULL; // last NULL entry at the end
+		vmm_unmap_all();
 
-	vmm_unmap_all();
-
-	// cose fd with CLOEXEC flags
-	for (size_t i = 0; i < MAX_FD; i++) {
-		file_descriptor_t file;
-		if (get_fd(i, &file) < 0) continue;
-		if (file.flags & FD_CLOEXEC) {
-			close_fd(i);
+		// cose fd with CLOEXEC flags
+		for (size_t i = 0; i < MAX_FD; i++) {
+			file_descriptor_t file;
+			if (get_fd(i, &file) < 0) continue;
+			if (file.flags & FD_CLOEXEC) {
+				close_fd(i);
+			}
 		}
 	}
 
 	// set the heap start to 0 for future comparaison
 	get_current_proc()->heap_start = 0;
 
+	// check setuid /setgid bit
+	struct stat st;
+	if (vfs_getattr(file->inode, &st) >= 0) {
+		if (st.st_mode & S_ISUID) {
+			get_current_proc()->suid =get_current_proc()->euid;
+			get_current_proc()->uid  = st.st_uid;
+			get_current_proc()->euid = st.st_uid;
+		}
+		if (st.st_mode & S_ISGID) {
+			get_current_proc()->sgid = get_current_proc()->egid;
+			get_current_proc()->gid  = st.st_gid;
+			get_current_proc()->egid = st.st_gid;
+		}
+	}
+
+	if (depth == 0) {
+		// setup new cmdline and exe path
+		set_cmdline(argv[0]);
+		vfs_release_dentry(get_current_proc()->exe);
+		get_current_proc()->exe = vfs_dup_dentry(file->dentry);
+	}
+
 	// then iterate trought each prog header
 	for (size_t i = 0; i < header.e_phnum; i++) {
+		if (prog_header[i].p_type == PT_INTERP) {
+			char interp[PATH_MAX];
+			size_t size = prog_header[i].p_filesz;
+			if (size >= PATH_MAX) size = PATH_MAX - 1;
+			vfs_read(file, interp, prog_header[i].p_offset, size);
+			interp[size] = '\0';
+			return exec_elf(interp, argc, argv, envc, envp, 0x100000000, depth + 1);
+		}
 		// only load porgram header with PT_LOAD
 		if (prog_header[i].p_type != PT_LOAD) {
 			kdebugf("ignored header of type\n", prog_header[i].p_type);
@@ -193,31 +224,11 @@ int exec_elf(const char *path, int argc, const char **argv, int envc, const char
 	}
 	kfree(prog_header);
 
-	//check setuid /setgid bit
-	struct stat st;
-	if (vfs_getattr(file->inode, &st) >= 0) {
-		if (st.st_mode & S_ISUID) {
-			get_current_proc()->suid =get_current_proc()->euid;
-			get_current_proc()->uid  = st.st_uid;
-			get_current_proc()->euid = st.st_uid;
-		}
-		if (st.st_mode & S_ISGID) {
-			get_current_proc()->sgid = get_current_proc()->egid;
-			get_current_proc()->gid  = st.st_gid;
-			get_current_proc()->egid = st.st_gid;
-		}
-	}
-
 	vfs_close(file);
 
 	// map stack
 	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
 	vmm_map(USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS | VMM_FLAG_PRIVATE, NULL, 0, NULL);
-
-	// setup new cmdline and exe path
-	set_cmdline(saved_argv[0]);
-	vfs_release_dentry(get_current_proc()->exe);
-	get_current_proc()->exe = vfs_dup_dentry(file->dentry);
 
 	// keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;
@@ -225,24 +236,31 @@ int exec_elf(const char *path, int argc, const char **argv, int envc, const char
 	// set the heap end
 	get_current_proc()->heap_end = get_current_proc()->heap_start;
 
-	// make place for argv
-	argv = (const char **)get_current_proc()->heap_start;
-	sys_sbrk(PAGE_ALIGN_UP(total_arg_size));
-	char *ptr = (char *)(((uintptr_t)argv) + (argc + 1) * sizeof(char *));
+	size_t total_arg_size = (argc+1) * sizeof(char*) + (envc+1) * sizeof(char*) + 16;
+	for (int i=0; i<argc; i++) {
+		total_arg_size += strlen(argv[i]) + 1;
+	}
+	for (int i=0; i<envc; i++) {
+		total_arg_size += strlen(envp[i]) + 1;
+	}
 
+	// make place for argv
+	char **user_argv = (char **)get_current_proc()->heap_start;
+	sys_sbrk(PAGE_ALIGN_UP(total_arg_size));
+	char *ptr = (char *)(((uintptr_t)user_argv) + (argc + 1) * sizeof(char *));
 
 	// restore argv
 	for (int i = 0; i < argc; i++) {
-		argv[i] = ptr;
+		user_argv[i] = ptr;
 		// copy saved arg to userpsace heap
-		strcpy(ptr, saved_argv[i]);
-		ptr += strlen(saved_argv[i]) + 1;
-		kdebugf("arg %d : %s\n", i, saved_argv[i]);
+		strcpy(ptr, argv[i]);
+		ptr += strlen(argv[i]) + 1;
+		kdebugf("arg %d : %s\n", i, argv[i]);
 
 		// free the saved arg in kernel space
-		kfree(saved_argv[i]);
+		kfree(argv[i]);
 	}
-	argv[argc] = NULL;
+	user_argv[argc] = NULL;
 
 	// align the pointer
 	if ((uintptr_t)ptr % 8) {
@@ -250,23 +268,23 @@ int exec_elf(const char *path, int argc, const char **argv, int envc, const char
 	}
 
 	// restore envp
-	envp = (const char **)ptr;
+	char **user_envp = (char **)ptr;
 	ptr += (envc + 1) * sizeof(char *);
 	for (int i = 0; i < envc; i++) {
-		envp[i] = ptr;
+		user_envp[i] = ptr;
 		// copy saved arg to userpsace heap
-		strcpy(ptr, saved_envp[i]);
-		ptr += strlen(saved_envp[i]) + 1;
+		strcpy(ptr, envp[i]);
+		ptr += strlen(envp[i]) + 1;
 
 		// free the saved env in kernel space
-		kfree(saved_envp[i]);
+		kfree(envp[i]);
 	}
-	envp[envc] = NULL;
+	user_envp[envc] = NULL;
 
 	// free argv list
-	kfree(saved_argv);
+	kfree(argv);
 	// and envp too
-	kfree(saved_envp);
+	kfree(envp);
 
 	// reset signal handling of handled signals
 	for (size_t i=0; i < sizeof(get_current_task()->sig_handling) / sizeof(*get_current_task()->sig_handling); i++) {
@@ -279,11 +297,11 @@ int exec_elf(const char *path, int argc, const char **argv, int envc, const char
 	kdebugf("exec entry : %p\n", header.e_entry);
 
 
-	jump_userspace((void *)(header.e_entry + base), (void *)USER_STACK_TOP, (uintptr_t)argc, (uintptr_t)argv, (uintptr_t)envc, (uintptr_t)envp);
+	jump_userspace((void *)(header.e_entry + base), (void *)USER_STACK_TOP, (uintptr_t)argc, (uintptr_t)user_argv, (uintptr_t)envc, (uintptr_t)user_envp);
 
 	return 0;
 }
 
 int exec(const char *path, int argc, const char **argv, int envc, const char **envp) {
-	return exec_elf(path, argc, argv, envc, envp, 0x10000000);
+	return exec_elf(path, argc, (char**)argv, envc, (char**)envp, 0x100000000, 0);
 }
