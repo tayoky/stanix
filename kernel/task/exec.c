@@ -191,7 +191,6 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 				}
 				// zero the last page
 				if (filesz_remainer) {
-					kdebugf("%ld\n", filesz_remainer);
 					uintptr_t start_bss = vaddr + filesz - PAGE_SIZE + filesz_remainer;
 					memset((void*)start_bss, 0, PAGE_SIZE - filesz_remainer);
 				}
