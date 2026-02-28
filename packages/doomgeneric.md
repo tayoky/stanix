@@ -2,8 +2,8 @@
 title: doomgeneric
 ---
 ## infos
-website : https://ozkl.github.io/
-git     : https://github.com/ozkl/doomgeneric.git
+website : [https://ozkl.github.io/](https://ozkl.github.io/)  
+git     : [https://github.com/ozkl/doomgeneric.git](https://github.com/ozkl/doomgeneric.git)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -30,5 +30,5 @@ install() {
 	cp ./doom "${PREFIX}/bin"
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/doomgeneric
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/doomgeneric](https://github.com/tayoky/ports/blob/main/ports/doomgeneric)
 

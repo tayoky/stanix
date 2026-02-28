@@ -2,7 +2,7 @@
 title: shard
 ---
 ## infos
-git     : https://github.com/shardlanguage/shard/
+git     : [https://github.com/shardlanguage/shard/](https://github.com/shardlanguage/shard/)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -24,5 +24,5 @@ build(){
 install(){
     cp shard $PREFIX/bin
 }```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/shard
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/shard](https://github.com/tayoky/ports/blob/main/ports/shard)
 

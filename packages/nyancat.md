@@ -2,7 +2,7 @@
 title: nyancat
 ---
 ## infos
-git     : https://github.com/klange/nyancat
+git     : [https://github.com/klange/nyancat](https://github.com/klange/nyancat)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -29,5 +29,5 @@ install() {
 	cp src/nyancat $PREFIX/bin
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/nyancat
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/nyancat](https://github.com/tayoky/ports/blob/main/ports/nyancat)
 

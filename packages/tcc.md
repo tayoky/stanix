@@ -2,8 +2,8 @@
 title: tcc
 ---
 ## infos
-website : https://bellard.org/tcc/
-git     : https://github.com/TinyCC/tinycc
+website : [https://bellard.org/tcc/](https://bellard.org/tcc/)  
+git     : [https://github.com/TinyCC/tinycc](https://github.com/TinyCC/tinycc)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -37,5 +37,5 @@ install() {
 	make install DESTDIR=$PREFIX
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/tcc
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tcc](https://github.com/tayoky/ports/blob/main/ports/tcc)
 

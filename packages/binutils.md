@@ -2,9 +2,9 @@
 title: binutils
 ---
 ## infos
-version : 2.44
-website : https://www.gnu.org/software/binutils/
-tar     : https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz
+version : 2.44  
+website : [https://www.gnu.org/software/binutils/](https://www.gnu.org/software/binutils/)  
+tar     : [https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz](https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -39,5 +39,5 @@ install(){
 	make install-strip DESTDIR=${PREFIX%%/usr}
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/binutils
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/binutils](https://github.com/tayoky/ports/blob/main/ports/binutils)
 

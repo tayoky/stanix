@@ -2,9 +2,9 @@
 title: mesa
 ---
 ## infos
-version : 25.0.7
-website : https://mesa3d.org
-tar     : https://mesa3d.org/archive/mesa-25.0.7.tar.xz
+version : 25.0.7  
+website : [https://mesa3d.org](https://mesa3d.org)  
+tar     : [https://mesa3d.org/archive/mesa-25.0.7.tar.xz](https://mesa3d.org/archive/mesa-25.0.7.tar.xz)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -46,5 +46,5 @@ install() {
 	meson install --destdir="${PREFIX%%/usr}"
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/mesa
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/mesa](https://github.com/tayoky/ports/blob/main/ports/mesa)
 

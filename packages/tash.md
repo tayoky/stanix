@@ -2,7 +2,7 @@
 title: tash
 ---
 ## infos
-git     : https://github.com/tayoky/tash
+git     : [https://github.com/tayoky/tash](https://github.com/tayoky/tash)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -29,5 +29,5 @@ install() {
 	make install
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/tash
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tash](https://github.com/tayoky/ports/blob/main/ports/tash)
 

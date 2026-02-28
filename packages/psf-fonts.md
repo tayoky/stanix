@@ -2,7 +2,7 @@
 title: psf-fonts
 ---
 ## infos
-git     : https://github.com/ercanersoy/PSF-Fonts
+git     : [https://github.com/ercanersoy/PSF-Fonts](https://github.com/ercanersoy/PSF-Fonts)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -24,5 +24,5 @@ install() {
 	cp ./*.psf ${PREFIX}/local/share/consolefonts/
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/psf-fonts
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/psf-fonts](https://github.com/tayoky/ports/blob/main/ports/psf-fonts)
 

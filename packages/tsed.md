@@ -2,7 +2,7 @@
 title: tsed
 ---
 ## infos
-git     : https://github.com/StercusMax/tsed
+git     : [https://github.com/StercusMax/tsed](https://github.com/StercusMax/tsed)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -30,5 +30,5 @@ install() {
 	cp tsed $PREFIX/bin
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/tsed
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tsed](https://github.com/tayoky/ports/blob/main/ports/tsed)
 

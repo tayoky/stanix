@@ -2,7 +2,7 @@
 title: tld
 ---
 ## infos
-git     : https://github.com/tayoky/tld
+git     : [https://github.com/tayoky/tld](https://github.com/tayoky/tld)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -29,5 +29,5 @@ install() {
 	make install
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/tld
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tld](https://github.com/tayoky/ports/blob/main/ports/tld)
 

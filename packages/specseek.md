@@ -2,7 +2,7 @@
 title: specseek
 ---
 ## infos
-git     : https://github.com/Mellurboo/SpecSeek/
+git     : [https://github.com/Mellurboo/SpecSeek/](https://github.com/Mellurboo/SpecSeek/)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -25,5 +25,5 @@ install(){
 	cp bin/gcc/64/specseek_64 $PREFIX/bin/specseek
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/specseek
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/specseek](https://github.com/tayoky/ports/blob/main/ports/specseek)
 

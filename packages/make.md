@@ -2,9 +2,9 @@
 title: make
 ---
 ## infos
-version : 4.4.1
-website : https://www.gnu.org/software/make
-tar     : https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz
+version : 4.4.1  
+website : [https://www.gnu.org/software/make](https://www.gnu.org/software/make)  
+tar     : [https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz](https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -32,5 +32,5 @@ install() {
 	make install DESTDIR=${PREFIX%%/usr}
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/make
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/make](https://github.com/tayoky/ports/blob/main/ports/make)
 

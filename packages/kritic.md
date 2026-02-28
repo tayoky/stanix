@@ -2,7 +2,7 @@
 title: kritic
 ---
 ## infos
-git     : https://github.com/Wrench56/KritiC
+git     : [https://github.com/Wrench56/KritiC](https://github.com/Wrench56/KritiC)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -24,5 +24,5 @@ install() {
 	mkdir -p $PREFIX/lib && cp build/libkritic.a $PREFIX/lib
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/kritic
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/kritic](https://github.com/tayoky/ports/blob/main/ports/kritic)
 

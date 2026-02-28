@@ -2,9 +2,9 @@
 title: vim
 ---
 ## infos
-version : 9.1.1485
-website : https://www.vim.org
-tar     : https://github.com/vim/vim/archive/refs/tags/v9.1.1485.tar.gz
+version : 9.1.1485  
+website : [https://www.vim.org](https://www.vim.org)  
+tar     : [https://github.com/vim/vim/archive/refs/tags/v9.1.1485.tar.gz](https://github.com/vim/vim/archive/refs/tags/v9.1.1485.tar.gz)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -45,5 +45,5 @@ install(){
 	make install DESTDIR=${PREFIX%%/usr}
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/vim
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/vim](https://github.com/tayoky/ports/blob/main/ports/vim)
 

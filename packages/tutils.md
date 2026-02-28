@@ -2,7 +2,7 @@
 title: tutils
 ---
 ## infos
-git     : https://github.com/tayoky/tutils
+git     : [https://github.com/tayoky/tutils](https://github.com/tayoky/tutils)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -29,5 +29,5 @@ install() {
 	make install
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/tutils
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tutils](https://github.com/tayoky/ports/blob/main/ports/tutils)
 

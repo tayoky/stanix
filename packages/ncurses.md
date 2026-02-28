@@ -2,9 +2,9 @@
 title: ncurses
 ---
 ## infos
-version : 6.5
-website : https://invisible-island.net/ncurses
-tar     : https://ftp.gnu.org/gnu/ncurses/ncurses-6.5.tar.gz
+version : 6.5  
+website : [https://invisible-island.net/ncurses](https://invisible-island.net/ncurses)  
+tar     : [https://ftp.gnu.org/gnu/ncurses/ncurses-6.5.tar.gz](https://ftp.gnu.org/gnu/ncurses/ncurses-6.5.tar.gz)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -40,5 +40,5 @@ install(){
 	make install DESTDIR=${PREFIX%%/usr}
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/ncurses
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/ncurses](https://github.com/tayoky/ports/blob/main/ports/ncurses)
 

@@ -2,9 +2,9 @@
 title: zlib
 ---
 ## infos
-version : 1.3.1
-website : https://www.zlib.net/
-tar     : https://www.zlib.net/zlib-1.3.1.tar.gz
+version : 1.3.1  
+website : [https://www.zlib.net/](https://www.zlib.net/)  
+tar     : [https://www.zlib.net/zlib-1.3.1.tar.gz](https://www.zlib.net/zlib-1.3.1.tar.gz)  
 
 ## build
 To build, once stanix's core is compiled, run
@@ -33,5 +33,5 @@ install() {
 	make install DESTDIR=${PREFIX%%/usr}
 }
 ```
-This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/zlib
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/zlib](https://github.com/tayoky/ports/blob/main/ports/zlib)
 
