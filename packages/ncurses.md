@@ -1,29 +1,24 @@
 ---
 title: ncurses
-comment: this file was generated automaticly DO NOT EDIT
 ---
-## description
+## infos
+version : 6.5
+website : https://invisible-island.net/ncurses
+tar     : https://ftp.gnu.org/gnu/ncurses/ncurses-6.5.tar.gz
 
 ## build
-to build and install this package use the ports submodule in the stanix repo
-after having making stanix
+To build, once stanix's core is compiled, run
 ```sh
 cd ports
-./clean.sh ncurses
 ./build.sh ncurses
-./install.sh ncurses
+./install ncurses
 ```
 
-## precompiled
-precompiled are currently not available
-
-## packages source
-[package source](https://github.com/tayoky/ports/tree/main/ports/ncurses)  
-
-### manifest
-```bash
-VERSION='6.5'
+## manifest
+```sh
+VERSION="6.5"
 TAR="https://ftp.gnu.org/gnu/ncurses/ncurses-$VERSION.tar.gz"
+WEBSITE=https://invisible-island.net/ncurses
 
 configure() {
 	./configure --host=$HOST --prefix=/usr \
@@ -45,5 +40,5 @@ install(){
 	make install DESTDIR=${PREFIX%%/usr}
 }
 ```
+This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/ncurses
 
-this page was generated using a [script](../../update-packages.md)

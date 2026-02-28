@@ -1,29 +1,24 @@
 ---
 title: mesa
-comment: this file was generated automaticly DO NOT EDIT
 ---
-## description
+## infos
+version : 25.0.7
+website : https://mesa3d.org
+tar     : https://mesa3d.org/archive/mesa-25.0.7.tar.xz
 
 ## build
-to build and install this package use the ports submodule in the stanix repo
-after having making stanix
+To build, once stanix's core is compiled, run
 ```sh
 cd ports
-./clean.sh mesa
 ./build.sh mesa
-./install.sh mesa
+./install mesa
 ```
 
-## precompiled
-precompiled are currently not available
-
-## packages source
-[package source](https://github.com/tayoky/ports/tree/main/ports/mesa)  
-
-### manifest
-```bash
-VERSION=25.0.7
+## manifest
+```sh
+VERSION="25.0.7"
 TAR="https://mesa3d.org/archive/mesa-$VERSION.tar.xz"
+WEBSITE="https://mesa3d.org"
 
 configure() {
 	mkdir -p build
@@ -51,5 +46,5 @@ install() {
 	meson install --destdir="${PREFIX%%/usr}"
 }
 ```
+This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/mesa
 
-this page was generated using a [script](../../update-packages.md)

@@ -1,27 +1,19 @@
 ---
 title: tsh
-comment: this file was generated automaticly DO NOT EDIT
 ---
-## description
+## infos
+git     : https://github.com/tayoky/tsh
 
 ## build
-to build and install this package use the ports submodule in the stanix repo
-after having making stanix
+To build, once stanix's core is compiled, run
 ```sh
 cd ports
-./clean.sh tsh
 ./build.sh tsh
-./install.sh tsh
+./install tsh
 ```
 
-## precompiled
-precompiled are currently not available
-
-## packages source
-[package source](https://github.com/tayoky/ports/tree/main/ports/tsh)  
-
-### manifest
-```bash
+## manifest
+```sh
 GIT=https://github.com/tayoky/tsh
 COMMIT=529c3a4bca9677b8194fa51916d98ba9e16e3eb0
 
@@ -45,5 +37,5 @@ install() {
 	make install
 }
 ```
+This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/tsh
 
-this page was generated using a [script](../../update-packages.md)

@@ -1,30 +1,25 @@
 ---
 title: vim
-comment: this file was generated automaticly DO NOT EDIT
 ---
-## description
+## infos
+version : 9.1.1485
+website : https://www.vim.org
+tar     : https://github.com/vim/vim/archive/refs/tags/v9.1.1485.tar.gz
 
 ## build
-to build and install this package use the ports submodule in the stanix repo
-after having making stanix
+To build, once stanix's core is compiled, run
 ```sh
 cd ports
-./clean.sh vim
 ./build.sh vim
-./install.sh vim
+./install vim
 ```
 
-## precompiled
-precompiled are currently not available
-
-## packages source
-[package source](https://github.com/tayoky/ports/tree/main/ports/vim)  
-
-### manifest
-```bash
+## manifest
+```sh
 VERSION="9.1.1485"
-#thnanks to bananymous for the github archive trick
+#thanks to bananymous for the github archive trick
 TAR="https://github.com/vim/vim/archive/refs/tags/v$VERSION.tar.gz"
+WEBSITE="https://www.vim.org"
 
 configure() {
 	./configure --host=$HOST --prefix=/usr \
@@ -50,5 +45,5 @@ install(){
 	make install DESTDIR=${PREFIX%%/usr}
 }
 ```
+This package manifest and it's associed patches can be found at https://github.com/tayoky/ports/blob/main/ports/vim
 
-this page was generated using a [script](../../update-packages.md)
