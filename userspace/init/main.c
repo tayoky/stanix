@@ -13,9 +13,9 @@
 #include <dirent.h>
 #include <errno.h>
 
-extern char **environ;
-
-int main(){
+int main(int argc, char **argv, char **environ){
+	(void)argc;
+	(void)argv;
 	//simple security
 	if(getpid() != 0){
 		fprintf(stderr,"error : not runned as init process\n");
