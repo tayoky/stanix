@@ -143,6 +143,13 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 			if (size >= PATH_MAX) size = PATH_MAX - 1;
 			vfs_read(file, interp, prog_header[i].p_offset, size);
 			interp[size] = '\0';
+
+			// HACK : replace argv[0] by path
+			kfree(argv[0]);
+			argv[0] = vfs_dentry_path(file->dentry);
+			
+			kfree(prog_header);
+			vfs_close(file);
 			return exec_elf(interp, argc, argv, envc, envp, 0x100000000, depth + 1);
 		}
 		// only load porgram header with PT_LOAD
