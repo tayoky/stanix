@@ -4,7 +4,7 @@ SRC = $(shell find -name "*.c")
 OBJ = ${SRC:.c=.o}
 
 #cc flags
-CFLAGS += -Wall -Wextra -std=c99
+CFLAGS += -Wall -Wextra -std=c99 -fpic
 CFLAGS += -Iinclude
 
 all :
