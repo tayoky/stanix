@@ -158,8 +158,15 @@ color_t term_color2gfx(term_color_t *term_color, int bg) {
 
 void draw_cell(term_t *term, cell_t *cell, int x, int y) {
 	(void)term;
-	gfx_draw_rect(fb, term_color2gfx(&cell->bg_color, 1), x * c_width, y * c_height, c_width, c_height);
-	gfx_draw_char(fb, font, term_color2gfx(&cell->fg_color, 0), x * c_width, y * c_height, cell->c);
+	color_t bg_color = term_color2gfx(&cell->bg_color, 1);
+	color_t fg_color = term_color2gfx(&cell->fg_color, 0);
+	if (cell->attr & TERM_ATTR_INVERSE) {
+		color_t tmp = bg_color;
+		bg_color = fg_color;
+		fg_color = tmp;
+	}
+	gfx_draw_rect(fb, bg_color, x * c_width, y * c_height, c_width, c_height);
+	gfx_draw_char(fb, font, fg_color, x * c_width, y * c_height, cell->c);
 	gfx_push_rect(fb, x * c_width, y * c_height, c_width, c_height);
 }
 
