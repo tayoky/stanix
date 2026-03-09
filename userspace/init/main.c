@@ -13,7 +13,9 @@
 #include <dirent.h>
 #include <errno.h>
 
-int main(int argc, char **argv, char **environ){
+extern char **environ;
+
+int main(int argc, char **argv){
 	(void)argc;
 	(void)argv;
 	//simple security
