@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <gfx.h>
 #include <poll.h>
@@ -54,12 +55,12 @@ int main() {
 	if (!kb_path) kb_path = "/dev/kb0";
 	char *mouse_path = getenv("MOUSE");
 	if (!mouse_path) mouse_path = "/dev/mouse0";
-	mouse = libinput_open(mouse_path, 0);
+	mouse = libinput_open(mouse_path, O_CLOEXEC);
 	if (mouse < 0) {
 		perror(mouse_path);
 		return 1;
 	}
-	kb = libinput_open(kb_path, 0);
+	kb = libinput_open(kb_path, O_CLOEXEC);
 	if (kb < 0) {
 		perror(kb_path);
 		return 1;
