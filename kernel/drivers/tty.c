@@ -118,11 +118,13 @@ tty_t *new_tty(tty_t *tty) {
 
 	//reset termios to default value
 	memset(&tty->termios,0,sizeof(struct termios));
-	tty->termios.c_cc[VEOF] = 0x04;
-	tty->termios.c_cc[VERASE] = 127;
-	tty->termios.c_cc[VINTR] = 0x03;
-	tty->termios.c_cc[VQUIT] = 0x22;
-	tty->termios.c_cc[VSUSP] = 0x1A;
+	tty->termios.c_cc[VEOF] = 004;
+	tty->termios.c_cc[VEOL] = 000;
+	tty->termios.c_cc[VERASE] = 0177;
+	tty->termios.c_cc[VINTR] = 003;
+	tty->termios.c_cc[VKILL] = 025;
+	tty->termios.c_cc[VQUIT] = 034;
+	tty->termios.c_cc[VSUSP] = 032;
 	tty->termios.c_cc[VMIN] = 1;
 	tty->termios.c_iflag = ICRNL | IMAXBEL;
 	tty->termios.c_oflag = OPOST | ONLCR | ONLRET;
