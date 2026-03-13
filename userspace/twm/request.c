@@ -1,5 +1,6 @@
 #include <twm-internal.h>
 #include <sys/socket.h>
+#include <string.h>
 #include <stdio.h>
 #include <twm.h>
 
