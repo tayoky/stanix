@@ -33,6 +33,13 @@ int verfiy_elf(Elf64_Ehdr *header) {
 	return 1;
 }
 
+static void push_long(void **stack, long value) {
+	long *ptr = *stack;
+	ptr--;
+	*ptr = value;
+	*stack = ptr;
+}
+
 int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uintptr_t base, size_t depth) {
 	int ret = 0;
 
@@ -242,55 +249,64 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	// set the heap end
 	get_current_proc()->heap_end = get_current_proc()->heap_start;
 
-	size_t total_arg_size = (argc+1) * sizeof(char*) + (envc+1) * sizeof(char*) + 16;
-	for (int i=0; i<argc; i++) {
-		total_arg_size += strlen(argv[i]) + 1;
-	}
+	void *sp = (void*)USER_STACK_TOP;
+	
+	// restore envp strings
 	for (int i=0; i<envc; i++) {
-		total_arg_size += strlen(envp[i]) + 1;
+		size_t len = strlen(envp[i]) + 1;
+		char *str = sp;
+		str -= len;
+		sp = str;
+		strcpy(str, envp[i]);
 	}
 
-	// make place for argv
-	char **user_argv = (char **)get_current_proc()->heap_start;
-	sys_sbrk(PAGE_ALIGN_UP(total_arg_size));
-	char *ptr = (char *)(((uintptr_t)user_argv) + (argc + 1) * sizeof(char *));
-
-	// restore argv
-	for (int i = 0; i < argc; i++) {
-		user_argv[i] = ptr;
-		// copy saved arg to userpsace heap
-		strcpy(ptr, argv[i]);
-		ptr += strlen(argv[i]) + 1;
-		kdebugf("arg %d : %s\n", i, argv[i]);
-
-		// free the saved arg in kernel space
-		kfree(argv[i]);
-	}
-	user_argv[argc] = NULL;
-
-	// align the pointer
-	if ((uintptr_t)ptr % 8) {
-		ptr += 8 - ((uintptr_t)ptr % 8);
+	// restore argv strings
+	for (int i=0; i<argc; i++) {
+		size_t len = strlen(argv[i]) + 1;
+		char *str = sp;
+		str -= len;
+		sp = str;
+		strcpy(str, argv[i]);
 	}
 
-	// restore envp
-	char **user_envp = (char **)ptr;
-	ptr += (envc + 1) * sizeof(char *);
-	for (int i = 0; i < envc; i++) {
-		user_envp[i] = ptr;
-		// copy saved arg to userpsace heap
-		strcpy(ptr, envp[i]);
-		ptr += strlen(envp[i]) + 1;
 
-		// free the saved env in kernel space
+	// align stack on 16 bytes
+	sp = (void*)((uintptr_t)sp & ~0xf);
+
+	// calculate the amount of space taken by envp and argv
+	// no need to calculate auxilary or NULL pointer because
+	// auxiliary is alaways align (multiple of 2 ling)
+	// the NULL of auxiliary go with argc
+	// the NULL of envp go with the NULL of argv
+	// so always a multiple of 8 bytes
+	if ((argc + envc) % 2) {
+		// we must add a padding long so the stack is 16 byte aligned at the end
+		push_long(&sp, 0);
+	}
+
+	// push auxiliary vector
+	push_long(&sp, 0);
+	
+	// push envp
+	uintptr_t ptr = USER_STACK_TOP;
+	push_long(&sp, 0);
+	for (int i=0; i<envc; i++) {
+		ptr -= strlen(envp[i]) + 1;
 		kfree(envp[i]);
+		push_long(&sp, ptr);
 	}
-	user_envp[envc] = NULL;
-
-	// free argv list
-	kfree(argv);
-	// and envp too
 	kfree(envp);
+
+	// push argv
+	push_long(&sp, 0);
+	for (int i=0; i<argc; i++) {
+		ptr -= strlen(argv[i]) + 1;
+		kfree(argv[i]);
+		push_long(&sp, ptr);
+	}
+	kfree(argv);
+
+	push_long(&sp, argc);
 
 	// reset signal handling of handled signals
 	for (size_t i=0; i < sizeof(get_current_task()->sig_handling) / sizeof(*get_current_task()->sig_handling); i++) {
@@ -301,9 +317,8 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 
 	//now jump into the program !!
 	kdebugf("exec entry : %p\n", header.e_entry);
-
-
-	jump_userspace((void *)(header.e_entry + base), (void *)USER_STACK_TOP, (uintptr_t)argc, (uintptr_t)user_argv, (uintptr_t)envc, (uintptr_t)user_envp);
+	
+	jump_userspace((void *)(header.e_entry + base), sp, 0, 0, 0, 0);
 
 	return 0;
 }
