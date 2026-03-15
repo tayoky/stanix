@@ -29,6 +29,7 @@ add-to-path.sh
 
 #config
 config.mk
+tconf
 
 #compiled modules
 *.ko

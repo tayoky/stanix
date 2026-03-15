@@ -1,192 +1,47 @@
 #!/bin/sh
 
-#automacly add toolchain/bin to path
+. ./tconf.sh
+
+# automaticly add toolchain/bin to path
 if [ -d "$(dirname $0)/toolchain/bin" ] ; then
   export PATH="$(realpath $(dirname $0))/toolchain/bin:$PATH"
 fi
 
-#default sysroot
-SYSROOT=$(dirname $(realpath $0))/sysroot
+# defaults
+test -z "$SYSROOT" && SYSROOT=$(dirname $(realpath $0))/sysroot
 
 #default host
-HOST="$(uname -m)-stanix"
+test -z "$HOST" && HOST="$(uname -m)-stanix"
+test -z "$CFLAGS" && CFLAGS=-O2
 
-DEBUG=no
-CFLAGS=-O2
-LDFLAGS=
+tconf_init "$@"
 
-for i in "$@"; do
-  case $i in
-    --sysroot=*)
-      SYSROOT="${i#*=}"
-      shift # past argument=value
-      ;;
-    --cc=*)
-      CC="${i#*=}"
-      shift # past argument=value
-      ;;
-    --ld=*)
-      LD="${i#*=}"
-      shift # past argument=value
-      ;;
-    --as=*)
-      AS="${i#*=}"
-      shift # past argument=value
-      ;;
-    --ar=*)
-      AR="${i#*=}"
-      shift # past argument=value
-      ;;
-    --nm=*)
-      NM="${i#*=}"
-      shift # past argument=value
-      ;;
-   --nasm=*)
-      NASM="${i#*=}"
-      shift # past argument=value
-      ;;
-    --host=*)
-      HOST="${i#*=}"
-      shift # past argument=value
-      ;;
-    --debug)
-      DEBUG=yes
-      shift # past argument=value
-      ;;
-    --help)
-      echo "./configure [OPTIONS]"
-      echo "options :"
-      echo "--ld : define the linker to use"
-      echo "--cc : define the C compiler to use"
-      echo "--as : define the assembler to use"
-      echo "--ar : define the archiver to use"
-      echo "--nm : define the nm to use"
-      echo "--nasm : define a x86 assembler (with intel syntax) to use"
-      echo "--sysroot : path to the system root , used for library/include path, installing binary, and generating images [$(realpath $SYSROOT)]"
-      echo "--host : target triplet to compile for [$HOST]"
-      echo "--debug : enable debug option (such as compiling with -g)"
-      exit
-      ;;
-    -*|--*)
-      echo "Unknown option $i"
-      exit 1
-      ;;
-    *)
-      ;;
-  esac
-done
-
-#delete any old conf file
-rm -f $(dirname $0)/config.mk
-
-#alaways use absolute path
-SYSROOT=$(realpath $SYSROOT)
-
+# check tools
+tconf_search_cc "$HOST"
+tconf_search_as "$HOST"
+tconf_search_ld "$HOST"
+tconf_search_nm "$HOST"
+tconf_find_os
 ARCH=${HOST%%-*}
-if [ "$DEBUG" = "yes" ] ; then
-  CFLAGS="$CFLAGS -g"
-  LDFLAGS="$LDFLAGS -g"
+if test "$ARCH" = "x86_64" ; then
+	tconf_search_util "NASM" "nasm" "" nasm
 fi
 
-#check tools
-
-if [ "$CC" = "" ] ; then
-	if $HOST-gcc --version > /dev/null 2>/dev/null ; then
-		CC="$HOST-gcc"
-	elif $HOST-clang --version > /dev/null 2>/dev/null ; then
-		CC="$HOST-clang"
-	elif $HOST-tcc --version > /dev/null 2>/dev/null ; then
-		CC="$HOST-tcc"
-	else
-		echo "error : no C compilator found"
-		exit 1
-	fi
-fi
-
-
-if [ "$ARCH" = "x86_64" ] ; then
-	if [ "$NASM" = "" ] ; then
-		if nasm --version > /dev/null 2>/dev/null ; then
-			NASM="nasm"
-		else
-			echo "error : nasm not found"
-			exit 1
-		fi
-	fi
-else
-	if [ "$AS" = "" ] ; then
-		if $HOST-as --version > /dev/null 2>/dev/null ; then
-			AS="$HOST-as"
-		else
-			echo "error : no assembler found"
-			exit 1
-		fi
-	fi
-fi
-
-if [ "$LD" = "" ] ; then
-	if $HOST-ld --version > /dev/null 2>/dev/null ; then
-		LD="$HOST-ld"
-	elif $HOST-tcc --version > /dev/null 2>/dev/null ; then
-		#using TCC as a linker ???
-		#should not make any problem
-		LD="$HOST-tcc"
-	else
-		echo "error : no linker found"
-		exit 1
-	fi
-fi
-
-if [ "$AR" = "" ] ; then
-	if $HOST-ar --version > /dev/null 2>/dev/null ; then
-		AR="$HOST-ar"
-else
-		echo "error : no archiver found"
-		exit 1
-	fi
-fi
-
-if [ "$NM" = "" ] ; then
-	if $HOST-nm --version > /dev/null 2>/dev/null ; then
-		NM="$HOST-nm"
-else
-		echo "error : no nm found"
-		exit 1
-	fi
-fi
-
-#propagate configuration to tlibc and ports
+# propagate configuration to tlibc and ports
 if [ ! -f ./tlibc/configure ] ; then
 	git submodule init
 	git submodule update tlibc
 fi
 
-(cd tlibc && ./configure --with-sysroot=$SYSROOT --enable-dynamic --cflags="$CFLAGS" --cc=$CC --ar=$AR --ld=$LD --as=$AS --host=$HOST --prefix=$SYSROOT/usr)
+tconf_add_subdir tlibc --prefix="$SYSROOT/usr" --enable-dynamic
 
 if [ ! -f ./ports/configure ] ; then
 	git submodule init
 	git submodule update ports
 fi
 
-(cd ports && ./configure --with-sysroot=$SYSROOT --cc=$CC --ar=$AR --ld=$LD --as=$AS --nm=$NM --host=$HOST --prefix=$SYSROOT/usr)
+tconf_add_subdir ports --prefix="$SYSROOT/usr"
 
-echo "using $CC"
-echo "using $LD"
-echo "using $AR"
-echo "using $NM"
-echo "using $NASM and $AS"
 echo "using $SYSROOT as sysroot"
 
-echo "#generated automatically by configure.sh" > config.mk
-echo "SYSROOT=$SYSROOT" >> config.mk
-echo "LD=$LD" >> config.mk
-echo "CC=$CC" >> config.mk
-echo "AS=$AS" >> config.mk
-echo "AR=$AR" >> config.mk
-echo "NM=$NM" >> config.mk
-echo "NASM=$NASM" >> config.mk
-echo "HOST=$HOST" >> config.mk
-echo "ARCH=$ARCH" >> config.mk
-echo "CFLAGS=$CFLAGS" >> config.mk
-echo "LDFLAGS=$LDFLAGS" >> config.mk
-echo "DEBUG=$DEBUG" >> config.mk
+tconf_fini
