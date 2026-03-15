@@ -252,7 +252,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	void *sp = (void*)USER_STACK_TOP;
 	
 	// restore envp strings
-	for (int i=0; i<envc; i++) {
+	for (int i=envc-1; i>=0; i--) {
 		size_t len = strlen(envp[i]) + 1;
 		char *str = sp;
 		str -= len;
@@ -261,7 +261,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	}
 
 	// restore argv strings
-	for (int i=0; i<argc; i++) {
+	for (int i=argc-1; i>=0; i--) {
 		size_t len = strlen(argv[i]) + 1;
 		char *str = sp;
 		str -= len;
@@ -290,7 +290,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	// push envp
 	uintptr_t ptr = USER_STACK_TOP;
 	push_long(&sp, 0);
-	for (int i=0; i<envc; i++) {
+	for (int i=envc-1; i>=0; i--) {
 		ptr -= strlen(envp[i]) + 1;
 		kfree(envp[i]);
 		push_long(&sp, ptr);
@@ -299,7 +299,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 
 	// push argv
 	push_long(&sp, 0);
-	for (int i=0; i<argc; i++) {
+	for (int i=argc-1; i>=0; i--) {
 		ptr -= strlen(argv[i]) + 1;
 		kfree(argv[i]);
 		push_long(&sp, ptr);
