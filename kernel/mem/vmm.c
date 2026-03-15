@@ -69,6 +69,7 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 }
 
 int vmm_fault_report(uintptr_t addr, int prot) {
+	if (!get_current_proc()) return 0;
 	int interrupt_save;
 	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	foreach(node, &get_current_proc()->vmm_space.segs) {
