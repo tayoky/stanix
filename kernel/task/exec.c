@@ -40,7 +40,12 @@ static void push_long(void **stack, long value) {
 	*stack = ptr;
 }
 
-int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uintptr_t base, size_t depth) {
+static void push_auxv(void **stack, int type, long value) {
+	push_long(stack, value);
+	push_long(stack, type);
+}
+
+int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uintptr_t base, size_t depth, vfs_fd_t *interpret) {
 	int ret = 0;
 
 	vfs_fd_t *file = vfs_open(path, O_RDONLY);
@@ -151,13 +156,14 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 			vfs_read(file, interp, prog_header[i].p_offset, size);
 			interp[size] = '\0';
 
-			// HACK : replace argv[0] by path
-			kfree(argv[0]);
-			argv[0] = vfs_dentry_path(file->dentry);
+			if (interpret) {
+				vfs_close(file);
+			} else {
+				interpret = file;
+			}
 			
 			kfree(prog_header);
-			vfs_close(file);
-			return exec_elf(interp, argc, argv, envc, envp, 0x100000000, depth + 1);
+			return exec_elf(interp, argc, argv, envc, envp, 0x100000000, depth + 1, interpret);
 		}
 		// only load porgram header with PT_LOAD
 		if (prog_header[i].p_type != PT_LOAD) {
@@ -286,6 +292,16 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 
 	// push auxiliary vector
 	push_long(&sp, 0);
+	push_auxv(&sp, AT_BASE, base);
+	push_auxv(&sp, AT_UID, get_current_proc()->uid);
+	push_auxv(&sp, AT_EUID, get_current_proc()->euid);
+	push_auxv(&sp, AT_GID, get_current_proc()->gid);
+	push_auxv(&sp, AT_EGID, get_current_proc()->egid);
+
+	if (interpret) {
+		int fd = add_fd(interpret, 0);
+		push_auxv(&sp, AT_EXECFD, fd);
+	}
 	
 	// push envp
 	uintptr_t ptr = USER_STACK_TOP;
@@ -324,5 +340,5 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 }
 
 int exec(const char *path, int argc, const char **argv, int envc, const char **envp) {
-	return exec_elf(path, argc, (char**)argv, envc, (char**)envp, 0x100000000, 0);
+	return exec_elf(path, argc, (char**)argv, envc, (char**)envp, 0x100000000, 0, NULL);
 }
