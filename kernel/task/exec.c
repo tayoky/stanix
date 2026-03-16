@@ -299,7 +299,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	push_auxv(&sp, AT_EGID, get_current_proc()->egid);
 
 	if (interpret) {
-		int fd = add_fd(interpret, 0);
+		int fd = add_fd(interpret, FD_CLOEXEC);
 		push_auxv(&sp, AT_EXECFD, fd);
 	}
 	
