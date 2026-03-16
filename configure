@@ -46,3 +46,4 @@ tconf_add_subdir ports
 echo "using $SYSROOT as sysroot"
 
 tconf_fini
+echo "NASM=$NASM" >> config.mk
