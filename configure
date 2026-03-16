@@ -8,7 +8,8 @@ if [ -d "$(dirname $0)/toolchain/bin" ] ; then
 fi
 
 # defaults
-test -z "$SYSROOT" && SYSROOT=$(dirname $(realpath $0))/sysroot
+test -z "$SYSROOT" && SYSROOT="$(dirname "$(realpath "$0")")/sysroot"
+test -z "$PREFIX" && PREFIX="$(realpath "$SYSROOT/"usr)"
 
 #default host
 test -z "$HOST" && HOST="$(uname -m)-stanix"
@@ -33,14 +34,14 @@ if [ ! -f ./tlibc/configure ] ; then
 	git submodule update tlibc
 fi
 
-tconf_add_subdir tlibc --prefix="$SYSROOT/usr" --enable-dynamic
+tconf_add_subdir tlibc --enable-dynamic
 
 if [ ! -f ./ports/configure ] ; then
 	git submodule init
 	git submodule update ports
 fi
 
-tconf_add_subdir ports --prefix="$SYSROOT/usr"
+tconf_add_subdir ports
 
 echo "using $SYSROOT as sysroot"
 

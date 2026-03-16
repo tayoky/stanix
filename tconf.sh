@@ -201,7 +201,7 @@ tconf_add_subdir () {
 	export CFLAGS CXXFLAGS ASFLAGS
 	export ARFLAGS LDFLAGS OPT
 	export HOST BUILD TARGET
-	export PREFIX DEBUG
+	export PREFIX SYSROOT DEBUG
 	SUBDIR="$1"
 	shift
 	tconf_print "entering subdir $SUBDIR"
