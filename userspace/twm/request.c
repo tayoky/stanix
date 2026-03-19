@@ -1,5 +1,6 @@
 #include <twm-internal.h>
 #include <sys/socket.h>
+#include <sys/mman.h>
 #include <string.h>
 #include <stdio.h>
 #include <twm.h>
@@ -21,6 +22,11 @@ static void handle_create_window(client_t *client, twm_request_create_window_t *
 	window->x = 100;
 	window->y = 100;
 	window->title  = strnlen(request->title, sizeof(request->title)) < sizeof(request->title) ? strdup(request->title) : strdup("window");
+	
+	char framebuffer_name[64];
+	sprintf(framebuffer_name, "window-%d", window->id);
+	int framebuffer_fd = create_tmp_file(framebuffer_name, &window->framebuffer_path);
+	// TODO : mmap
 
 	utils_hashmap_add(&windows, window->id, window);
 	twm_event_window_created_t event = {
@@ -37,7 +43,31 @@ static void handle_create_window(client_t *client, twm_request_create_window_t *
 }
 
 static void handle_get_window_fb(client_t *client, twm_request_get_window_fb_t *request) {
+	window_t *window = utils_hashmap_get(&windows, request->id);
 
+	// TODO : maybee send error
+	if (!window) return;
+
+	twm_event_window_fb_t event = {
+		.base = {
+			.request_id = request->base.id,
+			.size       = sizeof(event),
+		},
+		.fb_info = {
+			.bpp = gfx->bpp,
+			.red_mask_shift   = gfx->red_mask_shift,
+			.red_mask_size    = gfx->red_mask_size,
+			.green_mask_shift = gfx->green_mask_shift,
+			.green_mask_size  = gfx->green_mask_size,
+			.blue_mask_shift  = gfx->blue_mask_shift,
+			.blue_mask_size   = gfx->blue_mask_size,
+			.width = window->width,
+			.height = window->height,
+			// TODO : pitch ?
+		}
+	};
+	strcpy(event.path, window->framebuffer_path);
+	send_event(client, (twm_event_t*)&event);
 }
 
 static void handle_init(client_t *client, twm_request_init_t *request) {
@@ -62,6 +92,9 @@ int handle_request(client_t *client){
 		break;
 	case TWM_REQUEST_INIT:
 		handle_init(client, (twm_request_init_t*)request);
+		break;
+	case TWM_REQUEST_GET_WINDOW_FB:
+		handle_get_window_fb(client, (twm_request_get_window_fb_t*)request);
 		break;
 	}
 	
