@@ -3,16 +3,33 @@
 
 #include <stdint.h>
 
+struct gfx;
+
+typedef struct twm_fb_info {
+	long width;
+	long height;
+	long pitch;
+	int bpp;
+	int red_mask_shift;
+	int red_mask_size;
+	int green_mask_shift;
+	int green_mask_size;
+	int blue_mask_shift;
+	int blue_mask_size;
+} twm_fb_info_t;
+
 typedef struct twm_request {
 	uint64_t id;
 	int size;
 	int type;
 } twm_request_t;
 
-#define TWM_REQUEST_INIT           1
-#define TWM_REQUEST_CREATE_WINDOW  2
-#define TWM_REQUEST_DESTROY_WINDOW 3
-#define TWM_REQUEST_SET_WINDOW     4
+#define TWM_REQUEST_INIT            1
+#define TWM_REQUEST_CREATE_WINDOW   2
+#define TWM_REQUEST_DESTROY_WINDOW  3
+#define TWM_REQUEST_GET_WINDOW_FB   4
+#define TWM_REQUEST_GET_WINDOW_ATTR 5
+#define TWM_REQUEST_SET_WINDOW_ATTR 6
 
 #define TWM_WINDOW_SHOW   1
 #define TWM_WINDOW_WIDTH  2
@@ -32,6 +49,8 @@ typedef struct twm_ctx {
 
 typedef int16_t twm_window_t;
 
+// requests
+
 typedef struct twm_request_init {
 	twm_request_t base;
 	int major;
@@ -43,6 +62,7 @@ typedef struct twm_request_create_window {
 	char title[32];
 	long width;
 	long height;
+	twm_window_t parent;
 } twm_request_create_window_t;
 
 
@@ -51,10 +71,49 @@ typedef struct twm_request_destroy_window {
 	twm_window_t id;
 } twm_request_destroy_window_t;
 
+typedef struct twm_request_get_window_fb {
+	twm_request_t base;
+	twm_window_t id;
+} twm_request_get_window_fb_t;
+
+typedef struct twm_request_set_window_attr {
+	twm_request_t base;
+	twm_window_t id;
+	long attr;
+	int how;
+} twm_request_set_window_attr_t;
+
+#define TWM_SET_ATTR    0
+#define TWM_ADD_ATTR    1
+#define TWM_REMOVE_ATTR 2
+#define TWM_ATTR_RESIZABLE 0
+#define TWM_ATTR_SHOW      2
+#define TWM_ATTR_BORDER    3
+
+typedef struct twm_request_get_window_attr {
+	twm_request_t base;
+	twm_window_t id;
+} twm_request_get_window_attr_t;
+
+// events/reponses
+
 typedef struct twm_event_window_created {
 	twm_event_t base;
 	twm_window_t id;
 } twm_event_window_created_t;
+
+typedef struct twm_event_window_fb {
+	twm_event_t base;
+	twm_window_t id;
+	twm_fb_info_t fb_info;
+	char path[256];
+} twm_event_window_fb_t;
+
+typedef struct twm_event_window_attr {
+	twm_event_t base;
+	twm_window_t id;
+	long attr;
+} twm_event_window_attr_t;
 
 #define TWM_CURRENT_MAJOR 0
 #define TWM_CURRENT_MINOR 1
@@ -65,7 +124,10 @@ void twm_fini(void);
 int twm_send_request(twm_request_t *request);
 twm_window_t twm_create_window(const char *title, long width, long height);
 int twm_destroy_window(twm_window_t window);
-int twm_set_window_property(twm_window_t window, int property, long value);
+int twm_get_window_fb(twm_window_t window, int *fd, twm_fb_info_t *fb_info);
+int twm_set_window_attr(twm_window_t window, int how, long attr);
+long twm_get_window_attr(twm_window_t window);
+struct gfx *twm_get_window_gfx(twm_window_t window);
 twm_event_t *twm_poll_event(void);
 void twm_handle_event(twm_event_t *event);
 

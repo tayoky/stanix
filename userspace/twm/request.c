@@ -36,6 +36,10 @@ static void handle_create_window(client_t *client, twm_request_create_window_t *
 	return;
 }
 
+static void handle_get_window_fb(client_t *client, twm_request_get_window_fb_t *request) {
+
+}
+
 static void handle_init(client_t *client, twm_request_init_t *request) {
 	if (request->major != TWM_CURRENT_MAJOR || request->minor != TWM_CURRENT_MINOR) {
 		kick_client(client);
