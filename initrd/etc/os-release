@@ -1,0 +1,6 @@
+NAME="Stanix"
+ID="stanix"
+ID_LIKE="stanix"
+PRETTY_NAME="the Stanix operating system"
+HOME_URL="https://tayoky.github.io/stanix"
+BUG_REPORT_URL="https://github.com/tayoky/stanix/issues"
