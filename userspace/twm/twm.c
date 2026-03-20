@@ -88,7 +88,12 @@ int main() {
 	pid_t child = fork();
 	if (!child) {
 		close(server_socket);
-		execlp("test-twm", "test-twm", NULL);
+		char *args[] = {
+			"tash",
+			"/etc/twmrc",
+			NULL,
+		};
+		execvp("tash", args);
 		exit(0);
 	}
 
