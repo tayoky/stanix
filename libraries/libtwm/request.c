@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <twm.h>
 
 extern twm_ctx_t ctx;
@@ -68,13 +69,16 @@ int twm_get_window_fb(twm_window_t window, int *fd, twm_fb_info_t *fb_info) {
 		},
 		.id = window,
 	};
+	
+	int ret = twm_send_request((twm_request_t*)&request);
+	if (ret < 0) return ret;
 
 	twm_event_window_fb_t *event = wait_for_response(request.base.id);
 
 	*fb_info = event->fb_info;
 
 	// we need to open the framebuffer
-	*fd = open(event->path, O_WRONLY);
+	*fd = shm_open(event->path, O_WRONLY, 0);
 	if (*fd < 0) {
 		free(event);
 		return -1;
@@ -116,3 +120,18 @@ long twm_get_window_attr(twm_window_t window) {
 	return attr;
 }
 
+int twm_redraw_window(twm_window_t window, long x, long y, long width, long height) {
+	twm_request_redraw_window_t request = {
+		.base = {
+			.type = TWM_REQUEST_REDRAW_WINDOW,
+			.size = sizeof(request),
+		},
+		.id = window,
+		.x = x,
+		.y = y,
+		.width  = width,
+		.height = height,
+	};
+	
+	return twm_send_request((twm_request_t*)&request);
+}

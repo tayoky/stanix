@@ -14,11 +14,13 @@ typedef struct window {
 	long height;
 	long x;
 	long y;
+	long attribute;
 	twm_window_t id;
 	char *title;
 	client_t *client;
-	int framebuffer;
-	uintptr_t fb_addr;
+	char *framebuffer_path;
+	void *framebuffer;
+	struct window *parent;
 } window_t;
 
 typedef struct theme {
@@ -54,5 +56,8 @@ int handle_request(client_t *client);
 void kick_client(client_t *client);
 void handle_mouse(void);
 void handle_keyboard(void);
+window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title);
+void destroy_window(window_t *window);
+window_t *get_window(twm_window_t id);
 
 #endif

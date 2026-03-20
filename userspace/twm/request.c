@@ -9,26 +9,17 @@ int send_event(client_t *client, twm_event_t *event) {
 	return send(client->fd, event, event->size, 0);
 }
 
+static void handle_init(client_t *client, twm_request_init_t *request) {
+	if (request->major != TWM_CURRENT_MAJOR || request->minor != TWM_CURRENT_MINOR) {
+		kick_client(client);
+	}
+}
+
 static void handle_create_window(client_t *client, twm_request_create_window_t *request) {
-	puts("create window");
-	static twm_window_t id_count = 0;
-	window_t *window = malloc(sizeof(window_t));
-	memset(window, 0, sizeof(window_t));
-
-	window->id     = id_count++;
-	window->client = client;
-	window->width  = request->width;
-	window->height = request->height;
-	window->x = 100;
-	window->y = 100;
-	window->title  = strnlen(request->title, sizeof(request->title)) < sizeof(request->title) ? strdup(request->title) : strdup("window");
+	const char *title = strnlen(request->title, sizeof(request->title)) < sizeof(request->title) ? request->title : "window";
 	
-	char framebuffer_name[64];
-	sprintf(framebuffer_name, "window-%d", window->id);
-	int framebuffer_fd = create_tmp_file(framebuffer_name, &window->framebuffer_path);
-	// TODO : mmap
+	window_t *window = create_window(client, NULL, request->width, request->height, title);
 
-	utils_hashmap_add(&windows, window->id, window);
 	twm_event_window_created_t event = {
 		.base = {
 			.request_id = request->base.id,
@@ -42,11 +33,19 @@ static void handle_create_window(client_t *client, twm_request_create_window_t *
 	return;
 }
 
+static void handle_destroy_window(client_t *client, twm_request_destroy_window_t *request) {
+	window_t *window = get_window(request->id);
+	if (!window) return;
+	if (window->client != client) return;
+	destroy_window(window);
+}
+
 static void handle_get_window_fb(client_t *client, twm_request_get_window_fb_t *request) {
-	window_t *window = utils_hashmap_get(&windows, request->id);
+	window_t *window = get_window(request->id);
 
 	// TODO : maybee send error
 	if (!window) return;
+	if (window->client != client) return;
 
 	twm_event_window_fb_t event = {
 		.base = {
@@ -63,17 +62,29 @@ static void handle_get_window_fb(client_t *client, twm_request_get_window_fb_t *
 			.blue_mask_size   = gfx->blue_mask_size,
 			.width = window->width,
 			.height = window->height,
-			// TODO : pitch ?
+			.pitch = window->width * (gfx->bpp / 8),
 		}
 	};
 	strcpy(event.path, window->framebuffer_path);
 	send_event(client, (twm_event_t*)&event);
 }
 
-static void handle_init(client_t *client, twm_request_init_t *request) {
-	if (request->major != TWM_CURRENT_MAJOR || request->minor != TWM_CURRENT_MINOR) {
-		kick_client(client);
-	}
+static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *request) {
+	window_t *window = get_window(request->id);
+	if (!window) return;
+	if (window->client != client) return;
+
+	if (request->width  == TWM_WHOLE_WIDTH)  request->width = window->width;
+	if (request->height == TWM_WHOLE_HEIGHT) request->height = window->height;
+
+	if (request->x >= window->width) return;
+	if (request->y >= window->height) return;
+
+	//TODO : even more checking
+
+	// TODO damage region and stuff
+	render_window_content(window);
+	gfx_push_rect(gfx, window->x + request->x, window->y + request->y, request->width, request->height);
 }
 
 int handle_request(client_t *client){
@@ -87,14 +98,20 @@ int handle_request(client_t *client){
 	if (size < 0) return -1;
 
 	switch (request->type) {
-	case TWM_REQUEST_CREATE_WINDOW:
-		handle_create_window(client, (twm_request_create_window_t*)request);
-		break;
 	case TWM_REQUEST_INIT:
 		handle_init(client, (twm_request_init_t*)request);
 		break;
+	case TWM_REQUEST_CREATE_WINDOW:
+		handle_create_window(client, (twm_request_create_window_t*)request);
+		break;
+	case TWM_REQUEST_DESTROY_WINDOW:
+		handle_destroy_window(client, (twm_request_destroy_window_t*)request);
+		break;
 	case TWM_REQUEST_GET_WINDOW_FB:
 		handle_get_window_fb(client, (twm_request_get_window_fb_t*)request);
+		break;
+	case TWM_REQUEST_REDRAW_WINDOW:
+		handle_redraw_window(client, (twm_request_redraw_window_t*)request);
 		break;
 	}
 	

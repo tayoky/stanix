@@ -40,7 +40,7 @@ void load_theme(void) {
 }
 
 void kick_client(client_t *client) {
-	// TODO
+	// TODO : close windows
 	close(client->fd);
 }
 

@@ -9,7 +9,7 @@
 
 static void *libgfx;
 static gfx_t *(*_gfx_create)(void *framebuffer, struct fb *fb_info);
-
+void (*_gfx_disable_backbuffer)(gfx_t *gfx);
 
 static int twm_load_libgfx(void) {
 	if (!libgfx) {
@@ -20,6 +20,10 @@ static int twm_load_libgfx(void) {
 	if (!_gfx_create) {
 		_gfx_create = dlsym(libgfx, "gfx_create");
 		if (!_gfx_create) return -1;
+	}
+	if (!_gfx_disable_backbuffer) {
+		_gfx_disable_backbuffer = dlsym(libgfx, "gfx_disable_backbuffer");
+		if (!_gfx_disable_backbuffer) return -1;
 	}
 	
 	return 0;
@@ -54,11 +58,16 @@ gfx_t *twm_get_window_gfx(twm_window_t window) {
 
 	// mmap the framebuffer
 	void *framebuffrer = mmap(NULL, fb_info.pitch * fb_info.height, PROT_WRITE, MAP_SHARED, fd, 0);
+	close(fd);
 	if (framebuffrer == MAP_FAILED) {
-		close(fd);
 		return NULL;
 	}
 
 	// and pass everything to libgfx
-	return _gfx_create(framebuffrer, &fb_info);
+	gfx_t *gfx = _gfx_create(framebuffrer, &fb_info);
+	if (!gfx) return gfx;
+
+	// no need for double buffering the twm server aready do it
+	_gfx_disable_backbuffer(gfx);
+	return gfx;
 }

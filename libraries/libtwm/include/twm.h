@@ -2,8 +2,9 @@
 #define _TWM_H
 
 #include <stdint.h>
+#include <limits.h>
 
-struct gfx;
+struct gfx_context;
 
 typedef struct twm_fb_info {
 	long width;
@@ -30,6 +31,7 @@ typedef struct twm_request {
 #define TWM_REQUEST_GET_WINDOW_FB   4
 #define TWM_REQUEST_GET_WINDOW_ATTR 5
 #define TWM_REQUEST_SET_WINDOW_ATTR 6
+#define TWM_REQUEST_REDRAW_WINDOW   7
 
 #define TWM_WINDOW_SHOW   1
 #define TWM_WINDOW_WIDTH  2
@@ -95,6 +97,15 @@ typedef struct twm_request_get_window_attr {
 	twm_window_t id;
 } twm_request_get_window_attr_t;
 
+typedef struct twm_request_redraw_window {
+	twm_request_t base;
+	twm_window_t id;
+	long x;
+	long y;
+	long width;
+	long height;
+} twm_request_redraw_window_t;
+
 // events/reponses
 
 typedef struct twm_event_window_created {
@@ -118,6 +129,8 @@ typedef struct twm_event_window_attr {
 #define TWM_CURRENT_MAJOR 0
 #define TWM_CURRENT_MINOR 1
 #define TWM_MAX_PACKET_SIZE 4096
+#define TWM_WHOLE_WIDTH INT_MAX
+#define TWM_WHOLE_HEIGHT INT_MAX
 
 int twm_init(const char *path);
 void twm_fini(void);
@@ -127,7 +140,8 @@ int twm_destroy_window(twm_window_t window);
 int twm_get_window_fb(twm_window_t window, int *fd, twm_fb_info_t *fb_info);
 int twm_set_window_attr(twm_window_t window, int how, long attr);
 long twm_get_window_attr(twm_window_t window);
-struct gfx *twm_get_window_gfx(twm_window_t window);
+int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);
+struct gfx_context *twm_get_window_gfx(twm_window_t window);
 twm_event_t *twm_poll_event(void);
 void twm_handle_event(twm_event_t *event);
 

@@ -25,12 +25,8 @@ void render_window_decor(window_t *window) {
 }
 
 void render_window_content(window_t *window) {
-	if (!window->fb_addr) {
-		gfx_draw_rect(gfx, 0,  window->x, window->y, window->width, window->height);
-		return;
-	}
 	uintptr_t dest_ptr = gfx_pixel_addr(gfx, window->x, window->y);
-	uintptr_t src_ptr = window->fb_addr;
+	uintptr_t src_ptr = (uintptr_t)window->framebuffer;
 	size_t win_pitch = window->width * (gfx->bpp/8);
 	for (long i=0; i<window->height; i++) {
 		memcpy((void*)dest_ptr, (void*)src_ptr, win_pitch);
