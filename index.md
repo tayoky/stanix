@@ -74,7 +74,7 @@ Futures goals (once a goal is reached it is removed from the list).
 - vga
 - bga
 
-# subprojects
+## subprojects
 **Stanix** is a big project and is split in multiple repos and projects.
 - [Stanix's core](https://github.com/tayoky/stanix) contain the kernel, Stanix specific tool (terminal emulator, window manager, ...) and the base sysroot along docs.
 - [tlibc](https://github.com/tayoky/tlibc) a reimplmentation of the standard libc for Stanix.
