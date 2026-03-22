@@ -1,6 +1,7 @@
 #include <kernel/print.h>
 #include <kernel/input.h>
 #include <kernel/scheduler.h>
+#include <kernel/userspace.h>
 #include <sys/input.h>
 #include <poll.h>
 
@@ -24,6 +25,14 @@ static int input_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		info->if_class    = device->class;
 		info->if_subclass = device->subclass;
 		return 0;
+
+	// allow layout only on keyboards
+	case I_INPUT_SET_LAYOUT:
+		if (device->class != IE_CLASS_KEYBOARD) return -EOPNOTSUPP;
+		return safe_copy_from(device->layout, arg, INPUT_LAYOUT_SIZE);
+	case I_INPUT_GET_LAYOUT:
+		if (device->class != IE_CLASS_KEYBOARD) return -EOPNOTSUPP;
+		return safe_copy_to(arg, device->layout, INPUT_LAYOUT_SIZE);
 	default:
 		if (device->ops && device->ops->ioctl) ret = device->ops->ioctl(device, req, arg);
 		return ret;

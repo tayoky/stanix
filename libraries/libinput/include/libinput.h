@@ -7,6 +7,8 @@ int libinput_open(const char *path, int flags);
 int libinput_close(int fd);
 int libinput_get_event(int fd, struct input_event *event);
 int libinput_get_info(int fd, struct input_info *info);
+int libinput_set_layout(int fd, char layout[INPUT_LAYOUT_SIZE]);
+int libinput_get_layout(int fd, char layout[INPUT_LAYOUT_SIZE]);
 const char *libinput_class_string(unsigned long class);
 const char *libinput_subclass_string(unsigned long class, unsigned long subclass);
 

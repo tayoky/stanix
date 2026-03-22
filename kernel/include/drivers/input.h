@@ -20,6 +20,7 @@ typedef struct input_device {
 	ringbuffer_t events;
     unsigned long class;
     unsigned long subclass;
+	char layout[INPUT_LAYOUT_SIZE];
 } input_device_t;
 
 int register_input_device(input_device_t *device);

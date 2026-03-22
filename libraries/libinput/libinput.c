@@ -34,6 +34,14 @@ int libinput_get_info(int fd, struct input_info *info) {
 	return ioctl(fd, I_INPUT_GET_INFO, info);
 }
 
+int libinput_set_layout(int fd, char layout[INPUT_LAYOUT_SIZE]) {
+	return ioctl(fd, I_INPUT_SET_LAYOUT, layout);
+}
+
+int libinput_get_layout(int fd, char layout[INPUT_LAYOUT_SIZE]){
+	return ioctl(fd, I_INPUT_GET_LAYOUT, layout);
+}
+
 const char *libinput_class_string(unsigned long class) {
 	switch (class) {
 	case IE_CLASS_KEYBOARD:
@@ -47,7 +55,6 @@ const char *libinput_class_string(unsigned long class) {
 		return "unknow";
 	}
 }
-
 
 const char *libinput_subclass_string(unsigned long class, unsigned long subclass) {
 	switch (class) {

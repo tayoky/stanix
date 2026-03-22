@@ -82,7 +82,12 @@ int main(int argc,char **argv){
 	// try to get input info
 	struct input_info input_info;
 	if(libinput_get_info(fd, &input_info) >= 0){
-		printf("class      : %s\n", libinput_subclass_string(input_info.if_class, input_info.if_subclass));
+		printf("class      : %s\n", libinput_class_string(input_info.if_class));
+		printf("subclass   : %s\n", libinput_subclass_string(input_info.if_class, input_info.if_subclass));
+	}
+	char layout[INPUT_LAYOUT_SIZE];
+	if (libinput_get_layout(fd, layout) >= 0 && layout[0]) {
+		printf("layout     : %s\n", layout);
 	}
 
 	// try to print trm info
