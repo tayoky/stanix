@@ -1,5 +1,6 @@
 ---
 title: special files and devices
+permalink: /devices/
 ---
 Stanix has a lot of devices including
 - memory devices
