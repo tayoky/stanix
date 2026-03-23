@@ -382,17 +382,18 @@ int main(int argc, const char **argv) {
 				goto ignore;
 			}
 
-			// ignore key release
-			if (event.ie_key.flags & IE_KEY_RELEASE) {
-				goto ignore;
-			}
-
 			if (event.ie_key.key == INPUT_KEY_LCRTL || event.ie_key.key == INPUT_KEY_RCRTL) {
 				if (event.ie_key.flags & IE_KEY_RELEASE) {
 					crtl = 0;
 				} else {
 					crtl = 1;
 				}
+				goto ignore;
+			}
+
+			// ignore key release
+			if (event.ie_key.flags & IE_KEY_RELEASE) {
+				goto ignore;
 			}
 
 			// put into the pty
