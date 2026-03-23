@@ -59,6 +59,7 @@ static unsigned int parse_keyname(char *ptr, char **end) {
 	CHECK(GUI);
 	CHECK(VOLUME_UP);
 	CHECK(VOLUME_DOWN);
+	CHECK(SPACE);
 
 	if (!*ptr) {
 		*end = ptr;
@@ -72,7 +73,7 @@ static unsigned int parse_keyname(char *ptr, char **end) {
 }
 
 static unsigned int to_up(unsigned int keycode) {
-	if (keycode < 128) return tolower(keycode);
+	if (keycode < 128) return toupper(keycode);
 	return keycode;
 }
 
