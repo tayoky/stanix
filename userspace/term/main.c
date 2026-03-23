@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <input.h>
+#include <libinput.h>
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
@@ -105,6 +106,22 @@ struct layout kbd_fr = {
 	},
 };
 
+#define KEY(key, str) [key - INPUT_KEY_FIRST] = str
+
+char *keys2str[INPUT_KEY_LAST - INPUT_KEY_FIRST + 1] = {
+	KEY(INPUT_KEY_ESC, "\e"),
+	KEY(INPUT_KEY_ENTER, "\n"),
+	KEY(INPUT_KEY_TAB, "\t"),
+	KEY(INPUT_KEY_BACKSPACE, "\177"),
+	KEY(INPUT_KEY_HOME       , "\e[H"),
+	KEY(INPUT_KEY_ARROW_UP   , "\e[A"),
+	KEY(INPUT_KEY_ARROW_DOWN , "\e[B"),
+	KEY(INPUT_KEY_ARROW_RIGHT, "\e[C"),
+	KEY(INPUT_KEY_ARROW_LEFT , "\e[D"),
+	KEY(INPUT_KEY_END        , "\e[F"),
+	KEY(INPUT_KEY_DELETE, "\e[3~"),
+};
+
 term_t term;
 gfx_t *gfx;
 font_t *font;
@@ -112,7 +129,7 @@ FILE *master_file;
 int c_width;
 int c_height;
 int use_twm;
-int kbd_fd;
+libinput_keyboard_t *keyboard;
 twm_window_t window;
 
 uint32_t ansi_colours[] = {
@@ -227,18 +244,8 @@ term_ops_t term_ops = {
 
 //TODO : terminate when child die
 int main(int argc, const char **argv) {
-	struct layout *layout = &kbd_us;
-	for (int i = 1; i < argc - 1; i++) {
-		if ((!strcmp(argv[i], "--layout")) || !strcmp(argv[i], "-i")) {
-			i++;
-			if ((!strcasecmp(argv[i], "azerty")) || !strcasecmp(argv[i], "french")) {
-				layout = &kbd_fr;
-			} else if ((!strcasecmp(argv[i], "qwerty")) || !strcasecmp(argv[i], "english")) {
-				layout = &kbd_us;
-			}
-		}
-	}
-
+	(void)argc;
+	(void)argv;
 	printf("starting userspace terminal emulator...\n");
 
 	if (!getenv("FONT")) {
@@ -258,10 +265,10 @@ int main(int argc, const char **argv) {
 	} else if (getenv("FB")) {
 		use_twm = 0;
 		gfx = gfx_open_framebuffer(NULL);
-		
+
 		// try to open keyboard
-		kbd_fd = open("/dev/kb0", O_RDONLY | O_CLOEXEC);
-		if (kbd_fd < 0) {
+		keyboard = libinput_open_keyboard("/dev/kb0", O_RDONLY | O_CLOEXEC);
+		if (!keyboard) {
 			perror("/dev/kb0");
 			return EXIT_FAILURE;
 		}
@@ -344,13 +351,11 @@ int main(int argc, const char **argv) {
 	term_init(&term);
 
 	int crtl = 0;
-	int shift = 0;
-	int altgr = 0;
 
 	for (;;) {
 		struct pollfd wait[] = {
 			{.fd = master,.events = POLLIN,.revents = 0},
-			{.fd = kbd_fd,.events = POLLIN,.revents = 0}
+			{.fd = keyboard->fd,.events = POLLIN,.revents = 0}
 		};
 
 		if (poll(wait, use_twm ? 1 : 2, -1) < 0) {
@@ -368,56 +373,37 @@ int main(int argc, const char **argv) {
 		}
 
 		if (!use_twm && (wait[1].revents & POLLIN)) {
-			//there keyboard data to read
+			// there is keyboard data to read
 			struct input_event event;
+			if (libinput_get_keyboard_event(keyboard, &event) < 0) goto ignore;
 
-			if (read(kbd_fd, &event, sizeof(event)) < 1) {
-				goto ignore;
-			}
-
-			//ignore not key event
+			// ignore not key event
 			if (event.ie_type != IE_KEY_EVENT) {
 				goto ignore;
 			}
 
-			//special case for crtl and shift
-			if (event.ie_key.scancode == 0x1D) {
+			// ignore key release
+			if (event.ie_key.flags & IE_KEY_RELEASE) {
+				goto ignore;
+			}
+
+			if (event.ie_key.key == INPUT_KEY_LCRTL || event.ie_key.key == INPUT_KEY_RCRTL) {
 				if (event.ie_key.flags & IE_KEY_RELEASE) {
 					crtl = 0;
 				} else {
 					crtl = 1;
 				}
-				goto ignore;
-			}
-			//alt gr
-			if (event.ie_key.scancode == 0x80 + 0x38) {
-				if (event.ie_key.flags & IE_KEY_RELEASE) {
-					altgr = 0;
-				} else {
-					altgr = 1;
-				}
-				goto ignore;
-			}
-			if (event.ie_key.scancode == 0x2A || event.ie_key.scancode == 0x36 || (event.ie_key.scancode == 0x3A && event.ie_key.flags & IE_KEY_PRESS)) {
-				shift = 1 - shift;
-				goto ignore;
 			}
 
-			//ignore key release
-			if (event.ie_key.flags & IE_KEY_RELEASE) {
-				goto ignore;
-			}
-
-			//put into the pipe and to the screen
-			char *str;
-			if (altgr && layout->altgr[event.ie_key.scancode]) {
-				str = layout->altgr[event.ie_key.scancode];
-			} else {
-				if (shift) {
-					str = layout->shift[event.ie_key.scancode];
-				} else {
-					str = layout->keys[event.ie_key.scancode];
-				}
+			// put into the pty
+			char *str = NULL;
+			char buf[MB_CUR_MAX + 1];
+			if (event.ie_key.key >= INPUT_KEY_FIRST) {
+				str = keys2str[event.ie_key.key - INPUT_KEY_FIRST];
+			} else if (libinput_is_graph_key(event.ie_key.key)) {
+				int len = wctomb(buf, event.ie_key.key);
+				buf[len] = '\0';
+				str = buf;
 			}
 			if (str) {
 				//if crtl is pressed send special crtl + XXX char

@@ -29,6 +29,9 @@ automount
 export FONT="/zap-light16.psf"
 export FB="/dev/fb0"
 
+# change this to change the keyboard layout
+set-layout /dev/kb0 azerty
+
 #uncomment this line to get a shell on the serial port
 #login --setup-stdin-from-stdout > /dev/ttyS0
 term --layout azerty
