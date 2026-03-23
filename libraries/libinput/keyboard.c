@@ -24,7 +24,7 @@ static unsigned int parse_keyname(char *ptr, char **end) {
 	CHECK(BACKSPACE);
 	CHECK(ENTER);
 	CHECK(DELETE);
-	CHECK(INERT);
+	CHECK(INSERT);
 	CHECK(HOME);
 	CHECK(END);
 	CHECK(ARROW_UP);
