@@ -85,30 +85,35 @@ static int parse_layout(const char *name, libinput_layout_t *layout) {
 
 	char line[1024];
 	while (fgets(line, sizeof(line), file)) {
+		// strip trailing new line
+		if (line[strlen(line)-1] == '\n') {
+			line[strlen(line)-1] = '\0';
+		}
 		char *ptr = skip_blank(line);
 
 		// ignore empty lines and comments
-		if (!*ptr || *ptr == '\n' || *ptr == '#') continue;
+		if (!*ptr || *ptr == '#') continue;
 
 		if (!strncmp(ptr, "include", 7)) {
 			ptr += 7;
 			ptr = skip_blank(ptr);
 			int ret = parse_layout(ptr, layout);
-			if (ret < 0) return ret;
+			if (ret < 0) goto error;
+			continue;
 		}
 
-		// key the scan code number
+		// get the scan code number
 		char *end;
 		long scancode = strtol(ptr, &end, 0);
 		if (end == ptr || scancode < 0 || scancode >= 256) {
 			// invalid scancode
-			return -1;
+			goto error;
 		}
 		ptr = end;
 		
 		ptr = skip_blank(ptr);
 		layout->mappings[scancode].lower = parse_keyname(ptr, &end);
-		if (end == ptr) return -1;
+		if (end == ptr) goto error;
 		ptr = end;
 
 		ptr = skip_blank(ptr);
@@ -134,9 +139,13 @@ static int parse_layout(const char *name, libinput_layout_t *layout) {
 			layout->mappings[scancode].upper_alt = to_up(layout->mappings[scancode].alt);
 		}
 	}
-	if (ferror(file)) return -1;
-
+	if (ferror(file)) goto error;
+	fclose(file);
 	return 0;
+
+error:
+	fclose(file);
+	return -1;
 }
 
 libinput_layout_t *libinput_open_layout(const char *name) {
