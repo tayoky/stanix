@@ -99,8 +99,7 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 	framebuffer->gpu = gpu;
 	hashmap_add(&gpu->fbs, fb->id, framebuffer);
 
-	vfs_fd_t *fb_fd = kmalloc(sizeof(vfs_fd_t));
-	memset(fb_fd, 0, sizeof(vfs_fd_t));
+	vfs_fd_t *fb_fd = vfs_alloc_fd();
 	framebuffer->fd = fb_fd;
 	fb_fd->ops = &trm_fb_ops;
 	fb_fd->private = framebuffer;

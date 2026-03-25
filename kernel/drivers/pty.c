@@ -96,8 +96,7 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	slave->ops = &pty_slave_ops;
 
 	// create the master fd
-	(*master_fd) = kmalloc(sizeof(vfs_fd_t));
-	memset((*master_fd), 0, sizeof(vfs_fd_t));
+	(*master_fd) = vfs_alloc_fd();
 	(*master_fd)->private   = pty;
 	(*master_fd)->ops       = &pty_master_ops;
 	(*master_fd)->ref_count = 1;
