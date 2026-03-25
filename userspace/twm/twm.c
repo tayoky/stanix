@@ -18,7 +18,6 @@ int server_socket;
 int kb;
 int mouse;
 cursor_t cursor;
-utils_hashmap_t windows;
 utils_vector_t clients;
 
 void error(const char *fmt, ...) {

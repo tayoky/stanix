@@ -271,7 +271,7 @@ int main(int argc, const char **argv) {
 	for (;;) {
 		struct pollfd wait[] = {
 			{.fd = master,.events = POLLIN,.revents = 0},
-			{.fd = keyboard->fd,.events = POLLIN,.revents = 0}
+			{.fd = use_twm ? 0 : keyboard->fd,.events = POLLIN,.revents = 0}
 		};
 
 		if (poll(wait, use_twm ? 1 : 2, -1) < 0) {

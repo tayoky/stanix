@@ -10,6 +10,8 @@ typedef struct client {
 } client_t;
 
 typedef struct window {
+	struct window *next;
+	struct window *prev;
 	long width;
 	long height;
 	long x;
@@ -56,8 +58,13 @@ int handle_request(client_t *client);
 void kick_client(client_t *client);
 void handle_mouse(void);
 void handle_keyboard(void);
+void push_window_at_top(window_t *window);
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title);
 void destroy_window(window_t *window);
 window_t *get_window(twm_window_t id);
+window_t *get_window_at(long x, long y);
+int update_focus(window_t *window);
+int is_inside_window(window_t *window, long x, long y, long width, long height);
+int is_inside_titlebar(window_t *window, long x, long y, long width, long height);
 
 #endif
