@@ -35,7 +35,6 @@ typedef struct theme {
 } theme_t;
 
 typedef struct cursor {
-	char *saved;
 	long x;
 	long y;
 } cursor_t;
@@ -51,7 +50,6 @@ extern int mouse;
 
 void render_window_decor(window_t *window);
 void render_window_content(window_t *window);
-void init_cursor(cursor_t *cursor);
 void render_and_move_cursor(cursor_t *cursor, long new_x, long new_y);
 void error(const char *fmt, ...);
 int handle_request(client_t *client);

@@ -120,7 +120,6 @@ int main() {
 	utils_init_hashmap(&windows, 512);
 	utils_init_vector(&clients, sizeof(client_t));
 
-	init_cursor(&cursor);
 	render_and_move_cursor(&cursor, 0, 0);
 
 	for (;;) {
