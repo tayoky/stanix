@@ -109,19 +109,21 @@ void push_buffer(void) {
 	}
 }
 
-void draw_cell(term_t *term, cell_t *cell, int x, int y) {
-	(void)term;
-	color_t bg_color = term_color2gfx(&cell->bg_color, 1);
-	color_t fg_color = term_color2gfx(&cell->fg_color, 0);
-	if (cell->attr & TERM_ATTR_INVERSE) {
-		color_t tmp = bg_color;
-		bg_color = fg_color;
-		fg_color = tmp;
+void draw_line(term_t *term, cell_t *cell, int y, int start_x, int end_x) {
+	for (int x=start_x; x<end_x; x++, cell++) {
+		color_t bg_color = term_color2gfx(&cell->bg_color, 1);
+		color_t fg_color = term_color2gfx(&cell->fg_color, 0);
+		if (cell->attr & TERM_ATTR_INVERSE) {
+			color_t tmp = bg_color;
+			bg_color = fg_color;
+			fg_color = tmp;
+		}
+		gfx_draw_rect(gfx, bg_color, x * c_width, y * c_height, c_width, c_height);
+		gfx_draw_char(gfx, font, fg_color, x * c_width, y * c_height, cell->c);
 	}
-	gfx_draw_rect(gfx, bg_color, x * c_width, y * c_height, c_width, c_height);
-	gfx_draw_char(gfx, font, fg_color, x * c_width, y * c_height, cell->c);
-	push_rect(x * c_width, y * c_height, c_width, c_height);
+	push_rect(start_x * c_width, y * c_height, (end_x - start_x) * c_width, c_height);
 }
+
 
 void draw_cursor(term_t *term, int x, int y) {
 	cell_t *cell = CELL_AT(term, x, y);
@@ -152,7 +154,7 @@ void move(term_t *term, term_rect_t *dest, term_rect_t *src) {
 }
 
 term_ops_t term_ops = {
-	.draw_cell   = draw_cell,
+	.draw_line   = draw_line,
 	.draw_cursor = draw_cursor,
 	.clear = clear,
 	.move = move,
