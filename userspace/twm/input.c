@@ -17,12 +17,9 @@ void handle_mouse(void) {
         if (new_x + theme.cursor_texture->width  > (size_t)gfx->width)  new_x = gfx->width  - theme.cursor_texture->width;
         if (new_y + theme.cursor_texture->height > (size_t)gfx->height) new_y = gfx->height - theme.cursor_texture->height;
         if (grab) {
-            grab->x = new_x + grab_offset_x;
-            grab->y = new_y + grab_offset_y;
-            render_window_content(grab);
-            render_window_decor(grab);
+            move_window(grab, new_x + grab_offset_x, new_y + grab_offset_y);
         }
-        render_and_move_cursor(&cursor, new_x, new_y);
+        move_cursor(&cursor, new_x, new_y);
         return;
     }
     if (event.ie_type == IE_KEY_EVENT) {

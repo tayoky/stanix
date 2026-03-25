@@ -28,8 +28,6 @@ static void handle_create_window(client_t *client, twm_request_create_window_t *
 		.id = window->id,
 	};
 	send_event(client, (twm_event_t*)&event);
-	render_window_decor(window);
-	render_window_content(window);
 	return;
 }
 
@@ -82,9 +80,7 @@ static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *
 
 	//TODO : even more checking
 
-	// TODO damage region and stuff
-	render_window_content(window);
-	gfx_push_rect(gfx, window->x + request->x, window->y + request->y, request->width, request->height);
+	invalidate_rect(window->x + request->x, window->y + request->y, request->width, request->height);
 }
 
 int handle_request(client_t *client){

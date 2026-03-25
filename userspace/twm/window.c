@@ -11,6 +11,11 @@ window_t *window_stack_top;
 window_t *window_stack_bottom;
 window_t *focus_window;
 
+static void invalidate_window(window_t *window) {
+	invalidate_rect(window->x - theme.border_width, window->y - 2 * theme.border_width - theme.titlebar_height,
+		window->width + 2 * theme.border_width, window->height + 3 * theme.border_width + theme.titlebar_height);
+}
+
 void push_window_at_top(window_t *window) {
 	if (window->prev || window->next || window_stack_bottom == window) {
 		// the window is already in the list we need to remove it first
@@ -68,6 +73,7 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	push_window_at_top(window);
 
 	utils_hashmap_add(&windows, window->id, window);
+	invalidate_window(window);
 	return window;
 }
 
@@ -79,6 +85,13 @@ void destroy_window(window_t *window) {
 	free(window->title);
 	free(window->framebuffer_path);
 	free(window);
+}
+
+void move_window(window_t *window, long new_x, long new_y) {
+	invalidate_window(window);
+	window->x = new_x;
+	window->y = new_y;
+	invalidate_window(window);
 }
 
 window_t *get_window(twm_window_t id) {

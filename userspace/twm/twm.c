@@ -120,7 +120,7 @@ int main() {
 	utils_init_hashmap(&windows, 512);
 	utils_init_vector(&clients, sizeof(client_t));
 
-	render_and_move_cursor(&cursor, 0, 0);
+	move_cursor(&cursor, 0, 0);
 
 	for (;;) {
 		struct pollfd fds[clients.count + 3];
@@ -163,6 +163,7 @@ int main() {
 				kick_client(client);
 			}
 		}
+		render();
 	}
 
 	utils_free_hashmap(&windows);
