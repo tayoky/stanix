@@ -39,3 +39,7 @@ close_socket:
 	close(ctx.fd);
 	return -1;
 }
+
+int twm_get_fd(void) {
+	return ctx.fd;
+}

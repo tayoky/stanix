@@ -15,7 +15,7 @@ gfx_t *gfx;
 font_t *font;
 theme_t theme;
 int server_socket;
-int kb;
+libinput_keyboard_t *kb;
 int mouse;
 cursor_t cursor;
 utils_vector_t clients;
@@ -59,8 +59,8 @@ int main() {
 		perror(mouse_path);
 		return 1;
 	}
-	kb = libinput_open(kb_path, O_CLOEXEC);
-	if (kb < 0) {
+	kb = libinput_open_keyboard(kb_path, O_CLOEXEC);
+	if (!kb) {
 		perror(kb_path);
 		return 1;
 	}
@@ -132,7 +132,7 @@ int main() {
 		fds[clients.count].events = POLLIN;
 		fds[clients.count].fd = server_socket;
 		fds[clients.count + 1].events = POLLIN;
-		fds[clients.count + 1].fd = kb;
+		fds[clients.count + 1].fd = kb->fd;
 		fds[clients.count + 2].events = POLLIN;
 		fds[clients.count + 2].fd = mouse;
 		poll(fds, clients.count+3, 0);
@@ -173,6 +173,6 @@ int main() {
 	gfx_free(gfx);
 	close(server_socket);
 	libinput_close(mouse);
-	libinput_close(kb);
+	libinput_close_keyboard(kb);
 	return 0;
 }

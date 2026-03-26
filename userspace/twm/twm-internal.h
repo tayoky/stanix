@@ -2,6 +2,7 @@
 #define _TWM_INTERNAL_H
 
 #include <libutils/hashmap.h>
+#include <libinput.h>
 #include <gfx.h>
 #include <twm.h>
 
@@ -45,9 +46,10 @@ extern font_t *font;
 extern utils_hashmap_t windows;
 extern window_t *window_stack_top;
 extern window_t *window_stack_bottom;
+extern window_t *focus_window;
 extern cursor_t cursor;
 extern int server_socket;
-extern int kb;
+extern libinput_keyboard_t *kb;
 extern int mouse;
 
 void move_cursor(cursor_t *cursor, long new_x, long new_y);
@@ -56,6 +58,7 @@ void render(void);
 void error(const char *fmt, ...);
 int handle_request(client_t *client);
 void kick_client(client_t *client);
+int send_event(client_t *client, twm_event_t *event);
 void handle_mouse(void);
 void handle_keyboard(void);
 void push_window_at_top(window_t *window);

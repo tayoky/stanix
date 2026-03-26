@@ -32,6 +32,7 @@ typedef struct twm_request {
 #define TWM_REQUEST_GET_WINDOW_ATTR 5
 #define TWM_REQUEST_SET_WINDOW_ATTR 6
 #define TWM_REQUEST_REDRAW_WINDOW   7
+#define TWM_REQUEST_COUNT           8
 
 #define TWM_WINDOW_SHOW   1
 #define TWM_WINDOW_WIDTH  2
@@ -42,7 +43,18 @@ typedef struct twm_request {
 typedef struct twm_event {
 	uint64_t request_id;
 	int size;
+	int type;
 } twm_event_t;
+
+#define TWM_EVENT_INIT           0
+#define TWM_EVENT_WINDOW_CREATED 1
+#define TWM_EVENT_WINDOW_FB      2
+#define TWM_EVENT_WINDOW_ATTR    3
+#define TWM_EVENT_WINDOW_RESIZED 4
+#define TWM_EVENT_WINDOW_CLOSED  5
+#define TWM_EVENT_WINDOW_FOCUS   6
+#define TWM_EVENT_INPUT          7
+#define TWM_EVENT_COUNT          8
 
 typedef struct twm_ctx {
 	uint64_t id_count;
@@ -50,6 +62,7 @@ typedef struct twm_ctx {
 } twm_ctx_t;
 
 typedef int16_t twm_window_t;
+typedef int16_t twm_device_t;
 
 // requests
 
@@ -126,14 +139,45 @@ typedef struct twm_event_window_attr {
 	long attr;
 } twm_event_window_attr_t;
 
+typedef struct twm_event_input {
+	twm_event_t base;
+	twm_device_t device;
+	twm_window_t window;
+	int type;
+	union {
+		struct {
+			unsigned long key;
+			unsigned long scancode;
+			int flags;
+		} key;
+		struct {
+			unsigned long axis;
+			int rex_x;
+			int rel_y;
+			int abs_x;
+			int abs_y;
+		} move;
+	};
+} twm_event_input_t;
+
+#define TWM_INPUT_KEY  0
+#define TWM_INPUT_MOVE 1
+#define TWM_INPUT_PRESS   0x01
+#define TWM_INPUT_RELEASE 0x02
+#define TWM_INPUT_HOLD    0x04
+
 #define TWM_CURRENT_MAJOR 0
 #define TWM_CURRENT_MINOR 1
 #define TWM_MAX_PACKET_SIZE 4096
 #define TWM_WHOLE_WIDTH INT_MAX
 #define TWM_WHOLE_HEIGHT INT_MAX
 
+typedef void (*twm_handler_t)(twm_event_t *event, void *arg);
+#define TWM_HANDLER(handler) ((twm_handler_t)(void*)(handler))
+
 int twm_init(const char *path);
 void twm_fini(void);
+int twm_get_fd(void);
 int twm_send_request(twm_request_t *request);
 twm_window_t twm_create_window(const char *title, long width, long height);
 int twm_destroy_window(twm_window_t window);
@@ -144,5 +188,6 @@ int twm_redraw_window(twm_window_t window, long x, long y, long width, long heig
 struct gfx_context *twm_get_window_gfx(twm_window_t window);
 twm_event_t *twm_poll_event(void);
 void twm_handle_event(twm_event_t *event);
+void twm_set_handler(int event_type, twm_handler_t hadnler, void *data);
 
 #endif

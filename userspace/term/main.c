@@ -110,6 +110,7 @@ void push_buffer(void) {
 }
 
 void draw_line(term_t *term, cell_t *cell, int y, int start_x, int end_x) {
+	(void)term;
 	for (int x=start_x; x<end_x; x++, cell++) {
 		color_t bg_color = term_color2gfx(&cell->bg_color, 1);
 		color_t fg_color = term_color2gfx(&cell->fg_color, 0);
@@ -273,10 +274,10 @@ int main(int argc, const char **argv) {
 	for (;;) {
 		struct pollfd wait[] = {
 			{.fd = master,.events = POLLIN,.revents = 0},
-			{.fd = use_twm ? 0 : keyboard->fd,.events = POLLIN,.revents = 0}
+			{.fd = use_twm ? twm_get_fd() : keyboard->fd,.events = POLLIN,.revents = 0}
 		};
 
-		if (poll(wait, use_twm ? 1 : 2, -1) < 0) {
+		if (poll(wait, 2, -1) < 0) {
 			perror("poll");
 			return EXIT_FAILURE;
 		}
@@ -290,40 +291,75 @@ int main(int argc, const char **argv) {
 			}
 		}
 
-		if (!use_twm && (wait[1].revents & POLLIN)) {
-			// there is keyboard data to read
-			struct input_event event;
-			if (libinput_get_keyboard_event(keyboard, &event) < 0) goto ignore;
-
-			// ignore not key event
-			if (event.ie_type != IE_KEY_EVENT) {
-				goto ignore;
-			}
-
-			if (event.ie_key.key == INPUT_KEY_LCRTL || event.ie_key.key == INPUT_KEY_RCRTL) {
-				if (event.ie_key.flags & IE_KEY_RELEASE) {
-					crtl = 0;
-				} else {
-					crtl = 1;
-				}
-				goto ignore;
-			}
-
-			// ignore key release
-			if (event.ie_key.flags & IE_KEY_RELEASE) {
-				goto ignore;
-			}
-
-			// put into the pty
+		if (wait[1].revents & POLLIN) {
 			char *str = NULL;
 			char buf[MB_CUR_MAX + 1];
-			if (event.ie_key.key >= INPUT_KEY_FIRST) {
-				str = keys2str[event.ie_key.key - INPUT_KEY_FIRST];
-			} else if (libinput_is_graph_key(event.ie_key.key)) {
-				int len = wctomb(buf, event.ie_key.key);
-				buf[len] = '\0';
-				str = buf;
+			if (use_twm) {
+				// there is twm events to read
+				twm_event_input_t *event = (twm_event_input_t*)twm_poll_event();
+				if (!event) goto ignore;
+
+				// ignore not key event
+				if (event->base.type != TWM_EVENT_INPUT || event->type != TWM_INPUT_KEY) {
+					goto ignore_twm_event;
+				}
+				
+				if (event->key.key == INPUT_KEY_LCRTL || event->key.key == INPUT_KEY_RCRTL) {
+					if (event->key.flags & TWM_INPUT_RELEASE) {
+						crtl = 0;
+					} else {
+						crtl = 1;
+					}
+					goto ignore_twm_event;
+				}
+				
+				// ignore key release
+				if (event->key.flags & TWM_INPUT_RELEASE) {
+					goto ignore_twm_event;
+				}
+
+				if (event->key.key >= INPUT_KEY_FIRST) {
+					str = keys2str[event->key.key - INPUT_KEY_FIRST];
+				} else if (libinput_is_graph_key(event->key.key)) {
+					int len = wctomb(buf, event->key.key);
+					buf[len] = '\0';
+					str = buf;
+				}
+				ignore_twm_event:
+				free(event);
+			} else {
+				// there is keyboard data to read
+				struct input_event event;
+				if (libinput_get_keyboard_event(keyboard, &event) < 0) goto ignore;
+
+				// ignore not key event
+				if (event.ie_type != IE_KEY_EVENT) {
+					goto ignore;
+				}
+
+				if (event.ie_key.key == INPUT_KEY_LCRTL || event.ie_key.key == INPUT_KEY_RCRTL) {
+					if (event.ie_key.flags & IE_KEY_RELEASE) {
+						crtl = 0;
+					} else {
+						crtl = 1;
+					}
+					goto ignore;
+				}
+
+				// ignore key release
+				if (event.ie_key.flags & IE_KEY_RELEASE) {
+					goto ignore;
+				}
+
+				if (event.ie_key.key >= INPUT_KEY_FIRST) {
+					str = keys2str[event.ie_key.key - INPUT_KEY_FIRST];
+				} else if (libinput_is_graph_key(event.ie_key.key)) {
+					int len = wctomb(buf, event.ie_key.key);
+					buf[len] = '\0';
+					str = buf;
+				}
 			}
+			// put into the pty
 			if (str) {
 				//if crtl is pressed send special crtl + XXX char
 				if (crtl && strlen(str) == 1) {

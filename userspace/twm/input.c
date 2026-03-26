@@ -45,6 +45,34 @@ void handle_mouse(void) {
 }
 
 void handle_keyboard(void) {
-    struct input_event event;
-    if (libinput_get_event(kb, &event) < 0) return;
+    struct input_event input_event;
+    if (libinput_get_keyboard_event(kb, &input_event) < 0) return;
+    if (!focus_window) return;
+
+    // forward only key events
+    if (input_event.ie_type != IE_KEY_EVENT) return;
+
+    // forward event to the focus window
+    twm_event_input_t event = {
+        .base = {
+            .size = sizeof(event),
+            .type = TWM_EVENT_INPUT,
+        },
+        .window = focus_window->id,
+        .type = TWM_INPUT_KEY,
+        .key = {
+            .key = input_event.ie_key.key,
+            .scancode = input_event.ie_key.scancode,
+        }
+    };
+
+    if (input_event.ie_key.flags & IE_KEY_PRESS) {
+        event.key.flags |= TWM_INPUT_PRESS;
+    } else if (input_event.ie_key.flags & IE_KEY_RELEASE) {
+        event.key.flags |= TWM_INPUT_RELEASE;
+    } else if (input_event.ie_key.flags & IE_KEY_HOLD) {
+        event.key.flags |= TWM_INPUT_HOLD;
+    }
+
+    send_event(focus_window->client, (twm_event_t*)&event);
 }
