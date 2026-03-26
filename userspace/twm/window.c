@@ -28,7 +28,7 @@ void push_window_at_top(window_t *window) {
 		if (window->prev) {
 			window->prev->next = window->next;
 		} else {
-			window_stack_top = window->next;
+			window_stack_bottom = window->next;
 		}
 	}
 
@@ -41,6 +41,7 @@ void push_window_at_top(window_t *window) {
 		window_stack_bottom = window;
 	}
 	window_stack_top = window;
+	invalidate_window(window);
 }
 
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title) {

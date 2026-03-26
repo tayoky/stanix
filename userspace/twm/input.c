@@ -28,10 +28,11 @@ void handle_mouse(void) {
         } else if (event.ie_key.flags & IE_KEY_PRESS) { 
             window_t *window = get_window_at(cursor.x, cursor.y);
             if (!window) return;
+            update_focus(window);
+
 
             // allow to grab/ungrab windows
             if (event.ie_key.scancode == INPUT_KEY_MOUSE_LEFT && is_inside_titlebar(window, cursor.x, cursor.y, 0, 0)) {
-                update_focus(window);
                 if (!grab) {
                     // keep grab offset
                     grab = window;
