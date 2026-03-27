@@ -17,6 +17,7 @@
 #include <sys/fb.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <libterm.h>
 
 // most basic terminal emumator
@@ -273,7 +274,7 @@ int main(int argc, const char **argv) {
 
 	for (;;) {
 		struct pollfd wait[] = {
-			{.fd = master,.events = POLLIN,.revents = 0},
+			{.fd = master,.events = POLLIN | POLLHUP,.revents = 0},
 			{.fd = use_twm ? twm_get_fd() : keyboard->fd,.events = POLLIN,.revents = 0}
 		};
 
@@ -289,6 +290,8 @@ int main(int argc, const char **argv) {
 			if (s > 0) {
 				term_output(&term, buf, s);
 			}
+		} else if (wait[0].revents & POLLHUP) {
+			break;
 		}
 
 		if (wait[1].revents & POLLIN) {
@@ -372,4 +375,14 @@ int main(int argc, const char **argv) {
 			}
 		}
 	}
+
+	if (use_twm) {
+		twm_destroy_window(window);
+	} else {
+		libinput_close_keyboard(keyboard);
+	}
+	close(master);
+
+	waitpid(child, NULL, WNOHANG);
+	return 0;
 }
