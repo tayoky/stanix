@@ -80,15 +80,11 @@ static inline int utils_hashmap_remove(utils_hashmap_t *hashmap, long key) {
 	return 0;
 }
 
-static inline void utils_hashmap_foreach(utils_hashmap_t *hashmap, void (*func)(void *element, void *arg), void *arg) {
-	for (size_t i=0; i<hashmap->capacity; i++) {
-		utils_vector_t *vector = &hashmap->vectors[i];
-		utils_hashmap_entry_t *entries = vector->data;
-		if (!entries) continue;
-		for (size_t j=0; j<vector->count; j++) {
-			func(entries[j].element, arg);
-		}
-	}
-}
+
+// foreach macro from hell
+#define utils_hashmap_foreach(_key, _element, _hashmap) for(size_t i=0; i<(_hashmap)->capacity; i++) \
+for (size_t j=0; j<(_hashmap)->vectors[i].count; j++) \
+for (long _key      = ((utils_hashmap_entry_t*)((_hashmap)->vectors[i].data))[j].key    , _1=1; _1; _1=0)\
+for (void *_element = ((utils_hashmap_entry_t*)((_hashmap)->vectors[i].data))[j].element, *_2=(void*)1; _2; _2=NULL)
 
 #endif

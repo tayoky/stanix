@@ -18,7 +18,6 @@ int server_socket;
 libinput_keyboard_t *kb;
 int mouse;
 cursor_t cursor;
-utils_vector_t clients;
 
 void error(const char *fmt, ...) {
 	va_list args;
@@ -36,11 +35,6 @@ void load_theme(void) {
 	theme.font_color = gfx_color(gfx, 0xC0, 0xC0, 0xC0);
 	theme.primary = gfx_color(gfx, 0x10, 0x10, 0x10);
 	theme.secondary = gfx_color(gfx, 0x10, 0x50, 0x10);
-}
-
-void kick_client(client_t *client) {
-	// TODO : close windows
-	close(client->fd);
 }
 
 int main() {
@@ -125,7 +119,7 @@ int main() {
 	for (;;) {
 		struct pollfd fds[clients.count + 3];
 		for (size_t i=0; i<clients.count; i++) {
-			client_t *client = utils_vectot_at(&clients, i);
+			client_t *client = utils_vector_at(&clients, i);
 			fds[i].events = POLLIN | POLLHUP;
 			fds[i].fd     = client->fd;
 		}
@@ -155,14 +149,15 @@ int main() {
 			handle_mouse();
 		}
 		for (size_t i=0; i<clients.count; i++) {
-			client_t *client = utils_vectot_at(&clients, i);
+			client_t *client = utils_vector_at(&clients, i);
 			if (fds[i].revents & POLLIN) {
 				handle_request(client);
-			}
-			if (fds[i].revents & POLLHUP) {
+			} else if (fds[i].revents & POLLHUP) {
 				kick_client(client);
+				goto restart_loop;
 			}
 		}
+		restart_loop:
 		render();
 	}
 

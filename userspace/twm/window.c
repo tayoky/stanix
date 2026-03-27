@@ -80,10 +80,12 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 
 void destroy_window(window_t *window) {
 	utils_hashmap_remove(&windows, window->id);
+	invalidate_window(window);
 
 	size_t framebuffer_size = window->width * window->height * (gfx->bpp / 8);
 	munmap(window->framebuffer, framebuffer_size);
 	free(window->title);
+	shm_unlink(window->framebuffer_path);
 	free(window->framebuffer_path);
 	free(window);
 }

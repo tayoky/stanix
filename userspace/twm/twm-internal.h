@@ -50,6 +50,7 @@ extern window_t *focus_window;
 extern cursor_t cursor;
 extern int server_socket;
 extern libinput_keyboard_t *kb;
+extern utils_vector_t clients;
 extern int mouse;
 
 void move_cursor(cursor_t *cursor, long new_x, long new_y);

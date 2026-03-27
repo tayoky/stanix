@@ -74,9 +74,10 @@ void render(void) {
 	gfx_draw_rect(gfx, gfx_color(gfx, 0, 0, 0), invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height);
 
 	for (window_t *current=window_stack_bottom; current; current = current->next) {
-		// TODO : rerender only if it is overlapping
-		render_window_content(current);
-		render_window_decor(current);
+		if (is_inside_window(current, invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height)) {
+			render_window_content(current);
+			render_window_decor(current);
+		}
 	}
 
 	if (invalidate_start_x < cursor.x + (long)theme.cursor_texture->width 
