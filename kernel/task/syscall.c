@@ -685,7 +685,7 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 		}
 
 		//if timeout expire exit
-		if (timeout >= 0 && (time.tv_sec < end.tv_sec || (time.tv_sec == end.tv_sec && time.tv_usec <= end.tv_usec))) {
+		if (timeout >= 0 && (time.tv_sec > end.tv_sec || (time.tv_sec == end.tv_sec && time.tv_usec >= end.tv_usec))) {
 			break;
 		}
 		yield(1);
