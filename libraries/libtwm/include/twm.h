@@ -187,6 +187,7 @@ long twm_get_window_attr(twm_window_t window);
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);
 struct gfx_context *twm_get_window_gfx(twm_window_t window);
 twm_event_t *twm_poll_event(void);
+twm_event_t *twm_peek_event(void);
 void twm_handle_event(twm_event_t *event);
 void twm_set_handler(int event_type, twm_handler_t hadnler, void *data);
 

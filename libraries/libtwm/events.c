@@ -1,6 +1,7 @@
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <string.h>
+#include <poll.h>
 #include <twm.h>
 
 extern twm_ctx_t ctx;
@@ -12,6 +13,19 @@ void twm_set_handler(int event_type, twm_handler_t handler, void *data) {
 	if (event_type < 0 || event_type >= TWM_EVENT_COUNT) return;
 	handlers[event_type] = handler;
 	handlers_data[event_type] = data;
+}
+
+twm_event_t *twm_peek_event(void) {
+	struct pollfd pollfd = {
+		.events = POLLIN,
+		.fd = ctx.fd,
+	};
+	poll(&pollfd, 1, 0);
+	if (pollfd.revents & POLLIN) {
+		return twm_poll_event();
+	} else {
+		return NULL;
+	}
 }
 
 twm_event_t *twm_poll_event(void) {
