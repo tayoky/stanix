@@ -61,9 +61,9 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	
 	// setup a new framebuffer
 	char framebuffer_name[64];
-	sprintf(framebuffer_name, "window-%d", window->id);
+	sprintf(framebuffer_name, "/window-%d", window->id);
 	window->framebuffer_path = strdup(framebuffer_name);
-	int framebuffer_fd = shm_open(framebuffer_name, O_RDWR | O_CREAT | O_TRUNC, 0777);
+	int framebuffer_fd = shm_open(framebuffer_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
 	size_t framebuffer_size = width * height * (gfx->bpp / 8);
 	ftruncate(framebuffer_fd, framebuffer_size);
 
