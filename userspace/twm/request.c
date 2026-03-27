@@ -34,7 +34,7 @@ static void handle_create_window(client_t *client, twm_request_create_window_t *
 static void handle_destroy_window(client_t *client, twm_request_destroy_window_t *request) {
 	window_t *window = get_window(request->id);
 	if (!window) return;
-	if (window->client != client) return;
+	if (window->client != client->id) return;
 	destroy_window(window);
 }
 
@@ -43,7 +43,7 @@ static void handle_get_window_fb(client_t *client, twm_request_get_window_fb_t *
 
 	// TODO : maybee send error
 	if (!window) return;
-	if (window->client != client) return;
+	if (window->client != client->id) return;
 
 	twm_event_window_fb_t event = {
 		.base = {
@@ -70,7 +70,7 @@ static void handle_get_window_fb(client_t *client, twm_request_get_window_fb_t *
 static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *request) {
 	window_t *window = get_window(request->id);
 	if (!window) return;
-	if (window->client != client) return;
+	if (window->client != client->id) return;
 
 	if (request->width  == TWM_WHOLE_WIDTH)  request->width = window->width;
 	if (request->height == TWM_WHOLE_HEIGHT) request->height = window->height;

@@ -8,6 +8,7 @@
 
 typedef struct client {
 	int fd;
+	int id;
 } client_t;
 
 typedef struct window {
@@ -20,7 +21,7 @@ typedef struct window {
 	long attribute;
 	twm_window_t id;
 	char *title;
-	client_t *client;
+	int client;
 	char *framebuffer_path;
 	void *framebuffer;
 	struct window *parent;
@@ -58,7 +59,9 @@ void invalidate_rect(long x, long y, long width, long height);
 void render(void);
 void error(const char *fmt, ...);
 int handle_request(client_t *client);
+int accept_client(void);
 void kick_client(client_t *client);
+client_t *get_client(int id);
 int send_event(client_t *client, twm_event_t *event);
 void handle_mouse(void);
 void handle_keyboard(void);

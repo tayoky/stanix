@@ -46,12 +46,12 @@ void push_window_at_top(window_t *window) {
 
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title) {
 	puts("create window");
-	static twm_window_t id_count = 0;
+	static twm_window_t id_count = 1;
 	window_t *window = malloc(sizeof(window_t));
 	memset(window, 0, sizeof(window_t));
 
 	window->id     = id_count++;
-	window->client = client;
+	window->client = client->id;
 	window->width  = width;
 	window->height = height;
 	window->parent = parent;
@@ -79,6 +79,9 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 }
 
 void destroy_window(window_t *window) {
+	if (focus_window == window) {
+		focus_window = NULL;
+	}
 	utils_hashmap_remove(&windows, window->id);
 	invalidate_window(window);
 

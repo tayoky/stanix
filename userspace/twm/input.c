@@ -74,5 +74,5 @@ void handle_keyboard(void) {
         event.key.flags |= TWM_INPUT_HOLD;
     }
 
-    send_event(focus_window->client, (twm_event_t*)&event);
+    send_event(get_client(focus_window->client), (twm_event_t*)&event);
 }

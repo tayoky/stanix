@@ -131,16 +131,7 @@ int main() {
 		fds[clients.count + 2].fd = mouse;
 		poll(fds, clients.count+3, 0);
 		if (fds[clients.count].revents & POLLIN) {
-			int client_fd = accept(server_socket, NULL, NULL);
-			if (client_fd < 0) {
-				error("fail to accept connection");
-				continue;
-			}
-			puts("client connected");
-			client_t client = {
-				.fd = client_fd,
-			};
-			utils_vector_push_back(&clients, &client);
+			accept_client();
 		}
 		if (fds[clients.count + 1].revents & POLLIN) {
 			handle_keyboard();
