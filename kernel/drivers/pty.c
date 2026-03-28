@@ -21,11 +21,10 @@ static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t 
 
 	pty_t *pty = (pty_t *)fd->private;
 
-	//TODO bring back this
-	/*if(pty->slave->ref_count == 1 && !ringbuffer_read_available(pty->output_buffer)){
+	if (atomic_load(&pty->slave->device.ref_count) == 1 && !ringbuffer_read_available(&pty->output_buffer)) {
 		//nobody as open the slave and there no data
 		return -EIO;
-	}*/
+	}
 
 	return ringbuffer_read(&pty->output_buffer, buffer, count, fd->flags);
 }
@@ -45,10 +44,11 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 static int pty_master_wait_check(vfs_fd_t *fd, short type) {
 	pty_t *pty = (pty_t *)fd->private;
 	int events = 0;
-	/*TODO : bring back this
-	if((type & POLLHUP) && pty->slave->ref_count == 1){
+
+	if((type & POLLHUP) && atomic_load(&pty->slave->device.ref_count) == 1){
 		events |= POLLHUP;
-	}*/
+		kdebugf("pty is empty");
+	}
 	if ((type & POLLIN) && ringbuffer_read_available(&pty->output_buffer)) {
 		events |= POLLIN;
 	}
