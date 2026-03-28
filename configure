@@ -43,6 +43,13 @@ fi
 
 tconf_add_subdir ports
 
+if [ ! -f ./libraries/libtgui/configure ] ; then
+	git submodule init
+	git submodule update ports
+fi
+
+tconf_add_subdir libraries/libtgui
+
 echo "using $SYSROOT as sysroot"
 
 tconf_fini

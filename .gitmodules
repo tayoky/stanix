@@ -11,3 +11,6 @@
 [submodule "libraries/libterm"]
 	path = libraries/libterm
 	url = https://github.com/tayoky/libterm
+[submodule "libraries/libtgui"]
+	path = libraries/libtgui
+	url = https://github.com/tayoky/tgui

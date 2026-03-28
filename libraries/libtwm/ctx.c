@@ -40,6 +40,10 @@ close_socket:
 	return -1;
 }
 
+void twm_fini(void) {
+	
+}
+
 int twm_get_fd(void) {
 	return ctx.fd;
 }

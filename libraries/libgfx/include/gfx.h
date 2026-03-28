@@ -25,9 +25,9 @@ typedef struct gfx_context {
 typedef struct gfx_font {
 	int type;
 	void *private;
-	void (*draw_char)(gfx_t *,struct gfx_font*,color_t,long,long,int);
-	long (*char_width)(struct gfx_font *,int c);
-	long (*char_height)(struct gfx_font *,int c);
+	void (*draw_char)(gfx_t *, struct gfx_font *, color_t, long, long, int);
+	long (*char_width)(struct gfx_font *, int c);
+	long (*char_height)(struct gfx_font *, int c);
 	void (*free)(struct gfx_font *);
 } font_t;
 
@@ -38,32 +38,34 @@ typedef struct gfx_texture {
 } texture_t;
 
 gfx_t *gfx_open_framebuffer(const char *path);
-gfx_t *gfx_create(void *framebuffer,struct fb *);
+gfx_t *gfx_create(void *framebuffer, struct fb *);
 void gfx_free(gfx_t *gfx);
 void gfx_push_buffer(gfx_t *gfx);
-void gfx_push_rect(gfx_t *gfx,long x,long y,long width,long height);
+void gfx_push_rect(gfx_t *gfx, long x, long y, long width, long height);
 void gfx_enable_backbuffer(gfx_t *gfx);
 void gfx_disable_backbuffer(gfx_t *gfx);
-color_t gfx_color(gfx_t *gfx,uint8_t r,uint8_t g,uint8_t b);
-color_t gfx_color_rgba(gfx_t *gfx,uint8_t r,uint8_t g,uint8_t b,uint8_t a);
+color_t gfx_color(gfx_t *gfx, uint8_t r, uint8_t g, uint8_t b);
+color_t gfx_color_rgba(gfx_t *gfx, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 
-void gfx_draw_pixel(gfx_t *gfx,color_t color,long x,long y);
-void gfx_draw_rect(gfx_t *gfx,color_t color,long x,long y,long width,long height);
-void gfx_draw_wire_rect(gfx_t *gfx,color_t color,long x,long y,long width,long height,long border);
-void gfx_clear(gfx_t *gfx,color_t color);
+void gfx_draw_pixel(gfx_t *gfx, color_t color, long x, long y);
+void gfx_draw_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height);
+void gfx_draw_wire_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height, long border);
+void gfx_clear(gfx_t *gfx, color_t color);
 
 font_t *gfx_load_font(const char *path);
 void gfx_free_font(font_t *font);
-void gfx_draw_char(gfx_t *gfx,font_t *font,color_t color,long x,long y,int c);
-void gfx_draw_string(gfx_t *gfx,font_t *font,color_t color,long x,long y,const char *str);
-long gfx_char_width(font_t *font,int c);
-long gfx_char_height(font_t *font,int c);
+void gfx_draw_char(gfx_t *gfx, font_t *font, color_t color, long x, long y, int c);
+void gfx_draw_string(gfx_t *gfx, font_t *font, color_t color, long x, long y, const char *str);
+long gfx_char_width(font_t *font, int c);
+long gfx_char_height(font_t *font, int c);
+long gfx_string_width(font_t *font, const char *str);
+long gfx_string_height(font_t *font, const char *str);
 
 
-texture_t *gfx_load_texture(gfx_t *gfx,const char *path);
-void gfx_draw_texture(gfx_t *gfx,texture_t *textutre,long x,long y);
-void gfx_draw_texture_alpha(gfx_t *gfx,texture_t *texture,long x,long y);
-void gfx_draw_texture_scale(gfx_t *gfx,texture_t *texture,long x,long y,float scale_x,float scale_y);
+texture_t *gfx_load_texture(gfx_t *gfx, const char *path);
+void gfx_draw_texture(gfx_t *gfx, texture_t *textutre, long x, long y);
+void gfx_draw_texture_alpha(gfx_t *gfx, texture_t *texture, long x, long y);
+void gfx_draw_texture_scale(gfx_t *gfx, texture_t *texture, long x, long y, float scale_x, float scale_y);
 
 #define gfx_draw_pixel(gfx,color,x,y) {*(color_t *)((uintptr_t)gfx->buffer +  (x) * (gfx->bpp / 8) + (y) * gfx->pitch) = (color);}
 #define gfx_pixel_addr(gfx,x,y) ((uintptr_t)gfx->buffer +  (x) * (gfx->bpp / 8) + (y) * gfx->pitch)
