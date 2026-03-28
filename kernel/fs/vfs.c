@@ -995,6 +995,10 @@ void vfs_close(vfs_fd_t *fd) {
 		fd->ops->close(fd);
 	}
 
+	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+		device_release(fd->private);
+	}
+
 	slab_free(fd);
 }
 

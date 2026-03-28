@@ -80,6 +80,7 @@ int register_device(device_t *device) {
 		device->number = device->driver->minor_count++;
 	}
 	device->number = makedev(device->driver->major, device->number);
+	device->ref_count = 1;
 	if (device->addr) {
 		device->addr->device = device;
 	}
@@ -102,16 +103,25 @@ int register_device(device_t *device) {
 	return 0;
 }
 
+void device_release(device_t *device) {
+	if (device->ref_count > 1) {
+		device->ref_count--;
+		return;
+	}
+	if (device->cleanup) device->cleanup(device);
+}
+
 int destroy_device(device_t *device) {
 	hashmap_remove(&devices, device->number);
 	device->type = DEVICE_UNPLUGED;
 	if (device->destroy) device->destroy(device);
-	// TODO : remove in devfs
+	vfs_unlink_at(devfs_root, device->name);
+	device_release(device);
 	return 0;
 }
 
 device_t *device_from_number(dev_t dev) {
-	return hashmap_get(&devices, dev);
+	return device_ref(hashmap_get(&devices, dev));
 }
 
 vfs_fd_t *open_device(device_t *device, long flags) {
@@ -119,7 +129,7 @@ vfs_fd_t *open_device(device_t *device, long flags) {
 	fd->ops = device->ops;
 	fd->type = device->type == DEVICE_BLOCK ? VFS_BLOCK : VFS_CHAR;
 	fd->flags = flags;
-	fd->private = device;
+	fd->private = device_ref(device);
 	if (fd->ops->open) {
 		if (fd->ops->open(fd) < 0) {
 			kfree(fd);
