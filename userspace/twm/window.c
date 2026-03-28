@@ -109,6 +109,9 @@ void destroy_window(window_t *window) {
 
 void move_window(window_t *window, long new_x, long new_y) {
 	invalidate_window(window);
+	if (new_y < theme.titlebar_height + theme.border_width * 2) {
+		new_y = theme.titlebar_height + theme.border_width * 2;
+	}
 	window->x = new_x;
 	window->y = new_y;
 	invalidate_window(window);
