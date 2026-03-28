@@ -174,6 +174,9 @@ int unix_wait_check(socket_t *sock, short event) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
 	int ret = 0;
 	switch (socket->status) {
+	case UNIX_STATUS_DISCONNECTED:
+		ret |= POLLHUP;
+		// fallthrough
 	case UNIX_STATUS_CONNECTED:
 		if (ringbuffer_read_available(&socket->queue)) ret |= POLLIN;
 		break;
