@@ -44,6 +44,19 @@ void push_window_at_top(window_t *window) {
 	invalidate_window(window);
 }
 
+static void remove_window_from_stack(window_t *window) {
+	if (window->prev) {
+		window->prev->next = window->next;
+	} else {
+		window_stack_bottom = window->next;
+	}
+	if (window->next) {
+		window->next->prev = window->prev;
+	} else {
+		window_stack_top = window->prev;
+	}
+}
+
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title) {
 	puts("create window");
 	static twm_window_t id_count = 1;
@@ -83,6 +96,7 @@ void destroy_window(window_t *window) {
 		focus_window = NULL;
 	}
 	utils_hashmap_remove(&windows, window->id);
+	remove_window_from_stack(window);
 	invalidate_window(window);
 
 	size_t framebuffer_size = window->width * window->height * (gfx->bpp / 8);
