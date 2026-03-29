@@ -83,6 +83,30 @@ static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *
 	invalidate_rect(window->x + request->x, window->y + request->y, request->width, request->height);
 }
 
+static void handle_get_screen_fb(client_t *client, twm_request_get_screen_fb_t *request) {
+	twm_event_screen_fb_t event = {
+		.base = {
+			.request_id = request->base.id,
+			.size       = sizeof(event),
+		},
+		.fb_info = {
+			.bpp = gfx->bpp,
+			.red_mask_shift   = gfx->red_mask_shift,
+			.red_mask_size    = gfx->red_mask_size,
+			.green_mask_shift = gfx->green_mask_shift,
+			.green_mask_size  = gfx->green_mask_size,
+			.blue_mask_shift  = gfx->blue_mask_shift,
+			.blue_mask_size   = gfx->blue_mask_size,
+			.width = gfx->width,
+			.height = gfx->height,
+			.pitch = gfx->pitch,
+		}
+	};
+	strcpy(event.path, getenv("FB"));
+	send_event(client, (twm_event_t*)&event);
+}
+
+
 int handle_request(client_t *client){
 	char buf[TWM_MAX_PACKET_SIZE];
 	twm_request_t *request = (twm_request_t*)buf;
@@ -108,6 +132,9 @@ int handle_request(client_t *client){
 		break;
 	case TWM_REQUEST_REDRAW_WINDOW:
 		handle_redraw_window(client, (twm_request_redraw_window_t*)request);
+		break;
+	case TWM_REQUEST_GET_SCREEN_FB:
+		handle_get_screen_fb(client, (twm_request_get_screen_fb_t*)request);
 		break;
 	}
 	

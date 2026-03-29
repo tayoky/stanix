@@ -32,7 +32,8 @@ typedef struct twm_request {
 #define TWM_REQUEST_GET_WINDOW_ATTR 5
 #define TWM_REQUEST_SET_WINDOW_ATTR 6
 #define TWM_REQUEST_REDRAW_WINDOW   7
-#define TWM_REQUEST_COUNT           8
+#define TWM_REQUEST_GET_SCREEN_FB   8
+#define TWM_REQUEST_COUNT           9
 
 #define TWM_WINDOW_SHOW   1
 #define TWM_WINDOW_WIDTH  2
@@ -62,6 +63,7 @@ typedef struct twm_ctx {
 } twm_ctx_t;
 
 typedef int16_t twm_window_t;
+typedef int16_t twm_screen_t;
 typedef int16_t twm_device_t;
 
 // requests
@@ -119,6 +121,11 @@ typedef struct twm_request_redraw_window {
 	long height;
 } twm_request_redraw_window_t;
 
+typedef struct twm_request_get_screen_fb {
+	twm_request_t base;
+	twm_screen_t id;
+} twm_request_get_screen_fb_t;
+
 // events/reponses
 
 typedef struct twm_event_window_created {
@@ -160,6 +167,13 @@ typedef struct twm_event_input {
 	};
 } twm_event_input_t;
 
+typedef struct twm_event_screen_fb {
+	twm_event_t base;
+	twm_screen_t screen;
+	twm_fb_info_t fb_info;
+	char path[256];
+} twm_event_screen_fb_t;
+
 #define TWM_INPUT_KEY  0
 #define TWM_INPUT_MOVE 1
 #define TWM_INPUT_PRESS   0x01
@@ -182,6 +196,7 @@ int twm_send_request(twm_request_t *request);
 twm_window_t twm_create_window(const char *title, long width, long height);
 int twm_destroy_window(twm_window_t window);
 int twm_get_window_fb(twm_window_t window, int *fd, twm_fb_info_t *fb_info);
+int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info);
 int twm_set_window_attr(twm_window_t window, int how, long attr);
 long twm_get_window_attr(twm_window_t window);
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);

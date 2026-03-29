@@ -135,3 +135,21 @@ int twm_redraw_window(twm_window_t window, long x, long y, long width, long heig
 	
 	return twm_send_request((twm_request_t*)&request);
 }
+
+int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info) {
+	twm_request_get_screen_fb_t request = {
+		.base = {
+			.type = TWM_REQUEST_GET_SCREEN_FB,
+			.size = sizeof(request),
+		},
+		.id = screen,
+	};
+	
+	int ret = twm_send_request((twm_request_t*)&request);
+	if (ret < 0) return ret;
+
+	twm_event_screen_fb_t *event = wait_for_response(request.base.id);
+	*fb_info = event->fb_info;
+	free(event);
+	return 0;
+}
