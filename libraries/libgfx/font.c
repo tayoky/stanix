@@ -58,7 +58,7 @@ long gfx_string_width(font_t *font, const char *str) {
 }
 
 long gfx_string_height(font_t *font, const char *str) {
-	long height = 0;
+	long height = gfx_char_height(font, ' ');
 	while (*str) {
 		long char_height = gfx_char_height(font, *str);
 		if (char_height > height) height = char_height;
