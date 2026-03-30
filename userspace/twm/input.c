@@ -16,20 +16,39 @@ void handle_mouse(void) {
         if (new_y < 0) new_y = 0;
         if (new_x + theme.cursor_texture->width  > (size_t)gfx->width)  new_x = gfx->width  - theme.cursor_texture->width;
         if (new_y + theme.cursor_texture->height > (size_t)gfx->height) new_y = gfx->height - theme.cursor_texture->height;
+        move_cursor(&cursor, new_x, new_y);
         if (grab) {
             move_window(grab, new_x + grab_offset_x, new_y + grab_offset_y);
+        } else {
+            // forward event to the window
+            window_t *window = get_window_at(cursor.x, cursor.y);
+            if (!window) return;
+            twm_event_input_t twm_event = {
+                .base = {
+                    .size = sizeof(twm_event),
+                    .type = TWM_EVENT_INPUT,
+                },
+                .window = window->id,
+                .type = TWM_INPUT_MOVE,
+                .move = {
+                    .abs_x = cursor.x,
+                    .abs_y = cursor.y,
+                    .rex_x = event.ie_move.x,
+                    .rel_y = event.ie_move.y,
+                },
+            };
+
+            send_event(get_client(window->client), (twm_event_t*)&twm_event);
         }
-        move_cursor(&cursor, new_x, new_y);
         return;
     }
     if (event.ie_type == IE_KEY_EVENT) {
         if (event.ie_key.flags & IE_KEY_RELEASE && event.ie_key.scancode == INPUT_KEY_MOUSE_LEFT) {
             grab = NULL;
-        } else if (event.ie_key.flags & IE_KEY_PRESS) { 
+        } else if (event.ie_key.flags & IE_KEY_PRESS) {
             window_t *window = get_window_at(cursor.x, cursor.y);
             if (!window) return;
             update_focus(window);
-
 
             // allow to grab/ungrab windows
             if (event.ie_key.scancode == INPUT_KEY_MOUSE_LEFT && is_inside_titlebar(window, cursor.x, cursor.y, 0, 0)) {
@@ -39,8 +58,31 @@ void handle_mouse(void) {
                     grab_offset_x = window->x - cursor.x;
                     grab_offset_y = window->y - cursor.y;
                 }
+                return;
             }
         }
+		if (!focus_window) return;
+        // forward event to the focus window
+        twm_event_input_t twm_event = {
+            .base = {
+                .size = sizeof(twm_event),
+                .type = TWM_EVENT_INPUT,
+            },
+            .window = focus_window->id,
+            .type = TWM_INPUT_KEY,
+			.key = {
+				.key = event.ie_key.key,
+				.scancode = event.ie_key.key,
+			}
+		};
+		if (event.ie_key.flags & IE_KEY_PRESS) {
+			twm_event.key.flags |= TWM_INPUT_PRESS;
+		} else if (event.ie_key.flags & IE_KEY_RELEASE) {
+			twm_event.key.flags |= TWM_INPUT_RELEASE;
+		} else if (event.ie_key.flags & IE_KEY_HOLD) {
+			twm_event.key.flags |= TWM_INPUT_HOLD;
+		}
+        send_event(get_client(focus_window->client), (twm_event_t*)&twm_event);
     }
 }
 

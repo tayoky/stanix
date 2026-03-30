@@ -26,7 +26,7 @@ echo "mount partitions"
 automount
 
 #setup font and frambuffer path
-export FONT="/zap-light16.psf"
+export FONT="/usr/share/fonts/zap-light16.psf"
 export FB="/dev/fb0"
 
 # change this to change the keyboard layout
