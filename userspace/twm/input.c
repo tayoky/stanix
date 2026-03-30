@@ -31,8 +31,8 @@ void handle_mouse(void) {
                 .window = window->id,
                 .type = TWM_INPUT_MOVE,
                 .move = {
-                    .abs_x = cursor.x,
-                    .abs_y = cursor.y,
+                    .abs_x = cursor.x - window->x,
+                    .abs_y = cursor.y - window->y,
                     .rex_x = event.ie_move.x,
                     .rel_y = event.ie_move.y,
                 },
@@ -72,8 +72,8 @@ void handle_mouse(void) {
             .window = focus_window->id,
             .type = TWM_INPUT_KEY,
 			.key = {
-				.key = event.ie_key.key,
-				.scancode = event.ie_key.key,
+				.key = event.ie_key.scancode,
+				.scancode = event.ie_key.scancode,
 			}
 		};
 		if (event.ie_key.flags & IE_KEY_PRESS) {
