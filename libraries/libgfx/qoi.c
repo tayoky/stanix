@@ -17,7 +17,7 @@ struct qoi_header {
 	uint32_t height;
 	uint8_t channels;
 	uint8_t colorspace;
-};
+} __attribute__((packed));
 
 #define QOI_OP_INDEX 0b00
 #define QOI_OP_DIFF  0b01
