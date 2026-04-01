@@ -13,6 +13,33 @@ typedef struct sleep_queue {
 	list_t waiters;
 } sleep_queue_t;
 
+#define sleep_on_queue_lock_interruptible(queue, cond, l) ({\
+	int ret = 0;\
+	for (;;) {\
+		/* fast path */\
+		if (cond) break;\
+\
+		block_prepare_interruptible();\
+		spinlock_acquire(&(queue)->lock);\
+		if (cond) {\
+			block_cancel();\
+			spinlock_raw_release(&(queue)->lock);\
+			break;\
+		}\
+		\
+		if (l) spinlock_raw_release(l);\
+		\
+		list_append(&(queue)->waiters, &get_current_task()->waiter_list_node);\
+		spinlock_raw_release(&(queue)->lock);\
+\
+		ret = block_task();\
+		if (ret < 0) break;\
+		if (l) spinlock_acquire(l);\
+	}\
+	ret;\
+})
+
+
 #define sleep_on_queue_lock(queue, cond, l) ({\
 	int ret = 0;\
 	for (;;) {\
@@ -40,6 +67,7 @@ typedef struct sleep_queue {
 })
 
 #define sleep_on_queue_condition(queue, cond) sleep_on_queue_lock(queue, cond, NULL)
+#define sleep_on_queue_condition_interruptible(queue, cond) sleep_on_queue_lock_interruptible(queue, cond, NULL)
 
 static inline void sleep_add_to_queue(sleep_queue_t *queue) {
 	spinlock_acquire(&queue->lock);
@@ -48,6 +76,7 @@ static inline void sleep_add_to_queue(sleep_queue_t *queue) {
 }
 
 int sleep_on_queue(sleep_queue_t *queue);
+int sleep_on_queue_interruptible(sleep_queue_t *queue);
 void wakeup_queue(sleep_queue_t *queue,size_t count);
 
 #endif

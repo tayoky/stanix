@@ -69,8 +69,7 @@ static void handle_default(int signum) {
 		int ret = 0;
 		// FIXME : i'm pretty sure if main thread recive SIGSTOP the whole process should stop
 		// block until recive a continue signals or kill
-		get_current_task()->status = TASK_STATUS_STOPPED;
-		block_prepare();
+		set_task_status(TASK_STATUS_STOPPED);
 		while ((ret = block_task())) {
 			if (ret != EINTR) {
 				//uh
@@ -92,7 +91,7 @@ static void handle_default(int signum) {
 					return;
 				}
 				spinlock_release(&get_current_task()->sig_lock);
-				block_prepare();
+				set_task_status(TASK_STATUS_STOPPED);
 			}
 		}
 		break;
@@ -134,13 +133,7 @@ int send_sig_task(task_t *thread, int signum) {
 	}
 
 	// if the task is blocked interrupt it
-	if (unblock_task(thread)) {
-		// FIXME : we should set the interrupt flag at the same time
-		// we unblock the task
-		// we need an interrupt_task()
-		// RACE CONDITION
-		thread->flags |= TASK_FLAG_INTR;
-	}
+	unblock_task_reason(thread, WAKEUP_SIGNAL);
 
 	spinlock_release(&thread->sig_lock);
 	return 0;

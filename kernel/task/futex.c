@@ -57,7 +57,7 @@ static int futex_wake(long *addr, long val) {
 }
 
 static int futex_wait(long *addr, long val) {
-	block_prepare();
+	block_prepare_interruptible();
 	if (*addr == val) {
 		block_cancel();
 		return 0;

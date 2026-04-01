@@ -28,8 +28,7 @@ int mutex_try_acquire(mutex_t *mutex) {
 }
 
 int mutex_acquire(mutex_t *mutex) {
-	while (sleep_on_queue_condition(&mutex->sleep_queue, mutex_try_acquire(mutex)) == -EINTR);
-	return 0;
+	return sleep_on_queue_condition(&mutex->sleep_queue, mutex_try_acquire(mutex));
 }
 
 void mutex_release(mutex_t *mutex) {

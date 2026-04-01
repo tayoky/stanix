@@ -72,7 +72,7 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 	if (ret < 0) return ret;
 
 	// FIXME : if we get interrupted here we will still be in the connect queue
-	int r = sleep_on_queue(&server->sleep);
+	int r = sleep_on_queue_interruptible(&server->sleep);
 	if (r < 0) return r;
 
 	return socket->status == UNIX_STATUS_CONNECTED ? 0 : -ECONNREFUSED;

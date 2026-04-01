@@ -400,40 +400,53 @@ task_t *tid2task(pid_t tid) {
 
 
 int block_task(void) {
-	// clear the signal interrupt flags
-	atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_INTR);
-
-	int save = have_interrupt();
-	disable_interrupt();
-
-	// kdebugf("block %ld\n",get_current_proc()->pid);
-
-	kernel->can_task_switch = 1;
-
 	yield(0);
 
-	if (save)enable_interrupt();
-
 	// if we were interrupted return -EINTR
-	if (atomic_load(&get_current_task()->flags) & TASK_FLAG_INTR) {
+	if (get_current_task()->wakeup_reason == WAKEUP_SIGNAL) {
 		return -EINTR;
 	}
 
 	return 0;
 }
 
-int unblock_task(task_t *task) {
+int block_task_timeout(struct timespec *timeout) {
+	// TODO : do the timeout part
+	(void)timeout;
+
+	yield(0);
+
+	switch(get_current_task()->wakeup_reason) {
+	case WAKEUP_TIMEOUT:
+		return -ETIMEDOUT;
+	case WAKEUP_SIGNAL:
+		return -EINTR;
+	case WAKEUP_OTHER:
+	default:
+		return 0;
+	}
+}
+
+int unblock_task_reason(task_t *task, int reason) {
 	spinlock_acquire(&task->state_lock);
 	run_queue_acquire_lock(task);
+
 	
 	// aready unblocked ?
-	if (task->status != TASK_STATUS_BLOCKED) {
+	if (task->status != TASK_STATUS_BLOCKED && task->status != TASK_STATUS_INTERRUPTIBLE) {
 		run_queue_release_lock(task);
 		spinlock_release(&task->state_lock);
 		return 0;
 	}
+	
+	// if unblocking because of a signal can only do it if interruptible
+	if (reason == WAKEUP_SIGNAL && task->status != TASK_STATUS_INTERRUPTIBLE) {
+		return 0;
+	}
+	
 	task->status = TASK_STATUS_RUNNING;
-
+	task->wakeup_reason = reason;
+	
 	// if the task is already running on another cpu don't push it back
 	// FIXME : this does not guarantee the task is not in another queue
 	// just quaratee it is not being executed
@@ -442,7 +455,7 @@ int unblock_task(task_t *task) {
 	if (task->run_queue) {
 		run_queue_release_lock(task);
 		spinlock_release(&task->state_lock);
-		return 0;
+		return 1;
 	}
 
 	run_queue_push_task(get_run_queue(), task);

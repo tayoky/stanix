@@ -1,5 +1,6 @@
 #include <kernel/scheduler.h>
 #include <kernel/spinlock.h>
+#include <kernel/kernel.h>
 #include <sys/wait.h>
 #include <stdatomic.h>
 #include <errno.h>
@@ -10,7 +11,7 @@
 //wait for any thread in a group to die
 int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker) {
 	if (waker) *waker = NULL;
-	if (!(flags & WNOHANG)) block_prepare();
+	if (!(flags & WNOHANG)) block_prepare_interruptible();
 	size_t waitfor_count = 0;
 	for (size_t i=0; i < threads_count; i++) {
 		task_t *expected = NULL;
@@ -38,8 +39,11 @@ int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker) {
 
 	if (flags & WNOHANG) {
 		status = -ECHILD;
-	} else if (block_task() < 0) {
-		status = -EINTR;
+	} else {
+		kernel->can_task_switch = 1;
+		if (block_task() < 0) {
+			status = -EINTR;
+		}
 	}
 
 ret:

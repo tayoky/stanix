@@ -13,7 +13,7 @@ int sleep_until(struct timeval wakeup_time) {
 	
 	// add us to the list
 	// keep the list organised from first awake to last
-	block_prepare();
+	block_prepare_interruptible();
 	spinlock_acquire(&sleep_lock);
 	task_t *prev = NULL;
 	foreach (node, &sleeping_tasks) {
@@ -68,6 +68,14 @@ int micro_sleep(suseconds_t micro_second) {
 
 int sleep_on_queue(sleep_queue_t *queue) {
 	block_prepare();
+
+	sleep_add_to_queue(queue);
+
+	return block_task();
+}
+
+int sleep_on_queue_interruptible(sleep_queue_t *queue) {
+	block_prepare_interruptible();
 
 	sleep_add_to_queue(queue);
 

@@ -37,7 +37,7 @@ ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count, long flags)
 			spinlock_release(&ring->lock);
 			return -EWOULDBLOCK;
 		}
-		if (sleep_on_queue_lock(&ring->reader_queue, ringbuffer_read_available(ring), &ring->lock) == -EINTR) {
+		if (sleep_on_queue_lock_interruptible(&ring->reader_queue, ringbuffer_read_available(ring), &ring->lock) == -EINTR) {
 			return -EINTR;
 		}
 	}
@@ -85,7 +85,7 @@ ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long
 				spinlock_release(&ring->lock);
 				return -EWOULDBLOCK;
 			}
-			if (sleep_on_queue_lock(&ring->writer_queue, ringbuffer_write_available(ring), &ring->lock) == -EINTR) {
+			if (sleep_on_queue_lock_interruptible(&ring->writer_queue, ringbuffer_write_available(ring), &ring->lock) == -EINTR) {
 				return -EINTR;
 			}
 		}

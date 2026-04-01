@@ -57,6 +57,7 @@ typedef struct task {
 	pid_t waitfor;
 	atomic_int flags;
 	int status;
+	int wakeup_reason;
 	uintptr_t kernel_stack;
 
 	struct fault_frame *syscall_frame;
@@ -94,14 +95,18 @@ typedef struct process {
 	long exit_status;
 } process_t;
 
-#define TASK_STATUS_RUNNING 1 // is the task actually running on a cpu
-#define TASK_STATUS_ZOMBIE  2
-#define TASK_STATUS_BLOCKED 3 // is the task blocked ?
-#define TASK_STATUS_STOPPED 4
+#define TASK_STATUS_RUNNING       1 // is the task actually running on a cpu
+#define TASK_STATUS_ZOMBIE        2
+#define TASK_STATUS_BLOCKED       3 // is the task blocked ?
+#define TASK_STATUS_INTERRUPTIBLE 4 // is the task blocked and interruptible ?
+#define TASK_STATUS_STOPPED       5
 
-#define TASK_FLAG_INTR  0x01
 #define TASK_FLAG_WAIT  0x02
 #define TASK_FLAG_SLEEP 0x04
+
+#define WAKEUP_TIMEOUT 0
+#define WAKEUP_SIGNAL  1
+#define WAKEUP_OTHER   2
 
 #define EUID_ROOT 0
 
@@ -150,7 +155,7 @@ void kill_proc();
 void final_proc_cleanup(process_t *proc);
 
 
-void final_task_cleanup(task_t *thread);
+void final_task_cleanup(task_t *task);
 
 /**
  * @brief get a process from its pid
@@ -179,6 +184,13 @@ static inline void block_prepare(void) {
 }
 
 /**
+ * @brief prepare the current task to sleep but can be interrupted by signals
+ */
+static inline void block_prepare_interruptible(void) {
+	set_task_status(TASK_STATUS_INTERRUPTIBLE);
+}
+
+/**
  * @brief cancel a preparation to sleep
  */
 static inline void block_cancel(void) {
@@ -204,18 +216,38 @@ static inline void set_cmdline(const char *cmdline) {
 	proc_set_cmdline(get_current_proc(), cmdline);
 }
 
+
 /**
  * @brief block the current task
- * @return -EINTR if intruppted by signal delivery or 0
+ * @param timeout the timeout
+ * @return -EINTR if interrupted by signal delivery or -ETIMEDOUT if interrupted by timeout or 0
+ */
+int block_task_timeout(struct timespec *timeout);
+
+/**
+ * @brief block the current task
+ * @return -EINTR if interrupted by signal delivery or 0
  */
 int block_task(void);
 
+
 /**
- * @brief unblock a task
- * @param proc the task to unblock
+ * @brief unblock a task for a reason
+ * @param task the task to unblock
+ * @param reason the reason to unblock
  * @return 1 if unblocked the task else 0
  */
-int unblock_task(task_t *thread);
+int unblock_task_reason(task_t *task, int reason);
+
+
+/**
+ * @brief unblock a task
+ * @param task the task to unblock
+ * @return 1 if unblocked the task else 0
+ */
+static inline int unblock_task(task_t *task) {
+	return unblock_task_reason(task, WAKEUP_OTHER);
+}
 
 /**
  * @brief yield to next task
