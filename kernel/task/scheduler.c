@@ -240,6 +240,7 @@ void finish_yield(void) {
 
 void yield(int preempt) {
 	if (!kernel->can_task_switch && preempt)return;
+	if (get_current_task()->preempt_disable && preempt) return;
 	
 	int prev_int = have_interrupt();
 	disable_interrupt();

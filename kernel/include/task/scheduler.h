@@ -66,6 +66,7 @@ typedef struct task {
 	struct task * _Atomic waiter; //task waiting on us
 	spinlock_t state_lock;
 	run_queue_t * _Atomic run_queue;
+	size_t preempt_disable;
 } task_t;
 
 typedef struct process {
@@ -195,6 +196,20 @@ static inline void block_prepare_interruptible(void) {
  */
 static inline void block_cancel(void) {
 	set_task_status(TASK_STATUS_RUNNING);
+}
+
+/**
+ * @brief enable preempt for this core, must be called the number of time \ref preempt_disable was called
+ */
+static inline void preempt_enable(void) {
+	get_current_task()->preempt_disable--;
+}
+
+/**
+ * @brief disable preempt for this core
+ */
+static inline void preempt_disable(void) {
+	get_current_task()->preempt_disable++;
 }
 
 
