@@ -28,11 +28,19 @@ static void render_window_decor(window_t *window) {
 }
 
 static void render_window_content(window_t *window) {
-	uintptr_t dest_ptr = gfx_pixel_addr(gfx, window->x, window->y);
-	uintptr_t src_ptr = (uintptr_t)window->framebuffer;
+	long x = window->x;
+	long y = window->y;
+	long width  = window->width;
+	long height = window->height;
+	if (!gfx_bound_check(gfx, &x, &y, &width, &height)) return;
+
+	uintptr_t dest_ptr = gfx_pixel_addr(gfx, x, y);
+	uintptr_t src_ptr = (uintptr_t)window->framebuffer + (x - window->x) * (gfx->bpp/8);
 	size_t win_pitch = window->width * (gfx->bpp/8);
-	for (long i=0; i<window->height; i++) {
-		memcpy((void*)dest_ptr, (void*)src_ptr, win_pitch);
+	size_t copy_width = width * (gfx->bpp/8);
+	
+	for (long i=0; i<height; i++) {
+		memcpy((void*)dest_ptr, (void*)src_ptr, copy_width);
 		src_ptr += win_pitch;
 		dest_ptr += gfx->pitch;
 	}

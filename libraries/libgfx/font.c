@@ -3,16 +3,16 @@
 #include "gfx.h"
 #include "gfx-internal.h"
 
-static int (*font_types[])(font_t*,const char *path) = {
+static int (*font_types[])(font_t *, const char *path) = {
 	psf1_load
 };
 
-font_t *gfx_load_font(const char *path){
-	if(!path)path = getenv("FONT");
+font_t *gfx_load_font(const char *path) {
+	if (!path)path = getenv("FONT");
 	font_t *font = malloc(sizeof(font_t));
 
-	for(size_t i = 0; i<sizeof(font_types) / sizeof(*font_types); i++){
-		if(font_types[i](font,path) >= 0){
+	for (size_t i = 0; i < sizeof(font_types) / sizeof(*font_types); i++) {
+		if (font_types[i](font, path) >= 0) {
 			return font;
 		}
 	}
@@ -20,31 +20,31 @@ font_t *gfx_load_font(const char *path){
 	return NULL;
 }
 
-void gfx_free_font(font_t *font){
-	if(font->free){
+void gfx_free_font(font_t *font) {
+	if (font->free) {
 		font->free(font);
 	}
 	free(font);
 }
 
-void gfx_draw_char(gfx_t *gfx,font_t *font,color_t color,long x,long y,int c){
-	return font->draw_char(gfx,font,color,x,y,c);
+void gfx_draw_char(gfx_t *gfx, font_t *font, color_t color, long x, long y, int c) {
+	return font->draw_char(gfx, font, color, x, y, c);
 }
 
-void gfx_draw_string(gfx_t *gfx,font_t *font,color_t color,long x,long y,const char *str){
-	while(*str){
-		gfx_draw_char(gfx,font,color,x,y,*(unsigned char *)str);
-		x += gfx_char_width(font,*(unsigned char *)str);
+void gfx_draw_string(gfx_t *gfx, font_t *font, color_t color, long x, long y, const char *str) {
+	while (*str) {
+		gfx_draw_char(gfx, font, color, x, y, *(unsigned char *)str);
+		x += gfx_char_width(font, *(unsigned char *)str);
 		str++;
 	}
 }
 
-long gfx_char_width(font_t *font,int c){
-	return font->char_width(font,c);
+long gfx_char_width(font_t *font, int c) {
+	return font->char_width(font, c);
 }
 
-long gfx_char_height(font_t *font,int c){
-	return font->char_height(font,c);
+long gfx_char_height(font_t *font, int c) {
+	return font->char_height(font, c);
 }
 
 

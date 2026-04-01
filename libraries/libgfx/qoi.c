@@ -1,4 +1,4 @@
-#include "gfx.h"
+#include <gfx.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -31,14 +31,14 @@ struct qoi_header {
 
 #define fix_endian(t) t = ((t >> 24) & 0xff) | ((t >> 8) & 0xff00) | ((t << 8) & 0xff0000) | ((t << 24) & 0xff000000)
 
-int qoi_load(gfx_t *gfx,texture_t *texture,FILE *file){
-	struct qoi_pixel prev = {.r = 0,.g = 0,.b = 0,.a = 255};
+int qoi_load(gfx_t *gfx, texture_t *texture, FILE *file) {
+	struct qoi_pixel prev = { .r = 0,.g = 0,.b = 0,.a = 255 };
 	struct qoi_pixel pixels_buf[64];
-	memset(pixels_buf,0,sizeof(pixels_buf));
+	memset(pixels_buf, 0, sizeof(pixels_buf));
 
 	rewind(file);
 	struct qoi_header header;
-	if(!fread(&header,sizeof(header),1,file))return -1;
+	if (!fread(&header, sizeof(header), 1, file))return -1;
 	fix_endian(header.width);
 	fix_endian(header.height);
 
@@ -48,14 +48,14 @@ int qoi_load(gfx_t *gfx,texture_t *texture,FILE *file){
 
 	size_t index = 0;
 	size_t zero_count = 0;
-	while(index < header.width * header.height){
+	while (index < header.width * header.height) {
 		uint8_t op;
-		if(!fread(&op,sizeof(op),1,file))return -1;
+		if (!fread(&op, sizeof(op), 1, file))return -1;
 
 		//check for end indicator
-		if(!op){
+		if (!op) {
 			zero_count++;
-		} else if(op == 1 && zero_count >= 7){
+		} else if (op == 1 && zero_count >= 7) {
 			//end
 			//the last 7 that we put where corrupted
 			index -= 7;
@@ -64,58 +64,58 @@ int qoi_load(gfx_t *gfx,texture_t *texture,FILE *file){
 			zero_count = 0;
 		}
 
-		switch(op){
+		switch (op) {
 		case QOI_OP_RGB:
-			if(!fread(&prev.r,sizeof(prev.r),1,file))return -1;
-			if(!fread(&prev.g,sizeof(prev.g),1,file))return -1;
-			if(!fread(&prev.b,sizeof(prev.b),1,file))return -1;
-			texture->bitmap[index++] = gfx_color_rgba(gfx,prev.r,prev.g,prev.b,prev.a);
+			if (!fread(&prev.r, sizeof(prev.r), 1, file))return -1;
+			if (!fread(&prev.g, sizeof(prev.g), 1, file))return -1;
+			if (!fread(&prev.b, sizeof(prev.b), 1, file))return -1;
+			texture->bitmap[index++] = gfx_color_rgba(gfx, prev.r, prev.g, prev.b, prev.a);
 			pixels_buf[QOI_COLOR_HASH(prev)] = prev;
 			continue;
 		case QOI_OP_RGBA:
-			if(!fread(&prev.r,sizeof(prev.r),1,file))return -1;
-			if(!fread(&prev.g,sizeof(prev.g),1,file))return -1;
-			if(!fread(&prev.b,sizeof(prev.b),1,file))return -1;
-			if(!fread(&prev.a,sizeof(prev.a),1,file))return -1;
-			texture->bitmap[index++] = gfx_color_rgba(gfx,prev.r,prev.g,prev.b,prev.a);
+			if (!fread(&prev.r, sizeof(prev.r), 1, file))return -1;
+			if (!fread(&prev.g, sizeof(prev.g), 1, file))return -1;
+			if (!fread(&prev.b, sizeof(prev.b), 1, file))return -1;
+			if (!fread(&prev.a, sizeof(prev.a), 1, file))return -1;
+			texture->bitmap[index++] = gfx_color_rgba(gfx, prev.r, prev.g, prev.b, prev.a);
 			pixels_buf[QOI_COLOR_HASH(prev)] = prev;
 			continue;;
 		}
-		switch((op >> 6) & 0b11){
+		switch ((op >> 6) & 0b11) {
 		case QOI_OP_INDEX:;
 			uint8_t i = op & 0b111111;
 			prev = pixels_buf[i];
-			texture->bitmap[index++] = gfx_color_rgba(gfx,prev.r,prev.g,prev.b,prev.a);
+			texture->bitmap[index++] = gfx_color_rgba(gfx, prev.r, prev.g, prev.b, prev.a);
 			continue;
 		case QOI_OP_DIFF:
 			prev.r += ((op >> 4) & 0x3) - 2;
 			prev.g += ((op >> 2) & 0x3) - 2;
 			prev.b += ((op >> 0) & 0x3) - 2;
-			texture->bitmap[index++] = gfx_color_rgba(gfx,prev.r,prev.g,prev.b,prev.a);
+			texture->bitmap[index++] = gfx_color_rgba(gfx, prev.r, prev.g, prev.b, prev.a);
 			pixels_buf[QOI_COLOR_HASH(prev)] = prev;
 			continue;
 		case QOI_OP_LUMA:;
 			int8_t gd = (op & 0x3f) - 32;
 			uint8_t b2;
-			if(!fread(&b2,sizeof(b2),1,file))return -1;
+			if (!fread(&b2, sizeof(b2), 1, file))return -1;
 			prev.g += gd;
 			prev.r += ((b2 >> 4) & 0xf) + gd - 8;
 			prev.b += ((b2 >> 0) & 0xf) + gd - 8;
-			texture->bitmap[index++] = gfx_color_rgba(gfx,prev.r,prev.g,prev.b,prev.a);
+			texture->bitmap[index++] = gfx_color_rgba(gfx, prev.r, prev.g, prev.b, prev.a);
 			pixels_buf[QOI_COLOR_HASH(prev)] = prev;
 			continue;
 		case QOI_OP_RUN:;
 			uint8_t count = (op & 0b111111) + 1;
-			color_t col = gfx_color_rgba(gfx,prev.r,prev.g,prev.b,prev.a);
-			while(count-- > 0){
+			color_t col = gfx_color_rgba(gfx, prev.r, prev.g, prev.b, prev.a);
+			while (count-- > 0) {
 				texture->bitmap[index++] = col;
 			}
 			continue;
 		}
 	}
 
-	color_t col = gfx_color_rgba(gfx,prev.r,prev.g,prev.b,prev.a);
-	while(index < header.width * header.height){
+	color_t col = gfx_color_rgba(gfx, prev.r, prev.g, prev.b, prev.a);
+	while (index < header.width * header.height) {
 		texture->bitmap[index++] = col;
 	}
 
