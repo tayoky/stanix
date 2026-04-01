@@ -1,6 +1,5 @@
 #include <kernel/scheduler.h>
 #include <kernel/spinlock.h>
-#include <kernel/kernel.h>
 #include <sys/wait.h>
 #include <stdatomic.h>
 #include <errno.h>
@@ -39,11 +38,8 @@ int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker) {
 
 	if (flags & WNOHANG) {
 		status = -ECHILD;
-	} else {
-		kernel->can_task_switch = 1;
-		if (block_task() < 0) {
-			status = -EINTR;
-		}
+	} else if (block_task() < 0) {
+		status = -EINTR;
 	}
 
 ret:

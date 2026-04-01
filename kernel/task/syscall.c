@@ -476,7 +476,7 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 
 	//prevent child state from changing
 	//NOT SMP SAFE
-	kernel->can_task_switch = 0;
+	preempt_disable();
 
 	kdebugf("wait for %ld\n", pid);
 
@@ -499,7 +499,7 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 
 		//make sure it exist and is a child
 		if ((!proc) || proc->parent != get_current_proc()) {
-			kernel->can_task_switch = 1;
+			preempt_enable();
 			return -ECHILD;
 		}
 		threads_count = 1;
@@ -509,6 +509,7 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 
 	task_t *waker;
 	int ret = waitfor(threads, threads_count, options, &waker);
+	preempt_enable();
 	kfree(threads);
 	if (ret < 0) {
 		return ret;
@@ -522,7 +523,6 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 	}
 
 	pid = proc->pid;
-
 	final_proc_cleanup(proc);
 
 	return pid;
@@ -1507,9 +1507,6 @@ void syscall_handler(fault_frame_t *context, void *arg) {
 
 	long (*syscall)(long, long, long, long, long) = syscall_table[ARG0_REG(*context)];
 	RET_REG(*context) = syscall(ARG1_REG(*context), ARG2_REG(*context), ARG3_REG(*context), ARG4_REG(*context), ARG5_REG(*context));
-
-	// reactive preemption in case the syscall forgot
-	kernel->can_task_switch = 1;
 
 	//now handle any unlblocked pending syscall
 	handle_signal(context);
