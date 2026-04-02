@@ -13,6 +13,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 
 // just in case we use a weird limits.h
 #ifndef PATH_MAX
@@ -43,6 +44,7 @@ struct vmm_seg;
 struct vfs_inode_ops;
 struct vfs_fd_ops;
 struct superblock;
+struct poll_event;
 
 typedef struct vfs_node {
 	void *private_inode;
@@ -125,6 +127,8 @@ typedef struct vfs_fd_ops {
 	int (*mmap)(vfs_fd_t *, off_t, struct vmm_seg *);
 	void (*close)(vfs_fd_t *);
 	off_t (*seek)(vfs_fd_t *, off_t offset, int whence);
+	int (*poll_add)(vfs_fd_t *, struct poll_event *);
+	int (*poll_remove)(vfs_fd_t *, struct poll_event *);
 } vfs_fd_ops_t;
 
 typedef struct vfs_superblock_ops {
@@ -217,6 +221,36 @@ static inline ssize_t vfs_user_write(vfs_fd_t *fd, const void *buffer, size_t si
 		fd->offset += ret;
 	}
 	return ret;
+}
+
+/**
+ * @brief wait on a file for read/write
+ * @param node the node to wait for
+ * @param type the type of action (write and/or read)
+ * @return 0 or -INVAL
+ * @note vfs_wait don't block the wait start only after calling block_task()
+ * @note this is unimplemented
+ */
+int vfs_wait(vfs_fd_t *node, short type);
+
+static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
+	if (!fd || !fd->ops->mmap) return -EBADF;
+	return fd->ops->mmap(fd, offset, seg);
+}
+
+static inline int vfs_poll_add(vfs_fd_t *fd, struct poll_event *event) {
+	if (!fd) return -EBADF;
+	if (!fd->ops->poll_add) {
+		// by default files are always readable and writable
+		return POLLIN | POLLOUT;
+	}
+	return fd->ops->poll_add(fd, event);
+}
+
+static inline int vfs_poll_remove(vfs_fd_t *fd, struct poll_event *event) {
+	if (!fd) return -EBADF;
+	if (fd->ops->poll_remove) return 0;
+	return fd->ops->poll_remove(fd, event);
 }
 
 int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode);
@@ -396,21 +430,6 @@ int vfs_ioctl(vfs_fd_t *fd, long request, void *arg);
  * @return 1 if is ready or 0 if not
  */
 int vfs_wait_check(vfs_fd_t *node, short type);
-
-/**
- * @brief wait on a file for read/write
- * @param node the node to wait for
- * @param type the type of action (write and/or read)
- * @return 0 or -INVAL
- * @note vfs_wait don't block the wait start only after calling block_task()
- * @note this is unimplemented
- */
-int vfs_wait(vfs_fd_t *node, short type);
-
-static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
-	if (!fd || !fd->ops->mmap) return -EBADF;
-	return fd->ops->mmap(fd, offset, seg);
-}
 
 void vfs_register_fs(vfs_filesystem_t *fs);
 void vfs_unregister_fs(vfs_filesystem_t *fs);
