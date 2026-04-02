@@ -86,11 +86,22 @@ void sleep_add_to_queue(sleep_queue_t *queue) {
 	spinlock_release(&queue->lock);
 }
 
+void sleep_remove_from_queue(sleep_queue_t *queue) {
+	spinlock_acquire(&queue->lock);
+	foreach (current, &queue->waiters) {
+		sleep_queue_node_t *node = container_of(current, sleep_queue_node_t, node);
+		if (node->task != get_current_task()) continue;
+		list_remove(&queue->waiters, &node->node);
+		slab_free(node);
+	}
+	spinlock_release(&queue->lock);
+}
+
 int sleep_on_queue(sleep_queue_t *queue) {
 	block_prepare();
 
 	sleep_add_to_queue(queue);
-
+	
 	return block_task();
 }
 
@@ -99,7 +110,12 @@ int sleep_on_queue_interruptible(sleep_queue_t *queue) {
 
 	sleep_add_to_queue(queue);
 
-	return block_task();
+	int ret = block_task();
+	if (ret < 0) {
+		// if interrupted must remove manually
+		sleep_remove_from_queue(queue);
+	}
+	return ret;
 }
 
 
