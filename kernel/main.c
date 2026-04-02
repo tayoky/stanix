@@ -115,6 +115,7 @@ void kmain() {
 	init_liminefb();
 	read_main_conf_file();
 	init_terminal_emualtor();
+	init_sleep();
 	init_ptys();
 	init_kout();
 	init_vmm();

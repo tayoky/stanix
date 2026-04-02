@@ -4,7 +4,14 @@
 #include <kernel/scheduler.h>
 #include <kernel/spinlock.h>
 #include <kernel/print.h>
+#include <kernel/slab.h>
 #include <errno.h>
+
+static slab_cache_t sleep_nodes_slab;
+
+void init_sleep(void) {
+	slab_init(&sleep_nodes_slab, sizeof(sleep_queue_node_t), "sleep queue nodes");
+}
 
 int sleep_until(struct timeval wakeup_time) {
 	kdebugf("wait until : %ld:%ld\n", wakeup_time.tv_sec, wakeup_time.tv_usec);
@@ -66,6 +73,19 @@ int micro_sleep(suseconds_t micro_second) {
 	return sleep_until(new_timeval);
 }
 
+
+void sleep_add_to_queue_unlocked(sleep_queue_t *queue) {
+	sleep_queue_node_t *node = slab_alloc(&sleep_nodes_slab);
+	node->task = get_current_task();
+	list_append(&queue->waiters, &node->node);
+}
+
+void sleep_add_to_queue(sleep_queue_t *queue) {
+	spinlock_acquire(&queue->lock);
+	sleep_add_to_queue_unlocked(queue);
+	spinlock_release(&queue->lock);
+}
+
 int sleep_on_queue(sleep_queue_t *queue) {
 	block_prepare();
 
@@ -82,15 +102,17 @@ int sleep_on_queue_interruptible(sleep_queue_t *queue) {
 	return block_task();
 }
 
+
 void wakeup_queue(sleep_queue_t *queue, size_t count) {
 	spinlock_acquire(&queue->lock);
 
 	list_node_t *current = queue->waiters.first_node;
 	while (current) {
-		task_t *task = container_of(current, task_t, waiter_list_node);
+		sleep_queue_node_t *node = container_of(current, sleep_queue_node_t, node);
 		current = current->next;
-		list_remove(&queue->waiters, &task->waiter_list_node);
-		unblock_task(task);
+		list_remove(&queue->waiters, &node->node);
+		unblock_task(node->task);
+		slab_free(node);
 
 		if (count) {
 			if (--count == 0)break;

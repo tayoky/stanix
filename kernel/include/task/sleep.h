@@ -6,7 +6,10 @@
 #include <kernel/list.h>
 #include <stddef.h>
 
-struct task;
+typedef struct sleep_queue_node {
+	list_node_t node;
+	task_t *task;
+} sleep_queue_node_t;
 
 typedef struct sleep_queue {
 	spinlock_t lock;
@@ -29,7 +32,7 @@ typedef struct sleep_queue {
 		\
 		if (l) spinlock_raw_release(l);\
 		\
-		list_append(&(queue)->waiters, &get_current_task()->waiter_list_node);\
+		sleep_add_to_queue_unlocked(queue);\
 		spinlock_raw_release(&(queue)->lock);\
 \
 		ret = block_task();\
@@ -56,7 +59,7 @@ typedef struct sleep_queue {
 		\
 		if (l) spinlock_raw_release(l);\
 		\
-		list_append(&(queue)->waiters, &get_current_task()->waiter_list_node);\
+		sleep_add_to_queue_unlocked(queue);\
 		spinlock_raw_release(&(queue)->lock);\
 \
 		ret = block_task();\
@@ -69,12 +72,9 @@ typedef struct sleep_queue {
 #define sleep_on_queue_condition(queue, cond) sleep_on_queue_lock(queue, cond, NULL)
 #define sleep_on_queue_condition_interruptible(queue, cond) sleep_on_queue_lock_interruptible(queue, cond, NULL)
 
-static inline void sleep_add_to_queue(sleep_queue_t *queue) {
-	spinlock_acquire(&queue->lock);
-	list_append(&queue->waiters, &get_current_task()->waiter_list_node);
-	spinlock_release(&queue->lock);
-}
-
+void init_sleep(void);
+void sleep_add_to_queue_unlocked(sleep_queue_t *queue);
+void sleep_add_to_queue(sleep_queue_t *queue);
 int sleep_on_queue(sleep_queue_t *queue);
 int sleep_on_queue_interruptible(sleep_queue_t *queue);
 void wakeup_queue(sleep_queue_t *queue,size_t count);
