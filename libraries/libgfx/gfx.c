@@ -55,6 +55,7 @@ gfx_t *gfx_create(void *framebuffer, struct fb *fb_info) {
 }
 
 void gfx_free(gfx_t *gfx) {
+	if (!gfx) return;
 	if (!gfx->is_clip) {
 		//TODO : ummap framebuffer
 		free(gfx->backbuffer);
