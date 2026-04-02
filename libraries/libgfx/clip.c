@@ -1,5 +1,6 @@
 
 #include <gfx.h>
+#include <stdlib.h>
 
 int gfx_bound_check(gfx_t *gfx, long *x, long *y, long *width, long *height) {
 	if (*x < 0) {
@@ -21,4 +22,14 @@ int gfx_bound_check(gfx_t *gfx, long *x, long *y, long *width, long *height) {
 		*height = gfx->height - *y;
 	}
     return 1;
+}
+
+gfx_t *gfx_create_clip(gfx_t *gfx, long x, long y, long width, long height) {
+	gfx_t *clip = malloc(sizeof(gfx_t));
+	*clip = *gfx;
+	clip->buffer = (void*)gfx_pixel_addr(gfx, x, y);
+	clip->width  = width;
+	clip->height = height;
+	clip->is_clip = 1;
+	return clip;
 }

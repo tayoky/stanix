@@ -36,6 +36,11 @@ texture_t *gfx_load_texture(gfx_t *gfx, const char *path) {
 	return texture;
 }
 
+void gfx_free_texture(texture_t *texture) {
+	free(texture->bitmap);
+	free(texture);
+}
+
 void gfx_draw_texture(gfx_t *gfx, texture_t *texture, long x, long y) {
 	for (size_t tx=0; tx < texture->width; tx++) {
 		for (size_t ty = 0; ty < texture->height; ty++) {

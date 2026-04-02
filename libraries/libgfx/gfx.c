@@ -33,6 +33,7 @@ gfx_t *gfx_create(void *framebuffer, struct fb *fb_info) {
 
 	gfx->backbuffer = malloc(fb_info->height * fb_info->pitch);
 	gfx->buffer = gfx->backbuffer;
+	gfx->is_clip = 0;
 	if (!gfx->backbuffer) {
 		free(gfx);
 		return NULL;
@@ -54,8 +55,10 @@ gfx_t *gfx_create(void *framebuffer, struct fb *fb_info) {
 }
 
 void gfx_free(gfx_t *gfx) {
-	//TODO : ummap framebuffer
-	free(gfx->backbuffer);
+	if (!gfx->is_clip) {
+		//TODO : ummap framebuffer
+		free(gfx->backbuffer);
+	}
 	free(gfx);
 }
 

@@ -20,6 +20,7 @@ typedef struct gfx_context {
 	int green_mask_size;
 	int blue_mask_shift;
 	int blue_mask_size;
+	int is_clip;
 } gfx_t;
 
 typedef struct gfx_font {
@@ -40,6 +41,7 @@ typedef struct gfx_texture {
 gfx_t *gfx_open_framebuffer(const char *path);
 gfx_t *gfx_create(void *framebuffer, struct fb *);
 void gfx_free(gfx_t *gfx);
+gfx_t *gfx_create_clip(gfx_t *gfx, long x, long y, long width, long height);
 void gfx_push_buffer(gfx_t *gfx);
 void gfx_push_rect(gfx_t *gfx, long x, long y, long width, long height);
 void gfx_enable_backbuffer(gfx_t *gfx);
@@ -63,6 +65,7 @@ long gfx_string_height(font_t *font, const char *str);
 
 
 texture_t *gfx_load_texture(gfx_t *gfx, const char *path);
+void gfx_free_texture(texture_t *texture);
 void gfx_draw_texture(gfx_t *gfx, texture_t *textutre, long x, long y);
 void gfx_draw_texture_alpha(gfx_t *gfx, texture_t *texture, long x, long y);
 void gfx_draw_texture_scale(gfx_t *gfx, texture_t *texture, long x, long y, float scale_x, float scale_y);
