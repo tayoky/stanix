@@ -82,6 +82,7 @@ Futures goals (once a goal is reached it is removed from the list).
 - [tutils](https://github.com/tayoky/tutils) a homeade portable reimplementation of coreutils and other various generic utils for unix-like used for Stanix.
 - [libterm](https://github.com/tayoky/libterm) a library to make terminal emulators.
 - [libttf](https://github.com/tayoky/libttf) a library to parse and render truetype fonts.
+- [libtgui](https://github.com/tayoky/libtgui) a GUI libray with a collection of widgets.
 - [Stanix's ports](https://github.com/tayoky/ports) a list of ports and packages for Stanix.
 
 ## packages
