@@ -313,12 +313,12 @@ int vfs_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 
 int vfs_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	if (!fd) return -EBADF;
-	if (!fd->ops->poll_add) {
+	if (!fd->ops->poll_get) {
 		// by default files are always readable and writable
 		event->revents = POLLIN | POLLOUT;
 		return 0;
 	}
-	int ret = fd->ops->poll_add(fd, event);
+	int ret = fd->ops->poll_get(fd, event);
 	// cap events
 	event->revents &= event->events | POLLHUP | POLLNVAL | POLLHUP;
 	return ret;
