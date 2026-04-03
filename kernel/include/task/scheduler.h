@@ -23,6 +23,7 @@ typedef struct run_queue {
 	spinlock_t lock;
 	list_t tasks;
 	struct task *prev;
+	int prev_is_on_queue;
 } run_queue_t;
 
 #define MAX_FD 32

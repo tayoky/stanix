@@ -675,6 +675,7 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 			poll_fini(&poll);
 			return -EBADF;
 		}
+		fds[i].revents = 0;
 		poll_add(&poll, file.fd, fds[i].events);
 	}
 

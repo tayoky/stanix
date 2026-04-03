@@ -85,6 +85,7 @@ static run_queue_t *get_run_queue(void) {
 
 static void run_queue_push_task(run_queue_t *run_queue, task_t *task) {
 	list_append(&run_queue->tasks, &task->run_list_node);
+	atomic_store(&task->run_queue, run_queue);
 }
 
 static task_t *run_queue_pop_task(run_queue_t *run_queue) {
@@ -232,8 +233,10 @@ task_t *new_kernel_task(void (*func)(void *arg), void *arg) {
 }
 
 void finish_yield(void) {
-	// the old task is not running anymore
-	atomic_store(&get_run_queue()->prev->run_queue, NULL);
+	if (!get_run_queue()->prev_is_on_queue) {
+		// the old task is not on the run queue anymore
+		atomic_store(&get_run_queue()->prev->run_queue, NULL);
+	}
 
 	spinlock_raw_release(&get_run_queue()->lock);
 }
@@ -247,9 +250,12 @@ void yield(int preempt) {
 
 	spinlock_acquire(&get_run_queue()->lock);
 
-	// we when preempt we continue to run an ignore status
+	// we when preempt we continue to run and ignore status
 	if (preempt || get_current_task()->status == TASK_STATUS_RUNNING) {
 		run_queue_push_task(get_run_queue(), get_current_task());
+		get_run_queue()->prev_is_on_queue = 1;
+	} else {
+		get_run_queue()->prev_is_on_queue = 0;
 	}
 	
 	// save old task
@@ -264,8 +270,7 @@ void yield(int preempt) {
 	}
 	
 	
-	// set the new task as running
-	atomic_store(&new->run_queue, get_run_queue());
+	// set the new task as the current
 	kernel->current_task = new;
 
 	if (old->process->vmm_space.addrspace != new->process->vmm_space.addrspace) {
@@ -431,7 +436,6 @@ int block_task_timeout(struct timespec *timeout) {
 int unblock_task_reason(task_t *task, int reason) {
 	spinlock_acquire(&task->state_lock);
 	run_queue_acquire_lock(task);
-
 	
 	// aready unblocked ?
 	if (task->status != TASK_STATUS_BLOCKED && task->status != TASK_STATUS_INTERRUPTIBLE) {
@@ -448,11 +452,7 @@ int unblock_task_reason(task_t *task, int reason) {
 	task->status = TASK_STATUS_RUNNING;
 	task->wakeup_reason = reason;
 	
-	// if the task is already running on another cpu don't push it back
-	// FIXME : this does not guarantee the task is not in another queue
-	// just quaratee it is not being executed
-	// RACE CONDITION
-	// TODO : maybee make run_queue always point to the queue of task no matter what ???
+	// if the task is already in the queue on another cpu don't push it back
 	if (task->run_queue) {
 		run_queue_release_lock(task);
 		spinlock_release(&task->state_lock);
