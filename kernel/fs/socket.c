@@ -35,21 +35,21 @@ static void socket_close(vfs_fd_t *fd) {
 
 int socket_poll_add(vfs_fd_t *socket, poll_event_t *event) {
 	socket_t *sock = socket->private;
-	if (!(socket->type != VFS_SOCK)) return -ENOTSOCK;
+	if (socket->type != VFS_SOCK) return -ENOTSOCK;
 	if (!sock->poll_add) return -EOPNOTSUPP;
 	return sock->poll_add(sock, event);
 }
 
 int socket_poll_remove(vfs_fd_t *socket, poll_event_t *event) {
 	socket_t *sock = socket->private;
-	if (!(socket->type != VFS_SOCK)) return -ENOTSOCK;
+	if (socket->type != VFS_SOCK) return -ENOTSOCK;
 	if (!sock->poll_remove) return -EOPNOTSUPP;
 	return sock->poll_remove(sock, event);
 }
 
 int socket_poll_get(vfs_fd_t *socket, poll_event_t *event) {
 	socket_t *sock = socket->private;
-	if (!(socket->type != VFS_SOCK)) return -ENOTSOCK;
+	if (socket->type != VFS_SOCK) return -ENOTSOCK;
 	if (!sock->poll_get) return -EOPNOTSUPP;
 	return sock->poll_get(sock, event);
 }

@@ -171,7 +171,6 @@ ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 
 int unix_poll_add(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
-	// TODO : what about POLLHUP
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
 		// you can't really wait for a disconnected socket to become ready
@@ -188,7 +187,6 @@ int unix_poll_add(socket_t *sock, poll_event_t *event) {
 
 int unix_poll_remove(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
-	// TODO : what about POLLHUP
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
 	case UNIX_STATUS_CONNECTED:
@@ -228,6 +226,7 @@ void unix_close(socket_t *sock) {
 		// FIXME : we need some kind of lock
 		// disconnect the peer
 		socket->connected->status = UNIX_STATUS_DISCONNECTED;
+		ringbuffer_wakeup_all(&socket->connected->queue);
 		destroy_ringbuffer(&socket->queue);
 		break;
 	case UNIX_STATUS_LISTEN:
