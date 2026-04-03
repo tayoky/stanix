@@ -23,17 +23,14 @@ typedef struct sleep_queue {
 		if (cond) break;\
 \
 		block_prepare_interruptible();\
-		spinlock_acquire(&(queue)->lock);\
+		sleep_add_to_queue(queue);\
 		if (cond) {\
 			block_cancel();\
-			spinlock_raw_release(&(queue)->lock);\
 			break;\
 		}\
 		\
 		if (l) spinlock_raw_release(l);\
 		\
-		sleep_add_to_queue_unlocked(queue);\
-		spinlock_raw_release(&(queue)->lock);\
 \
 		ret = block_task();\
 		if (ret < 0) break;\
@@ -50,17 +47,14 @@ typedef struct sleep_queue {
 		if (cond) break;\
 \
 		block_prepare();\
-		spinlock_acquire(&(queue)->lock);\
+		sleep_add_to_queue(queue);\
 		if (cond) {\
 			block_cancel();\
-			spinlock_raw_release(&(queue)->lock);\
 			break;\
 		}\
 		\
 		if (l) spinlock_raw_release(l);\
 		\
-		sleep_add_to_queue_unlocked(queue);\
-		spinlock_raw_release(&(queue)->lock);\
 \
 		ret = block_task();\
 		if (ret < 0) break;\

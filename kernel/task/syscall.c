@@ -20,6 +20,7 @@
 #include <kernel/signal.h>
 #include <kernel/futex.h>
 #include <kernel/asm.h>
+#include <kernel/poll.h>
 #include <sys/type.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
@@ -663,33 +664,35 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 		}
 	}
 
-	for (;;) {
-		int ready_count = 0;
-		for (nfds_t i=0; i < nfds; i++) {
-			fds[i].revents = 0;
-			file_descriptor_t file;
-			int ret = get_fd(fds[i].fd, &file);
-			if (ret < 0) {
-				fds[i].revents = POLLNVAL;
-				return -EBADF;
-			}
-			int r = vfs_wait_check(file.fd, fds[i].events);
-			if (r) {
-				//it's ready !!!!
-				fds[i].revents = r;
-				ready_count++;
-			}
+	poll_t poll;
+	poll_init(&poll);
+	for (nfds_t i=0; i<nfds; i++) {
+		file_descriptor_t file;
+		int ret = get_fd(fds[i].fd, &file);
+		if (ret < 0) {
+			fds[i].revents = POLLNVAL;
+			poll_cancel(&poll);
+			poll_fini(&poll);
+			return -EBADF;
 		}
-		if (ready_count) {
-			return ready_count;
-		}
-
-		//if timeout expire exit
-		if (timeout >= 0 && (time.tv_sec > end.tv_sec || (time.tv_sec == end.tv_sec && time.tv_usec >= end.tv_usec))) {
-			break;
-		}
-		yield(1);
+		poll_add(&poll, file.fd, fds[i].events);
 	}
+
+	// TODO : timeout support
+	int ret = poll_wait(&poll, NULL);
+	if (ret < 0) {
+		poll_fini(&poll);
+		return ret;
+	}
+
+	list_node_t *current = poll.events.first_node;
+	for (nfds_t i=0; i<nfds; i++) {
+		poll_event_t *event = container_of(current ,poll_event_t, node);
+		current = current->next;
+		fds[i].revents = event->revents;
+	}
+
+	poll_fini(&poll);
 
 	return 0;
 }

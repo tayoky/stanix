@@ -10,6 +10,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/slab.h>
 #include <kernel/assert.h>
+#include <kernel/poll.h>
 #include <limits.h>
 #include <stddef.h>
 #include <errno.h>
@@ -252,8 +253,8 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 
 ssize_t vfs_read(vfs_fd_t *fd, void *buffer, uint64_t offset, size_t count) {
 	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
-		// check if device is unpluged
-		if (((device_t *)fd->private)->type == DEVICE_UNPLUGED) return -ENODEV;
+		// check if device is unplugged
+		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
 	} else if (fd->type & VFS_DIR) {
 		return -EISDIR;
 	}
@@ -270,8 +271,8 @@ ssize_t vfs_read(vfs_fd_t *fd, void *buffer, uint64_t offset, size_t count) {
 
 ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t count) {
 	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
-		// check if device is unpluged
-		if (((device_t *)fd->private)->type == DEVICE_UNPLUGED) return -ENODEV;
+		// check if device is unplugged
+		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
 	} else if (fd->type & VFS_DIR) {
 		return -EISDIR;
 	}
@@ -288,10 +289,39 @@ ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t coun
 int vfs_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	if (!fd || !fd->ops->ioctl) return -EBADF;
 	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
-		// check if device is unpluged
-		if (((device_t *)fd->private)->type == DEVICE_UNPLUGED) return -ENODEV;
+		// check if device is unplugged
+		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
 	}
 	return fd->ops->ioctl(fd, request, arg);
+}
+
+int vfs_poll_add(vfs_fd_t *fd, poll_event_t *event) {
+	if (!fd) return -EBADF;
+	if (!fd->ops->poll_add) {
+		// by default files are always readable and writable
+		event->revents = POLLIN | POLLOUT;
+		return 0;
+	}
+	return fd->ops->poll_add(fd, event);
+}
+
+int vfs_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	if (!fd) return -EBADF;
+	if (fd->ops->poll_remove) return 0;
+	return fd->ops->poll_remove(fd, event);
+}
+
+int vfs_poll_get(vfs_fd_t *fd, poll_event_t *event) {
+	if (!fd) return -EBADF;
+	if (!fd->ops->poll_add) {
+		// by default files are always readable and writable
+		event->revents = POLLIN | POLLOUT;
+		return 0;
+	}
+	int ret = fd->ops->poll_add(fd, event);
+	// cap events
+	event->revents &= event->events | POLLHUP | POLLNVAL | POLLHUP;
+	return ret;
 }
 
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
@@ -301,30 +331,6 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 	if (node->ops->readlink) {
 		return node->ops->readlink(node, buf, bufsiz);
 	} else {
-		return -EINVAL;
-	}
-}
-
-int vfs_wait_check(vfs_fd_t *fd, short type) {
-	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
-		// check if device is unpluged
-		if (((device_t *)fd->private)->type == DEVICE_UNPLUGED) return type & POLLHUP;
-	}
-	if (fd->ops->wait_check) {
-		return fd->ops->wait_check(fd, type);
-	} else {
-		//by default report as ready for all request actions
-		//so that stuff such as files are alaways ready
-		return type;
-	}
-}
-
-int vfs_wait(vfs_fd_t *fd, short type) {
-	if (fd->ops->wait) {
-		return fd->ops->wait(fd, type);
-	} else {
-		//mmmm...
-		//how we land here ??
 		return -EINVAL;
 	}
 }

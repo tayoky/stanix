@@ -113,7 +113,7 @@ void device_release(device_t *device) {
 
 int destroy_device(device_t *device) {
 	hashmap_remove(&devices, device->number);
-	device->type = DEVICE_UNPLUGED;
+	device->type = DEVICE_UNPLUGGED;
 	if (device->destroy) device->destroy(device);
 	vfs_unlink_at(devfs_root, device->name);
 	device_release(device);

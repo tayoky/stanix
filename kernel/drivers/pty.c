@@ -41,23 +41,49 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 	return (ssize_t)count;
 }
 
-static int pty_master_wait_check(vfs_fd_t *fd, short type) {
+static int pty_is_disconnected(pty_t *pty) {
+	return atomic_load(&pty->slave->device.ref_count) == 1;
+}
+
+static int pty_master_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	pty_t *pty = (pty_t *)fd->private;
-	int events = 0;
 
-	if((type & POLLHUP) && atomic_load(&pty->slave->device.ref_count) == 1){
-		events |= POLLHUP;
-		kdebugf("pty is empty");
-	}
-	if ((type & POLLIN) && ringbuffer_read_available(&pty->output_buffer)) {
-		events |= POLLIN;
-	}
-	if (type & POLLOUT) {
-		//we can alaway write to master pty
-		events |= POLLOUT;
+	// cannot wait on disconnected master
+	if (pty_is_disconnected(pty)) {
+		return 0;
 	}
 
-	return events;
+	if (event->events & (POLLIN | POLLHUP)) {
+		sleep_add_to_queue(&pty->output_buffer.reader_queue);
+	}
+	if (event->events & POLLOUT) {
+		sleep_add_to_queue(&pty->slave->input_buffer.writer_queue);
+	}
+
+	return 0;
+}
+
+static int pty_master_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	pty_t *pty = (pty_t *)fd->private;
+
+	if (event->events & (POLLIN | POLLHUP)) {
+		sleep_remove_from_queue(&pty->output_buffer.reader_queue);
+	}
+	if (event->events & POLLOUT) {
+		sleep_remove_from_queue(&pty->slave->input_buffer.writer_queue);
+	}
+
+	return 0;
+}
+
+static int pty_master_poll_get(vfs_fd_t *fd, poll_event_t *event) {
+	pty_t *pty = (pty_t *)fd->private;
+
+	if (ringbuffer_read_available(&pty->output_buffer)) event->revents |= POLLIN;
+	if (ringbuffer_write_available(&pty->slave->input_buffer)) event->revents |= POLLOUT;
+	if (pty_is_disconnected(pty)) event->revents |= POLLHUP;
+
+	return 0;
 }
 
 void pty_master_close(vfs_fd_t *fd) {
@@ -69,10 +95,12 @@ void pty_master_close(vfs_fd_t *fd) {
 }
 
 static vfs_fd_ops_t pty_master_ops = {
-	.read       = pty_master_read,
-	.write      = pty_master_write,
-	.wait_check = pty_master_wait_check,
-	.close      = pty_master_close,
+	.read        = pty_master_read,
+	.write       = pty_master_write,
+	.poll_add    = pty_master_poll_add,
+	.poll_remove = pty_master_poll_remove,
+	.poll_get    = pty_master_poll_get,
+	.close       = pty_master_close,
 };
 
 static tty_ops_t pty_slave_ops = {

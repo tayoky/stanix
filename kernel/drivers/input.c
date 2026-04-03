@@ -50,19 +50,46 @@ static ssize_t input_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	return ringbuffer_read(&device->events, buf, count, fd->flags);
 }
 
-static int input_wait_check(vfs_fd_t *fd, short events) {
-	input_device_t *device = fd->private;
-	check_control(0);
-	int ret = 0;
-	if ((events & POLLIN) && (ringbuffer_read_available(&device->events))) ret |= POLLIN;
-	return ret;
-}
-
 static void input_close(vfs_fd_t *fd) {
 	input_device_t *device = fd->private;
 	if (fd == device->controlling_fd) {
 		device->controlling_fd = NULL;
 	}
+}
+
+static int input_poll_add(vfs_fd_t *fd, poll_event_t *event) {
+	input_device_t *device = fd->private;
+	check_control(0);
+	if (device_is_unplugged(&device->device)) {
+		// cannot wait un unplugged device
+		return 0;
+	}
+	if (event->events | (POLLIN | POLLHUP)) {
+		sleep_add_to_queue(&device->events.reader_queue);
+	}
+	return 0;
+}
+
+static int input_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	input_device_t *device = fd->private;
+	if (event->events | (POLLIN | POLLHUP)) {
+		sleep_remove_from_queue(&device->events.reader_queue);
+	}
+	return 0;
+}
+
+static int input_poll_get(vfs_fd_t *fd, poll_event_t *event) {
+	input_device_t *device = fd->private;
+	check_control(0);
+	if (device_is_unplugged(&device->device)) {
+		event->revents |= POLLHUP;
+	}
+
+	if (ringbuffer_read_available(&device->events)) {
+		event->revents |= POLLIN;
+	}
+
+	return 0;
 }
 
 static void input_destroy(device_t *device) {
@@ -74,10 +101,12 @@ static void input_destroy(device_t *device) {
 }
 
 static vfs_fd_ops_t input_ops = {
-	.read       = input_read,
-	.ioctl      = input_ioctl,
-	.wait_check = input_wait_check,
-	.close      = input_close,
+	.read        = input_read,
+	.ioctl       = input_ioctl,
+	.poll_add    = input_poll_add,
+	.poll_remove = input_poll_remove,
+	.poll_get    = input_poll_get,
+	.close       = input_close,
 };
 
 int send_input_event(input_device_t *device, struct input_event *event) {

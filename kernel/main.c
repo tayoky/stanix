@@ -24,6 +24,7 @@
 #include <kernel/socket.h>
 #include <kernel/futex.h>
 #include <kernel/unix.h>
+#include <kernel/poll.h>
 #include <kernel/vmm.h>
 #include <sys/time.h>
 
@@ -116,6 +117,7 @@ void kmain() {
 	read_main_conf_file();
 	init_terminal_emualtor();
 	init_sleep();
+	init_poll();
 	init_ptys();
 	init_kout();
 	init_vmm();

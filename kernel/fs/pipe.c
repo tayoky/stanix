@@ -3,8 +3,9 @@
 #include <kernel/ringbuf.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>
-#include <errno.h>
 #include <kernel/print.h>
+#include <kernel/poll.h>
+#include <errno.h>
 #include <poll.h>
 #include <stdatomic.h>
 
@@ -39,33 +40,40 @@ static ssize_t pipe_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t
 	return ringbuffer_write(&pipe->ring, buffer, count, fd->flags);
 }
 
-static int pipe_wait_check(vfs_fd_t *fd, short type) {
+static int pipe_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	pipe_t *pipe = (pipe_t *)fd->private;
-	int events = 0;
-	if (pipe->isbroken) {
-		events |= POLLHUP;
-		//if we are the write end set POLLERR
-		if (fd->ops->write) {
-			events |= POLLERR;
-		}
+	if (atomic_load(&pipe->isbroken)) {
+		// cannot wait on broken pipe
+		return 0;
 	}
-	if ((fd->ops->read) && (type & POLLIN) && ringbuffer_read_available(&pipe->ring)) {
-		type |= POLLIN;
+
+	return ringbuffer_poll_add(&pipe->ring, event);
+}
+
+static int pipe_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	pipe_t *pipe = (pipe_t *)fd->private;
+	return ringbuffer_poll_remove(&pipe->ring, event);
+}
+
+static int pipe_poll_get(vfs_fd_t *fd, poll_event_t *event) {
+	pipe_t *pipe = (pipe_t *)fd->private;
+	if (atomic_load(&pipe->isbroken)) {
+		event->events |= POLLHUP;
 	}
-	if ((fd->ops->write) && (type & POLLOUT) && ringbuffer_write_available(&pipe->ring)) {
-		type |= POLLOUT;
-	}
-	return type;
+	return ringbuffer_poll_get(&pipe->ring, event);
 }
 
 static void pipe_close(vfs_fd_t *fd) {
 	pipe_t *pipe = (pipe_t *)fd->private;
 
-	// if it's aready broken delete the pipe
+	// if it's already broken delete the pipe
 	if (atomic_exchange(&pipe->isbroken, 1)) {
 		destroy_ringbuffer(&pipe->ring);
 		kfree(pipe);
 		return;
+	} else {
+		// else wakeup everybody that might be waiting for something
+		ringbuffer_wakeup_all(&pipe->ring);
 	}
 
 	return;
@@ -73,13 +81,17 @@ static void pipe_close(vfs_fd_t *fd) {
 
 static vfs_fd_ops_t pipe_write_ops = {
 	.write = pipe_write,
-	.wait_check = pipe_wait_check,
+	.poll_add    = pipe_poll_add,
+	.poll_remove = pipe_poll_remove,
+	.poll_get    = pipe_poll_get,
 	.close = pipe_close,
 };
 
 static vfs_fd_ops_t pipe_read_ops = {
 	.read = pipe_read,
-	.wait_check = pipe_wait_check,
+	.poll_add    = pipe_poll_add,
+	.poll_remove = pipe_poll_remove,
+	.poll_get    = pipe_poll_get,
 	.close = pipe_close,
 };
 

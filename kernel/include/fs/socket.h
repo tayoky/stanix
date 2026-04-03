@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 
 struct socket_domain;
+struct poll_event;
 
 typedef struct socket {
 	struct socket_domain *domain;
@@ -17,7 +18,9 @@ typedef struct socket {
 	int (*bind)(struct socket *socket, const struct sockaddr *address, socklen_t address_len);
 	int (*connect)(struct socket *socket, const struct sockaddr *address, socklen_t address_len);
 	int (*listen)(struct socket *socket, int backlog);
-	int (*wait_check)(struct socket *socket, short type);
+	int (*poll_add)(struct socket *, struct poll_event *);
+	int (*poll_remove)(struct socket *, struct poll_event *);
+	int (*poll_get)(struct socket *, struct poll_event *);
 	void (*close)(struct socket *socket);
 	struct sockaddr *connected;
 	socklen_t connected_len;

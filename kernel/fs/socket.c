@@ -2,6 +2,7 @@
 #include <kernel/kheap.h>
 #include <kernel/list.h>
 #include <kernel/string.h>
+#include <kernel/poll.h>
 #include <errno.h>
 
 static list_t socket_domains;
@@ -32,12 +33,25 @@ static void socket_close(vfs_fd_t *fd) {
 	}
 }
 
-
-int socket_wait_check(vfs_fd_t *socket, short type) {
+int socket_poll_add(vfs_fd_t *socket, poll_event_t *event) {
 	socket_t *sock = socket->private;
-	if (!(socket->type & VFS_SOCK)) return -ENOTSOCK;
-	if (!sock->wait_check) return -EOPNOTSUPP;
-	return sock->wait_check(sock, type);
+	if (!(socket->type != VFS_SOCK)) return -ENOTSOCK;
+	if (!sock->poll_add) return -EOPNOTSUPP;
+	return sock->poll_add(sock, event);
+}
+
+int socket_poll_remove(vfs_fd_t *socket, poll_event_t *event) {
+	socket_t *sock = socket->private;
+	if (!(socket->type != VFS_SOCK)) return -ENOTSOCK;
+	if (!sock->poll_remove) return -EOPNOTSUPP;
+	return sock->poll_remove(sock, event);
+}
+
+int socket_poll_get(vfs_fd_t *socket, poll_event_t *event) {
+	socket_t *sock = socket->private;
+	if (!(socket->type != VFS_SOCK)) return -ENOTSOCK;
+	if (!sock->poll_get) return -EOPNOTSUPP;
+	return sock->poll_get(sock, event);
 }
 
 void *socket_new(size_t size) {
@@ -47,9 +61,11 @@ void *socket_new(size_t size) {
 }
 
 static vfs_fd_ops_t socket_ops = {
-	.wait_check = socket_wait_check,
-	.read       = socket_read,
-	.close      = socket_close,
+	.poll_add    = socket_poll_add,
+	.poll_remove = socket_poll_remove,
+	.poll_get    = socket_poll_get,
+	.read        = socket_read,
+	.close       = socket_close,
 };
 
 static vfs_fd_t *open_socket(socket_t *socket) {

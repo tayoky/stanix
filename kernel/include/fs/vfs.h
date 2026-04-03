@@ -122,13 +122,12 @@ typedef struct vfs_fd_ops {
 	ssize_t(*read)(vfs_fd_t *, void *buf, off_t off, size_t count);
 	ssize_t(*write)(vfs_fd_t *, const void *buf, off_t off, size_t count);
 	int (*ioctl)(vfs_fd_t *, long, void *);
-	int (*wait_check)(vfs_fd_t *, short);
-	int (*wait)(vfs_fd_t *, short);
 	int (*mmap)(vfs_fd_t *, off_t, struct vmm_seg *);
 	void (*close)(vfs_fd_t *);
 	off_t (*seek)(vfs_fd_t *, off_t offset, int whence);
 	int (*poll_add)(vfs_fd_t *, struct poll_event *);
 	int (*poll_remove)(vfs_fd_t *, struct poll_event *);
+	int (*poll_get)(vfs_fd_t *, struct poll_event *);
 } vfs_fd_ops_t;
 
 typedef struct vfs_superblock_ops {
@@ -238,20 +237,9 @@ static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
 	return fd->ops->mmap(fd, offset, seg);
 }
 
-static inline int vfs_poll_add(vfs_fd_t *fd, struct poll_event *event) {
-	if (!fd) return -EBADF;
-	if (!fd->ops->poll_add) {
-		// by default files are always readable and writable
-		return POLLIN | POLLOUT;
-	}
-	return fd->ops->poll_add(fd, event);
-}
-
-static inline int vfs_poll_remove(vfs_fd_t *fd, struct poll_event *event) {
-	if (!fd) return -EBADF;
-	if (fd->ops->poll_remove) return 0;
-	return fd->ops->poll_remove(fd, event);
-}
+int vfs_poll_add(vfs_fd_t *fd, struct poll_event *event);
+int vfs_poll_remove(vfs_fd_t *fd, struct poll_event *event);
+int vfs_poll_get(vfs_fd_t *fd, struct poll_event *event);
 
 int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode);
 int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode);
@@ -422,14 +410,6 @@ int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner);
  * @return device/request specific
  */
 int vfs_ioctl(vfs_fd_t *fd, long request, void *arg);
-
-/**
- * @brief check if a vfs_node_t is ready for write/read
- * @param node the node to check
- * @param type the type to check (read and/or write)
- * @return 1 if is ready or 0 if not
- */
-int vfs_wait_check(vfs_fd_t *node, short type);
 
 void vfs_register_fs(vfs_filesystem_t *fs);
 void vfs_unregister_fs(vfs_filesystem_t *fs);

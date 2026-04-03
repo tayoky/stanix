@@ -169,27 +169,53 @@ ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 	return total;
 }
 
-
-int unix_wait_check(socket_t *sock, short event) {
+int unix_poll_add(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
-	int ret = 0;
+	// TODO : what about POLLHUP
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
-		ret |= POLLHUP;
-		// fallthrough
+		// you can't really wait for a disconnected socket to become ready
+		return 0;
 	case UNIX_STATUS_CONNECTED:
-		if (ringbuffer_read_available(&socket->queue)) ret |= POLLIN;
+		ringbuffer_poll_add(&socket->queue, event);
 		break;
 	case UNIX_STATUS_LISTEN:
-		if (ringbuffer_read_available(&socket->queue)) ret |= POLLIN;
-		break;
-	default:
-		ret = event;
+		ringbuffer_poll_add(&socket->queue, event);
 		break;
 	}
-	return ret;
+	return 0;
 }
 
+int unix_poll_remove(socket_t *sock, poll_event_t *event) {
+	unix_socket_t *socket = (unix_socket_t*)sock;
+	// TODO : what about POLLHUP
+	switch (socket->status) {
+	case UNIX_STATUS_DISCONNECTED:
+	case UNIX_STATUS_CONNECTED:
+		ringbuffer_poll_remove(&socket->queue, event);
+		break;
+	case UNIX_STATUS_LISTEN:
+		ringbuffer_poll_remove(&socket->queue, event);
+		break;
+	}
+	return 0;
+}
+
+int unix_poll_get(socket_t *sock, poll_event_t *event) {
+	unix_socket_t *socket = (unix_socket_t*)sock;
+	switch (socket->status) {
+	case UNIX_STATUS_DISCONNECTED:
+		event->revents |= POLLHUP;
+		// fallthrough
+	case UNIX_STATUS_CONNECTED:
+		ringbuffer_poll_get(&socket->queue, event);
+		break;
+	case UNIX_STATUS_LISTEN:
+		ringbuffer_poll_get(&socket->queue, event);
+		break;
+	}
+	return 0;
+}
 
 void unix_close(socket_t *sock) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
@@ -228,13 +254,15 @@ socket_t *unix_create(int type, int protocol) {
 	socket->bound.sun_family = AF_UNIX;
 	
 	socket->socket.close = unix_close;
-	socket->socket.wait_check = unix_wait_check;
 	socket->socket.accept  = unix_accept;
 	socket->socket.bind    = unix_bind;
 	socket->socket.connect = unix_connect;
 	socket->socket.listen  = unix_listen;
 	socket->socket.recvmsg = unix_recvmsg;
 	socket->socket.sendmsg = unix_sendmsg;
+	socket->socket.poll_add    = unix_poll_add;
+	socket->socket.poll_remove = unix_poll_remove;
+	socket->socket.poll_get    = unix_poll_get;
 
 	return (socket_t*)socket;
 }

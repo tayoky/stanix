@@ -29,7 +29,6 @@ typedef struct tty {
 	char *canon_buf;
 	size_t canon_index;
 	pid_t fg_pgrp;
-	int unconnected;
 } tty_t;
 
 typedef struct pty {

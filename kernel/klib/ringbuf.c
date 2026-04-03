@@ -4,6 +4,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/userspace.h>
 #include <kernel/sleep.h>
+#include <kernel/poll.h>
 #include <errno.h>
 
 void init_ringbuffer(ringbuffer_t *ring, size_t buffer_size) {
@@ -125,4 +126,40 @@ ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long
 
 
 	return count;
+}
+
+void ringbuffer_wakeup_all(ringbuffer_t *ring) {
+	wakeup_queue(&ring->reader_queue, 0);
+	wakeup_queue(&ring->writer_queue, 0);
+}
+
+int ringbuffer_poll_add(ringbuffer_t *ring, poll_event_t *event) {
+	if (event->events & (POLLIN | POLLHUP)) {
+		sleep_add_to_queue(&ring->reader_queue);
+	}
+	if (event->events & POLLOUT) {
+		sleep_add_to_queue(&ring->writer_queue);
+	}
+
+	return 0;
+}
+
+int ringbuffer_poll_remove(ringbuffer_t *ring, poll_event_t *event) {
+	if (event->events & (POLLIN | POLLHUP)) {
+		sleep_remove_from_queue(&ring->reader_queue);
+	}
+	if (event->events & POLLOUT) {
+		sleep_remove_from_queue(&ring->writer_queue);
+	}
+	return 0;
+}
+
+int ringbuffer_poll_get(ringbuffer_t *ring, poll_event_t *event) {
+	if (ringbuffer_read_available(ring)) {
+		event->revents |= POLLIN;
+	}
+	if (ringbuffer_write_available(ring)) {
+		event->revents |= POLLOUT;
+	}
+	return 0;
 }

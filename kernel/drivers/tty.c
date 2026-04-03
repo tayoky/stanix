@@ -39,22 +39,43 @@ static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t 
 	return count;
 }
 
-static int tty_wait_check(vfs_fd_t *fd,short type){
+static int tty_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	tty_t *tty = (tty_t *)fd->private;
-	int events = 0;
-	if ((type & POLLHUP) && tty->unconnected) {
-		events |= POLLHUP;
+
+	if (device_is_unplugged(&tty->device)) {
+		// cannot wait on disconnected ttys
+		return 0;
 	}
 
-	if ((type & POLLIN) && ringbuffer_read_available(&tty->input_buffer)) {
-		events |= POLLIN;
+	if (event->events & (POLLIN | POLLHUP)) {
+		sleep_add_to_queue(&tty->input_buffer.reader_queue);
 	}
 
-	if (type & POLLOUT) {
-		events |= POLLOUT;
+	return 0;
+}
+
+static int tty_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	tty_t *tty = (tty_t *)fd->private;
+	if (event->events & (POLLIN | POLLHUP)) {
+		sleep_remove_from_queue(&tty->input_buffer.reader_queue);
+	}
+	return 0;
+}
+
+static int tty_poll_get(vfs_fd_t *fd, poll_event_t *event) {
+	tty_t *tty = (tty_t *)fd->private;
+
+	if (device_is_unplugged(&tty->device)) {
+		event->revents |= POLLHUP;
 	}
 
-	return events;
+	if (ringbuffer_read_available(&tty->input_buffer)) event->revents |= POLLIN;
+
+	// technicly we sometimes cannot write
+	// but who care ?
+	event->revents |= POLLOUT;
+
+	return 0;
 }
 
 static void tty_destroy(device_t *device){
@@ -64,6 +85,7 @@ static void tty_destroy(device_t *device){
 
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
+	ringbuffer_wakeup_all(&tty->input_buffer);
 	destroy_ringbuffer(&tty->input_buffer);
 	kfree(tty->canon_buf);
 }
@@ -102,10 +124,12 @@ static int tty_ioctl(vfs_fd_t *fd, long request, void *arg) {
 }
 
 static vfs_fd_ops_t tty_ops = {
-	.read       = tty_read,
-	.write      = tty_write,
-	.ioctl      = tty_ioctl,
-	.wait_check = tty_wait_check,
+	.read        = tty_read,
+	.write       = tty_write,
+	.ioctl       = tty_ioctl,
+	.poll_add    = tty_poll_add,
+	.poll_remove = tty_poll_remove,
+	.poll_get    = tty_poll_get,
 };
 
 tty_t *new_tty(tty_t *tty) {

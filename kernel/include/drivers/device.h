@@ -33,7 +33,7 @@ typedef struct device {
 #define DEVICE_CHAR     1
 #define DEVICE_BLOCK    2
 #define DEVICE_BUS      3
-#define DEVICE_UNPLUGED 4
+#define DEVICE_UNPLUGGED 4
 
 int register_device_driver(device_driver_t *device_driver);
 int unregister_device_driver(device_driver_t *device_driver);
@@ -81,6 +81,10 @@ static inline device_t *device_ref(device_t *device) {
  * @param device the device to release
  */
 void device_release(device_t *device);
+
+static inline device_is_unplugged(device_t *device) {
+	return device->type == DEVICE_UNPLUGGED;
+}
 
 void init_devices(void);
 void init_mem_devices(void);
