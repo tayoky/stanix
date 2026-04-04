@@ -8,6 +8,15 @@
 #define check_control(val) if (!device->controlling_fd) device->controlling_fd = fd;\
 										 if (device->controlling_fd != fd) return val;
 
+static void input_drop_control(input_device_t *device) {
+	kdebugf("process %d drop control\n",get_current_proc()->pid);
+	device->controlling_fd = NULL;
+
+	// we need to wakeup everyone
+	// because know they can take control of the input device :)
+	ringbuffer_wakeup_all(&device->events);
+}
+
 static int input_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	int ret = -EINVAL;
 	input_device_t *device = fd->private;
@@ -17,8 +26,7 @@ static int input_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		device->controlling_fd = fd;
 		return 0;
 	case I_INPUT_DROP_CONTROL:
-		kdebugf("process %d drop control\n",get_current_proc()->pid);
-		device->controlling_fd = NULL;
+		input_drop_control(device);
 		return 0;
 	case I_INPUT_GET_INFO:;
 		struct input_info *info = arg;
@@ -53,13 +61,12 @@ static ssize_t input_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 static void input_close(vfs_fd_t *fd) {
 	input_device_t *device = fd->private;
 	if (fd == device->controlling_fd) {
-		device->controlling_fd = NULL;
+		input_drop_control(device);
 	}
 }
 
 static int input_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	input_device_t *device = fd->private;
-	check_control(0);
 	if (device_is_unplugged(&device->device)) {
 		// cannot wait un unplugged device
 		return 0;
@@ -80,10 +87,11 @@ static int input_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 
 static int input_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	input_device_t *device = fd->private;
-	check_control(0);
 	if (device_is_unplugged(&device->device)) {
 		event->revents |= POLLHUP;
 	}
+
+	check_control(0);
 
 	if (ringbuffer_read_available(&device->events)) {
 		event->revents |= POLLIN;

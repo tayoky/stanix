@@ -39,19 +39,31 @@ void poll_cancel(poll_t *poll) {
 
 int poll_wait(poll_t *poll, struct timespec *timeout) {
     int ret = 0;
-    if (poll->ready) {
-        block_cancel();
-    } else {
-        spinlock_release(&poll->lock);
-        ret = block_task_timeout(timeout);
-        spinlock_acquire(&poll->lock);
-    }
+    for (;;) {
+        if (poll->ready) {
+            block_cancel();
+        } else {
+            spinlock_release(&poll->lock);
+            ret = block_task_timeout(timeout);
+            spinlock_acquire(&poll->lock);
+        }
 
-    // remove from each sleep queue
-    foreach (current, &poll->events) {
-        poll_event_t *event = container_of(current, poll_event_t, node);
-        vfs_poll_remove(event->fd, event);
-        vfs_poll_get(event->fd, event);
+        // remove from each sleep queue and update status
+        foreach (current, &poll->events) {
+            poll_event_t *event = container_of(current, poll_event_t, node);
+            vfs_poll_remove(event->fd, event);
+            vfs_poll_get(event->fd, event);
+        }
+        if (poll->ready || ret < 0) break;
+
+        // restart sleep if still not ready
+        block_prepare_interruptible();
+        foreach (current, &poll->events) {
+            poll_event_t *event = container_of(current, poll_event_t, node);
+            vfs_poll_add(event->fd, event);
+            vfs_poll_get(event->fd, event);
+            if (event->revents) poll->ready = 1;
+        }
     }
     return ret;
 }
