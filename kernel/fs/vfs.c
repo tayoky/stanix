@@ -307,7 +307,7 @@ int vfs_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 
 int vfs_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 	if (!fd) return -EBADF;
-	if (fd->ops->poll_remove) return 0;
+	if (!fd->ops->poll_remove) return 0;
 	return fd->ops->poll_remove(fd, event);
 }
 
@@ -318,6 +318,7 @@ int vfs_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 		event->revents = POLLIN | POLLOUT;
 		return 0;
 	}
+	event->revents = 0;
 	int ret = fd->ops->poll_get(fd, event);
 	// cap events
 	event->revents &= event->events | POLLHUP | POLLNVAL | POLLHUP;

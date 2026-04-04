@@ -93,6 +93,7 @@ void sleep_remove_from_queue(sleep_queue_t *queue) {
 		if (node->task != get_current_task()) continue;
 		list_remove(&queue->waiters, &node->node);
 		slab_free(node);
+		break;
 	}
 	spinlock_release(&queue->lock);
 }
