@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <tgui/tgui.h>
 
+/**
+ * this file from libtgui (https://github.com/tayoky/tgui) and is under the BSD clause 3 license
+ */
+
 tgui_text_t *label;
 int syntax_error;
 
@@ -83,7 +87,7 @@ int equal_click(tgui_event_t *event) {
 	syntax_error = 0;
 	long value = calculate1(&str);
 	if (*str) syntax_error = 1;
-	tgui_text_set_content(label, "");
+	tgui_text_set_content(label, NULL);
 	if (syntax_error) {
 		tgui_text_set_placeholder(label, "syntax error");
 	} else {
@@ -111,10 +115,10 @@ int main() {
 	}
 
 	tgui_window_t *window = tgui_window_new("tgui calculator", 200, 200);
-	tgui_window_set_scaling(window, 2);
 
 	label = tgui_text_new();
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(label), TGUI_TRUE);
+	tgui_widget_set_margin(TGUI_WIDGET_CAST(label), 1);
 
 	// create the grid with all the buttons
 	tgui_grid_t *grid = tgui_grid_new(4, 4);
@@ -143,8 +147,9 @@ int main() {
 	// put the label and the grid in a box
 	tgui_box_t *box = tgui_box_new();
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(box), TGUI_TRUE);
+	tgui_widget_set_vexpand(TGUI_WIDGET_CAST(box), TGUI_TRUE);
 	tgui_box_append_widget(box, TGUI_WIDGET_CAST(label));
-	tgui_box_append_widget(box, TGUI_WIDGET_CAST(tgui_separator_new(TGUI_ORIENTATION_HORIZONTAL)));
+	//tgui_box_append_widget(box, TGUI_WIDGET_CAST(tgui_separator_new(TGUI_ORIENTATION_HORIZONTAL)));
 	tgui_box_append_widget(box, TGUI_WIDGET_CAST(grid));
 
 	tgui_window_set_child(window, TGUI_WIDGET_CAST(box));
