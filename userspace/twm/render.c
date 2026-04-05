@@ -70,6 +70,11 @@ void invalidate_rect(long x, long y, long width, long height) {
 
 void render(void) {
 	if (invalidate_end_x == 0 && invalidate_end_y == 0) return;
+	if (invalidate_start_x < 0) invalidate_start_x = 0;
+	if (invalidate_start_y < 0) invalidate_start_y = 0;
+	if (invalidate_end_x > gfx->width) invalidate_end_x = gfx->width;
+	if (invalidate_end_y > gfx->height) invalidate_end_y = gfx->height;
+	
 	long invalidate_width = invalidate_end_x - invalidate_start_x;
 	long invalidate_height = invalidate_end_y - invalidate_start_y;
 
