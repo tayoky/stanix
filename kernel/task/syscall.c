@@ -679,8 +679,7 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 		poll_add(&poll, file.fd, fds[i].events);
 	}
 
-	// TODO : timeout support
-	int ret = poll_wait(&poll, NULL);
+	int ret = poll_wait(&poll, timeout >= 0 ? &end : NULL);
 	if (ret < 0) {
 		poll_fini(&poll);
 		return ret;

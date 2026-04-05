@@ -13,19 +13,17 @@ void init_sleep(void) {
 	slab_init(&sleep_nodes_slab, sizeof(sleep_queue_node_t), "sleep queue nodes");
 }
 
-int sleep_until(struct timeval wakeup_time) {
-	kdebugf("wait until : %ld:%ld\n", wakeup_time.tv_sec, wakeup_time.tv_usec);
-	get_current_task()->wakeup_time = wakeup_time;
+void sleep_add_timeout(struct timeval *wakeup_time) {
+	get_current_task()->wakeup_time = *wakeup_time;
 	atomic_fetch_or(&get_current_task()->flags, TASK_FLAG_SLEEP);
 	
 	// add us to the list
 	// keep the list organised from first awake to last
-	block_prepare_interruptible();
 	spinlock_acquire(&sleep_lock);
 	task_t *prev = NULL;
 	foreach (node, &sleeping_tasks) {
 		task_t *task = container_of(node, task_t, waiter_list_node);
-		if (!task || task->wakeup_time.tv_sec > wakeup_time.tv_usec || (task->wakeup_time.tv_sec == wakeup_time.tv_sec && task->wakeup_time.tv_usec > wakeup_time.tv_usec)) {
+		if (!task || task->wakeup_time.tv_sec > wakeup_time->tv_usec || (task->wakeup_time.tv_sec == wakeup_time->tv_sec && task->wakeup_time.tv_usec > wakeup_time->tv_usec)) {
 			break;
 		}
 		prev = task;
@@ -33,19 +31,23 @@ int sleep_until(struct timeval wakeup_time) {
 
 	list_add_after(&sleeping_tasks, prev ? &prev->waiter_list_node : NULL, &get_current_task()->waiter_list_node);
 	spinlock_release(&sleep_lock);
-	
-	if (block_task() == -EINTR) {
-		if (atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_SLEEP) & TASK_FLAG_SLEEP) {
-			// we are still in the sleep queue
-			// remove us
-			spinlock_acquire(&sleep_lock);
-			list_remove(&sleeping_tasks, &get_current_task()->waiter_list_node);
-			spinlock_release(&sleep_lock);
-		}
-		return -EINTR;
-	} else {
-		return 0;
+}
+
+void sleep_remove_timeout(void) {
+	spinlock_acquire(&sleep_lock);
+	if (atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_SLEEP) & TASK_FLAG_SLEEP) {
+		// we are still in the sleep queue
+		// remove us
+		list_remove(&sleeping_tasks, &get_current_task()->waiter_list_node);
 	}
+	spinlock_release(&sleep_lock);
+}
+
+int sleep_until(struct timeval wakeup_time) {
+	block_prepare_interruptible();
+	int ret = block_task_timeout(&wakeup_time);
+	if (ret == -ETIMEDOUT) ret = 0;
+	return ret;
 }
 
 int sleep(long seconds) {

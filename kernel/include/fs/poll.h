@@ -30,7 +30,7 @@ void poll_fini(poll_t *poll);
  * @param poll the poll to wait for
  * @param timeout an optional timeout
  */
-int poll_wait(poll_t *poll, struct timespec *timeout);
+int poll_wait(poll_t *poll, struct timeval *timeout);
 
 /**
  * @brief cancel a poll

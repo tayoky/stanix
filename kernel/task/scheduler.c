@@ -11,6 +11,7 @@
 #include <kernel/time.h>
 #include <kernel/asm.h>
 #include <kernel/signal.h>
+#include <kernel/sleep.h>
 #include <kernel/vmm.h>
 #include <stdatomic.h>
 #include <errno.h>
@@ -416,19 +417,31 @@ int block_task(void) {
 	return 0;
 }
 
-int block_task_timeout(struct timespec *timeout) {
-	// TODO : do the timeout part
-	(void)timeout;
+int block_task_timeout(struct timeval *timeout) {
+	if (!timeout) {
+		return block_task();
+	}
+
+	// check if timeout is already out
+	if (timeval_cmp(timeout, &time) <= 0) {
+		block_cancel();
+		return -ETIMEDOUT;
+	}
+	sleep_add_timeout(timeout);
 
 	yield(0);
 
 	switch(get_current_task()->wakeup_reason) {
 	case WAKEUP_TIMEOUT:
+		// no need to remove from timeout list
+		// because we know we waked up because of timeout
 		return -ETIMEDOUT;
 	case WAKEUP_SIGNAL:
+		sleep_remove_timeout();
 		return -EINTR;
 	case WAKEUP_OTHER:
 	default:
+		sleep_remove_timeout();
 		return 0;
 	}
 }

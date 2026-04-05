@@ -78,7 +78,7 @@ void sleep_add_to_queue_unlocked(sleep_queue_t *queue);
 /**
  * @brief add the current task to a sleep queue
  * @note if sleeping on multiple queues or using timeout or interruible sleep, you must
- * call \ref sleep_remove_from queue once the sleep is finished
+ * call \ref sleep_remove_from_queue once the sleep is finished
  * else it's automatic
  * @param queue the queue to add the current task to
  */
@@ -90,6 +90,20 @@ void sleep_add_to_queue(sleep_queue_t *queue);
  * @param queue the queue to remove the current task from
  */
 void sleep_remove_from_queue(sleep_queue_t *queue);
+
+/**
+ * @brief add the current task to the timeout queue
+ * @note if sleeping on multiple queues or using timeout or interruible sleep, you must
+ * call \ref sleep_remove_timeout queue once the sleep is finished
+ * else it's automatic
+ * @param wakeup_time wakeup when time reach this timeval
+ */
+void sleep_add_timeout(struct timeval *wakeup_time);
+
+/**
+ * @brief remove the current task from the timeout queue
+ */
+void sleep_remove_timeout(void);
 
 /**
  * @brief sleep on a queue
@@ -111,5 +125,27 @@ int sleep_on_queue_interruptible(sleep_queue_t *queue);
  * @param count the number of waiters to wakeup or 0 for all
  */
 void wakeup_queue(sleep_queue_t *queue, size_t count);
+
+/**
+ * @brief sleep until a timeval
+ * @param wakeup_time the timeval to sleep until
+ * @return 0 on success or -EINTR if interrupted
+ */
+int sleep_until(struct timeval wakeup_time);
+
+/**
+ * @brief sleep for the specified time
+ * @param second the time to sleep for, in seconds
+ * @return 0 on success or -EINTR if interrupted
+ */
+int sleep(long second);
+
+/**
+ * @brief sleep for the specified time
+ * @param micro_second the time to sleep for, in micro seconds
+ * @return 0 on success or -EINTR if interrupted
+ */
+int micro_sleep(suseconds_t micro_second);
+
 
 #endif

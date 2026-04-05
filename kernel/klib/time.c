@@ -71,3 +71,11 @@ time_t date2time(long year, long month, long day, long hour, long minute, long s
 	time_t time = second + minute * 60 + hour * 3600 + days * 86400;
 	return time;
 }
+
+int timeval_cmp(struct timeval *time1, struct timeval *time2) {
+	if (time1->tv_sec > time2->tv_sec) return 1;
+	if (time1->tv_sec < time2->tv_sec) return -1;
+	if (time1->tv_usec > time2->tv_usec) return 1;
+	if (time1->tv_usec < time2->tv_usec) return -1;
+	return 0;
+}

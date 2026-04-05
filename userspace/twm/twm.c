@@ -129,7 +129,7 @@ int main() {
 		fds[clients.count + 1].fd = kb->fd;
 		fds[clients.count + 2].events = POLLIN;
 		fds[clients.count + 2].fd = mouse;
-		poll(fds, clients.count+3, 0);
+		poll(fds, clients.count+3, -1);
 		if (fds[clients.count].revents & POLLIN) {
 			accept_client();
 		}

@@ -37,7 +37,7 @@ void poll_cancel(poll_t *poll) {
     }
 }
 
-int poll_wait(poll_t *poll, struct timespec *timeout) {
+int poll_wait(poll_t *poll, struct timeval *timeout) {
     int ret = 0;
     for (;;) {
         if (poll->ready) {

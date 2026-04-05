@@ -8,11 +8,14 @@
  */
 time_t date2time(long year, long month, long day, long hour, long minute, long second);
 
+/**
+ * @brief comapre two timeval
+ */
+int timeval_cmp(struct timeval *time1, struct timeval *time2);
+
+
 extern struct timeval time;
 
-int sleep_until(struct timeval wakeup_time);
-int sleep(long second);
-int micro_sleep(suseconds_t micro_second);
 
 #define NOW() time.tv_sec
 
