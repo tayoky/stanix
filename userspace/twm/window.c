@@ -70,6 +70,7 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	window->parent = parent;
 	window->x = 100;
 	window->y = 100;
+	window->attribute = TWM_ATTR_DECORED | TWM_ATTR_SHOW;
 	window->title  = strdup(title);
 	
 	// setup a new framebuffer
@@ -109,8 +110,8 @@ void destroy_window(window_t *window) {
 
 void move_window(window_t *window, long new_x, long new_y) {
 	invalidate_window(window);
-	if (new_y < theme.titlebar_height + theme.border_width * 2) {
-		new_y = theme.titlebar_height + theme.border_width * 2;
+	if (new_y < 0) {
+		new_y = 0;
 	}
 	window->x = new_x;
 	window->y = new_y;
@@ -122,15 +123,8 @@ window_t *get_window(twm_window_t id) {
 }
 
 int is_inside_window(window_t *window, long x, long y, long width, long height) {
-	if (x + width >= window->x - theme.border_width && y + height >= window->y - 2 * theme.border_width - theme.titlebar_height
-	&& x < window->x + window->width + theme.border_width && y < window->y + window->height + theme.border_width) {
-		return 1;
-	}
-	return 0;
-}
-
-int is_inside_titlebar(window_t *window, long x, long y, long width, long height) {
-	if (is_inside_window(window, x, y, width, height) && y < window->y) {
+	if (x + width >= window->x && y + height >= window->y
+	&& x < window->x + window->width && y < window->y + window->height) {
 		return 1;
 	}
 	return 0;

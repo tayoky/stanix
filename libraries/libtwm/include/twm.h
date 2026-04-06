@@ -33,7 +33,8 @@ typedef struct twm_request {
 #define TWM_REQUEST_SET_WINDOW_ATTR 6
 #define TWM_REQUEST_REDRAW_WINDOW   7
 #define TWM_REQUEST_GET_SCREEN_FB   8
-#define TWM_REQUEST_COUNT           9
+#define TWM_REQUEST_START_DRAGGING    9
+#define TWM_REQUEST_COUNT           10
 
 #define TWM_WINDOW_SHOW   1
 #define TWM_WINDOW_WIDTH  2
@@ -105,7 +106,7 @@ typedef struct twm_request_set_window_attr {
 #define TWM_REMOVE_ATTR 2
 #define TWM_ATTR_RESIZABLE 0
 #define TWM_ATTR_SHOW      2
-#define TWM_ATTR_BORDER    3
+#define TWM_ATTR_DECORED   3
 
 typedef struct twm_request_get_window_attr {
 	twm_request_t base;
@@ -125,6 +126,13 @@ typedef struct twm_request_get_screen_fb {
 	twm_request_t base;
 	twm_screen_t id;
 } twm_request_get_screen_fb_t;
+
+typedef struct twm_request_start_dragging_fb {
+	twm_request_t base;
+	twm_window_t id;
+	long offset_x;
+	long offset_y;
+} twm_request_start_dragging_t;
 
 // events/reponses
 
@@ -200,6 +208,7 @@ int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info);
 int twm_set_window_attr(twm_window_t window, int how, long attr);
 long twm_get_window_attr(twm_window_t window);
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);
+int twm_start_dragging(twm_window_t window, long offset_x, long offset_y);
 struct gfx_context *twm_get_window_gfx(twm_window_t window);
 twm_event_t *twm_poll_event(void);
 twm_event_t *twm_peek_event(void);

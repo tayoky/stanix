@@ -8,25 +8,6 @@ static long invalidate_start_y = LONG_MAX;
 static long invalidate_end_x = 0;
 static long invalidate_end_y = 0;
 
-static void render_window_decor(window_t *window) {
-	long titlebar_y = window->y - theme.border_width - theme.titlebar_height;
-	long border_x = window->x - theme.border_width;
-	long border_y = titlebar_y - theme.border_width;
-	long border_width = window->width + theme.border_width;
-	long border_height = window->height + 2 * theme.border_width + theme.titlebar_height;
-
-	// titlebar
-	gfx_draw_rect(gfx, theme.primary, window->x, titlebar_y,
-		window->width, theme.titlebar_height);
-	gfx_draw_string(gfx, font, theme.font_color, window->x, titlebar_y, window->title);
-
-	// main border
-	gfx_draw_wire_rect(gfx, theme.secondary, border_x, border_y, border_width, border_height, theme.border_width);
-
-	// middle border
-	gfx_draw_rect(gfx, theme.secondary, window->x, window->y - theme.border_width, window->width, theme.border_width);	
-}
-
 static void render_window_content(window_t *window) {
 	long x = window->x;
 	long y = window->y;
@@ -89,7 +70,6 @@ void render(void) {
 	for (window_t *current=window_stack_bottom; current; current = current->next) {
 		if (is_inside_window(current, invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height)) {
 			render_window_content(current);
-			render_window_decor(current);
 		}
 	}
 

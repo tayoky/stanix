@@ -135,6 +135,20 @@ int twm_redraw_window(twm_window_t window, long x, long y, long width, long heig
 	
 	return twm_send_request((twm_request_t*)&request);
 }
+int twm_start_dragging(twm_window_t window, long offset_x, long offset_y) {
+	twm_request_start_dragging_t request = {
+		.base = {
+			.type = TWM_REQUEST_START_DRAGGING,
+			.size = sizeof(request),
+		},
+		.id = window,
+		.offset_x = offset_x,
+		.offset_y = offset_y,
+	};
+	
+	return twm_send_request((twm_request_t*)&request);
+
+}
 
 int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info) {
 	twm_request_get_screen_fb_t request = {

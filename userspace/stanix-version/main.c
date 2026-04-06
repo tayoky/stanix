@@ -19,7 +19,6 @@ int main() {
 	tgui_box_t *box = tgui_box_new();
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(box), TGUI_TRUE);
 	tgui_widget_set_vexpand(TGUI_WIDGET_CAST(box), TGUI_TRUE);
-	tgui_widget_set_padding(TGUI_WIDGET_CAST(box), 5);
 	tgui_window_set_child(window, TGUI_WIDGET_CAST(box));
 	
 	

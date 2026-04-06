@@ -72,7 +72,7 @@ void destroy_window(window_t *window);
 window_t *get_window(twm_window_t id);
 window_t *get_window_at(long x, long y);
 int update_focus(window_t *window);
+void set_grab(window_t *window, long offset_x, long offset_y);
 int is_inside_window(window_t *window, long x, long y, long width, long height);
-int is_inside_titlebar(window_t *window, long x, long y, long width, long height);
 
 #endif

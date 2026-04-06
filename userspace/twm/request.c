@@ -106,6 +106,13 @@ static void handle_get_screen_fb(client_t *client, twm_request_get_screen_fb_t *
 	send_event(client, (twm_event_t*)&event);
 }
 
+static void handle_start_dragging(client_t *client, twm_request_start_dragging_t *request) {
+	window_t *window = get_window(request->id);
+	if (!window) return;
+	if (window->client != client->id) return;
+
+	set_grab(window, request->offset_x, request->offset_y);
+}
 
 int handle_request(client_t *client){
 	char buf[TWM_MAX_PACKET_SIZE];
@@ -135,6 +142,9 @@ int handle_request(client_t *client){
 		break;
 	case TWM_REQUEST_GET_SCREEN_FB:
 		handle_get_screen_fb(client, (twm_request_get_screen_fb_t*)request);
+		break;
+	case TWM_REQUEST_START_DRAGGING:
+		handle_start_dragging(client, (twm_request_start_dragging_t*)request);
 		break;
 	}
 	
