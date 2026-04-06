@@ -25,6 +25,7 @@ int gfx_bound_check(gfx_t *gfx, long *x, long *y, long *width, long *height) {
 }
 
 gfx_t *gfx_create_clip(gfx_t *gfx, long x, long y, long width, long height) {
+	if (!gfx) return NULL;
 	gfx_t *clip = malloc(sizeof(gfx_t));
 	*clip = *gfx;
 	clip->buffer = (void*)gfx_pixel_addr(gfx, x, y);
