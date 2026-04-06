@@ -105,7 +105,7 @@ color_t term_color2gfx(term_color_t *term_color, int bg) {
 
 void push_rect(long x, long y, long width, long height) {
 	if (use_tgui) {
-		//tgui_canva_set_dirty(canva, x, y, width, height);
+		tgui_canva_set_dirty(canva, x, y, width, height);
 	} else {
 		gfx_push_rect(get_gfx(), x, y, width, height);
 	}
@@ -113,7 +113,7 @@ void push_rect(long x, long y, long width, long height) {
 
 void push_buffer(void) {
 	if (use_tgui) {
-		//tgui_canva_set_dirty(canva, 0, 0, canva->widget.width, canva->widget.height);
+		tgui_canva_set_dirty(canva, 0, 0, canva->widget.width, canva->widget.height);
 	} else {
 		gfx_push_buffer(get_gfx());
 	}
@@ -181,7 +181,7 @@ int main(int argc, const char **argv) {
 		return EXIT_FAILURE;
 	}
 
-	// tgui suuport
+	// tgui support
 	if (tgui_init() >= 0) {
 		use_tgui = 1;
 		window = tgui_window_new("terminal", 640, 480);
@@ -217,7 +217,6 @@ int main(int argc, const char **argv) {
 	}
 	c_width  = gfx_char_width(font, ' ');
 	c_height = gfx_char_height(font, ' ');
-
 
 	//create a new pty
 	struct winsize size = {
