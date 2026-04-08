@@ -42,6 +42,7 @@ int c_height;
 tgui_window_t *window;
 tgui_canva_t *canva;
 int running = 1;
+int crtl = 0;
 
 uint32_t ansi_colours[] = {
 	0x000000, //black
@@ -155,13 +156,15 @@ int key_press_callback(tgui_event_t *event) {
 	long key = event->press.sym;
 	char buf[MB_CUR_MAX + 1];
 
-	static int crtl = 0;
-
 	if (key == TGUI_KEY_LCRTL || key == INPUT_KEY_RCRTL) {
-		crtl = 1 - crtl;
+		crtl = 1;
 		return TGUI_EVENT_HANDLED;
 	}
 	if (key >= TGUI_KEY_FIRST) {
+		if (keys2str[key - TGUI_KEY_FIRST]) {
+			fputs(keys2str[key - TGUI_KEY_FIRST], master_file);
+			return TGUI_EVENT_HANDLED;
+		}
 		return TGUI_EVENT_NOT_HANDLED;
 	}
 
@@ -175,6 +178,16 @@ int key_press_callback(tgui_event_t *event) {
 
 	return TGUI_EVENT_HANDLED;
 }
+
+int key_release_callback(tgui_event_t *event) {
+	long key = event->press.sym;
+	if (key == TGUI_KEY_LCRTL || key == INPUT_KEY_RCRTL) {
+		crtl = 0;
+		return TGUI_EVENT_HANDLED;
+	}
+	return TGUI_EVENT_NOT_HANDLED;
+}
+
 
 int close_callback(tgui_event_t *event) {
 	if (event->widget != TGUI_WIDGET_CAST(event)) {
@@ -205,6 +218,7 @@ int main(int argc, const char **argv) {
 	tgui_widget_set_vexpand(TGUI_WIDGET_CAST(canva), TGUI_TRUE);
 	tgui_window_set_child(window, TGUI_WIDGET_CAST(canva));
 	tgui_widget_set_callback(TGUI_WIDGET_CAST(window), TGUI_EVENT_PRESS, key_press_callback, NULL);
+	tgui_widget_set_callback(TGUI_WIDGET_CAST(window), TGUI_EVENT_RELEASE, key_release_callback, NULL);
 	tgui_widget_set_callback(TGUI_WIDGET_CAST(window), TGUI_EVENT_DESTROY, close_callback, NULL);
 	tgui_render();
 
