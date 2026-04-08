@@ -47,6 +47,7 @@ gfx_t *gfx_open_framebuffer(const char *path);
 gfx_t *gfx_create(void *framebuffer, struct fb *);
 void gfx_free(gfx_t *gfx);
 gfx_t *gfx_create_clip(gfx_t *gfx, long x, long y, long width, long height);
+gfx_t *gfx_create_buffer(gfx_t *info, long width, long height);
 void gfx_push_buffer(gfx_t *gfx);
 void gfx_push_rect(gfx_t *gfx, long x, long y, long width, long height);
 void gfx_enable_backbuffer(gfx_t *gfx);
@@ -58,6 +59,7 @@ void gfx_draw_pixel(gfx_t *gfx, color_t color, long x, long y);
 void gfx_draw_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height);
 void gfx_draw_wire_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height, long border);
 void gfx_draw_rounded_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height, char corners, long rayon);
+void gfx_draw_buffer(gfx_t *gfx, long x, long y, gfx_t *buffer);
 void gfx_clear(gfx_t *gfx, color_t color);
 
 font_t *gfx_load_font(const char *path);

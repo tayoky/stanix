@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <math.h>
+#include <string.h>
 #include "gfx.h"
 
 #undef gfx_draw_pixel
@@ -89,4 +90,13 @@ void gfx_draw_wire_rect(gfx_t *gfx, color_t color, long x, long y, long width, l
 
 void gfx_clear(gfx_t *gfx, color_t color) {
 	return gfx_draw_rect(gfx, color, 0, 0, gfx->width, gfx->height);
+}
+
+void gfx_draw_buffer(gfx_t *gfx, long x, long y, gfx_t *buffer) {
+	for (int i = 0;i < buffer->height;i++) {
+		uintptr_t dest = gfx_pixel_addr(gfx, x, y);
+		uintptr_t src  = gfx_pixel_addr(buffer, 0, i);
+		memcpy((void*)dest, (void*)src, buffer->pitch);
+		y++;
+	}
 }

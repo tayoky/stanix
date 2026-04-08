@@ -54,6 +54,21 @@ gfx_t *gfx_create(void *framebuffer, struct fb *fb_info) {
 	return gfx;
 }
 
+gfx_t *gfx_create_buffer(gfx_t *info, long width, long height) {
+	gfx_t *gfx = malloc(sizeof(gfx_t));
+	if (!gfx)return NULL;
+
+	*gfx = *info;
+	gfx->width = width;
+	gfx->height = height;
+	gfx->pitch = width * (info->bpp / 8);
+	gfx->buffer = malloc(gfx->pitch * gfx->height);
+	gfx->backbuffer = gfx->buffer;
+	gfx->framebuffer = NULL;
+	return gfx;
+}
+
+
 void gfx_free(gfx_t *gfx) {
 	if (!gfx) return;
 	if (!gfx->is_clip) {
