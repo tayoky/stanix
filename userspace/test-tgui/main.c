@@ -13,7 +13,6 @@ int main() {
 	tgui_color_t *green = tgui_color_new_rgb(0, 200, 0);
 	tgui_box_t *box = tgui_box_new();
 	tgui_window_set_child(window, TGUI_WIDGET_CAST(box));
-	tgui_widget_set_padding(TGUI_WIDGET_CAST(box), 5);
 	
 	
 	// put three buttons in the box
