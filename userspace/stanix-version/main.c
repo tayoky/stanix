@@ -20,13 +20,22 @@ int main() {
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(box), TGUI_TRUE);
 	tgui_widget_set_vexpand(TGUI_WIDGET_CAST(box), TGUI_TRUE);
 	tgui_window_set_child(window, TGUI_WIDGET_CAST(box));
-	
-	
+
+	tgui_icon_t *icon = tgui_icon_new("stanix128");
+	tgui_box_append_widget(box, TGUI_WIDGET_CAST(icon));
+
+	tgui_separator_t *separator = tgui_separator_new(TGUI_ORIENTATION_HORIZONTAL);
+	tgui_box_append_widget(box, TGUI_WIDGET_CAST(separator));
+
 	add_label(box, "The Stanix operating system");
 	add_label(box, "Copyright Tayoky 2024-2026 (GPL3)");
-	
+	add_label(box, "This program is free software: you can redistribute it and/or modify");
+	add_label(box, "it under the terms of the GNU General Public License as published by");
+	add_label(box, "the Free Software Foundation, either version 3 of the License, or");
+	add_label(box, "(at your option) any later version.");
+
 	tgui_main();
-	
+
 	tgui_widget_destroy(TGUI_WIDGET_CAST(window));
 	return 0;
 }
