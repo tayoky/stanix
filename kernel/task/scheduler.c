@@ -263,6 +263,14 @@ void yield(int preempt) {
 	task_t *old = get_current_task();
 	task_t *new = schedule();
 	get_run_queue()->prev = old;
+
+	// fast path
+	if (old == new) {
+		finish_yield();
+		if (prev_int) enable_interrupt();
+		return;
+	}
+
 	
 	if (arch_save_context(&old->context)) {
 		finish_yield();
@@ -278,14 +286,8 @@ void yield(int preempt) {
 		mmu_set_addr_space(new->process->vmm_space.addrspace);
 	}
 
-	if (new != old) {
-		arch_set_kernel_stack(KSTACK_TOP(new->kernel_stack));
-		arch_load_context(&new->context);
-	}
-	
-	finish_yield();
-	if (prev_int) enable_interrupt();
-	return;
+	arch_set_kernel_stack(KSTACK_TOP(new->kernel_stack));
+	arch_load_context(&new->context);
 }
 
 task_t *get_current_task(void) {
