@@ -3,25 +3,25 @@
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 
-LIMINE_REQUESTS_START_MARKER
+__attribute__((used, section(".limine_requests_start"))) LIMINE_REQUESTS_START_MARKER
 
-static volatile LIMINE_BASE_REVISION(3);
+__attribute__((used, section(".limine_requests"))) static volatile LIMINE_BASE_REVISION(3);
 
-volatile struct limine_kernel_address_request kernel_address_request = {
+__attribute__((used, section(".limine_requests"))) volatile struct limine_kernel_address_request kernel_address_request = {
 	.id = LIMINE_KERNEL_ADDRESS_REQUEST,
 	.revision = 2
 };
 
-volatile struct limine_memmap_request memmap_request = {
+__attribute__((used, section(".limine_requests"))) volatile struct limine_memmap_request memmap_request = {
 	.id = LIMINE_MEMMAP_REQUEST,
 	.revision = 0
 };
 
-volatile struct limine_boot_time_request boot_time_request = {
+__attribute__((used, section(".limine_requests"))) volatile struct limine_boot_time_request boot_time_request = {
 	.id = LIMINE_BOOT_TIME_REQUEST
 };
 
-volatile struct limine_hhdm_request hhdm_request = {
+__attribute__((used, section(".limine_requests"))) volatile struct limine_hhdm_request hhdm_request = {
 	.id = LIMINE_HHDM_REQUEST
 };
 
@@ -34,17 +34,17 @@ struct limine_internal_module *internal_module_list[] = {
 	&initrd_request,
 };
 
-struct limine_module_request module_request = {
+__attribute__((used, section(".limine_requests"))) volatile struct limine_module_request module_request = {
 	.id = LIMINE_MODULE_REQUEST,
 	.revision = 0,
 	.internal_modules = internal_module_list,
 	.internal_module_count = 1
 };
 
-struct limine_framebuffer_request framebuffer_request ={
+__attribute__((used, section(".limine_requests"))) volatile struct limine_framebuffer_request framebuffer_request ={
 	.id = LIMINE_FRAMEBUFFER_REQUEST
 };
-LIMINE_REQUESTS_END_MARKER
+__attribute__((used, section(".limine_requests_end"))) static volatile LIMINE_REQUESTS_END_MARKER
 
 static const char *memmap_types[] = {
 	"usable",

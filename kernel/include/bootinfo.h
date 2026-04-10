@@ -9,5 +9,5 @@ typedef struct {
 
 void get_bootinfo(void);
 
-extern struct limine_framebuffer_request framebuffer_request;
+extern volatile  struct limine_framebuffer_request framebuffer_request;
 #endif
