@@ -10,8 +10,8 @@
 
 #define QUEUE_SIZE 4096
 
-extern socket_domain_t unix_domain;
-socket_t *unix_create(int type, int protocol);
+static socket_domain_t unix_domain;
+static socket_t *unix_create(int type, int protocol);
 
 /**
  * @brief pair two socket
@@ -27,14 +27,13 @@ static void unix_pair(unix_socket_t *a, unix_socket_t *b) {
 	init_ringbuffer(&b->queue, QUEUE_SIZE);
 }
 
-int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
+static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr, socklen_t addr_len) {
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
-	unix_socket_t *socket = (unix_socket_t*)sock;
 
 	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) return -EINVAL;
 	if (socket->status != UNIX_STATUS_INIT) return -EINVAL;
 
-	int ret = vfs_mknod(address->sun_path, 0777 | S_IFSOCK, (dev_t)sock);
+	int ret = vfs_mknod(address->sun_path, 0777 | S_IFSOCK, (dev_t)socket);
 	if (ret < 0) {
 		if (ret == -EEXIST) ret = -EADDRINUSE;
 		return ret;
@@ -45,27 +44,53 @@ int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
 	return 0;
 }
 
+static int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
+	unix_socket_t *socket = (unix_socket_t*)sock;
+	spinlock_acquire(&socket->lock);
+	int ret = unix_bind_unlocked(socket, addr, addr_len);
+	spinlock_release(&socket->lock);
+	return ret;
+}
 
-int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
+static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 	unix_socket_t *socket = (unix_socket_t*)sock;
 
-	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) return -EINVAL;
-	if (socket->status != UNIX_STATUS_INIT) return -EINVAL;
+	spinlock_acquire(&socket->lock);
+
+	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) {
+		spinlock_release(&socket->lock);
+		return -EINVAL;
+	}
+	if (socket->status != UNIX_STATUS_INIT) {
+		spinlock_release(&socket->lock);
+		return -EINVAL;
+	}
 
 	vfs_node_t *node = vfs_get_node(address->sun_path, O_RDWR);
-	if (!node) return -ECONNREFUSED;
+	if (!node) {
+		spinlock_release(&socket->lock);
+		return -ECONNREFUSED;
+	}
 	struct stat stat;
 	vfs_getattr(node, &stat);
 	unix_socket_t *server = (unix_socket_t*)stat.st_rdev;
+	spinlock_acquire(&server->lock);
 	vfs_close_node(node);
 	if (!S_ISSOCK(stat.st_mode) || (server->status != UNIX_STATUS_LISTEN) || 
-		server->socket.type != sock->type || server->socket.domain != sock->domain) return -ECONNREFUSED;
+		server->socket.type != sock->type || server->socket.domain != sock->domain) {
+		spinlock_release(&server->lock);
+		spinlock_release(&socket->lock);
+		return -ECONNREFUSED;
+	}
 
 	// send the connection struct
 	unix_connection_t connection = {
 		.socket = socket,
 	};
+	
+	spinlock_release(&server->lock);
+	spinlock_release(&socket->lock);
 
 	// ringbuf write can fail (syscall interrupted/server socket dies before accepting/...)
 	ssize_t ret = ringbuffer_write(&server->queue, &connection,  sizeof(unix_connection_t), 0);
@@ -78,8 +103,7 @@ int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len
 	return socket->status == UNIX_STATUS_CONNECTED ? 0 : -ECONNREFUSED;
 }
 
-int unix_listen(socket_t *sock, int backlog) {
-	unix_socket_t *socket = (unix_socket_t*)sock;
+static int unix_listen_unlocked(unix_socket_t *socket, int backlog) {
 	if (socket->status == UNIX_STATUS_INIT) return -EDESTADDRREQ;
 	if (socket->status != UNIX_STATUS_BOUND) return -EINVAL;
 
@@ -88,8 +112,15 @@ int unix_listen(socket_t *sock, int backlog) {
 	return 0;
 }
 
+static int unix_listen(socket_t *sock, int backlog) {
+	unix_socket_t *socket = (unix_socket_t*)sock;
+	spinlock_acquire(&socket->lock);
+	int ret = unix_listen_unlocked(socket, backlog);
+	spinlock_release(&socket->lock);
+	return ret;
+}
 
-int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, socket_t **new_sock) {
+static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, socket_t **new_sock) {
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 	unix_socket_t *socket = (unix_socket_t*)sock;
 
@@ -97,9 +128,10 @@ int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, sock
 
 	unix_connection_t connection;
 
-	// ringbuf write can fail (syscall interrupted/...)
+	// ringbuf read can fail (syscall interrupted/...)
 	ssize_t ret = ringbuffer_read(&socket->queue, &connection, sizeof(unix_connection_t), 0);
 	if (ret < 0) return ret;
+	spinlock_acquire(&socket->lock);
 
 	// we can now connect to the socket
 	*new_sock = unix_create(sock->type, sock->protocol);
@@ -117,10 +149,11 @@ int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, sock
 	// wakeup the client sock
 	wakeup_queue(&socket->sleep, 1);
 
+	spinlock_release(&socket->lock);
 	return 0;
 }
 
-ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
+static ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 	(void)flags;
 	unix_socket_t *socket = (unix_socket_t*)sock;
 
@@ -147,7 +180,7 @@ ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 	return total;
 }
 
-ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
+static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 	(void)flags;
 	unix_socket_t *socket = (unix_socket_t*)sock;
 
@@ -169,12 +202,13 @@ ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 	return total;
 }
 
-int unix_poll_add(socket_t *sock, poll_event_t *event) {
+static int unix_poll_add(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
+	spinlock_acquire(&socket->lock);
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
 		// you can't really wait for a disconnected socket to become ready
-		return 0;
+		break;
 	case UNIX_STATUS_CONNECTED:
 		ringbuffer_poll_add(&socket->queue, event);
 		break;
@@ -182,11 +216,13 @@ int unix_poll_add(socket_t *sock, poll_event_t *event) {
 		ringbuffer_poll_add(&socket->queue, event);
 		break;
 	}
+	spinlock_release(&socket->lock);
 	return 0;
 }
 
-int unix_poll_remove(socket_t *sock, poll_event_t *event) {
+static int unix_poll_remove(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
+	spinlock_acquire(&socket->lock);
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
 	case UNIX_STATUS_CONNECTED:
@@ -196,11 +232,13 @@ int unix_poll_remove(socket_t *sock, poll_event_t *event) {
 		ringbuffer_poll_remove(&socket->queue, event);
 		break;
 	}
+	spinlock_release(&socket->lock);
 	return 0;
 }
 
-int unix_poll_get(socket_t *sock, poll_event_t *event) {
+static int unix_poll_get(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
+	spinlock_acquire(&socket->lock);
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
 		event->revents |= POLLHUP;
@@ -212,11 +250,13 @@ int unix_poll_get(socket_t *sock, poll_event_t *event) {
 		ringbuffer_poll_get(&socket->queue, event);
 		break;
 	}
+	spinlock_release(&socket->lock);
 	return 0;
 }
 
-void unix_close(socket_t *sock) {
+static void unix_close(socket_t *sock) {
 	unix_socket_t *socket = (unix_socket_t*)sock;
+	spinlock_acquire(&socket->lock);
 	kdebugf("unix cleanup\n");
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
@@ -241,7 +281,7 @@ void unix_close(socket_t *sock) {
 	}
 }
 
-socket_t *unix_create(int type, int protocol) {
+static socket_t *unix_create(int type, int protocol) {
 	(void)protocol;
 	if (type > SOCK_SEQPACKET) return NULL;
 
@@ -266,7 +306,7 @@ socket_t *unix_create(int type, int protocol) {
 	return (socket_t*)socket;
 }
 
-socket_domain_t unix_domain = {
+static socket_domain_t unix_domain = {
 	.name = "unix",
 	.domain = AF_UNIX,
 	.create = unix_create,

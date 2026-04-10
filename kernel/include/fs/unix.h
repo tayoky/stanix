@@ -4,6 +4,7 @@
 #include <kernel/socket.h>
 #include <kernel/ringbuf.h>
 #include <kernel/sleep.h>
+#include <kernel/spinlock.h>
 #include <sys/un.h>
 
 typedef struct unix_socket {
@@ -13,6 +14,7 @@ typedef struct unix_socket {
 	int status;
 	struct sockaddr_un bound;
 	sleep_queue_t sleep;
+	spinlock_t lock;
 } unix_socket_t;
 
 typedef struct unix_connection {
