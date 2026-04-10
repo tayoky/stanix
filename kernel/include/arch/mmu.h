@@ -6,14 +6,15 @@
 
 // inspired by etheral's API
 
-#define MMU_FLAG_PRESENT 0x1  // present in memory
-#define MMU_FLAG_READ    0x2  // readable memory
-#define MMU_FLAG_WRITE   0x4  // writable memory
-#define MMU_FLAG_EXEC    0x8  // executable memory
-#define MMU_FLAG_USER    0x10 // userspace memory
-#define MMU_FLAG_GLOBAL  0x20 // global memory (hhdm, kerne, ...)
-#define MMU_FLAG_ACCESS  0x40
-#define MMU_FLAG_DIRTY   0x80
+#define MMU_FLAG_PRESENT       0x1   // present in memory
+#define MMU_FLAG_READ          0x2   // readable memory
+#define MMU_FLAG_WRITE         0x4   // writable memory
+#define MMU_FLAG_EXEC          0x8   // executable memory
+#define MMU_FLAG_USER          0x10  // userspace memory
+#define MMU_FLAG_GLOBAL        0x20  // global memory (hhdm, kerne, ...)
+#define MMU_FLAG_ACCESS        0x40  // as been read
+#define MMU_FLAG_DIRTY         0x80  // as been written
+#define MMU_FLAG_WRITE_COMBINE 0x100 // combine writes
 
 void init_mmu(void);
 

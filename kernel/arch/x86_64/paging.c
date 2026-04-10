@@ -26,6 +26,9 @@ static uint64_t mmu2paging_flags(long mmu_flags) {
 	if (mmu_flags & MMU_FLAG_USER) {
 		flags |= PAGING_FLAG_USER;
 	}
+	if (mmu_flags & MMU_FLAG_WRITE_COMBINE) {
+		flags |= PAGING_FLAG_PAT;
+	}
 	return flags;
 }
 
@@ -48,6 +51,9 @@ static long paging2mmu_flags(uint64_t paging_flags) {
 	}
 	if (paging_flags & PAGING_FLAG_DIRTY) {
 		flags |= MMU_FLAG_DIRTY;
+	}
+	if (paging_flags & PAGING_FLAG_PAT) {
+		flags |= MMU_FLAG_WRITE;
 	}
 	return flags;
 }
@@ -79,6 +85,13 @@ void init_mmu(void) {
 	mmu_map_kernel(PML4);
 	mmu_map_hhdm(PML4);
 	mmu_set_addr_space(PML4);
+
+	uint32_t lower;
+	uint32_t higger;
+	rdmsr(IA32_PAT_MSR, &lower, &higger);
+	lower &= ~0xffff;
+	lower |= 0x401;
+	wrmsr(IA32_PAT_MSR, lower, higger);
 	
 	kok();
 }
