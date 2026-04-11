@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <libini.h>
 #include <tgui/tgui.h>
 
 void add_label(tgui_box_t *box, const char *text) {
@@ -10,6 +11,11 @@ void add_label(tgui_box_t *box, const char *text) {
 int main() {
 	if (tgui_init() < 0) {
 		puts("cannot init tgui");
+		return 1;
+	}
+	utils_shashmap_t *infos = ini_parse_file("/etc/os-release");
+	if (!infos) {
+		puts("could not open /etc/os-release");
 		return 1;
 	}
 	tgui_window_t *window = tgui_window_new("stanix version", 640, 480);
@@ -28,6 +34,9 @@ int main() {
 	tgui_box_append_widget(box, TGUI_WIDGET_CAST(separator));
 
 	add_label(box, "The Stanix operating system");
+	char version[256];
+	sprintf(version, "Version %s", utils_shashmap_get(infos, "VERSION"));
+	add_label(box, version);
 	add_label(box, "Copyright Tayoky 2024-2026 (GPL3)");
 	add_label(box, "This program is free software: you can redistribute it and/or modify");
 	add_label(box, "it under the terms of the GNU General Public License as published by");
