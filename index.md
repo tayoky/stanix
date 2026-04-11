@@ -22,7 +22,7 @@ List of all supported hardware.
 
 ## goal
 Futures goals (once a goal is reached it is removed from the list).
-- a GUI
+- a GUI (in progress)
 - a SDL3/2 port
 - a MESA port (in progress)
 - nvme support
@@ -51,6 +51,7 @@ Futures goals (once a goal is reached it is removed from the list).
 - usermode
 - signals
 - socket stack
+- a window mananger
 - unix socket
 - multi user
 - shared memory system
@@ -82,7 +83,7 @@ Futures goals (once a goal is reached it is removed from the list).
 - [tutils](https://github.com/tayoky/tutils) a homeade portable reimplementation of coreutils and other various generic utils for unix-like used for Stanix.
 - [libterm](https://github.com/tayoky/libterm) a library to make terminal emulators.
 - [libttf](https://github.com/tayoky/libttf) a library to parse and render truetype fonts.
-- [libtgui](https://github.com/tayoky/libtgui) a GUI libray with a collection of widgets.
+- [libtgui](https://github.com/tayoky/libtgui) a GUI library with a collection of widgets.
 - [Stanix's ports](https://github.com/tayoky/ports) a list of ports and packages for Stanix.
 
 ## packages

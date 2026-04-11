@@ -1,5 +1,5 @@
 ---
-title: libraires
+title: libraries
 permalink: /libraries/
 ---
 
