@@ -89,6 +89,16 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 
 	utils_hashmap_add(&windows, window->id, window);
 	invalidate_window(window);
+
+	// tell the desktop hook we created a window
+	twm_event_desktop_t window_event = {
+		.base = {
+			.type = TWM_EVENT_DESKTOP,
+			.size = sizeof(window_event),
+		},
+	};
+	send_event(desktop_hook, (twm_event_t*)&window_event);
+
 	return window;
 }
 

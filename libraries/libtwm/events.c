@@ -35,6 +35,10 @@ twm_event_t *twm_poll_event(void) {
 	memcpy(buf, &event, sizeof(twm_event_t));
 	recv(ctx.fd, buf + sizeof(twm_event_t), event.size - sizeof(twm_event_t), 0);
 
+	if (handlers[event.type]) {
+		twm_handle_event((twm_event_t*)buf);
+	}
+
 	return (twm_event_t*)buf;
 }
 

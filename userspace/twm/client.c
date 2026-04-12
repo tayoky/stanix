@@ -7,6 +7,7 @@
 #include <twm.h>
 
 utils_vector_t clients;
+client_t *desktop_hook;
 
 static int close_client_window(client_t *client) {
 	utils_hashmap_foreach(key, element, &windows) {
@@ -21,6 +22,8 @@ static int close_client_window(client_t *client) {
 }
 
 void kick_client(client_t *client) {
+	if (desktop_hook == client) desktop_hook = NULL;
+	
 	// close all windows of this client
 	while (close_client_window(client));
 	close(client->fd);

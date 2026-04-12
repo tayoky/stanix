@@ -6,6 +6,7 @@
 #include <twm.h>
 
 int send_event(client_t *client, twm_event_t *event) {
+	if (!client) return 0;
 	return send(client->fd, event, event->size, 0);
 }
 
@@ -114,6 +115,14 @@ static void handle_start_dragging(client_t *client, twm_request_start_dragging_t
 	set_grab(window, request->offset_x, request->offset_y);
 }
 
+static void handle_grab_desktop_hook(client_t *client, twm_request_grab_desktop_hook_t *request) {
+	(void)request;
+	if (desktop_hook) return;
+	desktop_hook = client;
+	printf("client grabbed desktop hook\n");
+}
+
+
 int handle_request(client_t *client){
 	char buf[TWM_MAX_PACKET_SIZE];
 	twm_request_t *request = (twm_request_t*)buf;
@@ -145,6 +154,9 @@ int handle_request(client_t *client){
 		break;
 	case TWM_REQUEST_START_DRAGGING:
 		handle_start_dragging(client, (twm_request_start_dragging_t*)request);
+		break;
+	case TWM_REQUEST_GRAB_DESKTOP_HOOK:
+		handle_grab_desktop_hook(client, (twm_request_grab_desktop_hook_t*)request);
 		break;
 	}
 	

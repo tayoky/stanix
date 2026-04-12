@@ -147,7 +147,6 @@ int twm_start_dragging(twm_window_t window, long offset_x, long offset_y) {
 	};
 	
 	return twm_send_request((twm_request_t*)&request);
-
 }
 
 int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info) {
@@ -166,4 +165,15 @@ int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info) {
 	*fb_info = event->fb_info;
 	free(event);
 	return 0;
+}
+
+int twm_grab_desktop_hook(void) {
+	twm_request_grab_desktop_hook_t request = {
+		.base = {
+			.type = TWM_REQUEST_GRAB_DESKTOP_HOOK,
+			.size = sizeof(request),
+		},
+	};
+	
+	return twm_send_request((twm_request_t*)&request);
 }

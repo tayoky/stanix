@@ -25,16 +25,17 @@ typedef struct twm_request {
 	int type;
 } twm_request_t;
 
-#define TWM_REQUEST_INIT            1
-#define TWM_REQUEST_CREATE_WINDOW   2
-#define TWM_REQUEST_DESTROY_WINDOW  3
-#define TWM_REQUEST_GET_WINDOW_FB   4
-#define TWM_REQUEST_GET_WINDOW_ATTR 5
-#define TWM_REQUEST_SET_WINDOW_ATTR 6
-#define TWM_REQUEST_REDRAW_WINDOW   7
-#define TWM_REQUEST_GET_SCREEN_FB   8
+#define TWM_REQUEST_INIT              1
+#define TWM_REQUEST_CREATE_WINDOW     2
+#define TWM_REQUEST_DESTROY_WINDOW    3
+#define TWM_REQUEST_GET_WINDOW_FB     4
+#define TWM_REQUEST_GET_WINDOW_ATTR   5
+#define TWM_REQUEST_SET_WINDOW_ATTR   6
+#define TWM_REQUEST_REDRAW_WINDOW     7
+#define TWM_REQUEST_GET_SCREEN_FB     8
 #define TWM_REQUEST_START_DRAGGING    9
-#define TWM_REQUEST_COUNT           10
+#define TWM_REQUEST_GRAB_DESKTOP_HOOK 10
+#define TWM_REQUEST_COUNT             11
 
 #define TWM_WINDOW_SHOW   1
 #define TWM_WINDOW_WIDTH  2
@@ -56,7 +57,8 @@ typedef struct twm_event {
 #define TWM_EVENT_WINDOW_CLOSED  5
 #define TWM_EVENT_WINDOW_FOCUS   6
 #define TWM_EVENT_INPUT          7
-#define TWM_EVENT_COUNT          8
+#define TWM_EVENT_DESKTOP        8
+#define TWM_EVENT_COUNT          9
 
 typedef struct twm_ctx {
 	uint64_t id_count;
@@ -134,6 +136,10 @@ typedef struct twm_request_start_dragging_fb {
 	long offset_y;
 } twm_request_start_dragging_t;
 
+typedef struct twm_request_grab_desktop_hook {
+	twm_request_t base;
+} twm_request_grab_desktop_hook_t;
+
 // events/reponses
 
 typedef struct twm_event_window_created {
@@ -188,6 +194,15 @@ typedef struct twm_event_screen_fb {
 #define TWM_INPUT_RELEASE 0x02
 #define TWM_INPUT_HOLD    0x04
 
+typedef struct twm_event_desktop {
+	twm_event_t base;
+	int type;
+	twm_window_t id;
+} twm_event_desktop_t;
+
+#define TWM_WINDOW_CREATED   1
+#define TWM_WINDOW_DESTROYED 2
+
 #define TWM_CURRENT_MAJOR 0
 #define TWM_CURRENT_MINOR 1
 #define TWM_MAX_PACKET_SIZE 4096
@@ -209,6 +224,7 @@ int twm_set_window_attr(twm_window_t window, int how, long attr);
 long twm_get_window_attr(twm_window_t window);
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);
 int twm_start_dragging(twm_window_t window, long offset_x, long offset_y);
+int twm_grab_desktop_hook(void);
 struct gfx_context *twm_get_window_gfx(twm_window_t window);
 twm_event_t *twm_poll_event(void);
 twm_event_t *twm_peek_event(void);
