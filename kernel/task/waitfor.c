@@ -12,6 +12,8 @@ int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker) {
 	if (waker) *waker = NULL;
 	if (!(flags & WNOHANG)) block_prepare_interruptible();
 	size_t waitfor_count = 0;
+	int status = 0;
+
 	for (size_t i=0; i < threads_count; i++) {
 		task_t *expected = NULL;
 		if (!atomic_compare_exchange_strong(&threads[i]->waiter, &expected, get_current_task())) {
@@ -34,8 +36,6 @@ int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker) {
 		return -ECHILD;
 	}
 	
-	int status = 0;
-
 	if (flags & WNOHANG) {
 		status = -ECHILD;
 	} else if (block_task() < 0) {

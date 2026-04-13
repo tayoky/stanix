@@ -13,6 +13,7 @@
 #include <kernel/signal.h>
 #include <kernel/sleep.h>
 #include <kernel/vmm.h>
+#include <kernel/rwlock.h>
 #include <stdatomic.h>
 #include <errno.h>
 
@@ -25,6 +26,7 @@ spinlock_t sleep_lock;
 static process_t *kernel_proc;
 static process_t *init;
 static task_t *idle;
+static rwlock_t reparenting_lock;
 
 static run_queue_t *get_run_queue(void) {
 	return &main_run_queue;
@@ -321,17 +323,19 @@ void kill_proc() {
 static void do_proc_deletion(void) {
 	// all the childreen become orphelan
 	// the parent of orphelan is init
+	rwlock_acquire_write(&reparenting_lock, NULL);
 	foreach (node, &get_current_proc()->child) {
 		process_t *child = container_of(node, process_t, child_list_node);
-
-		// we prevent the child from diying between when we set the parent and when we signal
-		// wich could lead to a race condition
-		spinlock_acquire(&child->main_thread->state_lock);
+		
 		child->parent = init;
 		list_append(&init->child, &child->child_list_node);
+		spinlock_acquire(&child->main_thread->state_lock);
+		// we prevent the child from diying between when we set the parent and when we signal
+		// wich could lead to a race condition
 		if (child->main_thread->status == TASK_STATUS_ZOMBIE) alert_parent(child);
 		spinlock_release(&child->main_thread->state_lock);
 	}
+	rwlock_release_write(&reparenting_lock, NULL);
 	destroy_list(&get_current_proc()->child);
 
 	// close every open fd
@@ -363,17 +367,17 @@ void kill_task(void) {
 		alert_parent(get_current_proc());
 	}
 
+	get_current_task()->status = TASK_STATUS_ZOMBIE;
+
 	// if a task is waiting on us alert
 	if (atomic_load(&get_current_task()->waiter)) {
 		// FIXME : not SMP safe
 		// a task could be waiting on multiples threads and if they all wakeup the waiter at the same time
 		// waker will still indicate only the last
 		// RACE CONDITION
-		get_current_task()->waiter->waker = get_current_task();
 		unblock_task(get_current_task()->waiter);
 	}
 
-	get_current_task()->status = TASK_STATUS_ZOMBIE;
 	spinlock_release(&get_current_task()->state_lock);
 
 	// FIXME : not SMP safe
@@ -472,6 +476,7 @@ int unblock_task_reason(task_t *task, int reason) {
 	}
 	
 	task->status = TASK_STATUS_RUNNING;
+	task->waker = get_current_task();
 	task->wakeup_reason = reason;
 	
 	// if the task is already in the queue on another cpu don't push it back
