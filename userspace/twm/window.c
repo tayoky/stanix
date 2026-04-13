@@ -96,6 +96,8 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 			.type = TWM_EVENT_DESKTOP,
 			.size = sizeof(window_event),
 		},
+		.type = TWM_WINDOW_CREATED,
+		.id = window->id,
 	};
 	send_event(desktop_hook, (twm_event_t*)&window_event);
 

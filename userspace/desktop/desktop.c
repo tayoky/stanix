@@ -9,6 +9,7 @@ tgui_button_t *start_button;
 
 void desktop_hook(twm_event_t *event, void *arg) {
 	(void)arg;
+	puts("recive event");
 	twm_event_desktop_t *desktop_event = (twm_event_desktop_t*)event;
 	switch (desktop_event->type) {
 	case TWM_WINDOW_CREATED:;
@@ -28,6 +29,7 @@ int main() {
 	window = tgui_window_new("taskbar", 600, 100);
 	tgui_window_set_title_bar(window, TGUI_FALSE);
 	main_box = tgui_box_new();
+	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(main_box), TGUI_TRUE);
 	tgui_widget_set_orientation(TGUI_WIDGET_CAST(main_box), TGUI_ORIENTATION_HORIZONTAL);
 	tgui_window_set_child(window, TGUI_WIDGET_CAST(main_box));
 	start_button = tgui_button_new();
