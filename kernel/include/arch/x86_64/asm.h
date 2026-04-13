@@ -17,6 +17,10 @@ static inline int have_interrupt(){
 }
 #endif
 
+static inline arch_pause(void) {
+   asm volatile("hlt");
+}
+
 #define IA32_PAT_MSR 0x277
 
 static inline void rdmsr(uint32_t msr, uint32_t *lower, uint32_t *higger) {

@@ -26,10 +26,52 @@ static process_t *kernel_proc;
 static process_t *init;
 static task_t *idle;
 
+static run_queue_t *get_run_queue(void) {
+	return &main_run_queue;
+}
+
+static int run_queue_is_empty(run_queue_t *run_queue) {
+	return !run_queue->tasks.first_node;
+}
+
+static void run_queue_push_task(run_queue_t *run_queue, task_t *task) {
+	list_append(&run_queue->tasks, &task->run_list_node);
+	atomic_store(&task->run_queue, run_queue);
+}
+
+static task_t *run_queue_pop_task(run_queue_t *run_queue) {
+	if (!run_queue->tasks.first_node) return NULL;
+	task_t *task = container_of(run_queue->tasks.first_node, task_t, run_list_node);
+	list_remove(&run_queue->tasks, &task->run_list_node);
+	return task;
+}
+
+static void run_queue_acquire_lock(task_t *task) {
+	for (;;) {
+		run_queue_t *queue = atomic_load(&task->run_queue);
+		if (!queue) return;
+		spinlock_acquire(&queue->lock);
+		if (atomic_load(&task->run_queue) == queue) {
+			// the task didn't switch queue
+			break;
+		}
+
+		// the task switched queue
+		spinlock_release(&queue->lock);
+	}
+}
+
+static void run_queue_release_lock(task_t *task) {
+	if (task->run_queue) spinlock_release(&task->run_queue->lock);
+}
+
 static void idle_task() {
 	for (;;) {
-		block_prepare();
-		yield(0);
+		arch_pause();
+		if (!run_queue_is_empty(get_run_queue())) {
+			block_prepare();
+			yield(0);
+		}
 	}
 }
 
@@ -78,41 +120,6 @@ void init_task() {
 	idle = kernel_proc->main_thread;
 
 	kok();
-}
-
-static run_queue_t *get_run_queue(void) {
-	return &main_run_queue;
-}
-
-static void run_queue_push_task(run_queue_t *run_queue, task_t *task) {
-	list_append(&run_queue->tasks, &task->run_list_node);
-	atomic_store(&task->run_queue, run_queue);
-}
-
-static task_t *run_queue_pop_task(run_queue_t *run_queue) {
-	if (!run_queue->tasks.first_node) return NULL;
-	task_t *task = container_of(run_queue->tasks.first_node, task_t, run_list_node);
-	list_remove(&run_queue->tasks, &task->run_list_node);
-	return task;
-}
-
-static void run_queue_acquire_lock(task_t *task) {
-	for (;;) {
-		run_queue_t *queue = atomic_load(&task->run_queue);
-		if (!queue) return;
-		spinlock_acquire(&queue->lock);
-		if (atomic_load(&task->run_queue) == queue) {
-			// the task didn't switch queue
-			break;
-		}
-
-		// the task switched queue
-		spinlock_release(&queue->lock);
-	}
-}
-
-static void run_queue_release_lock(task_t *task) {
-	if (task->run_queue) spinlock_release(&task->run_queue->lock);
 }
 
 static task_t *schedule() {
