@@ -26,7 +26,7 @@ static int vmm_seg_constructor(slab_cache_t *cache, void *data) {
 
 void init_vmm(void) {
 	kstatusf("init vmm ... ");
-	slab_init(&vmm_seg_slab, sizeof(vmm_seg_t), "vmm segments");
+	slab_init(&vmm_seg_slab, sizeof(vmm_seg_t), "vmm-segments");
 	vmm_seg_slab.constructor = vmm_seg_constructor;
 	kok();
 }

@@ -10,7 +10,7 @@
 static slab_cache_t sleep_nodes_slab;
 
 void init_sleep(void) {
-	slab_init(&sleep_nodes_slab, sizeof(sleep_queue_node_t), "sleep queue nodes");
+	slab_init(&sleep_nodes_slab, sizeof(sleep_queue_node_t), "sleep-queue-nodes");
 }
 
 void sleep_add_timeout(struct timeval *wakeup_time) {

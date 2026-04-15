@@ -115,8 +115,8 @@ static vfs_filesystem_t tmpfs = {
 
 void init_tmpfs() {
 	kstatusf("init tmpfs... ");
-	slab_init(&tmpfs_inode_slab, sizeof(tmpfs_inode_t), "tmpfs inode");
-	slab_init(&tmpfs_entry_slab, sizeof(tmpfs_dirent_t), "tmpfs entry");
+	slab_init(&tmpfs_inode_slab, sizeof(tmpfs_inode_t), "tmpfs-inode");
+	slab_init(&tmpfs_entry_slab, sizeof(tmpfs_dirent_t), "tmpfs-entry");
 	vfs_register_fs(&tmpfs);
 	kok();
 }

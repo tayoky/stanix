@@ -6,7 +6,7 @@
 static slab_cache_t poll_events_slab;
 
 void init_poll(void) {
-    slab_init(&poll_events_slab, sizeof(poll_event_t), "poll events");
+    slab_init(&poll_events_slab, sizeof(poll_event_t), "poll-events");
 }
 
 int poll_init(poll_t *poll) {

@@ -270,7 +270,7 @@ static vfs_filesystem_t sysfs_filesystem = {
 
 void init_sysfs(void) {
 	kstatusf("init sysfs ...");
-	slab_init(&sysfs_inodes_cache, sizeof(sysfs_inode_t), "sysfs nodes");
+	slab_init(&sysfs_inodes_cache, sizeof(sysfs_inode_t), "sysfs-nodes");
 	vfs_register_fs(&sysfs_filesystem);
 	kok();
 }

@@ -77,9 +77,9 @@ static int fd_constructor(slab_cache_t *cache, void *data) {
 
 void init_vfs(void) {
 	kstatusf("init vfs... ");
-	slab_init(&fd_slab, sizeof(vfs_fd_t), "vfs file descriptors");
+	slab_init(&fd_slab, sizeof(vfs_fd_t), "vfs-file-descriptors");
 	fd_slab.constructor = fd_constructor;
-	slab_init(&dentries_slab, sizeof(vfs_dentry_t), "vfs dentries");
+	slab_init(&dentries_slab, sizeof(vfs_dentry_t), "vfs-dentries");
 	dentries_slab.constructor = dentry_constructor;
 	dentries_slab.destructor  = dentry_destructor;
 	dentries_slab.evict       = dentry_evict;
