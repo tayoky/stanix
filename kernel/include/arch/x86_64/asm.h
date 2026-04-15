@@ -15,7 +15,6 @@ static inline int have_interrupt(){
 
     return (flags & (1 << 9)) ;
 }
-#endif
 
 static inline arch_pause(void) {
    asm volatile("hlt");
@@ -30,5 +29,7 @@ static inline void rdmsr(uint32_t msr, uint32_t *lower, uint32_t *higger) {
 static inline void wrmsr(uint32_t msr, uint32_t lower, uint32_t higger) {
    asm volatile("wrmsr" : : "a"(lower), "d"(higger), "c"(msr));
 }
+
+#endif
 
 #endif
