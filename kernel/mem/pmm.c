@@ -12,6 +12,8 @@ static page_t *pages_info = NULL;
 static pmm_entry_t *stack_head;
 static size_t used_pages;
 static size_t total_pages;
+static size_t private_pages;
+static size_t shared_pages;
 static spinlock_t pmm_lock;
 static uintptr_t zero_page = PAGE_INVALID;
 
@@ -111,6 +113,7 @@ uintptr_t pmm_allocate_page(void) {
 		stack_head = stack_head->next;
 	}
 	used_pages++;
+	private_pages++;
 
 	if (pages_info) {
 		atomic_store(&pmm_page_info(page)->ref_count, 1);
@@ -136,12 +139,36 @@ void pmm_set_free_page(uintptr_t page) {
 void pmm_free_page(uintptr_t page) {
 	kassert(page != PAGE_INVALID);
 	if (pages_info) {
-		if (atomic_fetch_sub(&pmm_page_info(page)->ref_count, 1) != 1) {
+		size_t ref = atomic_fetch_sub(&pmm_page_info(page)->ref_count, 1);
+		if (ref != 1) {
 			// ref remaning
+			if (ref == 2) {
+				// we go from shared to private
+				shared_pages--;
+				private_pages++;
+			}
 			return;
 		}
 	}
+	private_pages--;
 	pmm_set_free_page(page);
+}
+
+int pmm_retain(uintptr_t page) {
+	page_t *page_info = pmm_page_info(page);
+	size_t old = atomic_load(&page_info->ref_count);
+    while (old != 0) {
+        if (atomic_compare_exchange_weak(&page_info->ref_count, &old, old + 1)) {
+			if (old == 1) {
+				// we got from private to shared
+				private_pages--;
+				shared_pages++;
+			}
+            return 1;
+		}
+        // we raced and need to retry
+    }
+    return 0;
 }
 
 uintptr_t pmm_dup_page(uintptr_t page) {
@@ -163,4 +190,12 @@ size_t pmm_get_used_pages(void) {
 
 size_t pmm_get_total_pages(void) {
 	return total_pages;
+}
+
+size_t pmm_get_private_pages(void) {
+	return private_pages;
+}
+
+size_t pmm_get_shared_pages(void) {
+	return shared_pages;
 }

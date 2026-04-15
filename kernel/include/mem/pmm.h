@@ -72,6 +72,18 @@ size_t pmm_get_used_pages(void);
 size_t pmm_get_total_pages(void);
 
 /**
+ * @brief get the count of private pages
+ * @return the count of private pages
+ */
+size_t pmm_get_private_pages(void);
+
+/**
+ * @brief get the count of shared pages
+ * @return the count of shared pages
+ */
+size_t pmm_get_shared_pages(void);
+
+/**
  * @brief duplicate a page
  * @param page the physical address of the page to duplicate
  * @return the physical address of the new page
@@ -89,16 +101,6 @@ uintptr_t pmm_get_zero_page(void);
  * @param page the page to hold
  * @return 1 if succed or 0 if ref count is null
  */
-static inline int pmm_retain(uintptr_t page) {
-	page_t *page_info = pmm_page_info(page);
-	size_t old = atomic_load(&page_info->ref_count);
-    while (old != 0) {
-        if (atomic_compare_exchange_weak(&page_info->ref_count, &old, old + 1)) {
-            return 1;
-		}
-        // we raced and need to retry
-    }
-    return 0;
-}
+int pmm_retain(uintptr_t page);
 
 #endif
