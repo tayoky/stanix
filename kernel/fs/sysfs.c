@@ -22,6 +22,7 @@ static vfs_fd_ops_t sysfs_fd_ops;
 #define INODE_KERNEL_DIR 7
 #define INODE_SLAB_DIR   8
 #define INODE_SLAB       9
+#define INODE_MEM        10
 
 typedef struct static_entry {
 	int type;
@@ -36,6 +37,7 @@ static static_entry_t root_entries[] = {
 	ENTRY(VFS_DIR, INODE_CHAR_DIR  , "char"),
 	ENTRY(VFS_DIR, INODE_BUS_DIR   , "bus"),
 	ENTRY(VFS_DIR, INODE_KERNEL_DIR, "kernel"),
+	ENTRY(VFS_FILE, INODE_MEM      , "mem"),
 };
 
 static static_entry_t kernel_entries[] = {
@@ -223,7 +225,18 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	switch (inode->type) {
 	case INODE_SLAB:;
 		slab_cache_t *slab = inode->ptr;
-		sprintf(str, "object size : %ld\n", slab->size);
+		sprintf(str, "object size : %ld\n"
+			"free count : %zu\n"
+			"partial count : %zu\n"
+			"full count : %zu\n", 
+			slab->size, slab->free.node_count,
+			slab->partial.node_count, slab->full.node_count);
+		break;
+	case INODE_MEM:
+		sprintf(str, "total pages count : %zu\n"
+			"used pages count : %zu\n", 
+			pmm_get_total_pages(),
+			pmm_get_used_pages());
 		break;
 	default:
 		return -ENOSYS;
