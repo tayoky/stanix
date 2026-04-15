@@ -11,6 +11,7 @@
 
 static slab_cache_t sysfs_inodes_cache;
 static vfs_inode_ops_t sysfs_inode_ops;
+static vfs_fd_ops_t sysfs_fd_ops;
 
 #define INODE_ROOT       1
 #define INODE_BLOCK_DIR  2
@@ -195,6 +196,11 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 	}
 }
 
+static int sysfs_open(vfs_fd_t *fd) {
+	fd->ops = &sysfs_fd_ops;
+	return 0;
+}
+
 static int sysfs_getattr(vfs_node_t *vnode, struct stat *stat) {
 	// allow execute perm only on directories
 	if (vnode->flags == VFS_DIR) {
@@ -211,11 +217,34 @@ static void sysfs_cleanup(vfs_node_t *vnode) {
 	slab_free(inode);
 }
 
+static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
+	sysfs_inode_t *inode = container_of(fd->inode, sysfs_inode_t, node);
+	char str[4096];
+	switch (inode->type) {
+	case INODE_SLAB:;
+		slab_cache_t *slab = inode->ptr;
+		sprintf(str, "object size : %ld\n", slab->size);
+		break;
+	default:
+		return -ENOSYS;
+	}
+
+	if ((size_t)offset >= strlen(str)) return 0;
+	if (offset + count > strlen(str)) count = strlen(str) - offset;
+	memcpy(buf, str, count);
+	return count;
+}
+
 static vfs_inode_ops_t sysfs_inode_ops = {
 	.lookup  = sysfs_lookup,
 	.readdir = sysfs_readdir,
 	.getattr = sysfs_getattr,
 	.cleanup = sysfs_cleanup,
+	.open    = sysfs_open,
+};
+
+static vfs_fd_ops_t sysfs_fd_ops = {
+	.read = sysfs_read,
 };
 
 static int sysfs_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **out_superblock) {
