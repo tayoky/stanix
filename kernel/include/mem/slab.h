@@ -24,6 +24,7 @@ typedef struct slab {
 #define SLAB_FULL    2
 
 typedef struct slab_cache {
+    list_node_t node;
     int (*constructor)(struct slab_cache*,void *);
     int (*destructor)(struct slab_cache*,void *);
     void *(*evict)(struct slab_cache*);
@@ -35,8 +36,27 @@ typedef struct slab_cache {
     size_t size;
 } slab_cache_t;
 
+/**
+ * @brief initialize and register a slab cache
+ * @param slab_cache teh slab cache to initalize
+ * @param size size of an object in the cache
+ * @param name the name of the slab cache (that show up in /sys/kernel/slab/)
+ */
 int slab_init(slab_cache_t *slab_cache, size_t size, const char *name);
+
+/**
+ * @brief destroy and unregister a slab cache
+ * @param slab_cache the slab cache to destroy
+ */
 void slab_destroy(slab_cache_t *slab_cache);
+
+/**
+ * @brief get the list of all registered slab caches
+ * @return the list of all registered slab caches
+ */
+list_t *slab_get_list(void);
+
+
 void *slab_alloc(slab_cache_t *slab_cache);
 void slab_free(void *ptr);
 

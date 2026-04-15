@@ -5,17 +5,24 @@
 #include <kernel/pmm.h>
 #include <kernel/mmu.h>
 
+static list_t slabs_list;
+
 int slab_init(slab_cache_t *slab_cache, size_t size, const char *name) {
 	if (size > PAGE_SIZE - sizeof(slab_t)) return -EINVAL;
 	kdebugf("init slab '%s'\n", name);
 	memset(slab_cache, 0, sizeof(slab_cache_t));
 	slab_cache->name = name;
 	slab_cache->size = size;
+	list_append(&slabs_list, &slab_cache->node);
 	return 0;
 }
 
 void slab_destroy(slab_cache_t *slab_cache) {
-	(void)slab_cache;
+	list_remove(&slabs_list, &slab_cache->node);
+}
+
+list_t *slab_get_list(void) {
+	return &slabs_list;
 }
 
 static slab_t *new_slab(slab_cache_t *slab_cache) {
