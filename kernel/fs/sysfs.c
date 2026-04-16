@@ -110,7 +110,7 @@ static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		foreach(node, &bus->addresses) {
 			bus_addr_t *addr = container_of(node, bus_addr_t, node);
 			if (!strcmp(addr->name, dentry->name)) {
-				child_inode = sysfs_new_inode(INODE_BUS_ADDR, addr, VFS_DIR);
+				child_inode = sysfs_new_inode(INODE_BUS_ADDR, addr, VFS_FILE);
 				break;
 			}
 		}
@@ -175,7 +175,7 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 			}
 			bus_addr_t *addr = container_of(node, bus_addr_t, node);
 			strcpy(dirent->d_name, addr->name);
-			dirent->d_type = DT_DIR;
+			dirent->d_type = DT_REG;
 			return 0;
 		}
 		return -ENOENT;
@@ -223,6 +223,9 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	sysfs_inode_t *inode = container_of(fd->inode, sysfs_inode_t, node);
 	char str[4096];
 	switch (inode->type) {
+	case INODE_BUS_ADDR:;
+		bus_addr_t *addr = inode->ptr;
+		return bus_read(addr, buf, offset, count);
 	case INODE_SLAB:;
 		slab_cache_t *slab = inode->ptr;
 		sprintf(str, "object size : %ld\n"

@@ -39,12 +39,12 @@ static inline int bus_register_handler(bus_addr_t *addr, interrupt_handler_t han
 	return addr->bus->ops->register_handler(addr, handler, data);
 }
 
-static inline bus_read(bus_addr_t *addr, void *buf, off_t offset, size_t size) {
+static inline ssize_t bus_read(bus_addr_t *addr, void *buf, off_t offset, size_t size) {
 	if (!addr->bus->ops || !addr->bus->ops->read) return -ENOTSUP;
 	return addr->bus->ops->read(addr, buf, offset, size);
 }
 
-static inline bus_write(bus_addr_t *addr, const void *buf, off_t offset, size_t size) {
+static inline ssize_t bus_write(bus_addr_t *addr, const void *buf, off_t offset, size_t size) {
 	if (!addr->bus->ops || !addr->bus->ops->write) return -ENOTSUP;
 	return addr->bus->ops->write(addr, buf, offset, size);
 }

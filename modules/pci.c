@@ -212,9 +212,31 @@ static void create_pci_addr(uint8_t bus,uint8_t device,uint8_t function,void *ar
 	list_append(&pci_bus->addresses, &addr->addr.node);
 }
 
+static ssize_t pci_read(bus_addr_t *addr, void *buf, off_t offset, size_t size) {
+	pci_addr_t *pci_addr = container_of(addr, pci_addr_t, addr);
+
+	// only allow word aligned read
+	if (offset % 2 || size %2) return -EINVAL;
+
+	if (size + offset > 256) size = 256 - offset;
+	if (offset >= 256) return 0;
+
+	uint16_t *buffer = buf;
+	for (size_t i=0; i<(size/2); i++) {
+		*(buffer++) = pci_read_config_word(pci_addr->bus, pci_addr->device, pci_addr->function, offset);
+		offset += 2;
+	}
+
+	return size;
+}
+
 
 static device_driver_t pci_driver = {
 	.name = "pci",
+};
+
+static bus_ops_t pci_bus_ops = {
+	.read = pci_read,
 };
 
 static bus_t pci_bus = {
@@ -222,7 +244,8 @@ static bus_t pci_bus = {
 		.driver = &pci_driver,
 		.name = "pci",
 		.type = DEVICE_BUS,
-	}
+	},
+	.ops = &pci_bus_ops,
 };
 
 int init_pci(int argc,char **argv){
