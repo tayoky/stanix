@@ -55,7 +55,8 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	}
 
 	if (!(vfs_perm(file->inode) & PERM_EXECUTE)) {
-		return -EACCES;
+		ret = -EACCES;
+		goto error;
 	}
 
 	// first read the header
