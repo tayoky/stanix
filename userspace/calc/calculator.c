@@ -114,7 +114,7 @@ int main() {
 		return -1;
 	}
 
-	tgui_window_t *window = tgui_window_new("tgui calculator", 200, 200);
+	tgui_window_t *window = tgui_window_new("calculator", 200, 200);
 
 	label = tgui_text_new();
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(label), TGUI_TRUE);
