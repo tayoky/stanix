@@ -212,7 +212,7 @@ int main(int argc, const char **argv) {
 		fprintf(stderr, "could not initalize tgui\n");
 		return EXIT_FAILURE;
 	}
-	window = tgui_window_new("terminal", 640, 480);
+	window = tgui_window_new("terminal", 644, 480);
 	canva = tgui_canva_new();
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(canva), TGUI_TRUE);
 	tgui_widget_set_vexpand(TGUI_WIDGET_CAST(canva), TGUI_TRUE);
