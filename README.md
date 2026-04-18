@@ -7,8 +7,11 @@ More informations on [the webiste](https://tayoky.github.io/stanix).
 ## screenshots
 ![a stanix screenshot with ls runnning](https://tayoky.github.io/stanix/assets/screenshot2.png)
 
-### doom !
-![doom running under stanix](https://tayoky.github.io/stanix/assets/doom.png)
+Doom running under stanix !
+![doom running under stanix](https://tayoky.github.io/stanix/assets/doom.png)  
+
+Stanix's gui
+![a screenshot of stanix's gui with a few apps](https://tayoky.github.io/stanix/assets/gui-screenshot1.png)  
 
 ## building
 see the [build docs](https://tayoky.github.io/stanix/miscellaneous/build)
