@@ -18,7 +18,7 @@ static void handle_init(client_t *client, twm_request_init_t *request) {
 
 static void handle_create_window(client_t *client, twm_request_create_window_t *request) {
 	const char *title = strnlen(request->title, sizeof(request->title)) < sizeof(request->title) ? request->title : "window";
-	
+
 	window_t *window = create_window(client, NULL, request->width, request->height, title);
 
 	twm_event_window_created_t event = {
@@ -28,7 +28,7 @@ static void handle_create_window(client_t *client, twm_request_create_window_t *
 		},
 		.id = window->id,
 	};
-	send_event(client, (twm_event_t*)&event);
+	send_event(client, (twm_event_t *)&event);
 	return;
 }
 
@@ -50,6 +50,7 @@ static void handle_get_window_fb(client_t *client, twm_request_get_window_fb_t *
 		.base = {
 			.request_id = request->base.id,
 			.size       = sizeof(event),
+			.type = TWM_EVENT_WINDOW_FB,
 		},
 		.fb_info = {
 			.bpp = gfx->bpp,
@@ -65,7 +66,30 @@ static void handle_get_window_fb(client_t *client, twm_request_get_window_fb_t *
 		}
 	};
 	strcpy(event.path, window->framebuffer_path);
-	send_event(client, (twm_event_t*)&event);
+	send_event(client, (twm_event_t *)&event);
+}
+
+static void handle_get_window_attr(client_t *client, twm_request_get_window_attr_t *request) {
+	window_t *window = get_window(request->id);
+
+	if (!window) return;
+	if (window->client != client->id && client->id != desktop_hook) return;
+
+	twm_event_window_attr_t event = {
+		.base = {
+			.request_id = request->base.id,
+			.size       = sizeof(event),
+			.type = TWM_EVENT_WINDOW_ATTR,
+		},
+		.attr = {
+			.attr = window->attribute,
+			.x    = window->x,
+			.y    = window->y,
+			.id   = window->id,
+		},
+	};
+	strcpy(event.attr.title, window->title);
+	send_event(client, (twm_event_t *)&event);
 }
 
 static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *request) {
@@ -73,7 +97,7 @@ static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *
 	if (!window) return;
 	if (window->client != client->id) return;
 
-	if (request->width  == TWM_WHOLE_WIDTH)  request->width = window->width;
+	if (request->width == TWM_WHOLE_WIDTH)  request->width = window->width;
 	if (request->height == TWM_WHOLE_HEIGHT) request->height = window->height;
 
 	if (request->x >= window->width) return;
@@ -104,7 +128,7 @@ static void handle_get_screen_fb(client_t *client, twm_request_get_screen_fb_t *
 		}
 	};
 	strcpy(event.path, getenv("FB"));
-	send_event(client, (twm_event_t*)&event);
+	send_event(client, (twm_event_t *)&event);
 }
 
 static void handle_start_dragging(client_t *client, twm_request_start_dragging_t *request) {
@@ -123,42 +147,45 @@ static void handle_grab_desktop_hook(client_t *client, twm_request_grab_desktop_
 }
 
 
-int handle_request(client_t *client){
+int handle_request(client_t *client) {
 	char buf[TWM_MAX_PACKET_SIZE];
-	twm_request_t *request = (twm_request_t*)buf;
+	twm_request_t *request = (twm_request_t *)buf;
 	ssize_t size = recv(client->fd, buf, sizeof(twm_request_t), 0);
 	if (size < (ssize_t)sizeof(twm_request_t)) return -1;
 	if (request->size > TWM_MAX_PACKET_SIZE) return -1;
-	
+
 	size = recv(client->fd, buf + sizeof(twm_request_t), request->size - sizeof(twm_request_t), 0);
 	if (size < 0) return -1;
 
 	switch (request->type) {
 	case TWM_REQUEST_INIT:
-		handle_init(client, (twm_request_init_t*)request);
+		handle_init(client, (twm_request_init_t *)request);
 		break;
 	case TWM_REQUEST_CREATE_WINDOW:
-		handle_create_window(client, (twm_request_create_window_t*)request);
+		handle_create_window(client, (twm_request_create_window_t *)request);
 		break;
 	case TWM_REQUEST_DESTROY_WINDOW:
-		handle_destroy_window(client, (twm_request_destroy_window_t*)request);
+		handle_destroy_window(client, (twm_request_destroy_window_t *)request);
 		break;
 	case TWM_REQUEST_GET_WINDOW_FB:
-		handle_get_window_fb(client, (twm_request_get_window_fb_t*)request);
+		handle_get_window_fb(client, (twm_request_get_window_fb_t *)request);
+		break;
+	case TWM_REQUEST_GET_WINDOW_ATTR:
+		handle_get_window_attr(client, (twm_request_get_window_attr_t *)request);
 		break;
 	case TWM_REQUEST_REDRAW_WINDOW:
-		handle_redraw_window(client, (twm_request_redraw_window_t*)request);
+		handle_redraw_window(client, (twm_request_redraw_window_t *)request);
 		break;
 	case TWM_REQUEST_GET_SCREEN_FB:
-		handle_get_screen_fb(client, (twm_request_get_screen_fb_t*)request);
+		handle_get_screen_fb(client, (twm_request_get_screen_fb_t *)request);
 		break;
 	case TWM_REQUEST_START_DRAGGING:
-		handle_start_dragging(client, (twm_request_start_dragging_t*)request);
+		handle_start_dragging(client, (twm_request_start_dragging_t *)request);
 		break;
 	case TWM_REQUEST_GRAB_DESKTOP_HOOK:
-		handle_grab_desktop_hook(client, (twm_request_grab_desktop_hook_t*)request);
+		handle_grab_desktop_hook(client, (twm_request_grab_desktop_hook_t *)request);
 		break;
 	}
-	
+
 	return 0;
 }

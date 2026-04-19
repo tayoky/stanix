@@ -102,7 +102,7 @@ int twm_set_window_attr(twm_window_t window, int how, long attr) {
 	return twm_send_request((twm_request_t*)&request);
 }
 
-long twm_get_window_attr(twm_window_t window) {
+int twm_get_window_attr(twm_window_t window, twm_window_attr_t *attr) {
 	twm_request_set_window_attr_t request = {
 		.base = {
 			.type = TWM_REQUEST_GET_WINDOW_ATTR,
@@ -115,9 +115,9 @@ long twm_get_window_attr(twm_window_t window) {
 	if (ret < 0) return ret;
 
 	twm_event_window_attr_t *event = wait_for_response(request.base.id);
-	long attr = event->attr;
+	*attr = event->attr;
 	free(event);
-	return attr;
+	return 0;
 }
 
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height) {

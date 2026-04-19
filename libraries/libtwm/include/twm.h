@@ -69,6 +69,14 @@ typedef int16_t twm_window_t;
 typedef int16_t twm_screen_t;
 typedef int16_t twm_device_t;
 
+typedef struct twm_window_attr {
+	long attr;
+	long x;
+	long y;
+	twm_window_t id;
+	char title[256];
+} twm_window_attr_t;
+
 // requests
 
 typedef struct twm_request_init {
@@ -157,7 +165,7 @@ typedef struct twm_event_window_fb {
 typedef struct twm_event_window_attr {
 	twm_event_t base;
 	twm_window_t id;
-	long attr;
+	twm_window_attr_t attr;
 } twm_event_window_attr_t;
 
 typedef struct twm_event_input {
@@ -221,7 +229,7 @@ int twm_destroy_window(twm_window_t window);
 int twm_get_window_fb(twm_window_t window, int *fd, twm_fb_info_t *fb_info);
 int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info);
 int twm_set_window_attr(twm_window_t window, int how, long attr);
-long twm_get_window_attr(twm_window_t window);
+int twm_get_window_attr(twm_window_t window, twm_window_attr_t *attr);
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);
 int twm_start_dragging(twm_window_t window, long offset_x, long offset_y);
 int twm_grab_desktop_hook(void);
