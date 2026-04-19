@@ -117,6 +117,18 @@ void destroy_window(window_t *window) {
 	free(window->title);
 	shm_unlink(window->framebuffer_path);
 	free(window->framebuffer_path);
+
+	
+	// tell the desktop hook we destroyed a window
+	twm_event_desktop_t window_event = {
+		.base = {
+			.type = TWM_EVENT_DESKTOP,
+			.size = sizeof(window_event),
+		},
+		.type = TWM_WINDOW_DESTROYED,
+		.id = window->id,
+	};
+	send_event(get_client(desktop_hook), (twm_event_t*)&window_event);
 	free(window);
 }
 
