@@ -15,8 +15,10 @@ void desktop_hook(twm_event_t *event, void *arg) {
 	twm_event_desktop_t *desktop_event = (twm_event_desktop_t *)event;
 	switch (desktop_event->type) {
 	case TWM_WINDOW_CREATED:;
+		twm_window_attr_t attr;
+		twm_get_window_attr(desktop_event->id, &attr);
 		tgui_button_t *button = tgui_button_new();
-		tgui_button_set_text(button, "window");
+		tgui_button_set_text(button, attr.title);
 		tgui_box_append_widget(main_box, TGUI_WIDGET_CAST(button));
 		utils_hashmap_add(&buttons, desktop_event->id, button);
 		break;
@@ -37,7 +39,10 @@ int main() {
 
 	utils_init_hashmap(&buttons, 128);
 
-	window = tgui_window_new("taskbar", 600, 100);
+	twm_fb_info_t screen;
+	twm_get_screen_fb(0, &screen);
+
+	window = tgui_window_new("taskbar", screen.width, 50);
 	tgui_window_set_title_bar(window, TGUI_FALSE);
 	main_box = tgui_box_new();
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(main_box), TGUI_TRUE);
