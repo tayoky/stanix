@@ -120,6 +120,20 @@ int twm_get_window_attr(twm_window_t window, twm_window_attr_t *attr) {
 	return 0;
 }
 
+int twm_set_window_pos(twm_window_t window, long x, long y) {
+	twm_request_set_window_pos_t request = {
+		.base = {
+			.type = TWM_REQUEST_SET_WINDOW_POS,
+			.size = sizeof(request),
+		},
+		.id = window,
+		.x = x,
+		.y = y,
+	};
+
+	return twm_send_request((twm_request_t*)&request);
+}
+
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height) {
 	twm_request_redraw_window_t request = {
 		.base = {

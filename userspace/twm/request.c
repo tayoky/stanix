@@ -92,6 +92,16 @@ static void handle_get_window_attr(client_t *client, twm_request_get_window_attr
 	send_event(client, (twm_event_t *)&event);
 }
 
+
+static void handle_set_window_pos(client_t *client, twm_request_set_window_pos_t *request) {
+	window_t *window = get_window(request->id);
+
+	if (!window) return;
+	if (window->client != client->id) return;
+
+	move_window(window, request->x, request->y);
+}
+
 static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *request) {
 	window_t *window = get_window(request->id);
 	if (!window) return;
@@ -172,6 +182,9 @@ int handle_request(client_t *client) {
 		break;
 	case TWM_REQUEST_GET_WINDOW_ATTR:
 		handle_get_window_attr(client, (twm_request_get_window_attr_t *)request);
+		break;
+	case TWM_REQUEST_SET_WINDOW_POS:
+		handle_set_window_pos(client, (twm_request_set_window_pos_t *)request);
 		break;
 	case TWM_REQUEST_REDRAW_WINDOW:
 		handle_redraw_window(client, (twm_request_redraw_window_t *)request);

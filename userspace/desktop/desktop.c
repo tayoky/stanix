@@ -43,6 +43,7 @@ int main() {
 	twm_get_screen_fb(0, &screen);
 
 	window = tgui_window_new("taskbar", screen.width, 50);
+	tgui_surface_set_position(TGUI_SURFACE_CAST(window), 0, screen.height - 50);
 	tgui_window_set_title_bar(window, TGUI_FALSE);
 	main_box = tgui_box_new();
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(main_box), TGUI_TRUE);
