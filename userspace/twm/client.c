@@ -7,7 +7,7 @@
 #include <twm.h>
 
 utils_vector_t clients;
-client_t *desktop_hook;
+int desktop_hook;
 
 static int close_client_window(client_t *client) {
 	utils_hashmap_foreach(key, element, &windows) {

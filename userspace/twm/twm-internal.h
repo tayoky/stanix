@@ -53,7 +53,7 @@ extern int server_socket;
 extern libinput_keyboard_t *kb;
 extern utils_vector_t clients;
 extern int mouse;
-extern client_t *desktop_hook;
+extern int desktop_hook;
 
 void move_cursor(cursor_t *cursor, long new_x, long new_y);
 void invalidate_rect(long x, long y, long width, long height);

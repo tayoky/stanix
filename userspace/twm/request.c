@@ -118,7 +118,7 @@ static void handle_start_dragging(client_t *client, twm_request_start_dragging_t
 static void handle_grab_desktop_hook(client_t *client, twm_request_grab_desktop_hook_t *request) {
 	(void)request;
 	if (desktop_hook) return;
-	desktop_hook = client;
+	desktop_hook = client->id;
 	printf("client grabbed desktop hook\n");
 }
 

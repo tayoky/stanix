@@ -99,7 +99,7 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 		.type = TWM_WINDOW_CREATED,
 		.id = window->id,
 	};
-	send_event(desktop_hook, (twm_event_t*)&window_event);
+	send_event(get_client(desktop_hook), (twm_event_t*)&window_event);
 
 	return window;
 }
