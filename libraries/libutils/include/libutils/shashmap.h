@@ -11,7 +11,7 @@ typedef struct utils_shashmap_entry {
 	void *element;
 } utils_shashmap_entry_t;
 
-typedef struct utils_hasmap {
+typedef struct utils_shashmap {
 	utils_vector_t *vectors;
 	size_t capacity;
 } utils_shashmap_t;

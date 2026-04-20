@@ -4,6 +4,7 @@
 #include <libutils/hashmap.h>
 #include <twm.h>
 #include <dirent.h>
+#include <libini.h>
 
 tgui_window_t *window;
 tgui_box_t *main_box;
@@ -33,10 +34,11 @@ void desktop_hook(twm_event_t *event, void *arg) {
 	}
 }
 
-void start_click (twm_event_t *event) {
+int start_click (tgui_event_t *event) {
 	(void)event;
 	tgui_popover_set_position(start_menu, -100, 0);
 	tgui_popover_popup(start_menu);
+	return TGUI_EVENT_HANDLED;
 }
 
 int main() {
@@ -61,8 +63,21 @@ int main() {
 	start_menu = tgui_popover_new();
 	tgui_box_t *start_menu_list = tgui_box_new();
 	tgui_popover_set_child(start_menu, TGUI_WIDGET_CAST(start_menu_list));
+
+	// TODO : cleanup
 	DIR *dir = opendir("/etc/desktop.d");
 	if (dir) {
+		struct dirent *entry;
+		while ((entry = readdir(dir))) {
+			char full_path[sizeof(entry->d_name) + 16];
+			snprintf(full_path, sizeof(full_path), "/etc/desktop.d/%s", entry->d_name);
+			utils_shashmap_t *data = ini_parse_file(full_path);
+			if (!data) continue;
+
+			tgui_button_t *button = tgui_button_new();
+			tgui_button_set_text(button, utils_shashmap_get(data, "name"));
+			tgui_box_append_widget(start_menu_list, TGUI_WIDGET_CAST(button));
+		}
 		closedir(dir);
 	}
 

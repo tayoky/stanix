@@ -11,7 +11,7 @@ OUT = $(shell basename $(PWD))
 CFLAGS += -Wall -Wextra -std=c99
 CFLAGS += -I ./
 
-LDFLAGS += -ltgui -ltwm
+LDFLAGS += -ltgui -ltwm -lini
 
 all : ../bin/$(OUT)
 
