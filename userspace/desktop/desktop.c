@@ -3,9 +3,11 @@
 #include <tgui/tgui.h>
 #include <libutils/hashmap.h>
 #include <twm.h>
+#include <dirent.h>
 
 tgui_window_t *window;
 tgui_box_t *main_box;
+tgui_popover_t *start_menu;
 tgui_button_t *start_button;
 utils_hashmap_t buttons;
 
@@ -31,6 +33,12 @@ void desktop_hook(twm_event_t *event, void *arg) {
 	}
 }
 
+void start_click (twm_event_t *event) {
+	(void)event;
+	tgui_popover_set_position(start_menu, -100, 0);
+	tgui_popover_popup(start_menu);
+}
+
 int main() {
 	if (tgui_init() < 0) {
 		puts("fail to init libtgui");
@@ -49,8 +57,18 @@ int main() {
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(main_box), TGUI_TRUE);
 	tgui_widget_set_orientation(TGUI_WIDGET_CAST(main_box), TGUI_ORIENTATION_HORIZONTAL);
 	tgui_window_set_child(window, TGUI_WIDGET_CAST(main_box));
+
+	start_menu = tgui_popover_new();
+	tgui_box_t *start_menu_list = tgui_box_new();
+	tgui_popover_set_child(start_menu, TGUI_WIDGET_CAST(start_menu_list));
+	DIR *dir = opendir("/etc/desktop.d");
+	if (dir) {
+		closedir(dir);
+	}
+
 	start_button = tgui_button_new();
 	tgui_button_set_icon(start_button, "stanix24");
+	tgui_widget_set_callback(TGUI_WIDGET_CAST(start_button), TGUI_EVENT_CLICK, start_click, NULL);
 	tgui_box_append_widget(main_box, TGUI_WIDGET_CAST(start_button));
 
 	// setup desktop hook
