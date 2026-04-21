@@ -2,7 +2,7 @@
 #define SPINLOCK_H
 
 //deadlock detection only work on non SMP
-//#define SPINLOCK_DEBUG
+#define SPINLOCK_DEBUG
 
 #ifdef SPINLOCK_DEBUG
 #include <kernel/panic.h>

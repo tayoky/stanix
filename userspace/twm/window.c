@@ -12,8 +12,10 @@ window_t *window_stack_bottom;
 window_t *focus_window;
 
 static void invalidate_window(window_t *window) {
-	invalidate_rect(window->x - theme.border_width, window->y - 2 * theme.border_width - theme.titlebar_height,
-		window->width + 2 * theme.border_width, window->height + 3 * theme.border_width + theme.titlebar_height);
+	long x;
+	long y;
+	real_window_coord(window, &x, &y);
+	invalidate_rect(x, y, window->width, window->height);
 }
 
 void push_window_at_top(window_t *window) {
@@ -68,8 +70,6 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	window->width  = width;
 	window->height = height;
 	window->parent = parent;
-	window->x = 100;
-	window->y = 100;
 	window->attribute = TWM_ATTR_DECORED | TWM_ATTR_SHOW;
 	window->title  = strdup(title);
 	
@@ -88,7 +88,7 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	push_window_at_top(window);
 
 	utils_hashmap_add(&windows, window->id, window);
-	invalidate_window(window);
+	move_window(window, 100, 100);
 
 	// tell the desktop hook we created a window
 	twm_event_desktop_t window_event = {
@@ -147,8 +147,11 @@ window_t *get_window(twm_window_t id) {
 }
 
 int is_inside_window(window_t *window, long x, long y, long width, long height) {
-	if (x + width >= window->x && y + height >= window->y
-	&& x < window->x + window->width && y < window->y + window->height) {
+	long win_x;
+	long win_y;
+	real_window_coord(window, &win_x, &win_y);
+	if (x + width >= win_x && y + height >= win_y
+	&& x < win_x + window->width && y < win_y + window->height) {
 		return 1;
 	}
 	return 0;
@@ -170,4 +173,14 @@ int update_focus(window_t *window) {
 	focus_window = window;
 	push_window_at_top(window);
 	return 1;
+}
+
+void real_window_coord(window_t *window, long *x, long *y) {
+	*x = 0;
+	*y = 0;
+	while (window) {
+		*x += window->x;
+		*y += window->y;
+		window = window->parent;
+	}
 }

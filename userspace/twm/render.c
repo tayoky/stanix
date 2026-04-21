@@ -9,14 +9,17 @@ static long invalidate_end_x = 0;
 static long invalidate_end_y = 0;
 
 static void render_window_content(window_t *window) {
-	long x = window->x;
-	long y = window->y;
+	long win_x;
+	long win_y;
+	real_window_coord(window, &win_x, &win_y);
+	long y = win_y;
+	long x = win_x;
 	long width  = window->width;
 	long height = window->height;
 	if (!gfx_bound_check(gfx, &x, &y, &width, &height)) return;
 
 	uintptr_t dest_ptr = gfx_pixel_addr(gfx, x, y);
-	uintptr_t src_ptr = (uintptr_t)window->framebuffer + (x - window->x) * (gfx->bpp/8);
+	uintptr_t src_ptr = (uintptr_t)window->framebuffer + (x - win_x) * (gfx->bpp/8);
 	size_t win_pitch = window->width * (gfx->bpp/8);
 	size_t copy_width = width * (gfx->bpp/8);
 	

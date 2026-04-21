@@ -1,5 +1,5 @@
-#ifndef _TWM_H
-#define _TWM_H
+#ifndef TWM_H
+#define TWM_H
 
 #include <stdint.h>
 #include <limits.h>
@@ -69,6 +69,8 @@ typedef struct twm_ctx {
 typedef int16_t twm_window_t;
 typedef int16_t twm_screen_t;
 typedef int16_t twm_device_t;
+
+#define TWM_NULL 0
 
 typedef struct twm_window_attr {
 	long attr;
@@ -232,7 +234,7 @@ int twm_init(const char *path);
 void twm_fini(void);
 int twm_get_fd(void);
 int twm_send_request(twm_request_t *request);
-twm_window_t twm_create_window(const char *title, long width, long height);
+twm_window_t twm_create_window(const char *title, long width, long height, twm_window_t parent);
 int twm_destroy_window(twm_window_t window);
 int twm_get_window_fb(twm_window_t window, int *fd, twm_fb_info_t *fb_info);
 int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info);

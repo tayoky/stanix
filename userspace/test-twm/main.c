@@ -5,7 +5,7 @@
 
 int main() {
 	twm_init(NULL);
-	twm_window_t window = twm_create_window("test window", 250, 250);
+	twm_window_t window = twm_create_window("test window", 250, 250, TWM_NULL);
 	printf("created window with id %d\n", window);
 	gfx_t *gfx = twm_get_window_gfx(window);
 	printf("got window framebuffer at %p\n", gfx->framebuffer);

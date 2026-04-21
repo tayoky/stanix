@@ -19,7 +19,8 @@ static void handle_init(client_t *client, twm_request_init_t *request) {
 static void handle_create_window(client_t *client, twm_request_create_window_t *request) {
 	const char *title = strnlen(request->title, sizeof(request->title)) < sizeof(request->title) ? request->title : "window";
 
-	window_t *window = create_window(client, NULL, request->width, request->height, title);
+	window_t *parent = get_window(request->parent);
+	window_t *window = create_window(client, parent, request->width, request->height, title);
 
 	twm_event_window_created_t event = {
 		.base = {

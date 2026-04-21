@@ -28,7 +28,7 @@ int twm_send_request(twm_request_t *request) {
 	return send(ctx.fd, request, request->size, 0);
 }
 
-twm_window_t twm_create_window(const char *title, long width, long height) {
+twm_window_t twm_create_window(const char *title, long width, long height, twm_window_t parent) {
 	twm_request_create_window_t request = {
 		.base = {
 			.type = TWM_REQUEST_CREATE_WINDOW,
@@ -36,6 +36,7 @@ twm_window_t twm_create_window(const char *title, long width, long height) {
 		},
 		.width  = width,
 		.height = height,
+		.parent = parent,
 	};
 	strncpy(request.title, title, sizeof(request.title) - 1);
 

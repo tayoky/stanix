@@ -1,5 +1,5 @@
-#ifndef _TWM_INTERNAL_H
-#define _TWM_INTERNAL_H
+#ifndef TWM_INTERNAL_H
+#define TWM_INTERNAL_H
 
 #include <libutils/hashmap.h>
 #include <libinput.h>
@@ -69,6 +69,7 @@ void handle_keyboard(void);
 void push_window_at_top(window_t *window);
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title);
 void move_window(window_t *window, long new_x, long new_y);
+void real_window_coord(window_t *window, long *x, long *y);
 void destroy_window(window_t *window);
 window_t *get_window(twm_window_t id);
 window_t *get_window_at(long x, long y);
