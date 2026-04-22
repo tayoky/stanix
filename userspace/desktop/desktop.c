@@ -20,6 +20,10 @@ void desktop_hook(twm_event_t *event, void *arg) {
 	case TWM_WINDOW_CREATED:;
 		twm_window_attr_t attr;
 		twm_get_window_attr(desktop_event->id, &attr);
+		
+		// only show top domain window
+		if (attr.parent != TWM_NULL) break;
+
 		tgui_button_t *button = tgui_button_new();
 		tgui_button_set_text(button, attr.title);
 		tgui_box_append_widget(main_box, TGUI_WIDGET_CAST(button));

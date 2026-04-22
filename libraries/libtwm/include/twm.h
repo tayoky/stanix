@@ -77,6 +77,7 @@ typedef struct twm_window_attr {
 	long x;
 	long y;
 	twm_window_t id;
+	twm_window_t parent;
 	char title[256];
 } twm_window_attr_t;
 
@@ -222,7 +223,7 @@ typedef struct twm_event_desktop {
 #define TWM_WINDOW_DESTROYED 2
 
 #define TWM_CURRENT_MAJOR 0
-#define TWM_CURRENT_MINOR 1
+#define TWM_CURRENT_MINOR 2
 #define TWM_MAX_PACKET_SIZE 4096
 #define TWM_WHOLE_WIDTH INT_MAX
 #define TWM_WHOLE_HEIGHT INT_MAX

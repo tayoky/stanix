@@ -87,6 +87,7 @@ static void handle_get_window_attr(client_t *client, twm_request_get_window_attr
 			.x    = window->x,
 			.y    = window->y,
 			.id   = window->id,
+			.parent = window->parent ? window->parent->id : TWM_NULL,
 		},
 	};
 	strcpy(event.attr.title, window->title);
