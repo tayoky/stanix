@@ -158,6 +158,18 @@ static void handle_grab_desktop_hook(client_t *client, twm_request_grab_desktop_
 	printf("client grabbed desktop hook\n");
 }
 
+static void handle_grab_input(client_t *client, twm_request_grab_input_t *request) {
+	if (request->window == TWM_NULL) {
+		if (focus_window->client != client->id && desktop_hook != client->id) return;
+		grab_input = 0;
+		return;
+	}
+	window_t *window = get_window(request->window);
+	if (!window) return;
+	update_focus(window);
+	grab_input = 1;
+}
+
 
 int handle_request(client_t *client) {
 	char buf[TWM_MAX_PACKET_SIZE];
@@ -199,6 +211,9 @@ int handle_request(client_t *client) {
 		break;
 	case TWM_REQUEST_GRAB_DESKTOP_HOOK:
 		handle_grab_desktop_hook(client, (twm_request_grab_desktop_hook_t *)request);
+		break;
+	case TWM_REQUEST_GRAB_INPUT:
+		handle_grab_input(client, (twm_request_grab_input_t *)request);
 		break;
 	}
 

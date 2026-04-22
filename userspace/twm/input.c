@@ -4,6 +4,7 @@
 static window_t *grab = NULL;
 static long grab_offset_x;
 static long grab_offset_y;
+int grab_input;
 
 void set_grab(window_t *window, long offset_x, long offset_y) {
 	grab = window;
@@ -27,7 +28,12 @@ void handle_mouse(void) {
 			move_window(grab, new_x + grab_offset_x, new_y + grab_offset_y);
 		} else {
 			// forward event to the window
-			window_t *window = get_window_at(cursor.x, cursor.y);
+			window_t *window;
+			if (grab_input) {
+				window = focus_window;
+			} else {
+				window = get_window_at(cursor.x, cursor.y);
+			}
 			if (!window) return;
 			twm_event_input_t twm_event = {
 				.base = {
@@ -53,9 +59,12 @@ void handle_mouse(void) {
 			grab = NULL;
 			return;
 		}
-		window_t *window = get_window_at(cursor.x, cursor.y);
-		if (!window) return;
-		update_focus(window);
+		if (!grab_input) {
+			window_t *window = get_window_at(cursor.x, cursor.y);
+			if (!window) return;
+			update_focus(window);
+		}
+
 		if (!focus_window) return;
 		// forward event to the focus window
 		twm_event_input_t twm_event = {

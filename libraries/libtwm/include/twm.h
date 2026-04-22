@@ -36,7 +36,8 @@ typedef struct twm_request {
 #define TWM_REQUEST_START_DRAGGING    9
 #define TWM_REQUEST_GRAB_DESKTOP_HOOK 10
 #define TWM_REQUEST_SET_WINDOW_POS    11
-#define TWM_REQUEST_COUNT             12
+#define TWM_REQUEST_GRAB_INPUT        12
+#define TWM_REQUEST_COUNT             13
 
 #define TWM_WINDOW_SHOW   1
 #define TWM_WINDOW_WIDTH  2
@@ -121,6 +122,12 @@ typedef struct twm_request_set_window_pos {
 	long x;
 	long y;
 } twm_request_set_window_pos_t;
+
+typedef struct twm_request_grab_input {
+	twm_request_t base;
+	twm_window_t window;
+	int confine_mouse;
+} twm_request_grab_input_t;
 
 #define TWM_SET_ATTR    0
 #define TWM_ADD_ATTR    1
@@ -242,6 +249,7 @@ int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info);
 int twm_set_window_attr(twm_window_t window, int how, long attr);
 int twm_get_window_attr(twm_window_t window, twm_window_attr_t *attr);
 int twm_set_window_pos(twm_window_t window, long x, long y);
+int twm_grab_input(twm_window_t window, int confine_cursor);
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);
 int twm_start_dragging(twm_window_t window, long offset_x, long offset_y);
 int twm_grab_desktop_hook(void);

@@ -48,6 +48,7 @@ extern utils_hashmap_t windows;
 extern window_t *window_stack_top;
 extern window_t *window_stack_bottom;
 extern window_t *focus_window;
+extern int grab_input;
 extern cursor_t cursor;
 extern int server_socket;
 extern libinput_keyboard_t *kb;

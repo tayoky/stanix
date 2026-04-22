@@ -135,6 +135,19 @@ int twm_set_window_pos(twm_window_t window, long x, long y) {
 	return twm_send_request((twm_request_t*)&request);
 }
 
+int twm_grab_input(twm_window_t window, int confine_cursor) {
+	twm_request_grab_input_t request = {
+		.base = {
+			.type = TWM_REQUEST_GRAB_INPUT,
+			.size = sizeof(request),
+		},
+		.window = window,
+		.confine_mouse = confine_cursor,
+	};
+
+	return twm_send_request((twm_request_t*)&request);
+}
+
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height) {
 	twm_request_redraw_window_t request = {
 		.base = {
