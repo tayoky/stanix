@@ -34,11 +34,9 @@ void desktop_hook(twm_event_t *event, void *arg) {
 	}
 }
 
-int start_click (tgui_event_t *event) {
-	(void)event;
+void start_click (void) {
 	tgui_popover_set_position(start_menu, -100, 0);
 	tgui_popover_popup(start_menu);
-	return TGUI_EVENT_HANDLED;
 }
 
 int main() {
@@ -83,7 +81,7 @@ int main() {
 
 	start_button = tgui_button_new();
 	tgui_button_set_icon(start_button, "stanix24");
-	tgui_widget_set_callback(TGUI_WIDGET_CAST(start_button), TGUI_EVENT_CLICK, start_click, NULL);
+	tgui_widget_connect_signal(TGUI_WIDGET_CAST(start_button), "click", TCALLBACK_CAST(start_click), NULL);
 	tgui_box_append_widget(main_box, TGUI_WIDGET_CAST(start_button));
 
 	// setup desktop hook

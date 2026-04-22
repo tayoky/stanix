@@ -75,14 +75,13 @@ long calculate1(const char **_ptr) {
 	return value;
 }
 
-int button_click(tgui_event_t *event) {
+void button_click(tobject_t *tobject) {
 	puts("click");
-	tgui_button_t *button = TGUI_BUTTON_CAST(event->widget);
+	tgui_button_t *button = TGUI_BUTTON_CAST(tobject);
 	tgui_text_insert(label, tgui_button_get_text(button));
-	return TGUI_EVENT_HANDLED;
 }
 
-int equal_click(tgui_event_t *event) {
+void equal_click(void) {
 	const char *str = tgui_text_get_content(label);
 	syntax_error = 0;
 	long value = calculate1(&str);
@@ -95,7 +94,6 @@ int equal_click(tgui_event_t *event) {
 		sprintf(text, "%ld", value);
 		tgui_text_set_placeholder(label, text);
 	}
-	return TGUI_EVENT_HANDLED;
 }
 	
 tgui_button_t *new_button(const char *text) {
@@ -104,7 +102,7 @@ tgui_button_t *new_button(const char *text) {
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(button), TGUI_TRUE);
 	tgui_widget_set_vexpand(TGUI_WIDGET_CAST(button), TGUI_TRUE);
 	tgui_button_set_text(button, text);
-	tgui_widget_set_callback(TGUI_WIDGET_CAST(button), TGUI_EVENT_CLICK, button_click, NULL);
+	tgui_widget_connect_signal(TGUI_WIDGET_CAST(button), "click", TCALLBACK_CAST(button_click), NULL);
 	return button;
 }
 
@@ -136,7 +134,7 @@ int main() {
 		tgui_grid_set_at(grid, x, y, TGUI_WIDGET_CAST(button));
 	}
 	tgui_button_t *equal = new_button("=");
-	tgui_widget_set_callback(TGUI_WIDGET_CAST(equal), TGUI_EVENT_CLICK, equal_click, NULL);
+	tgui_widget_connect_signal(TGUI_WIDGET_CAST(equal), "click", TCALLBACK_CAST(equal_click), NULL);
 	tgui_grid_set_at(grid, 0, 3, TGUI_WIDGET_CAST(equal));
 	tgui_grid_set_at(grid, 1, 3, TGUI_WIDGET_CAST(new_button("0")));
 	tgui_grid_set_at(grid, 3, 0, TGUI_WIDGET_CAST(new_button("/")));
