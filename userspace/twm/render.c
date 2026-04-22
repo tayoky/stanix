@@ -9,6 +9,7 @@ static long invalidate_end_x = 0;
 static long invalidate_end_y = 0;
 
 static void render_window_content(window_t *window) {
+	if (!(window->attribute & TWM_ATTR_SHOW)) return;
 	long win_x;
 	long win_y;
 	real_window_coord(window, &win_x, &win_y);

@@ -94,6 +94,25 @@ static void handle_get_window_attr(client_t *client, twm_request_get_window_attr
 	send_event(client, (twm_event_t *)&event);
 }
 
+static void handle_set_window_attr(client_t *client, twm_request_set_window_attr_t *request) {
+	window_t *window = get_window(request->id);
+	if (!window) return;
+	if (window->client != client->id && client->id != desktop_hook) return;
+
+	long attr = window->attribute;
+	switch (request->how) {
+	case TWM_SET_ATTR:
+		attr = request->attr;
+		break;
+	case TWM_ADD_ATTR:
+		attr |= request->attr;
+		break;
+	case TWM_REMOVE_ATTR:
+		attr &= ~request->attr;
+		break;
+	}
+	set_window_attr(window, attr);
+}
 
 static void handle_set_window_pos(client_t *client, twm_request_set_window_pos_t *request) {
 	window_t *window = get_window(request->id);
@@ -196,6 +215,9 @@ int handle_request(client_t *client) {
 		break;
 	case TWM_REQUEST_GET_WINDOW_ATTR:
 		handle_get_window_attr(client, (twm_request_get_window_attr_t *)request);
+		break;
+	case TWM_REQUEST_SET_WINDOW_ATTR:
+		handle_set_window_attr(client, (twm_request_set_window_attr_t *)request);
 		break;
 	case TWM_REQUEST_SET_WINDOW_POS:
 		handle_set_window_pos(client, (twm_request_set_window_pos_t *)request);

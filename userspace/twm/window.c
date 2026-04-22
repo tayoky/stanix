@@ -59,6 +59,14 @@ static void remove_window_from_stack(window_t *window) {
 	}
 }
 
+void set_window_attr(window_t *window, long attr) {
+	// if going from show to hide or from hide to show we need to invalidate
+	if ((window->attribute ^ attr) & TWM_ATTR_SHOW) {
+		invalidate_window(window);
+	}
+	window->attribute = attr;
+}
+
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title) {
 	puts("create window");
 	static twm_window_t id_count = 1;
