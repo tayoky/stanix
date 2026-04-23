@@ -55,11 +55,11 @@ void handle_mouse(void) {
 		return;
 	}
 	if (event.ie_type == IE_KEY_EVENT) {
-		if (event.ie_key.flags & IE_KEY_RELEASE && event.ie_key.scancode == INPUT_KEY_MOUSE_LEFT && grab) {
+		if ((event.ie_key.flags & IE_KEY_RELEASE) && event.ie_key.scancode == INPUT_KEY_MOUSE_LEFT && grab) {
 			grab = NULL;
-			return;
+			// sill forward the event so the window know the dragging stoped
 		}
-		if (!grab_input) {
+		if (!grab_input && (event.ie_key.flags & IE_KEY_PRESS)) {
 			window_t *window = get_window_at(cursor.x, cursor.y);
 			if (!window) return;
 			update_focus(window);
