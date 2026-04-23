@@ -48,12 +48,12 @@ int main() {
 	if (!kb_path) kb_path = "/dev/kb0";
 	char *mouse_path = getenv("MOUSE");
 	if (!mouse_path) mouse_path = "/dev/mouse0";
-	mouse = libinput_open(mouse_path, O_CLOEXEC);
+	mouse = libinput_open(mouse_path, O_CLOEXEC | O_NONBLOCK);
 	if (mouse < 0) {
 		perror(mouse_path);
 		return 1;
 	}
-	kb = libinput_open_keyboard(kb_path, O_CLOEXEC);
+	kb = libinput_open_keyboard(kb_path, O_CLOEXEC | O_NONBLOCK);
 	if (!kb) {
 		perror(kb_path);
 		return 1;
