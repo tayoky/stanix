@@ -80,7 +80,9 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	window->parent = parent;
 	window->attribute = TWM_ATTR_DECORED | TWM_ATTR_SHOW;
 	window->title  = strdup(title);
-	
+	window->x = (rand() % 100) + 10;	
+	window->y = (rand() % 100) + 10;
+
 	// setup a new framebuffer
 	char framebuffer_name[64];
 	sprintf(framebuffer_name, "/window-%d", window->id);
@@ -96,7 +98,7 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	push_window_at_top(window);
 
 	utils_hashmap_add(&windows, window->id, window);
-	move_window(window, 100, 100);
+	invalidate_window(window);
 
 	// tell the desktop hook we created a window
 	twm_event_desktop_t window_event = {
