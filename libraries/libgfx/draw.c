@@ -24,59 +24,66 @@ void gfx_draw_rect(gfx_t *gfx, color_t color, long x, long y, long width, long h
 	}
 }
 
-void gfx_draw_rounded_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height, char corners, long rayon) {
-	if (!gfx_bound_check(gfx, &x, &y, &width, &height)) {
-		return;
-	}
-	for (int i = 0;i < rayon;i++) {
-		long line_x = x;
-		long line_width = width;
-		long vertical_distance = rayon - i;
+static void gfx_rounded_rect_get_line(long x, long y, long width, long height, char corners, long rayon, long *line_x, long *line_width) {
+	if (y < rayon) {
+		// top corners
+		*line_x = x;
+		*line_width = width;
+		long vertical_distance = rayon - y;
 		long horizontal_distance = sqrt(rayon * rayon - vertical_distance * vertical_distance);
 		long extend = rayon - horizontal_distance;
 
 		if (corners & GFX_CORNER_TOP_LEFT) {
-			line_x += extend;
-			line_width -= extend;
+			*line_x += extend;
+			*line_width -= extend;
 		}
 		if (corners & GFX_CORNER_TOP_RIGHT) {
-			line_width -= extend;
+			*line_width -= extend;
 		}
-		uintptr_t ptr = gfx_pixel_addr(gfx, line_x, y);
-		for (long j = 0;j < line_width;j++) {
-			*(color_t *)ptr = color;
-			ptr += gfx->bpp / 8;
-		}
-		y++;
-	}
-	for (int i = rayon;i < height-rayon;i++) {
-		uintptr_t ptr = gfx_pixel_addr(gfx, x, y);
-		for (long j = 0;j < width;j++) {
-			*(color_t *)ptr = color;
-			ptr += gfx->bpp / 8;
-		}
-		y++;
-	}
-	for (int i = 0;i < rayon;i++) {
-		long line_x = x;
-		long line_width = width;
-		long vertical_distance = i+1;
+
+	} else if(y < height - rayon) {
+		// middle
+		*line_x = x;
+		*line_width = width;
+	} else {
+		// bottom corners
+		*line_x = x;
+		*line_width = width;
+		long vertical_distance = y + rayon - height +1;
 		long horizontal_distance = sqrt(rayon * rayon - vertical_distance * vertical_distance);
 		long extend = rayon - horizontal_distance;
 
 		if (corners & GFX_CORNER_BOTTOM_LEFT) {
-			line_x += extend;
-			line_width -= extend;
+			*line_x += extend;
+			*line_width -= extend;
 		}
 		if (corners & GFX_CORNER_BOTTOM_RIGHT) {
-			line_width -= extend;
+			*line_width -= extend;
 		}
-		uintptr_t ptr = gfx_pixel_addr(gfx, line_x, y);
+	}
+}
+
+void gfx_draw_rounded_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height, char corners, long rayon) {
+	long cur_y = 0;
+	if (y < 0) {
+		cur_y = -y;
+	}
+	for (; cur_y<height && y + cur_y <gfx->height; cur_y++) {
+		long line_x;
+		long line_width;
+		gfx_rounded_rect_get_line(x, cur_y, width, height, corners, rayon, &line_x, &line_width);
+		if (line_x < 0) {
+			line_width += line_x;
+			line_x = 0;
+		}
+		if (line_x + line_width > gfx->width) {
+			line_width = gfx->width - line_x;
+		}
+		uintptr_t ptr = gfx_pixel_addr(gfx, line_x, cur_y + y);
 		for (long j = 0;j < line_width;j++) {
 			*(color_t *)ptr = color;
 			ptr += gfx->bpp / 8;
 		}
-		y++;
 	}
 }
 

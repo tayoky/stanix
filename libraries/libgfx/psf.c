@@ -39,7 +39,18 @@ static void psf1_draw_char(gfx_t *gfx, font_t *font, color_t color, long x, long
 	PSF1_data *data = font->private;
 	char *current_byte = &data->data[c * data->header.character_size];
 	for (uint16_t i = 0; i < data->header.character_size; i++) {
-		for (uint8_t j = 0; j < 8; j++) {
+		if (y + i >= gfx->height) break;
+		uint8_t j = 0;
+		if (x < 0) {
+			if (x <= -8) {
+				// the char is off screen
+				return;
+			}
+			j = -x;
+		}
+		for (; j < 8; j++) {
+			if (x + j >= gfx->width) break;
+			if (x + j < 0) continue;
 			if (((*current_byte) >> (7 - j)) & 1) {
 				gfx_draw_pixel(gfx, color, x + j, y + i);
 			}
