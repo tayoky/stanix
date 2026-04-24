@@ -11,7 +11,7 @@ Doom running under stanix !
 ![doom running under stanix](https://tayoky.github.io/stanix/assets/doom.png)  
 
 Stanix's gui
-![a screenshot of stanix's gui with a few apps](https://tayoky.github.io/stanix/assets/gui-screenshot1.png)  
+![a screenshot of stanix's gui with a few apps](https://tayoky.github.io/stanix/assets/gui-screenshot2.png)  
 
 ## building
 see the [build docs](https://tayoky.github.io/stanix/miscellaneous/build)
