@@ -37,8 +37,16 @@ static long psf1_char_height(font_t *font, int c) {
 static void psf1_draw_char(gfx_t *gfx, font_t *font, color_t color, long x, long y, int c) {
 	if (c > 255) c = '?';
 	PSF1_data *data = font->private;
-	char *current_byte = &data->data[c * data->header.character_size];
-	for (uint16_t i = 0; i < data->header.character_size; i++) {
+	char *bytes = &data->data[c * data->header.character_size];
+	uint16_t i = 0;
+	if (y < 0) {
+		if (y < -data->header.character_size) {
+			// the char is off screen
+			return;
+		}
+		i = -y;
+	}
+	for (; i < data->header.character_size; i++) {
 		if (y + i >= gfx->height) break;
 		uint8_t j = 0;
 		if (x < 0) {
@@ -51,12 +59,10 @@ static void psf1_draw_char(gfx_t *gfx, font_t *font, color_t color, long x, long
 		for (; j < 8; j++) {
 			if (x + j >= gfx->width) break;
 			if (x + j < 0) continue;
-			if (((*current_byte) >> (7 - j)) & 1) {
+			if (((bytes[i]) >> (7 - j)) & 1) {
 				gfx_draw_pixel(gfx, color, x + j, y + i);
 			}
 		}
-
-		current_byte++;
 	}
 }
 
