@@ -101,15 +101,19 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	invalidate_window(window);
 
 	// tell the desktop hook we created a window
-	twm_event_desktop_t window_event = {
-		.base = {
-			.type = TWM_EVENT_DESKTOP,
-			.size = sizeof(window_event),
-		},
-		.type = TWM_WINDOW_CREATED,
-		.id = window->id,
-	};
-	send_event(get_client(desktop_hook), (twm_event_t*)&window_event);
+	// HACK : but only if the client is notthe hook
+	// so it does not messed up two event at once
+	if (client->id != desktop_hook) {
+		twm_event_desktop_t window_event = {
+			.base = {
+				.type = TWM_EVENT_DESKTOP,
+				.size = sizeof(window_event),
+			},
+			.type = TWM_WINDOW_CREATED,
+			.id = window->id,
+		};
+		send_event(get_client(desktop_hook), (twm_event_t*)&window_event);
+	}
 
 	return window;
 }
