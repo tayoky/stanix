@@ -67,12 +67,19 @@ int main() {
 		struct dirent *entry;
 		while ((entry = readdir(dir))) {
 			char full_path[sizeof(entry->d_name) + 16];
+			// ignore hidden entries
+			if (entry->d_name[0] == '.') continue;
 			snprintf(full_path, sizeof(full_path), "/etc/desktop.d/%s", entry->d_name);
 			utils_shashmap_t *data = ini_parse_file(full_path);
 			if (!data) continue;
 
 			tgui_button_t *button = tgui_button_new();
-			tgui_button_set_text(button, utils_shashmap_get(data, "name"));
+			const char *icon = utils_shashmap_get(data, "icon");
+			if (icon) {
+				tgui_button_set_icon(button, icon);
+			} else {
+				tgui_button_set_text(button, utils_shashmap_get(data, "name"));
+			}
 			tgui_box_append_widget(start_menu_list, TGUI_WIDGET_CAST(button));
 		}
 		closedir(dir);
