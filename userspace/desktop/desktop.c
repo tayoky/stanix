@@ -5,11 +5,13 @@
 #include <twm.h>
 #include <dirent.h>
 #include <libini.h>
+#include <desktop.h>
 
 tgui_window_t *window;
 tgui_box_t *main_box;
 tgui_popover_t *start_menu;
 tgui_popover_button_t *start_button;
+tgui_vector_t *app_list;
 utils_hashmap_t buttons;
 
 void desktop_hook(twm_event_t *event, void *arg) {
@@ -58,7 +60,8 @@ int main() {
 	tgui_window_set_child(window, TGUI_WIDGET_CAST(main_box));
 
 	start_menu = tgui_popover_new();
-	tgui_box_t *start_menu_list = tgui_box_new();
+	app_list = tgui_vector_new();
+	tgui_list_view_t *start_menu_list = tgui_list_view_new(&app_factory, app_list);
 	tgui_popover_set_child(start_menu, TGUI_WIDGET_CAST(start_menu_list));
 
 	// TODO : cleanup
@@ -73,14 +76,11 @@ int main() {
 			utils_shashmap_t *data = ini_parse_file(full_path);
 			if (!data) continue;
 
-			tgui_button_t *button = tgui_button_new();
-			const char *icon = utils_shashmap_get(data, "icon");
-			if (icon) {
-				tgui_button_set_icon(button, icon);
-			} else {
-				tgui_button_set_text(button, utils_shashmap_get(data, "name"));
-			}
-			tgui_box_append_widget(start_menu_list, TGUI_WIDGET_CAST(button));
+			app_t *app = malloc(sizeof(app_t));
+			app->name    = utils_shashmap_get(data, "name");
+			app->icon    = utils_shashmap_get(data, "icon");
+			app->command = utils_shashmap_get(data, "command");
+			tgui_vector_append(app_list, app);
 		}
 		closedir(dir);
 	}
