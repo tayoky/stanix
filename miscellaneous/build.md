@@ -53,16 +53,6 @@ then you can run the script to build the toolchain
 > [!NOTE]
 > compiling the toolchain (that contain gcc) might takes some time
 
-now source the script to setup the `PATH`, `CC`, ... variables
-```sh
-. ./add-to-path.sh
-```
-
-> [!NOTE]  
-> you will have to do this step every time
-you quit your sessions and come back (or open/close a new terminal window)   
-> once you have done this step the default C compiler for this session is a stanix cross compiler use `unset CC` to revert to your system compiler
-
 then you can follow the guide same as [self building](#self-building)
 
 ## self building
@@ -90,22 +80,38 @@ first configure, this will detect the compiler and linker
 see [configuration options](#configuration-options) for all supported options  
 
 ### compiling
-first run `make` and then just run `make all` for all images or
-- `make hdd` for hdd image
-- `make iso` for iso image
-`make test` create an hdd image and automaticly launch it with qemu
+first run `make build-all` and then just run `make image-all` for all images or
+- `make image-hdd` for hdd image
+- `make image-iso` for iso image
+`make test-qemu` create an hdd image and automaticly launch it with qemu
 
 ## configuration options
 all options supported by the `./configure` script
-- `--host=XXX` precise the host for finding the compiler this should always be `x86_64-stanix` or not present
-- `--sysroot=XXX` custom sysroot path
-- `--cc=XXX` use a custom c compiler
-- `--ld=XXX` use a custom linker
-- `--nasm=XXX` use a custom assembler (must use the intel syntax and produce 64-bit objects files)
+- ``--cc=CC` set the C compiler
+- ``--cxx=CXX` set the C++ compiler
+- ``--as=AS` set the assembler
+- ``--ar=AR` set the archiver
+- ``--ld=LD` set the linker
+- ``--objcopy=OBJCOPY` set the object copy utility
+- ``--strip=STRIP` set the striper
+- ``--nm=NM` set the nm
+- ``--pkgconfig=PKGCONFIG` set the pkg-config
+- ``--cflags=CFLAGS` set cutsom flags for C compilation
+- ``--cxxflags=CXXFLAGS` set custom flags for C++ compilation
+- ``--arflags=ASFLAGS` set the flags for assembling
+- ``--asflags=ARFLAGS` set the flags for archiving
+- ``--ldflags=LDFLAGS` set the flags for linking
+- ``--host=HOST` set the OS to build, this should always be `x86_64-stanix` or not present
+- ``--build=BUILD` set the build os, can be set if tconf cannot determinate the build os
+- ``--clear-cache` clear the cache before doing anything
+- ``--prefix=PREFIX` set the prefix
+- ``--sysroot=SYSROOT`, `--with-sysroot=SYSROOT` set the sysroot
+- ``--debug` compile with debug options actived
+- ``--help` show help and exit"
 
 # installing programs
 for the moment, any program you want to install must be put into `./initrd/bin/` in the repo  
-then redo `make all`  
+then redo `make build-initrd` and `make image-hdd`  
 
 you can install port by going into the ports folder then running `./build.sh XXX` and `./install.sh XXX`
 exemple with doom :
