@@ -139,16 +139,3 @@ if [ ! -e bin/$TARGET-gcc ] ; then
   make install-target-libgcc
   cd ../..
 fi
-
-cd $TOP
-
-echo "#generated automaticly by ./build-toolchain.sh" > add-to-path.sh
-echo "export PATH=$TOP/toolchain/bin:\$PATH" >> add-to-path.sh
-echo "export CC=$TARGET-gcc" >> add-to-path.sh
-echo "export LD=$TARGET-ld" >> add-to-path.sh
-echo "export AS=$TARGET-as" >> add-to-path.sh
-echo "export AR=$TARGET-ar" >> add-to-path.sh
-
-chmod +x add-to-path.sh
-
-echo "please run '''. add-to-path.sh''' before compiling anything"
