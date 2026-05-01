@@ -1,9 +1,9 @@
 #output
-PREFIX =
-KERNEL = stanix.elf
+PREFIX ?=
+KERNEL ?= stanix.elf
 
-SYSROOT =
-KLIBC = ../tlibc/libk.a
+SYSROOT ?=
+KLIBC ?= ../tlibc/libk.a
 
 #flag
 LDFLAGS = 
@@ -32,7 +32,7 @@ endif
 
 $(PREFIX)/boot/$(KERNEL) : $(OBJ) sym.o
 	@mkdir -p $(shell dirname $@)
-	$(LD) $(LDFLAGS) -o $@ $^ $(KLIBC)
+	$(LD) $(LDFLAGS) -o $@ $^
 
 %.o : %.c
 	$(CC) -D$(ARCH) $(CFLAGS) -o $@ -g -c $^

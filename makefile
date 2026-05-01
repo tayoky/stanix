@@ -4,7 +4,6 @@ MAKEFLAGS += --no-builtin-rules
 HDD_IMAGE = stanix.hdd
 ISO_IMAGE = stanix.iso
 OUT = out
-KERNEL = stanix.elf
 BUILDENV_SHELL = $(SHELL)
 
 export TOP = $(PWD)
@@ -26,7 +25,7 @@ export PATH
 
 ifneq ($(wildcard toolchain/bin/.),)
 # we have a cross toolchain
-export PATH := toolchain/bin/:$(PATH)
+export PATH := $(realpath toolchain/bin):$(PATH)
 endif
 
 OUT_FILES = $(OUT)/boot/limine/limine-bios.sys \
@@ -41,6 +40,33 @@ $(OUT)/boot/limine/limine.conf
 INITRD_SRC = $(shell find ./initrd)
 
 all : build-all image-all
+
+# help targets
+
+targets : help
+help :
+	@echo "Stanix's makefile"
+	@echo "======================== build targets ========================"
+	@echo "build-all or build : build every component of Stanix"
+	@echo "build-tlibc        : build tlibc"
+	@echo "build-kernel       : build the core kernel (not the modules)"
+	@echo "build-modules      : build the kernel modules"
+	@echo "build-libraries    : build the userspace libraries"
+	@echo "build-initrd       : build the initial ramdisk"
+	@echo "build-env          : launch a build env setup for cross compiling"
+	@echo "======================== image targets ========================"
+	@echo "image-all          : build every image"
+	@echo "image-hdd          : build the hdd image($(HDD_IMAGE))"
+	@echo "image-iso          : build the iso image($(ISO_IMAGE))"
+	@echo "======================== tests targets ========================"
+	@echo "test-qemu          : test the hdd image in qemu"
+	@echo "test-qemu-nvme     : test the hdd image in qemu with a nvme"
+	@echo "test-qemu-ata      : test the hdd image in qemu with an ATA disk"
+	@echo "test-qemu-cdrom    : test the hdd image in qemu with an ATAPI cdrom"
+	@echo "==================== miscellaneous targets ===================="
+	@echo "targets or help    : show this help"
+	@echo "header             : install kernel and libc headers in sysroot"
+	@echo "clean              : clean everything"
 
 # test targets
 
@@ -58,7 +84,7 @@ test-qemu-ata : image-hdd
 test-qemu-cdrom : image-iso
 	qemu-system-$(ARCH) -cdrom stanix.iso -serial stdio  --no-shutdown --no-reboot
 
-debug : image-hdd
+test-qemu-debug : image-hdd
 	objdump -D $(OUT)/boot/$(KERNEL) > asm.txt
 	qemu-system-$(ARCH) -drive file=$(HDD_IMAGE)  -serial stdio -s -S
 
@@ -116,16 +142,17 @@ build-tlibc : header
 	@$(MAKE) -C tlibc install TARGET=stanix
 
 build-kernel : build-tlibc header
-	@$(MAKE) -C kernel PREFIX=$(shell realpath "$(OUT)") KERNEL=$(KERNEL) SYSROOT=$(SYSROOT)
+	@mkdir -p $(OUT)/boot
+	@$(MAKE) -C kernel PREFIX=$(realpath $(OUT))
 
 build-modules : build-tlibc header
-	@$(MAKE) -C modules install PREFIX=$(shell realpath ./initrd)
+	@$(MAKE) -C modules install PREFIX=$(realpath ./initrd)
 
 build-libraries : build-tlibc
 	@$(MAKE) -C libraries install
 
 build-userspace : build-tlibc build-libraries
-	@$(MAKE) -C userspace install SYSROOT=$(SYSROOT)
+	@$(MAKE) -C userspace install
 
 build-tash : build-tlibc
 	@cd ports && ./build.sh tash
@@ -158,7 +185,7 @@ build-env :
 	@$(BUILDENV_SHELL)
 
 header : 
-	@$(MAKE) -C kernel header SYSROOT=$(SYSROOT)
+	@$(MAKE) -C kernel header
 	@$(MAKE) -C modules header
 	@$(MAKE) -C tlibc header TARGET=stanix
 	@echo "[installing limine.h]"
@@ -177,4 +204,4 @@ clean :
 config.mk :
 	$(error "run ./configure before runing make")
 
-.PHONY : all clean header build-tlibc build-kernel build-modules build-libraries build-userspace build-tash build-tutils build-initrd build-all build
+.PHONY : all targets help clean header build-tlibc build-kernel build-modules build-libraries build-userspace build-tash build-tutils build-initrd build-all build
