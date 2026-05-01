@@ -83,7 +83,8 @@ see [configuration options](#configuration-options) for all supported options
 first run `make build-all` and then just run `make image-all` for all images or
 - `make image-hdd` for hdd image
 - `make image-iso` for iso image
-`make test-qemu` create an hdd image and automaticly launch it with qemu
+- `make test-qemu` create an hdd image and automaticly launch it with qemu
+do `make targets` to get a list of all targets
 
 ## configuration options
 all options supported by the `./configure` script
