@@ -30,7 +30,7 @@ ifeq (,$(filter clean,$(MAKECMDGOALS)))
 include arch/$(ARCH)/arch.mk
 endif
 
-$(PREFIX)/boot/$(KERNEL) : $(OBJ) sym.o
+$(PREFIX)/boot/$(KERNEL) : sym.o $(OBJ)
 	@mkdir -p $(shell dirname $@)
 	$(LD) $(LDFLAGS) -o $@ $^
 
