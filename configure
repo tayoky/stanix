@@ -3,7 +3,7 @@
 . ./tconf.sh
 
 # automaticly add toolchain/bin to path
-if [ -d "$(dirname $0)/toolchain/bin" ] ; then
+if test -d "$(dirname $0)/toolchain/bin" ; then
   export PATH="$(realpath $(dirname $0))/toolchain/bin:$PATH"
 fi
 
@@ -20,6 +20,7 @@ tconf_init "$@"
 # check tools
 tconf_search_cc "$HOST"
 tconf_search_as "$HOST"
+tconf_search_ar "$HOST"
 tconf_search_ld "$HOST"
 tconf_search_nm "$HOST"
 tconf_find_os

@@ -1,9 +1,11 @@
-#output
+MAKEFLAGS += --no-builtin-rules
+
+# defaults
 HDD_IMAGE = stanix.hdd
 ISO_IMAGE = stanix.iso
 OUT = out
 KERNEL = stanix.elf
-MAKEFLAGS += --no-builtin-rules
+BUILDENV_SHELL = $(SHELL)
 
 export TOP = $(PWD)
 
@@ -20,6 +22,12 @@ export ARCH
 export SYSROOT
 export CFLAGS
 export LDFLAGS
+export PATH 
+
+ifneq ($(wildcard toolchain/bin/.),)
+# we have a cross toolchain
+export PATH := toolchain/bin/:$(PATH)
+endif
 
 OUT_FILES = $(OUT)/boot/limine/limine-bios.sys \
 $(OUT)/EFI/BOOT/BOOTX64.EFI \
@@ -32,26 +40,32 @@ $(OUT)/boot/limine/limine.conf
 
 INITRD_SRC = $(shell find ./initrd)
 
-all : hdd iso
+all : build-all image-all
 
-test : hdd
+# test targets
+
+test-qemu : test-qemu-nvme
+
+test-qemu-nvme : image-hdd
 	qemu-system-$(ARCH) \
 	-drive file=$(HDD_IMAGE),if=none,id=nvm -serial stdio \
 	-device nvme,serial=deadbeef,drive=nvm
-ata-test : hdd
+test-qemu-ata : image-hdd
 	qemu-system-$(ARCH) \
 	-hda $(HDD_IMAGE) -serial stdio 
 #--trace "ide_*"
 
-cdrom-test : iso
+test-qemu-cdrom : image-iso
 	qemu-system-$(ARCH) -cdrom stanix.iso -serial stdio  --no-shutdown --no-reboot
 
-debug : hdd
+debug : image-hdd
 	objdump -D $(OUT)/boot/$(KERNEL) > asm.txt
 	qemu-system-$(ARCH) -drive file=$(HDD_IMAGE)  -serial stdio -s -S
 
-hdd : build $(HDD_IMAGE)
-$(HDD_IMAGE) : build $(OUT_FILES) 
+# images target
+
+image-hdd : $(HDD_IMAGE)
+$(HDD_IMAGE) : build-all $(OUT_FILES) 
 	@echo "[creating hdd image]"
 	@rm -f $(HDD_IMAGE)
 	@dd if=/dev/zero bs=5M count=0 seek=64 of=$(HDD_IMAGE)
@@ -67,8 +81,8 @@ $(HDD_IMAGE) : build $(OUT_FILES)
 	@echo "[installing limine]"
 	@./limine/limine bios-install $(HDD_IMAGE)
 
-iso : build $(ISO_IMAGE)
-$(ISO_IMAGE) : $(kernel_src) $(out_files)
+image-iso : $(ISO_IMAGE)
+$(ISO_IMAGE) : build-all $(OUT_FILES)
 	@echo "[creating iso]"
 	@rm -f $(ISO_IMAGE)
 	@xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
@@ -79,6 +93,8 @@ $(ISO_IMAGE) : $(kernel_src) $(out_files)
 	@make -C limine
 	@echo "[installing limine]"
 	@./limine/limine bios-install $(ISO_IMAGE)
+
+image-all : image-iso image-hdd
 
 OVMF-img.bin : OVMF.fd
 	@cp OVMF.fd OVMF-img.bin
@@ -94,14 +110,38 @@ $(OUT)/boot/limine/limine-% : limine/limine-%
 	@mkdir -p $(OUT)/boot/limine/
 	@cp  $^ $@
 
-#for build the ramdisk
-rd : $(OUT)/boot/initrd.tar
+# build targets
+
+build-tlibc : header
+	@$(MAKE) -C tlibc install TARGET=stanix
+
+build-kernel : build-tlibc header
+	@$(MAKE) -C kernel PREFIX=$(shell realpath "$(OUT)") KERNEL=$(KERNEL) SYSROOT=$(SYSROOT)
+
+build-modules : build-tlibc header
+	@$(MAKE) -C modules install PREFIX=$(shell realpath ./initrd)
+
+build-libraries : build-tlibc
+	@$(MAKE) -C libraries install
+
+build-userspace : build-tlibc build-libraries
+	@$(MAKE) -C userspace install SYSROOT=$(SYSROOT)
+
+build-tash : build-tlibc
+	@cd ports && ./build.sh tash
+	@cd ports && ./install.sh tash
+
+build-tutils : build-tlibc
+	@cd ports && ./build.sh tutils
+	@cd ports && ./install.sh tutils
+
+build-initrd : $(OUT)/boot/initrd.tar
 $(OUT)/boot/initrd.tar : $(INITRD_SRC)
 	@echo "[creating init ramdisk]"
 	@mkdir -p $(OUT)/boot
 	@mkdir -p initrd/dev initrd/tmp initrd/mnt initrd/proc initrd/sys
 	@chmod +s  initrd/bin/login initrd/bin/sudo
-#temporary until real sysroot, copy sysroot to initrd
+# temporary until real sysroot, copy sysroot to initrd
 	@cp -r $(SYSROOT)/* initrd/
 	@cd initrd && tar --create -f ../$(OUT)/boot/initrd.tar **
 
@@ -110,26 +150,12 @@ $(OUT)/boot/limine/limine.conf : limine.conf
 	@mkdir -p $(OUT)/boot/limine/
 	@cp $^ $@
 
-# target to build subfolders
-_tlibc : header
-	@$(MAKE) -C tlibc install TARGET=stanix
-_kernel : _tlibc header
-	@$(MAKE) -C kernel PREFIX=$(shell realpath "$(OUT)") KERNEL=$(KERNEL) SYSROOT=$(SYSROOT)
-_modules : _tlibc header
-	@$(MAKE) -C modules install PREFIX=$(shell realpath ./initrd)
-_libraries : _tlibc
-	@$(MAKE) -C libraries install
-_userspace : _tlibc _libraries
-	@$(MAKE) -C userspace install SYSROOT=$(SYSROOT)
-_tash : _tlibc
-	@cd ports && ./build.sh tash
-	@cd ports && ./install.sh tash
-_tutils : _tlibc
-	@cd ports && ./build.sh tutils
-	@cd ports && ./install.sh tutils
+build-all : header build-tlibc build-kernel build-modules build-libraries build-userspace build-tash build-tutils build-initrd
+build : build-all
 
-#build!!!
-build : header _tlibc _kernel _modules _libraries _userspace _tash _tutils $(OUT_FILES)
+build-env :
+	@echo "[starting build environement]"
+	@$(BUILDENV_SHELL)
 
 header : 
 	@$(MAKE) -C kernel header SYSROOT=$(SYSROOT)
@@ -143,9 +169,12 @@ clean :
 	@$(MAKE) -C tlibc clean
 	@$(MAKE) -C userspace clean
 	@$(MAKE) -C modules clean
+	@$(MAKE) -C libraries clean
 	@cd ports && ./clean.sh tutils
 	@cd ports && ./clean.sh tash
 	rm -fr $(OUT)
 
 config.mk :
 	$(error "run ./configure before runing make")
+
+.PHONY : all clean header build-tlibc build-kernel build-modules build-libraries build-userspace build-tash build-tutils build-initrd build-all build
