@@ -13,7 +13,7 @@ tconf_get_var () {
 }
 
 tconf_to_macro_name () {
-	echo "$@" | tr "a-z./ " "A-Z___"
+	echo "$@" | tr "a-z./ -" "A-Z____"
 }
 
 tconf_to_file_name () {
@@ -126,10 +126,10 @@ tconf_init () {
 			DEBUG=yes
 			;;
 		--enable-*)
-			tconf_set_var $(tconf_to_macro_name "${i##*-}") "yes"
+			tconf_set_var $(tconf_to_macro_name "${i#--*-}") "yes"
 			;;
 		--disable-*)
-			tconf_set_var $(tconf_to_macro_name "${i#*-}") "no"
+			tconf_set_var $(tconf_to_macro_name "${i#--*-}") "no"
 			;;
 		--clear-cache)
 			rm -fr "$TCONF_DIR/"*

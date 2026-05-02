@@ -14,11 +14,11 @@ const char *arch = "unknow-arch"
 #endif
 
 #ifdef __linux__
-const char *kernel = "linux";
-const char *os = "linux/GNU";
+const char *kernel = "Linux";
+const char *os = "GNU/Linux";
 #elif defined(__stanix__)
-const char *kernel = "stanix";
-const char *os = "stanix";
+const char *kernel = "Stanix";
+const char *os = "Stanix";
 #elif defined(__unix__)
 const char *kernel = "unix";
 const char *os = "unix";

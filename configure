@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. ./tconf.sh
+. scripts/tconf.sh
 
 # automaticly add toolchain/bin to path
 if test -d "$(dirname $0)/toolchain/bin" ; then
@@ -8,14 +8,26 @@ if test -d "$(dirname $0)/toolchain/bin" ; then
 fi
 
 # defaults
-test -z "$SYSROOT" && SYSROOT="$(dirname "$(realpath "$0")")/sysroot"
-test -z "$PREFIX" && PREFIX="$(realpath "$SYSROOT/"usr)"
+test -z "$SYSROOT" && SYSROOT="sysroot"
+test -z "$PREFIX" && PREFIX="$SYSROOT/usr"
+if test "$(uname || echo unknow)" != "Stanix" ; then
+	# if we are not on stanix we need a cross toolchain
+	CROSS_TOOLCHAIN="yes"
+fi
 
-#default host
+# default host
 test -z "$HOST" && HOST="$(uname -m)-stanix"
 test -z "$CFLAGS" && CFLAGS=-O2
 
 tconf_init "$@"
+
+if test "$CROSS_TOOLCHAIN" = "yes" ; then
+	# we need to build a cross toolchain
+	if ! scripts/build-toolchain.sh --target="$HOST" --sysroot="$SYSROOT" ; then
+		echo "could not build cross toolchain"
+		exit 1
+	fi
+fi
 
 # check tools
 tconf_search_cc "$HOST"
