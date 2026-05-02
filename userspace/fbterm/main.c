@@ -41,7 +41,7 @@ char *keys2str[INPUT_KEY_LAST - INPUT_KEY_FIRST + 1] = {
 term_t term;
 gfx_t *gfx;
 font_t *font;
-FILE *master_file;
+static int master;
 int c_width;
 int c_height;
 libinput_keyboard_t *keyboard;
@@ -186,7 +186,6 @@ int main(int argc, const char **argv) {
 		.ws_row = gfx->height / c_height,
 	};
 
-	int master;
 	int slave;
 	if (openpty(&master, &slave, NULL, NULL, &size)) {
 		perror("openpty");
@@ -227,8 +226,6 @@ int main(int argc, const char **argv) {
 	}
 
 	close(slave);
-	master_file = fdopen(master, "r+");
-	setvbuf(master_file, NULL, _IONBF, 0);
 
 	// init term
 	term.width  = gfx->width / c_width;
@@ -297,10 +294,10 @@ int main(int argc, const char **argv) {
 			if (str) {
 				//if crtl is pressed send special crtl + XXX char
 				if (crtl && strlen(str) == 1) {
-					char c = str[0] - 'a' + 1;
-					fputc(c, master_file);
+					char c = tolower(str[0]) - 'a' + 1;
+					dprintf(master, "%c", c);
 				} else {
-					fputs(str, master_file);
+					dprintf(master, "%s", str);
 				}
 			ignore:
 			}

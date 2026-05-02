@@ -36,11 +36,11 @@ char *keys2str[TGUI_KEY_LAST - TGUI_KEY_FIRST + 1] = {
 
 term_t term;
 font_t *font;
-FILE *master_file;
 int c_width;
 int c_height;
 tgui_window_t *window;
 tgui_canva_t *canva;
+static int master;
 int running = 1;
 int crtl = 0;
 
@@ -163,7 +163,7 @@ void key_press_callback(tobject_t *tobject, tgui_event_press_t *event) {
 	}
 	if (key >= TGUI_KEY_FIRST) {
 		if (keys2str[key - TGUI_KEY_FIRST]) {
-			fputs(keys2str[key - TGUI_KEY_FIRST], master_file);
+			dprintf(master, "%s", keys2str[key - TGUI_KEY_FIRST]);
 			return;
 		}
 		return;
@@ -172,9 +172,9 @@ void key_press_callback(tobject_t *tobject, tgui_event_press_t *event) {
 	wctomb(buf, key);
 	if (crtl && strlen(buf) == 1) {
 		char c = tolower(buf[0]) - 'a' + 1;
-		fputc(c, master_file);
+		dprintf(master, "%c", c);
 	} else if (buf[0]) {
-		fputs(buf, master_file);
+		dprintf(master, "%s", buf);
 	}
 
 	return;
@@ -236,7 +236,6 @@ int main(int argc, const char **argv) {
 		.ws_row = get_gfx()->height / c_height,
 	};
 
-	int master;
 	int slave;
 	if (openpty(&master, &slave, NULL, NULL, &size)) {
 		perror("openpty");
@@ -277,8 +276,6 @@ int main(int argc, const char **argv) {
 	}
 
 	close(slave);
-	master_file = fdopen(master, "r+");
-	setvbuf(master_file, NULL, _IONBF, 0);
 
 	// init term
 	term.width  = get_gfx()->width / c_width;
