@@ -894,7 +894,7 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 
 	long mmu_flags = prot2mmu(prot);
 
-	vfs_fd_t *vfs_fd;
+	vfs_fd_t *vfs_fd = NULL;
 	if (!(flags & MAP_ANONYMOUS)) {
 		file_descriptor_t file;
 		int ret = get_fd(fd, &file);
@@ -1104,6 +1104,13 @@ int sys_fcntl(int fd, int op, int arg) {
 		return file.flags;
 	case F_SETFD:
 		file.flags = arg;
+		return 0;
+	case F_GETFL:
+		return file.fd->flags;
+	case F_SETFL:;
+		// only some flags can be changed
+		long changable_flags = O_NONBLOCK | O_APPEND;
+		file.fd->flags = (file.flags & ~changable_flags) | (arg & changable_flags);
 		return 0;
 	default:
 		return -EINVAL;
