@@ -22,6 +22,10 @@ export SYSROOT
 export CFLAGS
 export LDFLAGS
 export PATH 
+export PKG_CONFIG_DIR=
+export PKG_CONFIG_LIBDIR=$(SYSROOT)/usr/lib/pkgconfig
+export PKG_CONFIG_PATH=$(PKG_CONFIG_LIBDIR)
+export PKG_CONFIG_SYSROOT_DIR=$(SYSROOT)
 
 ifneq ($(wildcard toolchain/bin/.),)
 # we have a cross toolchain
