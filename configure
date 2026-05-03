@@ -54,7 +54,7 @@ if [ ! -f ./ports/configure ] ; then
 	git submodule update ports
 fi
 
-tconf_add_subdir ports
+tconf_add_subdir ports --prefix="/usr"
 
 if [ ! -f ./libraries/libtgui/configure ] ; then
 	git submodule init
