@@ -42,7 +42,7 @@ index a518e976b82..39e9ad14c53 100644
  i[34567]86-*-solaris2* | x86_64-*-solaris2*)
  	# Set default arch_32 to pentium4, tune_32 to generic like the other
  	# i386 targets, although config.guess defaults to i386-pc-solaris2*.
-@@ -3639,6 +3645,13 @@ m32c-*-elf*)
+@@ -3639,6 +3645,14 @@ m32c-*-elf*)
  	c_target_objs="m32c-pragma.o"
  	cxx_target_objs="m32c-pragma.o"
   	;;
@@ -52,6 +52,7 @@ index a518e976b82..39e9ad14c53 100644
 +  gnu_ld=yes
 +  default_use_cxa_atexit=yes
 +  use_gcc_stdint=provide
++  tmake_file="t-slibgcc"
 +  ;;
  *)
  	echo "*** Configuration ${target} not supported" 1>&2

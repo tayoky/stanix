@@ -19,9 +19,10 @@ export NM
 export NASM
 export ARCH
 export SYSROOT
+export DESTDIR=$(SYSROOT)
 export CFLAGS
 export LDFLAGS
-export PATH 
+export PATH
 export PKG_CONFIG_DIR=
 export PKG_CONFIG_LIBDIR=$(SYSROOT)/usr/lib/pkgconfig
 export PKG_CONFIG_PATH=$(PKG_CONFIG_LIBDIR)
@@ -79,7 +80,7 @@ test-qemu : test-qemu-nvme
 test-qemu-nvme : image-hdd
 	qemu-system-$(ARCH) \
 	-drive file=$(HDD_IMAGE),if=none,id=nvm -serial stdio \
-	-device nvme,serial=deadbeef,drive=nvm
+	-device nvme,serial=deadbeef,drive=nvm -m 512
 test-qemu-ata : image-hdd
 	qemu-system-$(ARCH) \
 	-hda $(HDD_IMAGE) -serial stdio 
@@ -150,7 +151,8 @@ build-kernel : build-tlibc header
 	@$(MAKE) -C kernel PREFIX=$(realpath $(OUT))
 
 build-modules : build-tlibc header
-	@$(MAKE) -C modules install PREFIX=$(realpath ./initrd)
+# we need to install modules in the initrd as they are required to load the sysroot
+	@$(MAKE) -C modules install DESTDIR="$(realpath initrd)"
 
 build-libraries : build-tlibc
 	@$(MAKE) -C libraries install

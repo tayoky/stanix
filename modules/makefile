@@ -9,7 +9,7 @@ CFLAGS = -Wall \
     -mcmodel=large 
 
 #we are going to install the modules under $PREFIX/mod/
-PREFIX = 
+PREFIX ?= /usr
 
 SRC = $(shell find -name '*.c')
 MOD = $(SRC:.c=.ko)
@@ -18,11 +18,14 @@ all : $(MOD) header
 
 %.ko : %.c
 	$(CC) -D$(ARCH) $(CFLAGS) -o $@ -c $^ -DMODULE
+
 install : all
-	mkdir -p $(PREFIX)/mod
-	cp $(MOD) $(PREFIX)/mod/
+	mkdir -p "$(DESTDIR)$(PREFIX)/mod"
+	cp $(MOD) "$(DESTDIR)$(PREFIX)/mod"
+
 header :
-	mkdir -p $(SYSROOT)/usr/include/module
-	cp include/*.h $(SYSROOT)/usr/include/module
+	mkdir -p "$(DESTDIR)$(PREFIX)/include/module"
+	cp include/*.h "$(DESTDIR)$(PREFIX)/include/module"
+
 clean :
 	rm -f $(MOD)

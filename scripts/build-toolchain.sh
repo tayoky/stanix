@@ -56,9 +56,9 @@ SYSROOT="$(realpath "$SYSROOT")"
 ARCH=${TARGET%%-*}
 
 # save the path to the top
-TOP=$PWD
+TOP="$PWD"
 
-PREFIX=$TOP/
+PREFIX="$TOP/toolchain"
 
 # put everything inside toolchain
 mkdir -p toolchain/bin
@@ -127,7 +127,7 @@ if [ ! -e ../tlibc/configure ] ; then
 	git submodule init
 	git submodule update ../tlibc
 fi
-make -C ../tlibc header PREFIX=$SYSROOT/usr TARGET=stanix ARCH=$ARCH
+make -C "$TOP" header PREFIX="/usr" SYSROOT="$SYSROOT" ARCH="$ARCH"
 
 # now compile all the shit
 # don't compile if aready done
@@ -144,10 +144,12 @@ if [ ! -e bin/$TARGET-gcc ] ; then
 	echo "building gcc..."
 	cd gcc-$GCC_VERSION
 	mkdir -p build && cd build
-	../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-hosted-libstdcxx --disable-multilib --enable-shared --enable-threads=posix
+	../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-multilib --enable-shared --enable-threads=posix
+	make all-gcc -j$NPROC
 	make all-target-libgcc -j$NPROC
 	echo "installing gcc..."
 	make install-gcc
 	make install-target-libgcc
+	# todo : build libc and then libstdc++
 	cd ../..
 fi

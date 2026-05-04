@@ -17,11 +17,11 @@ libinput.so : $(OBJ)
 	
 install : all
 	@echo '[install headers]'
-	@mkdir -p $(PREFIX)/include
-	@cp include/*.h $(PREFIX)/include
+	@mkdir -p "$(DESTDIR)$(PREFIX)/include"
+	@cp include/*.h "$(DESTDIR)$(PREFIX)/include"
 	@echo '[install libinput.so]'
-	@mkdir -p $(PREFIX)/lib
-	@cp libinput.so $(PREFIX)/lib
+	@mkdir -p "$(DESTDIR)$(PREFIX)/lib"
+	@cp libinput.so "$(DESTDIR)$(PREFIX)/lib"
 
 clean : 
 	rm -f $(OBJ)

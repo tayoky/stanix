@@ -14,8 +14,8 @@ all :
 	
 install : all
 	@echo '[install headers]'
-	@mkdir -p $(PREFIX)/include/libutils
-	@cp include/libutils/*.h $(PREFIX)/include/libutils
+	@mkdir -p "$(DESTDIR)$(PREFIX)/include"/libutils
+	@cp include/libutils/*.h "$(DESTDIR)$(PREFIX)/include/libutils"
 
 clean : 
 	rm -f $(OBJ)

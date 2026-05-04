@@ -17,11 +17,11 @@ libtrm.so : $(OBJ)
 	
 install : all
 	@echo '[install headers]'
-	@mkdir -p $(PREFIX)/include/
-	@cp -r include/* $(PREFIX)/include/
+	@mkdir -p "$(DESTDIR)$(PREFIX)/include"/
+	@cp -r include/* "$(DESTDIR)$(PREFIX)/include/"
 	@echo '[install libtrm.so]'
-	@mkdir -p $(PREFIX)/lib
-	@cp libtrm.so $(PREFIX)/lib
+	@mkdir -p "$(DESTDIR)$(PREFIX)/lib"
+	@cp libtrm.so "$(DESTDIR)$(PREFIX)/lib"
 
 clean : 
 	rm -f $(OBJ)

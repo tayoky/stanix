@@ -1,5 +1,5 @@
 MAKEFLAGS += --no-builtin-rules
-PREFIX = $(SYSROOT)/usr
+PREFIX = /usr
 
 ifeq ($(TOP),)
 CFLAGS += -O2 -g

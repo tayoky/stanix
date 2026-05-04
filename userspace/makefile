@@ -1,5 +1,5 @@
 MAKEFLAGS += --no-builtin-rules
-PREFIX = ../initrd
+PREFIX = /
 
 ifeq ($(TOP),)
 CFLAGS += -O2 -g
@@ -12,11 +12,11 @@ APPS = $(shell find -name "*" -not -name "bin" -not -path "." -type d -maxdepth 
 
 all :
 	@mkdir -p bin
-	@$(foreach DIR,$(APPS),$(MAKE) -C $(DIR) SYSROOT=$(SYSROOT) &&) true
+	@$(foreach DIR,$(APPS),$(MAKE) -C $(DIR) &&) true
 
-#for installing to the initrd
+# install everything
 install : all
-	@mkdir -p $(PREFIX)/bin
-	cp $(foreach APP,$(APPS),bin/$(APP)) $(PREFIX)/bin
+	@mkdir -p "$(DESTDIR)$(PREFIX)/bin"
+	cp $(foreach APP,$(APPS),bin/$(APP)) "$(DESTDIR)$(PREFIX)/bin"
 clean :
-	@$(foreach DIR,$(APPS),$(MAKE) -C $(DIR) clean SYSROOT=$(SYSROOT) && ) true
+	@$(foreach DIR,$(APPS),$(MAKE) -C $(DIR) clean && ) true

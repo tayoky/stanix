@@ -9,7 +9,7 @@ fi
 
 # defaults
 test -z "$SYSROOT" && SYSROOT="sysroot"
-test -z "$PREFIX" && PREFIX="$SYSROOT/usr"
+test -z "$PREFIX" && PREFIX="/usr"
 if test "$(uname || echo unknow)" != "Stanix" ; then
 	# if we are not on stanix we need a cross toolchain
 	CROSS_TOOLCHAIN="yes"
@@ -54,7 +54,7 @@ if [ ! -f ./ports/configure ] ; then
 	git submodule update ports
 fi
 
-tconf_add_subdir ports --prefix="/usr"
+tconf_add_subdir ports
 
 if [ ! -f ./libraries/libtgui/configure ] ; then
 	git submodule init
