@@ -169,7 +169,7 @@ build-tutils : build-tlibc
 	@cd ports && ./install.sh tutils
 
 build-initrd : $(OUT)/boot/initrd.tar
-$(OUT)/boot/initrd.tar : $(INITRD_SRC)
+$(OUT)/boot/initrd.tar : build-modules build-userspace $(INITRD_SRC)
 	@echo "[creating init ramdisk]"
 	@mkdir -p $(OUT)/boot
 	@mkdir -p initrd/dev initrd/tmp initrd/mnt initrd/proc initrd/sys

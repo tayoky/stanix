@@ -13,7 +13,6 @@ OVMF-img.bin
 #ramdisk
 initrd.tar
 initrd/bin/
-initrd/mod/
 initrd/lib/
 initrd/include/
 initrd/usr/
