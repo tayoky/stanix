@@ -146,11 +146,11 @@ $(OUT)/boot/limine/limine-% : limine/limine-%
 build-tlibc : header
 	@$(MAKE) -C tlibc install TARGET=stanix
 
-build-kernel : build-tlibc header
+build-kernel : build-tlibc build-libraries header
 	@mkdir -p $(OUT)/boot
 	@$(MAKE) -C kernel PREFIX=$(realpath $(OUT))
 
-build-modules : build-tlibc header
+build-modules : build-tlibc build-libraries header
 # we need to install modules in the initrd as they are required to load the sysroot
 	@$(MAKE) -C modules install DESTDIR="$(realpath initrd)"
 
