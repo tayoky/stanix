@@ -94,4 +94,4 @@ A list of availables packages and ports can be found [here](packages).
 See [kernel docs](kernel) and [userspace docs](user).
 
 ## Posts
-Posts about the developpement of Stanix can be found [here](post)
+Posts about the developpement of Stanix can be found [here](posts).

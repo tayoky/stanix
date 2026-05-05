@@ -9,6 +9,8 @@ plugins:
 #use minima theme
 remote_theme: "jekyll/minima@1fe0fbfb5347fb4e047696d3b7479c04ed0051bc"
 
+baseurl: "/stanix"
+
 minima:
   skin: auto
   
