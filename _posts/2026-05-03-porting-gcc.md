@@ -6,6 +6,7 @@ One of the main goal of Stanix always as been **self-hosting**, and while TCC is
 - TCC lack stdatomic
 - TCC lack some features used by the kernel
 - TCC cannot compile C++ (required for some ports)
+
 In order to fix these, another compiler must be used, the compiler currently used to cross compile Stanix, GCC. Specialy GCC 12.2.0 (the version used to cross compile stanix as of this writting). GCC is much harder to port than TCC as it has many depencies (`binutils`, `libgmp`, `libmpfr` and `libmpc`) and is written in C++, which add an additional depencie to `libstdc++`. The first step to port GCC was to cross compile it's depencies.
 
 ## cross compiling depencies
@@ -71,7 +72,7 @@ For some reason the declaration was behind a check for a feature. As suggested b
 #define _GMP_H_HAVE_FILE 1
 #endif
 ```
-Okay this check is extremly weird but it make sense it does not work. For some reason `libgmp` thought it would be a good idea to check for libc specific **header guard** to see if `<stdio.h>` was in fact included correcly. On Stanix, [tlibc](https://github.com/tayoky/tlibc) is used as libc, and tlibc used `STDIO_H` as header guard which was not checked for. So i updated all header of tlibc to header guards prefixed with an underscore. I recompiled and BINGO ! `libgmp` was finnally done.
+Okay this check is extremly weird but it make sense it does not work. For some reason `libgmp` thought it would be a good idea to check for libc specific **header guard** to see if `<stdio.h>` was in fact included correcly. On Stanix, [tlibc](https://github.com/tayoky/tlibc) is used as libc, and tlibc used `STDIO_H` as header guard which was not checked for. So i updated all header of tlibc to header guards prefixed with an underscore. I recompiled and BINGO ! `libgmp` was finally ready.
 
 ## libmpfr
 I cross compiled `libmpfr` 4.2.2 same as `libgmp` and it worked first try. Nothing really interesting here.
@@ -88,7 +89,7 @@ make[2]: Leaving directory '/home/tayoky/git-repo/stanix/ports/tar/libmpc/src'
 make[1]: *** [Makefile:510: all-recursive] Error 1
 make[1]: Leaving directory '/home/tayoky/git-repo/stanix/ports/tar/libmpc
 ```
-This is weird, it's searching for `libgmp` on my host system, outside the sysroot. Well i spend an hour trying to combine flags to get it to work until i looked at the osdev wiki about `.la` files. Basicly they are a broken alternaitve to **pkg-config** files and are not sysroot aware. Which mean cross compiling with them is really painfull and they aren't needed as `libgmp` and most libraries provide **pkg-config** files anyway. So as suggested by the osdev wiki, I made the port builder delete all `.la` files after installations. And it WORKED ! Now all three maths libraries were done.
+This is weird, it's searching for `libgmp` on my host system, outside the sysroot. Well i spend an hour trying to combine flags to get it to work until i looked at the osdev wiki about `.la` files. Basicly they are a broken alternaitve to **pkg-config** files and are not sysroot aware. Which mean cross compiling with them is really painfull and they aren't needed as `libgmp` and most libraries provide **pkg-config** files anyway. So as suggested by the osdev wiki, I made the port builder delete all `.la` files after installations. And it WORKED ! Now all three maths libraries were ready.
 
 ## libstdc++-v3
 Compiling `libstdc++-v3` is much wierder than compiling standard indepants libs, as `libstdc++-v3` is a direct part of GCC. So I had to modify my `build-toolchain.sh` script to enable `libstdc++-v3` which was a pretty hard to do and required modifing my patches. Once this was done I had to be very carefull to build things in this order :
@@ -96,4 +97,5 @@ Compiling `libstdc++-v3` is much wierder than compiling standard indepants libs,
 - then `libgcc` `all-target-libgcc` (needed for some parts of `tlibc`)
 - then `tlibc` as the standard c++ library depends on it
 - and finaly `libstdc++-v3`
+
 Once I reached the compile `libgcc` step the installation alaways complain about a missing `libgcc_eh.h` but it seem to work without it. Finally when the standard c++ library compiled I was rewarded with a bunch of errors about broken libc header and missing libc functions. I then fixed my headers guard and used the `volatile` for atomic trick recommanded by `sasdallas` on the unmapped nest discord since `<stdatomic.h>` does not work well in C++. Time was then to implement various `tlibc` funcs such as `strcoll` or `fgetpos`. For the moment that as far as I am, I will update this post when i get further.
