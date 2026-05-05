@@ -150,6 +150,10 @@ if [ ! -e bin/$TARGET-gcc ] ; then
 	echo "installing gcc..."
 	make install-gcc
 	make install-target-libgcc
+	# copy libgcc to sysrot
+	mkdir -p "$SYSROOT/usr/lib"
+	cp "$TOP/toolchain/$TARGET/lib/libgcc_s.so" "$SYSROOT/usr/lib"
+	cp "$TOP/toolchain/$TARGET/lib/libgcc_s.so.1" "$SYSROOT/usr/lib"
 	# todo : build libc and then libstdc++
 	cd ../..
 fi
