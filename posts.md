@@ -1,6 +1,6 @@
 ---
 title: Posts
-permalink: /posts
+permalink: /posts/
 ---
 Various posts about the developpement of Stanix.
 

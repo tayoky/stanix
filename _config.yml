@@ -11,6 +11,14 @@ remote_theme: "jekyll/minima@1fe0fbfb5347fb4e047696d3b7479c04ed0051bc"
 
 baseurl: "/stanix"
 
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+      permalink: "/posts/:day-:month-:year-:title"
+
 minima:
   skin: auto
   

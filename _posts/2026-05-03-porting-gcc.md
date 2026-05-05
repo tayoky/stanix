@@ -1,5 +1,4 @@
 ---
-layout: posts
 title: porting GCC
 ---
 One of the main goal of Stanix always as been **self-hosting**, and while TCC is a really cool compiler that can compile most of Stanix's userspace it has multiples issues that make it non suitable for full self hosting:
