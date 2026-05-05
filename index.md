@@ -1,17 +1,18 @@
 ---
 title: stanix
+layout: page
 ---
 Stanix is a 64-bit open source operating system made from scratch started in december 2024.  
 The entire operating system is written from scratch with its own libc kernel shell and userspace (only a third-party bootloader called "Limine" is used)
 stanix aim to be unix-like (not a unix clone, somes things are differents) with the required posix functions to port programs.
 
-## download
+## Download
 A new stable release is made sometimes...  
 - [source code](https://github.com/tayoky/stanix)
 - [lasted release](https://github.com/tayoky/stanix/releases)
 - [compile from source](miscellaneous/build)
 
-## hardware
+## Hardware
 List of all supported hardware.
 - serial port (only on `x86_64`)
 - ps2 keyboard (only on `x86_64`)
@@ -20,7 +21,7 @@ List of all supported hardware.
 - ATA devices on ide controller
 - pci bus
 
-## goal
+## Goals
 Futures goals (once a goal is reached it is removed from the list).
 - a GUI (in progress)
 - a SDL3/2 port
@@ -34,14 +35,14 @@ Futures goals (once a goal is reached it is removed from the list).
 - automatic modesetting
 - better abstraction and management of framebuffers
 
-## recommanded specs
+## Recommanded specs
 - at least 256 mb of ram (also run on 128 mb)
 - 10mhz `x86_64` one core cpu (`aarch64` is comming in a few release)
 - ps2 keyboard
 - serial port (optional just make debugging easier
 )
 
-## features
+## Features
 - vfs
 - tmpfs
 - userspace
@@ -51,7 +52,7 @@ Futures goals (once a goal is reached it is removed from the list).
 - usermode
 - signals
 - socket stack
-- a window mananger
+- a window manager
 - unix socket
 - multi user
 - shared memory system
@@ -59,10 +60,10 @@ Futures goals (once a goal is reached it is removed from the list).
 - bus management system with hotplug support
 - fat32 support
 - a pretty complete libc with over 300 functions
-- somes ports (such as doom,binutils,...)
+- somes ports (such as Doom, `binutils`, `make`, ...)
 - dynamic linking
 
-## drivers list
+## Drivers list
 - 8042 (ps2 controller on most PC)
 - ATA
 - framebuffer
@@ -75,7 +76,7 @@ Futures goals (once a goal is reached it is removed from the list).
 - vga
 - bga
 
-## subprojects
+## Subprojects
 **Stanix** is a big project and is split in multiple repos and projects.
 - [Stanix's core](https://github.com/tayoky/stanix) contain the kernel, Stanix specific tool (terminal emulator, window manager, ...) and the base sysroot along docs.
 - [tlibc](https://github.com/tayoky/tlibc) a reimplmentation of the standard libc for Stanix.
@@ -86,8 +87,11 @@ Futures goals (once a goal is reached it is removed from the list).
 - [libtgui](https://github.com/tayoky/libtgui) a GUI library with a collection of widgets.
 - [Stanix's ports](https://github.com/tayoky/ports) a list of ports and packages for Stanix.
 
-## packages
+## Packages
 A list of availables packages and ports can be found [here](packages).
 
-## docs
+## Docs
 See [kernel docs](kernel) and [userspace docs](user).
+
+## Posts
+Posts about the developpement of Stanix can be found [here](post)
