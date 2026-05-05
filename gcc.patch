@@ -133,3 +133,16 @@ index b3269cb88e0..db5e5d28b72 100644
    *-qnx6.1* | *-qnx6.2*)
      SECTION_FLAGS='-ffunction-sections -fdata-sections'
      AC_SUBST(SECTION_FLAGS) 
+diff --git a/libgcc/config/t-slibgcc b/libgcc/config/t-slibgcc
+index 4efd7b4..8c5a55c 100644
+--- a/libgcc/config/t-slibgcc
++++ b/libgcc/config/t-slibgcc
+@@ -26,7 +26,7 @@ SHLIB_MAP = @shlib_map_file@
+ SHLIB_OBJS = @shlib_objs@
+ SHLIB_DIR = @multilib_dir@
+ SHLIB_SLIBDIR_QUAL = @shlib_slibdir_qual@
+-SHLIB_LC = -lc
++SHLIB_LC =
+ SHLIB_MAKE_SOLINK = $(LN_S) $(SHLIB_SONAME) $(SHLIB_DIR)/$(SHLIB_SOLINK)
+ SHLIB_INSTALL_SOLINK = $(LN_S) $(SHLIB_SONAME) \
+ 	$(DESTDIR)$(slibdir)$(SHLIB_SLIBDIR_QUAL)/$(SHLIB_SOLINK)
