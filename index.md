@@ -1,5 +1,5 @@
 ---
-title: stanix
+title: Stanix
 layout: page
 ---
 Stanix is a 64-bit open source operating system made from scratch started in December 2024.  
