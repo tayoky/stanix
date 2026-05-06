@@ -2,6 +2,7 @@
 title: kritic
 ---
 ## infos
+version : unknow  
 git     : [https://github.com/Wrench56/KritiC](https://github.com/Wrench56/KritiC)  
 
 ## build
@@ -21,8 +22,8 @@ build() {
 }
 
 install() {
-	mkdir -p $PREFIX/lib && cp build/libkritic.a $PREFIX/lib
+	mkdir -p "$DESTDIR/$PREFIX/lib" && cp build/libkritic.a "$DESTDIR/$PREFIX/lib"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/kritic](https://github.com/tayoky/ports/blob/main/ports/kritic)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/kritic](https://github.com/tayoky/ports/blob/main/ports/kritic).
 

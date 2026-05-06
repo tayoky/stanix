@@ -7,15 +7,15 @@ One of the main goal of Stanix always as been **self-hosting**, and while TCC is
 - TCC lack some features used by the kernel
 - TCC cannot compile C++ (required for some ports)
 
-In order to fix these, another compiler must be used, the compiler currently used to cross compile Stanix, GCC. Specialy GCC 12.2.0 (the version used to cross compile stanix as of this writting). GCC is much harder to port than TCC as it has many depencies (`binutils`, `libgmp`, `libmpfr` and `libmpc`) and is written in C++, which add an additional depencie to `libstdc++`. The first step to port GCC was to cross compile it's depencies.
+In order to fix these, another compiler must be used, the compiler currently used to cross compile Stanix, GCC. Specially GCC 12.2.0 (the version used to cross compile Stanix as of this writing). GCC is much harder to port than TCC as it has many dependencies (`binutils`, `libgmp`, `libmpfr` and `libmpc`) and is written in C++, which add an additional dependency to `libstdc++`. The first step to port GCC was to cross compile it's dependencies.
 
-## cross compiling depencies
+## cross compiling dependencies
 
 ### binutils
 `binutils` was already ported since quite a long time and is really stable on Stanix.
 
 ## libgmp
-`libgmp` is when the actual work begin, I first downloaded `libgmp` 6.3.0 patched the `configfsf.sub` (yeah not `config.sub` this time) and cross compiled. Then something unexpected happend during compilation :
+`libgmp` is when the actual work begin, I first downloaded `libgmp` 6.3.0 patched the `configfsf.sub` (yeah not `config.sub` this time) and cross compiled. Then something unexpected happened during compilation :
 ```
 inp_str.c: In function '__gmpz_inp_str':
 ../gmp-impl.h:1782:29: warning: implicit declaration of function '__gmpz_inp_str_nowhite'; did you mean 'mpz_inp_str_nowhite'? [-Wimplicit-function-declaration]
@@ -41,14 +41,14 @@ inp_str.c:63:10: note: in expansion of macro 'mpz_inp_str_nowhite'
 make[2]: *** [Makefile:488: inp_str.lo] Error 1
 make[2]: *** Waiting for unfinished jobs....
 ```
-Uh `__gmpz_inp_str_nowhite` is not defined, this is really weird. So i then recompiled the exact same package on my host (a linux mint) and it worked perfecly... weird. I then looked at the file `gmp_impl.h` and found out this :
+Uh `__gmpz_inp_str_nowhite` is not defined, this is really weird. So i then recompiled the exact same package on my host (a linux mint) and it worked perfectly... Weird. I then looked at the file `gmp_impl.h` and found out this :
 ```c
 #define mpz_inp_str_nowhite __gmpz_inp_str_nowhite
 #ifdef _GMP_H_HAVE_FILE
 __GMP_DECLSPEC size_t  mpz_inp_str_nowhite (mpz_ptr, FILE *, int, int, size_t);
 #endif
 ```
-For some reason the declaration was behind a check for a feature. As suggested by `cpplover0` on the osdev discord i checked the `config.log` for anything relatee to some kind of `HAVE_FILE` and found nothing. Until a `grep -r` finally told me where was this check done, in `gmp-h.in` :
+For some reason the declaration was behind a check for a feature. As suggested by `cpplover0` on the osdev discord i checked the `config.log` for anything related to some kind of `HAVE_FILE` and found nothing. Until a `grep -r` finally told me where was this check done, in `gmp-h.in` :
 ```c
 /* For reference, "defined(EOF)" cannot be used here.  In g++ 2.95.4,
    <iostream> defines EOF but not FILE.  */
@@ -72,7 +72,7 @@ For some reason the declaration was behind a check for a feature. As suggested b
 #define _GMP_H_HAVE_FILE 1
 #endif
 ```
-Okay this check is extremly weird but it make sense it does not work. For some reason `libgmp` thought it would be a good idea to check for libc specific **header guard** to see if `<stdio.h>` was in fact included correcly. On Stanix, [tlibc](https://github.com/tayoky/tlibc) is used as libc, and tlibc used `STDIO_H` as header guard which was not checked for. So i updated all header of tlibc to header guards prefixed with an underscore. I recompiled and BINGO ! `libgmp` was finally ready.
+Okay this check is extremely weird but it make sense it does not work. For some reason `libgmp` thought it would be a good idea to check for libc specific **header guard** to see if `<stdio.h>` was in fact included correctly. On Stanix, [tlibc](https://github.com/tayoky/tlibc) is used as libc, and tlibc used `STDIO_H` as header guard which was not checked for. So i updated all header of tlibc to header guards prefixed with an underscore. I recompiled and BINGO ! `libgmp` was finally ready.
 
 ## libmpfr
 I cross compiled `libmpfr` 4.2.2 same as `libgmp` and it worked first try. Nothing really interesting here.
@@ -89,13 +89,13 @@ make[2]: Leaving directory '/home/tayoky/git-repo/stanix/ports/tar/libmpc/src'
 make[1]: *** [Makefile:510: all-recursive] Error 1
 make[1]: Leaving directory '/home/tayoky/git-repo/stanix/ports/tar/libmpc
 ```
-This is weird, it's searching for `libgmp` on my host system, outside the sysroot. Well i spend an hour trying to combine flags to get it to work until i looked at the osdev wiki about `.la` files. Basicly they are a broken alternaitve to **pkg-config** files and are not sysroot aware. Which mean cross compiling with them is really painfull and they aren't needed as `libgmp` and most libraries provide **pkg-config** files anyway. So as suggested by the osdev wiki, I made the port builder delete all `.la` files after installations. And it WORKED ! Now all three maths libraries were ready.
+This is weird, it's searching for `libgmp` on my host system, outside the sysroot. Well i spend an hour trying to combine flags to get it to work until i looked at the osdev wiki about `.la` files. Basically they are a broken alternative to **pkg-config** files and are not sysroot aware. Which mean cross compiling with them is really painful and they aren't needed as `libgmp` and most libraries provide **pkg-config** files anyway. So as suggested by the osdev wiki, I made the port builder delete all `.la` files after installations. And it WORKED ! Now all three math libraries were ready.
 
 ## libstdc++-v3
-Compiling `libstdc++-v3` is much wierder than compiling standard indepants libs, as `libstdc++-v3` is a direct part of GCC. So I had to modify my `build-toolchain.sh` script to enable `libstdc++-v3` which was a pretty hard to do and required modifing my patches. Once this was done I had to be very carefull to build things in this order :
+Compiling `libstdc++-v3` is much weirder than compiling standard independent libs, as `libstdc++-v3` is a direct part of GCC. So I had to modify my `build-toolchain.sh` script to enable `libstdc++-v3` which was a pretty hard to do and required modifying my patches. Once this was done I had to be very careful to build things in this order :
 - main GCC cross compiler first `all-gcc` (needed to compile the rest)
 - then `libgcc` `all-target-libgcc` (needed for some parts of `tlibc`)
 - then `tlibc` as the standard c++ library depends on it
-- and finaly `libstdc++-v3`
+- and finally `libstdc++-v3`
 
-Once I reached the compile `libgcc` step the installation alaways complain about a missing `libgcc_eh.h` but it seem to work without it. Finally when the standard c++ library compiled I was rewarded with a bunch of errors about broken libc header and missing libc functions. I then fixed my headers guard and used the `volatile` for atomic trick recommanded by `sasdallas` on the unmapped nest discord since `<stdatomic.h>` does not work well in C++. Time was then to implement various `tlibc` funcs such as `strcoll` or `fgetpos`. For the moment that as far as I am, I will update this post when i get further.
+Once I reached the compile `libgcc` step the installation always complain about a missing `libgcc_eh.h` but it seem to work without it. Finally when the standard c++ library compiled I was rewarded with a bunch of errors about broken libc header and missing libc functions. I then fixed my headers guard and used the `volatile` for atomic trick recommended by `sasdallas` on the unmapped nest discord since `<stdatomic.h>` does not work well in C++. Time was then to implement various `tlibc` functions such as `strcoll` or `fgetpos`. After the standard c++ libray compiled, I tryied a quick, classic, c++ hello world. But when linking a bunch of undefined function references appeared (`_UnwindResume`, `__cxa_throw`, ...). These functions were defined in `libgcc_eh.a` (static) and `libgcc_s.so` (shared), but for some reason GCC was only picking `libgcc.a`. For the moment that as far as I am, I will update this post when i get further.

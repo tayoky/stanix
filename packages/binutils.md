@@ -17,13 +17,13 @@ cd ports
 ## manifest
 ```sh
 VERSION=2.44
-TAR=https://ftp.gnu.org/gnu/binutils/binutils-$VERSION.tar.xz
+TAR="$GNU_MIRROR/binutils/binutils-$VERSION.tar.xz"
 WEBSITE=https://www.gnu.org/software/binutils/
 
 configure() {
 	./configure --host=$HOST \
 	--target=$HOST \
-	--prefix=/usr \
+	--prefix="$PREFIX" \
 	--with-sysroot=/ \
 	--with-build-sysroot=$SYSROOT \
 	--disable-nls --disable-werror \
@@ -36,8 +36,8 @@ build(){
 }
 
 install(){
-	make install-strip DESTDIR=${PREFIX%%/usr}
+	make install-strip DESTDIR="$DESTDIR"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/binutils](https://github.com/tayoky/ports/blob/main/ports/binutils)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/binutils](https://github.com/tayoky/ports/blob/main/ports/binutils).
 

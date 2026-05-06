@@ -2,6 +2,7 @@
 title: tld
 ---
 ## infos
+version : unknow  
 git     : [https://github.com/tayoky/tld](https://github.com/tayoky/tld)  
 
 ## build
@@ -26,8 +27,8 @@ build() {
 }
 
 install() {
-	make install
+	make install DESTDIR="$DESTDIR"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tld](https://github.com/tayoky/ports/blob/main/ports/tld)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tld](https://github.com/tayoky/ports/blob/main/ports/tld).
 

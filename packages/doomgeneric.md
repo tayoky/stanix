@@ -2,6 +2,7 @@
 title: doomgeneric
 ---
 ## infos
+version : unknow  
 website : [https://ozkl.github.io/](https://ozkl.github.io/)  
 git     : [https://github.com/ozkl/doomgeneric.git](https://github.com/ozkl/doomgeneric.git)  
 
@@ -20,15 +21,16 @@ COMMIT=dd975839780b4c957c4597f77ccadc3dc592a038
 WEBSITE=https://ozkl.github.io/
 
 build() {
-	#pretty weird but make must be run in a sub dir
+	# pretty weird but make must be run in a sub dir
 	cd doomgeneric
 	make -f Makefile.stanix SYSROOT="$SYSROOT"
 }
 
 install() {
 	cd doomgeneric
-	cp ./doom "${PREFIX}/bin"
+	mkdir -p "$DESTDIR/$PREFIX/bin"
+	cp ./doom "$DESTDIR/$PREFIX/bin"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/doomgeneric](https://github.com/tayoky/ports/blob/main/ports/doomgeneric)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/doomgeneric](https://github.com/tayoky/ports/blob/main/ports/doomgeneric).
 

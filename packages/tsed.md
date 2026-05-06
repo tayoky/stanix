@@ -2,6 +2,7 @@
 title: tsed
 ---
 ## infos
+version : unknow  
 git     : [https://github.com/StercusMax/tsed](https://github.com/StercusMax/tsed)  
 
 ## build
@@ -26,9 +27,9 @@ build() {
 }
 
 install() {
-	mkdir -p $PREFIX/bin
-	cp tsed $PREFIX/bin
+	mkdir -p "$DESTDIR/$PREFIX/bin"
+	cp tsed "$DESTDIR/$PREFIX/bin"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tsed](https://github.com/tayoky/ports/blob/main/ports/tsed)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tsed](https://github.com/tayoky/ports/blob/main/ports/tsed).
 

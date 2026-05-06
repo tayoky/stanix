@@ -2,6 +2,7 @@
 title: specseek
 ---
 ## infos
+version : unknow  
 git     : [https://github.com/Mellurboo/SpecSeek/](https://github.com/Mellurboo/SpecSeek/)  
 
 ## build
@@ -22,8 +23,9 @@ build(){
 }
 
 install(){
-	cp bin/gcc/64/specseek_64 $PREFIX/bin/specseek
+	mkdir -p "$DESTDIR/$PREFIX/bin"
+	cp bin/gcc/64/specseek_64 "$DESTDIR/$PREFIX/bin/specseek"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/specseek](https://github.com/tayoky/ports/blob/main/ports/specseek)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/specseek](https://github.com/tayoky/ports/blob/main/ports/specseek).
 

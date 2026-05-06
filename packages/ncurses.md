@@ -17,11 +17,11 @@ cd ports
 ## manifest
 ```sh
 VERSION="6.5"
-TAR="https://ftp.gnu.org/gnu/ncurses/ncurses-$VERSION.tar.gz"
+TAR="$GNU_MIRROR/ncurses/ncurses-$VERSION.tar.gz"
 WEBSITE=https://invisible-island.net/ncurses
 
 configure() {
-	./configure --host=$HOST --prefix=/usr \
+	./configure --host="$HOST" --prefix="$PREFIX" \
 	--with-pkg-config=$PKG_CONFIG \
 	--with-pkg-config-libdir=/usr/lib/pkgconfig \
 	--enable-pc-files \
@@ -32,13 +32,13 @@ configure() {
 	--without-cxx-binding
 }
 
-build(){
+build() {
 	make all -j$NPROC
 }
 
-install(){
-	make install DESTDIR=${PREFIX%%/usr}
+install() {
+	make install DESTDIR="$DESTDIR"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/ncurses](https://github.com/tayoky/ports/blob/main/ports/ncurses)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/ncurses](https://github.com/tayoky/ports/blob/main/ports/ncurses).
 

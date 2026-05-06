@@ -14,16 +14,21 @@ cd ports
 ./install vim
 ```
 
+## dependencies
+This package has dependencies : 
+- [ncurses](ncurses)
+
 ## manifest
 ```sh
 VERSION="9.1.1485"
 #thanks to bananymous for the github archive trick
 TAR="https://github.com/vim/vim/archive/refs/tags/v$VERSION.tar.gz"
 WEBSITE="https://www.vim.org"
+DEPENDENCIES="ncurses"
 
 configure() {
-	./configure --host=$HOST --prefix=/usr \
-	--with-pkg-config=$PKG_CONFIG \
+	./configure --host="$HOST" --prefix="$PREFIX" \
+	--with-pkg-config="$PKG_CONFIG" \
 	--with-pkg-config-libdir=/usr/lib/pkgconfig \
 	--with-tlib=ncurses
 	--disable-nls \
@@ -42,8 +47,8 @@ build(){
 }
 
 install(){
-	make install DESTDIR=${PREFIX%%/usr}
+	make install DESTDIR="$DESTDIR"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/vim](https://github.com/tayoky/ports/blob/main/ports/vim)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/vim](https://github.com/tayoky/ports/blob/main/ports/vim).
 

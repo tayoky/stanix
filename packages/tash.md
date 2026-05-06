@@ -2,6 +2,7 @@
 title: tash
 ---
 ## infos
+version : unknow  
 git     : [https://github.com/tayoky/tash](https://github.com/tayoky/tash)  
 
 ## build
@@ -15,10 +16,10 @@ cd ports
 ## manifest
 ```sh
 GIT=https://github.com/tayoky/tash
-COMMIT=b1dc57dd60829d5c5827f37fe7086b27adcdcc2a
+COMMIT=5bc2f93e9b1a4a0f016f4e15404153eb2b3d3aab
 
 configure() {
-	./configure --host="$HOST" --cc=$CC --prefix=$PREFIX
+	./configure --host="$HOST" --cc=$CC --prefix="$PREFIX"
 }
 
 build() {
@@ -26,8 +27,8 @@ build() {
 }
 
 install() {
-	make install
+	make install DESTDIR="$DESTDIR"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tash](https://github.com/tayoky/ports/blob/main/ports/tash)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tash](https://github.com/tayoky/ports/blob/main/ports/tash).
 

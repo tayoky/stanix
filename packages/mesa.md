@@ -14,18 +14,23 @@ cd ports
 ./install mesa
 ```
 
+## dependencies
+This package has dependencies : 
+- [zlib](zlib)
+
 ## manifest
 ```sh
 VERSION="25.0.7"
 TAR="https://mesa3d.org/archive/mesa-$VERSION.tar.xz"
 WEBSITE="https://mesa3d.org"
+DEPENDENCIES="zlib"
 
 configure() {
 	mkdir -p build
 	cd build
 
 	meson setup .. \
-      --prefix=/usr   \
+      --prefix="$PREFIX"   \
       --buildtype=release \
       --cross-file "$MESON_CROSS" \
       -D platforms=[] \
@@ -43,8 +48,8 @@ build() {
 }
 
 install() {
-	meson install --destdir="${PREFIX%%/usr}"
+	meson install --destdir="$DESTDIR"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/mesa](https://github.com/tayoky/ports/blob/main/ports/mesa)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/mesa](https://github.com/tayoky/ports/blob/main/ports/mesa).
 

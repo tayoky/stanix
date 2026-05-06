@@ -2,6 +2,7 @@
 title: tsh
 ---
 ## infos
+version : unknow  
 git     : [https://github.com/tayoky/tsh](https://github.com/tayoky/tsh)  
 
 ## build
@@ -18,7 +19,8 @@ GIT=https://github.com/tayoky/tsh
 COMMIT=529c3a4bca9677b8194fa51916d98ba9e16e3eb0
 
 configure() {
-	./configure --host="$HOST" --with-CC="$CC" --prefix="$PREFIX"
+	# no DESTDIR support
+	./configure --host="$HOST" --with-CC="$CC" --prefix="$DESTDIR/$PREFIX"
 
 	#we need to specify custom CFLAGS
 	echo 'CFLAGS = -fno-stack-protector \
@@ -37,5 +39,5 @@ install() {
 	make install
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tsh](https://github.com/tayoky/ports/blob/main/ports/tsh)
+This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tsh](https://github.com/tayoky/ports/blob/main/ports/tsh).
 
