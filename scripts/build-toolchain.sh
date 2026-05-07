@@ -3,7 +3,7 @@
 # build the gcc/binutils toolchain
 
 # default
-SYSROOT="./sysroot"
+test -z "$SYSROOT" && SYSROOT="./sysroot"
 TARGET="$(uname -m)-stanix"
 NPROC=$(nproc)
 
@@ -11,14 +11,6 @@ for i in "$@"; do
 	case $i in
 		--sysroot=*)
 			SYSROOT="${i#*=}"
-			shift # past argument=value
-			;;
-		--cc=*)
-			CC="${i#*=}"
-			shift # past argument=value
-			;;
-		--ar=*)
-			AR="${i#*=}"
 			shift # past argument=value
 			;;
 		--target=*)
@@ -34,8 +26,6 @@ for i in "$@"; do
 			echo "options :"
 			echo "--help : show this help"
 			echo "--target : target of the toolchain [$TARGET]"
-			echo "--cc : C compiler to compile the toolchain"
-			echo "--ar : archiver to use to compile the toolchain"
 			echo "--sysroot : path to sysroot for include/libray path [$(realpath $SYSROOT)]"
 			echo "--nproc : -j option for makefile [$NPROC]"
 			exit
@@ -131,6 +121,8 @@ make -C "$TOP" header PREFIX="/usr" SYSROOT="$SYSROOT" ARCH="$ARCH"
 
 # now compile all the shit
 # don't compile if aready done
+
+# build binutils
 if [ ! -e bin/$TARGET-ld ] ; then
 	echo "building binutils..."
 	cd binutils-$BINUTILS_VERSION
@@ -140,14 +132,43 @@ if [ ! -e bin/$TARGET-ld ] ; then
 	make install
 	cd ..
 fi
+
+# build bootstrap gcc
+if [ ! -e bin/bootstrap/$TARGET-gcc ] ; then
+	echo "building bootstrap gcc..."
+	cd gcc-$GCC_VERSION
+	mkdir -p build-bootstrap && cd build-bootstrap
+	
+	../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared
+	make all-gcc -j$NPROC
+	make all-target-libgcc -j$NPROC
+	echo "installing bootstrap gcc..."
+	make install-gcc
+	make install-target-libgcc
+
+	cd ../..
+fi
+
+# build final gcc
 if [ ! -e bin/$TARGET-gcc ] ; then
+	# we need to make sure we have a libc
+	if ! test -f "$TOP/tlibc/config.mk" ; then
+		# if not configured, configure with bootstrap toolchain
+		echo "configure bootstrap tlibc ..."
+		(
+			export PATH="$PREFIX/bootstrap/bin:$PATH" 
+			cd "$TOP/tlibc"
+			# build static only
+			./configure --host="$TARGET" --disable-shared --prefix="/usr"
+		)
+	fi
+	echo "building bootstrap tlibc..."
+	make -C "$TOP/tlibc" install DESTDIR="$SYSROOT" -j$NPROC
+
 	echo "building gcc..."
 	cd gcc-$GCC_VERSION
 	mkdir -p build && cd build
 
-	# make sure to delete libc else the libgcc might see it and become crazy
-	rm "$SYSROOT/usr/lib"/libc.*
-	
 	../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-multilib --enable-shared --enable-threads=posix
 	make all-gcc -j$NPROC
 	make all-target-libgcc -j$NPROC

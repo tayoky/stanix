@@ -3,6 +3,9 @@
 . scripts/tconf.sh
 
 # automaticly add toolchain/bin to path
+if test -d "$(dirname $0)/bootstrap/toolchain/bin" ; then
+  export PATH="$(realpath $(dirname $0))/bootstrap/toolchain/bin:$PATH"
+fi
 if test -d "$(dirname $0)/toolchain/bin" ; then
   export PATH="$(realpath $(dirname $0))/toolchain/bin:$PATH"
 fi
@@ -18,6 +21,20 @@ fi
 # default host
 test -z "$HOST" && HOST="$(uname -m)-stanix"
 test -z "$CFLAGS" && CFLAGS=-O2
+
+# we need to make sure subdirectories are cloned
+if [ ! -f ./tlibc/configure ] ; then
+	git submodule init
+	git submodule update tlibc
+fi
+if [ ! -f ./ports/configure ] ; then
+	git submodule init
+	git submodule update ports
+fi
+if [ ! -f ./libraries/libtgui/configure ] ; then
+	git submodule init
+	git submodule update ports
+fi
 
 tconf_init "$@"
 
@@ -41,26 +58,10 @@ if test "$ARCH" = "x86_64" ; then
 	tconf_search_util "NASM" "nasm" "" nasm
 fi
 
-# propagate configuration to tlibc and ports
-if [ ! -f ./tlibc/configure ] ; then
-	git submodule init
-	git submodule update tlibc
-fi
+# propagate configuration to subdirs
 
-tconf_add_subdir tlibc --enable-dynamic
-
-if [ ! -f ./ports/configure ] ; then
-	git submodule init
-	git submodule update ports
-fi
-
+tconf_add_subdir tlibc --enable-shared
 tconf_add_subdir ports
-
-if [ ! -f ./libraries/libtgui/configure ] ; then
-	git submodule init
-	git submodule update ports
-fi
-
 tconf_add_subdir libraries/libtgui
 
 echo "using $SYSROOT as sysroot"
