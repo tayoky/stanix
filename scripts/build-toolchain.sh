@@ -49,6 +49,7 @@ ARCH=${TARGET%%-*}
 TOP="$PWD"
 
 PREFIX="$TOP/toolchain"
+set -e
 
 # put everything inside toolchain
 mkdir -p toolchain/bin
@@ -68,42 +69,33 @@ else
 	exit 1
 fi
 
-
 BINUTILS_VERSION=2.44
 GCC_VERSION=12.2.0
 echo "making cross toolchain for binutils $BINUTILS_VERSION and gcc $GCC_VERSION ..."
 
 
-if [ ! -e binutils.tar.xz ] ; then
+if ! test -e binutils-$BINUTILS_VERSION.tar.xz ; then
 	echo "downloading binutils..."
-	$WGET -Obinutils.tar.xz "https://ftp.gnu.org/gnu/binutils/binutils-$BINUTILS_VERSION.tar.xz"
+	$WGET -Obinutils-$BINUTILS_VERSION.tar.xz "https://ftp.gnu.org/gnu/binutils/binutils-$BINUTILS_VERSION.tar.xz"
 fi
-if [ ! -e gcc.tar.xz ] ; then
+if ! test -e gcc-$GCC_VERSION.tar.xz ; then
 	echo "downloading gcc..."
-	$WGET -Ogcc.tar.xz "https://ftp.gnu.org/gnu/gcc/gcc-$GCC_VERSION/gcc-$GCC_VERSION.tar.xz"
+	$WGET -Ogcc-$GCC_VERSION.tar.xz "https://ftp.gnu.org/gnu/gcc/gcc-$GCC_VERSION/gcc-$GCC_VERSION.tar.xz"
 fi
-if [ ! -d binutils-$BINUTILS_VERSION ] ; then
+if ! test -d binutils-$BINUTILS_VERSION ; then
 	echo "unpacking binutils..."
-	tar xf binutils.tar.xz
+	tar xf binutils-$BINUTILS_VERSION.tar.xz
 fi
-if [ ! -d gcc-$GCC_VERSION ] ; then
+if ! test -d gcc-$GCC_VERSION ; then
 	echo "unpacking gcc..."
-	tar xf gcc.tar.xz
+	tar xf gcc-$GCC_VERSION.tar.xz
 fi
 
 # put your autoconf version below
 AUTOCONF_VERSION=2.71
 
 # now apply the patch and run automake if not aready done
-if [ ! -e gcc-$GCC_VERSION/gcc/config/stanix.h ] ; then
-	patch -ruN -p1 -d gcc-$GCC_VERSION -i $TOP/gcc.patch
-	sed -i -e "s/2.69/$AUTOCONF_VERSION/g" gcc-$GCC_VERSION/config/override.m4
-	cd gcc-$GCC_VERSION/libstdc++-v3
-	autoreconf
-	automake
-	cd ../..
-fi
-if [ ! -e binutils-$BINUTILS_VERSION/ld/emulparams/elf_x86_64_stanix.sh ] ; then
+if ! test -e binutils-$BINUTILS_VERSION/ld/emulparams/elf_x86_64_stanix.sh ; then
 	patch -ruN -p1 -d binutils-$BINUTILS_VERSION -i $TOP/binutils.patch
 	sed -i -e "s/2.69/$AUTOCONF_VERSION/g" binutils-$BINUTILS_VERSION/config/override.m4
 	cd binutils-$BINUTILS_VERSION/ld
@@ -111,9 +103,17 @@ if [ ! -e binutils-$BINUTILS_VERSION/ld/emulparams/elf_x86_64_stanix.sh ] ; then
 	automake
 	cd ../..
 fi
+if ! test -e gcc-$GCC_VERSION/gcc/config/stanix.h ; then
+	patch -ruN -p1 -d gcc-$GCC_VERSION -i $TOP/gcc.patch
+	sed -i -e "s/2.69/$AUTOCONF_VERSION/g" gcc-$GCC_VERSION/config/override.m4
+	cd gcc-$GCC_VERSION/libstdc++-v3
+	autoreconf
+	automake
+	cd ../..
+fi
 
 # we are going to need the header
-if [ ! -e ../tlibc/configure ] ; then
+if ! test -e ../tlibc/configure ; then
 	git submodule init
 	git submodule update ../tlibc
 fi
@@ -123,7 +123,7 @@ make -C "$TOP" header PREFIX="/usr" SYSROOT="$SYSROOT" ARCH="$ARCH"
 # don't compile if aready done
 
 # build binutils
-if [ ! -e bin/$TARGET-ld ] ; then
+if ! test -e bin/$TARGET-ld ; then
 	echo "building binutils..."
 	cd binutils-$BINUTILS_VERSION
 	./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror --enable-shared
@@ -134,7 +134,7 @@ if [ ! -e bin/$TARGET-ld ] ; then
 fi
 
 # build bootstrap gcc
-if [ ! -e bin/bootstrap/$TARGET-gcc ] ; then
+if ! test -e bin/bootstrap/$TARGET-gcc ; then
 	echo "building bootstrap gcc..."
 	cd gcc-$GCC_VERSION
 	mkdir -p build-bootstrap && cd build-bootstrap
@@ -150,7 +150,7 @@ if [ ! -e bin/bootstrap/$TARGET-gcc ] ; then
 fi
 
 # build final gcc
-if [ ! -e bin/$TARGET-gcc ] ; then
+if ! test -e bin/$TARGET-gcc ; then
 	# we need to make sure we have a libc
 	if ! test -f "$TOP/tlibc/config.mk" ; then
 		# if not configured, configure with bootstrap toolchain
