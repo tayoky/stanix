@@ -144,16 +144,20 @@ if [ ! -e bin/$TARGET-gcc ] ; then
 	echo "building gcc..."
 	cd gcc-$GCC_VERSION
 	mkdir -p build && cd build
+
+	# make sure to delete libc else the libgcc might see it and become crazy
+	rm "$SYSROOT/usr/lib"/libc.*
+	
 	../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-multilib --enable-shared --enable-threads=posix
 	make all-gcc -j$NPROC
 	make all-target-libgcc -j$NPROC
 	echo "installing gcc..."
 	make install-gcc
 	make install-target-libgcc
-	# copy libgcc to sysrot
+
+	# copy libgcc to sysroot
 	mkdir -p "$SYSROOT/usr/lib"
 	cp "$TOP/toolchain/$TARGET/lib/libgcc_s.so" "$SYSROOT/usr/lib"
 	cp "$TOP/toolchain/$TARGET/lib/libgcc_s.so.1" "$SYSROOT/usr/lib"
-	# todo : build libc and then libstdc++
 	cd ../..
 fi
