@@ -150,7 +150,9 @@ if ! test -e bin/bootstrap/$TARGET-gcc ; then
 	if ! test -f build-bootstrap/Makefile ; then
 		mkdir -p build-bootstrap && cd build-bootstrap
 		echo "configure bootstrap gcc..."
-		../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared --disable-multilib
+		../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared --disable-multilib \
+			--disable-libgomp --disable-libssp --disable-libquadmath --disable-libsanitizer \
+			--disable-decmial-float --disable-bootstrap
 	else
 		cd build-bootstrap
 	fi
