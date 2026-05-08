@@ -8,7 +8,11 @@ BUILDENV_SHELL = $(SHELL)
 
 export TOP = $(PWD)
 
+ifeq ($(findstring clean,$(MAKECMDGOALS))$(findstring header, $(MAKECMDGOALS)),)
 include config.mk
+else
+-include config.mk
+endif
 
 #tools
 export CC
@@ -206,8 +210,5 @@ clean :
 	@cd ports && ./clean.sh tutils
 	@cd ports && ./clean.sh tash
 	rm -fr $(OUT)
-
-config.mk :
-	$(error "run ./configure before runing make")
 
 .PHONY : all targets help clean header build-tlibc build-kernel build-modules build-libraries build-userspace build-tash build-tutils build-initrd build-all build

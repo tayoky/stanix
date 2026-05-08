@@ -91,8 +91,13 @@ if ! test -d gcc-$GCC_VERSION ; then
 	tar xf gcc-$GCC_VERSION.tar.xz
 fi
 
-# put your autoconf version below
-AUTOCONF_VERSION=2.71
+# installed autoconf version
+AUTOCONF_VERSION=$(autoconf --version | grep -E -o "2\.((69)|(7[1-3]))")
+if test -z "$AUTOCONF_VERSION" ; then
+	echo "invalid autoconf version"
+	exit 1
+fi
+echo "found autoconf $AUTOCONF_VERSION"
 
 # now apply the patch and run automake if not aready done
 if ! test -e binutils-$BINUTILS_VERSION/ld/emulparams/elf_x86_64_stanix.sh ; then
@@ -124,27 +129,37 @@ make -C "$TOP" header PREFIX="/usr" SYSROOT="$SYSROOT" ARCH="$ARCH"
 
 # build binutils
 if ! test -e bin/$TARGET-ld ; then
-	echo "building binutils..."
 	cd binutils-$BINUTILS_VERSION
-	./configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror --enable-shared
+	if ! test -d build ; then
+		mkdir -p build && cd build
+		echo "configure binutils..."
+		../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror --enable-shared
+	else
+		cd build
+	fi
+	echo "building binutils..."
 	make -j$NPROC
 	echo "installing binutils..."
-	make install
-	cd ..
+	make install-strip
+	cd ../..
 fi
 
 # build bootstrap gcc
 if ! test -e bin/bootstrap/$TARGET-gcc ; then
-	echo "building bootstrap gcc..."
 	cd gcc-$GCC_VERSION
-	mkdir -p build-bootstrap && cd build-bootstrap
-	
-	../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared
+	if ! test -d build-bootstrap ; then
+		mkdir -p build-bootstrap && cd build-bootstrap
+		echo "configure bootstrap gcc..."
+		../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared
+	else
+		cd build-bootstrap
+	fi
+	echo "building bootstrap gcc..."
 	make all-gcc -j$NPROC
 	make all-target-libgcc -j$NPROC
 	echo "installing bootstrap gcc..."
-	make install-gcc
-	make install-target-libgcc
+	make install-strip-gcc
+	make install-strip-target-libgcc
 
 	cd ../..
 fi
@@ -163,17 +178,21 @@ if ! test -e bin/$TARGET-gcc ; then
 		)
 	fi
 	echo "building bootstrap tlibc..."
-	make -C "$TOP/tlibc" install DESTDIR="$SYSROOT" -j$NPROC
+	make -C "$TOP/tlibc" install DESTDIR="$SYSROOT" SHARED="no" -j$NPROC
 
-	echo "building gcc..."
 	cd gcc-$GCC_VERSION
-	mkdir -p build && cd build
-
-	../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-multilib --enable-shared --enable-threads=posix
+	if ! test -d build ; then
+		mkdir -p build && cd build
+		echo "configure gcc..."
+		../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-multilib --enable-shared --enable-threads=posix
+	else
+		cd build
+	fi
+	echo "building gcc..."
 	make all-gcc -j$NPROC
 	make all-target-libgcc -j$NPROC
 	echo "installing gcc..."
-	make install-gcc
+	make install-strip-gcc
 	make install-target-libgcc
 
 	# copy libgcc to sysroot
