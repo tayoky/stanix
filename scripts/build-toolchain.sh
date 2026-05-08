@@ -152,7 +152,7 @@ if ! test -e bin/bootstrap/$TARGET-gcc ; then
 		echo "configure bootstrap gcc..."
 		../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared --disable-multilib \
 			--disable-libgomp --disable-libssp --disable-libquadmath --disable-libsanitizer \
-			--disable-decmial-float --disable-bootstrap
+			--disable-decimal-float --disable-bootstrap
 	else
 		cd build-bootstrap
 	fi
