@@ -62,7 +62,7 @@ new file mode 100644
 index 00000000000..2775bcc5a4d
 --- /dev/null
 +++ b/gcc/config/stanix.h
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,37 @@
 +/* Useful if you wish to make target-specific GCC changes. */
 +#undef TARGET_STANIX
 +#define TARGET_STANIX 1
@@ -81,12 +81,14 @@ index 00000000000..2775bcc5a4d
 +#undef ENDFILE_SPEC
 +#define ENDFILE_SPEC "%{shared|static-pie|!no-pie:crtendS.o%s; :crtend.o%s} crtn.o%s"
 +
-+/* Without this libgcc does not link well*/
-+#undef LIBGCC_SPEC
-+#define LIBGCC_SPEC "%{static|static-libgcc:-lgcc -lgcc_eh}%{!static:%{!static-libgcc:-lgcc_s}}"
-+
 +#undef PREFERRED_DEBUGGING_TYPE
 +#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
++
++/*Without this libgcc linking is broken */
++#ifdef ENABLE_SHARED_LIBGCC
++#undef LIBGCC_SPEC
++#define LIBGCC_SPEC "%{static|static-libgcc:-lgcc -lgcc_eh}%{!static:%{!static-libgcc:-lgcc_s}}"
++#endif
 +
 +/* Additional predefined macros. */
 +#undef TARGET_OS_CPP_BUILTINS
