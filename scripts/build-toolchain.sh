@@ -145,7 +145,7 @@ if ! test -e bin/$TARGET-ld ; then
 fi
 
 # build bootstrap gcc
-if ! test -e bin/bootstrap/$TARGET-gcc ; then
+if ! test -e bootstrap/bin/$TARGET-gcc ; then
 	cd gcc-$GCC_VERSION
 	if ! test -f build-bootstrap/Makefile ; then
 		mkdir -p build-bootstrap && cd build-bootstrap
@@ -169,17 +169,15 @@ fi
 # build final gcc
 if ! test -e bin/$TARGET-gcc ; then
 	# we need to make sure we have a libc
-	if ! test -f "$TOP/tlibc/config.mk" ; then
-		# if not configured, configure with bootstrap toolchain
-		echo "configure bootstrap tlibc ..."
-		(
-			export PATH="$PREFIX/bootstrap/bin:$PATH" 
-			cd "$TOP/tlibc"
-			./configure --host="$TARGET" --enable-shared --prefix="/usr"
-		)
-	fi
+	echo "configure bootstrap tlibc ..."
+	(
+		export PATH="$PREFIX/bootstrap/bin:$PATH" 
+		cd "$TOP/tlibc"
+		./configure --host="$TARGET" --enable-shared --prefix="/usr"
+	)
+
 	echo "building bootstrap tlibc..."
-	make -C "$TOP/tlibc" install DESTDIR="$SYSROOT" SHARED="no" -j$NPROC
+	make -C "$TOP/tlibc" install DESTDIR="$SYSROOT" -j$NPROC
 
 	cd gcc-$GCC_VERSION
 	if ! test -f build/Makefile ; then
