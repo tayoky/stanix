@@ -130,7 +130,7 @@ make -C "$TOP" header PREFIX="/usr" SYSROOT="$SYSROOT" ARCH="$ARCH"
 # build binutils
 if ! test -e bin/$TARGET-ld ; then
 	cd binutils-$BINUTILS_VERSION
-	if ! test -d build ; then
+	if ! test -f build/Makefile ; then
 		mkdir -p build && cd build
 		echo "configure binutils..."
 		../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror --enable-shared
@@ -147,7 +147,7 @@ fi
 # build bootstrap gcc
 if ! test -e bin/bootstrap/$TARGET-gcc ; then
 	cd gcc-$GCC_VERSION
-	if ! test -d build-bootstrap ; then
+	if ! test -f build-bootstrap/Makefile ; then
 		mkdir -p build-bootstrap && cd build-bootstrap
 		echo "configure bootstrap gcc..."
 		../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared
@@ -181,7 +181,7 @@ if ! test -e bin/$TARGET-gcc ; then
 	make -C "$TOP/tlibc" install DESTDIR="$SYSROOT" SHARED="no" -j$NPROC
 
 	cd gcc-$GCC_VERSION
-	if ! test -d build ; then
+	if ! test -f build/Makefile ; then
 		mkdir -p build && cd build
 		echo "configure gcc..."
 		../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-multilib --enable-shared --enable-threads=posix
