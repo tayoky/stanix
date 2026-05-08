@@ -3,9 +3,9 @@
 # build the gcc/binutils toolchain
 
 # default
-test -z "$SYSROOT" && SYSROOT="./sysroot"
-TARGET="$(uname -m)-stanix"
-NPROC=$(nproc)
+: ${SYSROOT:="./sysroot"}
+: ${TARGET:="$(uname -m)-stanix"}
+: ${NPROC:=$(nproc)}
 
 for i in "$@"; do
 	case $i in
@@ -150,7 +150,7 @@ if ! test -e bin/bootstrap/$TARGET-gcc ; then
 	if ! test -f build-bootstrap/Makefile ; then
 		mkdir -p build-bootstrap && cd build-bootstrap
 		echo "configure bootstrap gcc..."
-		../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared
+		../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared --disable-multilib
 	else
 		cd build-bootstrap
 	fi
