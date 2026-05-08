@@ -175,8 +175,7 @@ if ! test -e bin/$TARGET-gcc ; then
 		(
 			export PATH="$PREFIX/bootstrap/bin:$PATH" 
 			cd "$TOP/tlibc"
-			# build static only
-			./configure --host="$TARGET" --disable-shared --prefix="/usr"
+			./configure --host="$TARGET" --enable-shared --prefix="/usr"
 		)
 	fi
 	echo "building bootstrap tlibc..."
