@@ -152,7 +152,7 @@ build-tlibc : header
 
 build-kernel : build-tlibc build-libraries header
 	@mkdir -p $(OUT)/boot
-	@$(MAKE) -C kernel PREFIX=$(realpath $(OUT))
+	@$(MAKE) -C kernel PREFIX=$(realpath $(OUT)) BUILDDIR=$(BUILDDIR)/kernel
 
 build-modules : build-tlibc build-libraries header
 # we need to install modules in the initrd as they are required to load the sysroot

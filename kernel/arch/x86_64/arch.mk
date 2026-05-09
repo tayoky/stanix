@@ -11,5 +11,5 @@ LDFLAGS += -m elf_x86_64
 
 ASMFLAGS += -f elf64
 
-%.o : %.s
-	${NASM} ${ASMFLAGS} $< -o $@
+$(BUILDDIR)/%.o : %.s
+	$(NASM) $(ASMFLAGS) $< -o $@
