@@ -62,7 +62,7 @@ new file mode 100644
 index 00000000000..2775bcc5a4d
 --- /dev/null
 +++ b/gcc/config/stanix.h
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,40 @@
 +/* Useful if you wish to make target-specific GCC changes. */
 +#undef TARGET_STANIX
 +#define TARGET_STANIX 1
@@ -89,6 +89,9 @@ index 00000000000..2775bcc5a4d
 +#undef LIBGCC_SPEC
 +#define LIBGCC_SPEC "%{static|static-libgcc:-lgcc -lgcc_eh}%{!static:%{!static-libgcc:-lgcc_s}}"
 +#endif
++
++#undef LINK_SPEC
++#define LINK_SPEC "%{shared:-shared} %{static:-static} %{!shared: %{!static: %{rdynamic:-export-dynamic}}}"
 +
 +/* Additional predefined macros. */
 +#undef TARGET_OS_CPP_BUILTINS

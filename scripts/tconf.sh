@@ -42,6 +42,7 @@ generate config.mk from environement
 --clear-cache clear the cache before doing anything
 --prefix=PREFIX set the prefix [$PREFIX]
 --sysroot=SYSROOT, --with-sysroot=SYSROOT set the sysroot [${SYSROOT:-"/"}]
+--builddir=BUILDDIR set the builddir (where to put objects) [$BUILDDIR]
 --debug compile with debug options activated [$DEBUG]
 --enable-XXX compile with a specific feature enabled
 --disable-XXX compile with a specific feature disabled
@@ -58,9 +59,10 @@ tconf_init () {
 	fi
 
 	# defaults
-	test -z "$PREFIX" && PREFIX="/usr/local"
-	test -z "$CFLAGS" && CFLAGS="-Wall -Wextra"
-	test -z "$DEBUG" && DEBUG="no"
+	: ${BUILDDIR:="$TOP/build"}
+	: ${PREFIX:="/usr/local"}
+	: ${CFLAGS:="-Wall -Wextra"}
+	: ${DEBUG:="no"}
 
 	# parse options
 	for i in "$@" ; do
@@ -122,6 +124,9 @@ tconf_init () {
 		--with-sysroot=*|--sysroot=*)
 			SYSROOT="${i#*=}"
 			;;
+		--builddir=*|BUILDDIR=*)
+			BUILDDIR="${i#*=}"
+			;;
 		--debug)
 			DEBUG=yes
 			;;
@@ -146,8 +151,9 @@ tconf_init () {
 	done
 
 	# make path absolute
-	test -n "$PREFIX" && PREFIX="$(realpath -m "$PREFIX")"
+	PREFIX="$(realpath -m "$PREFIX")"
 	test -n "$SYSROOT" && SYSROOT="$(realpath -m "$SYSROOT")"
+	BUILDDIR="$(realpath -m "$BUILDDIR")"
 	
 	return 0
 }
@@ -173,6 +179,7 @@ tconf_fini () {
 		echo "# automaticly generated from $(basename "$0")"
 		tconf_echo_conf PREFIX "$PREFIX"
 		tconf_echo_conf SYSROOT "$SYSROOT"
+		tconf_echo_conf BUILDDIR "$BUILDDIR"
 		tconf_echo_conf_util CC "$CC"
 		tconf_echo_conf_util CXX "$CXX"
 		tconf_echo_conf_util AS "$AS"
@@ -212,7 +219,7 @@ tconf_add_subdir () {
 	SUBDIR="$1"
 	shift
 	tconf_print "entering subdir $SUBDIR"
-	(cd "$SUBDIR" && ./configure "$@")
+	(export BUILDDIR="$BUILDDIR/$SUBDIR" && cd "$SUBDIR" && ./configure "$@")
 	CODE=$?
 	tconf_print "exiting subdir $SUBDIR"
 	test "$CODE" != 0 && exit $CODE
