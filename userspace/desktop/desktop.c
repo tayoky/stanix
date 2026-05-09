@@ -61,7 +61,7 @@ int main() {
 
 	start_menu = tgui_popover_new();
 	app_list = tgui_vector_new();
-	tgui_list_view_t *start_menu_list = tgui_list_view_new(&app_factory, app_list);
+	tgui_list_view_t *start_menu_list = tgui_list_view_new(&app_factory, TGUI_LIST_MODEL_CAST(app_list));
 	tgui_popover_set_child(start_menu, TGUI_WIDGET_CAST(start_menu_list));
 
 	// TODO : cleanup

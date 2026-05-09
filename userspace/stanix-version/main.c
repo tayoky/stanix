@@ -35,7 +35,7 @@ int main() {
 
 	add_label(box, "The Stanix operating system");
 	char version[256];
-	sprintf(version, "Version %s", utils_shashmap_get(infos, "VERSION"));
+	sprintf(version, "Version %s", (const char *)utils_shashmap_get(infos, "VERSION"));
 	add_label(box, version);
 	add_label(box, "Copyright Tayoky 2024-2026 (GPL3)");
 	add_label(box, "This program is free software: you can redistribute it and/or modify");

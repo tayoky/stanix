@@ -1,7 +1,7 @@
 
 #first get all the src
 SRC = $(shell find -name "*.c")
-OBJ = $(SRC:.c=.o)
+OBJ = $(SRC:%.c=$(BUILDDIR)/%.o)
 
 #find bin name
 PWD = $(shell pwd)
@@ -13,13 +13,13 @@ CFLAGS += -I ./
 
 LDFLAGS += -linput
 
-all : ../bin/$(OUT)
+all : $(BUILDDIR)/$(OUT)
 
-../bin/$(OUT) : $(OBJ)
+$(BUILDDIR)/$(OUT) : $(OBJ)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-%.o : %.c
+$(BUILDDIR)/%.o : %.c
 	$(CC) $(CFLAGS) -o $@ -c $^
 
 clean : 
-	rm -f $(OBJ)
+	rm -f $(BUILDDIR)

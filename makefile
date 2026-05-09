@@ -162,7 +162,7 @@ build-libraries : build-tlibc
 	@$(MAKE) -C libraries install
 
 build-userspace : build-tlibc build-libraries
-	@$(MAKE) -C userspace install
+	@$(MAKE) -C userspace install BUILDDIR=$(BUILDDIR)/userspace
 
 build-tash : build-tlibc
 	@cd ports && ./build.sh tash
