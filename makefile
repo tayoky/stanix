@@ -156,7 +156,7 @@ build-kernel : build-tlibc build-libraries header
 
 build-modules : build-tlibc build-libraries header
 # we need to install modules in the initrd as they are required to load the sysroot
-	@$(MAKE) -C modules install DESTDIR="$(realpath initrd)"
+	@$(MAKE) -C modules install DESTDIR="$(realpath initrd)" BUILDDIR=$(BUILDDIR)/modules
 
 build-libraries : build-tlibc
 	@$(MAKE) -C libraries install
