@@ -11,6 +11,6 @@ LDFLAGS += -m elf_x86_64
 
 ASMFLAGS += -f elf64
 
-$(BUILDDIR)/%.o : %.s
+$(BUILDDIR)/%.s.o : %.s
 	@echo "NASM $<"
 	$(Q)$(NASM) $(ASMFLAGS) $< -o $@

@@ -33,6 +33,8 @@ install :
 .PHONY : uninstall
 uninstall :
 
+KLIBC ?= ../tlibc/libk.a
+
 # freestanding flags
 CFLAGS += -Wall \
     -Wextra \
@@ -46,10 +48,19 @@ CFLAGS += -Wall \
 CFLAGS += -I ./include/
 CFLAGS += -I ../limine/
 
+LDFLAGS += \
+	-nostdlib \
+	-static \
+	-z max-page-size=0x1000 \
+	-T arch/$(ARCH)/linker.ld
+
+# arch specific flags
+-include arch/$(ARCH)/arch.mk
+
 # ==== kernel target ====
 
 ALL_kernel = $(BUILDDIR)/kernel/kernel
-SRC_kernel = drivers/input.c drivers/edid.c drivers/terminal_emu.c drivers/trm.c drivers/device.c drivers/pty.c drivers/mem.c drivers/tty.c drivers/liminefb.c drivers/framebuffer.c fs/socket.c fs/procfs.c fs/sysfs.c fs/tmpfs.c fs/pipe.c fs/cache.c fs/unix.c fs/tarfs.c fs/vfs.c fs/poll.c klib/print.c klib/string.c klib/ini.c klib/time.c klib/kout.c klib/ringbuf.c klib/list.c mem/pmm.c mem/slab.c mem/kheap.c mem/vmm.c task/futex.c task/exec.c task/signal.c task/cond.c task/fork.c task/waitfor.c task/mutex.c task/sleep.c task/interrupt.c task/rwsem.c task/syscall.c task/scheduler.c bootinfo.c main.c modules.c ubsan.c
+SRC_kernel = drivers/device.c drivers/edid.c drivers/framebuffer.c drivers/input.c drivers/liminefb.c drivers/mem.c drivers/pty.c drivers/terminal_emu.c drivers/trm.c drivers/tty.c fs/cache.c fs/pipe.c fs/poll.c fs/procfs.c fs/socket.c fs/sysfs.c fs/tarfs.c fs/tmpfs.c fs/unix.c fs/vfs.c klib/ini.c klib/kout.c klib/list.c klib/print.c klib/ringbuf.c klib/string.c klib/time.c mem/kheap.c mem/pmm.c mem/slab.c mem/vmm.c task/cond.c task/exec.c task/fork.c task/futex.c task/interrupt.c task/mutex.c task/rwsem.c task/scheduler.c task/signal.c task/sleep.c task/syscall.c task/waitfor.c bootinfo.c main.c modules.c ubsan.c $(shell find arch/$(ARCH) -name "*.c" -or -name "*.s")
 OBJ_kernel = $(SRC_kernel:%=$(BUILDDIR)/kernel/%.o)
 DEPS_kernel = $(SRC_kernel:%=$(BUILDDIR)/kernel/%.d)
 
@@ -83,14 +94,29 @@ $(BUILDDIR)/kernel/%.c.o : %.c
 	@echo "CC $<"
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
-$(BUILDDIR)/kernel/kernel : $(OBJ_kernel)
+$(BUILDDIR)/kernel/%.c.o : $(BUILDDIR)/kernel/%.c
+	@mkdir -p "$(@D)"
+	@echo "CC $<"
+	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
+
+$(BUILDDIR)/kernel/kernel : $(OBJ_kernel) $(KLIBC) $(BUILDDIR)/kernel/sym.c.o
 	@mkdir -p "$(@D)"
 	@echo "CCLD kernel"
 	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
+# sym.c is an automatically generated table
+$(BUILDDIR)/kernel/sym.c : $(OBJ_kernel) $(KLIBC)
+	@echo "GEN sym.c"
+	@echo '#include <kernel/sym.h>' > $@
+	@$(foreach SYM , $(shell $(NM) $^ --defined-only -ngj --quiet ),  echo "extern void $(SYM) ();" >> $@; )
+	@echo 'const sym_t symbols[] = {' >> $@
+	@$(foreach SYM , $(shell $(NM) $^ --defined-only -ngj --quiet ),  echo "	{ .name = \"$(SYM)\" , .value = (uintptr_t)$(SYM) , .size = sizeof($(SYM))}," >> $@; ) 
+	@echo '};' >> $@
+	@echo 'const size_t symbols_count = sizeof(symbols) / sizeof(sym_t);' >> $@
+
 # ==== headers target ====
-SRC_headers = include/mem/vmm.h include/mem/page.h include/mem/pmm.h include/mem/slab.h include/mem/kheap.h include/drivers/bus.h include/drivers/trm.h include/drivers/edid.h include/drivers/device.h include/drivers/input.h include/drivers/tty.h include/drivers/terminal_emu.h include/drivers/framebuffer.h include/task/exec.h include/task/fork.h include/task/spinlock.h include/task/rwlock.h include/task/async.h include/task/userspace.h include/task/signal.h include/task/sys.h include/task/cond.h include/task/sleep.h include/task/futex.h include/task/rwsem.h include/task/interrupt.h include/task/mutex.h include/task/scheduler.h include/kernel.h include/macro.h include/module.h include/panic.h include/arch/mmu.h include/arch/arch.h include/arch/x86_64/port.h include/arch/x86_64/asm.h include/arch/x86_64/tss.h include/arch/x86_64/idt.h include/arch/x86_64/serial.h include/arch/x86_64/cmos.h include/arch/x86_64/gdt.h include/arch/x86_64/isr.h include/arch/x86_64/pic.h include/arch/x86_64/pit.h include/arch/x86_64/paging.h include/arch/x86_64/x86_64.h include/arch/irq.h include/fs/vfs.h include/fs/socket.h include/fs/tarfs.h include/fs/pipe.h include/fs/procfs.h include/fs/poll.h include/fs/cache.h include/fs/unix.h include/fs/tmpfs.h include/fs/sysfs.h include/sym.h include/assert.h include/klib/ringbuf.h include/klib/vector.h include/klib/string.h include/klib/ini.h include/klib/print.h include/klib/kout.h include/klib/list.h include/klib/hashmap.h include/klib/time.h include/bootinfo.h ../limine/limine.h
-FILES_headers = vmm.h page.h pmm.h slab.h kheap.h bus.h trm.h edid.h device.h input.h tty.h terminal_emu.h framebuffer.h exec.h fork.h spinlock.h rwlock.h async.h userspace.h signal.h sys.h cond.h sleep.h futex.h rwsem.h interrupt.h mutex.h scheduler.h kernel.h macro.h module.h panic.h mmu.h arch.h port.h asm.h tss.h idt.h serial.h cmos.h gdt.h isr.h pic.h pit.h paging.h x86_64.h irq.h vfs.h socket.h tarfs.h pipe.h procfs.h poll.h cache.h unix.h tmpfs.h sysfs.h sym.h assert.h ringbuf.h vector.h string.h ini.h print.h kout.h list.h hashmap.h time.h bootinfo.h limine.h
+SRC_headers = include/arch/arch.h include/arch/irq.h include/arch/mmu.h include/arch/x86_64/asm.h include/arch/x86_64/cmos.h include/arch/x86_64/gdt.h include/arch/x86_64/idt.h include/arch/x86_64/isr.h include/arch/x86_64/paging.h include/arch/x86_64/pic.h include/arch/x86_64/pit.h include/arch/x86_64/port.h include/arch/x86_64/serial.h include/arch/x86_64/tss.h include/arch/x86_64/x86_64.h include/assert.h include/bootinfo.h include/drivers/bus.h include/drivers/device.h include/drivers/edid.h include/drivers/framebuffer.h include/drivers/input.h include/drivers/terminal_emu.h include/drivers/trm.h include/drivers/tty.h include/fs/cache.h include/fs/pipe.h include/fs/poll.h include/fs/procfs.h include/fs/socket.h include/fs/sysfs.h include/fs/tarfs.h include/fs/tmpfs.h include/fs/unix.h include/fs/vfs.h include/kernel.h include/klib/hashmap.h include/klib/ini.h include/klib/kout.h include/klib/list.h include/klib/print.h include/klib/ringbuf.h include/klib/string.h include/klib/time.h include/klib/vector.h include/macro.h include/mem/kheap.h include/mem/page.h include/mem/pmm.h include/mem/slab.h include/mem/vmm.h include/module.h include/panic.h include/sym.h include/task/async.h include/task/cond.h include/task/exec.h include/task/fork.h include/task/futex.h include/task/interrupt.h include/task/mutex.h include/task/rwlock.h include/task/rwsem.h include/task/scheduler.h include/task/signal.h include/task/sleep.h include/task/spinlock.h include/task/sys.h include/task/userspace.h ../limine/limine.h
+FILES_headers = arch.h irq.h mmu.h asm.h cmos.h gdt.h idt.h isr.h paging.h pic.h pit.h port.h serial.h tss.h x86_64.h assert.h bootinfo.h bus.h device.h edid.h framebuffer.h input.h terminal_emu.h trm.h tty.h cache.h pipe.h poll.h procfs.h socket.h sysfs.h tarfs.h tmpfs.h unix.h vfs.h kernel.h hashmap.h ini.h kout.h list.h print.h ringbuf.h string.h time.h vector.h macro.h kheap.h page.h pmm.h slab.h vmm.h module.h panic.h sym.h async.h cond.h exec.h fork.h futex.h interrupt.h mutex.h rwlock.h rwsem.h scheduler.h signal.h sleep.h spinlock.h sys.h userspace.h limine.h
 DEST_headers = $(FILES_headers:%=$(DESTDIR)$(PREFIX)/include/kernel/%)
 
 .PHONY : install-headers
@@ -119,9 +145,9 @@ targets :
 	@echo "uninstall-kernel : uninstall kernel"
 	@echo "clean-kernel     : clean kernel"
 
-Makefile :  /home/tayoky/git-repo/stanix/scripts/tmake.sh
+Makefile : tmakegen ../scripts/tmake.sh
 	@echo "GEN Makefile"
-	$(Q)./
+	$(Q)./tmakegen
 
 .PHONY : clean
 clean :

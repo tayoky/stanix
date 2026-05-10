@@ -2,11 +2,12 @@
 
 tmake_init () {
 	MAKEFILE="$(realpath ./Makefile)"
-	DIR="$(realpath "$(dirname "$0")")"
+	: ${DIR:="$(realpath "$(dirname "$0")")"}
 	TARGETS=""
 	: ${TMAKE:="$DIR/tmake.sh"}
 	: ${SCRIPT:="$(realpath --relative-to="$DIR" "$0")"}
 	: ${BUILDDIR:=$(realpath build)}
+	SCRIPT="$(realpath --relative-to="$DIR" "$SCRIPT")"
 	echo "# automatically generated from $(basename "$0")
 # DO NOT EDIT
 
@@ -62,7 +63,7 @@ $(for TARG in $TARGETS ; do
 	@echo \"clean-$TARG     : clean $TARG\""
 done)
 
-Makefile : $SCRIPT $(realpath --relative-base="$DIR" "$TMAKE")
+Makefile : $SCRIPT $(realpath --relative-to="$DIR" "$TMAKE")
 	@echo \"GEN Makefile\"
 	\$(Q)./$SCRIPT
 
@@ -120,6 +121,9 @@ tmake_apply_flags () {
 		DEPENDENCIES=*)
 			TARGET_DEPENDENCIES="$TARGET_DEPENDENCIES ${1#*=}"
 			;;
+		DDEPENDENCIES=*)
+			TARGET_DDEPENDENCIES="$TARGET_DDEPENDENCIES ${1#*=}"
+			;;
 		*)
 			tmake_error "unknown flag '$1'"
 			return 1
@@ -144,6 +148,13 @@ tmake_add_compile_rules () {
 	if test "$HAVE_C" = "yes" ; then
 		echo "
 \$(BUILDDIR)/$1/%.c.o : %.c
+	@mkdir -p \"\$(@D)\"
+	@echo \"CC \$<\"
+	\$(Q)\$(CC) $TARGET_CFLAGS -o \$@ -c \$<"
+	fi
+	if test "$HAVE_GEN_C" = "yes" ; then
+		echo "
+\$(BUILDDIR)/$1/%.c.o : \$(BUILDDIR)/$1/%.c
 	@mkdir -p \"\$(@D)\"
 	@echo \"CC \$<\"
 	\$(Q)\$(CC) $TARGET_CFLAGS -o \$@ -c \$<"
@@ -184,6 +195,7 @@ tmake_add_target () {
 	FILES="$2"
 	PREF="$3"
 	: ${HAVE_C:="no"}
+	: ${HAVE_GEN_C:="no"}
 	: ${HAVE_CXX:="no"}
 	: ${HAVE_S:="no"}
 	TARGET_CFLAGS="\$(CFLAGS)"
@@ -191,6 +203,7 @@ tmake_add_target () {
 	TARGET_ASFLAGS="\$(ASFLAGS)"
 	TARGET_LDFLAGS="\$(LDFLAGS)"
 	TARGET_DEPENDENCIES=""
+	TARGET_DDEPENDENCIES=""
 	shift 3
 	for SRC in "$@" ; do
 		if tmake_is_flags "$SRC" ; then
@@ -245,11 +258,12 @@ clean-$TARG :
 	tmake_add_compile_rules "$TARG"
 
 	TARGETS="$TARGETS $TARG"
-	ALL_DEPENDENCIES="\$(OBJ_$TARG)"
+	ALL_DEPENDENCIES="\$(OBJ_$TARG)$TARGET_DDEPENDENCIES"
 	for DEPENDENCY in $TARGET_DEPENDENCIES ; do
 		ALL_DEPENDENCIES="$ALL_DEPENDENCIES \$(ALL_$DEPENDENCY)"
 	done
 	HAVE_C=""
+	HAVE_GEN_C=""
 	HAVE_CXX=""
 	HAVE_S=""
 } >> "$MAKEFILE"
