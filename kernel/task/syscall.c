@@ -1279,7 +1279,7 @@ int sys_sys_shutdown(int flags) {
 }
 
 int sys_socket(int domain, int type, int protocol) {
-	vfs_fd_t *socket = create_socket(domain, type, protocol);
+	vfs_fd_t *socket = socket_create(domain, type, protocol);
 	if (!socket) return -EPROTONOSUPPORT;
 
 	int fd = add_fd(socket, 0);

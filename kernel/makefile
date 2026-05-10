@@ -6,6 +6,12 @@ SYSROOT ?=
 KLIBC ?= ../tlibc/libk.a
 BUILDDIR ?= build
 
+ifeq ($(V),1)
+	Q =
+else
+	Q = @
+endif
+
 #flag
 LDFLAGS = 
 ASMFLAGS =
@@ -33,23 +39,27 @@ endif
 
 $(PREFIX)/boot/$(KERNEL) : $(BUILDDIR)/sym.o $(OBJ)
 	@mkdir -p $(shell dirname $@)
-	$(LD) $(LDFLAGS) -o $@ $^
+	@echo "LD $(KERNEL)"
+	$(Q)$(LD) $(LDFLAGS) -o $@ $^
 
 $(BUILDDIR)/%.o : %.c
 	@mkdir -p $(dir $@)
-	$(CC) -D$(ARCH) $(CFLAGS) -o $@ -g -c $^
+	@echo "CC $<"
+	$(Q)$(CC) -D$(ARCH) $(CFLAGS) -o $@ -g -c $<
 
 $(BUILDDIR)/sym.o : $(OBJ)
+	@echo "GEN sym.c"
 	@echo '#include <kernel/sym.h>' > $(BUILDDIR)/sym.c
 	@$(foreach SYM , $(shell $(NM) $(OBJ) --defined-only -ngj --quiet ),  echo "extern void $(SYM) ();" >> $(BUILDDIR)/sym.c ; )
 	@echo 'const sym_t symbols[] = {' >> $(BUILDDIR)/sym.c
 	@$(foreach SYM , $(shell $(NM) $(OBJ) --defined-only -ngj --quiet ),  echo "	{ .name = \"$(SYM)\" , .value = (uintptr_t)$(SYM) , .size = sizeof($(SYM))}," >> $(BUILDDIR)/sym.c ; ) 
 	@echo '};' >> $(BUILDDIR)/sym.c
 	@echo 'const size_t symbols_count = sizeof(symbols) / sizeof(sym_t);' >> $(BUILDDIR)/sym.c
-	$(CC) $(CFLAGS) -o $(BUILDDIR)/sym.o -c $(BUILDDIR)/sym.c 
+	@echo "CC sym.c"
+	$(Q)$(CC) $(CFLAGS) -o $(BUILDDIR)/sym.o -c $(BUILDDIR)/sym.c 
 	
 clean :
-	rm -f $(OBJ)
+	rm -f $(BUILDDIR)
 
 header :
 	mkdir -p $(SYSROOT)/usr/include/kernel

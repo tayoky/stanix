@@ -3,6 +3,7 @@
 #include <kernel/kheap.h>
 #include <kernel/string.h>
 #include <kernel/print.h>
+#include <kernel/slab.h>
 #include <kernel/scheduler.h>
 #include <kernel/ringbuf.h>
 #include <errno.h>
@@ -11,6 +12,7 @@
 #define QUEUE_SIZE 4096
 
 static socket_domain_t unix_domain;
+static slab_cache_t unix_socket_slab;
 static socket_t *unix_create(int type, int protocol);
 
 /**
@@ -45,7 +47,7 @@ static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr
 }
 
 static int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
 	int ret = unix_bind_unlocked(socket, addr, addr_len);
 	spinlock_release(&socket->lock);
@@ -54,7 +56,7 @@ static int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr
 
 static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
 	spinlock_acquire(&socket->lock);
 
@@ -113,7 +115,7 @@ static int unix_listen_unlocked(unix_socket_t *socket, int backlog) {
 }
 
 static int unix_listen(socket_t *sock, int backlog) {
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
 	int ret = unix_listen_unlocked(socket, backlog);
 	spinlock_release(&socket->lock);
@@ -122,14 +124,14 @@ static int unix_listen(socket_t *sock, int backlog) {
 
 static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, socket_t **new_sock) {
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
 	if (socket->status != UNIX_STATUS_LISTEN) return -EINVAL;
 
 	unix_connection_t connection;
 
 	// ringbuf read can fail (syscall interrupted/...)
-	ssize_t ret = ringbuffer_read(&socket->queue, &connection, sizeof(unix_connection_t), 0);
+	ssize_t ret = ringbuffer_read(&socket->queue, &connection, sizeof(unix_connection_t), sock->fd.flags);
 	if (ret < 0) return ret;
 	spinlock_acquire(&socket->lock);
 
@@ -155,7 +157,7 @@ static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_le
 
 static ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 	(void)flags;
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
 	ssize_t total = 0;
 
@@ -171,7 +173,7 @@ static ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 		}
 
 		for (int i=0; i<message->msg_iovlen; i++) {
-			ssize_t ret = ringbuffer_read(&socket->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, 0);
+			ssize_t ret = ringbuffer_read(&socket->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, sock->fd.flags);
 			if (ret < 0) return ret;
 			total += ret;
 		}
@@ -182,7 +184,7 @@ static ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 
 static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int flags) {
 	(void)flags;
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
 	ssize_t total = 0;
 
@@ -194,7 +196,7 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 		if (message->msg_name) return -EISCONN;
 
 		for (int i=0; i<message->msg_iovlen; i++) {
-			ssize_t ret = ringbuffer_write(&socket->connected->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, 0);
+			ssize_t ret = ringbuffer_write(&socket->connected->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, sock->fd.flags);
 			if (ret < 0) return ret;
 			total += ret;
 		}
@@ -203,7 +205,7 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 }
 
 static int unix_poll_add(socket_t *sock, poll_event_t *event) {
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
@@ -221,7 +223,7 @@ static int unix_poll_add(socket_t *sock, poll_event_t *event) {
 }
 
 static int unix_poll_remove(socket_t *sock, poll_event_t *event) {
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
@@ -237,7 +239,7 @@ static int unix_poll_remove(socket_t *sock, poll_event_t *event) {
 }
 
 static int unix_poll_get(socket_t *sock, poll_event_t *event) {
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
@@ -255,7 +257,7 @@ static int unix_poll_get(socket_t *sock, poll_event_t *event) {
 }
 
 static void unix_close(socket_t *sock) {
-	unix_socket_t *socket = (unix_socket_t*)sock;
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
 	kdebugf("unix cleanup\n");
 	switch (socket->status) {
@@ -285,33 +287,33 @@ static socket_t *unix_create(int type, int protocol) {
 	(void)protocol;
 	if (type > SOCK_SEQPACKET) return NULL;
 
-	unix_socket_t *socket = socket_new(sizeof(unix_socket_t));
+	unix_socket_t *socket = slab_alloc(&unix_socket_slab);
 	socket->socket.type     = type;
 	socket->socket.protocol = protocol;
 	socket->socket.domain   = &unix_domain;
 	socket->status = UNIX_STATUS_INIT;
 	socket->bound.sun_family = AF_UNIX;
-	
-	socket->socket.close = unix_close;
-	socket->socket.accept  = unix_accept;
-	socket->socket.bind    = unix_bind;
-	socket->socket.connect = unix_connect;
-	socket->socket.listen  = unix_listen;
-	socket->socket.recvmsg = unix_recvmsg;
-	socket->socket.sendmsg = unix_sendmsg;
-	socket->socket.poll_add    = unix_poll_add;
-	socket->socket.poll_remove = unix_poll_remove;
-	socket->socket.poll_get    = unix_poll_get;
 
-	return (socket_t*)socket;
+	return &socket->socket;
 }
 
 static socket_domain_t unix_domain = {
 	.name = "unix",
 	.domain = AF_UNIX,
-	.create = unix_create,
+	.create  = unix_create,
+	.close   = unix_close,
+	.accept  = unix_accept,
+	.bind    = unix_bind,
+	.connect = unix_connect,
+	.listen  = unix_listen,
+	.recvmsg = unix_recvmsg,
+	.sendmsg = unix_sendmsg,
+	.poll_add    = unix_poll_add,
+	.poll_remove = unix_poll_remove,
+	.poll_get    = unix_poll_get,
 };
 
 void init_unix_socket(void) {
-	register_socket_domain(&unix_domain);
+	slab_init(&unix_socket_slab, sizeof(unix_socket_t), "unix-sockets");
+	socket_register_domain(&unix_domain);
 }

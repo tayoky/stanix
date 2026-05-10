@@ -3,6 +3,7 @@
 #include <kernel/list.h>
 #include <kernel/string.h>
 #include <kernel/poll.h>
+#include <kernel/assert.h>
 #include <errno.h>
 
 static list_t socket_domains;
@@ -26,38 +27,47 @@ static ssize_t socket_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) 
 	return socket_recvmsg(fd, &message, 0);
 }
 
+static ssize_t socket_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t count) {
+	(void)offset;
+	struct iovec vec = {
+		.iov_base = (void *)buf,
+		.iov_len  = count,
+	};
+
+	struct msghdr message = {
+		.msg_iov = &vec,
+		.msg_iovlen = 1,
+	};
+
+	return socket_sendmsg(fd, &message, 0);
+}
+
 static void socket_close(vfs_fd_t *fd) {
-	socket_t *socket = fd->private;
-	if (socket->close) {
-		socket->close(socket);
+	socket_t *socket = container_of(fd, socket_t, fd);
+	if (socket->domain->close) {
+		socket->domain->close(socket);
 	}
 }
 
-int socket_poll_add(vfs_fd_t *socket, poll_event_t *event) {
-	socket_t *sock = socket->private;
+int socket_poll_add(vfs_fd_t *fd, poll_event_t *event) {
+	socket_t *socket = container_of(fd, socket_t, fd);
 	if (socket->type != VFS_SOCK) return -ENOTSOCK;
-	if (!sock->poll_add) return -EOPNOTSUPP;
-	return sock->poll_add(sock, event);
+	if (!socket->domain->poll_add) return -EOPNOTSUPP;
+	return socket->domain->poll_add(socket, event);
 }
 
-int socket_poll_remove(vfs_fd_t *socket, poll_event_t *event) {
-	socket_t *sock = socket->private;
+int socket_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	socket_t *socket = container_of(fd, socket_t, fd);
 	if (socket->type != VFS_SOCK) return -ENOTSOCK;
-	if (!sock->poll_remove) return -EOPNOTSUPP;
-	return sock->poll_remove(sock, event);
+	if (!socket->domain->poll_remove) return -EOPNOTSUPP;
+	return socket->domain->poll_remove(socket, event);
 }
 
-int socket_poll_get(vfs_fd_t *socket, poll_event_t *event) {
-	socket_t *sock = socket->private;
+int socket_poll_get(vfs_fd_t *fd, poll_event_t *event) {
+	socket_t *socket = container_of(fd, socket_t, fd);
 	if (socket->type != VFS_SOCK) return -ENOTSOCK;
-	if (!sock->poll_get) return -EOPNOTSUPP;
-	return sock->poll_get(sock, event);
-}
-
-void *socket_new(size_t size) {
-	socket_t *socket = kmalloc(size);
-	memset(socket, 0, size);
-	return socket;
+	if (!socket->domain->poll_get) return -EOPNOTSUPP;
+	return socket->domain->poll_get(socket, event);
 }
 
 static vfs_fd_ops_t socket_ops = {
@@ -65,112 +75,121 @@ static vfs_fd_ops_t socket_ops = {
 	.poll_remove = socket_poll_remove,
 	.poll_get    = socket_poll_get,
 	.read        = socket_read,
+	.write       = socket_write,
 	.close       = socket_close,
 };
 
-static vfs_fd_t *open_socket(socket_t *socket) {
-	if (!socket) return NULL;
-	vfs_fd_t *fd = vfs_alloc_fd();
-	fd->ops       = &socket_ops;
-	fd->private   = socket;
-	fd->type      = VFS_SOCK;
-	fd->flags     = O_RDWR;
-	return fd;
+static void socket_init(socket_t *socket) {
+	kassert(socket);
+	kassert(socket->domain);
+	socket->fd.ops     = &socket_ops;
+	socket->fd.private = NULL;
+	socket->fd.type    = VFS_SOCK;
+	socket->fd.flags   = O_RDWR;
 }
 
-vfs_fd_t *create_socket(int domain, int type, int protocol) {
-	foreach (node, &socket_domains) {
-		socket_domain_t *cur_domain = (socket_domain_t*)node;
-		if (cur_domain->domain == domain) {
-			return open_socket(cur_domain->create(type, protocol));
+vfs_fd_t *socket_create(int domain, int type, int protocol) {
+	foreach(node, &socket_domains) {
+		socket_domain_t *cur_domain = (socket_domain_t *)node;
+		if (cur_domain->domain != domain) {
+			continue;
 		}
+		socket_t *socket = cur_domain->create(type & ~(SOCK_NONBLOCK | SOCK_CLOEXEC), protocol);
+		if (!socket) return NULL;
+		socket_init(socket);
+		if (type & SOCK_NONBLOCK) socket->fd.flags |= O_NONBLOCK;
+		return &socket->fd;
 	}
 
 	return NULL;
 }
 
-ssize_t socket_sendmsg(vfs_fd_t *socket, const struct msghdr *message, int flags) {
-	socket_t *sock = socket->private;
-	if (!(socket->type & VFS_SOCK)) return -ENOTSOCK;
-	if (!sock->sendmsg) return -EOPNOTSUPP;
+ssize_t socket_sendmsg(vfs_fd_t *fd, const struct msghdr *message, int flags) {
+	if (fd->type != VFS_SOCK) return -ENOTSOCK;
+	socket_t *socket = container_of(fd, socket_t, fd);
+	if (!socket->domain->sendmsg) return -EOPNOTSUPP;
 
-	if ((sock->type == SOCK_RAW || sock->type == SOCK_DGRAM) && !message->msg_name) {
-		if (!sock->connected) {
+	if ((socket->type == SOCK_RAW || socket->type == SOCK_DGRAM) && !message->msg_name) {
+		if (!socket->connected) {
 			return -EDESTADDRREQ;
 		}
 		struct msghdr dflt = *message;
-		dflt.msg_name    = sock->connected;
-		dflt.msg_namelen = sock->connected_len;
+		dflt.msg_name    = socket->connected;
+		dflt.msg_namelen = socket->connected_len;
 		message = &dflt;
-		return sock->sendmsg(sock, &dflt, flags);
+		return socket->domain->sendmsg(socket, &dflt, flags);
 	}
 
-	return sock->sendmsg(sock, message, flags);
+	return socket->domain->sendmsg(socket, message, flags);
 }
 
-ssize_t socket_recvmsg(vfs_fd_t *socket, struct msghdr *message, int flags) {
-	socket_t *sock = (socket_t *)socket->private;
-	if (!(socket->type & VFS_SOCK)) return -ENOTSOCK;
-	if (!sock->recvmsg) return -EOPNOTSUPP;
+ssize_t socket_recvmsg(vfs_fd_t *fd, struct msghdr *message, int flags) {
+	if (fd->type != VFS_SOCK) return -ENOTSOCK;
+	socket_t *socket = container_of(fd, socket_t, fd);
+	if (!socket->domain->recvmsg) return -EOPNOTSUPP;
 
-	return sock->recvmsg(sock, message, flags);
+	return socket->domain->recvmsg(socket, message, flags);
 }
 
-int socket_accept(vfs_fd_t *socket, struct sockaddr *address, socklen_t *address_len, vfs_fd_t **new_sock_fd) {
-	socket_t *sock = (socket_t *)socket->private;
-	if (!(socket->type & VFS_SOCK)) return -ENOTSOCK;
-	if (!sock->accept || sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) return -EOPNOTSUPP;
-	
+int socket_accept(vfs_fd_t *fd, struct sockaddr *address, socklen_t *address_len, vfs_fd_t **new_sock_fd) {
+	if (fd->type != VFS_SOCK) return -ENOTSOCK;
+	socket_t *socket = container_of(fd, socket_t, fd);
+	if (!socket->domain->accept || socket->type == SOCK_DGRAM || socket->type == SOCK_RAW) return -EOPNOTSUPP;
+
 	socket_t *new_sock;
 	uint32_t storage[128];
 	socklen_t len_storage;
-	
+
 	if (!address) address = (struct sockaddr *)&storage;
 	if (!address_len) address_len = &len_storage;
 
-	int ret = sock->accept(sock, address, address_len, &new_sock);
+	int ret = socket->domain->accept(socket, address, address_len, &new_sock);
 	if (ret >= 0) {
-		*new_sock_fd = open_socket(new_sock);
+		socket_init(new_sock);
+		*new_sock_fd = &new_sock->fd;
+
+		// we propage non blocking socket
+		if (socket->fd.flags & O_NONBLOCK) new_sock->fd.flags |= O_NONBLOCK;
 	}
 	return ret;
 }
 
-int socket_bind(vfs_fd_t *socket, const struct sockaddr *address, socklen_t address_len) {
-	socket_t *sock = (socket_t *)socket->private;
-	if (!(socket->type & VFS_SOCK)) return -ENOTSOCK;
-	if (!sock->bind) return -EOPNOTSUPP;
+int socket_bind(vfs_fd_t *fd, const struct sockaddr *address, socklen_t address_len) {
+	if (fd->type != VFS_SOCK) return -ENOTSOCK;
+	socket_t *socket = container_of(fd, socket_t, fd);
+	if (!socket->domain->bind) return -EOPNOTSUPP;
 
-	return sock->bind(sock, address, address_len);
+	return socket->domain->bind(socket, address, address_len);
 }
 
-int socket_connect(vfs_fd_t *socket, const struct sockaddr *address, socklen_t address_len) {
-	socket_t *sock = (socket_t *)socket->private;
-	if (!(socket->type & VFS_SOCK)) return -ENOTSOCK;
-	if (!sock->connect || sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) {
+int socket_connect(vfs_fd_t *fd, const struct sockaddr *address, socklen_t address_len) {
+	if (fd->type != VFS_SOCK) return -ENOTSOCK;
+	socket_t *socket = container_of(fd, socket_t, fd);
+	if (!socket->domain->connect || socket->type == SOCK_DGRAM || socket->type == SOCK_RAW) {
 		// standard connect that can work for datagram and raw sockets
-		if ((int)address->sa_family != sock->domain->domain) return -EINVAL;
-		kfree(sock->connected);
-		sock->connected = kmalloc(address_len);
-		*sock->connected = *address;
-		sock->connected_len = address_len;
+		if ((int)address->sa_family != socket->domain->domain) return -EINVAL;
+		kfree(socket->connected);
+		socket->connected = kmalloc(address_len);
+		*socket->connected = *address;
+		socket->connected_len = address_len;
 		return 0;
 	}
 
-	return sock->connect(sock, address, address_len);
+	return socket->domain->connect(socket, address, address_len);
 }
 
-int socket_listen(vfs_fd_t *socket, int backlog) {
-	socket_t *sock = (socket_t *)socket->private;
-	if (!(socket->type & VFS_SOCK)) return -ENOTSOCK;
-	if (!sock->listen || sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) return -EOPNOTSUPP;
+int socket_listen(vfs_fd_t *fd, int backlog) {
+	if (fd->type != VFS_SOCK) return -ENOTSOCK;
+	socket_t *socket = container_of(fd, socket_t, fd);
+	if (!socket->domain->listen || socket->type == SOCK_DGRAM || socket->type == SOCK_RAW) return -EOPNOTSUPP;
 
-	return sock->listen(sock, backlog);
+	return socket->domain->listen(socket, backlog);
 }
 
-void register_socket_domain(socket_domain_t *domain) {
+void socket_register_domain(socket_domain_t *domain) {
 	list_append(&socket_domains, &domain->node);
 }
 
-void unregister_socket_domain(socket_domain_t *domain) {
+void socket_unregister_domain(socket_domain_t *domain) {
 	list_remove(&socket_domains, &domain->node);
 }

@@ -9,9 +9,19 @@ struct socket_domain;
 struct poll_event;
 
 typedef struct socket {
+	vfs_fd_t fd;
 	struct socket_domain *domain;
 	int type;
 	int protocol;
+	struct sockaddr *connected;
+	socklen_t connected_len;
+} socket_t;
+
+typedef struct socket_domain {
+	list_node_t node;
+	const char *name;
+	int domain;
+	socket_t *(*create)(int type, int protocol);
 	ssize_t (*sendmsg)(struct socket *socket, const struct msghdr *message, int flags);
 	ssize_t (*recvmsg)(struct socket *socket, struct msghdr *message, int flags);
 	int (*accept)(struct socket *socket, struct sockaddr *address, socklen_t *address_len, struct socket **new_sock);
@@ -22,22 +32,13 @@ typedef struct socket {
 	int (*poll_remove)(struct socket *, struct poll_event *);
 	int (*poll_get)(struct socket *, struct poll_event *);
 	void (*close)(struct socket *socket);
-	struct sockaddr *connected;
-	socklen_t connected_len;
-} socket_t;
-
-typedef struct socket_domain {
-	list_node_t node;
-	const char *name;
-	int domain;
-	socket_t *(*create)(int type, int protocol);
 } socket_domain_t;
 
 void init_sockets(void);
-vfs_fd_t *create_socket(int domain, int type, int protocol);
+vfs_fd_t *socket_create(int domain, int type, int protocol);
 void *socket_new(size_t size);
-void register_socket_domain(socket_domain_t *domain);
-void unregister_socket_domain(socket_domain_t *domain);
+void socket_register_domain(socket_domain_t *domain);
+void socket_unregister_domain(socket_domain_t *domain);
 
 
 ssize_t socket_sendmsg(vfs_fd_t *socket, const struct msghdr *message, int flags);
