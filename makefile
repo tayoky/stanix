@@ -22,6 +22,7 @@ export AR
 export NM
 export NASM
 export ARCH
+export PREFIX
 export SYSROOT
 export DESTDIR=$(SYSROOT)
 export CFLAGS
@@ -195,7 +196,7 @@ build-env :
 	@$(BUILDENV_SHELL)
 
 header : 
-	@$(MAKE) -C kernel header
+	@$(MAKE) -C kernel install-headers
 	@$(MAKE) -C modules header
 	@$(MAKE) -C tlibc header TARGET=stanix
 	@echo "[installing limine.h]"

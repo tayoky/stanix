@@ -1,0 +1,30 @@
+#!/bin/sh
+
+NAME=kernel
+
+cd "$(dirname "$0")"
+TMAKE=$(realpath ../scripts/tmake.sh)
+. "$TMAKE"
+
+tmake_init "$@"
+
+echo '
+# freestanding flags
+CFLAGS += -Wall \
+    -Wextra \
+    -std=gnu11 \
+    -ffreestanding \
+    -fno-stack-protector \
+    -fno-stack-check \
+    -fno-PIC \
+    -fsanitize=undefined \
+    -D__KERNEL__=1
+CFLAGS += -I ./include/
+CFLAGS += -I ../limine/' >> "$MAKEFILE"
+
+DIRS="drivers fs klib mem task"
+tmake_add_executable "kernel" $(find $DIRS -name "*.c") *.c
+
+tmake_add_data "headers" "include/kernel" $(find include -name "*.h") "../limine/limine.h"
+
+tmake_fini
