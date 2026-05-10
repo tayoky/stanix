@@ -86,6 +86,7 @@ static void socket_init(socket_t *socket) {
 	socket->fd.private = NULL;
 	socket->fd.type    = VFS_SOCK;
 	socket->fd.flags   = O_RDWR;
+	socket->fd.ref_count = 1;
 }
 
 vfs_fd_t *socket_create(int domain, int type, int protocol) {
