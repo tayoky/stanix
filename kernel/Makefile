@@ -99,7 +99,7 @@ $(BUILDDIR)/kernel/%.c.o : $(BUILDDIR)/kernel/%.c
 	@echo "CC $<"
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
-$(BUILDDIR)/kernel/kernel : $(OBJ_kernel) $(KLIBC) $(BUILDDIR)/kernel/sym.c.o
+$(BUILDDIR)/kernel/kernel : $(OBJ_kernel) $(BUILDDIR)/kernel/sym.c.o $(KLIBC) 
 	@mkdir -p "$(@D)"
 	@echo "CCLD kernel"
 	$(Q)$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^

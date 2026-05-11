@@ -7,10 +7,11 @@ CFLAGS += \
 	-m64 \
 	-mno-red-zone \
 	-mcmodel=kernel
-LDFLAGS += -m elf_x86_64
+LDFLAGS += -Wl,-m,elf_x86_64
 
 ASMFLAGS += -f elf64
 
-$(BUILDDIR)/%.s.o : %.s
+$(BUILDDIR)/kernel/%.s.o : %.s
+	@mkdir -p "$(@D)"
 	@echo "NASM $<"
 	$(Q)$(NASM) $(ASMFLAGS) $< -o $@

@@ -37,7 +37,7 @@ LDFLAGS += \
 -include arch/$(ARCH)/arch.mk' >> "$MAKEFILE"
 
 DIRS="drivers fs klib mem task"
-HAVE_GEN_C=yes tmake_add_executable "kernel" $(find $DIRS -name "*.c") *.c "\$(shell find arch/\$(ARCH) -name \"*.c\" -or -name \"*.s\")" DDEPENDENCIES="\$(KLIBC) \$(BUILDDIR)/kernel/sym.c.o"
+HAVE_GEN_C=yes tmake_add_executable "kernel" $(find $DIRS -name "*.c" | sort) *.c "\$(shell find arch/\$(ARCH) -name \"*.c\" -or -name \"*.s\")" DDEPENDENCIES="\$(BUILDDIR)/kernel/sym.c.o \$(KLIBC) "
 
 echo "
 # sym.c is an automatically generated table
@@ -50,6 +50,6 @@ echo "
 	@echo '};' >> \$@
 	@echo 'const size_t symbols_count = sizeof(symbols) / sizeof(sym_t);' >> \$@" >> "$MAKEFILE"
 
-tmake_add_data "headers" "include/kernel" $(find include -name "*.h") "../limine/limine.h"
+tmake_add_data "headers" "include/kernel" $(find include -name "*.h" | sort) "../limine/limine.h"
 
 tmake_fini
