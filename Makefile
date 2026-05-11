@@ -167,10 +167,6 @@ build-libraries : build-tlibc
 build-userspace : build-tlibc build-libraries
 	@$(MAKE) -C userspace install BUILDDIR=$(BUILDDIR)/userspace
 
-build-tash : build-tlibc
-	@cd ports && ./build.sh tash
-	@cd ports && ./install.sh tash
-
 build-initrd : $(OUT)/boot/initrd.tar
 $(OUT)/boot/initrd.tar : build-modules build-userspace $(INITRD_SRC)
 	@echo "[creating init ramdisk]"
@@ -186,7 +182,7 @@ $(OUT)/boot/limine/limine.conf : limine.conf
 	@mkdir -p $(OUT)/boot/limine/
 	@cp $^ $@
 
-build-all : header build-tlibc build-kernel build-modules build-libraries build-userspace build-tash build-initrd
+build-all : header build-tlibc build-kernel build-modules build-libraries build-userspace build-initrd
 build : build-all
 
 build-env :
@@ -206,8 +202,6 @@ clean :
 	@$(MAKE) -C userspace clean
 	@$(MAKE) -C modules clean
 	@$(MAKE) -C libraries clean
-	@cd ports && ./clean.sh tutils
-	@cd ports && ./clean.sh tash
 	rm -fr $(OUT)
 
-.PHONY : all targets help clean header build-tlibc build-kernel build-modules build-libraries build-userspace build-tash build-initrd build-all build
+.PHONY : all targets help clean header build-tlibc build-kernel build-modules build-libraries build-userspace build-initrd build-all build

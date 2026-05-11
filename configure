@@ -60,6 +60,9 @@ tconf_add_subdir ports
 tconf_add_subdir libraries/libtgui
 tconf_add_subdir userspace/tutils
 
+# always disable debug for tash
+tconf_add_subdir userspace/tash --disable-debug
+
 echo "using $SYSROOT as sysroot"
 
 tconf_fini

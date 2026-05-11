@@ -17,3 +17,6 @@
 [submodule "userspace/tutils"]
 	path = userspace/tutils
 	url = https://github.com/tayoky/tutils
+[submodule "userspace/tash"]
+	path = userspace/tash
+	url = https://github.com/tayoky/tash

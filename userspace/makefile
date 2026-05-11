@@ -20,6 +20,7 @@ install : all
 	@mkdir -p "$(DESTDIR)$(PREFIX)/bin"
 	$(foreach APP,$(APPS),cp "$(BUILDDIR)/$(APP)/$(APP)" "$(DESTDIR)$(PREFIX)/bin" ;) true
 	@$(MAKE) -C tutils BUILDDIR="$(BUILDDIR)/tutils" PREFIX=/usr install
+	@$(MAKE) -C tash BUILDDIR="$(BUILDDIR)/tash" PREFIX=/usr install
 
 clean :
 	@$(foreach DIR,$(APPS),$(MAKE) -C $(DIR) clean && ) true
