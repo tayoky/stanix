@@ -23,18 +23,13 @@ test -z "$HOST" && HOST="$(uname -m)-stanix"
 test -z "$CFLAGS" && CFLAGS=-O2
 
 # we need to make sure subdirectories are cloned
-if [ ! -f ./tlibc/configure ] ; then
-	git submodule init
-	git submodule update tlibc
-fi
-if [ ! -f ./ports/configure ] ; then
-	git submodule init
-	git submodule update ports
-fi
-if [ ! -f ./libraries/libtgui/configure ] ; then
-	git submodule init
-	git submodule update ports
-fi
+SUBDIRS="tlibc ports libraries/libtgui"
+for DIR in $SUBDIRS ; do
+	if ! test -f "$DIR/configure" ; then
+		git submodule init
+		git submodule update "$DIR"
+	fi
+done
 
 tconf_init "$@"
 
@@ -63,6 +58,7 @@ fi
 tconf_add_subdir tlibc --enable-shared
 tconf_add_subdir ports
 tconf_add_subdir libraries/libtgui
+tconf_add_subdir userspace/tutils
 
 echo "using $SYSROOT as sysroot"
 
