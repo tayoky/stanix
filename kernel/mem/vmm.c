@@ -227,7 +227,16 @@ int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, 
 		if (fd) {
 			new_seg->fd     = vfs_dup(fd);
 			new_seg->offset = offset;
+			get_current_proc()->vmm_space.file_size += VMM_SIZE(new_seg);
+		} else {
+			get_current_proc()->vmm_space.anon_size += VMM_SIZE(new_seg);
 		}
+		if (flags & VMM_FLAG_PRIVATE) {
+			get_current_proc()->vmm_space.private_size += VMM_SIZE(new_seg);
+		} else {
+			get_current_proc()->vmm_space.shared_size += VMM_SIZE(new_seg);
+		}
+		get_current_proc()->vmm_space.total_size += VMM_SIZE(new_seg);
 	}
 	return ret;
 }
@@ -291,6 +300,17 @@ int vmm_chprot_range(uintptr_t start, uintptr_t end, long prot) {
 static void vmm_raw_unmap(vmm_seg_t *seg) {
 	spinlock_acquire(&seg->lock);
 	list_remove(&get_current_proc()->vmm_space.segs, &seg->node);
+	get_current_proc()->vmm_space.total_size -= VMM_SIZE(seg);
+	if (seg->fd) {
+		get_current_proc()->vmm_space.file_size -= VMM_SIZE(seg);
+	} else {
+		get_current_proc()->vmm_space.anon_size -= VMM_SIZE(seg);
+	}
+	if (seg->flags & VMM_FLAG_PRIVATE) {
+		get_current_proc()->vmm_space.private_size -= VMM_SIZE(seg);
+	} else {
+		get_current_proc()->vmm_space.shared_size -= VMM_SIZE(seg);
+	}
 
 	//kdebugf("unmap %p to %p\n", seg->start, seg->end);
 
