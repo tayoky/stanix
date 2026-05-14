@@ -12,7 +12,7 @@ DIR="$PWD"
 tmake_init "$@"
 
 echo '
-KLIBC ?= ../tlibc/libk.a
+KLIBC ?= $(BUILDDIR)/tlibc/static-libk/libk.a
 
 # freestanding flags
 CFLAGS += -Wall \
@@ -37,7 +37,7 @@ LDFLAGS += \
 -include arch/$(ARCH)/arch.mk' >> "$MAKEFILE"
 
 DIRS="drivers fs klib mem task"
-HAVE_GEN_C=yes tmake_add_executable "kernel" $(find $DIRS -name "*.c" | sort) *.c "\$(shell find arch/\$(ARCH) -name \"*.c\" -or -name \"*.s\")" DDEPENDENCIES="\$(BUILDDIR)/kernel/sym.c.o \$(KLIBC) "
+HAVE_GEN_C=yes tmake_add_executable "kernel" $(find $DIRS -name "*.c" | sort) *.c "\$(shell find arch/\$(ARCH) -name \"*.c\" -or -name \"*.s\")" DDEPENDENCIES="\$(KLIBC) \$(BUILDDIR)/kernel/sym.c.o "
 
 echo "
 # sym.c is an automatically generated table

@@ -136,14 +136,15 @@ OVMF-img.bin : OVMF.fd
 	@cp OVMF.fd OVMF-img.bin
 	dd if=/dev/zero of=OVMF-img.bin bs=1 count=0 seek=67108864
 
-#limine files to copy
+# limine files to copy
 $(OUT)/EFI/BOOT/% : limine/%
-	@echo "[installing EFI/BOOT/$(shell basename $@)]"
-	@mkdir -p $(OUT)/EFI/BOOT/
+	@mkdir -p $(@D)
+	@echo "INSTALL EFI/BOOT/$(shell basename $@)"
 	@cp  $^ $@
+
 $(OUT)/boot/limine/limine-% : limine/limine-%
-	@echo "[installing boot/$^]"
-	@mkdir -p $(OUT)/boot/limine/
+	@mkdir -p $(@D)
+	@echo "INSTALL boot/$^"
 	@cp  $^ $@
 
 # build targets
@@ -169,8 +170,8 @@ build-userspace : build-tlibc build-libraries
 
 build-initrd : $(OUT)/boot/initrd.tar
 $(OUT)/boot/initrd.tar : build-modules build-userspace $(INITRD_SRC)
-	@echo "[creating init ramdisk]"
-	@mkdir -p $(OUT)/boot
+	@echo "GEN boot/initrd.tar"
+	@mkdir -p $(@D)
 	@mkdir -p initrd/dev initrd/tmp initrd/mnt initrd/proc initrd/sys
 	@chmod +s  initrd/bin/login initrd/bin/sudo
 # temporary until real sysroot, copy sysroot to initrd
@@ -178,8 +179,8 @@ $(OUT)/boot/initrd.tar : build-modules build-userspace $(INITRD_SRC)
 	@cd initrd && tar --create -f ../$(OUT)/boot/initrd.tar **
 
 $(OUT)/boot/limine/limine.conf : limine.conf
-	@echo "[installing boot/limine/$^]"
-	@mkdir -p $(OUT)/boot/limine/
+	@echo "INSTALL boot/limine/$^"
+	@mkdir -p $(@D)
 	@cp $^ $@
 
 build-all : header build-tlibc build-kernel build-modules build-libraries build-userspace build-initrd
@@ -192,9 +193,9 @@ build-env :
 header : 
 	@$(MAKE) -C kernel install-headers
 	@$(MAKE) -C modules header
-	@$(MAKE) -C tlibc header TARGET=stanix
-	@echo "[installing limine.h]"
-	@cp ./limine/limine.h $(SYSROOT)/usr/include/kernel
+	@$(MAKE) -C tlibc install-headers TARGET=stanix
+	@echo "INSTALL limine.h"
+	@cp ./limine/limine.h $(DESTDIR)$(PREFIX)/include/kernel/
 
 clean :
 	@$(MAKE) -C kernel clean
@@ -202,6 +203,7 @@ clean :
 	@$(MAKE) -C userspace clean
 	@$(MAKE) -C modules clean
 	@$(MAKE) -C libraries clean
+	rm -fr $(BUILDDIR)
 	rm -fr $(OUT)
 
 .PHONY : all targets help clean header build-tlibc build-kernel build-modules build-libraries build-userspace build-initrd build-all build

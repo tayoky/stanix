@@ -1,5 +1,7 @@
 # source this script in your configure
 
+TCONF_VERSION="v0.1.0"
+
 tconf_print () {
 	echo "$@" 1>&2
 }
@@ -131,10 +133,10 @@ tconf_init () {
 			DEBUG=yes
 			;;
 		--enable-*)
-			tconf_set_var $(tconf_to_macro_name "${i##*-}") "yes"
+			tconf_set_var $(tconf_to_macro_name "${i#--*-}") "yes"
 			;;
 		--disable-*)
-			tconf_set_var $(tconf_to_macro_name "${i#*-}") "no"
+			tconf_set_var $(tconf_to_macro_name "${i#--*-}") "no"
 			;;
 		--clear-cache)
 			rm -fr "$TCONF_DIR/"*
@@ -144,7 +146,7 @@ tconf_init () {
 			exit 0
 			;;
 		--*)
-			tconf_print "unknow option '$i' (see --help)"
+			tconf_print "unknown option '$i' (see --help)"
 			exit 1
 			;;
 		esac

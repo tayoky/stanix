@@ -1,5 +1,7 @@
 # source this in your tmakegen
 
+TMAKE_VERSION="v0.1.6"
+
 tmake_init () {
 	MAKEFILE="$(realpath ./Makefile)"
 	: ${DIR:="$(realpath "$(dirname "$0")")"}
@@ -10,14 +12,15 @@ tmake_init () {
 	SCRIPT="$(realpath --relative-to="$DIR" "$SCRIPT")"
 	echo "# automatically generated from $(basename "$0")
 # DO NOT EDIT
+MAKEFLAGS += --no-builtin-rules
 
 # tconf might have generated a config.mk
 -include config.mk
 
 # a few standard variables
-VERSION ?= \$(shell git describe --tags --always 2>/dev/null || echo unknown)
+VERSION := \$(shell git describe --tags --always 2>/dev/null || echo unknown)
 NAME ?= $NAME
-BUILDDIR ?= $(realpath --relative-to="$DIR" "$BUILDDIR")
+BUILDDIR ?= $(realpath -m --relative-to="$DIR" "$BUILDDIR")
 PREFIX ?= /usr/local
 STATIC ?= yes
 SHARED ?= no
@@ -71,6 +74,8 @@ Makefile : $SCRIPT $(realpath --relative-to="$DIR" "$TMAKE")
 clean :
 	@echo \"CLEAN \$(BUILDDIR)\"
 	\$(Q)rm -fr \"\$(BUILDDIR)\""
+
+	echo "generated $MAKEFILE" >&2
 } >> "$MAKEFILE"
 
 tmake_error () {
@@ -122,7 +127,19 @@ tmake_apply_flags () {
 			TARGET_DEPENDENCIES="$TARGET_DEPENDENCIES ${1#*=}"
 			;;
 		DDEPENDENCIES=*)
-			TARGET_DDEPENDENCIES="$TARGET_DDEPENDENCIES ${1#*=}"
+			TARGET_DDEPENDENCIES="$TARGET_DEPENDENCIES ${1#*=}"
+			;;
+		HAVE_C=*)
+			HAVE_C="${1#*=}"
+			;;
+		HAVE_GEN_C=*)
+			HAVE_GEN_C="${1#*=}"
+			;;
+		HAVE_CXX=*)
+			HAVE_CXX="${1#*=}"
+			;;
+		HAVE_S=*)
+			HAVE_S="${1#*=}"
 			;;
 		*)
 			tmake_error "unknown flag '$1'"
@@ -148,13 +165,6 @@ tmake_add_compile_rules () {
 	if test "$HAVE_C" = "yes" ; then
 		echo "
 \$(BUILDDIR)/$1/%.c.o : %.c
-	@mkdir -p \"\$(@D)\"
-	@echo \"CC \$<\"
-	\$(Q)\$(CC) $TARGET_CFLAGS -o \$@ -c \$<"
-	fi
-	if test "$HAVE_GEN_C" = "yes" ; then
-		echo "
-\$(BUILDDIR)/$1/%.c.o : \$(BUILDDIR)/$1/%.c
 	@mkdir -p \"\$(@D)\"
 	@echo \"CC \$<\"
 	\$(Q)\$(CC) $TARGET_CFLAGS -o \$@ -c \$<"
@@ -191,13 +201,12 @@ tmake_add_target () {
 		return 1
 	fi
 
-	TARG="$1"
+	TARGET_TARGET="$1"
 	FILES="$2"
 	PREF="$3"
-	: ${HAVE_C:="no"}
-	: ${HAVE_GEN_C:="no"}
-	: ${HAVE_CXX:="no"}
-	: ${HAVE_S:="no"}
+	HAVE_C="no"
+	HAVE_CXX="no"
+	HAVE_S="no"
 	TARGET_CFLAGS="\$(CFLAGS)"
 	TARGET_CXXFLAGS="\$(CXXFLAGS)"
 	TARGET_ASFLAGS="\$(ASFLAGS)"
@@ -214,58 +223,55 @@ tmake_add_target () {
 	done
 
 	echo "
-# ==== $TARG target ====
+# ==== $TARGET_TARGET target ====
 ${VAR_SETUP:-"
-ALL_$TARG = $FILES"}
-SRC_$TARG =$(tmake_src_filter "$@")
-OBJ_$TARG = \$(SRC_$TARG:%=\$(BUILDDIR)/$TARG/%.o)
-DEPS_$TARG = \$(SRC_$TARG:%=\$(BUILDDIR)/$TARG/%.d)
+ALL_$TARGET_TARGET = $FILES"}
+SRC_$TARGET_TARGET =$(tmake_src_filter "$@")
+OBJ_$TARGET_TARGET = \$(SRC_$TARGET_TARGET:%=\$(BUILDDIR)/$TARGET_TARGET/%.o)
+DEPS_$TARGET_TARGET = \$(SRC_$TARGET_TARGET:%=\$(BUILDDIR)/$TARGET_TARGET/%.d)
 
-.PHONY : all-$TARG
-all : all-$TARG
-all-$TARG : \$(ALL_$TARG)
+.PHONY : all-$TARGET_TARGET
+all : all-$TARGET_TARGET
+all-$TARGET_TARGET : \$(ALL_$TARGET_TARGET)
 
 # include dependencies files
--include \$(DEPS_$TARG)
+-include \$(DEPS_$TARGET_TARGET)
 
-.PHONY : install-$TARG
-install : install-$TARG
-install-$TARG : all-$TARG$(tmake_add_prefix "install-" $TARGET_DEPENDENCIES)
+.PHONY : install-$TARGET_TARGET
+install : install-$TARGET_TARGET
+install-$TARGET_TARGET : all-$TARGET_TARGET$(tmake_add_prefix "install-" $TARGET_DEPENDENCIES)
 	@mkdir -p \"\$(DESTDIR)\$(PREFIX)/$PREF\"
-	@echo \"INSTALL \$(ALL_$TARG)\"
-	\$(Q)cp \$(ALL_$TARG) \"\$(DESTDIR)\$(PREFIX)/$PREF\"
+	@echo \"INSTALL \$(ALL_$TARGET_TARGET)\"
+	\$(Q)cp \$(ALL_$TARGET_TARGET) \"\$(DESTDIR)\$(PREFIX)/$PREF\"
 
-.PHONY : uninstall-$TARG
-uninstall : uninstall-$TARG
-uninstall-$TARG :
+.PHONY : uninstall-$TARGET_TARGET
+uninstall : uninstall-$TARGET_TARGET
+uninstall-$TARGET_TARGET :
 	@echo \"UNINSTALL$(TO_REMOVE=""
 	for FILE in $FILES ; do
-		TO_REMOVE="$TO_REMOVE \$(DESTDIR)\$(PREFIX)/$PREF/${FILE#"\$(BUILDDIR)/$TARG/"}"
+		TO_REMOVE="$TO_REMOVE \$(DESTDIR)\$(PREFIX)/$PREF/${FILE#"\$(BUILDDIR)/$TARGET_TARGET/"}"
 	done
 	echo "$TO_REMOVE")\"
 	\$(Q)rm -f$(TO_REMOVE=""
 	for FILE in $FILES ; do
-		TO_REMOVE="$TO_REMOVE \"\$(DESTDIR)\$(PREFIX)/$PREF/${FILE#"\$(BUILDDIR)/$TARG/"}\""
+		TO_REMOVE="$TO_REMOVE \"\$(DESTDIR)\$(PREFIX)/$PREF/${FILE#"\$(BUILDDIR)/$TARGET_TARGET/"}\""
 	done
 	echo "$TO_REMOVE")
 
-.PHONY : clean-$TARG
-clean-$TARG :
-	@echo \"CLEAN \$(BUILDDIR)/$TARG\"
-	\$(Q)rm -fr \"\$(BUILDDIR)/$TARG\""
+.PHONY : clean-$TARGET_TARGET
+clean-$TARGET_TARGET :
+	@echo \"CLEAN \$(BUILDDIR)/$TARGET_TARGET\"
+	\$(Q)rm -fr \"\$(BUILDDIR)/$TARGET_TARGET\""
 
 
-	tmake_add_compile_rules "$TARG"
+	tmake_add_compile_rules "$TARGET_TARGET"
 
-	TARGETS="$TARGETS $TARG"
-	ALL_DEPENDENCIES="\$(OBJ_$TARG)$TARGET_DDEPENDENCIES"
+	TARGETS="$TARGETS $TARGET_TARGET"
+	ALL_DEPENDENCIES="$TARGET_DDEPENDENCIES"
 	for DEPENDENCY in $TARGET_DEPENDENCIES ; do
-		ALL_DEPENDENCIES="$ALL_DEPENDENCIES \$(ALL_$DEPENDENCY)"
+		ALL_DEPENDENCIES="$ALL_DEPENDENCIES\$(LINK_$DEPENDENCY) "
 	done
-	HAVE_C=""
-	HAVE_GEN_C=""
-	HAVE_CXX=""
-	HAVE_S=""
+	ALL_DEPENDENCIES="$ALL_DEPENDENCIES\$(OBJ_$TARGET_TARGET)"
 } >> "$MAKEFILE"
 
 tmake_add_executable () {
@@ -281,68 +287,87 @@ $EXE : $ALL_DEPENDENCIES
 	\$(Q)\$(CC) $TARGET_CFLAGS $TARGET_LDFLAGS -o \$@ \$^"
 } >> "$MAKEFILE"
 
-tmake_add_shared_library () {
-	TARG="$1"
-	LIB="\$(BUILDDIR)/$TARG/$TARG.so"
-	VAR_SETUP=""
-	shift
-	tmake_add_target "$TARG" "$LIB" "lib" "CFLAGS=-fPIC" "$@"
-	echo "
-$LIB : $ALL_DEPENDENCIES
-	@mkdir -p \"\$(@D)\"
-	@echo \"CCLD $TARG.so\"
-	\$(Q)\$(CC) -shared $TARGET_CFLAGS $TARGET_LDFLAGS -o \$@ \$^"
-} >> "$MAKEFILE"
-
 tmake_add_static_library () {
 	TARG="$1"
-	LIB="\$(BUILDDIR)/$TARG/$TARG.a"
-	VAR_SETUP=""
+	LIB_TARG="static-$TARG"
+	LIB="\$(BUILDDIR)/$LIB_TARG/$TARG.a"
+	VAR_SETUP="
+ALL_$LIB_TARG =
+LINK_$LIB_TARG =
+ifeq (\$(STATIC),yes)
+ALL_$LIB_TARG += $LIB
+LINK_$LIB_TARG = $LIB
+ALL_$TARG += $LIB
+LINK_$TARG = $LIB"
 	shift
-	tmake_add_target "$TARG" "$LIB" "lib" "$@"
+	tmake_add_target "$LIB_TARG" "$LIB" "lib" "$@"
 	echo "
 $LIB : $ALL_DEPENDENCIES
 	@mkdir -p \"\$(@D)\"
 	@echo \"AR $TARG.a\"
-	\$(Q)\$(AR) rcs $TARGET_ARFLAGS \$@ \$^"
+	\$(Q)\$(AR) rcs $TARGET_ARFLAGS \$@ \$(OBJ_$LIB_TARG)
+
+
+.PHONY : all-$TARG
+all-$TARG : all-$LIB_TARG
+
+.PHONY : install-$TARG
+install-$TARG : install-$LIB_TARG
+
+.PHONY : uninstall-$TARG
+uninstall-$TARG : uninstall-$LIB_TARG
+
+.PHONY : clean-$TARG
+clean-$TARG : clean-$LIB_TARG
+endif"
+} >> "$MAKEFILE"
+
+tmake_add_shared_library () {
+	TARG="$1"
+	LIB_TARG="shared-$TARG"
+	LIB="\$(BUILDDIR)/$LIB_TARG/$TARG.so"
+	VAR_SETUP="
+ALL_$LIB_TARG =
+LINK_$LIB_TARG =
+ifeq (\$(SHARED),yes)
+ALL_$LIB_TARG += $LIB
+LINK_$LIB_TARG = $LIB
+ALL_$TARG += $LIB
+LINK_$TARG = $LIB"
+	shift
+	tmake_add_target "$LIB_TARG" "$LIB" "lib" "CFLAGS=-fPIC" "$@"
+	echo "
+$LIB : $ALL_DEPENDENCIES
+	@mkdir -p \"\$(@D)\"
+	@echo \"CCLD $TARG.so\"
+	\$(Q)\$(CC) -shared $TARGET_CFLAGS $TARGET_LDFLAGS -o \$@ \$^
+
+.PHONY : all-$TARG
+all-$TARG : all-$LIB_TARG
+
+.PHONY : install-$TARG
+install-$TARG : install-$LIB_TARG
+
+.PHONY : uninstall-$TARG
+uninstall-$TARG : uninstall-$LIB_TARG
+
+.PHONY : clean-$TARG
+clean-$TARG : clean-$LIB_TARG
+endif"
 } >> "$MAKEFILE"
 
 tmake_add_library () {
 	TARG="$1"
-	LIBA="\$(BUILDDIR)/$TARG/$TARG.a"
-	LIBSO="\$(BUILDDIR)/$TARG/$TARG.so"
-	LIBS="$LIBA $LIBSO"
-	VAR_SETUP="
-ALL_$TARG =
-LINK_$TARG =
-ifeq (\$(STATIC),yes)
-ALL_$TARG += $LIBA
-LINK_$TARG = $LIBA
-endif
-ifeq (\$(SHARED),yes)
-ALL_$TARG += $LIBSO
-LINK_$TARG = $LIBSO
-endif"
 	shift
-	tmake_add_target "$TARG" "$LIBS" "lib" "$@"
+	
 	echo "
-
-ifeq (\$(STATIC),yes)
-$LIBA : $ALL_DEPENDENCIES
-	@mkdir -p \"\$(@D)\"
-	@echo \"AR $TARG.a\"
-	\$(Q)\$(AR) rcs $TARGET_ARFLAGS \$@ \$^
-endif
-
-ifeq (\$(SHARED),yes)
-$LIBSO : $ALL_DEPENDENCIES
-	@mkdir -p \"\$(@D)\"
-	@echo \"CCLD $TARG.so\"
-	\$(Q)\$(CC) -shared $TARGET_CRFLAGS $TARGET_LDFLAGS -o \$@ \$^
-endif"
+# ==== $TARG target ====
+ALL_$TARG  =
+LINK_$TARG ="
+	tmake_add_static_library "$TARG" "$@"
+	tmake_add_shared_library "$TARG" "$@"
 } >> "$MAKEFILE"
 
-# replace this with add_data
 tmake_add_data () {
 	TARG="$1"
 	DEST="$2"
@@ -350,19 +375,16 @@ tmake_add_data () {
 	echo "
 # ==== $TARG target ====
 SRC_$TARG = $@
-FILES_$TARG =$(F=""
-	for I in "$@" ; do
-		F="$F $(basename "$I")"
-	done
-	echo "$F")
+FILES_$TARG = \$(shell for I in \$(SRC_$TARG) ; do basename \"\$\$I\"; done)
 DEST_$TARG = \$(FILES_$TARG:%=\$(DESTDIR)\$(PREFIX)/$DEST/%)
 
 .PHONY : install-$TARG
 install : install-$TARG
-install-$TARG :
+install-$TARG : \$(SRC_$TARG)
 	@mkdir -p \"\$(DESTDIR)\$(PREFIX)/$DEST\"
 	@echo \"INSTALL_DATA \$(SRC_$TARG)\"
 	\$(Q)cp -r \$(SRC_$TARG) \"\$(DESTDIR)\$(PREFIX)/$DEST\"
+
 .PHONY : uninstall-$TARG
 uninstall : uninstall-$TARG
 uninstall-$TARG :
