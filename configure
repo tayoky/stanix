@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# generate Makefiles first
+scripts/tmakegen
+
 . scripts/tconf.sh
 
 # automaticly add toolchain/bin to path

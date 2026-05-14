@@ -1,3 +1,4 @@
 #!/bin/sh
 
 kernel/tmakegen
+(cd tlibc && ./tmakegen)

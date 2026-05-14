@@ -1,6 +1,6 @@
 # source this in your tmakegen
 
-TMAKE_VERSION="v0.1.6"
+TMAKE_VERSION="v0.1.7"
 
 tmake_init () {
 	MAKEFILE="$(realpath ./Makefile)"
@@ -169,6 +169,13 @@ tmake_add_compile_rules () {
 	@echo \"CC \$<\"
 	\$(Q)\$(CC) $TARGET_CFLAGS -o \$@ -c \$<"
 	fi
+	if test "$HAVE_GEN_C" = "yes" ; then
+		echo "
+\$(BUILDDIR)/$1/%.c.o : \$(BUILDDIR)/$1/%.c
+	@mkdir -p \"\$(@D)\"
+	@echo \"CC \$<\"
+	\$(Q)\$(CC) $TARGET_CFLAGS -o \$@ -c \$<"
+	fi
 	if test "$HAVE_CXX" = "yes" ; then
 		echo "
 \$(BUILDDIR)/$1/%.c.o : %.cxx
@@ -267,11 +274,11 @@ clean-$TARGET_TARGET :
 	tmake_add_compile_rules "$TARGET_TARGET"
 
 	TARGETS="$TARGETS $TARGET_TARGET"
-	ALL_DEPENDENCIES="$TARGET_DDEPENDENCIES"
+	ALL_DEPENDENCIES=""
 	for DEPENDENCY in $TARGET_DEPENDENCIES ; do
 		ALL_DEPENDENCIES="$ALL_DEPENDENCIES\$(LINK_$DEPENDENCY) "
 	done
-	ALL_DEPENDENCIES="$ALL_DEPENDENCIES\$(OBJ_$TARGET_TARGET)"
+	ALL_DEPENDENCIES="$ALL_DEPENDENCIES\$(OBJ_$TARGET_TARGET) $TARGET_DDEPENDENCIES"
 } >> "$MAKEFILE"
 
 tmake_add_executable () {

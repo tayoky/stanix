@@ -194,9 +194,10 @@ if ! test -e bin/$TARGET-gcc ; then
 	make install-strip-gcc
 	make install-target-libgcc
 
-	# copy libgcc to sysroot
-	mkdir -p "$SYSROOT/usr/lib"
-	cp "$TOP/toolchain/$TARGET/lib/libgcc_s.so" "$SYSROOT/usr/lib"
-	cp "$TOP/toolchain/$TARGET/lib/libgcc_s.so.1" "$SYSROOT/usr/lib"
 	cd ../..
 fi
+
+# copy libgcc to sysroot
+mkdir -p "$SYSROOT/usr/lib"
+cp "$TOP/toolchain/$TARGET/lib/libgcc_s.so" "$SYSROOT/usr/lib"
+cp "$TOP/toolchain/$TARGET/lib/libgcc_s.so.1" "$SYSROOT/usr/lib"
