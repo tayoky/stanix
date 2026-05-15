@@ -213,6 +213,7 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 static void proc_cleanup(vfs_node_t *vnode) {
 	proc_inode_t *inode = vnode->private_inode;
 
+	proc_release(inode->proc);
 	kfree(inode);
 	kfree(vnode);
 }

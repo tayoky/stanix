@@ -9,6 +9,7 @@
 #include <kernel/vfs.h>
 #include <kernel/mmu.h>
 #include <kernel/vmm.h>
+#include <kernel/refcount.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/signal.h>
@@ -47,6 +48,7 @@ typedef struct task {
 	list_node_t waiter_list_node;
 	list_node_t run_list_node;
 	acontext_t context;
+	ref_count_t ref_count;
 	struct process *process;
 	pid_t tid;
 	sigset_t sig_mask;
@@ -74,6 +76,7 @@ typedef struct process {
 	list_node_t proc_list_node;
 	list_node_t child_list_node;
 	vmm_space_t vmm_space;
+	ref_count_t ref_count;
 	pid_t pid;
 	struct process *parent;
 	fd_table_t fd_table;
@@ -145,7 +148,7 @@ task_t *new_kernel_task(void (*func)(void *arg), void *arg);
 task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg);
 
 /**
- * @brief kill the current thread
+ * @brief kill the current task
  */
 void kill_task(void);
 
@@ -154,19 +157,53 @@ void kill_task(void);
  */
 void kill_proc();
 
-void final_proc_cleanup(process_t *proc);
-
-
-void final_task_cleanup(task_t *task);
+/**
+ * @brief get a task from its tid
+ * @param tid the tid of the task
+ * @return the task with the specfied tid
+ * @note this create a new reference to the task
+ */
+task_t *tid2task(pid_t tid);
 
 /**
  * @brief get a process from its pid
  * @param pid the pid of the process
  * @return the process with the specfied pid
+ * @note this create a new reference to the process
  */
 process_t *pid2proc(pid_t pid);
 
-task_t *tid2task(pid_t tid);
+/**
+ * @brief increment the ref count of a task
+ * @param task the task to increment the ref count of
+ * @return the task
+ */
+static inline task_t *task_ref(task_t *task) {
+	if (task) ref_count_inc(&task->ref_count);
+	return task;
+}
+
+/**
+ * @brief increment the ref count of a process
+ * @param proc the process to increment the ref count of
+ * @return the process
+ */
+static inline process_t *proc_ref(process_t *proc) {
+	if (proc) ref_count_inc(&proc->ref_count);
+	return proc;
+}
+
+/**
+ * @brief release a reference to a task
+ * @param task the task to release
+ */
+void task_release(task_t *task);
+
+/**
+ * @brief release a reference to a process
+ * @param proc the process to release
+ */
+void proc_release(process_t *proc);
 
 /**
  * @brief safely set the status of the current task
@@ -213,7 +250,6 @@ static inline void preempt_disable(void) {
 	get_current_task()->preempt_disable++;
 }
 
-
 /**
  * @brief set cmdline of a process
  * @param proc the process to set the cmdline of
@@ -231,7 +267,6 @@ static inline void proc_set_cmdline(process_t *proc, const char *cmdline) {
 static inline void set_cmdline(const char *cmdline) {
 	proc_set_cmdline(get_current_proc(), cmdline);
 }
-
 
 /**
  * @brief block the current task
@@ -283,7 +318,6 @@ void finish_yield(void);
  * @return the tid of the threads that died or negative errno number
  */
 int waitfor(task_t **threads,size_t threads_count,int flags,task_t **waker);
-
 
 /**
  * @brief add a file descriptor to the current's process fd table

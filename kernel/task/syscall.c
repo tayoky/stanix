@@ -480,14 +480,14 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 	preempt_disable();
 
 	kdebugf("wait for %ld\n", pid);
+	int ret = 0;
 
-
-	//first build up a threads list to wait
+	// first build up a threads list to wait on
 	size_t threads_count = 0;
 	task_t **threads = NULL;
 
 	if (pid == -1) {
-		//wait for any
+		// wait for any
 		threads_count = get_current_proc()->child.node_count;
 		threads = kmalloc(sizeof(task_t *) * threads_count);
 		size_t i = 0;
@@ -495,10 +495,13 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 			threads[i++] = container_of(node, process_t, child_list_node)->main_thread;
 		}
 	} else {
-		//wait for pid
+		// wait for pid
 		process_t *proc = pid2proc(pid);
+		// we can immedialty release the ref as the parent proc (the current one)
+		// already hold a ref
+		proc_release(proc);
 
-		//make sure it exist and is a child
+		// make sure it exist and is a child
 		if ((!proc) || proc->parent != get_current_proc()) {
 			preempt_enable();
 			return -ECHILD;
@@ -509,7 +512,7 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 	}
 
 	task_t *waker;
-	int ret = waitfor(threads, threads_count, options, &waker);
+	ret = waitfor(threads, threads_count, options, &waker);
 	preempt_enable();
 	kfree(threads);
 	if (ret < 0) {
@@ -518,15 +521,15 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 
 	process_t *proc = waker->process;
 
-	//get the exit status
+	// get the exit status
 	if (status) {
 		*status = proc->exit_status;
 	}
 
-	pid = proc->pid;
-	final_proc_cleanup(proc);
-
-	return pid;
+	ret = proc->pid;
+	// destroy the process
+	proc_release(proc);
+	return ret;
 }
 
 int sys_unlink(const char *pathname) {
@@ -790,7 +793,7 @@ int sys_kill(pid_t tid, int sig) {
 	//TODO : permission checks
 
 	send_sig_task(thread, sig);
-
+	task_release(thread);
 	return 0;
 }
 
@@ -1071,23 +1074,32 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	if (pgid < 0) {
 		return -EINVAL;
 	}
+	int ret = 0;
 	process_t *proc = pid2proc(pid);
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
-		return -ESRCH;
+		ret = -ESRCH;
+		goto err;
 	}
 	if (proc->sgid != get_current_proc()->sid) {
-		return -EPERM;
+		ret = -EPERM;
+		goto err;
 	}
 	proc->group = pgid;
-	return 0;
+err:
+	proc_release(proc);
+	return ret;
 }
 
 pid_t sys_getpgid(pid_t pid) {
 	process_t *proc = pid2proc(pid);
+	int ret;
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
-		return -ESRCH;
+		ret = -ESRCH;
+	} else {
+		ret = proc->group;
 	}
-	return proc->group;
+	proc_release(proc);
+	return ret;
 }
 
 // FIXME : fcntl is highly broken
@@ -1243,31 +1255,40 @@ int sys_thread_join(pid_t tid, void **arg) {
 	if (arg && !CHECK_STRUCT(arg)) {
 		return -EFAULT;
 	}
-
+	int ret = 0;
 	task_t *thread = tid2task(tid);
 	kdebugf("wait for %ld\n", tid);
 	if (!thread || thread->process != get_current_proc()) {
-		return -ESRCH;
+		ret = -ESRCH;
+		goto err;
 	}
 	kdebugf("found\n");
 
 	if (thread == get_current_task()) {
-		return -EDEADLK;
+		ret = -EDEADLK;
+		goto err;
 	}
 
 
-	int ret = waitfor(&thread, 1, 0, NULL);
+	ret = waitfor(&thread, 1, 0, NULL);
 	if (ret < 0) {
-		//return EDEADLk if somebody was already waiting on it
-		if (ret == -ECHILD)ret = -EDEADLK;
-		return ret;
+		//return EDEADLK if somebody was already waiting on it
+		if (ret == -ECHILD) ret = -EDEADLK;
+		goto err;
 	}
 
-	if (arg) *arg = thread->exit_arg;
+	// destroy the task
+	task_release(thread);
 
-	final_task_cleanup(thread);
+	if (arg) {
+		if (safe_copy_to(arg, &thread->exit_arg, sizeof(void*) < 0)) {
+			ret = -EFAULT;
+		}
+	}
 
-	return 0;
+err:
+	task_release(thread);
+	return ret;
 }
 
 int sys_sys_shutdown(int flags) {

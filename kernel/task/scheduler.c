@@ -1,21 +1,20 @@
-#include <kernel/scheduler.h>
-#include <kernel/spinlock.h>
-#include <kernel/rwlock.h>
-#include <kernel/kernel.h>
-#include <kernel/print.h>
-#include <kernel/kheap.h>
-#include <kernel/mmu.h>
-#include <kernel/string.h>
-#include <kernel/list.h>
 #include <kernel/arch.h>
-#include <kernel/time.h>
 #include <kernel/asm.h>
+#include <kernel/kernel.h>
+#include <kernel/kheap.h>
+#include <kernel/list.h>
+#include <kernel/mmu.h>
+#include <kernel/print.h>
+#include <kernel/rwlock.h>
+#include <kernel/scheduler.h>
 #include <kernel/signal.h>
 #include <kernel/sleep.h>
+#include <kernel/spinlock.h>
+#include <kernel/string.h>
+#include <kernel/time.h>
 #include <kernel/vmm.h>
-#include <kernel/rwlock.h>
-#include <stdatomic.h>
 #include <errno.h>
+#include <stdatomic.h>
 
 static run_queue_t main_run_queue;
 list_t proc_list;
@@ -88,7 +87,7 @@ void init_task() {
 	process_t *boot_task = kmalloc(sizeof(process_t));
 	memset(boot_task, 0, sizeof(process_t));
 	boot_task->parent = boot_task;
-	boot_task->pid = 0;
+	boot_task->pid    = 0;
 	init_list(&boot_task->child);
 	init_list(&boot_task->threads);
 	boot_task->umask = 022;
@@ -96,7 +95,7 @@ void init_task() {
 	// get the address space
 	boot_task->vmm_space.addrspace = mmu_get_addr_space();
 
-	boot_task->main_thread = new_task(boot_task, NULL, NULL);
+	boot_task->main_thread         = new_task(boot_task, NULL, NULL);
 	boot_task->main_thread->status = TASK_STATUS_RUNNING;
 	arch_set_kernel_stack(KSTACK_TOP(boot_task->main_thread->kernel_stack));
 
@@ -107,10 +106,11 @@ void init_task() {
 	kernel->current_task = boot_task->main_thread;
 	set_cmdline("init");
 
+	proc_ref(boot_task);
 	list_append(&proc_list, &boot_task->proc_list_node);
 
 	// the first task will be the init task
-	init = get_current_proc();
+	init              = get_current_proc();
 	kernel->tid_count = 1;
 
 	// activate task switch
@@ -145,8 +145,8 @@ static task_t *schedule() {
 		unblock_task(thread);
 	}
 	spinlock_release(&sleep_lock);
-	
-	//kdebugf("switch to %p\n",get_current_proc());
+
+	// kdebugf("switch to %p\n",get_current_proc());
 	return picked;
 }
 
@@ -174,67 +174,73 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	kdebugf("new task 0x%p tid : %ld\n", task, task->tid);
 
 	// setup a new kernel stack
-	task->kernel_stack     = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
+	task->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
 
 	task->process = proc;
 
+	// the proc hold a ref
+	// but the tasks list only a weak ref
+	task_ref(task);
 	list_append(&proc->threads, &task->task_list_node);
 	list_append(&task_list, &task->task_list_node);
 
 	// setup registers
-	SP_REG(task->context.frame) = KSTACK_TOP(task->kernel_stack) - 8;
-	PC_REG(task->context.frame) = (uintptr_t)new_task_trampoline;
+	SP_REG(task->context.frame)   = KSTACK_TOP(task->kernel_stack) - 8;
+	PC_REG(task->context.frame)   = (uintptr_t)new_task_trampoline;
 	ARG1_REG(task->context.frame) = (uintptr_t)func;
 	ARG2_REG(task->context.frame) = (uintptr_t)arg;
 
 	// TODO : move this to arch specific stuff
 #ifdef __x86_64__
 	task->context.frame.flags = 0x02;
-	task->context.frame.cs = 0x08;
-	task->context.frame.ss = 0x10;
-	task->context.frame.ds = 0x10;
-	task->context.frame.es = 0x10;
-	task->context.frame.gs = 0x10;
-	task->context.frame.fs = 0x10;
+	task->context.frame.cs    = 0x08;
+	task->context.frame.ss    = 0x10;
+	task->context.frame.ds    = 0x10;
+	task->context.frame.es    = 0x10;
+	task->context.frame.gs    = 0x10;
+	task->context.frame.fs    = 0x10;
 #endif
 
 	return task;
 }
 
-process_t *new_proc(void (*func)(void *arg), void *arg){
-	//init the new proc
+process_t *new_proc(void (*func)(void *arg), void *arg) {
+	// init the new proc
 	process_t *proc = kmalloc(sizeof(process_t));
 	memset(proc, 0, sizeof(process_t));
-	
-	proc->parent  = get_current_proc();
+
+	proc->parent = get_current_proc();
 	vmm_init_space(&proc->vmm_space);
 	init_list(&proc->child);
 	init_list(&proc->threads);
-	proc->uid      = get_current_proc()->uid;
-	proc->uid      = get_current_proc()->uid;
-	proc->euid     = get_current_proc()->euid;
-	proc->suid     = get_current_proc()->suid;
-	proc->gid      = get_current_proc()->gid;
-	proc->egid     = get_current_proc()->egid;
-	proc->sgid     = get_current_proc()->sgid;
-	proc->umask    = get_current_proc()->umask;
-	proc->cmdline  = strdup(get_current_proc()->cmdline);
-	proc->cwd = vfs_dup_dentry(get_current_proc()->cwd);
-	proc->exe = vfs_dup_dentry(get_current_proc()->exe);
+	proc->uid         = get_current_proc()->uid;
+	proc->uid         = get_current_proc()->uid;
+	proc->euid        = get_current_proc()->euid;
+	proc->suid        = get_current_proc()->suid;
+	proc->gid         = get_current_proc()->gid;
+	proc->egid        = get_current_proc()->egid;
+	proc->sgid        = get_current_proc()->sgid;
+	proc->umask       = get_current_proc()->umask;
+	proc->cmdline     = strdup(get_current_proc()->cmdline);
+	proc->cwd         = vfs_dup_dentry(get_current_proc()->cwd);
+	proc->exe         = vfs_dup_dentry(get_current_proc()->exe);
 	proc->main_thread = new_task(proc, func, arg);
-	proc->pid =  proc->main_thread->tid;
+	proc->pid         = proc->main_thread->tid;
 
-	// add it the the list of the childreen of the parent
+	// add it the the list of the children of the parent
+	// note that the parent hold a ref
+	proc_ref(proc);
 	list_append(&proc->parent->child, &proc->child_list_node);
 
 	// add it to the global process list
+	// note that the proc list only hold a weak ref
 	list_append(&proc_list, &proc->proc_list_node);
 
 	return proc;
 }
 
 task_t *new_kernel_task(void (*func)(void *arg), void *arg) {
-	task_t *task = new_task(kernel_proc, func, arg); 
+	task_t *task = new_task(kernel_proc, func, arg);
 
 	// created task are blocked until with unblock them
 	unblock_task(task);
@@ -252,9 +258,9 @@ void finish_yield(void) {
 }
 
 void yield(int preempt) {
-	if (!kernel->can_task_switch && preempt)return;
+	if (!kernel->can_task_switch && preempt) return;
 	if (get_current_task()->preempt_disable && preempt) return;
-	
+
 	int prev_int = have_interrupt();
 	disable_interrupt();
 
@@ -267,10 +273,10 @@ void yield(int preempt) {
 	} else {
 		get_run_queue()->prev_is_on_queue = 0;
 	}
-	
+
 	// save old task
-	task_t *old = get_current_task();
-	task_t *new = schedule();
+	task_t *old           = get_current_task();
+	task_t *new           = schedule();
 	get_run_queue()->prev = old;
 
 	// fast path
@@ -280,14 +286,14 @@ void yield(int preempt) {
 		return;
 	}
 
-	
+
 	if (arch_save_context(&old->context)) {
 		finish_yield();
 		if (prev_int) enable_interrupt();
 		return;
 	}
-	
-	
+
+
 	// set the new task as the current
 	kernel->current_task = new;
 
@@ -304,8 +310,8 @@ task_t *get_current_task(void) {
 }
 
 static void alert_parent(process_t *proc) {
-	if (!proc->parent)return;
-	if (!proc->main_thread->waiter)send_sig(proc->parent, SIGCHLD);
+	if (!proc->parent) return;
+	if (!proc->main_thread->waiter) send_sig(proc->parent, SIGCHLD);
 }
 
 void kill_proc() {
@@ -326,7 +332,7 @@ static void do_proc_deletion(void) {
 	rwlock_acquire_write(&reparenting_lock, NULL);
 	foreach (node, &get_current_proc()->child) {
 		process_t *child = container_of(node, process_t, child_list_node);
-		
+
 		child->parent = init;
 		list_append(&init->child, &child->child_list_node);
 		spinlock_acquire(&child->main_thread->state_lock);
@@ -350,7 +356,7 @@ static void do_proc_deletion(void) {
 	vfs_release_dentry(get_current_proc()->exe);
 
 	kfree(get_current_proc()->cmdline);
-	
+
 	vmm_unmap_all();
 
 	destroy_list(&get_current_proc()->threads);
@@ -388,15 +394,15 @@ void kill_task(void) {
 }
 
 process_t *pid2proc(pid_t pid) {
-	//is it ourself ?
+	// is it ourself ?
 	if (get_current_proc()->pid == pid) {
-		return get_current_proc();
+		return proc_ref(get_current_proc());
 	}
 
 	foreach (node, &proc_list) {
 		process_t *proc = container_of(node, process_t, proc_list_node);
 		if (proc->pid == pid) {
-			return proc;
+			return proc_ref(proc);
 		}
 	}
 
@@ -444,7 +450,7 @@ int block_task_timeout(struct timeval *timeout) {
 
 	yield(0);
 
-	switch(get_current_task()->wakeup_reason) {
+	switch (get_current_task()->wakeup_reason) {
 	case WAKEUP_TIMEOUT:
 		// no need to remove from timeout list
 		// because we know we waked up because of timeout
@@ -462,23 +468,23 @@ int block_task_timeout(struct timeval *timeout) {
 int unblock_task_reason(task_t *task, int reason) {
 	spinlock_acquire(&task->state_lock);
 	run_queue_acquire_lock(task);
-	
+
 	// aready unblocked ?
 	if (task->status != TASK_STATUS_BLOCKED && task->status != TASK_STATUS_INTERRUPTIBLE) {
 		run_queue_release_lock(task);
 		spinlock_release(&task->state_lock);
 		return 0;
 	}
-	
+
 	// if unblocking because of a signal can only do it if interruptible
 	if (reason == WAKEUP_SIGNAL && task->status != TASK_STATUS_INTERRUPTIBLE) {
 		return 0;
 	}
-	
-	task->status = TASK_STATUS_RUNNING;
-	task->waker = get_current_task();
+
+	task->status        = TASK_STATUS_RUNNING;
+	task->waker         = get_current_task();
 	task->wakeup_reason = reason;
-	
+
 	// if the task is already in the queue on another cpu don't push it back
 	if (task->run_queue) {
 		run_queue_release_lock(task);
@@ -493,21 +499,39 @@ int unblock_task_reason(task_t *task, int reason) {
 	return 1;
 }
 
-void final_task_cleanup(task_t *thread) {
+static void task_final_cleanup(task_t *thread) {
 	list_remove(&task_list, &thread->task_list_node);
 	kfree((void *)thread->kernel_stack);
 	kfree(thread);
 }
 
-void final_proc_cleanup(process_t *proc) {
+void task_release(task_t *task) {
+	if (!task) return;
+	if (ref_count_dec(&task->ref_count) > 1) {
+		return;
+	}
+	task_final_cleanup(task);
+}
+
+static void proc_final_cleanup(process_t *proc) {
 	list_remove(&proc_list, &proc->proc_list_node);
-	if (proc->parent)list_remove(&proc->parent->child, &proc->child_list_node);
+	if (proc->parent) list_remove(&proc->parent->child, &proc->child_list_node);
 
-	final_task_cleanup(proc->main_thread);
+	task_release(proc->main_thread);
 
-	// now we can free the paging tables
+	// now we can free the address space
 	vmm_destroy_space(&proc->vmm_space);
 	kfree(proc);
+}
+
+void proc_release(process_t *proc) {
+	if (!proc) return;
+	if (ref_count_dec(&proc->ref_count) > 1) {
+		kdebugf("dec proc ref to %zu\n", proc->ref_count);
+		return;
+	}
+	kdebugf("final proc cleanup\n");
+	proc_final_cleanup(proc);
 }
 
 int add_fd(vfs_fd_t *fd, long flags) {
@@ -524,9 +548,9 @@ int add_fd(vfs_fd_t *fd, long flags) {
 	}
 
 	file_descriptor_t *fd_data = &get_current_proc()->fd_table.fds[index];
-	fd_data->present = 1;
-	fd_data->fd      = fd;
-	fd_data->flags   = flags;
+	fd_data->present           = 1;
+	fd_data->fd                = fd;
+	fd_data->flags             = flags;
 
 	rwlock_release_write(&get_current_proc()->fd_table.lock, &interrupt_save);
 	return index;
@@ -561,7 +585,7 @@ int close_fd(int fd) {
 	int interrupt_save;
 	rwlock_acquire_write(&get_current_proc()->fd_table.lock, &interrupt_save);
 
-	
+
 	file_descriptor_t *fd_data = &get_current_proc()->fd_table.fds[fd];
 	if (!fd_data->present) {
 		rwlock_release_write(&get_current_proc()->fd_table.lock, &interrupt_save);
@@ -569,7 +593,7 @@ int close_fd(int fd) {
 	}
 	vfs_close(fd_data->fd);
 	fd_data->present = 0;
-	
+
 	rwlock_release_write(&get_current_proc()->fd_table.lock, &interrupt_save);
 	return fd;
 }
