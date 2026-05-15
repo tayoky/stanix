@@ -527,10 +527,8 @@ static void proc_final_cleanup(process_t *proc) {
 void proc_release(process_t *proc) {
 	if (!proc) return;
 	if (ref_count_dec(&proc->ref_count) > 1) {
-		kdebugf("dec proc ref to %zu\n", proc->ref_count);
 		return;
 	}
-	kdebugf("final proc cleanup\n");
 	proc_final_cleanup(proc);
 }
 
