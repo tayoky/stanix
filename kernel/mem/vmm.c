@@ -1,16 +1,16 @@
-#include <kernel/scheduler.h>
-#include <kernel/vmm.h>
-#include <kernel/mmu.h>
-#include <kernel/string.h>
 #include <kernel/kernel.h>
 #include <kernel/list.h>
+#include <kernel/mmu.h>
+#include <kernel/pmm.h>
 #include <kernel/print.h>
+#include <kernel/scheduler.h>
 #include <kernel/signal.h>
 #include <kernel/slab.h>
-#include <kernel/pmm.h>
-#include <stdint.h>
-#include <stddef.h>
+#include <kernel/string.h>
+#include <kernel/vmm.h>
 #include <errno.h>
+#include <stddef.h>
+#include <stdint.h>
 
 static slab_cache_t vmm_seg_slab;
 
@@ -72,7 +72,7 @@ int vmm_fault_report(uintptr_t addr, int prot) {
 	if (!get_current_proc()) return 0;
 	int interrupt_save;
 	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	foreach(node, &get_current_proc()->vmm_space.segs) {
+	foreach (node, &get_current_proc()->vmm_space.segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		if (seg->start > addr) break;
 		if (seg->end > addr) {
@@ -97,7 +97,7 @@ void vmm_destroy_space(vmm_space_t *space) {
 	destroy_list(&space->segs);
 }
 
-int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg)  {
+int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
 	spinlock_acquire(&seg->lock);
 	if (cut <= seg->start || cut >= seg->end) {
 		spinlock_release(&seg->lock);
@@ -111,7 +111,7 @@ int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg)  {
 		}
 	}
 
-	vmm_seg_t *new_seg = slab_alloc(&vmm_seg_slab);
+	vmm_seg_t *new_seg    = slab_alloc(&vmm_seg_slab);
 	new_seg->prot         = seg->prot;
 	new_seg->flags        = seg->flags;
 	new_seg->start        = cut;
@@ -148,7 +148,7 @@ static int vmm_create_seg(uintptr_t address, size_t size, long prot, int flags, 
 		}
 
 		// then find where we need to insert
-		foreach(node, &get_current_proc()->vmm_space.segs) {
+		foreach (node, &get_current_proc()->vmm_space.segs) {
 			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
 			if (current->start >= end) {
 				break;
@@ -160,12 +160,12 @@ static int vmm_create_seg(uintptr_t address, size_t size, long prot, int flags, 
 		size = PAGE_ALIGN_UP(size);
 
 		// no address ? we need to find one ourself
-		foreach(node, &get_current_proc()->vmm_space.segs) {
+		foreach (node, &get_current_proc()->vmm_space.segs) {
 			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
-			vmm_seg_t *next = container_of(node->next, vmm_seg_t, node);
+			vmm_seg_t *next    = container_of(node->next, vmm_seg_t, node);
 			if (!next || next->start - current->end >= size) {
 				address = current->end;
-				prev = current;
+				prev    = current;
 				break;
 			}
 		}
@@ -173,16 +173,16 @@ static int vmm_create_seg(uintptr_t address, size_t size, long prot, int flags, 
 		if (!address) {
 			// hardcoded userspace start
 			address = PAGE_SIZE * 12;
-			prev = NULL;
+			prev    = NULL;
 		}
 	}
 
 	vmm_seg_t *new_seg = slab_alloc(&vmm_seg_slab);
-	new_seg->start = address;
-	new_seg->end   = address + size;
-	new_seg->prot  = prot;
-	new_seg->flags = flags;
-	*seg = new_seg;
+	new_seg->start     = address;
+	new_seg->end       = address + size;
+	new_seg->prot      = prot;
+	new_seg->flags     = flags;
+	*seg               = new_seg;
 
 	list_add_after(&get_current_proc()->vmm_space.segs, prev ? &prev->node : NULL, &new_seg->node);
 
@@ -198,10 +198,10 @@ int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, 
 	int ret = vmm_create_seg(address, size, prot, flags, &new_seg);
 	if (ret < 0) return ret;
 
-	//kdebugf("map %p size : %lx\n", new_seg->start, size);
+	// kdebugf("map %p size : %lx\n", new_seg->start, size);
 	if (flags & VMM_FLAG_ANONYMOUS) {
 		fd = NULL;
-		for (uintptr_t addr=new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
+		for (uintptr_t addr = new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
 			// TODO : handle error from pmm_allocate_page
 			uintptr_t page;
 			if (flags & VMM_FLAG_SHARED) {
@@ -255,7 +255,7 @@ int vmm_chprot(vmm_seg_t *seg, long prot) {
 	}
 	seg->prot = prot;
 
-	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
+	for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
 		uintptr_t phys = mmu_space_virt2phys(get_current_proc()->vmm_space.addrspace, (void *)addr);
 		if ((seg->flags & VMM_FLAG_PRIVATE) && pmm_page_info(phys)->ref_count > 1) {
 			// we are doing CoW
@@ -268,36 +268,35 @@ int vmm_chprot(vmm_seg_t *seg, long prot) {
 	return 0;
 }
 
-int vmm_chprot_range(uintptr_t start, uintptr_t end, long prot) {
-	int interrupt_save;
-	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	
-	foreach(node, &get_current_proc()->vmm_space.segs) {
+static int vmm_raw_chprot_range(uintptr_t start, uintptr_t end, long prot) {
+	foreach (node, &get_current_proc()->vmm_space.segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		if (seg->end <= start) continue;
 		if (seg->start >= end) break;
 		if (start > seg->start) {
 			int ret = vmm_split(seg, start, NULL);
-			if (ret < 0) {
-				rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
-				return ret;
-			}
+			if (ret < 0) return ret;
 
 			// on the next iteration we will land on the newly created segment
 			continue;
 		}
 		if (end < seg->end) {
-			vmm_split(seg, end, NULL);
+			int ret = vmm_split(seg, end, NULL);
+			if (ret < 0) return ret;
 		}
 		int ret = vmm_chprot(seg, prot);
-		if (ret < 0) {
-			rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
-			return ret;
-		}
+		if (ret < 0) return ret;
 	}
 
-	rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	return 0;
+}
+
+int vmm_chprot_range(uintptr_t start, uintptr_t end, long prot) {
+	int interrupt_save;
+	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	int ret = vmm_raw_chprot_range(start, end, prot);
+	rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	return ret;
 }
 
 static void vmm_raw_unmap(vmm_seg_t *seg) {
@@ -315,7 +314,7 @@ static void vmm_raw_unmap(vmm_seg_t *seg) {
 		get_current_proc()->vmm_space.shared_size -= VMM_SIZE(seg);
 	}
 
-	//kdebugf("unmap %p to %p\n", seg->start, seg->end);
+	// kdebugf("unmap %p to %p\n", seg->start, seg->end);
 
 	// flush shared mappings so we don't lost changes
 	if ((seg->flags & VMM_FLAG_SHARED) && seg->ops && seg->ops->msync) {
@@ -331,14 +330,14 @@ static void vmm_raw_unmap(vmm_seg_t *seg) {
 	// so do not free them
 	// it's the driver job to do it
 	if (!(seg->flags & VMM_FLAG_IO)) {
-		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
+		for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
 			uintptr_t page = mmu_virt2phys((void *)addr);
 			if (page == PAGE_INVALID) continue;
 			pmm_free_page(page);
 		}
 	}
 
-	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
+	for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
 		mmu_unmap_page(get_current_proc()->vmm_space.addrspace, addr);
 	}
 	slab_free(seg);
@@ -360,15 +359,14 @@ static int vmm_raw_unmap_range(uintptr_t start, uintptr_t end) {
 		if (seg->start >= end) break;
 		if (start > seg->start) {
 			int ret = vmm_split(seg, start, NULL);
-			if (ret < 0) {
-				return ret;
-			}
+			if (ret < 0) return ret;
 
 			// on the next iteration we will land on the newly created segment
 			continue;
 		}
 		if (end < seg->end) {
-			vmm_split(seg, end, NULL);
+			int ret = vmm_split(seg, end, NULL);
+			if (ret < 0) return ret;
 		}
 		vmm_raw_unmap(seg);
 	}
@@ -378,29 +376,9 @@ static int vmm_raw_unmap_range(uintptr_t start, uintptr_t end) {
 int vmm_unmap_range(uintptr_t start, uintptr_t end) {
 	int interrupt_save;
 	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	vmm_seg_t *seg = (vmm_seg_t *)get_current_proc()->vmm_space.segs.first_node;
-	for (vmm_seg_t *next; seg; seg = next) {
-		next = (vmm_seg_t *)seg->node.next;
-
-		if (seg->end <= start) continue;
-		if (seg->start >= end) break;
-		if (start > seg->start) {
-			int ret = vmm_split(seg, start, NULL);
-			if (ret < 0) {
-				rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
-				return ret;
-			}
-
-			// on the next iteration we will land on the newly created segment
-			continue;
-		}
-		if (end < seg->end) {
-			vmm_split(seg, end, NULL);
-		}
-		vmm_raw_unmap(seg);
-	}
+	int ret = vmm_raw_unmap_range(start, end);
 	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	return 0;
+	return ret;
 }
 
 static void vmm_unmap_all_space(vmm_space_t *space) {
@@ -427,34 +405,35 @@ int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
 	}
 	// cap start/end
 	if (start < seg->start) start = seg->start;
-	if (end > seg->end) end   = seg->end;
+	if (end > seg->end) end = seg->end;
 	int ret = seg->ops->msync(seg, start, end, flags);
 	spinlock_release(&seg->lock);
 	return ret;
 }
 
-int vmm_sync_range(uintptr_t start, uintptr_t end, int flags) {
-	int interrupt_save;
-	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	
-	foreach(node, &get_current_proc()->vmm_space.segs) {
+static int vmm_raw_sync_range(uintptr_t start, uintptr_t end, int flags) {
+	foreach (node, &get_current_proc()->vmm_space.segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		if (seg->end <= start) continue;
 		if (seg->start >= end) break;
 		int ret = vmm_sync(seg, start, end, flags);
-		if (ret < 0) {
-			rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
-			return ret;
-		}
+		if (ret < 0) return ret;
 	}
 
-	rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	return 0;
+}
+
+int vmm_sync_range(uintptr_t start, uintptr_t end, int flags) {
+	int interrupt_save;
+	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	int ret = vmm_raw_sync_range(start, end, flags);
+	rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	return ret;
 }
 
 static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg) {
 	spinlock_acquire(&seg->lock);
-	vmm_seg_t *new_seg = slab_alloc(&vmm_seg_slab);
+	vmm_seg_t *new_seg    = slab_alloc(&vmm_seg_slab);
 	new_seg->prot         = seg->prot;
 	new_seg->flags        = seg->flags;
 	new_seg->start        = seg->start;
@@ -468,7 +447,7 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 		prot &= ~MMU_FLAG_WRITE;
 	}
 	// remap in child
-	for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
+	for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
 		uintptr_t phys = mmu_space_virt2phys(parent->addrspace, (void *)addr);
 		// do not touch ref count of IO mapping
 		// because they actually do not have a ref count
@@ -480,13 +459,13 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 
 	if (seg->flags & VMM_FLAG_PRIVATE) {
 		// we need to remap as readonly in the parent too
-		for (uintptr_t addr=seg->start; addr < seg->end; addr += PAGE_SIZE) {
+		for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
 			mmu_set_flags(parent->addrspace, addr, prot);
 		}
 	}
 
 	vmm_seg_t *prev = NULL;
-	foreach(node, &child->segs) {
+	foreach (node, &child->segs) {
 		vmm_seg_t *current = container_of(node, vmm_seg_t, node);
 		if (current->start > seg->end) {
 			break;
