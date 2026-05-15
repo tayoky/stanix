@@ -144,8 +144,8 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	if (depth == 0) {
 		// setup new cmdline and exe path
 		set_cmdline(argv[0]);
-		vfs_release_dentry(get_current_proc()->exe);
-		get_current_proc()->exe = vfs_dup_dentry(file->dentry);
+		vfs_dentry_release(get_current_proc()->exe);
+		get_current_proc()->exe = vfs_dentry_ref(file->dentry);
 	}
 
 	// then iterate trought each prog header

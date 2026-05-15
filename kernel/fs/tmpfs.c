@@ -91,7 +91,7 @@ static void tmpfs_remove_entry(tmpfs_inode_t *dir, tmpfs_dirent_t *entry) {
 	list_remove(&dir->entries, &entry->node);
 	if ((--entry->inode->link_count) == 0) {
 		// nobody uses it we can release the inode
-		vfs_close_node(&entry->inode->vnode);
+		vfs_node_release(&entry->inode->vnode);
 	}
 	slab_free(entry);
 }
@@ -134,18 +134,18 @@ vfs_superblock_t *new_tmpfs(void) {
 static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
 	if (!strcmp(dentry->name, ".")) {
-		dentry->inode        = vfs_dup_node(&inode->vnode);
+		dentry->inode        = vfs_node_ref(&inode->vnode);
 		dentry->inode_number = INODE_NUMBER(inode);
 		return 0;
 	}
 
 	if (!strcmp(dentry->name, "..")) {
 		if (inode->parent) {
-			dentry->inode            = vfs_dup_node(&inode->parent->vnode);
+			dentry->inode            = vfs_node_ref(&inode->parent->vnode);
 			dentry->inode->ref_count = 1;
 			dentry->inode_number     = INODE_NUMBER(inode->parent);
 		} else {
-			dentry->inode            = vfs_dup_node(&inode->vnode);
+			dentry->inode            = vfs_node_ref(&inode->vnode);
 			dentry->inode->ref_count = 1;
 			dentry->inode_number     = INODE_NUMBER(inode);
 		}
@@ -154,7 +154,7 @@ static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 	tmpfs_dirent_t *entry = tmpfs_get_entry(inode, dentry);
 	if (!entry) return -ENOENT;
-	dentry->inode            = vfs_dup_node(&entry->inode->vnode);
+	dentry->inode            = vfs_node_ref(&entry->inode->vnode);
 	dentry->inode->ref_count = 1;
 	dentry->inode_number     = INODE_NUMBER(entry->inode);
 	return 0;

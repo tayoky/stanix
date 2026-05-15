@@ -391,7 +391,7 @@ int sys_stat(const char *pathname, struct stat *st) {
 
 	int ret = vfs_getattr(node, st);
 
-	vfs_close_node(node);
+	vfs_node_release(node);
 	return ret;
 }
 
@@ -410,7 +410,7 @@ int sys_lstat(const char *pathname, struct stat *st) {
 
 	int ret = vfs_getattr(node, st);
 
-	vfs_close_node(node);
+	vfs_node_release(node);
 	return ret;
 }
 
@@ -460,7 +460,7 @@ int sys_chdir(const char *path) {
 	}
 
 	// free old cwd
-	vfs_release_dentry(get_current_proc()->cwd);
+	vfs_dentry_release(get_current_proc()->cwd);
 
 	// set new cwd
 	get_current_proc()->cwd = entry;
@@ -1001,7 +1001,7 @@ int sys_chmod(const char *pathname, mode_t mode) {
 	if (!node)return -ENOENT;
 
 	int ret = chmod_node(node, mode);
-	vfs_close_node(node);
+	vfs_node_release(node);
 
 	return ret;
 }
@@ -1011,7 +1011,7 @@ int sys_lchmod(const char *pathname, mode_t mode) {
 	if (!node)return -ENOENT;
 
 	int ret = chmod_node(node, mode);
-	vfs_close_node(node);
+	vfs_node_release(node);
 
 	return ret;
 }
@@ -1042,7 +1042,7 @@ int sys_chown(const char *pathname, uid_t owner, gid_t group) {
 	if (!node)return -ENOENT;
 
 	int ret = chown_node(node, owner, group);
-	vfs_close_node(node);
+	vfs_node_release(node);
 
 	return ret;
 }
@@ -1052,7 +1052,7 @@ int sys_lchown(const char *pathname, uid_t owner, gid_t group) {
 	if (!node)return -ENOENT;
 
 	int ret = chown_node(node, owner, group);
-	vfs_close_node(node);
+	vfs_node_release(node);
 
 	return ret;
 }
@@ -1139,11 +1139,11 @@ int sys_access(const char *pathname, int mode) {
 	vfs_node_t *node = vfs_get_node(pathname, 0);
 	if (!node)return -ENOENT;
 	if (mode & F_OK) {
-		vfs_close_node(node);
+		vfs_node_release(node);
 		return 0;
 	}
 	int succed = (vfs_user_perm(node, get_current_proc()->uid, get_current_proc()->gid) & mode) == mode;
-	vfs_close_node(node);
+	vfs_node_release(node);
 	return succed ? 0 : -EACCES;
 }
 
@@ -1151,7 +1151,7 @@ int sys_truncate(const char *path, off_t length) {
 	vfs_node_t *node = vfs_get_node(path, O_WRONLY);
 	if (!node)return -ENOENT;
 	int ret = vfs_truncate(node, (size_t)length);
-	vfs_close_node(node);
+	vfs_node_release(node);
 	return ret;
 }
 
@@ -1200,7 +1200,7 @@ ssize_t sys_readlink(const char *path, char *buf, size_t bufsize) {
 	}
 
 	ssize_t ret = vfs_readlink(node, buf, bufsize);
-	vfs_close_node(node);
+	vfs_node_release(node);
 	return ret;
 }
 

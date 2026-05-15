@@ -322,12 +322,12 @@ static inline vfs_node_t *vfs_get_node(const char *pathname, long flags) {
 	return vfs_get_node_at(NULL, pathname, flags);
 }
 
-static inline vfs_node_t *vfs_dup_node(vfs_node_t *node) {
+static inline vfs_node_t *vfs_node_ref(vfs_node_t *node) {
 	if (node) node->ref_count++;
 	return node;
 }
 
-void vfs_close_node(vfs_node_t *node);
+void vfs_node_release(vfs_node_t *node);
 
 
 // fds operations
@@ -437,7 +437,7 @@ int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid);
 #define PERM_WRITE   02
 #define PERM_EXECUTE 01
 
-static vfs_dentry_t *vfs_dup_dentry(vfs_dentry_t *dentry) {
+static vfs_dentry_t *vfs_dentry_ref(vfs_dentry_t *dentry) {
 	if (dentry) dentry->ref_count++;
 	return dentry;
 }
@@ -448,17 +448,17 @@ static inline vfs_dentry_t *vfs_get_dentry(const char *path, long flags) {
 	return vfs_get_dentry_at(NULL, path, flags);
 }
 
-void vfs_release_dentry(vfs_dentry_t *dentry);
+void vfs_dentry_release(vfs_dentry_t *dentry);
 
 static vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentry_t *dentry) {
 	vfs_node_t *node = dentry->inode;
 	if (node) {
-		return vfs_dup_node(node);
+		return vfs_node_ref(node);
 	}
 	node = hashmap_get(&superblock->inodes, dentry->inode_number);
 	if (node) {
-		dentry->inode = vfs_dup_node(node);
-		return vfs_dup_node(node);
+		dentry->inode = vfs_node_ref(node);
+		return vfs_node_ref(node);
 	}
 	return NULL;
 }

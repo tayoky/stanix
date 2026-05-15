@@ -78,7 +78,7 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 	vfs_getattr(node, &stat);
 	unix_socket_t *server = (unix_socket_t*)stat.st_rdev;
 	spinlock_acquire(&server->lock);
-	vfs_close_node(node);
+	vfs_node_release(node);
 	if (!S_ISSOCK(stat.st_mode) || (server->status != UNIX_STATUS_LISTEN) || 
 		server->socket.type != sock->type || server->socket.domain != sock->domain) {
 		spinlock_release(&server->lock);
