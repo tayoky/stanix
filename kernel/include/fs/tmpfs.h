@@ -16,19 +16,13 @@ vfs_superblock_t *new_tmpfs(void);
 struct tmpfs_inode;
 
 typedef struct tmpfs_inode{
-	list_node_t node;
+	vfs_node_t vnode;
 	cache_t cache;
 	struct tmpfs_inode *parent;
 	void *buffer;
 	size_t buffer_size;
 	list_t entries;
 	long type;
-	mode_t perm;
-	uid_t owner;
-	gid_t group_owner;
-	time_t atime;
-	time_t ctime;
-	time_t mtime;
 	dev_t dev;
 	size_t link_count;
 	size_t open_count;

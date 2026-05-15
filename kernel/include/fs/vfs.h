@@ -57,6 +57,9 @@ typedef struct vfs_node {
 	mode_t mode;
 	ino_t number;
 	spinlock_t lock;
+	time_t atime;
+	time_t mtime;
+	time_t ctime;
 } vfs_node_t;
 
 /**
@@ -155,6 +158,12 @@ typedef struct vfs_filesystem_struct {
 void init_vfs(void);
 
 // inode operations
+
+/**
+ * @brief initalize a newly created inode with default owner, time, ...
+ * @param node the inode to inialize
+ */
+void vfs_init_created_node(vfs_node_t *node);
 
 int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock);
 

@@ -33,6 +33,7 @@ static cache_ops_t tmpfs_cache_ops = {
 static tmpfs_inode_t *new_inode(long type) {
 	tmpfs_inode_t *inode = slab_alloc(&tmpfs_inode_slab);
 	memset(inode, 0, sizeof(tmpfs_inode_t));
+	vfs_init_created_node(&inode->vnode);
 	switch (type) {
 	case TMPFS_TYPE_FILE:
 		init_cache(&inode->cache);
@@ -45,12 +46,8 @@ static tmpfs_inode_t *new_inode(long type) {
 	inode->type = type;
 	inode->parent = NULL;
 	inode->link_count = 0;
-	inode->perm = 0555;
-
-	//set times
-	inode->atime = NOW();
-	inode->ctime = NOW();
-	inode->mtime = NOW();
+	inode->vnode.mode = 0555;
+	
 	return inode;
 }
 
@@ -164,19 +161,11 @@ static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 static ssize_t tmpfs_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)fd->private;
-
-	//update atime
-	inode->atime = NOW();
-
 	return cache_read(&inode->cache, buffer, offset, count);
 }
 
 static int tmpfs_truncate(vfs_node_t *vnode, size_t size) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)vnode->private_inode;
-	
-	// update mtime
-	inode->mtime = NOW();
-	
 	return cache_truncate(&inode->cache, size);
 }
 
@@ -187,10 +176,6 @@ static ssize_t tmpfs_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_
 	if (offset + count > inode->cache.size) {
 		tmpfs_truncate(fd->inode, offset + count);
 	}
-
-	// update mtime
-	inode->mtime = NOW();
-	
 	return cache_write(&inode->cache, buffer, offset, count);
 }
 
@@ -214,9 +199,6 @@ static ssize_t tmpfs_readlink(vfs_node_t *vnode, char *buf, size_t bufsize) {
 
 static int tmpfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)vnode->private_inode;
-
-	//update atime
-	inode->atime = NOW();
 
 	if (index == 0) {
 		strcpy(dirent->d_name, ".");
@@ -284,7 +266,7 @@ static int tmpfs_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
 	// create new inode
 	tmpfs_inode_t *child_inode = new_inode(TMPFS_TYPE_FILE);
 	child_inode->parent = inode;
-	child_inode->perm = mode;
+	child_inode->vnode.mode = mode;
 
 	tmpfs_add_entry(inode, child_inode, dentry);
 
@@ -298,7 +280,7 @@ static int tmpfs_mkdir(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
 	// create new inode
 	tmpfs_inode_t *child_inode = new_inode(TMPFS_TYPE_DIR);
 	child_inode->parent = inode;
-	child_inode->perm = mode;
+	child_inode->vnode.mode = mode;
 
 	tmpfs_add_entry(inode, child_inode, dentry);
 
@@ -323,7 +305,7 @@ static int tmpfs_mknod(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode, dev
 	// create new inode
 	tmpfs_inode_t *child_inode = new_inode(type);
 	child_inode->parent = inode;
-	child_inode->perm = mode;
+	child_inode->vnode.mode = mode;
 	child_inode->dev  = dev;
 
 	tmpfs_add_entry(inode, child_inode, dentry);
@@ -405,24 +387,13 @@ static int tmpfs_rmdir(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 static int tmpfs_setattr(vfs_node_t *vnode, struct stat *st) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)vnode->private_inode;
-	inode->perm         = st->st_mode & 0xffff;
-	inode->owner        = st->st_uid;
-	inode->group_owner  = st->st_gid;
-	inode->atime        = st->st_atime;
-	inode->mtime        = st->st_mtime;
-	inode->ctime        = st->st_ctime;
+	(void)inode;
 	return 0;
 }
 
 static int tmpfs_getattr(vfs_node_t *vnode, struct stat *st) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)vnode->private_inode;
 	st->st_size        = inode->cache.size;
-	st->st_mode        = inode->perm;
-	st->st_uid         = inode->owner;
-	st->st_gid         = inode->group_owner;
-	st->st_atime       = inode->atime;
-	st->st_mtime       = inode->mtime;
-	st->st_ctime       = inode->ctime;
 	st->st_nlink       = inode->link_count;
 	st->st_rdev        = inode->dev;
 	st->st_ino         = INODE_NUMBER(inode); // fake an inode number

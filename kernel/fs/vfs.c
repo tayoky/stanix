@@ -101,6 +101,12 @@ void vfs_unregister_fs(vfs_filesystem_t *fs) {
 	list_remove(&fs_types, &fs->node);
 }
 
+void vfs_init_created_node(vfs_node_t *node) {
+	node->uid = get_current_euid();
+	node->gid = get_current_egid();
+	node->atime = node->mtime = node->ctime = NOW();
+}
+
 //basename without modyfing anything
 static const char *vfs_basename(const char *path) {
 	const char *base = path + strlen(path) - 1;
@@ -263,6 +269,7 @@ ssize_t vfs_read(vfs_fd_t *fd, void *buffer, uint64_t offset, size_t count) {
 	}
 
 	if (fd->ops->read) {
+		if (fd->inode) fd->inode->atime = NOW();
 		return fd->ops->read(fd, buffer, offset, count);
 	} else {
 		return -EINVAL;
@@ -280,6 +287,7 @@ ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t coun
 		return -EBADF;
 	}
 	if (fd->ops->write) {
+		if (fd->inode) fd->inode->mtime = NOW();
 		return fd->ops->write(fd, buffer, offset, count);
 	} else {
 		return -EINVAL;
@@ -752,6 +760,7 @@ int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
 	dirent->d_type = DT_UNKNOWN;
 	dirent->d_ino  = 1; //some programs want non NULL inode
 	if (node->ops->readdir) {
+		node->atime = NOW();
 		return node->ops->readdir(node, index, dirent);
 	} else {
 		return -EINVAL;
@@ -779,8 +788,13 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	if (!node) return -EINVAL;
 	memset(st, 0, sizeof(struct stat));
 	st->st_nlink = 1; //in case a driver forgot to set :D
-	st->st_mode  = 0744; //default mode
-	//make sure we can actually sync
+	st->st_mode  = node->mode;
+	st->st_atime = node->atime;
+	st->st_mtime = node->mtime;
+	st->st_ctime = node->ctime;
+	st->st_uid   = node->uid;
+	st->st_gid   = node->gid;
+	// maybee we can sync
 	if (node->ops && node->ops->getattr) {
 		int ret = node->ops->getattr(node, st);
 		if (ret < 0)return ret;
