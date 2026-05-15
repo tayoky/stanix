@@ -25,7 +25,6 @@ typedef struct tmpfs_inode{
 	long type;
 	dev_t dev;
 	size_t link_count;
-	size_t open_count;
 	void *data;
 } tmpfs_inode_t;
 

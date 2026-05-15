@@ -105,6 +105,7 @@ void vfs_init_created_node(vfs_node_t *node) {
 	node->uid = get_current_euid();
 	node->gid = get_current_egid();
 	node->atime = node->mtime = node->ctime = NOW();
+	node->ref_count = 1;
 }
 
 static int vfs_update_time(vfs_node_t *node, int mask) {
