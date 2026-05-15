@@ -1034,7 +1034,7 @@ static int chown_node(vfs_node_t *node, uid_t owner, gid_t group) {
 	st.st_uid = owner;
 	st.st_gid = group;
 	st.st_mode &= ~(S_ISUID | S_ISGID);
-	return vfs_setattr(node, &st);
+	return vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID | VNODE_ATTR_MODE);
 }
 
 int sys_chown(const char *pathname, uid_t owner, gid_t group) {

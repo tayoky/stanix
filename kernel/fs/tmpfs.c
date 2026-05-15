@@ -385,9 +385,12 @@ static int tmpfs_rmdir(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	return 0;
 }
 
-static int tmpfs_setattr(vfs_node_t *vnode, struct stat *st) {
+static int tmpfs_setattr(vfs_node_t *vnode, struct stat *st, int mask) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)vnode->private_inode;
 	(void)inode;
+	(void)st;
+	(void)mask;
+	// we rely on the vfs's cache to store attributes
 	return 0;
 }
 

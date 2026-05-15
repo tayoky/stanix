@@ -107,6 +107,12 @@ void vfs_init_created_node(vfs_node_t *node) {
 	node->atime = node->mtime = node->ctime = NOW();
 }
 
+static int vfs_update_time(vfs_node_t *node, int mask) {
+	struct stat st;
+	st.st_atime = st.st_mtime = st.st_ctime = NOW();
+	return vfs_setattr(node, &st, mask);
+}
+
 //basename without modyfing anything
 static const char *vfs_basename(const char *path) {
 	const char *base = path + strlen(path) - 1;
@@ -269,7 +275,7 @@ ssize_t vfs_read(vfs_fd_t *fd, void *buffer, uint64_t offset, size_t count) {
 	}
 
 	if (fd->ops->read) {
-		if (fd->inode) fd->inode->atime = NOW();
+		vfs_update_time(fd->inode, VNODE_ATTR_ATIME);
 		return fd->ops->read(fd, buffer, offset, count);
 	} else {
 		return -EINVAL;
@@ -287,7 +293,7 @@ ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t coun
 		return -EBADF;
 	}
 	if (fd->ops->write) {
-		if (fd->inode) fd->inode->mtime = NOW();
+		vfs_update_time(fd->inode, VNODE_ATTR_MTIME);
 		return fd->ops->write(fd, buffer, offset, count);
 	} else {
 		return -EINVAL;
@@ -338,6 +344,7 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 		return -ENOLINK;
 	}
 	if (node->ops->readlink) {
+		vfs_update_time(node, VNODE_ATTR_ATIME);
 		return node->ops->readlink(node, buf, bufsiz);
 	} else {
 		return -EINVAL;
@@ -760,7 +767,7 @@ int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
 	dirent->d_type = DT_UNKNOWN;
 	dirent->d_ino  = 1; //some programs want non NULL inode
 	if (node->ops->readdir) {
-		node->atime = NOW();
+		vfs_update_time(node, VNODE_ATTR_ATIME);
 		return node->ops->readdir(node, index, dirent);
 	} else {
 		return -EINVAL;
@@ -769,10 +776,8 @@ int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
 
 int vfs_chmod(vfs_node_t *node, mode_t perm) {
 	struct stat st;
-	int ret = vfs_getattr(node, &st);
-	if (ret < 0)return ret;
 	st.st_mode = perm;
-	return vfs_setattr(node, &st);
+	return vfs_setattr(node, &st, VNODE_ATTR_MODE);
 }
 
 int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
@@ -781,7 +786,7 @@ int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
 	if (ret < 0)return ret;
 	st.st_uid = owner;
 	st.st_gid = group_owner;
-	return vfs_setattr(node, &st);
+	return vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
 }
 
 int vfs_getattr(vfs_node_t *node, struct stat *st) {
@@ -817,16 +822,19 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	return 0;
 }
 
-int vfs_setattr(vfs_node_t *node, struct stat *st) {
+int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
 	//make sure we can actually sync
 	if (!node || !node->ops || !node->ops->setattr) {
 		return -EINVAL; //should be another error ... but what ???
 	}
-	int ret =  node->ops->setattr(node, st);
+	if (mask & VNODE_ATTR_MODE)  node->mode  = st->st_mode;
+	if (mask & VNODE_ATTR_UID)   node->uid   = st->st_uid;
+	if (mask & VNODE_ATTR_GID)   node->gid   = st->st_gid;
+	if (mask & VNODE_ATTR_ATIME) node->atime = st->st_atime;
+	if (mask & VNODE_ATTR_MTIME) node->mtime = st->st_mtime;
+	if (mask & VNODE_ATTR_CTIME) node->ctime = st->st_ctime;
+	int ret =  node->ops->setattr(node, st, mask);
 	if (ret < 0) return ret;
-	node->mode = st->st_mode;
-	node->gid  = st->st_gid;
-	node->uid  = st->st_uid;
 	return ret;
 }
 
@@ -994,14 +1002,12 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 
 	/// update modify / access time
 	if (flags & O_RDWR) {
-		st.st_mtime = NOW();
-		st.st_atime = NOW();
+		vfs_update_time(node, VNODE_ATTR_ATIME | VNODE_ATTR_MTIME);
 	} else if (flags & O_WRONLY) {
-		st.st_mtime = NOW();
+		vfs_update_time(node, VNODE_ATTR_MTIME);
 	} else {
-		st.st_atime = NOW();
+		vfs_update_time(node, VNODE_ATTR_ATIME);
 	}
-	vfs_setattr(node, &st);
 
 	return fd;
 }

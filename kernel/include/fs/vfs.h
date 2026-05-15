@@ -110,7 +110,7 @@ typedef struct vfs_inode_ops {
 	int (*link)(vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry);
 	int (*symlink)(vfs_node_t *vnode, vfs_dentry_t *, const char *target);
 	ssize_t(*readlink)(vfs_node_t *vnode, char *, size_t);
-	int (*setattr)(vfs_node_t *vnode, struct stat *);
+	int (*setattr)(vfs_node_t *vnode, struct stat *, int mask);
 	int (*getattr)(vfs_node_t *vnode, struct stat *);
 	int (*truncate)(vfs_node_t *vnode, size_t);
 	void (*cleanup)(vfs_node_t *);
@@ -309,7 +309,13 @@ static inline int vfs_unmount(const char *path) {
 
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
 int vfs_getattr(vfs_node_t *node, struct stat *st);
-int vfs_setattr(vfs_node_t *node, struct stat *st);
+int vfs_setattr(vfs_node_t *node, struct stat *st, int mask);
+#define VNODE_ATTR_MODE  0x01
+#define VNODE_ATTR_UID   0x02
+#define VNODE_ATTR_GID   0x04
+#define VNODE_ATTR_ATIME 0x08
+#define VNODE_ATTR_MTIME 0x10
+#define VNODE_ATTR_CTIME 0x20
 
 vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *pathname, long flags);
 static inline vfs_node_t *vfs_get_node(const char *pathname, long flags) {
