@@ -237,6 +237,9 @@ int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, 
 			get_current_proc()->vmm_space.shared_size += VMM_SIZE(new_seg);
 		}
 		get_current_proc()->vmm_space.total_size += VMM_SIZE(new_seg);
+		if (get_current_proc()->vmm_space.total_size > get_current_proc()->vmm_space.peak_size) {
+			get_current_proc()->vmm_space.peak_size = get_current_proc()->vmm_space.total_size;
+		}
 	}
 	return ret;
 }

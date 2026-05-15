@@ -238,7 +238,7 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	case INODE_MEM:
 		sprintf(str, "total pages count : %zu\n"
 			"used pages count : %zu\n"
-			"prviate pages count : %zu\n"
+			"private pages count : %zu\n"
 			"shared pages count : %zu\n"
 			"counter count : 4\n",
 			pmm_get_total_pages(),

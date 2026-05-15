@@ -1,10 +1,10 @@
-#include <kernel/scheduler.h>
-#include <kernel/string.h>
 #include <kernel/kheap.h>
 #include <kernel/print.h>
 #include <kernel/procfs.h>
-#include <kernel/vmm.h>
+#include <kernel/scheduler.h>
+#include <kernel/string.h>
 #include <kernel/vfs.h>
+#include <kernel/vmm.h>
 #include <errno.h>
 
 typedef struct proc_inode {
@@ -19,6 +19,7 @@ typedef struct proc_inode {
 #define INODE_MAPS    5
 #define INODE_CMDLINE 6
 #define INODE_FD_DIR  7
+#define INODE_STATUS  8
 
 static vfs_inode_ops_t proc_inode_ops;
 static vfs_fd_ops_t proc_fd_ops;
@@ -26,15 +27,15 @@ long strtol(const char *str, char **end, int base);
 
 static vfs_node_t *proc_new_node(vfs_superblock_t *superblock, process_t *proc, int type) {
 	proc_inode_t *inode = kmalloc(sizeof(proc_inode_t));
-	inode->proc = proc;
-	inode->type = type;
+	inode->proc         = proc;
+	inode->type         = type;
 
 	vfs_node_t *vnode = kmalloc(sizeof(vfs_node_t));
 	memset(vnode, 0, sizeof(vfs_node_t));
 	vnode->private_inode = inode;
-	vnode->ref_count  = 1;
-	vnode->ops        = &proc_inode_ops;
-	vnode->superblock = superblock;
+	vnode->ref_count     = 1;
+	vnode->ops           = &proc_inode_ops;
+	vnode->superblock    = superblock;
 	switch (type) {
 	case INODE_SELF:
 	case INODE_CWD:
@@ -43,6 +44,7 @@ static vfs_node_t *proc_new_node(vfs_superblock_t *superblock, process_t *proc, 
 		break;
 	case INODE_MAPS:
 	case INODE_CMDLINE:
+	case INODE_STATUS:
 		vnode->flags = VFS_FILE;
 		break;
 	case INODE_DIR:
@@ -65,9 +67,10 @@ static int proc_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *d
 			"cmdline",
 			"exe",
 			"fd",
+			"status",
 		};
 
-		if (index >= sizeof(content) / sizeof(*content))return -ENOENT;
+		if (index >= sizeof(content) / sizeof(*content)) return -ENOENT;
 
 		strcpy(dirent->d_name, content[index]);
 		return 0;
@@ -78,8 +81,8 @@ static int proc_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *d
 
 static int proc_getattr(vfs_node_t *vnode, struct stat *st) {
 	proc_inode_t *inode = vnode->private_inode;
-	st->st_uid  = inode->proc->euid;
-	st->st_gid  = inode->proc->egid;
+	st->st_uid          = inode->proc->euid;
+	st->st_gid          = inode->proc->egid;
 	switch (vnode->flags) {
 	case VFS_FILE:
 		st->st_mode = 0444;
@@ -89,7 +92,7 @@ static int proc_getattr(vfs_node_t *vnode, struct stat *st) {
 		st->st_mode = 0550;
 		break;
 	}
-	st->st_ino  = (inode->proc->pid << 3) | inode->type;
+	st->st_ino = (inode->proc->pid << 3) | inode->type;
 	return 0;
 }
 
@@ -136,6 +139,9 @@ static int proc_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	} else if (!strcmp(dentry->name, "fd")) {
 		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_FD_DIR);
 		return 0;
+	} else if (!strcmp(dentry->name, "status")) {
+		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_STATUS);
+		return 0;
 	}
 	return -ENOENT;
 }
@@ -149,10 +155,11 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	proc_inode_t *inode = fd->private;
 	char str_buf[4096];
 	char *str;
-	size_t i=0;
+	size_t i        = 0;
+	process_t *proc = inode->proc;
 	switch (inode->type) {
 	case INODE_MAPS:
-		foreach(node, &inode->proc->vmm_space.segs) {
+		foreach (node, &proc->vmm_space.segs) {
 			vmm_seg_t *seg = (vmm_seg_t *)node;
 			char prot[5];
 			prot[0] = seg->prot & MMU_FLAG_READ ? 'r' : '-';
@@ -160,6 +167,7 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 			prot[2] = seg->prot & MMU_FLAG_EXEC ? 'x' : '-';
 			prot[3] = seg->flags & VMM_FLAG_PRIVATE ? 'p' : 's';
 			prot[4] = '\0';
+
 			char *name = NULL;
 			if (seg->flags & VMM_FLAG_ANONYMOUS) {
 				name = strdup("[anonymous]");
@@ -171,8 +179,27 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 		}
 		str = str_buf;
 		break;
+	case INODE_STATUS:
+		str = str_buf;
+		sprintf(str_buf, "Pid: %ld\n"
+						 "Ppid: %ld\n"
+						 "VmSize: %zu\n"
+						 "VmPeak: %zu\n"
+						 "VmAnon : %zu\n"
+						 "VmFile: %zu\n"
+						 "VmPrivate: %zu\n"
+						 "VmShared: %zu\n",
+				proc->pid,
+				proc->parent ? proc->parent->pid : proc->pid,
+				proc->vmm_space.total_size,
+				proc->vmm_space.peak_size,
+				proc->vmm_space.anon_size,
+				proc->vmm_space.file_size,
+				proc->vmm_space.private_size,
+				proc->vmm_space.shared_size);
+		break;
 	case INODE_CMDLINE:
-		str = inode->proc->cmdline;
+		str = proc->cmdline;
 		break;
 	default:
 		return -EINVAL;
@@ -200,7 +227,7 @@ static vfs_inode_ops_t proc_inode_ops = {
 };
 
 static vfs_fd_ops_t proc_fd_ops = {
-	.read     = proc_read,
+	.read = proc_read,
 };
 
 static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry) {
@@ -210,9 +237,9 @@ static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry) {
 	}
 	char *end;
 	pid_t pid = strtol(dentry->name, &end, 10);
-	if (end == dentry->name)return -ENOENT;
+	if (end == dentry->name) return -ENOENT;
 	process_t *proc = pid2proc(pid);
-	if (!proc)return -ENOENT;
+	if (!proc) return -ENOENT;
 
 	dentry->inode = proc_new_node(root->superblock, proc, INODE_DIR);
 	return 0;
@@ -235,8 +262,8 @@ static int proc_root_readdir(vfs_node_t *root, unsigned long index, struct diren
 		return 0;
 	}
 
-	index -=3;
-	foreach(node, &proc_list) {
+	index -= 3;
+	foreach (node, &proc_list) {
 		if (!index) {
 			process_t *proc = container_of(node, process_t, proc_list_node);
 			sprintf(dirent->d_name, "%d", proc->pid);
@@ -250,8 +277,8 @@ static int proc_root_readdir(vfs_node_t *root, unsigned long index, struct diren
 static int proc_root_getattr(vfs_node_t *root, struct stat *st) {
 	(void)root;
 	st->st_mode = 0555;
-	st->st_uid = EUID_ROOT;
-	st->st_gid = EUID_ROOT;
+	st->st_uid  = EUID_ROOT;
+	st->st_gid  = EUID_ROOT;
 	return 0;
 }
 
@@ -284,7 +311,7 @@ int proc_mount(const char *source, const char *target, unsigned long flags, cons
 }
 
 vfs_filesystem_t proc_fs = {
-	.name = "proc",
+	.name  = "proc",
 	.mount = proc_mount,
 };
 

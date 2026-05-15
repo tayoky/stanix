@@ -45,6 +45,7 @@ typedef struct vmm_space {
 	list_t segs;
 	rwlock_t lock;
 	size_t total_size;
+	size_t peak_size;
 	size_t private_size;
 	size_t shared_size;
 	size_t file_size;

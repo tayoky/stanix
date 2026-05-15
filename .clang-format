@@ -1,0 +1,83 @@
+---
+BasedOnStyle: Google
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: ForContinuationAndIndentation
+ColumnLimit: 0
+
+AlignArrayOfStructures: Left
+AlignConsecutiveMacros: Consecutive
+AlignConsecutiveAssignments: true
+AlignEscapedNewlines: DontAlign
+AlignOperands: AlignAfterOperator
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortNamespacesOnASingleLine: false
+AlwaysBreakBeforeMultilineStrings: false
+AttributeMacros: [__user]
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Attach
+BreakBeforeInlineASMColon: OnlyMultiline
+BreakBeforeTernaryOperators: true
+BreakStringLiterals: true
+BraceWrapping:
+  AfterStruct: false
+BinPackParameters: false
+ForEachMacros: [foreach, hashmap_foreach]
+IncludeBlocks: Merge
+IncludeCategories:
+  - Regex: '<kernel/'
+    Priority: 1
+    CaseSensitive: true
+  - Regex: '<modules/'
+    Priority: 2
+    CaseSensitive: true
+  - Regex: '<sys/'
+    Priority: 3
+    CaseSensitive: true
+  - Regex: '<.*>'
+    Priority: 4
+    CaseSensitive: true
+  - Regex: '.*'
+    Priority: 5
+    CaseSensitive: true
+IndentGotoLabels: false
+IndentCaseLabels: false
+IndentPPDirectives: None
+InsertNewlineAtEOF: true
+KeepEmptyLines:
+  AtEndOfFile: false
+  AtStartOfBlock: false
+  AtStartOfFile: false
+LineEnding: LF
+MaxEmptyLinesToKeep: 2
+PointerAlignment: Right
+QualifierAlignment: Left
+ReflowComments: IndentOnly
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeParens: ControlStatements
+SpaceBeforeSquareBrackets: false
+SpacesBeforeTrailingComments: 1
+SpaceInEmptyBlock: true
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: 1
+SpacesInParens: Custom
+SpacesInParensOptions:
+  ExceptDoubleParentheses: true
+  InConditionalStatements: false
+  InCStyleCasts: false
+  InEmptyParentheses: false
+  Other: false
+
+---
