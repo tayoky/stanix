@@ -192,18 +192,6 @@ int main(int argc, const char **argv) {
 		return EXIT_FAILURE;
 	}
 
-	//disable NL to NL CR converstion and other termios stuff
-	struct termios attr;
-	if (tcgetattr(slave, &attr)) {
-		perror("tcgetattr");
-	}
-	attr.c_oflag &= ~(ONLCR | OCRNL | ONOCR);
-	attr.c_oflag |= OPOST;
-	if (tcsetattr(slave, TCSANOW, &attr)) {
-		perror("tcsetattr");
-	}
-
-
 	//fork and launch login with std stream set to the slave
 	pid_t child = fork();
 	if (!child) {
