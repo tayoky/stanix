@@ -134,18 +134,13 @@ int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
 }
 
 static int vmm_create_seg(uintptr_t address, size_t size, long prot, int flags, vmm_seg_t **seg) {
-	int interrupt_save;
-	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	vmm_seg_t *prev = NULL;
 	if (address) {
 		uintptr_t end = address + size;
 
 		// first remove any mapping
 		int ret = vmm_raw_unmap_range(address, end);
-		if (ret < 0) {
-			rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
-			return ret;
-		}
+		if (ret < 0) return ret;
 
 		// then find where we need to insert
 		foreach (node, &get_current_proc()->vmm_space.segs) {
@@ -186,11 +181,10 @@ static int vmm_create_seg(uintptr_t address, size_t size, long prot, int flags, 
 
 	list_add_after(&get_current_proc()->vmm_space.segs, prev ? &prev->node : NULL, &new_seg->node);
 
-	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	return 0;
 }
 
-int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
+static int vmm_raw_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
 
@@ -241,6 +235,14 @@ int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, 
 			get_current_proc()->vmm_space.peak_size = get_current_proc()->vmm_space.total_size;
 		}
 	}
+	return ret;
+}
+
+int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
+	int interrupt_save;
+	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	int ret = vmm_raw_map(address, size, prot, flags, fd, offset, seg);
+	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
 	return ret;
 }
 
@@ -482,6 +484,12 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 
 
 int vmm_clone(vmm_space_t *parent, vmm_space_t *child) {
+	child->total_size   = parent->total_size;
+	child->peak_size    = parent->peak_size;
+	child->private_size = parent->private_size;
+	child->shared_size  = parent->shared_size;
+	child->file_size    = parent->file_size;
+	child->anon_size    = parent->anon_size;
 	int interrupt_save;
 	rwlock_acquire_read(&parent->lock, &interrupt_save);
 	foreach (node, &parent->segs) {
