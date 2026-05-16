@@ -70,6 +70,8 @@ typedef struct task {
 	spinlock_t state_lock;
 	run_queue_t * _Atomic run_queue;
 	size_t preempt_disable;
+	atomic_size_t preempt_context_switches;
+	atomic_size_t voluntary_context_switches;
 } task_t;
 
 typedef struct process {

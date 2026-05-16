@@ -29,29 +29,29 @@ long strtol(const char *str, char **end, int base);
 static vfs_node_t *proc_new_node(vfs_superblock_t *superblock, process_t *proc, int type) {
 	proc_inode_t *inode = kmalloc(sizeof(proc_inode_t));
 	memset(inode, 0, sizeof(proc_inode_t));
-	inode->proc         = proc;
-	inode->type         = type;
+	inode->proc = proc;
+	inode->type = type;
 
-	inode->vnode.ref_count     = 1;
-	inode->vnode.ops           = &proc_inode_ops;
-	inode->vnode.superblock    = superblock;
-	inode->vnode.number        = (((uintptr_t)inode->proc) << 4) | inode->type;
+	inode->vnode.ref_count  = 1;
+	inode->vnode.ops        = &proc_inode_ops;
+	inode->vnode.superblock = superblock;
+	inode->vnode.number     = (((uintptr_t)inode->proc) << 4) | inode->type;
 	switch (type) {
 	case INODE_SELF:
 	case INODE_CWD:
 	case INODE_EXE:
-		inode->vnode.mode = 0550;
+		inode->vnode.mode  = 0550;
 		inode->vnode.flags = VFS_LINK;
 		break;
 	case INODE_MAPS:
 	case INODE_CMDLINE:
 	case INODE_STATUS:
-		inode->vnode.mode = 0444;
+		inode->vnode.mode  = 0444;
 		inode->vnode.flags = VFS_FILE;
 		break;
 	case INODE_DIR:
 	case INODE_FD_DIR:
-		inode->vnode.mode = 0550;
+		inode->vnode.mode  = 0550;
 		inode->vnode.flags = VFS_DIR;
 		break;
 	}
@@ -180,10 +180,12 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 						 "Ppid: %ld\n"
 						 "VmSize: %zu\n"
 						 "VmPeak: %zu\n"
-						 "VmAnon : %zu\n"
+						 "VmAnon: %zu\n"
 						 "VmFile: %zu\n"
 						 "VmPrivate: %zu\n"
-						 "VmShared: %zu\n",
+						 "VmShared: %zu\n"
+						 "VoluntaryContextSwitches: %zu\n"
+						 "PreemptContextSwitches: %zu\n",
 				proc->pid,
 				proc->parent ? proc->parent->pid : proc->pid,
 				proc->vmm_space.total_size,
@@ -191,7 +193,9 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 				proc->vmm_space.anon_size,
 				proc->vmm_space.file_size,
 				proc->vmm_space.private_size,
-				proc->vmm_space.shared_size);
+				proc->vmm_space.shared_size,
+				proc->main_thread->voluntary_context_switches,
+				proc->main_thread->preempt_context_switches);
 		break;
 	case INODE_CMDLINE:
 		str = proc->cmdline;
@@ -285,9 +289,9 @@ int proc_mount(const char *source, const char *target, unsigned long flags, cons
 	vnode->flags     = VFS_DIR;
 	vnode->ops       = &proc_root_ops;
 	vnode->ref_count = 1;
-	vnode->mode = 0555;
-	vnode->uid  = EUID_ROOT;
-	vnode->gid  = EUID_ROOT;
+	vnode->mode      = 0555;
+	vnode->uid       = EUID_ROOT;
+	vnode->gid       = EUID_ROOT;
 
 	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
 	memset(superblock, 0, sizeof(vfs_superblock_t));

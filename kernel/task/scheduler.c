@@ -286,6 +286,11 @@ void yield(int preempt) {
 		return;
 	}
 
+	if (preempt) {
+		atomic_fetch_add(&old->preempt_context_switches, 1);
+	} else {
+		atomic_fetch_add(&old->voluntary_context_switches, 1);
+	}
 
 	if (arch_save_context(&old->context)) {
 		finish_yield();
