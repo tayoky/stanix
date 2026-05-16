@@ -14,8 +14,7 @@
 
 static slab_cache_t vmm_seg_slab;
 
-static void vmm_unmap_all_space(vmm_space_t *space);
-static int vmm_raw_unmap_range(uintptr_t start, uintptr_t end);
+static int vmm_space_raw_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end);
 
 static int vmm_seg_constructor(slab_cache_t *cache, void *data) {
 	(void)cache;
@@ -93,12 +92,16 @@ void vmm_init_space(vmm_space_t *space) {
 }
 
 void vmm_destroy_space(vmm_space_t *space) {
-	vmm_unmap_all_space(space);
+	vmm_space_unmap_all(space);
 	mmu_delete_addr_space(space->addrspace);
 	destroy_list(&space->segs);
 }
 
-int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
+vmm_space_t *vmm_get_current_space(void) {
+	return &get_current_proc()->vmm_space;
+}
+
+int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
 	spinlock_acquire(&seg->lock);
 	if (cut <= seg->start || cut >= seg->end) {
 		spinlock_release(&seg->lock);
@@ -127,24 +130,24 @@ int vmm_split(vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
 		seg->ops->open(new_seg);
 	}
 
-	list_add_after(&get_current_proc()->vmm_space.segs, &seg->node, &new_seg->node);
+	list_add_after(&space->segs, &seg->node, &new_seg->node);
 
 	if (out_seg) *out_seg = new_seg;
 	spinlock_release(&seg->lock);
 	return 0;
 }
 
-static int vmm_create_seg(uintptr_t address, size_t size, long prot, int flags, vmm_seg_t **seg) {
+static int vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, vmm_seg_t **seg) {
 	vmm_seg_t *prev = NULL;
 	if (address) {
 		uintptr_t end = address + size;
 
-		// first remove any mapping
-		int ret = vmm_raw_unmap_range(address, end);
+		// first remove any overlaping mapping
+		int ret = vmm_space_raw_unmap_range(space, address, end);
 		if (ret < 0) return ret;
 
 		// then find where we need to insert
-		foreach (node, &get_current_proc()->vmm_space.segs) {
+		foreach (node, &space->segs) {
 			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
 			if (current->start >= end) {
 				break;
@@ -156,7 +159,7 @@ static int vmm_create_seg(uintptr_t address, size_t size, long prot, int flags, 
 		size = PAGE_ALIGN_UP(size);
 
 		// no address ? we need to find one ourself
-		foreach (node, &get_current_proc()->vmm_space.segs) {
+		foreach (node, &space->segs) {
 			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
 			vmm_seg_t *next    = container_of(node->next, vmm_seg_t, node);
 			if (!next || next->start - current->end >= size) {
@@ -180,17 +183,17 @@ static int vmm_create_seg(uintptr_t address, size_t size, long prot, int flags, 
 	new_seg->flags     = flags;
 	*seg               = new_seg;
 
-	list_add_after(&get_current_proc()->vmm_space.segs, prev ? &prev->node : NULL, &new_seg->node);
+	list_add_after(&space->segs, prev ? &prev->node : NULL, &new_seg->node);
 
 	return 0;
 }
 
-static int vmm_raw_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
+static int vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
 
 	vmm_seg_t *new_seg;
-	int ret = vmm_create_seg(address, size, prot, flags, &new_seg);
+	int ret = vmm_space_raw_create_seg(space, address, size, prot, flags, &new_seg);
 	if (ret < 0) return ret;
 
 	// kdebugf("map %p size : %lx\n", new_seg->start, size);
@@ -202,10 +205,10 @@ static int vmm_raw_map(uintptr_t address, size_t size, long prot, int flags, vfs
 			if (flags & VMM_FLAG_SHARED) {
 				page = pmm_allocate_page();
 				memset((void *)(kernel->hhdm + page), 0, PAGE_SIZE);
-				mmu_map_page(get_current_proc()->vmm_space.addrspace, page, addr, prot);
+				mmu_map_page(space->addrspace, page, addr, prot);
 			} else {
 				page = pmm_get_zero_page();
-				mmu_map_page(get_current_proc()->vmm_space.addrspace, page, addr, prot & ~MMU_FLAG_WRITE);
+				mmu_map_page(space->addrspace, page, addr, prot & ~MMU_FLAG_WRITE);
 			}
 		}
 	} else if (fd) {
@@ -215,39 +218,39 @@ static int vmm_raw_map(uintptr_t address, size_t size, long prot, int flags, vfs
 	}
 
 	if (ret < 0) {
-		list_remove(&get_current_proc()->vmm_space.segs, &new_seg->node);
+		list_remove(&space->segs, &new_seg->node);
 		kfree(new_seg);
 	} else {
 		if (seg) *seg = new_seg;
 		if (fd) {
 			new_seg->fd     = vfs_dup(fd);
 			new_seg->offset = offset;
-			get_current_proc()->vmm_space.file_size += VMM_SIZE(new_seg);
+			space->file_size += VMM_SIZE(new_seg);
 		} else {
-			get_current_proc()->vmm_space.anon_size += VMM_SIZE(new_seg);
+			space->anon_size += VMM_SIZE(new_seg);
 		}
 		if (flags & VMM_FLAG_PRIVATE) {
-			get_current_proc()->vmm_space.private_size += VMM_SIZE(new_seg);
+			space->private_size += VMM_SIZE(new_seg);
 		} else {
-			get_current_proc()->vmm_space.shared_size += VMM_SIZE(new_seg);
+			space->shared_size += VMM_SIZE(new_seg);
 		}
-		get_current_proc()->vmm_space.total_size += VMM_SIZE(new_seg);
-		if (get_current_proc()->vmm_space.total_size > get_current_proc()->vmm_space.peak_size) {
-			get_current_proc()->vmm_space.peak_size = get_current_proc()->vmm_space.total_size;
+		space->total_size += VMM_SIZE(new_seg);
+		if (space->total_size > space->peak_size) {
+			space->peak_size = space->total_size;
 		}
 	}
 	return ret;
 }
 
-int vmm_map(uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
+int vmm_space_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, struct vfs_fd *fd, off_t offset, vmm_seg_t **seg) {
 	int interrupt_save;
-	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	int ret = vmm_raw_map(address, size, prot, flags, fd, offset, seg);
-	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	rwlock_acquire_write(&space->lock, &interrupt_save);
+	int ret = vmm_space_raw_map(space, address, size, prot, flags, fd, offset, seg);
+	rwlock_release_write(&space->lock, &interrupt_save);
 	return ret;
 }
 
-int vmm_chprot(vmm_seg_t *seg, long prot) {
+int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {
 	spinlock_acquire(&seg->lock);
 	if (seg->ops && seg->ops->can_mprotect) {
 		int ret = seg->ops->can_mprotect(seg, prot);
@@ -259,62 +262,62 @@ int vmm_chprot(vmm_seg_t *seg, long prot) {
 	seg->prot = prot;
 
 	for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		uintptr_t phys = mmu_space_virt2phys(get_current_proc()->vmm_space.addrspace, (void *)addr);
+		uintptr_t phys = mmu_space_virt2phys(space->addrspace, (void *)addr);
 		if ((seg->flags & VMM_FLAG_PRIVATE) && pmm_page_info(phys)->ref_count > 1) {
 			// we are doing CoW
-			mmu_set_flags(get_current_proc()->vmm_space.addrspace, addr, prot & ~MMU_FLAG_WRITE);
+			mmu_set_flags(space->addrspace, addr, prot & ~MMU_FLAG_WRITE);
 		} else {
-			mmu_set_flags(get_current_proc()->vmm_space.addrspace, addr, prot);
+			mmu_set_flags(space->addrspace, addr, prot);
 		}
 	}
 	spinlock_release(&seg->lock);
 	return 0;
 }
 
-static int vmm_raw_chprot_range(uintptr_t start, uintptr_t end, long prot) {
-	foreach (node, &get_current_proc()->vmm_space.segs) {
+static int vmm_space_raw_chprot_range(vmm_space_t *space, uintptr_t start, uintptr_t end, long prot) {
+	foreach (node, &space->segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		if (seg->end <= start) continue;
 		if (seg->start >= end) break;
 		if (start > seg->start) {
-			int ret = vmm_split(seg, start, NULL);
+			int ret = vmm_space_split(space, seg, start, NULL);
 			if (ret < 0) return ret;
 
 			// on the next iteration we will land on the newly created segment
 			continue;
 		}
 		if (end < seg->end) {
-			int ret = vmm_split(seg, end, NULL);
+			int ret = vmm_space_split(space, seg, end, NULL);
 			if (ret < 0) return ret;
 		}
-		int ret = vmm_chprot(seg, prot);
+		int ret = vmm_space_chprot(space, seg, prot);
 		if (ret < 0) return ret;
 	}
 
 	return 0;
 }
 
-int vmm_chprot_range(uintptr_t start, uintptr_t end, long prot) {
+int vmm_space_chprot_range(vmm_space_t *space, uintptr_t start, uintptr_t end, long prot) {
 	int interrupt_save;
-	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	int ret = vmm_raw_chprot_range(start, end, prot);
-	rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	rwlock_acquire_read(&space->lock, &interrupt_save);
+	int ret = vmm_space_raw_chprot_range(space, start, end, prot);
+	rwlock_release_read(&space->lock, &interrupt_save);
 	return ret;
 }
 
-static void vmm_raw_unmap(vmm_seg_t *seg) {
+static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	spinlock_acquire(&seg->lock);
-	list_remove(&get_current_proc()->vmm_space.segs, &seg->node);
-	get_current_proc()->vmm_space.total_size -= VMM_SIZE(seg);
+	list_remove(&space->segs, &seg->node);
+	space->total_size -= VMM_SIZE(seg);
 	if (seg->fd) {
-		get_current_proc()->vmm_space.file_size -= VMM_SIZE(seg);
+		space->file_size -= VMM_SIZE(seg);
 	} else {
-		get_current_proc()->vmm_space.anon_size -= VMM_SIZE(seg);
+		space->anon_size -= VMM_SIZE(seg);
 	}
 	if (seg->flags & VMM_FLAG_PRIVATE) {
-		get_current_proc()->vmm_space.private_size -= VMM_SIZE(seg);
+		space->private_size -= VMM_SIZE(seg);
 	} else {
-		get_current_proc()->vmm_space.shared_size -= VMM_SIZE(seg);
+		space->shared_size -= VMM_SIZE(seg);
 	}
 
 	// kdebugf("unmap %p to %p\n", seg->start, seg->end);
@@ -341,66 +344,64 @@ static void vmm_raw_unmap(vmm_seg_t *seg) {
 	}
 
 	for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		mmu_unmap_page(get_current_proc()->vmm_space.addrspace, addr);
+		mmu_unmap_page(space->addrspace, addr);
 	}
 	slab_free(seg);
 }
 
-void vmm_unmap(vmm_seg_t *seg) {
+void vmm_space_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	int interrupt_save;
-	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	vmm_raw_unmap(seg);
-	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	rwlock_acquire_write(&space->lock, &interrupt_save);
+	vmm_space_raw_unmap(space, seg);
+	rwlock_release_write(&space->lock, &interrupt_save);
 }
 
-static int vmm_raw_unmap_range(uintptr_t start, uintptr_t end) {
-	vmm_seg_t *seg = (vmm_seg_t *)get_current_proc()->vmm_space.segs.first_node;
+static int vmm_space_raw_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end) {
+	vmm_seg_t *seg = (vmm_seg_t *)space->segs.first_node;
 	for (vmm_seg_t *next; seg; seg = next) {
 		next = (vmm_seg_t *)seg->node.next;
 
 		if (seg->end <= start) continue;
 		if (seg->start >= end) break;
 		if (start > seg->start) {
-			int ret = vmm_split(seg, start, NULL);
+			int ret = vmm_space_split(space, seg, start, NULL);
 			if (ret < 0) return ret;
 
 			// on the next iteration we will land on the newly created segment
 			continue;
 		}
 		if (end < seg->end) {
-			int ret = vmm_split(seg, end, NULL);
+			int ret = vmm_space_split(space, seg, end, NULL);
 			if (ret < 0) return ret;
 		}
-		vmm_raw_unmap(seg);
+		vmm_space_raw_unmap(space, seg);
 	}
 	return 0;
 }
 
-int vmm_unmap_range(uintptr_t start, uintptr_t end) {
+int vmm_space_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end) {
 	int interrupt_save;
-	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	int ret = vmm_raw_unmap_range(start, end);
-	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	rwlock_acquire_write(&space->lock, &interrupt_save);
+	int ret = vmm_space_raw_unmap_range(space, start, end);
+	rwlock_release_write(&space->lock, &interrupt_save);
 	return ret;
 }
 
-static void vmm_unmap_all_space(vmm_space_t *space) {
+void vmm_space_unmap_all(vmm_space_t *space) {
 	int interrupt_save;
-	rwlock_acquire_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	rwlock_acquire_write(&space->lock, &interrupt_save);
 	vmm_seg_t *current = container_of(space->segs.first_node, vmm_seg_t, node);
 	while (current) {
 		vmm_seg_t *next = container_of(current->node.next, vmm_seg_t, node);
-		vmm_raw_unmap(current);
+		vmm_space_raw_unmap(space, current);
 		current = next;
 	}
-	rwlock_release_write(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	rwlock_release_write(&space->lock, &interrupt_save);
 }
 
-void vmm_unmap_all(void) {
-	vmm_unmap_all_space(&get_current_proc()->vmm_space);
-}
-
-int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
+int vmm_space_sync(vmm_space_t *space, vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
+	// TODO : pass the adddress space to the driver
+	(void)space;
 	spinlock_acquire(&seg->lock);
 	if (!seg->ops || !seg->ops->msync) {
 		spinlock_release(&seg->lock);
@@ -414,23 +415,23 @@ int vmm_sync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
 	return ret;
 }
 
-static int vmm_raw_sync_range(uintptr_t start, uintptr_t end, int flags) {
-	foreach (node, &get_current_proc()->vmm_space.segs) {
+static int vmm_space_raw_sync_range(vmm_space_t *space, uintptr_t start, uintptr_t end, int flags) {
+	foreach (node, &space->segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		if (seg->end <= start) continue;
 		if (seg->start >= end) break;
-		int ret = vmm_sync(seg, start, end, flags);
+		int ret = vmm_space_sync(space, seg, start, end, flags);
 		if (ret < 0) return ret;
 	}
 
 	return 0;
 }
 
-int vmm_sync_range(uintptr_t start, uintptr_t end, int flags) {
+int vmm_space_sync_range(vmm_space_t *space, uintptr_t start, uintptr_t end, int flags) {
 	int interrupt_save;
-	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
-	int ret = vmm_raw_sync_range(start, end, flags);
-	rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	rwlock_acquire_read(&space->lock, &interrupt_save);
+	int ret = vmm_space_raw_sync_range(space, start, end, flags);
+	rwlock_release_read(&space->lock, &interrupt_save);
 	return ret;
 }
 
@@ -482,7 +483,6 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 	}
 	spinlock_release(&seg->lock);
 }
-
 
 int vmm_clone(vmm_space_t *parent, vmm_space_t *child) {
 	child->total_size   = parent->total_size;
