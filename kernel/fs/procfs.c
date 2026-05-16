@@ -184,6 +184,7 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 						 "VmFile: %zu\n"
 						 "VmPrivate: %zu\n"
 						 "VmShared: %zu\n"
+						 "PageFaults: %zu\n"
 						 "VoluntaryContextSwitches: %zu\n"
 						 "PreemptContextSwitches: %zu\n",
 				proc->pid,
@@ -194,6 +195,7 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 				proc->vmm_space.file_size,
 				proc->vmm_space.private_size,
 				proc->vmm_space.shared_size,
+				proc->vmm_space.page_faults,
 				proc->main_thread->voluntary_context_switches,
 				proc->main_thread->preempt_context_switches);
 		break;

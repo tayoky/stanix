@@ -50,6 +50,7 @@ typedef struct vmm_space {
 	size_t shared_size;
 	size_t file_size;
 	size_t anon_size;
+	atomic_size_t page_faults;
 } vmm_space_t;
 
 /**

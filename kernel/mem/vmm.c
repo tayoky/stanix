@@ -72,6 +72,7 @@ int vmm_fault_report(uintptr_t addr, int prot) {
 	if (!get_current_proc()) return 0;
 	int interrupt_save;
 	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	atomic_fetch_add(&get_current_proc()->vmm_space.page_faults, 1);
 	foreach (node, &get_current_proc()->vmm_space.segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		if (seg->start > addr) break;
