@@ -63,6 +63,7 @@ static tmpfs_inode_t *new_inode(vfs_superblock_t *superblock, long type) {
 	inode->parent     = NULL;
 	inode->link_count = 0;
 	inode->vnode.mode = 0555;
+	inode->vnode.number = INODE_NUMBER(inode);
 
 	return inode;
 }
@@ -401,7 +402,6 @@ static int tmpfs_getattr(vfs_node_t *vnode, struct stat *st) {
 	st->st_size          = inode->cache.size;
 	st->st_nlink         = inode->link_count;
 	st->st_rdev          = inode->dev;
-	st->st_ino           = INODE_NUMBER(inode); // fake an inode number
 
 	// simulate fake blocks of 512 bytes
 	// because blocks don't exist on tmpfs

@@ -800,6 +800,7 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	st->st_ctime = node->ctime;
 	st->st_uid   = node->uid;
 	st->st_gid   = node->gid;
+	st->st_ino   = node->number;
 	// maybee we can sync
 	if (node->ops && node->ops->getattr) {
 		int ret = node->ops->getattr(node, st);

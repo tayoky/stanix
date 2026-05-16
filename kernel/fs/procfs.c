@@ -8,6 +8,7 @@
 #include <errno.h>
 
 typedef struct proc_inode {
+	vfs_node_t vnode;
 	process_t *proc;
 	int type;
 } proc_inode_t;
@@ -27,36 +28,38 @@ long strtol(const char *str, char **end, int base);
 
 static vfs_node_t *proc_new_node(vfs_superblock_t *superblock, process_t *proc, int type) {
 	proc_inode_t *inode = kmalloc(sizeof(proc_inode_t));
+	memset(inode, 0, sizeof(proc_inode_t));
 	inode->proc         = proc;
 	inode->type         = type;
 
-	vfs_node_t *vnode = kmalloc(sizeof(vfs_node_t));
-	memset(vnode, 0, sizeof(vfs_node_t));
-	vnode->private_inode = inode;
-	vnode->ref_count     = 1;
-	vnode->ops           = &proc_inode_ops;
-	vnode->superblock    = superblock;
+	inode->vnode.ref_count     = 1;
+	inode->vnode.ops           = &proc_inode_ops;
+	inode->vnode.superblock    = superblock;
+	inode->vnode.number        = (((uintptr_t)inode->proc) << 4) | inode->type;
 	switch (type) {
 	case INODE_SELF:
 	case INODE_CWD:
 	case INODE_EXE:
-		vnode->flags = VFS_LINK;
+		inode->vnode.mode = 0550;
+		inode->vnode.flags = VFS_LINK;
 		break;
 	case INODE_MAPS:
 	case INODE_CMDLINE:
 	case INODE_STATUS:
-		vnode->flags = VFS_FILE;
+		inode->vnode.mode = 0444;
+		inode->vnode.flags = VFS_FILE;
 		break;
 	case INODE_DIR:
 	case INODE_FD_DIR:
-		vnode->flags = VFS_DIR;
+		inode->vnode.mode = 0550;
+		inode->vnode.flags = VFS_DIR;
 		break;
 	}
-	return vnode;
+	return &inode->vnode;
 }
 
 static int proc_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
-	proc_inode_t *inode = vnode->private_inode;
+	proc_inode_t *inode = container_of(vnode, proc_inode_t, vnode);
 	switch (inode->type) {
 	case INODE_DIR:
 		static char *content[] = {
@@ -80,24 +83,14 @@ static int proc_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *d
 }
 
 static int proc_getattr(vfs_node_t *vnode, struct stat *st) {
-	proc_inode_t *inode = vnode->private_inode;
+	proc_inode_t *inode = container_of(vnode, proc_inode_t, vnode);
 	st->st_uid          = inode->proc->euid;
 	st->st_gid          = inode->proc->egid;
-	switch (vnode->flags) {
-	case VFS_FILE:
-		st->st_mode = 0444;
-		break;
-	case VFS_DIR:
-	case VFS_LINK:
-		st->st_mode = 0550;
-		break;
-	}
-	st->st_ino = (inode->proc->pid << 3) | inode->type;
 	return 0;
 }
 
 static ssize_t proc_readlink(vfs_node_t *vnode, char *buffer, size_t count) {
-	proc_inode_t *inode = vnode->private_inode;
+	proc_inode_t *inode = container_of(vnode, proc_inode_t, vnode);
 	static char buf[64];
 	switch (inode->type) {
 	case INODE_CWD:;
@@ -117,12 +110,14 @@ static ssize_t proc_readlink(vfs_node_t *vnode, char *buffer, size_t count) {
 		if (count > strlen(buf) + 1) count = strlen(buf) + 1;
 		memcpy(buffer, buf, count);
 		break;
+	default:
+		return -EINVAL;
 	}
 	return count;
 }
 
 static int proc_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
-	proc_inode_t *inode = vnode->private_inode;
+	proc_inode_t *inode = container_of(vnode, proc_inode_t, vnode);
 
 	if (!strcmp(dentry->name, "cwd")) {
 		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_CWD);
@@ -152,7 +147,7 @@ static int proc_open(vfs_fd_t *fd) {
 }
 
 static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
-	proc_inode_t *inode = fd->private;
+	proc_inode_t *inode = container_of(fd->inode, proc_inode_t, vnode);
 	char str_buf[4096];
 	char *str;
 	size_t i        = 0;
@@ -211,11 +206,10 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 }
 
 static void proc_cleanup(vfs_node_t *vnode) {
-	proc_inode_t *inode = vnode->private_inode;
+	proc_inode_t *inode = container_of(vnode, proc_inode_t, vnode);
 
 	proc_release(inode->proc);
 	kfree(inode);
-	kfree(vnode);
 }
 
 static vfs_inode_ops_t proc_inode_ops = {
@@ -233,7 +227,7 @@ static vfs_fd_ops_t proc_fd_ops = {
 
 static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry) {
 	if (!strcmp(dentry->name, "self")) {
-		dentry->inode = proc_new_node(root->superblock, get_current_proc(), INODE_SELF);
+		dentry->inode = proc_new_node(root->superblock, proc_ref(get_current_proc()), INODE_SELF);
 		return 0;
 	}
 	char *end;
@@ -275,18 +269,9 @@ static int proc_root_readdir(vfs_node_t *root, unsigned long index, struct diren
 	return -ENOENT;
 }
 
-static int proc_root_getattr(vfs_node_t *root, struct stat *st) {
-	(void)root;
-	st->st_mode = 0555;
-	st->st_uid  = EUID_ROOT;
-	st->st_gid  = EUID_ROOT;
-	return 0;
-}
-
 static vfs_inode_ops_t proc_root_ops = {
 	.readdir = proc_root_readdir,
 	.lookup  = proc_root_lookup,
-	.getattr = proc_root_getattr,
 };
 
 int proc_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
@@ -300,6 +285,9 @@ int proc_mount(const char *source, const char *target, unsigned long flags, cons
 	vnode->flags     = VFS_DIR;
 	vnode->ops       = &proc_root_ops;
 	vnode->ref_count = 1;
+	vnode->mode = 0555;
+	vnode->uid  = EUID_ROOT;
+	vnode->gid  = EUID_ROOT;
 
 	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
 	memset(superblock, 0, sizeof(vfs_superblock_t));
