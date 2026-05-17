@@ -9,7 +9,7 @@ static inline uintptr_t xarray_entry_fetch(rcu_ptr_t *ptr) {
 }
 
 static inline uintptr_t xarray_entry_store(rcu_ptr_t *ptr, uintptr_t entry) {
-	return (uintptr_t)rcu_ptr_store(ptr, (void*)entry);
+	return (uintptr_t)rcu_ptr_store(ptr, (void *)entry);
 }
 
 static inline void *xarray_entry_get_value(uintptr_t xarray_entry) {
@@ -22,6 +22,10 @@ static inline xarray_node_t *xarray_entry_get_node(uintptr_t xarray_entry) {
 
 static inline int xarray_entry_is_value(uintptr_t xarray_entry) {
 	return xarray_entry & 0x1;
+}
+
+static inline int xarray_entry_is_node(uintptr_t xarray_entry) {
+	return !xarray_entry_is_value(xarray_entry);
 }
 
 static inline uintptr_t xarray_entry_from_value(void *value) {
@@ -60,6 +64,14 @@ static inline size_t xarray_node_get_local_index(xarray_node_t *node, size_t ind
 
 static inline void *xarray_raw_get(xarray_t *xarray, size_t index) {
 	uintptr_t current_entry = xarray_entry_fetch(&xarray->rcu.ptr);
+
+	// bound check
+	if (current_entry && xarray_entry_is_node(current_entry)) {
+		xarray_node_t *node = xarray_entry_get_node(current_entry);
+		if (index >= (1U << (node->shift + XARRAY_SHIFT_BITS))) {
+			return NULL;
+		}
+	}
 	while (current_entry) {
 		if (xarray_entry_is_value(current_entry)) {
 			return xarray_entry_get_value(current_entry);
@@ -92,6 +104,7 @@ static void xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 		}
 	}
 	// TODO : we need to allocate
+	if (!value) return;
 }
 
 void xarray_set(xarray_t *xarray, size_t index, void *value) {
