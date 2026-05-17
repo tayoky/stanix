@@ -5,8 +5,10 @@
 #include <kernel/spinlock.h>
 #include <kernel/scheduler.h>
 
+typedef atomic_uintptr_t rcu_ptr_t;
+
 typedef struct rcu {
-    atomic_uintptr_t ptr;
+    rcu_ptr_t ptr;
     spinlock_t lock;
 } rcu_t;
 
@@ -29,13 +31,23 @@ static inline void rcu_release_read(rcu_t *rcu) {
 }
 
 /**
+ * @brief get atomicly fetch a rcu pointer
+ * @param ptr the pointer to fetch
+ * @return the value of the pointer
+ */
+static inline void *rcu_ptr_fetch(rcu_ptr_t *ptr) {
+    return (void*)atomic_load(ptr);
+}
+
+/**
  * @brief get the pointer of a rcu, require the read lock or the write lock to be acquired
  * @param rcu the rcu to get the pointer of
  * @return the pointer of the rcu
  */
-static inline void *rcu_get_ptr(rcu_t *rcu) {
-    return (void*)atomic_load(&rcu->ptr);
+static inline void *rcu_fetch_ptr(rcu_t *rcu) {
+    return rcu_ptr_fetch(&rcu->ptr);
 }
+
 
 /**
  * @brief acquire the write lock of a rcu
@@ -70,13 +82,23 @@ static inline rcu_release_write(rcu_t *rcu) {
 }
 
 /**
+ * @brief set a rcu pointer
+ * @param ptr the rcu pointer to set
+ * @param value the value of the new ptr
+ * @return the old value of the pointer
+ */
+static inline void *rcu_ptr_store(rcu_ptr_t *ptr, void *value) {
+    return atomic_exchange(ptr, (uintptr_t)value);
+}
+
+/**
  * @brief set the pointer of a rcu, require the write lock to be acquired
  * @param rcu the rcu to set the pointer of
- * @param ptr the new pointer
- * @return the old pointer
+ * @param value the new pointer value
+ * @return the old pointer value
  */
-static inline void *rcu_set_ptr(rcu_t *rcu, void *ptr) {
-    return atomic_exchange(&rcu->ptr, (uintptr_t)ptr);
+static inline void *rcu_store_ptr(rcu_t *rcu, void *value) {
+    return rcu_ptr_store(&rcu->ptr, value);
 }
 
 /**
