@@ -66,12 +66,18 @@ static inline void *xarray_raw_get(xarray_t *xarray, size_t index) {
 	uintptr_t current_entry = xarray_entry_fetch(&xarray->rcu.ptr);
 
 	// bound check
-	if (current_entry && xarray_entry_is_node(current_entry)) {
+	if (!current_entry) return NULL;
+	size_t size;
+	if (xarray_entry_is_value(current_entry)) {
+		size = 1U;
+	} else {
 		xarray_node_t *node = xarray_entry_get_node(current_entry);
-		if (index >= (1U << (node->shift + XARRAY_SHIFT_BITS))) {
-			return NULL;
-		}
+		size = 1U << (node->shift + XARRAY_SHIFT_BITS);
 	}
+	if (index >= size) {
+		return NULL;
+	}
+
 	while (current_entry) {
 		if (xarray_entry_is_value(current_entry)) {
 			return xarray_entry_get_value(current_entry);
