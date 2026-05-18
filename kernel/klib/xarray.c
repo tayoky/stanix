@@ -5,6 +5,13 @@
 
 static slab_cache_t xarray_nodes_slab;
 
+static int xarray_entry_constructor(slab_cache_t *cache, void *data) {
+	(void)cache;
+	xarray_node_t *node = data;
+	memset(node, 0, sizeof(xarray_node_t));
+	return 0;
+}
+
 static inline uintptr_t xarray_entry_fetch(rcu_ptr_t *ptr) {
 	return (uintptr_t)rcu_ptr_fetch(ptr);
 }
@@ -134,7 +141,6 @@ static void xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 		kassert(current_shift < target_shift);
 
 		while (current_shift < target_shift) {
-			kdebugf("allocate a new level\n");
 			xarray_node_t *node = slab_alloc(&xarray_nodes_slab);
 			node->shift         = current_shift;
 			node->entries[0]    = current_entry_value;
@@ -176,4 +182,5 @@ void xarray_set(xarray_t *xarray, size_t index, void *value) {
 
 void init_xarray(void) {
 	slab_init(&xarray_nodes_slab, sizeof(xarray_node_t), "xarray-nodes");
+	xarray_nodes_slab.constructor = xarray_entry_constructor;
 }

@@ -344,7 +344,6 @@ int get_fd(int fd, file_descriptor_t *file_descriptor);
  */
 int close_fd(int fd);
 
-extern list_t proc_list;
 extern list_t sleeping_tasks;
 extern spinlock_t sleep_lock;
 

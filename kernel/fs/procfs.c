@@ -264,14 +264,15 @@ static int proc_root_readdir(vfs_node_t *root, unsigned long index, struct diren
 	}
 
 	index -= 3;
-	foreach (node, &proc_list) {
+	// TODO : bring this back with the new xarray proc list
+	/*foreach (node, &proc_list) {
 		if (!index) {
 			process_t *proc = container_of(node, process_t, proc_list_node);
 			sprintf(dirent->d_name, "%d", proc->pid);
 			return 0;
 		}
 		index--;
-	}
+	}*/
 	return -ENOENT;
 }
 

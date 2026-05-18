@@ -12,13 +12,14 @@
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/time.h>
+#include <kernel/xarray.h>
 #include <kernel/vmm.h>
 #include <errno.h>
 #include <stdatomic.h>
 
 static run_queue_t main_run_queue;
-list_t proc_list;
-list_t task_list;
+xarray_t proc_list;
+static xarray_t task_list;
 list_t sleeping_tasks;
 spinlock_t sleep_lock;
 
@@ -76,11 +77,19 @@ static void idle_task() {
 	}
 }
 
+static void proc_register(process_t *proc) {
+	xarray_set(&proc_list, proc->pid, proc);
+}
+
+static void proc_unregister(process_t *proc) {
+	xarray_set(&proc_list, proc->pid, NULL);
+}
+
 void init_task() {
 	kstatusf("init kernel task... ");
 	// init the scheduler first
-	init_list(&proc_list);
-	init_list(&task_list);
+	xarray_init(&proc_list);
+	xarray_init(&task_list);
 	init_list(&sleeping_tasks);
 
 	// init the boot task (task running since boot)
@@ -107,8 +116,8 @@ void init_task() {
 	set_cmdline("init");
 
 	proc_ref(boot_task);
-	list_append(&proc_list, &boot_task->proc_list_node);
-
+	proc_register(boot_task);
+	
 	// the first task will be the init task
 	init              = get_current_proc();
 	kernel->tid_count = 1;
@@ -182,7 +191,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	// but the tasks list only a weak ref
 	task_ref(task);
 	list_append(&proc->threads, &task->task_list_node);
-	list_append(&task_list, &task->task_list_node);
+	xarray_set(&task_list, task->tid, task);
 
 	// setup registers
 	SP_REG(task->context.frame)   = KSTACK_TOP(task->kernel_stack) - 8;
@@ -234,7 +243,7 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 
 	// add it to the global process list
 	// note that the proc list only hold a weak ref
-	list_append(&proc_list, &proc->proc_list_node);
+	proc_register(proc);
 
 	return proc;
 }
@@ -404,29 +413,24 @@ process_t *pid2proc(pid_t pid) {
 		return proc_ref(get_current_proc());
 	}
 
-	foreach (node, &proc_list) {
-		process_t *proc = container_of(node, process_t, proc_list_node);
-		if (proc->pid == pid) {
-			return proc_ref(proc);
-		}
-	}
-
-	return NULL;
+	rcu_acquire_read(&proc_list.rcu);
+	process_t *proc = xarray_get(&proc_list, pid);
+	proc_ref(proc);
+	rcu_release_read(&proc_list.rcu);
+	return proc;
 }
 
 task_t *tid2task(pid_t tid) {
 	// is it ourself ?
 	if (get_current_task()->tid == tid) {
-		return get_current_task();
+		return task_ref(get_current_task());
 	}
 
-	foreach (node, &task_list) {
-		task_t *thread = container_of(node, task_t, task_list_node);
-		if (thread->tid == tid) {
-			return thread;
-		}
-	}
-	return NULL;
+	rcu_acquire_read(&task_list.rcu);
+	task_t *task = xarray_get(&task_list, tid);
+	task_ref(task);
+	rcu_release_read(&task_list.rcu);
+	return task;
 }
 
 
@@ -504,10 +508,10 @@ int unblock_task_reason(task_t *task, int reason) {
 	return 1;
 }
 
-static void task_final_cleanup(task_t *thread) {
-	list_remove(&task_list, &thread->task_list_node);
-	kfree((void *)thread->kernel_stack);
-	kfree(thread);
+static void task_final_cleanup(task_t *task) {
+	xarray_set(&task_list, task->tid, NULL);
+	kfree((void *)task->kernel_stack);
+	kfree(task);
 }
 
 void task_release(task_t *task) {
@@ -519,7 +523,7 @@ void task_release(task_t *task) {
 }
 
 static void proc_final_cleanup(process_t *proc) {
-	list_remove(&proc_list, &proc->proc_list_node);
+	proc_unregister(proc);
 	if (proc->parent) list_remove(&proc->parent->child, &proc->child_list_node);
 
 	task_release(proc->main_thread);
