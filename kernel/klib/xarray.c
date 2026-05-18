@@ -1,3 +1,4 @@
+#include <kernel/assert.h>
 #include <kernel/slab.h>
 #include <kernel/string.h>
 #include <kernel/xarray.h>
@@ -29,7 +30,7 @@ static inline int xarray_entry_is_node(uintptr_t xarray_entry) {
 }
 
 static inline uintptr_t xarray_entry_from_value(void *value) {
-	return ((uintptr_t)value) & 0x1;
+	return ((uintptr_t)value) | 0x1;
 }
 
 static inline uintptr_t xarray_entry_from_node(xarray_node_t *node) {
@@ -62,21 +63,32 @@ static inline size_t xarray_node_get_local_index(xarray_node_t *node, size_t ind
 	return (index >> node->shift) & XARRAY_MASK;
 }
 
-static inline void *xarray_raw_get(xarray_t *xarray, size_t index) {
+static inline rcu_ptr_t *xarray_node_get_entry(xarray_node_t *node, size_t index) {
+	size_t local_index = xarray_node_get_local_index(node, index);
+	return &node->entries[local_index];
+}
+
+static inline int xarray_is_in_bound(uintptr_t entry, size_t index) {
+	size_t size;
+	if (!entry) {
+		size = 1U;
+	} else if (xarray_entry_is_value(entry)) {
+		size = 1U;
+	} else {
+		xarray_node_t *node = xarray_entry_get_node(entry);
+		size                = 1U << (node->shift + XARRAY_SHIFT_BITS);
+	}
+	if (index >= size) {
+		return 0;
+	}
+	return 1;
+}
+
+static void *xarray_raw_get(xarray_t *xarray, size_t index) {
 	uintptr_t current_entry = xarray_entry_fetch(&xarray->rcu.ptr);
 
 	// bound check
-	if (!current_entry) return NULL;
-	size_t size;
-	if (xarray_entry_is_value(current_entry)) {
-		size = 1U;
-	} else {
-		xarray_node_t *node = xarray_entry_get_node(current_entry);
-		size = 1U << (node->shift + XARRAY_SHIFT_BITS);
-	}
-	if (index >= size) {
-		return NULL;
-	}
+	if (!xarray_is_in_bound(current_entry, index)) return NULL;
 
 	while (current_entry) {
 		if (xarray_entry_is_value(current_entry)) {
@@ -99,22 +111,69 @@ void *xarray_get(xarray_t *xarray, size_t index) {
 
 static void xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 	rcu_ptr_t *current_entry = &xarray->rcu.ptr;
-	while (*current_entry) {
-		uintptr_t current_entry_value = xarray_entry_fetch(current_entry);
-		if (xarray_entry_is_value(current_entry_value)) {
-			xarray_entry_store(current_entry, xarray_entry_from_value(value));
+
+	uintptr_t current_entry_value = xarray_entry_fetch(current_entry);
+	if (!xarray_is_in_bound(current_entry_value, index)) {
+		// we need to grow the array
+		// but how many level ?
+		size_t current_shift;
+		if (!current_entry_value || xarray_entry_is_value(current_entry_value)) {
+			current_shift = 0;
 		} else {
 			xarray_node_t *node = xarray_entry_get_node(current_entry_value);
-			size_t local_index  = xarray_node_get_local_index(node, index);
-			current_entry       = &node->entries[local_index];
+			current_shift       = node->shift + XARRAY_SHIFT_BITS;
+		}
+
+		size_t target_shift = 0;
+		while (index >= (1U << target_shift)) {
+			target_shift += XARRAY_SHIFT_BITS;
+		}
+
+		// we have the target shift and the current shift
+		// we can find how many level we need to add
+		kassert(current_shift < target_shift);
+
+		while (current_shift < target_shift) {
+			kdebugf("allocate a new level\n");
+			xarray_node_t *node = slab_alloc(&xarray_nodes_slab);
+			node->shift         = current_shift;
+			node->entries[0]    = current_entry_value;
+			current_entry_value = xarray_entry_from_node(node);
+			current_shift += XARRAY_SHIFT_BITS;
+		}
+		xarray_entry_store(&xarray->rcu.ptr, current_entry_value);
+	}
+
+	size_t current_shift = 0;
+	while (current_entry_value) {
+		if (xarray_entry_is_value(current_entry_value)) {
+			xarray_entry_store(current_entry, xarray_entry_from_value(value));
+			return;
+		} else {
+			xarray_node_t *node = xarray_entry_get_node(current_entry_value);
+			current_shift       = node->shift;
+			current_entry       = xarray_node_get_entry(node, index);
+			current_entry_value = xarray_entry_fetch(current_entry);
 		}
 	}
-	// TODO : we need to allocate
+
 	if (!value) return;
+	while (current_shift >= XARRAY_SHIFT_BITS) {
+		current_shift -= XARRAY_SHIFT_BITS;
+		xarray_node_t *node = slab_alloc(&xarray_nodes_slab);
+		node->shift         = current_shift;
+		xarray_entry_store(current_entry, xarray_entry_from_node(node));
+		current_entry = xarray_node_get_entry(node, index);
+	}
+	xarray_entry_store(current_entry, xarray_entry_from_value(value));
 }
 
 void xarray_set(xarray_t *xarray, size_t index, void *value) {
 	rcu_acquire_write(&xarray->rcu);
 	xarray_raw_set(xarray, index, value);
 	rcu_release_write(&xarray->rcu);
+}
+
+void init_xarray(void) {
+	slab_init(&xarray_nodes_slab, sizeof(xarray_node_t), "xarray-nodes");
 }

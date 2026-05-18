@@ -23,6 +23,7 @@
 #include <kernel/sysfs.h>
 #include <kernel/socket.h>
 #include <kernel/futex.h>
+#include <kernel/xarray.h>
 #include <kernel/unix.h>
 #include <kernel/poll.h>
 #include <kernel/vmm.h>
@@ -108,6 +109,7 @@ void kmain() {
 	init_mmu();
 	init_second_stage_pmm();
 	init_kheap();
+	init_xarray();
 	init_vfs();
 	init_tmpfs();
 	mount_initrd();

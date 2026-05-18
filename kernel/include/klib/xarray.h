@@ -17,6 +17,11 @@ typedef struct xarray {
 } xarray_t;
 
 /**
+ * @brief initalize the xarray subsystem
+ */
+void init_xarray(void);
+
+/**
  * @brief initalize a xarray
  * @param xarray the xarray to initalize
  */
