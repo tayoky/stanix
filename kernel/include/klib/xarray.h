@@ -44,10 +44,19 @@ void *xarray_get(xarray_t *xarray, size_t index);
 /**
  * @brief set a value in a xarray by index
  * @param xarray the xarray in which to set the value
- * @param index the indedx of the valeu to set
+ * @param index the index of the value to set
  * @param value the new value, must be 2 bytes aligned
  */
 void xarray_set(xarray_t *xarray, size_t index, void *value);
+
+/**
+ * @brief clear a value in a xarray by index
+ * @param xarray the xarray in which to clear the value
+ * @param index the index of the value to clear
+ */
+static inline void xarray_clear(xarray_t *xarray, size_t index) {
+	return xarray_set(xarray, index, NULL);
+}
 
 /**
  * @brief get the first non NULL value in a xarray

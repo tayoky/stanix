@@ -1,12 +1,12 @@
-#include <kernel/vfs.h>
-#include <kernel/kheap.h>
-#include <kernel/string.h>
+#include <kernel/bus.h>
 #include <kernel/device.h>
-#include <kernel/sysfs.h>
+#include <kernel/kheap.h>
+#include <kernel/pmm.h>
 #include <kernel/print.h>
 #include <kernel/slab.h>
-#include <kernel/pmm.h>
-#include <kernel/bus.h>
+#include <kernel/string.h>
+#include <kernel/sysfs.h>
+#include <kernel/vfs.h>
 #include <errno.h>
 
 static slab_cache_t sysfs_inodes_cache;
@@ -30,14 +30,14 @@ typedef struct static_entry {
 	const char *name;
 } static_entry_t;
 
-#define ENTRY(_type, _inode, _name)  {.type = _type, .inode = _inode, .name = _name}
+#define ENTRY(_type, _inode, _name) {.type = _type, .inode = _inode, .name = _name}
 
 static static_entry_t root_entries[] = {
-	ENTRY(VFS_DIR, INODE_BLOCK_DIR , "block"),
-	ENTRY(VFS_DIR, INODE_CHAR_DIR  , "char"),
-	ENTRY(VFS_DIR, INODE_BUS_DIR   , "bus"),
+	ENTRY(VFS_DIR, INODE_BLOCK_DIR, "block"),
+	ENTRY(VFS_DIR, INODE_CHAR_DIR, "char"),
+	ENTRY(VFS_DIR, INODE_BUS_DIR, "bus"),
 	ENTRY(VFS_DIR, INODE_KERNEL_DIR, "kernel"),
-	ENTRY(VFS_FILE, INODE_MEM      , "mem"),
+	ENTRY(VFS_FILE, INODE_MEM, "mem"),
 };
 
 static static_entry_t kernel_entries[] = {
@@ -49,10 +49,10 @@ static sysfs_inode_t *sysfs_new_inode(int type, void *ptr, int flags) {
 	if (!inode) return NULL;
 	memset(inode, 0, sizeof(sysfs_inode_t));
 	inode->node.ref_count = 1;
-	inode->node.ops = &sysfs_inode_ops;
-	inode->node.flags = flags;
-	inode->type = type;
-	inode->ptr  = ptr;
+	inode->node.ops       = &sysfs_inode_ops;
+	inode->node.flags     = flags;
+	inode->type           = type;
+	inode->ptr            = ptr;
 	return inode;
 }
 
@@ -79,7 +79,7 @@ static int sysfs_static_entries_readdir(static_entry_t *entries, size_t entries_
 }
 
 static sysfs_inode_t *sysfs_static_entries_lookup(static_entry_t *entries, size_t entries_count, const char *name) {
-	for (size_t i=0; i < entries_count; i++) {
+	for (size_t i = 0; i < entries_count; i++) {
 		if (!strcmp(entries[i].name, name)) {
 			return sysfs_new_inode(entries[i].inode, NULL, entries[i].type);
 		}
@@ -88,26 +88,26 @@ static sysfs_inode_t *sysfs_static_entries_lookup(static_entry_t *entries, size_
 }
 
 static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
-	sysfs_inode_t *inode = container_of(vnode, sysfs_inode_t, node);
+	sysfs_inode_t *inode       = container_of(vnode, sysfs_inode_t, node);
 	sysfs_inode_t *child_inode = NULL;
 	switch (inode->type) {
 	case INODE_ROOT:
 		child_inode = sysfs_static_entries_lookup(root_entries, arraylen(root_entries), dentry->name);
 		break;
 	case INODE_BUS_DIR:
-		hashmap_foreach(key, element, &devices) {
-			(void)key;
-			bus_t *bus = container_of(element, bus_t, device);
+		xarray_foreach (number, value, &devices) {
+			(void)number;
+			bus_t *bus = value;
 			if (bus->device.type != DEVICE_BUS) continue;
 			if (!strcmp(bus->device.name, dentry->name)) {
 				child_inode = sysfs_new_inode(INODE_BUS, bus, VFS_DIR);
-				break;;
+				break;
 			}
 		}
 		break;
 	case INODE_BUS:;
 		bus_t *bus = inode->ptr;
-		foreach(node, &bus->addresses) {
+		foreach (node, &bus->addresses) {
 			bus_addr_t *addr = container_of(node, bus_addr_t, node);
 			if (!strcmp(addr->name, dentry->name)) {
 				child_inode = sysfs_new_inode(INODE_BUS_ADDR, addr, VFS_FILE);
@@ -119,7 +119,7 @@ static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		child_inode = sysfs_static_entries_lookup(kernel_entries, arraylen(kernel_entries), dentry->name);
 		break;
 	case INODE_SLAB_DIR:
-		foreach(node, slab_get_list()) {
+		foreach (node, slab_get_list()) {
 			slab_cache_t *slab = container_of(node, slab_cache_t, node);
 			if (!strcmp(slab->name, dentry->name)) {
 				child_inode = sysfs_new_inode(INODE_SLAB, slab, VFS_FILE);
@@ -130,7 +130,7 @@ static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	}
 	if (child_inode) {
 		child_inode->node.superblock = vnode->superblock;
-		dentry->inode = &child_inode->node;
+		dentry->inode                = &child_inode->node;
 		return 0;
 	}
 	return -ENOENT;
@@ -144,7 +144,7 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 		} else {
 			strcpy(dirent->d_name, "..");
 		}
-		dirent->d_ino = inode->type;
+		dirent->d_ino  = inode->type;
 		dirent->d_type = DT_DIR;
 		return 0;
 	}
@@ -154,9 +154,9 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 	case INODE_ROOT:
 		return sysfs_static_entries_readdir(root_entries, arraylen(root_entries), index, dirent);
 	case INODE_BUS_DIR:
-		hashmap_foreach(key, element, &devices) {
-			(void)key;
-			bus_t *bus = container_of(element, bus_t, device);
+		xarray_foreach (number, value, &devices) {
+			(void)number;
+			bus_t *bus = value;
 			if (bus->device.type != DEVICE_BUS) continue;
 			if (index == 0) {
 				strcpy(dirent->d_name, bus->device.name);
@@ -168,7 +168,7 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 		return -ENOENT;
 	case INODE_BUS:
 		bus_t *bus = inode->ptr;
-		foreach(node, &bus->addresses) {
+		foreach (node, &bus->addresses) {
 			if (index != 0) {
 				index--;
 				continue;
@@ -182,7 +182,7 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 	case INODE_KERNEL_DIR:
 		return sysfs_static_entries_readdir(kernel_entries, arraylen(kernel_entries), index, dirent);
 	case INODE_SLAB_DIR:
-		foreach(node, slab_get_list()) {
+		foreach (node, slab_get_list()) {
 			if (index != 0) {
 				index--;
 				continue;
@@ -229,22 +229,22 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	case INODE_SLAB:;
 		slab_cache_t *slab = inode->ptr;
 		sprintf(str, "object size : %ld\n"
-			"free count : %zu\n"
-			"partial count : %zu\n"
-			"full count : %zu\n", 
-			slab->size, slab->free.node_count,
-			slab->partial.node_count, slab->full.node_count);
+					 "free count : %zu\n"
+					 "partial count : %zu\n"
+					 "full count : %zu\n",
+				slab->size, slab->free.node_count,
+				slab->partial.node_count, slab->full.node_count);
 		break;
 	case INODE_MEM:
 		sprintf(str, "total pages count : %zu\n"
-			"used pages count : %zu\n"
-			"private pages count : %zu\n"
-			"shared pages count : %zu\n"
-			"counter count : 4\n",
-			pmm_get_total_pages(),
-			pmm_get_used_pages(),
-			pmm_get_private_pages(),
-			pmm_get_shared_pages());
+					 "used pages count : %zu\n"
+					 "private pages count : %zu\n"
+					 "shared pages count : %zu\n"
+					 "counter count : 4\n",
+				pmm_get_total_pages(),
+				pmm_get_used_pages(),
+				pmm_get_private_pages(),
+				pmm_get_shared_pages());
 		break;
 	default:
 		return -ENOSYS;
@@ -276,16 +276,16 @@ static int sysfs_mount(const char *source, const char *target, unsigned long fla
 
 	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
 	memset(superblock, 0, sizeof(vfs_superblock_t));
-	sysfs_inode_t *root = sysfs_new_inode(INODE_ROOT, NULL, VFS_DIR);
+	sysfs_inode_t *root  = sysfs_new_inode(INODE_ROOT, NULL, VFS_DIR);
 	root->node.ref_count = 1;
-	superblock->root = &root->node;
+	superblock->root     = &root->node;
 
 	*out_superblock = superblock;
 	return 0;
 }
 
 static vfs_filesystem_t sysfs_filesystem = {
-	.name = "sysfs",
+	.name  = "sysfs",
 	.mount = sysfs_mount,
 };
 

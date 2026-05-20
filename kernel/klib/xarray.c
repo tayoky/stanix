@@ -83,7 +83,7 @@ static inline int xarray_is_in_bound(uintptr_t entry, size_t index) {
 		size = 1U;
 	} else {
 		xarray_node_t *node = xarray_entry_get_node(entry);
-		size                = 1U << (node->shift + XARRAY_SHIFT_BITS);
+		size                = 1UL << (node->shift + XARRAY_SHIFT_BITS);
 	}
 	if (index >= size) {
 		return 0;
@@ -132,7 +132,7 @@ static void xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 		}
 
 		size_t target_shift = 0;
-		while (index >= (1U << target_shift)) {
+		while (index >= (1UL << target_shift)) {
 			target_shift += XARRAY_SHIFT_BITS;
 		}
 

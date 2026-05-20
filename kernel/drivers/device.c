@@ -1,12 +1,13 @@
-#include <kernel/hashmap.h>
+#include <kernel/xarray.h>
 #include <kernel/device.h>
 #include <kernel/tmpfs.h>
 #include <kernel/print.h>
+#include <kernel/slab.h>
 #include <kernel/bus.h>
 #include <errno.h>
 
 hashmap_t device_drivers;
-hashmap_t devices;
+xarray_t devices;
 vfs_dentry_t *devfs_root;
 
 static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_driver) {	
@@ -57,7 +58,7 @@ int register_device_driver(device_driver_t *device_driver) {
 	hashmap_add(&device_drivers, device_driver->major, device_driver);
 
 	// try to use this new driver on all already existing devices
-	hashmap_foreach(number, device, &devices) {
+	xarray_foreach(number, device, &devices) {
 		(void)number;
 		bus_t *bus = (bus_t*)device;
 		if (bus->device.type != DEVICE_BUS) continue;
@@ -90,7 +91,7 @@ int register_device(device_t *device) {
 		vfs_mknod_at(devfs_root, device->name, 0666 | (device->type == DEVICE_CHAR ? S_IFCHR : S_IFBLK), device->number);
 	}
 	kdebugf("register device %s as %d,%d (%lx)\n", device->name, major(device->number), minor(device->number), device->number);
-	hashmap_add(&devices, device->number, device);
+	xarray_set(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
 		bus_t *bus = (bus_t*)device;
 		foreach (node, &bus->addresses) {
@@ -112,7 +113,7 @@ void device_release(device_t *device) {
 }
 
 int destroy_device(device_t *device) {
-	hashmap_remove(&devices, device->number);
+	xarray_clear(&devices, device->number);
 	device->type = DEVICE_UNPLUGGED;
 	if (device->destroy) device->destroy(device);
 	vfs_unlink_at(devfs_root, device->name);
@@ -121,7 +122,11 @@ int destroy_device(device_t *device) {
 }
 
 device_t *device_from_number(dev_t dev) {
-	return device_ref(hashmap_get(&devices, dev));
+	rcu_acquire_read(&devices.rcu);
+	device_t *device = xarray_get(&devices, dev);
+	device_ref(device);
+	rcu_release_read(&devices.rcu);
+	return device;
 }
 
 vfs_fd_t *open_device(device_t *device, long flags) {
@@ -132,7 +137,7 @@ vfs_fd_t *open_device(device_t *device, long flags) {
 	fd->private = device_ref(device);
 	if (fd->ops->open) {
 		if (fd->ops->open(fd) < 0) {
-			kfree(fd);
+			slab_free(fd);
 			return NULL;
 		}
 	}
@@ -141,7 +146,7 @@ vfs_fd_t *open_device(device_t *device, long flags) {
 
 void init_devices(void) {
 	kstatusf("init devices ... ");
-	init_hashmap(&devices, 256);
+	xarray_init(&devices);
 	init_hashmap(&device_drivers, 256);
 
 	vfs_superblock_t *devfs_superblock = new_tmpfs();

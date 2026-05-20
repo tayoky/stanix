@@ -1,7 +1,8 @@
-#ifndef _KERNEL_DEVICE_H
-#define _KERNEL_DEVICE_H
+#ifndef KERNEL_DEVICE_H
+#define KERNEL_DEVICE_H
 
 #include <kernel/vfs.h>
+#include <kernel/xarray.h>
 #include <sys/sysmacros.h>
 #include <stdatomic.h>
 
@@ -30,9 +31,9 @@ typedef struct device {
 	int type;
 } device_t;
 
-#define DEVICE_CHAR     1
-#define DEVICE_BLOCK    2
-#define DEVICE_BUS      3
+#define DEVICE_CHAR      1
+#define DEVICE_BLOCK     2
+#define DEVICE_BUS       3
 #define DEVICE_UNPLUGGED 4
 
 int register_device_driver(device_driver_t *device_driver);
@@ -53,7 +54,7 @@ int destroy_device(device_t *device);
 
 /**
  * @brief get a device from its dev number
- * @param dev the dev number to find the device from, 
+ * @param dev the dev number to find the device from,
  * @return the device and create a ref that must be released using \ref device_release
  */
 device_t *device_from_number(dev_t dev);
@@ -89,6 +90,6 @@ static inline device_is_unplugged(device_t *device) {
 void init_devices(void);
 void init_mem_devices(void);
 
-extern hashmap_t devices;
+extern xarray_t devices;
 
 #endif

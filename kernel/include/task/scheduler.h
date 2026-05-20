@@ -242,14 +242,14 @@ static inline void block_cancel(void) {
  * @brief enable preempt for this core, must be called the number of time \ref preempt_disable was called
  */
 static inline void preempt_enable(void) {
-	get_current_task()->preempt_disable--;
+	if (get_current_task()) get_current_task()->preempt_disable--;
 }
 
 /**
  * @brief disable preempt for this core
  */
 static inline void preempt_disable(void) {
-	get_current_task()->preempt_disable++;
+	if (get_current_task()) get_current_task()->preempt_disable++;
 }
 
 /**
