@@ -1,13 +1,14 @@
-#include <kernel/userspace.h>
-#include <kernel/signal.h>
+#include <kernel/arch.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
+#include <kernel/signal.h>
 #include <kernel/string.h>
-#include <kernel/arch.h>
+#include <kernel/userspace.h>
+#include <kernel/xarray.h>
+#include <errno.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <ucontext.h>
-#include <signal.h>
-#include <errno.h>
 
 #define IGN  0
 #define KILL 1
@@ -16,7 +17,7 @@
 #define CONT 4
 
 static const char default_handling[] = {
-	[SIGHUP] = KILL,
+	[SIGHUP]    = KILL,
 	[SIGINT]    = KILL,
 	[SIGQUIT]   = CORE,
 	[SIGILL]    = CORE,
@@ -72,17 +73,17 @@ static void handle_default(int signum) {
 		set_task_status(TASK_STATUS_STOPPED);
 		while ((ret = block_task())) {
 			if (ret != EINTR) {
-				//uh
+				// uh
 				kdebugf("signal bug\n");
 				get_current_task()->status = TASK_STATUS_RUNNING;
 				return;
 			}
-			for (int i=0; i < NSIG; i++) {
+			for (int i = 0; i < NSIG; i++) {
 				spinlock_acquire(&get_current_task()->sig_lock);
 				if ((sigmask(i) & get_current_task()->pending_sig) && !(sigmask(i) & get_current_task()->sig_mask)
 					&& get_current_task()->sig_handling[i].sa_handler == SIG_DFL && default_handling[i] != IGN) {
 					if (default_handling[i] == STOP) {
-						//ignore other stop
+						// ignore other stop
 						get_current_task()->pending_sig &= ~sigmask(i);
 						break;
 					}
@@ -100,14 +101,16 @@ static void handle_default(int signum) {
 
 int send_sig_pgrp(pid_t pgrp, int signum) {
 	int ret = -1;
-	// TODO : bring this back with new xarray proc list
-	/* foreach(node, &proc_list) {
-		process_t *proc = container_of(node, process_t, proc_list_node);
+	rcu_acquire_read(&get_procs_list()->rcu);
+	xarray_foreach (index, value, get_procs_list()) {
+		(void)index;
+		process_t *proc = value;
 		if (proc->group == pgrp) {
 			send_sig(proc, signum);
 			ret = 0;
 		}
-	}*/
+	}
+	rcu_release_read(&get_procs_list()->rcu);
 	return ret;
 }
 
@@ -119,7 +122,7 @@ int send_sig_task(task_t *thread, int signum) {
 	kdebugf("send %d to %ld\n", signum, thread->tid);
 
 	spinlock_acquire(&thread->sig_lock);
-	//if the process ignore just skip
+	// if the process ignore just skip
 	if (thread->sig_handling[signum].sa_handler == SIG_IGN || (thread->sig_handling[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN)) {
 		spinlock_release(&thread->sig_lock);
 		return 0;
@@ -167,7 +170,7 @@ void handle_signal(fault_frame_t *context) {
 				// this is the tricky part
 				uintptr_t sp = SP_REG(*context);
 				kdebugf("sp : %p\n", sp);
-				//align the stack
+				// align the stack
 				sp &= ~0xfUL;
 
 				// we need make the ucontext on the userspace stack
@@ -177,7 +180,7 @@ void handle_signal(fault_frame_t *context) {
 				ucontext->uc_sigmask = get_current_task()->sig_mask;
 
 				// save machine context
-				acontext_t *saved_context = (acontext_t*)&ucontext->uc_mcontext;
+				acontext_t *saved_context = (acontext_t *)&ucontext->uc_mcontext;
 				arch_save_context(saved_context);
 				saved_context->frame = *context;
 

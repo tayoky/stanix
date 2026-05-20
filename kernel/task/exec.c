@@ -1,13 +1,13 @@
 #include <kernel/exec.h>
-#include <kernel/scheduler.h>
 #include <kernel/kernel.h>
-#include <kernel/string.h>
 #include <kernel/print.h>
+#include <kernel/scheduler.h>
+#include <kernel/string.h>
+#include <kernel/sys.h>
 #include <kernel/userspace.h>
 #include <kernel/vmm.h>
-#include <kernel/sys.h>
-#include <errno.h>
 #include <elf.h>
+#include <errno.h>
 
 int sys_sbrk(size_t);
 
@@ -36,7 +36,7 @@ int verfiy_elf(Elf64_Ehdr *header) {
 static void push_long(void **stack, long value) {
 	long *ptr = *stack;
 	ptr--;
-	*ptr = value;
+	*ptr   = value;
 	*stack = ptr;
 }
 
@@ -63,7 +63,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	Elf64_Ehdr header;
 	if (vfs_read(file, &header, 0, sizeof(header)) < 0) {
 		ret = -ENOMEM;
-	error:
+error:
 		vfs_close(file);
 		return ret;
 	}
@@ -82,7 +82,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	} else {
 		// for ET_DYN it must have an entry point
 		if (!header.e_entry) {
-			ret =-ENOEXEC;
+			ret = -ENOEXEC;
 			goto error;
 		}
 	}
@@ -108,8 +108,8 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 			saved_envp[i] = strdup(envp[i]);
 		}
 		saved_envp[envc] = NULL; // last NULL entry at the end
-		argv = saved_argv;
-		envp = saved_envp;
+		argv             = saved_argv;
+		envp             = saved_envp;
 
 		vmm_unmap_all();
 
@@ -130,7 +130,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	struct stat st;
 	if (vfs_getattr(file->inode, &st) >= 0) {
 		if (st.st_mode & S_ISUID) {
-			get_current_proc()->suid =get_current_proc()->euid;
+			get_current_proc()->suid = get_current_proc()->euid;
 			get_current_proc()->uid  = st.st_uid;
 			get_current_proc()->euid = st.st_uid;
 		}
@@ -162,7 +162,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 			} else {
 				interpret = file;
 			}
-			
+
 			kfree(prog_header);
 			return exec_elf(interp, argc, argv, envc, envp, 0x100000000, depth + 1, interpret);
 		}
@@ -192,13 +192,13 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 
 		if (prog_header[i].p_offset % PAGE_SIZE == prog_header[i].p_vaddr % PAGE_SIZE) {
 			// we can use mmap
-			
+
 			// page align everything
-			uintptr_t vaddr = PAGE_ALIGN_DOWN(prog_header[i].p_vaddr) + base;
-			size_t vaddr_off = prog_header[i].p_vaddr % PAGE_SIZE;
-			off_t offset = PAGE_ALIGN_DOWN(prog_header[i].p_offset);
-			size_t filesz = PAGE_ALIGN_UP(prog_header[i].p_filesz + vaddr_off);
-			size_t memsz  = PAGE_ALIGN_UP(prog_header[i].p_memsz + vaddr_off);
+			uintptr_t vaddr        = PAGE_ALIGN_DOWN(prog_header[i].p_vaddr) + base;
+			size_t vaddr_off       = prog_header[i].p_vaddr % PAGE_SIZE;
+			off_t offset           = PAGE_ALIGN_DOWN(prog_header[i].p_offset);
+			size_t filesz          = PAGE_ALIGN_UP(prog_header[i].p_filesz + vaddr_off);
+			size_t memsz           = PAGE_ALIGN_UP(prog_header[i].p_memsz + vaddr_off);
 			size_t filesz_remainer = 0;
 
 			if (prog_header[i].p_memsz > prog_header[i].p_filesz && (prog_header[i].p_filesz + vaddr_off) % PAGE_SIZE) {
@@ -213,7 +213,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 				// zero the last page
 				if (filesz_remainer) {
 					uintptr_t start_bss = vaddr + filesz - PAGE_SIZE + filesz_remainer;
-					memset((void*)start_bss, 0, PAGE_SIZE - filesz_remainer);
+					memset((void *)start_bss, 0, PAGE_SIZE - filesz_remainer);
 				}
 				vmm_chprot(seg, prot);
 			}
@@ -228,7 +228,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 			vmm_seg_t *seg;
 			vmm_map(prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg);
 
-			//file size must be <= to virtual size
+			// file size must be <= to virtual size
 			if (prog_header[i].p_filesz > prog_header[i].p_memsz) {
 				prog_header[i].p_filesz = prog_header[i].p_memsz;
 			}
@@ -239,8 +239,6 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 			// set the protection
 			vmm_chprot(seg, prot);
 		}
-
-
 	}
 	kfree(prog_header);
 
@@ -256,21 +254,21 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	// set the heap end
 	get_current_proc()->heap_end = get_current_proc()->heap_start;
 
-	void *sp = (void*)USER_STACK_TOP;
-	
+	void *sp = (void *)USER_STACK_TOP;
+
 	// restore envp strings
-	for (int i=envc-1; i>=0; i--) {
+	for (int i = envc - 1; i >= 0; i--) {
 		size_t len = strlen(envp[i]) + 1;
-		char *str = sp;
+		char *str  = sp;
 		str -= len;
 		sp = str;
 		strcpy(str, envp[i]);
 	}
 
 	// restore argv strings
-	for (int i=argc-1; i>=0; i--) {
+	for (int i = argc - 1; i >= 0; i--) {
 		size_t len = strlen(argv[i]) + 1;
-		char *str = sp;
+		char *str  = sp;
 		str -= len;
 		sp = str;
 		strcpy(str, argv[i]);
@@ -278,7 +276,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 
 
 	// align stack on 16 bytes
-	sp = (void*)((uintptr_t)sp & ~0xf);
+	sp = (void *)((uintptr_t)sp & ~0xf);
 
 	// calculate the amount of space taken by envp and argv
 	// no need to calculate auxilary or NULL pointer because
@@ -303,11 +301,11 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 		int fd = add_fd(interpret, FD_CLOEXEC);
 		push_auxv(&sp, AT_EXECFD, fd);
 	}
-	
+
 	// push envp
 	uintptr_t ptr = USER_STACK_TOP;
 	push_long(&sp, 0);
-	for (int i=envc-1; i>=0; i--) {
+	for (int i = envc - 1; i >= 0; i--) {
 		ptr -= strlen(envp[i]) + 1;
 		kfree(envp[i]);
 		push_long(&sp, ptr);
@@ -316,7 +314,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 
 	// push argv
 	push_long(&sp, 0);
-	for (int i=argc-1; i>=0; i--) {
+	for (int i = argc - 1; i >= 0; i--) {
 		ptr -= strlen(argv[i]) + 1;
 		kfree(argv[i]);
 		push_long(&sp, ptr);
@@ -326,20 +324,20 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	push_long(&sp, argc);
 
 	// reset signal handling of handled signals
-	for (size_t i=0; i < sizeof(get_current_task()->sig_handling) / sizeof(*get_current_task()->sig_handling); i++) {
+	for (size_t i = 0; i < sizeof(get_current_task()->sig_handling) / sizeof(*get_current_task()->sig_handling); i++) {
 		if (get_current_task()->sig_handling[i].sa_handler != SIG_IGN) {
 			get_current_task()->sig_handling[i].sa_handler = SIG_DFL;
 		}
 	}
 
-	//now jump into the program !!
+	// now jump into the program !!
 	kdebugf("exec entry : %p\n", header.e_entry);
-	
+
 	jump_userspace((void *)(header.e_entry + base), sp, 0, 0, 0, 0);
 
 	return 0;
 }
 
 int exec(const char *path, int argc, const char **argv, int envc, const char **envp) {
-	return exec_elf(path, argc, (char**)argv, envc, (char**)envp, 0x100000000, 0, NULL);
+	return exec_elf(path, argc, (char **)argv, envc, (char **)envp, 0x100000000, 0, NULL);
 }

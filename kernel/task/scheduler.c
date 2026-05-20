@@ -18,8 +18,8 @@
 #include <stdatomic.h>
 
 static run_queue_t main_run_queue;
-xarray_t proc_list;
-static xarray_t task_list;
+static xarray_t procs_list;
+static xarray_t tasks_list;
 list_t sleeping_tasks;
 spinlock_t sleep_lock;
 
@@ -77,19 +77,23 @@ static void idle_task() {
 	}
 }
 
+struct xarray *get_procs_list(void) {
+	return &procs_list;
+}
+
 static void proc_register(process_t *proc) {
-	xarray_set(&proc_list, proc->pid, proc);
+	xarray_set(&procs_list, proc->pid, proc);
 }
 
 static void proc_unregister(process_t *proc) {
-	xarray_set(&proc_list, proc->pid, NULL);
+	xarray_set(&procs_list, proc->pid, NULL);
 }
 
 void init_task() {
 	kstatusf("init kernel task... ");
 	// init the scheduler first
-	xarray_init(&proc_list);
-	xarray_init(&task_list);
+	xarray_init(&procs_list);
+	xarray_init(&tasks_list);
 	init_list(&sleeping_tasks);
 
 	// init the boot task (task running since boot)
@@ -191,7 +195,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	// but the tasks list only a weak ref
 	task_ref(task);
 	list_append(&proc->threads, &task->task_list_node);
-	xarray_set(&task_list, task->tid, task);
+	xarray_set(&tasks_list, task->tid, task);
 
 	// setup registers
 	SP_REG(task->context.frame)   = KSTACK_TOP(task->kernel_stack) - 8;
@@ -413,10 +417,10 @@ process_t *pid2proc(pid_t pid) {
 		return proc_ref(get_current_proc());
 	}
 
-	rcu_acquire_read(&proc_list.rcu);
-	process_t *proc = xarray_get(&proc_list, pid);
+	rcu_acquire_read(&procs_list.rcu);
+	process_t *proc = xarray_get(&procs_list, pid);
 	proc_ref(proc);
-	rcu_release_read(&proc_list.rcu);
+	rcu_release_read(&procs_list.rcu);
 	return proc;
 }
 
@@ -426,10 +430,10 @@ task_t *tid2task(pid_t tid) {
 		return task_ref(get_current_task());
 	}
 
-	rcu_acquire_read(&task_list.rcu);
-	task_t *task = xarray_get(&task_list, tid);
+	rcu_acquire_read(&tasks_list.rcu);
+	task_t *task = xarray_get(&tasks_list, tid);
 	task_ref(task);
-	rcu_release_read(&task_list.rcu);
+	rcu_release_read(&tasks_list.rcu);
 	return task;
 }
 
@@ -509,7 +513,7 @@ int unblock_task_reason(task_t *task, int reason) {
 }
 
 static void task_final_cleanup(task_t *task) {
-	xarray_set(&task_list, task->tid, NULL);
+	xarray_set(&tasks_list, task->tid, NULL);
 	kfree((void *)task->kernel_stack);
 	kfree(task);
 }

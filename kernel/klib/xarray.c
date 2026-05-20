@@ -184,3 +184,55 @@ void init_xarray(void) {
 	slab_init(&xarray_nodes_slab, sizeof(xarray_node_t), "xarray-nodes");
 	xarray_nodes_slab.constructor = xarray_entry_constructor;
 }
+
+/**
+ * @brief find a non null entry
+ * @param entry the entry to search in
+ * @param min the index to start the search at
+ * @param index where to store the index of the found entry
+ */
+static void *xarray_entry_find_non_null(uintptr_t entry, size_t min, size_t *index) {
+	if (!entry) {
+		return NULL;
+	} else if (xarray_entry_is_value(entry)) {
+		if (index) *index = 0;
+		return xarray_entry_get_value(entry);
+	} else {
+		// we need to find a non NULL entry
+		xarray_node_t *node = xarray_entry_get_node(entry);
+		for (size_t i = xarray_node_get_local_index(node, min); i < XARRAY_ENTRIES_PER_NODE; i++) {
+			uintptr_t current_entry = xarray_entry_fetch(&node->entries[i]);
+			void *ret = xarray_entry_find_non_null(current_entry, min, index);
+			if (ret) {
+				if (index) *index += i << node->shift;
+				return ret;
+			}
+		}
+	}
+	return NULL;
+}
+
+static void *xarray_raw_first(xarray_t *xarray, size_t *index) {
+	uintptr_t entry = xarray_entry_fetch(&xarray->rcu.ptr);
+	return xarray_entry_find_non_null(entry, 0, index);
+}
+
+void *xarray_first(xarray_t *xarray, size_t *index) {
+	rcu_acquire_read(&xarray->rcu);
+	void *ret = xarray_raw_first(xarray, index);
+	rcu_release_read(&xarray->rcu);
+	return ret;
+}
+
+static void *xarray_raw_next(xarray_t *xarray, size_t after, size_t *index) {
+	uintptr_t entry = xarray_entry_fetch(&xarray->rcu.ptr);
+	if (!xarray_is_in_bound(entry, after + 1)) return NULL;
+	return xarray_entry_find_non_null(entry, after + 1, index);
+}
+
+void *xarray_next(xarray_t *xarray, size_t after, size_t *index) {
+	rcu_acquire_read(&xarray->rcu);
+	void *ret = xarray_raw_next(xarray, after, index);
+	rcu_release_read(&xarray->rcu);
+	return ret;
+}

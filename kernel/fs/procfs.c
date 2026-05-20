@@ -5,6 +5,7 @@
 #include <kernel/string.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
+#include <kernel/xarray.h>
 #include <errno.h>
 
 typedef struct proc_inode {
@@ -264,15 +265,15 @@ static int proc_root_readdir(vfs_node_t *root, unsigned long index, struct diren
 	}
 
 	index -= 3;
-	// TODO : bring this back with the new xarray proc list
-	/*foreach (node, &proc_list) {
-		if (!index) {
-			process_t *proc = container_of(node, process_t, proc_list_node);
-			sprintf(dirent->d_name, "%d", proc->pid);
+
+	xarray_foreach (pid, value, get_procs_list()) {
+		(void)value;
+		if (index == 0) {
+			sprintf(dirent->d_name, "%d", pid);
 			return 0;
 		}
 		index--;
-	}*/
+	}
 	return -ENOENT;
 }
 
