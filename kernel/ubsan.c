@@ -107,6 +107,9 @@ static void print_typevalue(const struct type_descriptor *type, uintptr_t value)
 		kprintf("unknow");
 		break;
 	}
+	kprintf("(");
+	print_typename(type);
+	kprintf(")");
 }
 
 #define DEF(name) void name(){\
