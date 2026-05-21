@@ -8,13 +8,17 @@
 
 // driver for limine's framebuffers
 
+__attribute__((used, section(".limine_requests"))) static volatile struct limine_framebuffer_request framebuffer_request = {
+	.id = LIMINE_FRAMEBUFFER_REQUEST,
+};
+
 typedef struct limine_fb {
 	framebuffer_t framebuffer;
 	struct limine_framebuffer *limine_data;
 } limine_fb_t;
 
 static int liminefb_get_info(framebuffer_t *fb, struct fb *info) {
-	limine_fb_t *liminefb = (limine_fb_t*)fb;
+	limine_fb_t *liminefb = container_of(fb, limine_fb_t, framebuffer);
 
 	info->width            = liminefb->limine_data->width;
 	info->height           = liminefb->limine_data->height;
@@ -31,7 +35,7 @@ static int liminefb_get_info(framebuffer_t *fb, struct fb *info) {
 }
 
 static int liminefb_get_edid(framebuffer_t *fb, edid_t **edid) {
-	limine_fb_t *liminefb = (limine_fb_t*)fb;
+	limine_fb_t *liminefb = container_of(fb, limine_fb_t, framebuffer);
 
 	if (liminefb->limine_data->edid) {
 		*edid = liminefb->limine_data->edid;
@@ -48,19 +52,24 @@ static framebuffer_ops_t liminefb_ops = {
 };
 
 static device_driver_t liminefb_driver = {
-	.name = "limineFB driver",
+	.name = "limine framebuffer driver",
 };
 
 void init_liminefb(void) {
 	kstatusf("init liminefb ...");
 	device_driver_register(&liminefb_driver);
 
-	for (size_t i = 0; i < framebuffer_request.response->framebuffer_count; i++){
+	if (!framebuffer_request.response) {
+		kfail();
+		kinfof("the boot loader did not respond the framebuffer request\n");
+	}
+
+	for (size_t i = 0; i < framebuffer_request.response->framebuffer_count; i++) {
 		struct limine_framebuffer *limine_data = framebuffer_request.response->framebuffers[i];
 
 		limine_fb_t *framebuffer_dev = kmalloc(sizeof(limine_fb_t));
 		memset(framebuffer_dev, 0, sizeof(limine_fb_t));
-		
+
 		framebuffer_dev->framebuffer.device.driver = &liminefb_driver;
 		framebuffer_dev->framebuffer.ops  = &liminefb_ops;
 		framebuffer_dev->framebuffer.base = (uintptr_t)limine_data->address - kernel->hhdm;
@@ -68,13 +77,13 @@ void init_liminefb(void) {
 		framebuffer_dev->limine_data = limine_data;
 
 		// create the device
-		if (register_framebuffer((framebuffer_t*)framebuffer_dev)) {
+		if (register_framebuffer((framebuffer_t *)framebuffer_dev)) {
 			kfail();
 			kinfof("fail to create device /dev/%s\n", framebuffer_dev->framebuffer.device.name);
 			return;
 		}
 	}
 	kok();
-	
+
 	kinfof("%lu framebuffer found\n", framebuffer_request.response->framebuffer_count);
 }

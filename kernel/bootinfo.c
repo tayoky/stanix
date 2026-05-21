@@ -40,10 +40,6 @@ __attribute__((used, section(".limine_requests"))) volatile struct limine_module
 	.internal_modules = internal_module_list,
 	.internal_module_count = 1
 };
-
-__attribute__((used, section(".limine_requests"))) volatile struct limine_framebuffer_request framebuffer_request ={
-	.id = LIMINE_FRAMEBUFFER_REQUEST
-};
 __attribute__((used, section(".limine_requests_end"))) static volatile LIMINE_REQUESTS_END_MARKER
 
 static const char *memmap_types[] = {
