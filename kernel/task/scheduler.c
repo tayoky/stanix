@@ -194,7 +194,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	// the proc hold a ref
 	// but the tasks list only a weak ref
 	task_ref(task);
-	list_append(&proc->threads, &task->task_list_node);
+	list_append(&proc->threads, &task->thread_list_node);
 	xarray_set(&tasks_list, task->tid, task);
 
 	// setup registers

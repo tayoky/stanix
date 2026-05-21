@@ -43,7 +43,6 @@ typedef struct fd_table {
 struct process;
 
 typedef struct task {
-	list_node_t task_list_node;
 	list_node_t thread_list_node;
 	list_node_t waiter_list_node;
 	list_node_t run_list_node;
@@ -75,7 +74,6 @@ typedef struct task {
 } task_t;
 
 typedef struct process {
-	list_node_t proc_list_node;
 	list_node_t child_list_node;
 	vmm_space_t vmm_space;
 	ref_count_t ref_count;
