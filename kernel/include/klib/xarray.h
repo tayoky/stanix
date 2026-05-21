@@ -76,6 +76,12 @@ void *xarray_first(xarray_t *xarray, size_t *index);
 void *xarray_next(xarray_t *xarray, size_t after, size_t *index);
 
 /**
+ * @brief print debug info about an xarray
+ * @param xarray the xarray to debug
+ */
+void xarray_debug(xarray_t *xarray);
+
+/**
  * @brief iterate over each non NULL value in a xarray
  * @param index the name of the variable to hold the index
  * @param value the name of the variable to hold the value

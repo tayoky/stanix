@@ -200,9 +200,10 @@ static void *xarray_entry_find_non_null(uintptr_t entry, size_t min, size_t *ind
 	} else {
 		// we need to find a non NULL entry
 		xarray_node_t *node = xarray_entry_get_node(entry);
-		for (size_t i = xarray_node_get_local_index(node, min); i < XARRAY_ENTRIES_PER_NODE; i++) {
+		size_t start = xarray_node_get_local_index(node, min);
+		for (size_t i = start; i < XARRAY_ENTRIES_PER_NODE; i++) {
 			uintptr_t current_entry = xarray_entry_fetch(&node->entries[i]);
-			void *ret = xarray_entry_find_non_null(current_entry, min, index);
+			void *ret = xarray_entry_find_non_null(current_entry, i == start ? min : 0, index);
 			if (ret) {
 				if (index) *index += i << node->shift;
 				return ret;
@@ -235,4 +236,38 @@ void *xarray_next(xarray_t *xarray, size_t after, size_t *index) {
 	void *ret = xarray_raw_next(xarray, after, index);
 	rcu_release_read(&xarray->rcu);
 	return ret;
+}
+
+static void xarray_debug_depth(size_t depth) {
+	kdebugf("% *.s", (int)depth * 2, "");
+}
+
+static void xarray_debug_entry(uintptr_t entry, size_t depth) {
+	xarray_debug_depth(depth);
+
+	if (!entry) {
+		kprintf("NULL entry\n");
+	} else if (xarray_entry_is_value(entry)) {
+		kprintf("value %p\n", xarray_entry_get_value(entry));
+	} else {
+		xarray_node_t *node = xarray_entry_get_node(entry);
+		kprintf("xarray node of shift %ld\n", node->shift);
+		for (size_t i=0; i < XARRAY_ENTRIES_PER_NODE; i++) {
+			xarray_debug_depth(depth);
+			kprintf("at index %zu\n", i);
+			uintptr_t current_entry = xarray_entry_fetch(&node->entries[i]);
+			xarray_debug_entry(current_entry, depth + 1);
+		}
+	}
+}
+
+static void xarray_raw_debug(xarray_t *xarray) {
+	uintptr_t entry = xarray_entry_fetch(&xarray->rcu.ptr);
+	xarray_debug_entry(entry, 0);
+}
+
+void xarray_debug(xarray_t *xarray) {
+	rcu_acquire_read(&xarray->rcu);
+	xarray_raw_debug(xarray);
+	rcu_release_read(&xarray->rcu);
 }
