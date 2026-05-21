@@ -2,7 +2,7 @@
 #define _KERNEL_CACHE_H
 
 #include <kernel/rwlock.h>
-#include <kernel/hashmap.h>
+#include <kernel/xarray.h>
 
 struct cache;
 struct vmm_seg;
@@ -18,7 +18,7 @@ typedef struct cache_op {
 
 typedef struct cache {
 	rwlock_t lock;
-	hashmap_t pages;
+	xarray_t pages;
 	cache_ops_t *ops;
 	size_t size;
 } cache_t;
@@ -41,7 +41,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size);
 void cache_write_terminate(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg);
 
 static inline uintptr_t cache_get_page(cache_t *cache, off_t offset) {
-	uintptr_t page = (uintptr_t)hashmap_get(&cache->pages, offset);
+	uintptr_t page = (uintptr_t)xarray_get(&cache->pages, offset);
 	if (!page) return PAGE_INVALID;
 	return page;
 }
