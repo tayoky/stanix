@@ -6,11 +6,11 @@
 #include <kernel/bus.h>
 #include <errno.h>
 
-hashmap_t device_drivers;
+xarray_t device_drivers;
 xarray_t devices;
 vfs_dentry_t *devfs_root;
 
-static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_driver) {	
+static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_driver) {
 	if (!device_driver->check || !device_driver->probe) return -ENOTSUP;
 	if (!device_driver->check(addr)) return -ENOTSUP;
 
@@ -24,7 +24,7 @@ static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_dri
 			device_destroy(addr->device);
 		}
 	}
-	
+
 	// the driver is compatible with the device
 	return device_driver->probe(addr);
 }
@@ -34,10 +34,10 @@ static int init_device(bus_addr_t *addr) {
 		// a driver already control this address
 		return -EBUSY;
 	}
-	
+
 	int ret = -ENOTSUP;
 
-	hashmap_foreach(major, driver, &device_drivers) {
+	xarray_foreach (major, driver, &device_drivers) {
 		(void)major;
 		ret = init_device_with_driver(addr, driver);
 		return ret;
@@ -54,16 +54,16 @@ int device_driver_register(device_driver_t *device_driver) {
 		static int major_dyn = 256;
 		device_driver->major = major_dyn++;
 	}
-	if (hashmap_get(&device_drivers, device_driver->major)) return -EEXIST;
-	hashmap_add(&device_drivers, device_driver->major, device_driver);
+	if (xarray_get(&device_drivers, device_driver->major)) return -EEXIST;
+	xarray_set(&device_drivers, device_driver->major, device_driver);
 
 	// try to use this new driver on all already existing devices
-	xarray_foreach(number, device, &devices) {
+	xarray_foreach (number, device, &devices) {
 		(void)number;
-		bus_t *bus = (bus_t*)device;
+		bus_t *bus = (bus_t *)device;
 		if (bus->device.type != DEVICE_BUS) continue;
 		foreach (node, &bus->addresses) {
-			bus_addr_t *addr = (bus_addr_t*)node;
+			bus_addr_t *addr = (bus_addr_t *)node;
 			init_device_with_driver(addr, device_driver);
 		}
 	}
@@ -71,13 +71,13 @@ int device_driver_register(device_driver_t *device_driver) {
 }
 
 int device_driver_unregister(device_driver_t *device_driver) {
-	hashmap_remove(&device_drivers, device_driver->major);
+	xarray_clear(&device_drivers, device_driver->major);
 	return 0;
 }
 
 int device_register(device_t *device) {
 	// TODO : create buses in devfs
-	if (!device->number)  {
+	if (!device->number) {
 		device->number = device->driver->minor_count++;
 	}
 	device->number = makedev(device->driver->major, device->number);
@@ -93,9 +93,9 @@ int device_register(device_t *device) {
 	kdebugf("register device %s as %d,%d (%lx)\n", device->name, major(device->number), minor(device->number), device->number);
 	xarray_set(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
-		bus_t *bus = (bus_t*)device;
-		foreach (node, &bus->addresses) {
-			bus_addr_t *addr = (bus_addr_t*)node;
+		bus_t *bus = (bus_t *)device;
+		foreach(node, &bus->addresses) {
+			bus_addr_t *addr = (bus_addr_t *)node;
 			// just in case the driver forgot
 			addr->bus = bus;
 			init_device(addr);
@@ -152,6 +152,6 @@ void init_devices(void) {
 	vfs_superblock_t *devfs_superblock = new_tmpfs();
 	vfs_mount("/dev", devfs_superblock);
 	devfs_root = vfs_get_dentry("/dev", 0);
-	
+
 	kok();
 }
