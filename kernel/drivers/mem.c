@@ -72,7 +72,7 @@ static int create_mem_dev(int minor, const char *name) {
 	dev->driver = &mem_driver;
 	dev->type   = DEVICE_CHAR;
 	dev->ops    = &mem_ops;
-	int ret = register_device(dev);
+	int ret = device_register(dev);
 	if (ret < 0) {
 		kfree(dev->name);
 		kfree(dev);
@@ -82,7 +82,7 @@ static int create_mem_dev(int minor, const char *name) {
 
 void init_mem_devices(void) {
 	kstatusf("init memory devices ... ");
-	register_device_driver(&mem_driver);
+	device_driver_register(&mem_driver);
 	create_mem_dev(DEV_NULL   , "null");
 	create_mem_dev(DEV_ZERO   , "zero");
 	create_mem_dev(DEV_FULL   , "full");

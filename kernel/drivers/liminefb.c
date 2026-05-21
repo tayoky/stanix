@@ -53,7 +53,7 @@ static device_driver_t liminefb_driver = {
 
 void init_liminefb(void) {
 	kstatusf("init liminefb ...");
-	register_device_driver(&liminefb_driver);
+	device_driver_register(&liminefb_driver);
 
 	for (size_t i = 0; i < framebuffer_request.response->framebuffer_count; i++){
 		struct limine_framebuffer *limine_data = framebuffer_request.response->framebuffers[i];

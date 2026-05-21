@@ -133,7 +133,7 @@ static int create_part(vfs_fd_t *dev, const char *target, off_t offset, size_t s
 	p->device.driver  = &part_driver;
 	p->device.ops     = &part_ops;
 	p->device.destroy = part_destroy;
-	int ret = register_device((device_t *)p);
+	int ret = device_register((device_t *)p);
 	if (ret < 0) {
 		kfree(p->device.name);
 		kfree(p);
@@ -223,7 +223,7 @@ vfs_filesystem_t part_fs = {
 int part_init(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
-	register_device_driver(&part_driver);
+	device_driver_register(&part_driver);
 	vfs_register_fs(&part_fs);
 	return 0;
 }

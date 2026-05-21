@@ -225,12 +225,12 @@ static device_driver_t vga_driver = {
 int vga_init(int argc, char **argv){
 	(void)argc;
 	(void)argv;
-    register_device_driver(&vga_driver);
+    device_driver_register(&vga_driver);
 	return 0;
 }
 
 int vga_fini(){
-    unregister_device_driver(&vga_driver);
+    device_driver_unregister(&vga_driver);
 	return 0;
 }
 

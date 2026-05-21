@@ -108,7 +108,7 @@ static int init_port(uint16_t port) {
 	tty->device.driver = &serial_driver;
 
 	kdebugf("register serial port under %s\n",name);
-	if(register_device((device_t*)tty) < 0){
+	if(device_register((device_t*)tty) < 0){
 		return -EIO;
 	}
 	
@@ -120,7 +120,7 @@ static int init_port(uint16_t port) {
 
 static int serial_init(int argc,char **argv) {
 	serial_count = 0;
-	register_device_driver(&serial_driver);
+	device_driver_register(&serial_driver);
 	if(have_opt(argc - 1,argv,"--port")){
 		for (int i = 0; i < argc-1; i++){
 			if(!strcmp("--port",argv[i])){
@@ -129,7 +129,7 @@ static int serial_init(int argc,char **argv) {
 			
 		}
 		if(!serial_count){
-			unregister_device_driver(&serial_driver);
+			device_driver_unregister(&serial_driver);
 			return -ENODEV;
 		}
 		return 0;
@@ -140,7 +140,7 @@ static int serial_init(int argc,char **argv) {
 }
 
 static int serial_fini() {
-	unregister_device_driver(&serial_driver);
+	device_driver_unregister(&serial_driver);
 	return 0;
 }
 

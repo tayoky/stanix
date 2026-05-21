@@ -337,7 +337,7 @@ static void ide_init_device(ide_device_t *device){
 	device->device.ops    = &ata_ops;
 	device->device.driver = &ide_driver;
 	device->device.name   = strdup(name);
-	register_device((device_t*)device);
+	device_register((device_t*)device);
 }
 
 static int ide_check_addr(bus_addr_t *addr){
@@ -441,12 +441,12 @@ static device_driver_t ide_driver = {
 int ide_init(int argc,char **argv){
 	(void)argc;
 	(void)argv;
-	register_device_driver(&ide_driver);
+	device_driver_register(&ide_driver);
 	return 0;
 }
 
 int ide_fini(){
-	unregister_device_driver(&ide_driver);
+	device_driver_unregister(&ide_driver);
 	return 0;
 }
 

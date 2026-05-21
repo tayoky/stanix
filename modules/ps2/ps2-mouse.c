@@ -160,12 +160,12 @@ static device_driver_t ps2_mouse_driver = {
 int init_mouse(int argc,char **argv){
 	(void)argc;
 	(void)argv;
-	register_device_driver(&ps2_mouse_driver);
+	device_driver_register(&ps2_mouse_driver);
 	return 0;
 }
 
 int fini_mouse(){
-	unregister_device_driver(&ps2_mouse_driver);
+	device_driver_unregister(&ps2_mouse_driver);
 	return 0;
 }
 

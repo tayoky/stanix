@@ -138,12 +138,12 @@ static device_driver_t ps2_kb_driver = {
 static int init_ps2kb(int argc,char **argv){
 	(void)argc;
 	(void)argv;
-	register_device_driver(&ps2_kb_driver);
+	device_driver_register(&ps2_kb_driver);
 	return 0;
 }
 
 static int fini_ps2kb(){
-	unregister_device_driver(&ps2_kb_driver);
+	device_driver_unregister(&ps2_kb_driver);
 	return 0;
 }
 

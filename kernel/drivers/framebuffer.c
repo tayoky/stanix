@@ -118,5 +118,5 @@ int register_framebuffer(framebuffer_t *fb) {
 	fb->device.type = VFS_BLOCK;
 	// TODO : use name allocator
 	fb->device.name = strdup("fb0");
-	return register_device((device_t*)fb);
+	return device_register((device_t*)fb);
 }

@@ -21,7 +21,7 @@ static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_dri
 			return -EBUSY;
 		} else {
 			// replace the old driver
-			destroy_device(addr->device);
+			device_destroy(addr->device);
 		}
 	}
 	
@@ -46,7 +46,7 @@ static int init_device(bus_addr_t *addr) {
 	return ret;
 }
 
-int register_device_driver(device_driver_t *device_driver) {
+int device_driver_register(device_driver_t *device_driver) {
 	// default priority
 	if (!device_driver->priority) device_driver->priority = 1;
 	if (device_driver->major == 0) {
@@ -70,12 +70,12 @@ int register_device_driver(device_driver_t *device_driver) {
 	return 0;
 }
 
-int unregister_device_driver(device_driver_t *device_driver) {
+int device_driver_unregister(device_driver_t *device_driver) {
 	hashmap_remove(&device_drivers, device_driver->major);
 	return 0;
 }
 
-int register_device(device_t *device) {
+int device_register(device_t *device) {
 	// TODO : create buses in devfs
 	if (!device->number)  {
 		device->number = device->driver->minor_count++;
@@ -112,7 +112,7 @@ void device_release(device_t *device) {
 	if (device->cleanup) device->cleanup(device);
 }
 
-int destroy_device(device_t *device) {
+int device_destroy(device_t *device) {
 	xarray_clear(&devices, device->number);
 	device->type = DEVICE_UNPLUGGED;
 	if (device->destroy) device->destroy(device);
@@ -129,7 +129,7 @@ device_t *device_from_number(dev_t dev) {
 	return device;
 }
 
-vfs_fd_t *open_device(device_t *device, long flags) {
+vfs_fd_t *device_open(device_t *device, long flags) {
 	vfs_fd_t *fd = vfs_alloc_fd();
 	fd->ops = device->ops;
 	fd->type = device->type == DEVICE_BLOCK ? VFS_BLOCK : VFS_CHAR;

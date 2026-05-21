@@ -292,5 +292,5 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	list_append(&gpu->alloc_blocks, &main_block->node);
 	init_hashmap(&gpu->fbs, 32);
 
-	return register_device((device_t *)gpu);
+	return device_register((device_t *)gpu);
 }

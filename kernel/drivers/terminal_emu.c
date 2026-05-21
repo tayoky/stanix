@@ -158,7 +158,7 @@ void init_terminal_emualtor(void){
 	}
 	kfree(activated_value);
 
-	register_device_driver(&terminal_emulator);
+	device_driver_register(&terminal_emulator);
 
 	//now find the framebuffer to use
 	char *framebuffer_path = ini_get_value(kernel->conf_file,"terminal_emulator","framebuffer");
@@ -248,7 +248,7 @@ void init_terminal_emualtor(void){
 	terminal_dev->device.name   = strdup("tty0");
 	terminal_dev->device.ops    = &terminal_ops;
 	terminal_dev->device.driver = &terminal_emulator;
-	if(register_device((device_t*)terminal_dev)){
+	if(device_register((device_t*)terminal_dev)){
 		kfail();
 		kinfof("terminal emulator init but can't create device /dev/tty0\n");
 		return;

@@ -278,7 +278,7 @@ static int init_ps2(int argc,char **argv){
 	}
 
 	//setup driver and bus
-	register_device_driver(&ps2_driver);
+	device_driver_register(&ps2_driver);
 
 	//now scan the device on each port
 	for (int i=1; i<3; i++) {
@@ -301,7 +301,7 @@ static int init_ps2(int argc,char **argv){
 		ps2_write(conf);	
 	}
 
-	register_device((device_t*)&ps2_bus);
+	device_register((device_t*)&ps2_bus);
 
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");
 
@@ -316,8 +316,8 @@ static int init_ps2(int argc,char **argv){
 }
 
 static int fini_ps2(){
-	destroy_device((device_t*)&ps2_bus);
-	unregister_device_driver(&ps2_driver);
+	device_destroy((device_t*)&ps2_bus);
+	device_driver_unregister(&ps2_driver);
 	UNEXPORT(ps2_read);
 	UNEXPORT(ps2_send);
 	return 0;

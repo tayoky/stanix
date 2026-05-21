@@ -252,10 +252,10 @@ int init_pci(int argc,char **argv){
 	(void)argc;
 	(void)argv;
 
-	register_device_driver(&pci_driver);
+	device_driver_register(&pci_driver);
 
 	pci_foreach(create_pci_addr,&pci_bus);
-	register_device((device_t*)&pci_bus);
+	device_register((device_t*)&pci_bus);
 	
 	EXPORT(pci_foreach);
 	EXPORT(pci_read_config_dword)
@@ -269,8 +269,8 @@ int init_pci(int argc,char **argv){
 }
 
 int rm_pci(){
-	destroy_device((device_t*)&pci_bus);
-	unregister_device_driver(&pci_driver);
+	device_destroy((device_t*)&pci_bus);
+	device_driver_unregister(&pci_driver);
 	UNEXPORT(pci_foreach);
 	UNEXPORT(pci_read_config_dword)
 	UNEXPORT(pci_read_config_word)

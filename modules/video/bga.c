@@ -205,12 +205,12 @@ static device_driver_t bga_driver = {
 int bga_init(int argc, char **argv){
 	(void)argc;
 	(void)argv;
-	register_device_driver(&bga_driver);
+	device_driver_register(&bga_driver);
 	return 0;
 }
 
 int bga_fini(){
-	unregister_device_driver(&bga_driver);
+	device_driver_unregister(&bga_driver);
 	return 0;
 }
 

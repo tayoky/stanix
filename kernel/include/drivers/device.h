@@ -36,21 +36,32 @@ typedef struct device {
 #define DEVICE_BUS       3
 #define DEVICE_UNPLUGGED 4
 
-int register_device_driver(device_driver_t *device_driver);
-int unregister_device_driver(device_driver_t *device_driver);
+/**
+ * @brief register a new device driver
+ * @param device_driver the device driver to register
+ * @return 0 on success, else error code
+ */
+int device_driver_register(device_driver_t *device_driver);
+
+/**
+ * @brief unregister a previously registered device driver
+ * @param device_driver the device driver to unregister
+ * @return 0 on success, else error code
+ */
+int device_driver_unregister(device_driver_t *device_driver);
 
 /**
  * @brief register a new device
  * @param device the device to register
  * @note if number is 0 a dev number is automaticly allocated
  */
-int register_device(device_t *device);
+int device_register(device_t *device);
 
 /**
  * @brief destroy a device
  * @param device the device to destroy
  */
-int destroy_device(device_t *device);
+int device_destroy(device_t *device);
 
 /**
  * @brief get a device from its dev number
@@ -65,7 +76,7 @@ device_t *device_from_number(dev_t dev);
  * @param flags flags to open the device with
  * @return a vfs file descriptor to the device or NULL on error
  */
-vfs_fd_t *open_device(device_t *device, long flags);
+vfs_fd_t *device_open(device_t *device, long flags);
 
 /**
  * @brief create a new reference to a device

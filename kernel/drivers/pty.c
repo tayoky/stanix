@@ -90,7 +90,7 @@ void pty_master_close(vfs_fd_t *fd) {
 	pty_t *pty = fd->private;
 
 	// the master close so remove the slave
-	destroy_device((device_t *)pty->slave);
+	device_destroy((device_t *)pty->slave);
 	pty_cleanup(pty);
 }
 
@@ -135,7 +135,7 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	char path[32];
 	sprintf(path, "pts/%d", kernel->pty_count);
 	slave->device.name = strdup(path);
-	if (register_device((device_t *)slave) < 0) {
+	if (device_register((device_t *)slave) < 0) {
 		// TODO : delete tty
 		return -ENOENT;
 	}
@@ -149,7 +149,7 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 
 void init_ptys(void) {
 	kstatusf("init pty ... ");
-	register_device_driver(&pty_driver);
+	device_driver_register(&pty_driver);
 	vfs_mkdir("/dev/pts", 0755);
 	kok();
 }
