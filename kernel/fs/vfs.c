@@ -1016,9 +1016,10 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 
 void vfs_close(vfs_fd_t *fd) {
 	if (!fd) return;
-	fd->ref_count--;
-	if (fd->ref_count > 0) return;
-	vfs_node_release(fd->inode);
+	if (fd->ref_count > 1) {
+		fd->ref_count--;
+		return;
+	}
 
 	if (fd->ops && fd->ops->close) {
 		fd->ops->close(fd);
@@ -1027,6 +1028,8 @@ void vfs_close(vfs_fd_t *fd) {
 	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
 		device_release(fd->private);
 	}
+	vfs_node_release(fd->inode);
+	vfs_dentry_release(fd->dentry);
 
 	slab_free(fd);
 }
