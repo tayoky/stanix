@@ -121,22 +121,22 @@ static int proc_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	proc_inode_t *inode = container_of(vnode, proc_inode_t, vnode);
 
 	if (!strcmp(dentry->name, "cwd")) {
-		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_CWD);
+		dentry->inode = proc_new_node(vnode->superblock, proc_ref(inode->proc), INODE_CWD);
 		return 0;
 	} else if (!strcmp(dentry->name, "maps")) {
-		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_MAPS);
+		dentry->inode = proc_new_node(vnode->superblock, proc_ref(inode->proc), INODE_MAPS);
 		return 0;
 	} else if (!strcmp(dentry->name, "cmdline")) {
-		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_CMDLINE);
+		dentry->inode = proc_new_node(vnode->superblock, proc_ref(inode->proc), INODE_CMDLINE);
 		return 0;
 	} else if (!strcmp(dentry->name, "exe")) {
-		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_EXE);
+		dentry->inode = proc_new_node(vnode->superblock, proc_ref(inode->proc), INODE_EXE);
 		return 0;
 	} else if (!strcmp(dentry->name, "fd")) {
-		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_FD_DIR);
+		dentry->inode = proc_new_node(vnode->superblock, proc_ref(inode->proc), INODE_FD_DIR);
 		return 0;
 	} else if (!strcmp(dentry->name, "status")) {
-		dentry->inode = proc_new_node(vnode->superblock, inode->proc, INODE_STATUS);
+		dentry->inode = proc_new_node(vnode->superblock, proc_ref(inode->proc), INODE_STATUS);
 		return 0;
 	}
 	return -ENOENT;
@@ -214,7 +214,6 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 
 static void proc_cleanup(vfs_node_t *vnode) {
 	proc_inode_t *inode = container_of(vnode, proc_inode_t, vnode);
-
 	proc_release(inode->proc);
 	kfree(inode);
 }
