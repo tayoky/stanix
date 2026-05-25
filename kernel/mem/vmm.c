@@ -219,7 +219,7 @@ static int vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_t size,
 
 	if (ret < 0) {
 		list_remove(&space->segs, &new_seg->node);
-		kfree(new_seg);
+		slab_free(new_seg);
 	} else {
 		if (seg) *seg = new_seg;
 		if (fd) {
