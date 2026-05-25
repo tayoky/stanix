@@ -8,14 +8,15 @@ typedef uint64_t *addrspace_t;
 
 #define PAGING_ENTRY_ADDRESS ((~(uint64_t)0XFFF)&(~(((uint64_t)0xFFF)<<52)))
 
-#define PAGING_FLAG_PRESENT 0x01
-#define PAGING_FLAG_WRITE   0x02
-#define PAGING_FLAG_USER    0x04
-#define PAGING_FLAG_PWT     0x08
-#define PAGING_FLAG_PCD     0x10
-#define PAGING_FLAG_ACCESS  0x20
-#define PAGING_FLAG_DIRTY   0x40
-#define PAGING_FLAG_PAT     0x80
+#define PAGING_FLAG_PRESENT 0x001
+#define PAGING_FLAG_WRITE   0x002
+#define PAGING_FLAG_USER    0x004
+#define PAGING_FLAG_PWT     0x008
+#define PAGING_FLAG_PCD     0x010
+#define PAGING_FLAG_ACCESS  0x020
+#define PAGING_FLAG_DIRTY   0x040
+#define PAGING_FLAG_PAT     0x080
+#define PAGING_FLAG_GLOBAL  0x180
 #define PAGING_FLAG_NO_EXE  (1UL << 61)
 
 #define PAGING_FLAG_READONLY_CPL0  PAGING_FLAG_PRESENT

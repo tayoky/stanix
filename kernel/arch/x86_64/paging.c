@@ -29,6 +29,9 @@ static uint64_t mmu2paging_flags(long mmu_flags) {
 	if (mmu_flags & MMU_FLAG_WRITE_COMBINE) {
 		flags |= PAGING_FLAG_PAT;
 	}
+	if (mmu_flags & MMU_FLAG_GLOBAL) {
+		flags |= PAGING_FLAG_GLOBAL;
+	}
 	return flags;
 }
 
