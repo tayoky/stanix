@@ -100,6 +100,7 @@ uintptr_t pmm_allocate_page(void) {
 
 	// first : out of memory check
 	if (!stack_head) {
+		spinlock_release(&pmm_lock);
 		return PAGE_INVALID;
 	}
 
