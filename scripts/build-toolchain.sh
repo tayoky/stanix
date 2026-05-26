@@ -177,7 +177,7 @@ if ! test -e bin/$TARGET-gcc ; then
 	)
 
 	echo "building bootstrap tlibc..."
-	make -C "$TOP/tlibc" install DESTDIR="$SYSROOT" -j$NPROC
+	make -C "$TOP/tlibc" install-libc DESTDIR="$SYSROOT" -j$NPROC
 
 	cd gcc-$GCC_VERSION
 	if ! test -f build/Makefile ; then
