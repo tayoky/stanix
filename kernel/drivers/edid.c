@@ -119,7 +119,7 @@ int edid_parse_connector(edid_t *edid, struct trm_connector *connector, struct t
 		connector->type = TRM_CONNECTOR_VGA;
 	}
 
-	size_t modes_count;
+	size_t modes_count = 0;
 	trm_timings_t modes[32];
 
 	for (size_t i=0; i<4; i++) {

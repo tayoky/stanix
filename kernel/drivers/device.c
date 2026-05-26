@@ -147,7 +147,7 @@ vfs_fd_t *device_open(device_t *device, long flags) {
 void init_devices(void) {
 	kstatusf("init devices ... ");
 	xarray_init(&devices);
-	init_hashmap(&device_drivers, 256);
+	xarray_init(&device_drivers);
 
 	vfs_superblock_t *devfs_superblock = new_tmpfs();
 	vfs_mount("/dev", devfs_superblock);
