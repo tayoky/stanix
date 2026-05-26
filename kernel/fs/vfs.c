@@ -474,8 +474,6 @@ int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 		vfs_add_dentry(parent, dentry);
 	}
 
-	vfs_dentry_release(parent);
-	return 0;
 error:
 	vfs_dentry_release(parent);
 	vfs_dentry_release(dentry);
@@ -500,8 +498,6 @@ int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 		vfs_add_dentry(parent, dentry);
 	}
 
-	vfs_dentry_release(parent);
-	return 0;
 error:
 	vfs_dentry_release(parent);
 	vfs_dentry_release(dentry);
@@ -526,8 +522,6 @@ int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev) {
 		vfs_add_dentry(parent, dentry);
 	}
 
-	vfs_dentry_release(parent);
-	return 0;
 error:
 	vfs_dentry_release(parent);
 	vfs_dentry_release(dentry);
@@ -562,9 +556,6 @@ int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at
 		vfs_add_dentry(new_parent, new_dentry);
 	}
 
-	vfs_dentry_release(old_dentry);
-	vfs_dentry_release(new_parent);
-	return 0;
 error:
 	vfs_dentry_release(old_dentry);
 	vfs_dentry_release(new_parent);
@@ -585,7 +576,6 @@ int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path) {
 	ret = parent->inode->ops->symlink(parent->inode, dentry, target);
 	if (ret < 0) goto error;
 
-	return 0;
 error:
 	vfs_dentry_release(parent);
 	vfs_dentry_release(dentry);
@@ -627,10 +617,6 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 		vfs_add_dentry(new_parent, new_dentry);
 	}
 
-	vfs_dentry_release(old_dentry);
-	vfs_dentry_release(new_parent);
-	return 0;
-	
 error:
 	vfs_dentry_release(old_dentry);
 	vfs_dentry_release(new_parent);
