@@ -125,7 +125,6 @@ int sys_open(const char *path, int flags, mode_t mode) {
 }
 
 int sys_close(int fd) {
-	kdebugf("try close fd %ld\n", fd);
 	return close_fd(fd);
 }
 
