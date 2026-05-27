@@ -36,6 +36,7 @@ void init_irq(void){
 	} else if (kernel->pic_type == PIC_APIC){
 		kinfof("use apic\n");
 	}
+	enable_interrupt();
 }
 
 
