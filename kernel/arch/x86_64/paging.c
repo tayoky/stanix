@@ -89,12 +89,12 @@ void init_mmu(void) {
 	mmu_map_hhdm(PML4);
 	mmu_set_addr_space(PML4);
 
-	uint32_t lower;
-	uint32_t higger;
-	rdmsr(IA32_PAT_MSR, &lower, &higger);
-	lower &= ~0xffff;
-	lower |= 0x401;
-	wrmsr(IA32_PAT_MSR, lower, higger);
+	uint32_t low;
+	uint32_t high;
+	rdmsr(IA32_PAT_MSR, &low, &high);
+	high &= ~0xff;
+	high |= PAGING_PAT_WC;
+	wrmsr(IA32_PAT_MSR, low, high);
 	
 	kok();
 }

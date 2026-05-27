@@ -25,12 +25,12 @@ typedef uint64_t *addrspace_t;
 #define PAGING_FLAG_RW_CPL3        PAGING_FLAG_READONLY_CPL3 | PAGING_FLAG_WRITE
 #define PAGING_FLAG_WRITE_COMBINE (1UL << 7) 
 
-#define PAGING_PAT_UC  0x01
-#define PAGING_PAT_WC  0x02
+#define PAGING_PAT_UC  0x00
+#define PAGING_PAT_WC  0x01
 #define PAGING_PAT_WT  0x04
-#define PAGING_PAT_WP  0x08
-#define PAGING_PAT_WB  0x10
-#define PAGING_PAT_UC2 0x20
+#define PAGING_PAT_WP  0x05
+#define PAGING_PAT_WB  0x06
+#define PAGING_PAT_UC2 0x07
 
 #define switch_stack() asm volatile("mov $0, %%rbp\nmov %0, %%rsp" : :)
 
