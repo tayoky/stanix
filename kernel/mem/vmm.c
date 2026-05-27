@@ -30,10 +30,28 @@ void init_vmm(void) {
 	kok();
 }
 
+static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
+	uintptr_t phys  = mmu_virt2phys((void *)vpage);
+	if (atomic_load(&pmm_page_info(phys)->ref_count) <= 1) {
+		// other processes already copied
+		mmu_set_flags(get_current_proc()->vmm_space.addrspace, vpage, seg->prot);
+	} else {
+		// we need to copy
+		uintptr_t new_page = pmm_dup_page(phys);
+		if (new_page == PAGE_INVALID) {
+			// not looking good
+			send_sig_task(get_current_task(), SIGBUS);
+			return;
+		}
+		pmm_free_page(phys);
+		mmu_map_page(get_current_proc()->vmm_space.addrspace, new_page, vpage, seg->prot);
+	}
+	return;
+}
+
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	spinlock_acquire(&seg->lock);
 	uintptr_t vpage = PAGE_ALIGN_DOWN((uintptr_t)addr);
-	uintptr_t phys  = mmu_virt2phys((void *)vpage);
 
 	if (seg->ops && seg->ops->fault) {
 		if (seg->ops->fault(seg, addr, prot)) {
@@ -45,20 +63,9 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	if ((seg->flags & VMM_FLAG_PRIVATE) && (seg->prot & MMU_FLAG_WRITE) && prot == MMU_FLAG_WRITE) {
 		// we failed a write but we have write perm
 		// it's CoW
-		if (atomic_load(&pmm_page_info(phys)->ref_count) <= 1) {
-			// other processes already copied
-			mmu_set_flags(get_current_proc()->vmm_space.addrspace, vpage, seg->prot);
-		} else {
-			// we need to copy
-			uintptr_t new_page = pmm_dup_page(phys);
-			if (new_page == PAGE_INVALID) {
-				// not looking good
-				send_sig_task(get_current_task(), SIGBUS);
-				spinlock_release(&seg->lock);
-				return 1;
-			}
-			pmm_free_page(phys);
-			mmu_map_page(get_current_proc()->vmm_space.addrspace, new_page, vpage, seg->prot);
+		vmm_cow(seg, vpage);
+		if (vpage + PAGE_SIZE < seg->end) {
+			vmm_cow(seg, vpage + PAGE_SIZE);
 		}
 		spinlock_release(&seg->lock);
 		return 1;
