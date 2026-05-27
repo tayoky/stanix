@@ -3,10 +3,10 @@
 
 #include <kernel/arch.h>
 
-typedef void (*interrupt_handler_t)(fault_frame_t *frame, void *data);
+typedef void (*interrupt_handler_t)(registers_t *frame, void *data);
 
-void timer_handler(fault_frame_t *frame);
-int fault_handler(fault_frame_t *frame);
+void timer_handler(registers_t *frame);
+int fault_handler(registers_t *frame);
 int irq_allocate(interrupt_handler_t handler, void *data);
 
 #endif

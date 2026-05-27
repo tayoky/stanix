@@ -14,7 +14,7 @@
 #define ICW4_BUF_MASTER	0x0C		/* Buffered mode/master */
 #define ICW4_SFNM	0x10		/* Special fully nested (not) */
 
-static void surpirous_handler(fault_frame_t *frame, void *arg) {
+static void surpirous_handler(registers_t *frame, void *arg) {
 	(void)frame;
 	(void)arg;
 }
@@ -38,9 +38,9 @@ void init_pic(){
 	out_byte(PIC1_DATA, ICW4_8086);
 	out_byte(PIC2_DATA, ICW4_8086);
 
-	//at the start unmask everything
-	out_byte(PIC1_DATA, 0x00);
-    out_byte(PIC2_DATA, 0x00);
+	//at the start mask everything
+	out_byte(PIC1_DATA, 0xff);
+    out_byte(PIC2_DATA, 0xff);
 
 	//tell the kernel we use pic
 	kernel->pic_type = PIC_PIC;

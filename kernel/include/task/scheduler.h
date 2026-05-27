@@ -16,7 +16,7 @@
 #include <stdint.h>
 #include <fcntl.h>
 
-struct fault_frame;
+struct registers;
 struct process;
 struct task;
 
@@ -62,7 +62,7 @@ typedef struct task {
 	int wakeup_reason;
 	uintptr_t kernel_stack;
 
-	struct fault_frame *syscall_frame;
+	struct registers *syscall_frame;
 	void *exit_arg;
 	struct task *waker;
 	struct task * _Atomic waiter; //task waiting on us

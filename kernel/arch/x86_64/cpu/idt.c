@@ -48,7 +48,7 @@ static const char *error_msg[] = {
 	"control protection exception",
 };
 
-static void page_fault_info(fault_frame_t *fault){
+static void page_fault_info(registers_t *fault){
 	kprintf("page fault at address 0x%lx\n",fault->cr2);
 	if(fault->err_code & 0x04)kprintf("user");
 	else kprintf("OS");
@@ -61,7 +61,7 @@ static void page_fault_info(fault_frame_t *fault){
 	kprintf("present page\n");
 }
 
-void isr_handler(fault_frame_t *fault){
+void isr_handler(registers_t *fault){
 	if (fault->err_type < 32) {
 		if (fault_handler(fault)) return;
 

@@ -143,7 +143,7 @@ int send_sig_task(task_t *thread, int signum) {
 	return 0;
 }
 
-void handle_signal(fault_frame_t *context) {
+void handle_signal(registers_t *context) {
 	spinlock_acquire(&get_current_task()->sig_lock);
 	sigset_t to_handle = get_current_task()->pending_sig & ~get_current_task()->sig_mask;
 
@@ -197,7 +197,7 @@ void handle_signal(fault_frame_t *context) {
 	spinlock_release(&get_current_task()->sig_lock);
 }
 
-void restore_signal_handler(fault_frame_t *context) {
+void restore_signal_handler(registers_t *context) {
 	kdebugf("restore signal handler\n");
 
 	// since the magic return address as been poped,
