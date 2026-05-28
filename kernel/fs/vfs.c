@@ -1,22 +1,23 @@
-#include <kernel/vfs.h>
-#include <kernel/kernel.h>
-#include <kernel/print.h>
-#include <kernel/kheap.h>
-#include <kernel/string.h>
-#include <kernel/vmm.h>
-#include <kernel/time.h>
-#include <kernel/list.h>
+#include <kernel/assert.h>
 #include <kernel/device.h>
+#include <kernel/kernel.h>
+#include <kernel/kheap.h>
+#include <kernel/list.h>
+#include <kernel/panic.h>
+#include <kernel/poll.h>
+#include <kernel/print.h>
 #include <kernel/scheduler.h>
 #include <kernel/slab.h>
-#include <kernel/assert.h>
-#include <kernel/poll.h>
-#include <limits.h>
-#include <stddef.h>
+#include <kernel/string.h>
+#include <kernel/time.h>
+#include <kernel/vfs.h>
+#include <kernel/vmm.h>
 #include <errno.h>
+#include <limits.h>
 #include <poll.h>
+#include <stddef.h>
 
-//TODO : make this process specific
+// TODO : make this process specific
 vfs_dentry_t *root;
 
 static list_t fs_types;
@@ -84,7 +85,7 @@ void init_vfs(void) {
 	dentries_slab.destructor  = dentry_destructor;
 	dentries_slab.evict       = dentry_evict;
 
-	root = slab_alloc(&dentries_slab);
+	root            = slab_alloc(&dentries_slab);
 	root->ref_count = 1;
 	strcpy(root->name, "[root]");
 
@@ -102,10 +103,10 @@ void vfs_unregister_fs(vfs_filesystem_t *fs) {
 }
 
 void vfs_init_created_node(vfs_node_t *node) {
-	node->uid = get_current_euid();
-	node->gid = get_current_egid();
+	node->uid   = get_current_euid();
+	node->gid   = get_current_egid();
 	node->atime = node->mtime = node->ctime = NOW();
-	node->ref_count = 1;
+	node->ref_count                         = 1;
 }
 
 static int vfs_update_time(vfs_node_t *node, int mask) {
@@ -114,11 +115,11 @@ static int vfs_update_time(vfs_node_t *node, int mask) {
 	return vfs_setattr(node, &st, mask);
 }
 
-//basename without modyfing anything
+// basename without modyfing anything
 static const char *vfs_basename(const char *path) {
 	const char *base = path + strlen(path) - 1;
-	//path of directory might finish with '/' like /tmp/dir/
-	if (*base == '/')base--;
+	// path of directory might finish with '/' like /tmp/dir/
+	if (*base == '/') base--;
 	while (*base != '/') {
 		base--;
 		if (base < path) {
@@ -154,7 +155,7 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 
 	*_parent = parent;
 	*_dentry = dentry;
-	
+
 	return 0;
 }
 
@@ -176,7 +177,7 @@ static void vfs_destroy_superblock(vfs_superblock_t *superblock) {
 
 int vfs_auto_mount(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data) {
 	vfs_superblock_t *superblock = NULL;
-	foreach(node, &fs_types) {
+	foreach (node, &fs_types) {
 		vfs_filesystem_t *fs = (vfs_filesystem_t *)node;
 		if (!strcmp(fs->name, filesystemtype)) {
 			if (!fs->mount) {
@@ -187,7 +188,7 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 			if (!superblock) return ret;
 
 			// mount the superblock
-			ret = vfs_mount(target, superblock);
+			ret                          = vfs_mount(target, superblock);
 			superblock->root->superblock = superblock;
 			if (ret < 0) {
 				vfs_destroy_superblock(superblock);
@@ -204,7 +205,7 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 
 	// create a new fake dentry for the root of the superblock
 	vfs_dentry_t *root_dentry = slab_alloc(&dentries_slab);
-	root_dentry->parent = vfs_dentry_ref(mount_point->parent);
+	root_dentry->parent       = vfs_dentry_ref(mount_point->parent);
 	memcpy(root_dentry->name, mount_point->name, sizeof(mount_point->name));
 	root_dentry->inode     = vfs_node_ref(superblock->root);
 	root_dentry->ref_count = 1;
@@ -217,7 +218,7 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 	if (mount_point->parent) {
 		list_remove(&mount_point->parent->children, &mount_point->children_node);
 		list_append(&mount_point->parent->children, &root_dentry->children_node);
-	} else if(mount_point == root) {
+	} else if (mount_point == root) {
 		// special case for root
 		root = root_dentry;
 	}
@@ -334,7 +335,7 @@ int vfs_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 		return 0;
 	}
 	event->revents = 0;
-	int ret = fd->ops->poll_get(fd, event);
+	int ret        = fd->ops->poll_get(fd, event);
 	// cap events
 	event->revents &= event->events | POLLHUP | POLLNVAL | POLLHUP;
 	return ret;
@@ -380,7 +381,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name, int *ret) {
 	}
 
 	// first search in the dentries cache
-	foreach(list_node, &entry->children) {
+	foreach (list_node, &entry->children) {
 		vfs_dentry_t *current_entry = container_of(list_node, vfs_dentry_t, children_node);
 		if (!strcmp(current_entry->name, name)) {
 			// cached entries must not be negative
@@ -424,7 +425,7 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 			// we cannot cache
 			vfs_dentry_t *parent = dentry->parent;
 			if (parent == dentry) parent = NULL;
-			
+
 			// we cannot use vfs_remove_entry cause it call vfs_dentry_release
 			list_remove(&parent->children, &dentry->children_node);
 			dentry->parent = NULL;
@@ -534,7 +535,7 @@ int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at
 
 	vfs_dentry_t *new_parent = NULL;
 	vfs_dentry_t *new_dentry = NULL;
-	int ret = vfs_create_dentry(new_at, new_path, &new_parent, &new_dentry);
+	int ret                  = vfs_create_dentry(new_at, new_path, &new_parent, &new_dentry);
 	if (ret < 0) goto error;
 
 	// hardlink cannot cross mount point boundaries
@@ -568,7 +569,7 @@ int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *dentry;
 	int ret = vfs_create_dentry(at, path, &parent, &dentry);
 	if (ret < 0) return ret;
-	
+
 	if (!parent->inode->ops || !parent->inode->ops->symlink) {
 		ret = -EINVAL;
 		goto error;
@@ -588,7 +589,7 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 
 	vfs_dentry_t *new_parent = NULL;
 	vfs_dentry_t *new_dentry = NULL;
-	int ret = vfs_create_dentry(new_at, new_path, &new_parent, &new_dentry);
+	int ret                  = vfs_create_dentry(new_at, new_path, &new_parent, &new_dentry);
 	if (ret < 0) goto error;
 
 	// rename cannot cross mount point boundaries
@@ -622,7 +623,6 @@ error:
 	vfs_dentry_release(new_parent);
 	vfs_dentry_release(new_dentry);
 	return ret;
-
 }
 
 int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
@@ -638,7 +638,7 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 		ret = -EBUSY;
 		goto error;
 	}
-	
+
 	if (dentry->inode->flags == VFS_DIR) {
 		ret = -EISDIR;
 		goto error;
@@ -736,7 +736,7 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	}
 	ret = parent->ops->rmdir(parent, dentry);
 	if (ret < 0) goto error;
-	
+
 	vfs_unlink_dentry(dentry);
 
 error:
@@ -752,7 +752,7 @@ int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
 		return -ENOTDIR;
 	}
 	dirent->d_type = DT_UNKNOWN;
-	dirent->d_ino  = 1; //some programs want non NULL inode
+	dirent->d_ino  = 1; // some programs want non NULL inode
 	if (node->ops->readdir) {
 		vfs_update_time(node, VNODE_ATTR_ATIME);
 		return node->ops->readdir(node, index, dirent);
@@ -770,7 +770,7 @@ int vfs_chmod(vfs_node_t *node, mode_t perm) {
 int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
 	struct stat st;
 	int ret = vfs_getattr(node, &st);
-	if (ret < 0)return ret;
+	if (ret < 0) return ret;
 	st.st_uid = owner;
 	st.st_gid = group_owner;
 	return vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
@@ -779,7 +779,7 @@ int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
 int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	if (!node) return -EINVAL;
 	memset(st, 0, sizeof(struct stat));
-	st->st_nlink = 1; //in case a driver forgot to set :D
+	st->st_nlink = 1; // in case a driver forgot to set :D
 	st->st_mode  = node->mode;
 	st->st_atime = node->atime;
 	st->st_mtime = node->mtime;
@@ -790,10 +790,10 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	// maybee we can sync
 	if (node->ops && node->ops->getattr) {
 		int ret = node->ops->getattr(node, st);
-		if (ret < 0)return ret;
+		if (ret < 0) return ret;
 	}
 
-	//file type to mode
+	// file type to mode
 	if (node->flags & VFS_FILE) {
 		st->st_mode |= S_IFREG;
 	} else if (node->flags & VFS_DIR) {
@@ -811,17 +811,17 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 }
 
 int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
-	//make sure we can actually sync
+	// make sure we can actually sync
 	if (!node || !node->ops || !node->ops->setattr) {
-		return -EINVAL; //should be another error ... but what ???
+		return -EINVAL; // should be another error ... but what ???
 	}
-	if (mask & VNODE_ATTR_MODE)  node->mode  = st->st_mode;
-	if (mask & VNODE_ATTR_UID)   node->uid   = st->st_uid;
-	if (mask & VNODE_ATTR_GID)   node->gid   = st->st_gid;
+	if (mask & VNODE_ATTR_MODE) node->mode = st->st_mode;
+	if (mask & VNODE_ATTR_UID) node->uid = st->st_uid;
+	if (mask & VNODE_ATTR_GID) node->gid = st->st_gid;
 	if (mask & VNODE_ATTR_ATIME) node->atime = st->st_atime;
 	if (mask & VNODE_ATTR_MTIME) node->mtime = st->st_mtime;
 	if (mask & VNODE_ATTR_CTIME) node->ctime = st->st_ctime;
-	int ret =  node->ops->setattr(node, st, mask);
+	int ret = node->ops->setattr(node, st, mask);
 	if (ret < 0) return ret;
 	return ret;
 }
@@ -831,34 +831,33 @@ int vfs_chroot(vfs_dentry_t *new_root) {
 	return 0;
 }
 
-vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *path, long flags) {
-	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, flags);
+vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *path, long flags, ...) {
+	mode_t mode = 0777;
+	if (flags & O_CREAT) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, flags, mode);
 	if (!dentry) return NULL;
 	vfs_node_t *node = vfs_node_ref(dentry->inode);
 	vfs_dentry_release(dentry);
 	return node;
 }
 
-static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, long flags, long *loop_max) {
-	if (!at) {
-		//if absolute relative to root else relative to cwd
-		if (path[0] == '/' || path[0] == '\0') {
-			return vfs_get_dentry_at(root, path, flags);
-		}
-		return vfs_get_dentry_at(get_current_proc()->cwd, path, flags);
-	}
-
-	//we are going to modify it
+static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, long flags, long *loop_max, mode_t mode) {
+	// we are going to modify it
 	char new_path[strlen(path) + 1];
 	strcpy(new_path, path);
 
-	//first parse the path
-	int path_depth = 0;
+	// first parse the path
+	int path_depth   = 0;
 	char last_is_sep = 1;
-	char *path_array[64]; //hardcoded maximum identation level
+	char *path_array[64]; // hardcoded maximum identation level
 
 	for (int i = 0; new_path[i]; i++) {
-		//only if it's a path separator
+		// only if it's a path separator
 		if (new_path[i] == '/') {
 			new_path[i] = '\0';
 			last_is_sep = 1;
@@ -874,7 +873,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 
 	// we handle O_PARENT here
 	if (flags & O_PARENT) {
-		//do we have a parent ?
+		// do we have a parent ?
 		if (path_depth < 1) {
 			return NULL;
 		}
@@ -882,13 +881,42 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 	}
 
 	vfs_dentry_t *current_entry = vfs_dentry_ref(at);
-
+	int ret;
+	int created = 0;
 	for (int i = 0; i < path_depth; i++) {
 		if (!current_entry) return NULL;
-
-		int ret;
 		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i], &ret);
-		if (!next_entry) goto error;
+		if (!next_entry) {
+			// maybee we can create it
+			if (i != path_depth - 1 || !(flags & O_CREAT)) {
+				goto error;
+			}
+			if (!current_entry->inode->ops->create) {
+				ret = -EINVAL;
+				goto error;
+			}
+			next_entry = slab_alloc(&dentries_slab);
+			if (!next_entry) {
+				ret = -ENOMEM;
+				goto error;
+			}
+			strcpy(next_entry->name, path_array[i]);
+			next_entry->ref_count = 1;
+			ret                   = current_entry->inode->ops->create(current_entry->inode, next_entry, mode);
+			if (ret < 0) {
+				vfs_dentry_release(next_entry);
+				goto error;
+			}
+			if (vfs_dentry_is_negative(next_entry)) {
+				// we need to manually fetch the new entry
+				next_entry = vfs_lookup(current_entry, path_array[i], &ret);
+				if (!next_entry) goto error;
+			} else {
+				// we can use the entry gaved by the fs driver
+				vfs_add_dentry(current_entry, next_entry);
+			}
+			created = 1;
+		}
 		vfs_dentry_release(current_entry);
 		current_entry = next_entry;
 
@@ -905,10 +933,10 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 			char target[PATH_MAX];
 			ssize_t size;
 			if ((size = vfs_readlink(symlink, target, sizeof(target))) < 0) goto error;
-			target[size] = '\0';
+			target[size]     = '\0';
 			vfs_dentry_t *at = target[0] == '/' ? root : current_entry->parent;
 			kassert(at);
-			next_entry = vfs_get_dentry_at_recur(at, target, flags, loop_max);
+			next_entry = vfs_get_dentry_at_recur(at, target, flags, loop_max, mode);
 			if (!next_entry) goto error;
 			vfs_dentry_release(current_entry);
 			current_entry = next_entry;
@@ -917,19 +945,47 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 
 	if (!current_entry) return NULL;
 
+	if (!created && (flags & O_EXCL)) {
+		ret = -EEXIST;
+		return NULL;
+	}
+
 	return current_entry;
 error:
 	vfs_dentry_release(current_entry);
 	return NULL;
 }
 
-vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags) {
+vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, ...) {
 	long loop_max = SYMLOOP_MAX;
-	return vfs_get_dentry_at_recur(at, path, flags, &loop_max);
+	mode_t mode   = 0777;
+	if (flags & O_CREAT) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+
+	if (!at) {
+		// if absolute relative to root else relative to cwd
+		if (path[0] == '/' || path[0] == '\0') {
+			return vfs_get_dentry_at(root, path, flags, mode);
+		}
+		return vfs_get_dentry_at(get_current_proc()->cwd, path, flags, mode);
+	}
+	return vfs_get_dentry_at_recur(at, path, flags, &loop_max, mode);
 }
 
-vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags) {
-	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, flags);
+vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags, ...) {
+	mode_t mode = 0777;
+	if (flags & O_CREAT) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+
+	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, flags, mode);
 	if (!dentry) return NULL;
 
 	vfs_fd_t *fd = vfs_open_node(dentry->inode, dentry, flags);
@@ -980,7 +1036,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 	if (fd->ops && fd->ops->open) {
 		int ret = fd->ops->open(fd);
 		if (ret < 0) {
-		error:
+error:
 			vfs_node_release(fd->inode);
 			kfree(fd);
 			return NULL;
@@ -1025,7 +1081,7 @@ int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid) {
 	vfs_getattr(node, &st);
 
 	int is_other = 1;
-	int perm = 0;
+	int perm     = 0;
 	if (uid == 0) {
 		// root can read/write anything
 		perm |= 06;
@@ -1064,14 +1120,14 @@ char *vfs_dentry_path(vfs_dentry_t *dentry) {
 
 	// TODO : use a dynamic buffer
 	char path[PATH_MAX];
-	size_t i = PATH_MAX;
+	size_t i  = PATH_MAX;
 	path[--i] = '\0';
 	while (dentry && dentry != root) {
 		size_t len = strlen(dentry->name);
 		i -= len;
 		memcpy(path + i, dentry->name, len);
 		path[--i] = '/';
-		dentry = dentry->parent;
+		dentry    = dentry->parent;
 	}
 	if (dentry != root) {
 unreachable:

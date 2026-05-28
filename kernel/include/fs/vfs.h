@@ -317,9 +317,16 @@ int vfs_setattr(vfs_node_t *node, struct stat *st, int mask);
 #define VNODE_ATTR_MTIME 0x10
 #define VNODE_ATTR_CTIME 0x20
 
-vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *pathname, long flags);
-static inline vfs_node_t *vfs_get_node(const char *pathname, long flags) {
-	return vfs_get_node_at(NULL, pathname, flags);
+vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *pathname, long flags, ...);
+static inline vfs_node_t *vfs_get_node(const char *pathname, long flags, ...) {
+	mode_t mode = 0777;
+	if (flags & O_CREAT) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+	return vfs_get_node_at(NULL, pathname, flags, mode);
 }
 
 static inline vfs_node_t *vfs_node_ref(vfs_node_t *node) {
@@ -338,7 +345,7 @@ void vfs_node_release(vfs_node_t *node);
  * @param flags open flags (VFS_READONLY,...)
  * @return an pointer to the vfs_node_t context or NULL if an error happend
  */
-vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags);
+vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags, ...);
 
 /**
  * @brief open a context for a given path (absolute)
@@ -346,8 +353,15 @@ vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags);
  * @param flags open flags (VFS_READONLY,...)
  * @return an pointer to the vfs_node_t or NULL if fail
  */
-static inline vfs_fd_t *vfs_open(const char *path, long flags) {
-	return vfs_open_at(NULL, path, flags);
+static inline vfs_fd_t *vfs_open(const char *path, long flags, ...) {
+	mode_t mode = 0777;
+	if (flags & O_CREAT) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+	return vfs_open_at(NULL, path, flags, mode);
 }
 
 /**
@@ -442,10 +456,17 @@ static vfs_dentry_t *vfs_dentry_ref(vfs_dentry_t *dentry) {
 	return dentry;
 }
 
-vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags);
+vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, ...);
 
-static inline vfs_dentry_t *vfs_get_dentry(const char *path, long flags) {
-	return vfs_get_dentry_at(NULL, path, flags);
+static inline vfs_dentry_t *vfs_get_dentry(const char *path, long flags, ...) {
+	mode_t mode = 0777;
+	if (flags & O_CREAT) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+	return vfs_get_dentry_at(NULL, path, flags, mode);
 }
 
 void vfs_dentry_release(vfs_dentry_t *dentry);
