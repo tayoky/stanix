@@ -170,7 +170,7 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock);
 int vfs_chroot(vfs_dentry_t *new_root);
 
 
-vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name, int *status);
+vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
 ssize_t vfs_read(vfs_fd_t *node, void *buffer, uint64_t offset, size_t count);
 ssize_t vfs_write(vfs_fd_t *node, const void *buffer, uint64_t offset, size_t count);
 
@@ -343,7 +343,7 @@ void vfs_node_release(vfs_node_t *node);
  * @param at
  * @param path the path (even if this absolute it will be interptreted as relative)
  * @param flags open flags (VFS_READONLY,...)
- * @return an pointer to the vfs_node_t context or NULL if an error happend
+ * @return a pointer to the vfs_node_t on success, else an error ptr (check with IS_ERR)
  */
 vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags, ...);
 
@@ -351,7 +351,7 @@ vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags, ...);
  * @brief open a context for a given path (absolute)
  * @param path
  * @param flags open flags (VFS_READONLY,...)
- * @return an pointer to the vfs_node_t or NULL if fail
+ * @return a pointer to the vfs_node_t on success, else an error ptr (check with IS_ERR)
  */
 static inline vfs_fd_t *vfs_open(const char *path, long flags, ...) {
 	mode_t mode = 0777;
@@ -369,6 +369,7 @@ static inline vfs_fd_t *vfs_open(const char *path, long flags, ...) {
  * @param node the inode to open
  * @param dentry the dentry of the inodes
  * @param flags the flags to open with
+ * @return a vfs fd on success, else an error ptr (check with IS_ERR)
  */
 vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags);
 

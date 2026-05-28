@@ -11,13 +11,13 @@ void read_main_conf_file(void){
 	vfs_fd_t *conf_file = vfs_open("/conf.ini",O_RDONLY);
 
 	//retry with stanix.ini
-	if(!conf_file){
+	if(IS_ERR(conf_file)){
 		kinfof("fail to open /conf.ini\n");
 		kinfof("try to open /stanix.ini instead\n");
 		conf_file = vfs_open("/stanix.ini",O_RDONLY);
 	}
 
-	if(!conf_file){
+	if(IS_ERR(conf_file)){
 		kinfof("can't open /stanix.ini\n");
 		kfail();
 		kinfof("no conf file find\n");

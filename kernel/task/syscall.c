@@ -47,10 +47,7 @@ int sys_open(const char *path, int flags, mode_t mode) {
 	int vfs_flags = flags & (O_RDONLY | O_WRONLY | O_RDWR | O_NOFOLLOW | O_NONBLOCK | O_APPEND | O_CREAT | O_EXCL);
 
 	vfs_fd_t *vfs_fd = vfs_open(path, vfs_flags, mode & ~get_current_proc()->umask);
-
-	if (!vfs_fd) {
-		return -ENOENT;
-	}
+	if (IS_ERR(vfs_fd)) return PTR2ERR(vfs_fd);
 
 	// is a directory check
 	if (flags & O_DIRECTORY) {

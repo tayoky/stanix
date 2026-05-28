@@ -49,10 +49,7 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	int ret = 0;
 
 	vfs_fd_t *file = vfs_open(path, O_RDONLY);
-
-	if (!file) {
-		return -ENOENT;
-	}
+	if (IS_ERR(file)) return PTR2ERR(file);
 
 	if (!(vfs_perm(file->inode) & PERM_EXECUTE)) {
 		ret = -EACCES;

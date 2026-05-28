@@ -50,7 +50,7 @@ void mount_initrd(void) {
 		} else if (current_file->type == USTAR_REGTYPE) {
 			// create open the file
 			vfs_fd_t *file = vfs_open(full_path, O_WRONLY | O_CREAT | O_EXCL, octal2int(current_file->file_mode));
-			if (!file) {
+			if (IS_ERR(file)) {
 				kfail();
 				kinfof("fail to create file %s\n", full_path);
 				halt();

@@ -170,7 +170,7 @@ void init_terminal_emualtor(void){
 
 	//and open the frammebuffer
 	vfs_fd_t *framebuffer_dev = vfs_open(framebuffer_path,O_WRONLY);
-	if(!framebuffer_dev){
+	if(IS_ERR(framebuffer_dev)){
 		kfail();
 		kinfof("fail to open device : %s\n", framebuffer_path);
 		kfree(framebuffer_path);
@@ -192,7 +192,7 @@ void init_terminal_emualtor(void){
 
 	// now open the file
 	vfs_fd_t *font_file = vfs_open(font_path, O_RDONLY);
-	if (!font_file) {
+	if (IS_ERR(font_file)) {
 		kfail();
 		kinfof("fail to open file : %s\n", font_path);
 		kfree(font_path);

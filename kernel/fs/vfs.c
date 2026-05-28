@@ -132,8 +132,8 @@ static const char *vfs_basename(const char *path) {
 
 static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **_parent, vfs_dentry_t **_dentry) {
 	vfs_dentry_t *parent = vfs_get_dentry_at(at, path, O_PARENT);
-	if (!parent) {
-		return -ENONET;
+	if (IS_ERR(parent)) {
+		return PTR2ERR(parent);
 	}
 
 	if (parent->inode->flags != VFS_DIR) {
@@ -228,8 +228,8 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 int vfs_mount_at(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock) {
 	// first open the mount point
 	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, name, O_RDWR);
-	if (!mount_point) {
-		return -ENOENT;
+	if (IS_ERR(mount_point)) {
+		return PTR2ERR(mount_point);
 	}
 
 	int ret = vfs_mount_on(mount_point, superblock);
@@ -241,8 +241,8 @@ int vfs_mount_at(vfs_dentry_t *at, const char *name, vfs_superblock_t *superbloc
 
 int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, path, 0);
-	if (!mount_point) {
-		return -ENOENT;
+	if (IS_ERR(mount_point)) {
+		return PTR2ERR(mount_point);
 	}
 
 	if (!(mount_point->flags & VFS_DENTRY_MOUNT)) {
@@ -353,22 +353,19 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 	}
 }
 
-vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name, int *ret) {
+vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	// check perm
 	if (!(vfs_perm(entry->inode) & PERM_EXECUTE)) {
-		if (ret) *ret = -EACCES;
-		return NULL;
+		return ERR2PTR(-EACCES);
 	}
 
 	// cannot do lookup on negative entry
 	if (vfs_dentry_is_negative(entry)) {
-		if (ret) *ret = -EINVAL;
-		return NULL;
+		return ERR2PTR(-EINVAL);
 	}
 
 	if (entry->inode->flags != VFS_DIR) {
-		if (ret) *ret = -ENOTDIR;
-		return NULL;
+		return ERR2PTR(-ENOTDIR);
 	}
 
 	// handle .. here so we can handle the parent of mount point
@@ -394,19 +391,17 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name, int *ret) {
 	// it isen't chached
 	// ask the fs for it
 	if (!entry->inode->ops->lookup) {
-		if (ret) *ret = -EINVAL;
-		return NULL;
+		return ERR2PTR(-EINVAL);
 	}
 
 	vfs_dentry_t *child_entry = slab_alloc(&dentries_slab);
 	strcpy(child_entry->name, name);
 	child_entry->ref_count = 1;
 
-	int op_ret = entry->inode->ops->lookup(entry->inode, child_entry);
-	if (op_ret < 0) {
+	int ret = entry->inode->ops->lookup(entry->inode, child_entry);
+	if (ret < 0) {
 		slab_free(child_entry);
-		if (ret) *ret = op_ret;
-		return NULL;
+		return ERR2PTR(ret);
 	}
 
 	// link it in the dentry cache
@@ -531,7 +526,7 @@ error:
 
 int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path) {
 	vfs_dentry_t *old_dentry = vfs_get_dentry_at(old_at, old_path, O_NOFOLLOW);
-	if (!old_dentry) return -ENOENT;
+	if (IS_ERR(old_dentry)) return PTR2ERR(old_dentry);
 
 	vfs_dentry_t *new_parent = NULL;
 	vfs_dentry_t *new_dentry = NULL;
@@ -585,7 +580,7 @@ error:
 
 int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags) {
 	vfs_dentry_t *old_dentry = vfs_get_dentry_at(old_at, old_path, O_NOFOLLOW);
-	if (!old_dentry) return -ENOENT;
+	if (IS_ERR(old_dentry)) return PTR2ERR(old_dentry);
 
 	vfs_dentry_t *new_parent = NULL;
 	vfs_dentry_t *new_dentry = NULL;
@@ -627,8 +622,8 @@ error:
 
 int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, O_NOFOLLOW);
-	if (!dentry) {
-		return -ENOENT;
+	if (IS_ERR(dentry)) {
+		return PTR2ERR(dentry);
 	}
 
 	int ret = 0;
@@ -687,8 +682,8 @@ error:
 
 int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, 0);
-	if (!dentry) {
-		return -ENOENT;
+	if (IS_ERR(dentry)) {
+		return PTR2ERR(dentry);
 	}
 
 	int ret = 0;
@@ -840,7 +835,7 @@ vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *path, long flags, ...)
 		va_end(args);
 	}
 	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, flags, mode);
-	if (!dentry) return NULL;
+	if (IS_ERR(dentry)) return (vfs_node_t *)dentry;
 	vfs_node_t *node = vfs_node_ref(dentry->inode);
 	vfs_dentry_release(dentry);
 	return node;
@@ -884,11 +879,12 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 	int ret;
 	int created = 0;
 	for (int i = 0; i < path_depth; i++) {
-		if (!current_entry) return NULL;
-		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i], &ret);
-		if (!next_entry) {
+		if (!current_entry) break;
+		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i]);
+		if (IS_ERR(next_entry)) {
+			ret = PTR2ERR(next_entry);
 			// maybee we can create it
-			if (i != path_depth - 1 || !(flags & O_CREAT)) {
+			if (ret != -ENOENT || i != path_depth - 1 || !(flags & O_CREAT)) {
 				goto error;
 			}
 			if (!current_entry->inode->ops->create) {
@@ -898,8 +894,11 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 			ret = vfs_create_at(current_entry, path_array[i], mode);
 			if (ret < 0) goto error;
 			// we need to manually fetch the new entry
-			next_entry = vfs_lookup(current_entry, path_array[i], &ret);
-			if (!next_entry) goto error;
+			next_entry = vfs_lookup(current_entry, path_array[i]);
+			if (IS_ERR(next_entry)) {
+				ret = PTR2ERR(next_entry);
+				goto error;
+			}
 			created = 1;
 		}
 		vfs_dentry_release(current_entry);
@@ -922,13 +921,17 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 			vfs_dentry_t *at = target[0] == '/' ? root : current_entry->parent;
 			kassert(at);
 			next_entry = vfs_get_dentry_at_recur(at, target, flags, loop_max, mode);
-			if (!next_entry) goto error;
+			if (IS_ERR(next_entry)) {
+				ret = PTR2ERR(next_entry);
+				goto error;
+			}
 			vfs_dentry_release(current_entry);
 			current_entry = next_entry;
 		}
 	}
 
-	if (!current_entry) return NULL;
+	// at this point an error happend or the current entry is valid
+	kassert(current_entry);
 
 	if (!created && (flags & O_EXCL)) {
 		ret = -EEXIST;
@@ -938,7 +941,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 	return current_entry;
 error:
 	vfs_dentry_release(current_entry);
-	return NULL;
+	return ERR2PTR(ret);
 }
 
 vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, ...) {
@@ -971,7 +974,7 @@ vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags, ...) {
 	}
 
 	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, flags, mode);
-	if (!dentry) return NULL;
+	if (IS_ERR(dentry)) return (vfs_fd_t *)dentry;
 
 	vfs_fd_t *fd = vfs_open_node(dentry->inode, dentry, flags);
 	vfs_dentry_release(dentry);
@@ -991,10 +994,11 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 		required_perm = PERM_WRITE;
 	}
 	if ((vfs_perm(node) & required_perm) != required_perm) {
-		return NULL;
+		return ERR2PTR(-EACCES);
 	}
 
 	vfs_fd_t *fd = vfs_alloc_fd();
+	if (!fd) return ERR2PTR(-ENOMEM);
 	struct stat st;
 	vfs_getattr(node, &st);
 
@@ -1011,20 +1015,24 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 		node->ops->open(fd);
 	}
 
+	int ret = 0;
 	if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode)) {
 		device_t *device = device_from_number(st.st_rdev);
-		if (!device) goto error;
+		if (!device) {
+			ret = -ENODEV;
+			goto error;
+		}
 		fd->ops     = device->ops;
 		fd->private = device;
 	}
 
 	if (fd->ops && fd->ops->open) {
-		int ret = fd->ops->open(fd);
+		ret = fd->ops->open(fd);
 		if (ret < 0) {
 error:
 			vfs_node_release(fd->inode);
-			kfree(fd);
-			return NULL;
+			slab_free(fd);
+			return ERR2PTR(ret);
 		}
 	}
 

@@ -45,7 +45,7 @@ void init_kout(){
 		char *current_kout = ini_get_value(kernel->conf_file,"kout",current_key);
 
 		vfs_fd_t *current_fd = vfs_open(current_kout,O_WRONLY);
-		if(!current_fd){
+		if(IS_ERR(current_fd)){
 			kinfof("can't open %s \n",current_kout);
 			kfree(current_kout);
 			continue;

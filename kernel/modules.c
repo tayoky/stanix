@@ -96,9 +96,7 @@ int insmod(const char *pathname, const char **args, char **name) {
 	int ret = -ENOSYS;
 	kdebugf("try to insmod %s\n", pathname);
 	vfs_fd_t *file = vfs_open(pathname, O_RDONLY);
-	if (!file) {
-		return -ENOENT;
-	}
+	if (IS_ERR(file)) return PTR2ERR(file);
 
 	Elf_Ehdr header;
 	vfs_read(file, &header, 0, sizeof(Elf_Ehdr));
