@@ -30,7 +30,7 @@ BreakStringLiterals: true
 BraceWrapping:
   AfterStruct: false
 BinPackParameters: false
-ForEachMacros: [foreach, hashmap_foreach]
+ForEachMacros: [foreach, hashmap_foreach, xarray_foreach]
 IncludeBlocks: Merge
 IncludeCategories:
   - Regex: '<kernel/'
