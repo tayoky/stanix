@@ -342,9 +342,7 @@ int sys_stat(const char *pathname, struct stat *st) {
 	}
 
 	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY);
-	if (!node) {
-		return -ENOENT;
-	}
+	if (IS_ERR(node)) return PTR2ERR(node);
 
 	int ret = vfs_getattr(node, st);
 
@@ -361,9 +359,7 @@ int sys_lstat(const char *pathname, struct stat *st) {
 	}
 
 	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY | O_NOFOLLOW);
-	if (!node) {
-		return -ENOENT;
-	}
+	if (IS_ERR(node)) return PTR2ERR(node);
 
 	int ret = vfs_getattr(node, st);
 
@@ -408,9 +404,7 @@ int sys_chdir(const char *path) {
 
 	// check if exist
 	vfs_dentry_t *entry = vfs_get_dentry(path, 0);
-	if (!entry) {
-		return -ENOENT;
-	}
+	if (IS_ERR(entry)) return PTR2ERR(entry);
 
 	if (entry->inode->flags != VFS_DIR) {
 		return -ENOTDIR;
@@ -955,7 +949,7 @@ static int chmod_node(vfs_node_t *node, mode_t mode) {
 
 int sys_chmod(const char *pathname, mode_t mode) {
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY);
-	if (!node)return -ENOENT;
+	if (IS_ERR(node)) return PTR2ERR(node);
 
 	int ret = chmod_node(node, mode);
 	vfs_node_release(node);
@@ -965,7 +959,7 @@ int sys_chmod(const char *pathname, mode_t mode) {
 
 int sys_lchmod(const char *pathname, mode_t mode) {
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY | O_NOFOLLOW);
-	if (!node)return -ENOENT;
+	if (IS_ERR(node)) return PTR2ERR(node);
 
 	int ret = chmod_node(node, mode);
 	vfs_node_release(node);
@@ -996,7 +990,7 @@ static int chown_node(vfs_node_t *node, uid_t owner, gid_t group) {
 
 int sys_chown(const char *pathname, uid_t owner, gid_t group) {
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY);
-	if (!node)return -ENOENT;
+	if (IS_ERR(node)) return PTR2ERR(node);
 
 	int ret = chown_node(node, owner, group);
 	vfs_node_release(node);
@@ -1006,7 +1000,7 @@ int sys_chown(const char *pathname, uid_t owner, gid_t group) {
 
 int sys_lchown(const char *pathname, uid_t owner, gid_t group) {
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY | O_NOFOLLOW);
-	if (!node)return -ENOENT;
+	if (IS_ERR(node)) return PTR2ERR(node);
 
 	int ret = chown_node(node, owner, group);
 	vfs_node_release(node);
@@ -1094,7 +1088,7 @@ mode_t sys_umask(mode_t mask) {
 
 int sys_access(const char *pathname, int mode) {
 	vfs_node_t *node = vfs_get_node(pathname, 0);
-	if (!node)return -ENOENT;
+	if (IS_ERR(node)) return PTR2ERR(node);
 	if (mode & F_OK) {
 		vfs_node_release(node);
 		return 0;
@@ -1106,7 +1100,7 @@ int sys_access(const char *pathname, int mode) {
 
 int sys_truncate(const char *path, off_t length) {
 	vfs_node_t *node = vfs_get_node(path, O_WRONLY);
-	if (!node)return -ENOENT;
+	if (IS_ERR(node)) return PTR2ERR(node);
 	int ret = vfs_truncate(node, (size_t)length);
 	vfs_node_release(node);
 	return ret;
@@ -1152,9 +1146,7 @@ ssize_t sys_readlink(const char *path, char *buf, size_t bufsize) {
 	}
 
 	vfs_node_t *node = vfs_get_node(path, O_RDONLY | O_NOFOLLOW);
-	if (!node) {
-		return -ENOENT;
-	}
+	if (IS_ERR(node)) return PTR2ERR(node);
 
 	ssize_t ret = vfs_readlink(node, buf, bufsize);
 	vfs_node_release(node);
