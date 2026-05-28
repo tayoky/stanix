@@ -895,26 +895,11 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 				ret = -EINVAL;
 				goto error;
 			}
-			next_entry = slab_alloc(&dentries_slab);
-			if (!next_entry) {
-				ret = -ENOMEM;
-				goto error;
-			}
-			strcpy(next_entry->name, path_array[i]);
-			next_entry->ref_count = 1;
-			ret                   = current_entry->inode->ops->create(current_entry->inode, next_entry, mode);
-			if (ret < 0) {
-				vfs_dentry_release(next_entry);
-				goto error;
-			}
-			if (vfs_dentry_is_negative(next_entry)) {
-				// we need to manually fetch the new entry
-				next_entry = vfs_lookup(current_entry, path_array[i], &ret);
-				if (!next_entry) goto error;
-			} else {
-				// we can use the entry gaved by the fs driver
-				vfs_add_dentry(current_entry, next_entry);
-			}
+			ret = vfs_create_at(current_entry, path_array[i], mode);
+			if (ret < 0) goto error;
+			// we need to manually fetch the new entry
+			next_entry = vfs_lookup(current_entry, path_array[i], &ret);
+			if (!next_entry) goto error;
 			created = 1;
 		}
 		vfs_dentry_release(current_entry);
