@@ -44,48 +44,9 @@ int sys_open(const char *path, int flags, mode_t mode) {
 		return -EINVAL;
 	}
 
-	int vfs_flags = flags & (O_RDONLY | O_WRONLY | O_RDWR | O_NOFOLLOW | O_NONBLOCK | O_APPEND);
+	int vfs_flags = flags & (O_RDONLY | O_WRONLY | O_RDWR | O_NOFOLLOW | O_NONBLOCK | O_APPEND | O_CREAT | O_EXCL);
 
-	vfs_fd_t *vfs_fd = vfs_open(path, vfs_flags);
-
-	// perm checks
-	if (vfs_fd) {
-		int perm;
-		if (flags & O_RDWR) {
-			perm = 06;
-		} else if (flags & O_WRONLY) {
-			perm = 02;
-		} else {
-			perm = 04;
-		}
-		int have_perm = vfs_perm(vfs_fd->inode);
-		if (have_perm >= 0 && ((have_perm & perm) != perm)) {
-			vfs_close(vfs_fd);
-			return -EACCES;
-		}
-	}
-
-	//O_CREAT things
-	if (flags & O_CREAT) {
-		if (vfs_fd && (flags & O_EXCL)) {
-			vfs_close(vfs_fd);
-			return -EEXIST;
-		}
-
-		if (!vfs_fd) {
-			//the user want to create the file
-			int result = vfs_create(path, mode & ~get_current_proc()->umask);
-
-			if (result) {
-				//vfs_create failed
-				return result;
-			}
-
-			vfs_fd = vfs_open(path, vfs_flags);
-			vfs_chown(vfs_fd->inode, get_current_proc()->euid, get_current_proc()->egid);
-		}
-	}
-
+	vfs_fd_t *vfs_fd = vfs_open(path, vfs_flags, mode & ~get_current_proc()->umask);
 
 	if (!vfs_fd) {
 		return -ENOENT;
