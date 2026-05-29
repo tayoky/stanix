@@ -23,7 +23,7 @@ typedef struct registers {
 	uint64_t es;
 	uint64_t ds;
 	uint64_t cr2;
-	uint64_t cr3;
+	uint64_t stub; // to make the struct aligned
 	uint64_t rax;
 	uint64_t rbx;
 	uint64_t rcx;
@@ -90,6 +90,7 @@ int arch_shutdown(int flags);
 #define ARG3_REG(frame) (frame).rdx
 #define ARG4_REG(frame) (frame).rcx
 #define ARG5_REG(frame) (frame).r8
+#define ARG6_REG(frame) (frame).r9
 #define RET_REG(frame)  (frame).rax
 #define SP_REG(frame)   (frame).rsp
 #define PC_REG(frame)   (frame).rip

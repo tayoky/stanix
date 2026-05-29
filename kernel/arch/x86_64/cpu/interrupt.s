@@ -68,9 +68,10 @@ isr_base:
     push rbx
     push rax
 
-    ;save cr2 and cr3
-    mov rax, cr3
-    push rax
+    ; push stub value
+    push 0
+    
+    ;save cr2
     mov rax, cr2
     push rax
     
