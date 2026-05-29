@@ -101,7 +101,7 @@ void vmm_init_space(vmm_space_t *space) {
 void vmm_destroy_space(vmm_space_t *space) {
 	vmm_space_unmap_all(space);
 	mmu_delete_addr_space(space->addrspace);
-	destroy_list(&space->segs);
+	list_destroy(&space->segs);
 }
 
 vmm_space_t *vmm_get_current_space(void) {

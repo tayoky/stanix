@@ -234,7 +234,7 @@ static void trm_destroy(device_t *device) {
 	}
 	// TODO : cleanup everything
 	free_hashmap(&gpu->fbs);
-	destroy_list(&gpu->alloc_blocks);
+	list_destroy(&gpu->alloc_blocks);
 	kfree(gpu->card.planes);
 	kfree(gpu->card.crtcs);
 	kfree(gpu->card.connectors);
@@ -284,7 +284,7 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 		gpu->card.connectors[i].id = i + 1;
 	}
 
-	init_list(&gpu->alloc_blocks);
+	list_init(&gpu->alloc_blocks);
 	trm_alloc_block_t *main_block = kmalloc(sizeof(trm_alloc_block_t));
 	main_block->size = gpu->card.vram_size;
 	main_block->base = 0;

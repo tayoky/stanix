@@ -9,7 +9,7 @@
 static list_t socket_domains;
 
 void init_sockets(void) {
-	init_list(&socket_domains);
+	list_init(&socket_domains);
 }
 
 static ssize_t socket_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {

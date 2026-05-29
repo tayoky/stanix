@@ -17,8 +17,8 @@ typedef struct list {
 	spinlock_t lock;
 } list_t;
 
-void init_list(list_t *list);
-void destroy_list(list_t *list);
+void list_init(list_t *list);
+void list_destroy(list_t *list);
 void list_append(list_t *list, list_node_t *node);
 void list_remove(list_t *list, list_node_t *node);
 void list_add_after(list_t *list, list_node_t *ref, list_node_t *node);

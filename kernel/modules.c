@@ -118,7 +118,7 @@ int insmod(const char *pathname, const char **args, char **name) {
 	kmodule_section_t *main_section = kmalloc(sizeof(kmodule_section_t));
 	memset(main_section, 0, sizeof(kmodule_section_t));
 
-	init_list(&module->sections);
+	list_init(&module->sections);
 	list_append(&module->sections, &main_section->node);
 	main_section->base = mod;
 	main_section->size = PAGE_ALIGN_UP(st.st_size);
@@ -276,7 +276,7 @@ void init_mod() {
 	kstatusf("init exported symbol list and module loader ... ");
 
 	//init the list to keep track of all modules
-	init_list(&loaded_mods);
+	list_init(&loaded_mods);
 
 	//export all symbols of the core module
 	for (size_t i = 0; i < symbols_count; i++) {

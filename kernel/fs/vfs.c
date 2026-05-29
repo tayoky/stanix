@@ -68,6 +68,10 @@ static void dentry_add_lru(vfs_dentry_t *dentry) {
 	list_append(&dentries_lru, &dentry->lru_node);
 }
 
+static void dentry_remove_lru(vfs_dentry_t *dentry) {
+	list_remove(&dentries_lru, &dentry->lru_node);
+}
+
 static int fd_constructor(slab_cache_t *cache, void *data) {
 	(void)cache;
 	vfs_fd_t *fd = data;
@@ -89,8 +93,8 @@ void init_vfs(void) {
 	root->ref_count = 1;
 	strcpy(root->name, "[root]");
 
-	init_list(&fs_types);
-	init_list(&superblocks);
+	list_init(&fs_types);
+	list_init(&superblocks);
 	kok();
 }
 
@@ -383,7 +387,13 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 		if (!strcmp(current_entry->name, name)) {
 			// cached entries must not be negative
 			kassert(!vfs_dentry_is_negative(current_entry));
-			return vfs_dentry_ref(current_entry);
+			vfs_dentry_t *ret = vfs_dentry_ref(current_entry);
+			
+			// we might need to remove it from lru
+			if (ret->ref_count == 1) {
+				dentry_remove_lru(ret);
+			}
+			return ret;
 		}
 	}
 

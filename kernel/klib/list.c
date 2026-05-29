@@ -3,11 +3,11 @@
 #include <kernel/string.h>
 #include <kernel/spinlock.h>
 
-void init_list(list_t *list) {
+void list_init(list_t *list) {
 	memset(list, 0, sizeof(list_t));
 }
 
-void destroy_list(list_t *list) {
+void list_destroy(list_t *list) {
 	(void)list;
 }
 

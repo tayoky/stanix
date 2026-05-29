@@ -44,7 +44,7 @@ static tmpfs_inode_t *new_inode(vfs_superblock_t *superblock, long type) {
 		break;
 	case TMPFS_TYPE_DIR:
 		inode->vnode.flags |= VFS_DIR;
-		init_list(&inode->entries);
+		list_init(&inode->entries);
 		break;
 	case TMPFS_TYPE_SOCK:
 		inode->vnode.flags |= VFS_SOCK;
@@ -258,7 +258,7 @@ static void tmpfs_cleanup(vfs_node_t *vnode) {
 		free_cache(&inode->cache);
 		break;
 	case TMPFS_TYPE_DIR:
-		destroy_list(&inode->entries);
+		list_destroy(&inode->entries);
 		break;
 	case TMPFS_TYPE_LINK:
 		kfree(inode->buffer);

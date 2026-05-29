@@ -94,15 +94,15 @@ void init_task() {
 	// init the scheduler first
 	xarray_init(&procs_list);
 	xarray_init(&tasks_list);
-	init_list(&sleeping_tasks);
+	list_init(&sleeping_tasks);
 
 	// init the boot task (task running since boot)
 	process_t *boot_task = kmalloc(sizeof(process_t));
 	memset(boot_task, 0, sizeof(process_t));
 	boot_task->parent = boot_task;
 	boot_task->pid    = 0;
-	init_list(&boot_task->child);
-	init_list(&boot_task->threads);
+	list_init(&boot_task->child);
+	list_init(&boot_task->threads);
 	boot_task->umask = 022;
 
 	// get the address space
@@ -224,8 +224,8 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 
 	proc->parent = get_current_proc();
 	vmm_init_space(&proc->vmm_space);
-	init_list(&proc->child);
-	init_list(&proc->threads);
+	list_init(&proc->child);
+	list_init(&proc->threads);
 	proc->uid         = get_current_proc()->uid;
 	proc->uid         = get_current_proc()->uid;
 	proc->euid        = get_current_proc()->euid;
@@ -360,7 +360,7 @@ static void do_proc_deletion(void) {
 		spinlock_release(&child->main_thread->state_lock);
 	}
 	rwlock_release_write(&reparenting_lock, NULL);
-	destroy_list(&get_current_proc()->child);
+	list_destroy(&get_current_proc()->child);
 
 	// close every open fd
 	for (size_t i = 0; i < MAX_FD; i++) {
@@ -377,7 +377,7 @@ static void do_proc_deletion(void) {
 
 	vmm_unmap_all();
 
-	destroy_list(&get_current_proc()->threads);
+	list_destroy(&get_current_proc()->threads);
 }
 
 void kill_task(void) {
