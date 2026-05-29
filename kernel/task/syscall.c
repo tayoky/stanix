@@ -1485,8 +1485,8 @@ void syscall_handler(registers_t *context, void *arg) {
 
 	get_current_task()->syscall_frame = context;
 
-	long (*syscall)(long, long, long, long, long) = syscall_table[ARG0_REG(*context)];
-	RET_REG(*context) = syscall(ARG1_REG(*context), ARG2_REG(*context), ARG3_REG(*context), ARG4_REG(*context), ARG5_REG(*context));
+	long (*syscall)(long, long, long, long, long, long) = syscall_table[ARG0_REG(*context)];
+	RET_REG(*context) = syscall(ARG1_REG(*context), ARG2_REG(*context), ARG3_REG(*context), ARG4_REG(*context), ARG5_REG(*context), ARG6_REG(*context));
 
 	//now handle any unlblocked pending syscall
 	handle_signal(context);
