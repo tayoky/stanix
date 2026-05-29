@@ -22,27 +22,23 @@ extern void irq15();
 
 static interrupt_handler_t handlers[256 - 32];
 static void *handlers_data[256 - 32];
+irq_chip_t *irq_chip;
 
-void init_irq(void){
+void init_irq(void) {
 	kstatusf("init irq chip... ");
 
-	//TODO : implement and use APIC if avalible
+	// TODO : implement and use APIC if avalible
 	init_pic();
- 
+
 	kok();
 
-	if(kernel->pic_type == PIC_PIC){
-		kinfof("use pic\n");
-	} else if (kernel->pic_type == PIC_APIC){
-		kinfof("use apic\n");
-	}
+	kinfof("using irq chip '%s'\n", irq_chip->name);
 	enable_interrupt();
 }
 
-
-int irq_allocate(interrupt_handler_t handler, void *data) {
+irqnum_t irq_allocate(interrupt_handler_t handler, void *data) {
 	int i = 64;
-	while (i<256 - 32) {
+	while (i < 256 - 32) {
 		if (!handlers[i]) {
 			handlers[i] = handler;
 			irq_register_handler(i, handler, data);
@@ -53,51 +49,52 @@ int irq_allocate(interrupt_handler_t handler, void *data) {
 	return -1;
 }
 
-void irq_register_handler(int irq_num, interrupt_handler_t handler, void *data) {
-	// save the handler
-	handlers[irq_num] = handler;
-	handlers_data[irq_num] = data;
-
-	// and then mask/unmask it
-	switch (kernel->pic_type)
-	{
-	case PIC_PIC:
-		if (handler) {
-			pic_unmask(irq_num);
-		} else {
-			pic_mask(irq_num);
-		}
-		break;
-	
-	default:
-		//well hum .. we use an unknow irq chip 
-		//should not be possible
-		break;
+void irq_mask(irqnum_t irq_num) {
+	if (irq_chip->mask) {
+		irq_chip->mask(irq_num);
+	} else {
+		kwarningf("unimplemented mask operation for irq chip '%s'\n", irq_chip->name);
 	}
 }
 
-void irq_eoi(int irq_num){
-	switch (kernel->pic_type)
-	{
-	case PIC_PIC:
-		pic_eoi(irq_num);
-		break;
-	
-	default:
-		//well hum .. we use an unknow irq chip 
-		//should not be possible
-		break;
+void irq_unmask(irqnum_t irq_num) {
+	if (irq_chip->unmask) {
+		irq_chip->unmask(irq_num);
+	} else {
+		kwarningf("unimplemented unmask operation for irq chip '%s'\n", irq_chip->name);
+	}
+}
+
+void irq_eoi(irqnum_t irq_num) {
+	if (irq_chip->eoi) {
+		irq_chip->eoi(irq_num);
+	} else {
+		kwarningf("unimplemented eoi operation for irq chip '%s'\n", irq_chip->name);
+	}
+}
+
+void irq_register_handler(irqnum_t irq_num, interrupt_handler_t handler, void *data) {
+	// save the handler
+	handlers[irq_num]      = handler;
+	handlers_data[irq_num] = data;
+
+	// and then mask/unmask it
+	if (!irq_chip) return;
+	if (handler) {
+		irq_unmask(irq_num);
+	} else {
+		irq_mask(irq_num);
 	}
 }
 
 void irq_handler(registers_t *frame) {
 	interrupt_handler_t handler = handlers[frame->err_type - 32];
-	void *data = handlers_data[frame->err_type - 32];
-	frame->err_code = frame->err_type - 32;
-	if(frame->err_type < 48){
+	void *data                  = handlers_data[frame->err_type - 32];
+	frame->err_code             = frame->err_type - 32;
+	if (frame->err_type < 48) {
 		irq_eoi(frame->err_code);
 	}
-	if(handler){
+	if (handler) {
 		handler(frame, data);
 	}
 }

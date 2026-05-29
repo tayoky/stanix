@@ -94,7 +94,19 @@ int arch_shutdown(int flags);
 #define SP_REG(frame)   (frame).rsp
 #define PC_REG(frame)   (frame).rip
 
-#define PIC_APIC 0x01
-#define PIC_PIC  0x02
+typedef int irqnum_t;
+
+typedef struct irq_chip {
+	void (*mask)(irqnum_t irq_num);
+	void (*unmask)(irqnum_t irq_num);
+	void (*eoi)(irqnum_t irq_num);
+	const char *name;
+	int type;
+} irq_chip_t;
+
+extern irq_chip_t *irq_chip;
+
+#define IRQ_CHIP_APIC 0x01
+#define IRQ_CHIP_PIC  0x02
 
 #endif
