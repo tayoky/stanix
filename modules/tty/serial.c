@@ -57,7 +57,7 @@ static uint16_t str2port(char *str) {
 int serial_count = 1;
 
 
-static void serial_handler(fault_frame_t *frame, void *data) {
+static void serial_handler(registers_t *frame, void *data) {
 	(void)frame;
 	tty_t *serial_port = data;
 	
