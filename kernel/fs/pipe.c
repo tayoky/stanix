@@ -1,10 +1,11 @@
-#include <kernel/pipe.h>
-#include <kernel/vfs.h>
-#include <kernel/ringbuf.h>
 #include <kernel/kheap.h>
-#include <kernel/string.h>
-#include <kernel/print.h>
+#include <kernel/pipe.h>
 #include <kernel/poll.h>
+#include <kernel/print.h>
+#include <kernel/ringbuf.h>
+#include <kernel/spinlock.h>
+#include <kernel/string.h>
+#include <kernel/vfs.h>
 #include <errno.h>
 #include <poll.h>
 #include <stdatomic.h>
@@ -80,36 +81,46 @@ static void pipe_close(vfs_fd_t *fd) {
 }
 
 static vfs_fd_ops_t pipe_write_ops = {
-	.write = pipe_write,
+	.write       = pipe_write,
 	.poll_add    = pipe_poll_add,
 	.poll_remove = pipe_poll_remove,
 	.poll_get    = pipe_poll_get,
-	.close = pipe_close,
+	.close       = pipe_close,
 };
 
 static vfs_fd_ops_t pipe_read_ops = {
-	.read = pipe_read,
+	.read        = pipe_read,
 	.poll_add    = pipe_poll_add,
 	.poll_remove = pipe_poll_remove,
 	.poll_get    = pipe_poll_get,
-	.close = pipe_close,
+	.close       = pipe_close,
 };
 
-int create_pipe(vfs_fd_t **read, vfs_fd_t **write) {
+int pipe_create(vfs_fd_t **read, vfs_fd_t **write) {
 	pipe_t *pipe = kmalloc(sizeof(pipe_t));
+	if (!pipe) return -ENOMEM;
 	pipe->isbroken = 0;
-	init_ringbuffer(&pipe->ring, PIPE_SIZE);
+	ringbuffer_init(&pipe->ring, PIPE_SIZE);
 
-	*read  = vfs_alloc_fd();
+	*read = vfs_alloc_fd();
+	if (!*read) {
+		kfree(pipe);
+		return -ENOMEM;
+	}
 	*write = vfs_alloc_fd();
+	if (!*write) {
+		vfs_close(*read);
+		kfree(pipe);
+		return -ENOMEM;
+	}
 
-	//set the data
-	(*read)->ops  = &pipe_read_ops;
-	(*write)->ops = &pipe_write_ops;
-	(*read)->flags  = O_RDONLY;
-	(*write)->flags = O_WRONLY;
-	(*read)->type  = VFS_FILE;
-	(*write)->type = VFS_FILE;
+	// set the data
+	(*read)->ops      = &pipe_read_ops;
+	(*write)->ops     = &pipe_write_ops;
+	(*read)->flags    = O_RDONLY;
+	(*write)->flags   = O_WRONLY;
+	(*read)->type     = VFS_FILE;
+	(*write)->type    = VFS_FILE;
 	(*read)->private  = pipe;
 	(*write)->private = pipe;
 

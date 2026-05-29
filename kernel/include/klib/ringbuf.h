@@ -19,7 +19,7 @@ typedef struct ringbuffer {
 	spinlock_t lock;
 } ringbuffer_t;
 
-void init_ringbuffer(ringbuffer_t *ring, size_t buffer_size);
+void ringbuffer_init(ringbuffer_t *ring, size_t buffer_size);
 void destroy_ringbuffer(ringbuffer_t *ring);
 ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count, long flags);
 ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long flags);

@@ -3,6 +3,6 @@
 
 #include <kernel/vfs.h>
 
-int create_pipe(vfs_fd_t **read,vfs_fd_t **write);
+int pipe_create(vfs_fd_t **read,vfs_fd_t **write);
 
 #endif

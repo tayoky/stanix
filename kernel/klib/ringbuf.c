@@ -7,7 +7,7 @@
 #include <kernel/poll.h>
 #include <errno.h>
 
-void init_ringbuffer(ringbuffer_t *ring, size_t buffer_size) {
+void ringbuffer_init(ringbuffer_t *ring, size_t buffer_size) {
 	memset(ring, 0, sizeof(ringbuffer_t));
 	ring->buffer_size = buffer_size;
 	ring->write_offset = 0;

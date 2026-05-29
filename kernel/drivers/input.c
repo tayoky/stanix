@@ -128,6 +128,6 @@ int register_input_device(input_device_t *device){
 	device->device.type    = DEVICE_CHAR;
 	device->device.ops     = &input_ops;
 	device->device.destroy = input_destroy;
-	init_ringbuffer(&device->events, sizeof(struct input_event) * 25);
+	ringbuffer_init(&device->events, sizeof(struct input_event) * 25);
 	return device_register((device_t*)device);
 }

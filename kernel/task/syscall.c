@@ -242,7 +242,7 @@ int sys_pipe(int pipefd[2]) {
 
 	vfs_fd_t *read_vfs_fd;
 	vfs_fd_t *write_vfs_fd;
-	int ret = create_pipe(&read_vfs_fd, &write_vfs_fd);
+	int ret = pipe_create(&read_vfs_fd, &write_vfs_fd);
 	if (ret < 0) return ret;
 
 	int read_fd = add_fd(read_vfs_fd, 0);

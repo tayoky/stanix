@@ -25,8 +25,8 @@ static void unix_pair(unix_socket_t *a, unix_socket_t *b) {
 	b->connected = a;
 
 	// init the recieve buffers
-	init_ringbuffer(&a->queue, QUEUE_SIZE);
-	init_ringbuffer(&b->queue, QUEUE_SIZE);
+	ringbuffer_init(&a->queue, QUEUE_SIZE);
+	ringbuffer_init(&b->queue, QUEUE_SIZE);
 }
 
 static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr, socklen_t addr_len) {
@@ -109,7 +109,7 @@ static int unix_listen_unlocked(unix_socket_t *socket, int backlog) {
 	if (socket->status == UNIX_STATUS_INIT) return -EDESTADDRREQ;
 	if (socket->status != UNIX_STATUS_BOUND) return -EINVAL;
 
-	init_ringbuffer(&socket->queue, sizeof(unix_connection_t) * backlog);
+	ringbuffer_init(&socket->queue, sizeof(unix_connection_t) * backlog);
 	socket->status = UNIX_STATUS_LISTEN;
 	return 0;
 }

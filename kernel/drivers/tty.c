@@ -138,7 +138,7 @@ tty_t *new_tty(tty_t *tty) {
 		memset(tty, 0, sizeof(tty_t));
 	}
 
-	init_ringbuffer(&tty->input_buffer, 4096);
+	ringbuffer_init(&tty->input_buffer, 4096);
 
 	// reset termios to default value
 	memset(&tty->termios, 0, sizeof(struct termios));

@@ -114,7 +114,7 @@ static device_driver_t pty_driver = {
 int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	pty_t *pty = kmalloc(sizeof(pty_t));
 	memset(pty, 0, sizeof(pty_t));
-	init_ringbuffer(&pty->output_buffer, 4096);
+	ringbuffer_init(&pty->output_buffer, 4096);
 
 	tty_t *slave = new_tty(NULL);
 	pty->slave = slave;
