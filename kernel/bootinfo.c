@@ -1,5 +1,6 @@
 #include <kernel/limine.h>
 #include <kernel/bootinfo.h>
+#include <kernel/acpi.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 
@@ -23,6 +24,10 @@ __attribute__((used, section(".limine_requests"))) volatile struct limine_boot_t
 
 __attribute__((used, section(".limine_requests"))) volatile struct limine_hhdm_request hhdm_request = {
 	.id = LIMINE_HHDM_REQUEST
+};
+
+__attribute__((used, section(".limine_requests"))) volatile struct limine_rsdp_request rsdp_request = {
+	.id = LIMINE_RSDP_REQUEST,
 };
 
 struct limine_internal_module initrd_request = {
@@ -87,8 +92,8 @@ void get_bootinfo(void) {
 	kdebugf("info :\n");
 	kdebugf("stack start : 0x%lx\n", kernel->stack_start);
 	kdebugf("time at boot : %lu\n", kernel->bootinfo.boot_time_response->boot_time);
-	kdebugf("kernel loaded at Vaddress : %x\n", kernel->kernel_address->virtual_base);
-	kdebugf("                 Paddress : %x\n", kernel->kernel_address->physical_base);
+	kdebugf("kernel loaded at Vaddress : %lx\n", kernel->kernel_address->virtual_base);
+	kdebugf("                 Paddress : %lx\n", kernel->kernel_address->physical_base);
 	kdebugf("memmap:\n");
 	for (uint64_t i=0;i < kernel->memmap->entry_count;i++) {
 		kdebugf("	segment of type %s\n", memmap_types[kernel->memmap->entries[i]->type]);
@@ -97,4 +102,8 @@ void get_bootinfo(void) {
 	}
 	kinfof("total memory amount : %dMB\n", total_memory / (1024 * 1024));
 	kdebugf("initrd loaded at 0x%lx size : %ld KB\n", kernel->initrd->address, kernel->initrd->size / 1024);
+
+	if (rsdp_request.response) {
+		acpi_set_rsdp((void*)((uintptr_t)rsdp_request.response->address + kernel->hhdm));
+	}
 }

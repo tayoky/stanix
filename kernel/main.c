@@ -27,6 +27,7 @@
 #include <kernel/unix.h>
 #include <kernel/poll.h>
 #include <kernel/vmm.h>
+#include <kernel/acpi.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -122,6 +123,7 @@ void kmain() {
 	init_ptys();
 	init_kout();
 	init_vmm();
+	init_acpi();
 	init_irq();
 	init_task();
 	init_timer();
