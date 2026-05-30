@@ -1,5 +1,5 @@
-#ifndef _KERNEL_RWSEM_H
-#define _KERNEL_RWSEM_H
+#ifndef KERNEL_RWSEM_H
+#define KERNEL_RWSEM_H
 
 #include <kernel/spinlock.h>
 #include <kernel/scheduler.h>

@@ -1,5 +1,5 @@
-#ifndef _KERNEL_SOCKET_H
-#define _KERNEL_SOCKET_H
+#ifndef KERNEL_SOCKET_H
+#define KERNEL_SOCKET_H
 
 #include <kernel/vfs.h>
 #include <kernel/list.h>

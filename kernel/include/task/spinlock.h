@@ -1,5 +1,5 @@
-#ifndef SPINLOCK_H
-#define SPINLOCK_H
+#ifndef KERNEL_SPINLOCK_H
+#define KERNEL_SPINLOCK_H
 
 // deadlock detection only work on non SMP
 #define SPINLOCK_DEBUG

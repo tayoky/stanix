@@ -1,5 +1,5 @@
-#ifndef SYS_H
-#define SYS_H
+#ifndef KERNEL_SYS_H
+#define KERNEL_SYS_H
 
 #include <stdint.h>
 #include <kernel/arch.h>

@@ -1,5 +1,5 @@
-#ifndef _KERNEL_ARCH_H
-#define _KERNEL_ARCH_H
+#ifndef KERNEL_ARCH_H
+#define KERNEL_ARCH_H
 
 #ifdef __x86_64__
 #include <kernel/x86_64.h>

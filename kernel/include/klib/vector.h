@@ -1,5 +1,5 @@
-#ifndef _KERNEL_VECTOR_H
-#define _KERNEL_VECTOR_H
+#ifndef KERNEL_VECTOR_H
+#define KERNEL_VECTOR_H
 
 #include <kernel/kheap.h>
 #include <kernel/string.h>

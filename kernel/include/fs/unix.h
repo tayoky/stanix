@@ -1,5 +1,5 @@
-#ifndef _KERNEL_UNIX_H
-#define _KERNEL_UNIX_H
+#ifndef KERNEL_UNIX_H
+#define KERNEL_UNIX_H
 
 #include <kernel/socket.h>
 #include <kernel/ringbuf.h>

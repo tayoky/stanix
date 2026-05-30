@@ -1,5 +1,5 @@
-#ifndef _KERNEL_ASYNC_H
-#define _KERNEL_ASYNC_H
+#ifndef KERNEL_ASYNC_H
+#define KERNEL_ASYNC_H
 
 typedef void (*async_callback_t)(void *arg);
 

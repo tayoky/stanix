@@ -1,5 +1,5 @@
-#ifndef _KERNEL_TIME_H
-#define _KERNEL_TIME_H
+#ifndef KERNEL_TIME_H
+#define KERNEL_TIME_H
 
 #include <sys/time.h>
 

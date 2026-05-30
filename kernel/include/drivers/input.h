@@ -1,5 +1,5 @@
-#ifndef _KERNEL_INPUT_H
-#define _KERNEL_INPUT_H
+#ifndef KERNEL_INPUT_H
+#define KERNEL_INPUT_H
 
 #include <kernel/device.h>
 #include <kernel/ringbuf.h>

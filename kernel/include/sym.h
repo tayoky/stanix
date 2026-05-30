@@ -1,5 +1,5 @@
-#ifndef SYM_H
-#define SYM_H
+#ifndef KERNEL_SYM_H
+#define KERNEL_SYM_H
 
 #include <stdint.h>
 #include <stddef.h>

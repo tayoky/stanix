@@ -1,5 +1,5 @@
-#ifndef _KERNEL_RWLOCK_H
-#define _KERNEL_RWLOCK_H
+#ifndef KERNEL_RWLOCK_H
+#define KERNEL_RWLOCK_H
 
 #include <kernel/spinlock.h>
 #include <stdatomic.h>

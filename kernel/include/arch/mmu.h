@@ -1,5 +1,5 @@
-#ifndef _KERNEL_MMU_H
-#define _KERNEL_MMU_H
+#ifndef KERNEL_MMU_H
+#define KERNEL_MMU_H
 
 #include <kernel/arch.h>
 #include <stddef.h>

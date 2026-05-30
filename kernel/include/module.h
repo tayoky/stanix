@@ -1,5 +1,5 @@
-#ifndef _KERNEL_MODULE_H
-#define _KERNEL_MODULE_H
+#ifndef KERNEL_MODULE_H
+#define KERNEL_MODULE_H
 
 #include <kernel/list.h>
 #include <stdint.h>

@@ -1,5 +1,5 @@
-#ifndef USERSPACE_H
-#define USERSPACE_H
+#ifndef KERNEL_USERSPACE_H
+#define KERNEL_USERSPACE_H
 
 #include <kernel/page.h>
 #include <kernel/arch.h>

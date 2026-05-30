@@ -1,5 +1,5 @@
-#ifndef _KERNEL_TRM_H
-#define _KERNEL_TRM_H
+#ifndef KERNEL_TRM_H
+#define KERNEL_TRM_H
 
 #include <libtrm/trm.h>
 #include <kernel/device.h>

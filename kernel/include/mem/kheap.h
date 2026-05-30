@@ -1,5 +1,5 @@
-#ifndef KHEAP_H
-#define KHEAP_H
+#ifndef KERNEL_KHEAP_H
+#define KERNEL_KHEAP_H
 
 #include <kernel/spinlock.h>
 #include <kernel/page.h>

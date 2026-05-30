@@ -1,5 +1,5 @@
-#ifndef _KERNEL_HASHMAP_H
-#define _KERNEL_HASHMAP_H
+#ifndef KERNEL_HASHMAP_H
+#define KERNEL_HASHMAP_H
 
 #include <kernel/vector.h>
 #include <kernel/kheap.h>

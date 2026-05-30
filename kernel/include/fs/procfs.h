@@ -1,5 +1,5 @@
-#ifndef _KERNEL_PROCFS_H
-#define _KERNEL_PROCFS_H
+#ifndef KERNEL_PROCFS_H
+#define KERNEL_PROCFS_H
 
 void init_proc(void);
 

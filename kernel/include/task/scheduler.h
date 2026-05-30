@@ -1,5 +1,5 @@
-#ifndef _KERNEL_SCHEDULER_H
-#define _KERNEL_SCHEDULER_H
+#ifndef KERNEL_SCHEDULER_H
+#define KERNEL_SCHEDULER_H
 
 #include <kernel/arch.h>
 #include <kernel/spinlock.h>

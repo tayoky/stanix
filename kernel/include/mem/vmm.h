@@ -1,5 +1,5 @@
-#ifndef _KERNEL_VMM_H
-#define _KERNEL_VMM_H
+#ifndef KERNEL_VMM_H
+#define KERNEL_VMM_H
 
 #include <kernel/spinlock.h>
 #include <kernel/rwlock.h>

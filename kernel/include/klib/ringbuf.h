@@ -1,5 +1,5 @@
-#ifndef RINGBUF_H
-#define RINGBUF_H
+#ifndef KERNEL_RINGBUF_H
+#define KERNEL_RINGBUF_H
 
 #include <kernel/sleep.h>
 #include <kernel/spinlock.h>

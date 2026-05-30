@@ -1,5 +1,5 @@
-#ifndef PAGE_H
-#define PAGE_H
+#ifndef KERNEL_PAGE_H
+#define KERNEL_PAGE_H
 
 #include <limits.h> //to get PAGE_SIZE
 #include <stdint.h>

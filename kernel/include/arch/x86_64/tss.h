@@ -1,5 +1,5 @@
-#ifndef _KERNEL_TSS_H
-#define _KERNEL_TSS_H
+#ifndef KERNEL_TSS_H
+#define KERNEL_TSS_H
 
 #include <stdint.h>
 

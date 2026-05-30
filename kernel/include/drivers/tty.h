@@ -1,5 +1,5 @@
-#ifndef _KERNEL_TTY_H
-#define _KERNEL_TTY_H
+#ifndef KERNEL_TTY_H
+#define KERNEL_TTY_H
 
 #include <kernel/vfs.h>
 #include <kernel/ringbuf.h>

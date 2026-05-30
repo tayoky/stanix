@@ -1,5 +1,5 @@
-#ifndef FORK_H
-#define FORK_H
+#ifndef KERNEL_FORK_H
+#define KERNEL_FORK_H
 
 #include <sys/types.h>
 

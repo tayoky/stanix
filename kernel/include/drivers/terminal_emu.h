@@ -1,5 +1,5 @@
-#ifndef TERMINAL_EMU_H
-#define TERMINAL_EMU_H
+#ifndef KERNEL_TERMINAL_EMU_H
+#define KERNEL_TERMINAL_EMU_H
 
 #include <kernel/vfs.h>
 #include <kernel/device.h>

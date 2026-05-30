@@ -1,5 +1,5 @@
-#ifndef INTERRUPT_H
-#define INTERRUPT_H
+#ifndef KERNEL_INTERRUPT_H
+#define KERNEL_INTERRUPT_H
 
 #include <kernel/arch.h>
 

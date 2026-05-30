@@ -1,5 +1,5 @@
-#ifndef _KERNEL_VFS_H
-#define _KERNEL_VFS_H
+#ifndef KERNEL_VFS_H
+#define KERNEL_VFS_H
 
 #include <kernel/spinlock.h>
 #include <kernel/hashmap.h>

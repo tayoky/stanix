@@ -1,5 +1,5 @@
-#ifndef TARFS_H
-#define TARFS_H
+#ifndef KERNEL_TARFS_H
+#define KERNEL_TARFS_H
 #include <stdint.h>
 
 typedef struct ustar_header_struct{

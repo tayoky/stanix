@@ -1,5 +1,5 @@
-#ifndef _KERNEL_LIST_H
-#define _KERNEL_LIST_H
+#ifndef KERNEL_LIST_H
+#define KERNEL_LIST_H
 
 #include <kernel/spinlock.h>
 #include <kernel/macro.h>

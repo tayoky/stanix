@@ -1,5 +1,5 @@
-#ifndef _KERNEL_ISR_H
-#define _KERNEL_ISR_H
+#ifndef KERNEL_ISR_H
+#define KERNEL_ISR_H
 
 #define EXCEPTIONS() \
 	X(isr0, 0) \

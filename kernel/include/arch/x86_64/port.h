@@ -1,5 +1,5 @@
-#ifndef _KERNEL_PORT_H
-#define _KERNEL_PORT_H
+#ifndef KERNEL_PORT_H
+#define KERNEL_PORT_H
 
 #include <stdint.h>
 

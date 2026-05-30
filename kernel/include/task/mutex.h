@@ -1,12 +1,10 @@
-#ifndef MUTEX_H
-#define MUTEX_H
+#ifndef KERNEL_MUTEX_H
+#define KERNEL_MUTEX_H
 
 #include <kernel/spinlock.h>
 #include <kernel/sleep.h>
 #include <stddef.h>
 #include <stdatomic.h>
-
-struct task;
 
 typedef struct mutex {
 	atomic_uintptr_t lock;

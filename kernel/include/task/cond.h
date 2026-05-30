@@ -1,5 +1,5 @@
-#ifndef _KERNEL_COND_H
-#define _KERNEL_COND_H
+#ifndef KERNEL_COND_H
+#define KERNEL_COND_H
 
 #include <kernel/sleep.h>
 #include <stdatomic.h>

@@ -1,5 +1,5 @@
-#ifndef _KERNEL_EDID_H
-#define _KERNEL_EDID_H
+#ifndef KERNEL_EDID_H
+#define KERNEL_EDID_H
 
 // some macro are taken from DRM (drm_edid.h)
 

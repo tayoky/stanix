@@ -1,5 +1,5 @@
-#ifndef _KERNEL_SYSFS_H
-#define _KERNEL_SYSFS_H
+#ifndef KERNEL_SYSFS_H
+#define KERNEL_SYSFS_H
 
 #include <kernel/vfs.h>
 #include <kernel/list.h>

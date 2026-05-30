@@ -1,5 +1,5 @@
-#ifndef STRING_H
-#define STRING_H
+#ifndef KERNEL_STRING_H
+#define KERNEL_STRING_H
 #include <stdint.h>
 #include <stddef.h>
 

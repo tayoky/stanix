@@ -1,5 +1,5 @@
-#ifndef _KERNEL_SLAB_H
-#define _KERNEL_SLAB_H
+#ifndef KERNEL_SLAB_H
+#define KERNEL_SLAB_H
 
 #include <kernel/spinlock.h>
 #include <kernel/list.h>

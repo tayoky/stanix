@@ -1,5 +1,5 @@
-#ifndef _KERNEL_MACRO_H
-#define _KERNEL_MACRO_H
+#ifndef KERNEL_MACRO_H
+#define KERNEL_MACRO_H
 
 // a bunch of macro utils
 

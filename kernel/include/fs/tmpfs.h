@@ -1,6 +1,5 @@
-#ifndef TMPFS_H
-#define TMPFS_H
-
+#ifndef KERNEL_TMPFS_H
+#define KERNEL_TMPFS_H
 
 #include <kernel/cache.h>
 #include <kernel/list.h>

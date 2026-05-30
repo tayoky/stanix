@@ -1,5 +1,5 @@
-#ifndef _KERNEL_POLL_H
-#define _KERNEL_POLL_H
+#ifndef KERNEL_POLL_H
+#define KERNEL_POLL_H
 
 #include <kernel/scheduler.h>
 #include <kernel/spinlock.h>

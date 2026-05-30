@@ -1,5 +1,5 @@
-#ifndef PIPE_H
-#define PIPE_H
+#ifndef KERNEL_PIPE_H
+#define KERNEL_PIPE_H
 
 #include <kernel/vfs.h>
 

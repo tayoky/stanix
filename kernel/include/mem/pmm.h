@@ -1,5 +1,5 @@
-#ifndef _KERNEL_PMM_H
-#define _KERNEL_PMM_H
+#ifndef KERNEL_PMM_H
+#define KERNEL_PMM_H
 
 #include <kernel/page.h>
 #include <kernel/mmu.h>

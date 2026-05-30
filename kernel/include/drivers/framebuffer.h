@@ -1,5 +1,5 @@
-#ifndef _KERNEL_FRAMEBUFFER_H
-#define _KERNEL_FRAMEBUFFER_H
+#ifndef KERNEL_FRAMEBUFFER_H
+#define KERNEL_FRAMEBUFFER_H
 
 #include <kernel/vfs.h>
 #include <kernel/device.h>

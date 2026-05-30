@@ -1,5 +1,5 @@
-#ifndef _KERNEL_CACHE_H
-#define _KERNEL_CACHE_H
+#ifndef KERNEL_CACHE_H
+#define KERNEL_CACHE_H
 
 #include <kernel/rwlock.h>
 #include <kernel/xarray.h>
