@@ -90,5 +90,5 @@ int do_futex(long *addr, int op, long val) {
 }
 
 void init_futexes(void) {
-	init_hashmap(&futexes, 256);
+	hashmap_init(&futexes, 256);
 }

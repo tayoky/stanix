@@ -11,7 +11,7 @@ typedef struct vector {
 	void *data;
 } vector_t;
 
-static inline void init_vector(vector_t *vector, size_t element_size){
+static inline void vector_init(vector_t *vector, size_t element_size){
 	if (vector->data) return;
 	vector->data = kmalloc(element_size);
 	vector->capacity = 1;
@@ -19,7 +19,7 @@ static inline void init_vector(vector_t *vector, size_t element_size){
 	vector->element_size = element_size;
 }
 
-static inline void free_vector(vector_t *vector){
+static inline void vector_destroy(vector_t *vector){
 	if (!vector->data) return;
 	kfree(vector->data);
 	vector->data = NULL;

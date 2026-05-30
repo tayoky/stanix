@@ -233,7 +233,7 @@ static void trm_destroy(device_t *device) {
 		gpu->ops->cleanup(gpu);
 	}
 	// TODO : cleanup everything
-	free_hashmap(&gpu->fbs);
+	hashmap_destroy(&gpu->fbs);
 	list_destroy(&gpu->alloc_blocks);
 	kfree(gpu->card.planes);
 	kfree(gpu->card.crtcs);
@@ -290,7 +290,7 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	main_block->base = 0;
 	main_block->free = 1;
 	list_append(&gpu->alloc_blocks, &main_block->node);
-	init_hashmap(&gpu->fbs, 32);
+	hashmap_init(&gpu->fbs, 32);
 
 	return device_register((device_t *)gpu);
 }

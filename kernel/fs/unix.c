@@ -262,17 +262,17 @@ static void unix_close(socket_t *sock) {
 	kdebugf("unix cleanup\n");
 	switch (socket->status) {
 	case UNIX_STATUS_DISCONNECTED:
-		destroy_ringbuffer(&socket->queue);
+		ringbuffer_destroy(&socket->queue);
 		break;
 	case UNIX_STATUS_CONNECTED:
 		// FIXME : we need some kind of lock
 		// disconnect the peer
 		socket->connected->status = UNIX_STATUS_DISCONNECTED;
 		ringbuffer_wakeup_all(&socket->connected->queue);
-		destroy_ringbuffer(&socket->queue);
+		ringbuffer_destroy(&socket->queue);
 		break;
 	case UNIX_STATUS_LISTEN:
-		destroy_ringbuffer(&socket->queue);
+		ringbuffer_destroy(&socket->queue);
 		if (socket->socket.type == SOCK_STREAM || socket->socket.type == SOCK_STREAM) {
 			wakeup_queue(&socket->sleep, 0);
 		}

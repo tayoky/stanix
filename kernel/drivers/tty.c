@@ -86,7 +86,7 @@ static void tty_destroy(device_t *device) {
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
 	ringbuffer_wakeup_all(&tty->input_buffer);
-	destroy_ringbuffer(&tty->input_buffer);
+	ringbuffer_destroy(&tty->input_buffer);
 	kfree(tty->canon_buf);
 }
 

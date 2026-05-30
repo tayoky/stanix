@@ -16,17 +16,17 @@ typedef struct hasmap {
 	size_t capacity;
 } hashmap_t;
 
-static inline void init_hashmap(hashmap_t *hashmap, size_t capacity) {
+static inline void hashmap_init(hashmap_t *hashmap, size_t capacity) {
 	if (hashmap->vectors) return;
 	hashmap->vectors = kmalloc(sizeof(vector_t) * capacity);
 	memset(hashmap->vectors, 0, sizeof(vector_t) * capacity);
 	hashmap->capacity = capacity;
 }
 
-static inline void free_hashmap(hashmap_t *hashmap) {
+static inline void hashmap_destroy(hashmap_t *hashmap) {
 	if (!hashmap->vectors) return;
 	for (size_t i=0; i<hashmap->capacity; i++) {
-		free_vector(&hashmap->vectors[i]);
+		vector_destroy(&hashmap->vectors[i]);
 	}
 	kfree(hashmap->vectors);
 	hashmap->vectors = NULL;
@@ -51,7 +51,7 @@ static inline void *hashmap_get(hashmap_t *hashmap, long key) {
 
 static inline void hashmap_add(hashmap_t *hashmap, long key, const void *element) {
 	vector_t *vector = &hashmap->vectors[hashmap_hash(hashmap, key)];
-	init_vector(vector, sizeof(hashmap_entry_t));
+	vector_init(vector, sizeof(hashmap_entry_t));
 	hashmap_entry_t *entries = vector->data;
 	for (size_t i=0; i<vector->count; i++) {
 		if (entries[i].key == key) {

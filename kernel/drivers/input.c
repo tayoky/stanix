@@ -105,7 +105,7 @@ static void input_destroy(device_t *device) {
 	if (input_device->ops && input_device->ops->destroy) {
 		input_device->ops->destroy(input_device);
 	}
-	destroy_ringbuffer(&input_device->events);
+	ringbuffer_destroy(&input_device->events);
 }
 
 static vfs_fd_ops_t input_ops = {

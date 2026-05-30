@@ -16,7 +16,7 @@ void ringbuffer_init(ringbuffer_t *ring, size_t buffer_size) {
 	ring->buffer = kmalloc(buffer_size);
 }
 
-void destroy_ringbuffer(ringbuffer_t *ring) {
+void ringbuffer_destroy(ringbuffer_t *ring) {
 	kfree(ring->buffer);
 }
 

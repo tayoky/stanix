@@ -69,7 +69,7 @@ static void pipe_close(vfs_fd_t *fd) {
 
 	// if it's already broken delete the pipe
 	if (atomic_exchange(&pipe->isbroken, 1)) {
-		destroy_ringbuffer(&pipe->ring);
+		ringbuffer_destroy(&pipe->ring);
 		kfree(pipe);
 		return;
 	} else {

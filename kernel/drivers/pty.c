@@ -12,7 +12,7 @@ static ssize_t pty_output(tty_t *tty, const char *buf, size_t size) {
 }
 
 static void pty_cleanup(pty_t *pty) {
-	destroy_ringbuffer(&pty->output_buffer);
+	ringbuffer_destroy(&pty->output_buffer);
 	kfree(pty);
 }
 
