@@ -22,7 +22,7 @@ void arch_registers_dump(registers_t *registers) {
 	kprintf("rbp : 0x%p\tr14 : 0x%p\n", registers->rbp, registers->r14);
 	kprintf("rsp : 0x%p\tr15 : 0x%p\n", registers->rsp, registers->r15);
 	kprintf("================== SPECIAL REGISTERS ===================\n");
-	kprintf("cr2 : 0x%p\tcr3 : 0x%p\n", registers->cr2, registers->cr3);
+	kprintf("cr2 : 0x%p\n", registers->cr2);
 	kprintf("rip : 0x%p\n", registers->rip);
 	kprintf("cs  : 0x%p\tss  : 0x%p\n", registers->cs, registers->ss);
 	kprintf("es  : 0x%p\tds  : 0x%p\n", registers->es, registers->ds);
