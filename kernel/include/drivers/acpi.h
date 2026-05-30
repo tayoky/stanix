@@ -28,9 +28,33 @@ typedef struct acpi_xsdp {
 	uint8_t reserved[3];
 } __attribute__((packed)) acpi_xsdp_t;
 
+typedef struct acpi_sdt {
+	char signature[4];
+	uint32_t length;
+	uint8_t revision;
+	uint8_t checksum;
+	char oem_id[6];
+	char oemi_table_id[8];
+	uint32_t oem_revision;
+	uint32_t creator_id;
+	uint32_t creator_revision;
+} __attribute__((packed)) acpi_sdt_t;
+
+typedef struct acpi_rsdt {
+    acpi_sdt_t sdt;
+    uint32_t entries[];
+} __attribute__((packed)) acpi_rsdt_t;
+
+typedef struct acpi_xsdt {
+    acpi_sdt_t sdt;
+    uint64_t entries[];
+} __attribute__((packed)) acpi_xsdt_t;
+
 #define ACPI_RSDP_SIG "RSD PTR "
 
 void acpi_set_rsdp(void *rsdp);
+int acpi_sdt_verify(acpi_sdt_t *sdt, const char *name);
+void *acpi_find_table(const char *name);
 void init_acpi(void);
 
 #endif
