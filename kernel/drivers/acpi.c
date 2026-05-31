@@ -35,7 +35,7 @@ void *acpi_find_table(const char *name) {
 		size_t entries_count = (rsdt->sdt.length - sizeof(acpi_sdt_t)) / sizeof(uint32_t);
 		for (size_t i = 0; i < entries_count; i++) {
 			acpi_sdt_t *current = (acpi_sdt_t *)(rsdt->entries[i] + kernel->hhdm);
-			if (!strcmp(current->signature, name)) {
+			if (!memcmp(current->signature, name, 4)) {
 				if (acpi_sdt_verify(current, name) < 0) return NULL;
 				return current;
 			}

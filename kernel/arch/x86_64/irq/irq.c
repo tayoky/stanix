@@ -27,8 +27,11 @@ irq_chip_t *irq_chip;
 void init_irq(void) {
 	kstatusf("init irq chip... ");
 
-	// TODO : implement and use APIC if avalible
-	init_pic();
+	if (have_apic()) {
+		init_apic();
+	} else {
+		init_pic();
+	}
 
 	kok();
 

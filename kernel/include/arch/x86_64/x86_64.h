@@ -1,19 +1,20 @@
 #ifndef KERNEL_X86_64_H
 #define KERNEL_X86_64_H
 
+#include <kernel/apic.h>
+#include <kernel/asm.h>
+#include <kernel/cmos.h>
+#include <kernel/gdt.h>
+#include <kernel/idt.h>
+#include <kernel/isr.h>
+#include <kernel/paging.h>
+#include <kernel/pic.h>
+#include <kernel/pit.h>
+#include <kernel/port.h>
+#include <kernel/serial.h>
+#include <kernel/tss.h>
 #include <sys/shutdown.h>
 #include <stdint.h>
-#include "asm.h"
-#include "cmos.h"
-#include "gdt.h"
-#include "idt.h"
-#include "isr.h"
-#include "paging.h"
-#include "pic.h"
-#include "pit.h"
-#include "port.h"
-#include "serial.h"
-#include "tss.h"
 
 // any change here must be replicated in interrupt handler
 // and context switch

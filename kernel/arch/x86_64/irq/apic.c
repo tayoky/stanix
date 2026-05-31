@@ -1,0 +1,84 @@
+#include <kernel/acpi.h>
+#include <kernel/arch.h>
+#include <kernel/irq.h>
+#include <kernel/kernel.h>
+#include <kernel/kheap.h>
+#include <kernel/print.h>
+#include <kernel/xarray.h>
+
+static irq_chip_t apic_chip;
+
+static uintptr_t local_apic_address;
+static xarray_t ioapic_list;
+
+int have_apic(void) {
+	return acpi_find_table(ACPI_MADT_SIG) != NULL;
+}
+
+static uint32_t local_apic_read(uint16_t reg) {
+	// TODO : use UC and MMIO
+	uintptr_t reg_addr = local_apic_address + kernel->hhdm + reg;
+	return *(uint32_t *)reg_addr;
+}
+
+static void local_apic_write(uint16_t reg, uint32_t value) {
+	// TODO : use UC and MMIO
+	uintptr_t reg_addr    = local_apic_address + kernel->hhdm + reg;
+	*(uint32_t *)reg_addr = value;
+}
+
+void init_apic(void) {
+	acpi_madt_t *madt = acpi_find_table(ACPI_MADT_SIG);
+	if (!madt) {
+		kfail();
+		kinfof("fail to get MADT table\n");
+		halt();
+	}
+
+	// fun fact : to init the APIC you need to init the ... PIC
+	// this mask all interruptions of the PIC
+	init_pic();
+
+	xarray_init(&ioapic_list);
+	local_apic_address = madt->local_acpi_address;
+
+	// got trough each entry
+	uintptr_t current = (uintptr_t)madt + sizeof(acpi_madt_t);
+	uintptr_t end     = (uintptr_t)madt + madt->sdt.length;
+	while (current < end) {
+		acpi_madt_entry_t *entry = (acpi_madt_entry_t *)current;
+		switch (entry->type) {
+		case ACPI_MADT_ENTRY_IOAPIC:;
+			ioapic_t *ioapic = kmalloc(sizeof(ioapic_t));
+			ioapic->gsi_base = entry->ioapic.gsi_base;
+			ioapic->id       = entry->ioapic.ioapic_id;
+			ioapic->address  = entry->ioapic.address;
+			xarray_set(&ioapic_list, ioapic->id, ioapic);
+			kdebugf("found io apic at address %p\n", ioapic->address);
+			break;
+		case ACPI_MADT_ENTRY_LOCAL_APIC_ADDRESS_OVERRIDE:
+			local_apic_address = entry->local_apic_address_override.address;
+			break;
+		}
+		current += entry->length;
+	}
+
+	// tell the irq system we use apic
+	irq_chip = &apic_chip;
+
+	kinfof("local apic address is %p\n", local_apic_address);
+
+    // we need to set the bit 8 of spurious interrupt vector to enable interrupts
+    local_apic_write(LOCAL_APIC_REG_SPURIOUS, local_apic_read(LOCAL_APIC_REG_SPURIOUS) | 0x100);
+}
+
+static void apic_eoi(irqnum_t irq_num) {
+	(void)irq_num;
+	local_apic_write(LOCAL_APIC_REG_EOI, 0);
+}
+
+static irq_chip_t apic_chip = {
+	.name = "APIC",
+	.type = IRQ_CHIP_APIC,
+	.eoi  = apic_eoi,
+};
