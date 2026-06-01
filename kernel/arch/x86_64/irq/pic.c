@@ -75,10 +75,15 @@ static void pic_eoi(irqnum_t irq_num) {
 	out_byte(PIC1_COMMAND, 0x20);
 }
 
+static void pic_hirq2irq(int hirq) {
+	return hirq;
+}
+
 static irq_chip_t pic_chip = {
-	.name   = "PIC",
-	.type   = IRQ_CHIP_PIC,
-	.mask   = pic_mask,
-	.unmask = pic_unmask,
-	.eoi    = pic_eoi,
+	.name     = "PIC",
+	.type     = IRQ_CHIP_PIC,
+	.mask     = pic_mask,
+	.unmask   = pic_unmask,
+	.eoi      = pic_eoi,
+	.hirq2irq = pic_hirq2irq,
 };

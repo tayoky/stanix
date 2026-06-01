@@ -12,6 +12,7 @@ static irq_chip_t apic_chip;
 static uintptr_t local_apic_address;
 static volatile void *local_apic;
 static xarray_t ioapic_list;
+static xarray_t hirq2gsi;
 
 int have_apic(void) {
 	return acpi_find_table(ACPI_MADT_SIG) != NULL;
@@ -70,6 +71,7 @@ void init_apic(void) {
 	init_pic();
 
 	xarray_init(&ioapic_list);
+	xarray_init(&hirq2gsi);
 	local_apic_address = madt->local_acpi_address;
 
 	// got trough each entry
@@ -96,6 +98,40 @@ void init_apic(void) {
 		current += entry->length;
 	}
 
+	// repeat but apply redirections this time
+	current = (uintptr_t)madt + sizeof(acpi_madt_t);
+	while (current < end) {
+		acpi_madt_entry_t *entry = (acpi_madt_entry_t *)current;
+		switch (entry->type) {
+		case ACPI_MADT_ENTRY_IOAPIC_INTERRUPT_OVERRIDE:
+			// we store values in xarray multiplied by 2 since we need them to be 2 aligned
+			xarray_set(&hirq2gsi, entry->ioapic_interrupt_override.irq_source, (void *)(entry->ioapic_interrupt_override.gsi * 2));
+			ioapic_t *ioapic = get_ioapic_for_gsi(entry->ioapic_interrupt_override.gsi);
+			if (!ioapic) break;
+			uint64_t redirection = ioapic_read_redirection(ioapic, entry->ioapic_interrupt_override.gsi - ioapic->gsi_base);
+			switch (entry->ioapic_interrupt_override.flags & ACPI_MADT_ENTRY_INTERRUPT_POLARITY) {
+			case ACPI_MADT_ENTRY_INTERRUPT_POLARITY_HIGH:
+				redirection &= ~IOAPIC_PIN_POLARITY_LOW;
+				break;
+			case ACPI_MADT_ENTRY_INTERRUPT_POLARITY_LOW:
+				redirection |= IOAPIC_PIN_POLARITY_LOW;
+				break;
+			}
+			switch (entry->ioapic_interrupt_override.flags & ACPI_MADT_ENTRY_INTERRUPT_TRIGGER) {
+			case ACPI_MADT_ENTRY_INTERRUPT_TRIGGER_EDGE:
+				redirection &= ~IOAPIC_TRIGGER_MODE_LEVEL;
+				break;
+			case ACPI_MADT_ENTRY_INTERRUPT_TRIGGER_LEVEL:
+				redirection |= IOAPIC_TRIGGER_MODE_LEVEL;
+				break;
+			}
+			ioapic_write_redirection(ioapic, entry->ioapic_interrupt_override.gsi - ioapic->gsi_base, redirection);
+			break;
+		}
+		current += entry->length;
+	}
+
+
 	// tell the irq system we use apic
 	irq_chip = &apic_chip;
 
@@ -106,13 +142,38 @@ void init_apic(void) {
 	local_apic_write(LOCAL_APIC_REG_SPURIOUS, local_apic_read(LOCAL_APIC_REG_SPURIOUS) | 0x100);
 }
 
-static void apic_eoi(irqnum_t irq_num) {
-	(void)irq_num;
+static void apic_mask(irqnum_t gsi) {
+	ioapic_t *ioapic = get_ioapic_for_gsi(gsi);
+	if (!ioapic) return;
+	uint64_t redirection = ioapic_read_redirection(ioapic, gsi - ioapic->gsi_base);
+	redirection |= IOAPIC_MASK;
+	ioapic_write_redirection(ioapic, gsi - ioapic->gsi_base, redirection);
+}
+
+static void apic_unmask(irqnum_t gsi) {
+	ioapic_t *ioapic = get_ioapic_for_gsi(gsi);
+	if (!ioapic) return;
+	uint64_t redirection = ioapic_read_redirection(ioapic, gsi - ioapic->gsi_base);
+	redirection &= ~IOAPIC_MASK;
+	ioapic_write_redirection(ioapic, gsi - ioapic->gsi_base, redirection);
+}
+
+static void apic_eoi(irqnum_t gsi) {
+	(void)gsi;
 	local_apic_write(LOCAL_APIC_REG_EOI, 0);
 }
 
+static irqnum_t apic_hirq2irq(int hirq) {
+	// we store values in xarray multiplied by 2 since we need them to be 2 aligned
+	uintptr_t val = xarray_get(&hirq2gsi, hirq);
+	return val / 2;
+}
+
 static irq_chip_t apic_chip = {
-	.name = "APIC",
-	.type = IRQ_CHIP_APIC,
-	.eoi  = apic_eoi,
+	.name     = "APIC",
+	.type     = IRQ_CHIP_APIC,
+	.mask     = apic_mask,
+	.unmask   = apic_unmask,
+	.eoi      = apic_eoi,
+	.hirq2irq = apic_hirq2irq,
 };

@@ -102,6 +102,7 @@ typedef struct irq_chip {
 	void (*mask)(irqnum_t irq_num);
 	void (*unmask)(irqnum_t irq_num);
 	void (*eoi)(irqnum_t irq_num);
+	irqnum_t (*hirq2irq)(int hirq);
 	const char *name;
 	int type;
 } irq_chip_t;

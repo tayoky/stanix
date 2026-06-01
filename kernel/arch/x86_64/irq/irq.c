@@ -76,6 +76,15 @@ void irq_eoi(irqnum_t irq_num) {
 	}
 }
 
+irqnum_t irq_hirq2irq(int hirq) {
+	if (irq_chip->hirq2irq) {
+		irq_chip->hirq2irq(hirq);
+	} else {
+		kwarningf("unimplemented hirq operation for irq chip '%s'\n", irq_chip->name);
+		return -1;
+	}
+}
+
 void irq_register_handler(irqnum_t irq_num, interrupt_handler_t handler, void *data) {
 	// save the handler
 	handlers[irq_num]      = handler;
