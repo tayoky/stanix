@@ -77,7 +77,7 @@ static void pic_eoi(irqnum_t irq_num) {
 }
 
 static void pic_register_handler(irqnum_t irq_num, void *handler, void *data) {
-	idt_register_handler(irq_num + 32, handler, data);
+	idt_register_handler(irq_num + 32, handler, data, irq_num);
 }
 
 static irqnum_t pic_hirq2irq(int hirq) {

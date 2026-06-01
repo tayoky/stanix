@@ -9,8 +9,9 @@
 #include <kernel/sys.h>
 #include <stdint.h>
 
-static interrupt_handler_t handlers[256 - 32];
-static void *handlers_data[256 - 32];
+static interrupt_handler_t handlers[256];
+static void *handlers_data[256];
+static irqnum_t irqs[256];
 
 void safe_copy_fault(void);
 void safe_copy_resolve_fault(void);
@@ -93,12 +94,12 @@ void isr_handler(registers_t *registers) {
 	} else {
 		interrupt_handler_t handler = handlers[registers->err_type];
 		void *data                  = handlers_data[registers->err_type];
-		registers->err_code         = registers->err_type - 32;
+		irqnum_t irq_num            = irqs[registers->err_type];
+		if (irq_num >= 0) {
+			irq_eoi(irq_num);
+		}
 		handler(registers, data);
-		// HACK : this work only because APIC do not care about irq num for eoi
-		irq_eoi(registers->err_code);
 	}
-	return;
 }
 
 void init_idt(void) {
@@ -114,7 +115,7 @@ void init_idt(void) {
 	IRQS();
 #undef X
 
-	idt_register_handler(0x80, syscall_handler, NULL);
+	idt_register_handler(0x80, syscall_handler, NULL, -1);
 
 	// create the IDTR
 	kernel->arch.idtr.size   = sizeof(kernel->arch.idt) - 1;
@@ -125,18 +126,19 @@ void init_idt(void) {
 }
 
 
-void idt_register_handler(int vector, void *handler, void *data) {
+void idt_register_handler(int vector, void *handler, void *data, irqnum_t irq_num) {
 	// save the handler
 	handlers[vector]      = handler;
 	handlers_data[vector] = data;
+	irqs[vector]          = irq_num;
 }
 
-int idt_allocate(void *handler, void *data) {
+int idt_allocate(void *handler, void *data, irqnum_t irq_num) {
 	int i = 64;
 	while (i < 256 - 32) {
 		if (!handlers[i]) {
 			handlers[i] = handler;
-			idt_register_handler(i, handler, data);
+			idt_register_handler(i, handler, data, irq_num);
 			return i;
 		}
 		i++;

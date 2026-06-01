@@ -168,7 +168,7 @@ static void apic_register_handler(irqnum_t gsi, void *handler, void *data) {
 	if (!ioapic) return;
 
 	// allocate vector
-	int vector = idt_allocate(handler, data);
+	int vector = idt_allocate(handler, data, gsi);
 	if (vector < 0) return;
 
 	uint64_t redirection = ioapic_read_redirection(ioapic, gsi - ioapic->gsi_base);
