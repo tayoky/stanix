@@ -5,10 +5,12 @@
 #include <kernel/kheap.h>
 #include <kernel/print.h>
 #include <kernel/xarray.h>
+#include <kernel/mmio.h>
 
 static irq_chip_t apic_chip;
 
 static uintptr_t local_apic_address;
+static volatile void *local_apic;
 static xarray_t ioapic_list;
 
 int have_apic(void) {
@@ -16,15 +18,11 @@ int have_apic(void) {
 }
 
 static uint32_t local_apic_read(uint16_t reg) {
-	// TODO : use UC and MMIO
-	uintptr_t reg_addr = local_apic_address + kernel->hhdm + reg;
-	return *(uint32_t *)reg_addr;
+	return mmio_read32(local_apic, reg);
 }
 
 static void local_apic_write(uint16_t reg, uint32_t value) {
-	// TODO : use UC and MMIO
-	uintptr_t reg_addr    = local_apic_address + kernel->hhdm + reg;
-	*(uint32_t *)reg_addr = value;
+	mmio_write32(local_apic, reg, value);
 }
 
 void init_apic(void) {
@@ -67,6 +65,7 @@ void init_apic(void) {
 	irq_chip = &apic_chip;
 
 	kinfof("local apic address is %p\n", local_apic_address);
+	local_apic = mmio_map(local_apic_address, 0x400);
 
     // we need to set the bit 8 of spurious interrupt vector to enable interrupts
     local_apic_write(LOCAL_APIC_REG_SPURIOUS, local_apic_read(LOCAL_APIC_REG_SPURIOUS) | 0x100);

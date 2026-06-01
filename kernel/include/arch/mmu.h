@@ -33,7 +33,7 @@ void mmu_delete_addr_space(addrspace_t addrspace);
 /**
  * @brief map an virtual page to a physcal page
  * @param addrspace an pointer to the addrspace
- * @param paddr the physical page it will be map
+ * @param paddr the physical page to map
  * @param vaddr the virtual page to map
  * @param flags flag to use for the virtual page (eg readonly, not executable...)
  */
