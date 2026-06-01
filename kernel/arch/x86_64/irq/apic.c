@@ -105,7 +105,7 @@ void init_apic(void) {
 		switch (entry->type) {
 		case ACPI_MADT_ENTRY_IOAPIC_INTERRUPT_OVERRIDE:
 			// we store values in xarray multiplied by 2 since we need them to be 2 aligned
-			kdebugf("%hhu is mapped to %u\n", entry->ioapic_interrupt_override.irq_source, entry->ioapic_interrupt_override.gsi);
+			kdebugf("redirection from %hhu to gsi %u\n", entry->ioapic_interrupt_override.irq_source, entry->ioapic_interrupt_override.gsi);
 			xarray_set(&hirq2gsi, entry->ioapic_interrupt_override.irq_source, (void *)(uintptr_t)(entry->ioapic_interrupt_override.gsi * 2));
 			ioapic_t *ioapic = get_ioapic_for_gsi(entry->ioapic_interrupt_override.gsi);
 			if (!ioapic) break;
