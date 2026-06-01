@@ -66,40 +66,40 @@ typedef struct acpi_madt_entry {
 			uint8_t processor_id;
 			uint8_t apic_id;
 			uint32_t flags;
-		} local_apic;
+		} __attribute__((packed)) local_apic;
 		struct {
 			uint8_t ioapic_id;
 			uint8_t reserved;
 			uint32_t address;
 			uint32_t gsi_base;
-		} ioapic;
+		} __attribute__((packed)) ioapic;
 		struct {
 			uint8_t bus_source;
 			uint8_t irq_source;
 			uint32_t gsi;
 			uint16_t flags;
-		} ioapic_interrupt_override;
+		} __attribute__((packed)) ioapic_interrupt_override;
 		struct {
 			uint8_t nmi_source;
 			uint8_t reserved;
 			uint16_t flags;
 			uint32_t gsi;
-		} ioapic_nmi;
+		} __attribute__((packed)) ioapic_nmi;
 		struct {
 			uint8_t processor_id;
 			uint16_t flags;
 			uint8_t lint;
-		} local_apic_nmi;
+		} __attribute__((packed)) local_apic_nmi;
 		struct {
 			uint16_t reserved;
 			uint64_t address;
-		} local_apic_address_override;
+		} __attribute__((packed)) local_apic_address_override;
 		struct {
 			uint16_t reserved;
 			uint32_t apic_id;
 			uint32_t flags;
 			uint32_t processor_id;
-		} local_x2apic;
+		} __attribute__((packed)) local_x2apic;
 	};
 } __attribute__((packed)) acpi_madt_entry_t;
 

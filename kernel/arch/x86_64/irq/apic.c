@@ -3,9 +3,9 @@
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 #include <kernel/kheap.h>
+#include <kernel/mmio.h>
 #include <kernel/print.h>
 #include <kernel/xarray.h>
-#include <kernel/mmio.h>
 
 static irq_chip_t apic_chip;
 
@@ -23,6 +23,38 @@ static uint32_t local_apic_read(uint16_t reg) {
 
 static void local_apic_write(uint16_t reg, uint32_t value) {
 	mmio_write32(local_apic, reg, value);
+}
+
+static uint32_t ioapic_read(ioapic_t *ioapic, uint8_t reg) {
+	mmio_write32(ioapic->mmio, IOAPIC_REGSEL, reg);
+	return mmio_read32(ioapic->mmio, IOAPIC_WIN);
+}
+
+static void ioapic_write(ioapic_t *ioapic, uint8_t reg, uint32_t value) {
+	mmio_write32(ioapic->mmio, IOAPIC_REGSEL, reg);
+	mmio_write32(ioapic->mmio, IOAPIC_WIN, value);
+}
+
+static uint64_t ioapic_read_redirection(ioapic_t *ioapic, size_t index) {
+	size_t reg = IOAPIC_REG_REDTBL + index * 2;
+	return ioapic_read(ioapic, reg) | (ioapic_read(ioapic, reg + 1) << 32);
+}
+
+static void ioapic_write_redirection(ioapic_t *ioapic, size_t index, uint64_t value) {
+	size_t reg = IOAPIC_REG_REDTBL + index * 2;
+	ioapic_write(ioapic, reg, value & 0xffffffff);
+	ioapic_write(ioapic, reg, (value >> 32) & 0xffffffff);
+}
+
+static ioapic_t *get_ioapic_for_gsi(uint32_t gsi) {
+	xarray_foreach (id, value, &ioapic_list) {
+		(void)id;
+		ioapic_t *ioapic = value;
+		if (gsi >= ioapic->gsi_base && gsi <= ioapic->gsi_base + ioapic->redirections_count) {
+			return ioapic;
+		}
+	}
+	return NULL;
 }
 
 void init_apic(void) {
@@ -47,12 +79,15 @@ void init_apic(void) {
 		acpi_madt_entry_t *entry = (acpi_madt_entry_t *)current;
 		switch (entry->type) {
 		case ACPI_MADT_ENTRY_IOAPIC:;
-			ioapic_t *ioapic = kmalloc(sizeof(ioapic_t));
-			ioapic->gsi_base = entry->ioapic.gsi_base;
-			ioapic->id       = entry->ioapic.ioapic_id;
-			ioapic->address  = entry->ioapic.address;
+			ioapic_t *ioapic           = kmalloc(sizeof(ioapic_t));
+			ioapic->gsi_base           = entry->ioapic.gsi_base;
+			ioapic->id                 = entry->ioapic.ioapic_id;
+			ioapic->address            = entry->ioapic.address;
+			ioapic->mmio               = mmio_map(ioapic->address, PAGE_SIZE);
+			ioapic->redirections_count = (ioapic_read(ioapic, IOAPIC_REG_VER) & IOAPIC_REDIRECTIONS_COUNT) >> IOAPIC_REDIRECTIONS_COUNT_SHIFT;
+
 			xarray_set(&ioapic_list, ioapic->id, ioapic);
-			kdebugf("found io apic at address %p\n", ioapic->address);
+			kdebugf("found io apic at address %p, gsi base %u, redirections count %zu\n", ioapic->address, ioapic->gsi_base, ioapic->redirections_count);
 			break;
 		case ACPI_MADT_ENTRY_LOCAL_APIC_ADDRESS_OVERRIDE:
 			local_apic_address = entry->local_apic_address_override.address;
@@ -67,8 +102,8 @@ void init_apic(void) {
 	kinfof("local apic address is %p\n", local_apic_address);
 	local_apic = mmio_map(local_apic_address, 0x400);
 
-    // we need to set the bit 8 of spurious interrupt vector to enable interrupts
-    local_apic_write(LOCAL_APIC_REG_SPURIOUS, local_apic_read(LOCAL_APIC_REG_SPURIOUS) | 0x100);
+	// we need to set the bit 8 of spurious interrupt vector to enable interrupts
+	local_apic_write(LOCAL_APIC_REG_SPURIOUS, local_apic_read(LOCAL_APIC_REG_SPURIOUS) | 0x100);
 }
 
 static void apic_eoi(irqnum_t irq_num) {
