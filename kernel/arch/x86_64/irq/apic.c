@@ -44,7 +44,7 @@ static uint64_t ioapic_read_redirection(ioapic_t *ioapic, size_t index) {
 static void ioapic_write_redirection(ioapic_t *ioapic, size_t index, uint64_t value) {
 	size_t reg = IOAPIC_REG_REDTBL + index * 2;
 	ioapic_write(ioapic, reg, value & 0xffffffff);
-	ioapic_write(ioapic, reg, (value >> 32) & 0xffffffff);
+	ioapic_write(ioapic, reg + 1, (value >> 32) & 0xffffffff);
 }
 
 static ioapic_t *get_ioapic_for_gsi(uint32_t gsi) {
@@ -105,6 +105,7 @@ void init_apic(void) {
 		switch (entry->type) {
 		case ACPI_MADT_ENTRY_IOAPIC_INTERRUPT_OVERRIDE:
 			// we store values in xarray multiplied by 2 since we need them to be 2 aligned
+			kdebugf("%hhu is mapped to %u\n", entry->ioapic_interrupt_override.irq_source, entry->ioapic_interrupt_override.gsi);
 			xarray_set(&hirq2gsi, entry->ioapic_interrupt_override.irq_source, (void *)(uintptr_t)(entry->ioapic_interrupt_override.gsi * 2));
 			ioapic_t *ioapic = get_ioapic_for_gsi(entry->ioapic_interrupt_override.gsi);
 			if (!ioapic) break;
@@ -180,7 +181,7 @@ static void apic_register_handler(irqnum_t gsi, void *handler, void *data) {
 static irqnum_t apic_hirq2irq(int hirq) {
 	// we store values in xarray multiplied by 2 since we need them to be 2 aligned
 	uintptr_t val = (uintptr_t)xarray_get(&hirq2gsi, hirq);
-	if (!val) return -1;
+	if (!val) return hirq;
 	return val / 2;
 }
 
