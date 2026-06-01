@@ -20,8 +20,6 @@ extern void irq13();
 extern void irq14();
 extern void irq15();
 
-static interrupt_handler_t handlers[256 - 32];
-static void *handlers_data[256 - 32];
 irq_chip_t *irq_chip;
 
 void init_irq(void) {
@@ -40,15 +38,9 @@ void init_irq(void) {
 }
 
 irqnum_t irq_allocate(interrupt_handler_t handler, void *data) {
-	int i = 64;
-	while (i < 256 - 32) {
-		if (!handlers[i]) {
-			handlers[i] = handler;
-			irq_register_handler(i, handler, data);
-			return i;
-		}
-		i++;
-	}
+	// TODO
+	(void)handler;
+	(void)data;
 	return -1;
 }
 
@@ -78,7 +70,7 @@ void irq_eoi(irqnum_t irq_num) {
 
 irqnum_t irq_hirq2irq(int hirq) {
 	if (irq_chip->hirq2irq) {
-		irq_chip->hirq2irq(hirq);
+		return irq_chip->hirq2irq(hirq);
 	} else {
 		kwarningf("unimplemented hirq operation for irq chip '%s'\n", irq_chip->name);
 		return -1;
@@ -86,27 +78,17 @@ irqnum_t irq_hirq2irq(int hirq) {
 }
 
 void irq_register_handler(irqnum_t irq_num, interrupt_handler_t handler, void *data) {
-	// save the handler
-	handlers[irq_num]      = handler;
-	handlers_data[irq_num] = data;
-
-	// and then mask/unmask it
+	if (irq_chip->register_handler) {
+		irq_chip->register_handler(irq_num, handler, data);
+	} else {
+		kwarningf("unimplemented register_handler operation for irq chip '%s'\n", irq_chip->name);
+		return;
+	}
+	// mask/unmask the interrupt
 	if (!irq_chip) return;
 	if (handler) {
 		irq_unmask(irq_num);
 	} else {
 		irq_mask(irq_num);
-	}
-}
-
-void irq_handler(registers_t *frame) {
-	interrupt_handler_t handler = handlers[frame->err_type - 32];
-	void *data                  = handlers_data[frame->err_type - 32];
-	frame->err_code             = frame->err_type - 32;
-	if (frame->err_type < 48) {
-		irq_eoi(frame->err_code);
-	}
-	if (handler) {
-		handler(frame, data);
 	}
 }

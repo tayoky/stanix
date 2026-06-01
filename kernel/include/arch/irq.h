@@ -15,6 +15,4 @@ void irq_register_handler(irqnum_t irq_num, interrupt_handler_t handler, void *d
 // this function is really weird and should not be used
 irqnum_t irq_allocate(interrupt_handler_t handler, void *data);
 
-void irq_handler(registers_t *frame);
-
 #endif

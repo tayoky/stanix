@@ -38,7 +38,7 @@ static void ioapic_write(ioapic_t *ioapic, uint8_t reg, uint32_t value) {
 
 static uint64_t ioapic_read_redirection(ioapic_t *ioapic, size_t index) {
 	size_t reg = IOAPIC_REG_REDTBL + index * 2;
-	return ioapic_read(ioapic, reg) | (ioapic_read(ioapic, reg + 1) << 32);
+	return ioapic_read(ioapic, reg) | ((uint64_t)ioapic_read(ioapic, reg + 1) << 32);
 }
 
 static void ioapic_write_redirection(ioapic_t *ioapic, size_t index, uint64_t value) {
@@ -105,7 +105,7 @@ void init_apic(void) {
 		switch (entry->type) {
 		case ACPI_MADT_ENTRY_IOAPIC_INTERRUPT_OVERRIDE:
 			// we store values in xarray multiplied by 2 since we need them to be 2 aligned
-			xarray_set(&hirq2gsi, entry->ioapic_interrupt_override.irq_source, (void *)(entry->ioapic_interrupt_override.gsi * 2));
+			xarray_set(&hirq2gsi, entry->ioapic_interrupt_override.irq_source, (void *)(uintptr_t)(entry->ioapic_interrupt_override.gsi * 2));
 			ioapic_t *ioapic = get_ioapic_for_gsi(entry->ioapic_interrupt_override.gsi);
 			if (!ioapic) break;
 			uint64_t redirection = ioapic_read_redirection(ioapic, entry->ioapic_interrupt_override.gsi - ioapic->gsi_base);
@@ -165,7 +165,7 @@ static void apic_eoi(irqnum_t gsi) {
 
 static irqnum_t apic_hirq2irq(int hirq) {
 	// we store values in xarray multiplied by 2 since we need them to be 2 aligned
-	uintptr_t val = xarray_get(&hirq2gsi, hirq);
+	uintptr_t val = (uintptr_t)xarray_get(&hirq2gsi, hirq);
 	return val / 2;
 }
 

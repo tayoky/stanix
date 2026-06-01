@@ -69,21 +69,27 @@ static void pic_unmask(irqnum_t irq_num) {
 }
 
 static void pic_eoi(irqnum_t irq_num) {
+	if (irq_num > 16) return;
 	if (irq_num >= 8) {
 		out_byte(PIC2_COMMAND, 0x20);
 	}
 	out_byte(PIC1_COMMAND, 0x20);
 }
 
-static void pic_hirq2irq(int hirq) {
+static void pic_register_handler(irqnum_t irq_num, void *handler, void *data) {
+	idt_register_handler(irq_num + 32, handler, data);
+}
+
+static irqnum_t pic_hirq2irq(int hirq) {
 	return hirq;
 }
 
 static irq_chip_t pic_chip = {
-	.name     = "PIC",
-	.type     = IRQ_CHIP_PIC,
-	.mask     = pic_mask,
-	.unmask   = pic_unmask,
-	.eoi      = pic_eoi,
-	.hirq2irq = pic_hirq2irq,
+	.name             = "PIC",
+	.type             = IRQ_CHIP_PIC,
+	.mask             = pic_mask,
+	.unmask           = pic_unmask,
+	.eoi              = pic_eoi,
+	.register_handler = pic_register_handler,
+	.hirq2irq         = pic_hirq2irq,
 };
