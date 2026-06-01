@@ -163,17 +163,33 @@ static void apic_eoi(irqnum_t gsi) {
 	local_apic_write(LOCAL_APIC_REG_EOI, 0);
 }
 
+static void apic_register_handler(irqnum_t gsi, void *handler, void *data) {
+	ioapic_t *ioapic = get_ioapic_for_gsi(gsi);
+	if (!ioapic) return;
+
+	// allocate vector
+	int vector = idt_allocate(handler, data);
+	if (vector < 0) return;
+
+	uint64_t redirection = ioapic_read_redirection(ioapic, gsi - ioapic->gsi_base);
+	redirection &= ~IOAPIC_VECTOR;
+	redirection |= vector;
+	ioapic_write_redirection(ioapic, gsi - ioapic->gsi_base, redirection);
+}
+
 static irqnum_t apic_hirq2irq(int hirq) {
 	// we store values in xarray multiplied by 2 since we need them to be 2 aligned
 	uintptr_t val = (uintptr_t)xarray_get(&hirq2gsi, hirq);
+	if (!val) return -1;
 	return val / 2;
 }
 
 static irq_chip_t apic_chip = {
-	.name     = "APIC",
-	.type     = IRQ_CHIP_APIC,
-	.mask     = apic_mask,
-	.unmask   = apic_unmask,
-	.eoi      = apic_eoi,
-	.hirq2irq = apic_hirq2irq,
+	.name             = "APIC",
+	.type             = IRQ_CHIP_APIC,
+	.mask             = apic_mask,
+	.unmask           = apic_unmask,
+	.eoi              = apic_eoi,
+	.register_handler = apic_register_handler,
+	.hirq2irq         = apic_hirq2irq,
 };
