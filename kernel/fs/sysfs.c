@@ -6,6 +6,7 @@
 #include <kernel/slab.h>
 #include <kernel/string.h>
 #include <kernel/sysfs.h>
+#include <kernel/cmdline.h>
 #include <kernel/vfs.h>
 #include <errno.h>
 
@@ -22,7 +23,8 @@ static vfs_fd_ops_t sysfs_fd_ops;
 #define INODE_KERNEL_DIR 7
 #define INODE_SLAB_DIR   8
 #define INODE_SLAB       9
-#define INODE_MEM        10
+#define INODE_KCMDLINE   10
+#define INODE_MEM        11
 
 typedef struct static_entry {
 	int type;
@@ -42,6 +44,7 @@ static static_entry_t root_entries[] = {
 
 static static_entry_t kernel_entries[] = {
 	ENTRY(VFS_DIR, INODE_SLAB_DIR, "slab"),
+	ENTRY(VFS_FILE, INODE_KCMDLINE, "cmdline"),
 };
 
 static sysfs_inode_t *sysfs_new_inode(int type, void *ptr, int flags) {
@@ -234,6 +237,9 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 					 "full count : %zu\n",
 				slab->size, slab->free.node_count,
 				slab->partial.node_count, slab->full.node_count);
+		break;
+	case INODE_KCMDLINE:
+		strcpy(str, kcmdline_get());
 		break;
 	case INODE_MEM:
 		sprintf(str, "total pages count : %zu\n"

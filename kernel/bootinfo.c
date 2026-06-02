@@ -2,6 +2,7 @@
 #include <kernel/bootinfo.h>
 #include <kernel/acpi.h>
 #include <kernel/kernel.h>
+#include <kernel/cmdline.h>
 #include <kernel/print.h>
 
 __attribute__((used, section(".limine_requests_start"))) LIMINE_REQUESTS_START_MARKER
@@ -28,6 +29,10 @@ __attribute__((used, section(".limine_requests"))) volatile struct limine_hhdm_r
 
 __attribute__((used, section(".limine_requests"))) volatile struct limine_rsdp_request rsdp_request = {
 	.id = LIMINE_RSDP_REQUEST,
+};
+
+__attribute__((used, section(".limine_requests"))) volatile struct limine_executable_cmdline_request cmdline_request = {
+	.id = LIMINE_EXECUTABLE_CMDLINE_REQUEST,
 };
 
 struct limine_internal_module initrd_request = {
@@ -105,5 +110,8 @@ void get_bootinfo(void) {
 
 	if (rsdp_request.response) {
 		acpi_set_rsdp((void*)((uintptr_t)rsdp_request.response->address + kernel->hhdm));
+	}
+	if (cmdline_request.response) {
+		kcmdline_set(cmdline_request.response->cmdline);
 	}
 }

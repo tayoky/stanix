@@ -6,6 +6,7 @@
 #include <kernel/mmio.h>
 #include <kernel/print.h>
 #include <kernel/xarray.h>
+#include <kernel/cmdline.h>
 
 static irq_chip_t apic_chip;
 
@@ -15,6 +16,9 @@ static xarray_t ioapic_list;
 static xarray_t hirq2gsi;
 
 int have_apic(void) {
+	if (kcmdline_have_opt("--disable-apic")) {
+		return 0;
+	}
 	return acpi_find_table(ACPI_MADT_SIG) != NULL;
 }
 

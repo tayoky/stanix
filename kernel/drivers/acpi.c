@@ -2,6 +2,7 @@
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
+#include <kernel/cmdline.h>
 #include <errno.h>
 
 static acpi_xsdp_t *rsdp;
@@ -58,6 +59,11 @@ void *acpi_find_table(const char *name) {
 
 void init_acpi(void) {
 	kstatusf("init acpi ...");
+	if (kcmdline_have_opt("--disable-acpi")) {
+		kfail();
+		kinfof("acpi is disabled\n");
+		return;
+	}
 	if (!rsdp) {
 		kfail();
 		kinfof("no rsdp was provided (the machine or the bootloader probably don't support ACPI)\n");
