@@ -81,11 +81,18 @@ help :
 # test targets
 
 test-qemu : test-qemu-nvme
+test-qemu-kvm : test-qemu-kvm-nvme
 
 test-qemu-nvme : image-hdd
 	qemu-system-$(ARCH) \
 	-drive file=$(HDD_IMAGE),if=none,id=nvm -serial stdio \
 	-device nvme,serial=deadbeef,drive=nvm -m 512
+
+test-qemu-kvm-nvme : image-hdd
+	qemu-system-$(ARCH) \
+	-drive file=$(HDD_IMAGE),if=none,id=nvm -serial stdio \
+	-device nvme,serial=deadbeef,drive=nvm -m 512 -cpu host -enable-kvm -smp 1
+
 test-qemu-ata : image-hdd
 	qemu-system-$(ARCH) \
 	-hda $(HDD_IMAGE) -serial stdio 
