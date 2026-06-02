@@ -258,7 +258,7 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 
 	if ((size_t)offset >= strlen(str)) return 0;
 	if (offset + count > strlen(str)) count = strlen(str) - offset;
-	memcpy(buf, str, count);
+	memcpy(buf, str + offset, count);
 	return count;
 }
 

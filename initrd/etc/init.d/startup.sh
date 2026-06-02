@@ -34,4 +34,9 @@ set-layout /dev/kb0 azerty
 
 #uncomment this line to get a shell on the serial port
 #login --setup-stdin-from-stdout > /dev/ttyS0
-fbterm
+
+if kcmdline --gui --twm ; then
+    twm
+else
+    fbterm
+fi
