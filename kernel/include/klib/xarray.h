@@ -8,7 +8,8 @@
 #define XARRAY_MASK             ((1 << XARRAY_SHIFT_BITS) - 1)
 
 typedef struct xarray_node {
-	size_t shift;
+	size_t shift;       // hold the shift of the current mask
+	uint64_t full_mask; // bitmap of is each entry full ?
 	rcu_ptr_t entries[XARRAY_ENTRIES_PER_NODE];
 } xarray_node_t;
 
@@ -48,6 +49,25 @@ void *xarray_get(xarray_t *xarray, size_t index);
  * @param value the new value, must be 2 bytes aligned
  */
 void xarray_set(xarray_t *xarray, size_t index, void *value);
+
+/**
+ * @brief allocate an index inside a xarray, the allocated index will be the index of the first NULL value starting from start
+ * @param xarray the xarray in which to allocate an index
+ * @param start the index at which to start search for a NULL entry
+ * @param value the value to set to the allocted index
+ * @return the allocated index
+ */
+size_t xarray_allocate_from(xarray_t *xarray, size_t start, void *value);
+
+/**
+ * @brief allocate an index inside a xarray, the allocated index will be the index of the first NULL value
+ * @param xarray the xarray in which to allocate an index
+ * @param value the value to set to the allocted index
+ * @return the allocated index
+ */
+static inline size_t xarray_allocate(xarray_t *xarray, void *value) {
+	xarray_allocate_from(xarray, 0, value);
+}
 
 /**
  * @brief clear a value in a xarray by index

@@ -51,11 +51,12 @@ int device_driver_register(device_driver_t *device_driver) {
 	if (!device_driver->priority) device_driver->priority = 1;
 	if (device_driver->major == 0) {
 		// allocate a major
-		static int major_dyn = 256;
-		device_driver->major = major_dyn++;
+		// dynamic majors start at 256
+		device_driver->major = xarray_allocate_from(&device_drivers, 256, device_driver);
+	} else {
+		if (xarray_get(&device_drivers, device_driver->major)) return -EEXIST;
+		xarray_set(&device_drivers, device_driver->major, device_driver);
 	}
-	if (xarray_get(&device_drivers, device_driver->major)) return -EEXIST;
-	xarray_set(&device_drivers, device_driver->major, device_driver);
 
 	// try to use this new driver on all already existing devices
 	xarray_foreach (number, device, &devices) {
