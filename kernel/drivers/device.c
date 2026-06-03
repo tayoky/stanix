@@ -76,23 +76,26 @@ int device_driver_unregister(device_driver_t *device_driver) {
 	return 0;
 }
 
-int device_register(device_t *device) {
-	// TODO : create buses in devfs
-	if (!device->number) {
-		device->number = device->driver->minor_count++;
-	}
-	device->number = makedev(device->driver->major, device->number);
-	device->ref_count = 1;
+int device_register_fmt(device_t *device, const char *fmt) {
 	if (device->addr) {
 		device->addr->device = device;
 	}
-	if (device->type == DEVICE_BUS) {
-		vfs_mkdir_at(devfs_root, device->name, 0666);
+	device->ref_count = 1;
+	if (!device->number) {
+		device->number = xarray_allocate_from(&devices, makedev(device->driver->major, 0), device);
 	} else {
+		device->number = makedev(device->driver->major, device->number);
+		xarray_set(&devices, device->number, device);
+	}
+	if (fmt) {
+		char name[256];
+		snprintf(name, sizeof(name), fmt, minor(device->number));
+		device->name = strdup(name);
+	}
+	if (device->type != DEVICE_BUS) {
 		vfs_mknod_at(devfs_root, device->name, 0666 | (device->type == DEVICE_CHAR ? S_IFCHR : S_IFBLK), device->number);
 	}
 	kdebugf("register device %s as %d,%d (%lx)\n", device->name, major(device->number), minor(device->number), device->number);
-	xarray_set(&devices, device->number, device);
 	if (device->type == DEVICE_BUS) {
 		bus_t *bus = (bus_t *)device;
 		foreach(node, &bus->addresses) {
@@ -103,6 +106,10 @@ int device_register(device_t *device) {
 		}
 	}
 	return 0;
+}
+
+int device_register(device_t *device) {
+	return device_register_fmt(device, NULL);
 }
 
 void device_release(device_t *device) {

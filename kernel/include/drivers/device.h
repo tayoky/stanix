@@ -51,6 +51,14 @@ int device_driver_register(device_driver_t *device_driver);
 int device_driver_unregister(device_driver_t *device_driver);
 
 /**
+ * @brief register a new device and set the name
+ * @param device the device to register
+ * @param fmt the format of the name, %c or %d can be specified to include the minor device number
+ * @note if number is 0 a dev number is automaticly allocated
+ */
+int device_register_fmt(device_t *device, const char *fmt);
+
+/**
  * @brief register a new device
  * @param device the device to register
  * @note if number is 0 a dev number is automaticly allocated

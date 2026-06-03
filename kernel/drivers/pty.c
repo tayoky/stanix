@@ -132,19 +132,17 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	(*master_fd)->flags     = O_RDWR;
 
 	// register and save the slave
-	char path[32];
-	sprintf(path, "pts/%d", kernel->pty_count);
-	slave->device.name = strdup(path);
-	if (device_register((device_t *)slave) < 0) {
+	if (device_register_fmt(&slave->device, "pts/%d") < 0) {
 		// TODO : delete tty
 		return -ENOENT;
 	}
 
 	// FIXME : maybee there is a better way to do this
+	char path[32];
 	sprintf(path, "/dev/%s", slave->device.name);
 	(*slave_fd) = vfs_open(path, O_RDWR);
 
-	return kernel->pty_count++;
+	return minor(slave->device.number);
 }
 
 void init_ptys(void) {
