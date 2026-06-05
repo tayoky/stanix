@@ -1,4 +1,5 @@
 #include <kernel/arch.h>
+#include <kernel/asm.h>
 #include <kernel/irq.h>
 #include <kernel/kernel.h>
 
@@ -12,21 +13,29 @@ static void surpirous_handler(registers_t *frame, void *arg) {
 void init_pic() {
 	// starts the initialization sequence (in cascade mode)
 	out_byte(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
+	io_wait();
 	out_byte(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
+	io_wait();
 
 	// vector offset
 	out_byte(PIC1_DATA, 32);
+	io_wait();
 	out_byte(PIC2_DATA, 40);
+	io_wait();
 
 	// ICW3: tell Master PIC that there is a slave PIC at IRQ2 (0000 0100)
 	out_byte(PIC1_DATA, 4);
+	io_wait();
 
 	// ICW3: tell Slave PIC its cascade identity (0000 0010)
 	out_byte(PIC2_DATA, 2);
+	io_wait();
 
 	// ICW4: have the PICs use 8086 mode (and not 8080 mode)
 	out_byte(PIC1_DATA, ICW4_8086);
+	io_wait();
 	out_byte(PIC2_DATA, ICW4_8086);
+	io_wait();
 
 	// at the start mask everything
 	out_byte(PIC1_DATA, 0xff);
