@@ -68,22 +68,19 @@ static int wait_input() {
 	return -1;
 }
 
-static void ps2_send_command(uint8_t command) {
-	wait_input();
+static int ps2_send_command(uint8_t command) {
+	if (wait_input() < 0) return -1;
 	out_byte(PS2_COMMAND, command);
+	return 0;
 }
 
 int ps2_read(void) {
-	if (wait_output()) {
-		return -1;
-	}
+	if (wait_output() < 0) return -1;
 	return in_byte(PS2_DATA);
 }
 
 static int ps2_write(uint8_t data) {
-	if (wait_input()) {
-		return -1;
-	}
+	if (wait_input() < 0) return -1;
 	out_byte(PS2_DATA, data);
 	return 0;
 }
@@ -93,9 +90,7 @@ int ps2_send(uint8_t port, uint8_t data) {
 		ps2_send_command(PS2_SEND_PORT2);
 	}
 	int ret = ps2_write(data);
-	if (ret < 0) {
-		return ret;
-	}
+	if (ret < 0) return ret;
 	return ps2_read();
 }
 
@@ -109,6 +104,7 @@ static ssize_t ps2_bus_read(bus_addr_t *addr, void *buf, off_t offset, size_t co
 		if (byte < 0) break;
 		*c = (unsigned char)byte;
 		count--;
+		total++;
 		c++;
 	}
 	return total;
@@ -141,11 +137,14 @@ static void print_device_name(int port) {
 	}
 
 	if (ps2_send(port, PS2_IDENTIFY) != PS2_ACK) {
-		kprintf("unknow device\n");
+		kprintf("unknown device\n");
 	}
 
-	int c0 = ps2_read();
-	int c1 = ps2_read();
+	int c0, c1;
+	c0 = ps2_read();
+	if (c0 >= 0) {
+		c1 = ps2_read();
+	}
 
 	ports[port - 1].device_id[0] = c0;
 	ports[port - 1].device_id[1] = c1;
@@ -167,7 +166,7 @@ static void print_device_name(int port) {
 		switch (c1) {
 		case 0x83:
 		case 0xC1:
-			kprintf("MF2 keybaord\n");
+			kprintf("MF2 keyboard\n");
 			break;
 		case 0x84:
 			kprintf("Short Keyboard\n");
@@ -179,7 +178,7 @@ static void print_device_name(int port) {
 			kprintf("122-key keyboards\n");
 			break;
 		default:
-			kprintf("unknow keyboard %x:%x\n", c0, c1);
+			kprintf("unknown keyboard %x:%x\n", c0, c1);
 			break;
 		}
 		break;
@@ -189,12 +188,12 @@ static void print_device_name(int port) {
 			kprintf("NCD Sun layout keyboard\n");
 			break;
 		default:
-			kprintf("unknow device\n");
+			kprintf("unknown device\n");
 			break;
 		}
 		break;
 	default:
-		kprintf("unknow device : %x:%x\n", c0, c1);
+		kprintf("unknown device : %x:%x\n", c0, c1);
 		break;
 	}
 
@@ -249,9 +248,9 @@ static int init_ps2(int argc, char **argv) {
 		}
 	}
 
-	//if no port availible just give up
+	//if no port available just give up
 	if (!(have_ports[0] || have_ports[1])) {
-		kdebugf("ps2 : both ps2 ports are not availible\n");
+		kdebugf("ps2 : both ps2 ports are not available\n");
 		return -ENODEV;
 	}
 
@@ -296,7 +295,7 @@ static int init_ps2(int argc, char **argv) {
 		}
 	}
 
-	//we now want to enbale translation
+	//we now want to enable translation
 	if (!have_opt(argc, argv, "--no-translation")) {
 		conf |= 0x40;
 		ps2_send_command(PS2_WRITE_CONF);
