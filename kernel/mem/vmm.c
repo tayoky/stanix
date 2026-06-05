@@ -43,7 +43,7 @@ static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
 			send_sig_task(get_current_task(), SIGBUS);
 			return;
 		}
-		pmm_free_page(phys);
+		pmm_release_page(phys);
 		mmu_map_page(get_current_proc()->vmm_space.addrspace, new_page, vpage, seg->prot);
 	}
 	return;
@@ -346,7 +346,7 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 		for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
 			uintptr_t page = mmu_virt2phys((void *)addr);
 			if (page == PAGE_INVALID) continue;
-			pmm_free_page(page);
+			pmm_release_page(page);
 		}
 	}
 

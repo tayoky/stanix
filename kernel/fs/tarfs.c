@@ -72,17 +72,14 @@ void mount_initrd(void) {
 			vfs_symlink(current_file->linked_file, full_path);
 		}
 
-		addr += (((uint64_t)file_size + 1023) / 512) * 512;
+		addr += (((size_t)file_size + 1023) / 512) * 512;
 	}
 	uintptr_t start = PAGE_ALIGN_UP((uintptr_t)kernel->initrd->address);
 	uintptr_t end   = PAGE_ALIGN_DOWN((uintptr_t)kernel->initrd->address + kernel->initrd->size);
 
-	// when we page align it might become empty
-	while (start < end) {
-		pmm_set_free_page(mmu_virt2phys((void *)start));
-		start += PAGE_SIZE;
-	}
-
 	// now free the tar archive
+	// since the initrd is physcally continuous
+	pmm_set_free_pages(mmu_virt2phys((void*)start), (end - start) / PAGE_SIZE);
+
 	kok();
 }

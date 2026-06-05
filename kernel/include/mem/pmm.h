@@ -45,14 +45,22 @@ uintptr_t pmm_allocate_page();
  * @brief decrease ref count of a page and maybee free it
  * @param page the page to release
  */
-void pmm_free_page(uintptr_t page);
-
+void pmm_release_page(uintptr_t page);
 
 /**
- * @brief unlike \ref pmm_free_page ignore ref count and direcly mark page as free
+ * @brief unlike \ref pmm_release_page ignore ref count and direcly mark multiple pages as free
+ * @param start the start of the range to mark as free
+ * @param count the number of pages from start to mark as free
+ */
+void pmm_set_free_pages(uintptr_t start, size_t count);
+
+/**
+ * @brief unlike \ref pmm_release_page ignore ref count and direcly mark page as free
  * @param page the page to mark as free
  */
-void pmm_set_free_page(uintptr_t page);
+static inline void pmm_set_free_page(uintptr_t page) {
+	pmm_set_free_pages(page, 1);
+}
 
 /**
  * @brief setup the second stage of pmm (zero page, page_t info, ...)

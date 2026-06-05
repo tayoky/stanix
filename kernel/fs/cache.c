@@ -20,7 +20,7 @@ void free_cache(cache_t *cache) {
 	xarray_foreach(offset, value, &cache->pages) {
 		uintptr_t page = (uintptr_t)value;
 		if (cache->ops->write) cache->ops->write(cache, offset, PAGE_SIZE, NULL, NULL);
-		pmm_free_page(page);
+		pmm_release_page(page);
 	}
 	xarray_destroy(&cache->pages);
 }
@@ -35,7 +35,7 @@ static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t en
 	for (uintptr_t addr=start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
-		pmm_free_page(page);
+		pmm_release_page(page);
 	}
 }
 
@@ -44,7 +44,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 	for (uintptr_t addr=offset; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_READY);
-		pmm_free_page(page);
+		pmm_release_page(page);
 	}
 }
 
@@ -84,7 +84,7 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 			pmm_retain(page);
 		} else {
 			// we lost a race
-			pmm_free_page(page);
+			pmm_release_page(page);
 		}
 		rwlock_release_write(&cache->lock, &have_interrupt);
 	}
@@ -98,7 +98,7 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 		for (uintptr_t addr=start; addr < end; addr += PAGE_SIZE) {
 			uintptr_t page = cache_get_page(cache, addr);
 			xarray_clear(&cache->pages, addr);
-			pmm_free_page(page);
+			pmm_release_page(page);
 		}
 		return ret;
 	}
@@ -135,7 +135,7 @@ static void uncache_callback(cache_t *cache, void *arg) {
 			continue;
 		}
 		xarray_clear(&cache->pages, addr);
-		pmm_free_page(page);
+		pmm_release_page(page);
 	}
 	rwlock_release_write(&cache->lock, &have_interrupt);
 	cache_callback_t callback = req->callback;
@@ -185,7 +185,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 		}
 
 		if (!(flags & PAGE_FLAG_DIRTY)) {
-			pmm_free_page(page);
+			pmm_release_page(page);
 			if (batch_start != addr) {
 				// we reached end of the batch
 				cache->ops->write(cache, batch_start, addr - batch_start, callback, arg);

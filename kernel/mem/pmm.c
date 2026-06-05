@@ -123,21 +123,21 @@ uintptr_t pmm_allocate_page(void) {
 	return page;
 }
 
-
-void pmm_set_free_page(uintptr_t page) {
-	kassert(page != PAGE_INVALID);
+void pmm_set_free_pages(uintptr_t start, size_t count) {
+	if (count == 0) return;
+	kassert(start != PAGE_INVALID);
 	spinlock_acquire(&pmm_lock);
 
-	used_pages--;
-	pmm_entry_t *entry = (pmm_entry_t *)(page + kernel->hhdm);
-	entry->size = 1;
+	used_pages -= count;
+	pmm_entry_t *entry = (pmm_entry_t *)(start + kernel->hhdm);
+	entry->size = count;
 	entry->next = stack_head;
 	stack_head = entry;
 
 	spinlock_release(&pmm_lock);
 }
 
-void pmm_free_page(uintptr_t page) {
+void pmm_release_page(uintptr_t page) {
 	kassert(page != PAGE_INVALID);
 	if (pages_info) {
 		size_t ref = atomic_fetch_sub(&pmm_page_info(page)->ref_count, 1);

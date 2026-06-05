@@ -61,7 +61,7 @@ static void *slab_evict(slab_cache_t *slab_cache) {
 
 static void free_slab(slab_t *slab) {
 	uintptr_t page = PAGE_ALIGN_DOWN(mmu_virt2phys(slab));
-	pmm_free_page(page);
+	pmm_release_page(page);
 }
 
 void *slab_alloc(slab_cache_t *slab_cache) {

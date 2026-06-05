@@ -68,17 +68,17 @@ void delete_addr_space(uint64_t *PMLT4){
 				if(!(PD[PDi] & 1))continue;
 				uint64_t *PT = (uint64_t *)((PMLT4[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 				
-				//pmm_free_page((uintptr_t)PT-kernel->hhdm);
+				//pmm_release_page((uintptr_t)PT-kernel->hhdm);
 			}
 
-			//pmm_free_page((uintptr_t)PD-kernel->hhdm);
+			//pmm_release_page((uintptr_t)PD-kernel->hhdm);
 		}
 
-		//pmm_free_page((uintptr_t)PDP-kernel->hhdm);
+		//pmm_release_page((uintptr_t)PDP-kernel->hhdm);
 	}
 	
 
-	//pmm_free_page((uintptr_t)PMLT4-kernel->hhdm);
+	//pmm_release_page((uintptr_t)PMLT4-kernel->hhdm);
 }
 
 void *mmu_virt2phys(void *address){
@@ -179,7 +179,7 @@ void mmu_unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
 			return;
 		}
 	}
-	pmm_free_page((uintptr_t)PT-kernel->hhdm);
+	pmm_release_page((uintptr_t)PT-kernel->hhdm);
 	PD[PDi] = 0;
 	
 	for (uint16_t i = 0; i < 512; i++){
@@ -187,7 +187,7 @@ void mmu_unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
 			return;
 		}
 	}
-	pmm_free_page((uintptr_t)PD-kernel->hhdm);
+	pmm_release_page((uintptr_t)PD-kernel->hhdm);
 	PDP[PDPi] = 0;
 
 	for (uint16_t i = 0; i < 512; i++){
@@ -195,7 +195,7 @@ void mmu_unmap_page(uint64_t *PMLT4,uint64_t virtual_page){
 			return;
 		}
 	}
-	pmm_free_page((uintptr_t)PDP-kernel->hhdm);
+	pmm_release_page((uintptr_t)PDP-kernel->hhdm);
 	PMLT4[PMLT4i] = 0;
 }
 

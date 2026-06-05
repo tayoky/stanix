@@ -43,7 +43,7 @@ void change_kheap_size(ssize_t offset){
 			uintptr_t virt_page = kernel->kheap.start + kernel->kheap.lenght + i * PAGE_SIZE;
 			uintptr_t phys_page = mmu_virt2phys((void *)virt_page);
 			mmu_unmap_page(addr_space,virt_page);
-			pmm_free_page(phys_page);
+			pmm_release_page(phys_page);
 		}
 	} else {
 		//make kheap bigger

@@ -128,16 +128,16 @@ void mmu_delete_addr_space(addrspace_t PML4) {
 				if (!(PD[PDi] & 1)) continue;
 				uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
 
-				pmm_free_page((uintptr_t)PT - kernel->hhdm);
+				pmm_release_page((uintptr_t)PT - kernel->hhdm);
 			}
 
-			pmm_free_page((uintptr_t)PD - kernel->hhdm);
+			pmm_release_page((uintptr_t)PD - kernel->hhdm);
 		}
 
-		pmm_free_page((uintptr_t)PDP - kernel->hhdm);
+		pmm_release_page((uintptr_t)PDP - kernel->hhdm);
 	}
 
-	pmm_free_page((uintptr_t)PML4 - kernel->hhdm);
+	pmm_release_page((uintptr_t)PML4 - kernel->hhdm);
 }
 
 uintptr_t mmu_virt2phys(void *address) {
