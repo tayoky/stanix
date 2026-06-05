@@ -1,13 +1,15 @@
 #ifndef KERNEL_ASM_H
 #define KERNEL_ASM_H
 
+#if defined(__KERNEL__) || defined(MODULE)
+
 #include <stdint.h>
+#include <kernel/port.h>
 
 #define disable_interrupt() asm("cli")
 #define enable_interrupt() asm("sti")
 #define halt() while(1)
 
-#if defined(__KERNEL__) || defined(MODULE)
 static inline int have_interrupt(){
     uintptr_t flags;
     asm volatile ("pushf\n"
@@ -28,6 +30,10 @@ static inline void rdmsr(uint32_t msr, uint32_t *low, uint32_t *high) {
 
 static inline void wrmsr(uint32_t msr, uint32_t low, uint32_t high) {
    asm volatile("wrmsr" : : "a"(low), "d"(high), "c"(msr));
+}
+
+static inline void io_wait(void) {
+   out_byte(0x80, 0);
 }
 
 #endif
