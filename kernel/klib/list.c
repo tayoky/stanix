@@ -12,12 +12,11 @@ void list_destroy(list_t *list) {
 }
 
 void list_append(list_t *list, list_node_t *node) {
-	memset(node, 0, sizeof(list_node_t));
-
 	spinlock_acquire(&list->lock);
 
 	// link
 	node->prev = list->last_node;
+	node->next = NULL;
 	if (list->last_node) {
 		list->last_node->next = node;
 	} else {
@@ -30,7 +29,6 @@ void list_append(list_t *list, list_node_t *node) {
 }
 
 void list_add_after(list_t *list, list_node_t *ref, list_node_t *node) {
-	memset(node, 0, sizeof(list_node_t));
 	spinlock_acquire(&list->lock);
 	// link
 	if (ref) {
@@ -43,6 +41,7 @@ void list_add_after(list_t *list, list_node_t *ref, list_node_t *node) {
 		}
 		ref->next = node;
 	} else {
+		node->prev = NULL;
 		node->next = list->first_node;
 		if (list->first_node) {
 			list->first_node->prev = node;
