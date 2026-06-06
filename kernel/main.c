@@ -11,7 +11,7 @@
 #include <kernel/device.h>
 #include <kernel/framebuffer.h>
 #include <kernel/ini.h>
-#include <kernel/terminal_emu.h>
+#include <kernel/fbcon.h>
 #include <kernel/tty.h>
 #include <kernel/kout.h>
 #include <kernel/irq.h>
@@ -108,6 +108,8 @@ void kmain() {
 	init_second_stage_pmm();
 	init_kheap();
 	init_xarray();
+	init_acpi();
+	init_irq();
 	init_vfs();
 	init_tmpfs();
 	mount_initrd();
@@ -115,14 +117,12 @@ void kmain() {
 	init_mem_devices();
 	init_liminefb();
 	read_main_conf_file();
-	init_terminal_emualtor();
+	init_fbcon();
 	init_sleep();
 	init_poll();
 	init_ptys();
 	init_kout();
 	init_vmm();
-	init_acpi();
-	init_irq();
 	init_task();
 	init_timer();
 	init_mod();

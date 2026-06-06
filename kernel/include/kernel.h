@@ -6,7 +6,6 @@
 #include <kernel/bootinfo.h>
 #include <kernel/kheap.h>
 #include <kernel/vfs.h>
-#include <kernel/terminal_emu.h>
 #include <kernel/arch.h>
 #include <kernel/spinlock.h>
 
