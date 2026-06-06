@@ -5,94 +5,216 @@
 #include <kernel/string.h>
 #include <kernel/device.h>
 #include <kernel/framebuffer.h>
+#include <ctype.h>
 
-static uint32_t ANSI_color[] = {
-	0x000000,
-	0xDD0000,
-	0x00DD00,
-	0xDDDD00,
-	0x0000DD,
-	0xDD00DD,
-	0x00DDDD,
-	0xc0c0c0
+// a lot of code here is taken from libterm, https://github.com/tayoky/libterm
+
+uint32_t ansi_colors[] = {
+	0x000000, // black
+	0xD00000, // red
+	0x00D000, // green
+	0xD0D000, // yellow
+	0x0050D0, // blue  we put a bit of green otherwise it'ws not readable
+	0xD000D0, // magenta
+	0x00D0D0, // cyan
+	0xD0D0D0, // white
+	0x808080, // light black
+	0xFF0000, // light red
+	0x00FF00, // light green
+	0xFFFF00, // light yellow
+	0x0050FF, // light blue we put a bit of green for same reason as dark blue
+	0xFF00FF, // light magenta
+	0x00FFFF, // light cyan
+	0xFFFFFF, // light white
 };
 
-void fbcon_output_char(fbcon_t *fbcon, char c) {
+static void fbcon_handle_c0(fbcon_t *fbcon, char c) {
+	switch (c) {
+	case '\b': // backspace
+		if (fbcon->x > 0) fbcon->x--;
+		break;
+	case '\r':
+		fbcon->x = 0;
+		break;
+	case '\n':
+	case '\v':
+	case '\f':
+		fbcon->y++;
+		fbcon->x = 0;
+		// TODO : scrolling
+		break;
+	case '\t':
+		fbcon->x -= fbcon->x % 8;
+		fbcon->x += 8;
+		break;
+	case 0x18: // cancel
+	case 0x1a: // substitute
+		fbcon->state = FBCON_STATE_GROUND;
+		break;
+	case '\033': // escape char
+		fbcon->state = FBCON_STATE_ESCAPE;
+		return;
+	}
+}
+
+static void fbcon_handle_sgr(fbcon_t *fbcon) {
+	for (int i=0; i < fbcon->params_count; i++) {
+		switch (fbcon->params[i]) {
+		case -1:
+		case 0:
+			// reset
+			fbcon->back_color = 0x000000;
+			fbcon->font_color = 0xffffff;
+			break;
+		case 30:
+		case 31:
+		case 32:
+		case 33:
+		case 34:
+		case 35:
+		case 36:
+		case 37:
+			fbcon->font_color = ansi_colors[fbcon->params[i] - 30];
+			break;
+		case 39:
+			fbcon->font_color = 0xffffff;
+			break;
+		case 40:
+		case 41:
+		case 42:
+		case 43:
+		case 44:
+		case 45:
+		case 46:
+		case 47:
+			fbcon->back_color = ansi_colors[fbcon->params[i] - 40];
+			break;
+		case 49:
+			fbcon->back_color = 0x000000;
+			break;
+		case 90:
+		case 91:
+		case 92:
+		case 93:
+		case 94:
+		case 95:
+		case 96:
+		case 97:
+			fbcon->font_color = ansi_colors[fbcon->params[i] - 90 + 8];
+			break;
+		case 100:
+		case 101:
+		case 102:
+		case 103:
+		case 104:
+		case 105:
+		case 106:
+		case 107:
+			fbcon->font_color = ansi_colors[fbcon->params[i] - 100 + 8];
+			break;
+		}
+	}
+}
+
+static void fbcon_handle_csi_seq(fbcon_t *fbcon, char c) {
+	if (fbcon->params[fbcon->params_count] != -1) fbcon->params_count++;
+
+	switch (c) {
+	case 'm':
+		fbcon_handle_sgr(fbcon);
+		break;
+	}
+	fbcon->state = FBCON_STATE_GROUND;
+}
+
+static void fbcon_handle_csi_param(fbcon_t *fbcon, char c) {
+	if ((c >= '<' && c <= '?') || c == ',') {
+		fbcon->state = FBCON_STATE_CSI_IGNORE;
+	} else if (c >= '0' && c <= '9') {
+		if (fbcon->params[fbcon->params_count] == -1) {
+			fbcon->params[fbcon->params_count] = c - '0';
+		} else {
+			fbcon->params[fbcon->params_count] *= 10;
+			fbcon->params[fbcon->params_count] += c - '0';
+		}
+	} else if (c == ';') {
+		fbcon->params_count++;
+		fbcon->params[fbcon->params_count] = -1;
+	} else if (c >= '@' && c <= '~') {
+		fbcon_handle_csi_seq(fbcon, c);
+	}
+}
+
+static void fbcon_handle_csi_entry(fbcon_t *fbcon, char c) {
+	if (c == ',') {
+		fbcon->state = FBCON_STATE_CSI_IGNORE;
+	} else if (c >= '<' && c <= '?') {
+		fbcon->state = FBCON_STATE_CSI_PARAM;
+	} else if ((c >= '0' && c <= '9') || c == ';') {
+		fbcon->state = FBCON_STATE_CSI_PARAM;
+		fbcon_handle_csi_param(fbcon, c);
+	} else if (c >= '@' && c <= '~') {
+		fbcon_handle_csi_seq(fbcon, c);
+	}
+}
+
+static void fbcon_handle_csi_ignore(fbcon_t *fbcon, char c) {
+	if (c >= '@' && c <= 0x7e) {
+		fbcon->state = FBCON_STATE_GROUND;
+	}
+}
+
+static void fbcon_handle_esc(fbcon_t *fbcon, char c) {
+	if (c == '[') {
+		fbcon->state = FBCON_STATE_CSI_ENTRY;
+		fbcon->params_count = 0;
+		fbcon->params[0] = -1;
+	} else {
+		fbcon->state = FBCON_STATE_GROUND;
+	}
+}
+
+static void fbcon_print_char(fbcon_t *fbcon, char c) {
 	PSF1_Header *header = fbcon->header;
 	char *font_data = fbcon->font;
-	if (c == '\n') {
-		fbcon->x = 0;
-		fbcon->y += header->characterSize + 1;
-		// some out of bound check
-		if (fbcon->y / header->characterSize + 1 >= fbcon->height) {
-			vfs_ioctl(fbcon->framebuffer_dev, IOCTL_FRAMEBUFFER_SCROLL, (void *)(uintptr_t)header->characterSize + 1);
-			fbcon->y -= header->characterSize + 1;
-		}
-		return;
-	}
-
-	if (c == '\r') {
-		fbcon->x = 0;
-		return;
-	}
-
-	if (c == '\t') {
-		fbcon->x = (fbcon->x / 32 + 2) * 32;
-		return;
-	}
-
-	if (c == '\e') {
-		fbcon->ANSI_esc_mode = 1;
-		return;
-	}
-
-	if (c == '\b') {
-		if (fbcon->x <= 0) {
-			return;
-		}
-		fbcon->x -= 8;
-		return;
-	}
-
-	if (fbcon->ANSI_esc_mode) {
-		if (c == 'm') {
-			if (fbcon->ANSI_esc_mode == 3) {
-				fbcon->font_color = 0xFFFFFF;
-			}
-			fbcon->ANSI_esc_mode = 0;
-			return;
-		}
-
-		if (fbcon->ANSI_esc_mode == 5) {
-			c-= '0';
-			if ((uintptr_t)c >= sizeof(ANSI_color) / sizeof(uint32_t)) {
-				// out of bound
-				return;
-			}
-			fbcon->font_color = ANSI_color[(uint8_t)c];
-		}
-		fbcon->ANSI_esc_mode++;
-		return;
-	}
-
 	uintptr_t current_byte = c * header->characterSize;
-
-	// get color
-	uint32_t font_color = fbcon->font_color;
-	uint32_t back_color = fbcon->back_color;
-
 	for (uint16_t y = 0; y < header->characterSize; y++) {
 		for (uint8_t x = 0; x < 8; x++) {
 			if ((font_data[current_byte] >> (7 - x)) & 0x01) {
-				draw_pixel(fbcon->framebuffer_dev, fbcon->x + x, fbcon->y + y, font_color, &fbcon->fb_info);
+				draw_pixel(fbcon->framebuffer_dev, fbcon->x * 8 + x, fbcon->y * header->characterSize + y, fbcon->font_color, &fbcon->fb_info);
 			} else {
-				draw_pixel(fbcon->framebuffer_dev, fbcon->x + x, fbcon->y + y, back_color, &fbcon->fb_info);
+				draw_pixel(fbcon->framebuffer_dev, fbcon->x * 8 + x, fbcon->y * header->characterSize + y, fbcon->back_color, &fbcon->fb_info);
 			}
 		}
 
 		current_byte++;
 	}
-	fbcon->x += 8;
+	fbcon->x++;
+}
+
+void fbcon_output_char(fbcon_t *fbcon, char c) {
+	if (iscntrl(c)) {
+		fbcon_handle_c0(fbcon, c);
+		return;
+	}
+
+	switch (fbcon->state) {
+	case FBCON_STATE_GROUND:
+		fbcon_print_char(fbcon, c);
+		break;
+	case FBCON_STATE_ESCAPE:
+		fbcon_handle_esc(fbcon, c);
+		break;
+	case FBCON_STATE_CSI_ENTRY:
+		fbcon_handle_csi_entry(fbcon, c);
+		break;
+	case FBCON_STATE_CSI_PARAM:
+		fbcon_handle_csi_param(fbcon, c);
+		break;
+	case FBCON_STATE_CSI_IGNORE:
+		fbcon_handle_csi_ignore(fbcon, c);
+		break;
+	}
 }
 
 static ssize_t fbcon_output(tty_t *tty, const char *buf, size_t count) {
@@ -211,8 +333,10 @@ void init_fbcon(void) {
 
 	// init width height and the char buffer
 	vfs_ioctl(framebuffer_dev, IOCTL_GET_FB_INFO, &fbcon->fb_info);
-	fbcon->width = fbcon->fb_info.width / 8;
-	fbcon->height = fbcon->fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
+	fbcon->tty.size.ws_col = fbcon->fb_info.width / 8;
+	fbcon->tty.size.ws_row = fbcon->fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
+	fbcon->tty.size.ws_xpixel = fbcon->fb_info.width;
+	fbcon->tty.size.ws_ypixel = fbcon->fb_info.height;
 
 	fbcon->font_type = FONT_TYPE_PSF1;
 	fbcon->font = font + sizeof(PSF1_Header);
@@ -220,7 +344,7 @@ void init_fbcon(void) {
 	// init cursor position
 	fbcon->x = 0;
 	fbcon->y = 0;
-	fbcon->ANSI_esc_mode = 0;
+	fbcon->state = FBCON_STATE_GROUND;
 
 	// init default color
 	fbcon->font_color = 0xFFFFFF;

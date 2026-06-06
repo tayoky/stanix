@@ -21,10 +21,18 @@ typedef struct fbcon {
 	uint32_t back_color;
 	size_t x;
 	size_t y;
-	size_t width;
-	size_t height;
-	int ANSI_esc_mode;
+	int state;
+	int params_count;
+	int params[8];
 } fbcon_t;
+
+#define FBCON_STATE_GROUND              0
+#define FBCON_STATE_ESCAPE              1
+#define FBCON_STATE_ESCAPE_INTERMEDIATE 2
+#define FBCON_STATE_CSI_ENTRY           3
+#define FBCON_STATE_CSI_PARAM           4
+#define FBCON_STATE_CSI_INTERMEDIATE    5
+#define FBCON_STATE_CSI_IGNORE          6
 
 typedef struct {
 	uint16_t magic; // Magic bytes for identification.
