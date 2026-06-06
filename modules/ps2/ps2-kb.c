@@ -14,29 +14,29 @@
 
 static device_driver_t ps2_kb_driver;
 
-static void keyboard_handler(registers_t *frame, void *arg){
+static void keyboard_handler(registers_t *frame, void *arg) {
 	(void)frame;
 	input_device_t *keyboard = arg;
 
 	uint8_t scancode = ps2_read();
 
 	int extended = 0;
-	if(scancode == 0xE0){
+	if (scancode == 0xE0) {
 		extended = 1;
 		scancode = ps2_read();
 	}
 
 	int press = 1;
-	if(scancode & 0x80){
+	if (scancode & 0x80) {
 		scancode &= ~0x80;
 		press = 0;
 	}
 
 	struct input_event event;
-	memset(&event,0,sizeof(struct input_event));
+	memset(&event, 0, sizeof(struct input_event));
 	event.timestamp = time;
 	event.ie_type = IE_KEY_EVENT;
-	if(press){
+	if (press) {
 		event.ie_key.flags = IE_KEY_PRESS;
 	} else {
 		event.ie_key.flags = IE_KEY_RELEASE;
@@ -61,7 +61,7 @@ static void keyboard_handler(registers_t *frame, void *arg){
 	}
 
 static int kb_check(bus_addr_t *addr) {
-	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
+	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
 	if (addr->type != BUS_PS2) return 0;
 
 	switch (ps2_addr->device_id[0]) {
@@ -75,15 +75,15 @@ static int kb_check(bus_addr_t *addr) {
 }
 
 static int kb_probe(bus_addr_t *addr) {
-	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
+	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
 	int port = ps2_addr->port;
 
 	//start by reset the device
-	if(ps2_send(port,0xFF) != PS2_ACK){
+	if (ps2_send(port, 0xFF) != PS2_ACK) {
 		kdebugf("ps2 : failed to reset device\n");
 		return -EIO;
 	}
-	if(ps2_read() != 0xAA){
+	if (ps2_read() != 0xAA) {
 		kdebugf("ps2 : keyboard didn't pass self test\n");
 		return -EIO;
 	}
@@ -95,21 +95,21 @@ static int kb_probe(bus_addr_t *addr) {
 	// set scancode 2 and keep it if translation enable
 	CHANGE_SCANCODE(2);
 	GET_SCANCODE();
-	if(ps2_read() == 0x41){
+	if (ps2_read() == 0x41) {
 		kdebugf("ps2 : using translation\n");
 	} else {
 		// tranlation not enabled so set scancode 1
 		CHANGE_SCANCODE(1)
 
-		// check it's actually using scancode 1
-		GET_SCANCODE();
-		if(ps2_read() != 1){
+			// check it's actually using scancode 1
+			GET_SCANCODE();
+		if (ps2_read() != 1) {
 			kdebugf("ps2 : device don't support scancode set 1\n");
 			return -ENOTSUP;
 		}
 	}
 
-	if(ps2_send(port,PS2_ENABLE_SCANING) != PS2_ACK){
+	if (ps2_send(port, PS2_ENABLE_SCANING) != PS2_ACK) {
 		kdebugf("ps2 : error while enabling scaning\n");
 		return -EIO;
 	}
@@ -135,14 +135,14 @@ static device_driver_t ps2_kb_driver = {
 	.probe = kb_probe,
 };
 
-static int init_ps2kb(int argc,char **argv){
+static int init_ps2kb(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
 	device_driver_register(&ps2_kb_driver);
 	return 0;
 }
 
-static int fini_ps2kb(){
+static int fini_ps2kb() {
 	device_driver_unregister(&ps2_kb_driver);
 	return 0;
 }

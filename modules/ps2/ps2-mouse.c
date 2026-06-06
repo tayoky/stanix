@@ -23,17 +23,17 @@ typedef struct ps2_mouse {
 
 static device_driver_t ps2_mouse_driver;
 
-static int set_mouse_rate(int port,int rate){
-	if(ps2_send(port,PS2_SET_RATE) != PS2_ACK){
+static int set_mouse_rate(int port, int rate) {
+	if (ps2_send(port, PS2_SET_RATE) != PS2_ACK) {
 		return -1;
 	}
-	if(ps2_send(port,rate) != PS2_ACK){
+	if (ps2_send(port, rate) != PS2_ACK) {
 		return -1;
 	}
 	return 0;
 }
 
-static void mouse_handler(registers_t *frame, void *arg){
+static void mouse_handler(registers_t *frame, void *arg) {
 	(void)frame;
 	ps2_mouse_t *mouse = arg;
 	switch (mouse->packet++) {
@@ -50,15 +50,15 @@ static void mouse_handler(registers_t *frame, void *arg){
 	}
 
 	if (mouse->flags & 0xC0) {
-		// overflow so just ingore
+		// overflow so just ignore
 		return;
-	} 
+	}
 
-	// did buttons changes
+	// did buttons change
 	if ((mouse->flags & 0x7) != mouse->button) {
 		kdebugf("button %d %d %d\n", mouse->flags & 2, mouse->flags & 4, mouse->flags & 1);
 		int change = (mouse->flags & 0x07) ^ mouse->button;
-		for (int i = 0; i<3; i++) {
+		for (int i = 0; i < 3; i++) {
 			if (!(change & (1 << i))) continue;
 			struct input_event event = {
 				.ie_type = IE_KEY_EVENT,
@@ -79,7 +79,7 @@ static void mouse_handler(registers_t *frame, void *arg){
 			} else {
 				event.ie_key.flags = IE_KEY_RELEASE;
 			}
-			send_input_event((input_device_t*)mouse, &event);
+			send_input_event((input_device_t *)mouse, &event);
 		}
 		mouse->button = mouse->flags & 0x7;
 	}
@@ -87,11 +87,11 @@ static void mouse_handler(registers_t *frame, void *arg){
 	int x = mouse->x;
 	int y = mouse->y;
 
-	if(mouse->flags & (1 << 4)){
+	if (mouse->flags & (1 << 4)) {
 		x = x - 256;
 	}
 
-	if(mouse->flags & (1 << 5)){
+	if (mouse->flags & (1 << 5)) {
 		y = y - 256;
 	}
 
@@ -104,12 +104,12 @@ static void mouse_handler(registers_t *frame, void *arg){
 				.axis = 0,
 			},
 		};
-		send_input_event((input_device_t*)mouse, &event);
+		send_input_event((input_device_t *)mouse, &event);
 	}
 }
 
 static int mouse_check(bus_addr_t *addr) {
-	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
+	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
 	if (addr->type != BUS_PS2) return 0;
 	if (ps2_addr->device_id[0]) return 0;
 	kdebugf("found ps2 mouse on port %d\n", ps2_addr->port);
@@ -117,7 +117,7 @@ static int mouse_check(bus_addr_t *addr) {
 }
 
 static int mouse_probe(bus_addr_t *addr) {
-	ps2_addr_t *ps2_addr = (ps2_addr_t*)addr;
+	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
 	int port = ps2_addr->port;
 
 	// first do a reset
@@ -138,7 +138,7 @@ static int mouse_probe(bus_addr_t *addr) {
 		return -EIO;
 	}
 
- 	ps2_mouse_t *mouse = kmalloc(sizeof(ps2_mouse_t));
+	ps2_mouse_t *mouse = kmalloc(sizeof(ps2_mouse_t));
 	memset(mouse, 0, sizeof(ps2_mouse_t));
 	mouse->device.device.number = port;
 	mouse->device.device.driver = &ps2_mouse_driver;
@@ -146,7 +146,7 @@ static int mouse_probe(bus_addr_t *addr) {
 	mouse->device.device.addr = addr;
 	mouse->device.class = IE_CLASS_MOUSE;
 	mouse->device.subclass = IE_SUBCLASS_PS2_MOUSE;
-	register_input_device((input_device_t*)mouse);
+	register_input_device((input_device_t *)mouse);
 	bus_register_handler(addr, mouse_handler, mouse);
 	return 0;
 }
@@ -157,14 +157,14 @@ static device_driver_t ps2_mouse_driver = {
 	.probe = mouse_probe,
 };
 
-int init_mouse(int argc,char **argv){
+int init_mouse(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
 	device_driver_register(&ps2_mouse_driver);
 	return 0;
 }
 
-int fini_mouse(){
+int fini_mouse() {
 	device_driver_unregister(&ps2_mouse_driver);
 	return 0;
 }
