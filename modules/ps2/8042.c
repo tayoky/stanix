@@ -47,22 +47,22 @@ static bus_t ps2_bus = {
 };
 
 static int wait_output() {
-	for (size_t i = 0; i < 10000; i++) {
+	for (size_t i = 0; i < 100000; i++) {
 		if (in_byte(PS2_STATUS) & 0x01) {
-			io_wait();
 			return 0;
 		}
+		io_wait();
 	}
 
 	return -1;
 }
 
 static int wait_input() {
-	for (size_t i = 0; i < 10000; i++) {
+	for (size_t i = 0; i < 100000; i++) {
 		if (!(in_byte(PS2_STATUS) & 0x02)) {
-			io_wait();
 			return 0;
 		}
+		io_wait();
 	}
 
 	return -1;
