@@ -16,9 +16,10 @@ install : $(foreach LIB,$(LIBS), $(LIB)-install)
 clean : $(foreach LIB,$(LIBS), $(LIB)-clean)
 
 
-# depencies
+# dependencies
 libtgui-all : libgfx-install libtwm-install
 libini-all  : libutils-install
+libtwm-all : libgfx-install
 
 %-all :
 	@$(MAKE) -C $(@:%-all=%)
