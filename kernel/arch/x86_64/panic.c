@@ -3,6 +3,7 @@
 #include <kernel/module.h>
 #include <kernel/panic.h>
 #include <kernel/print.h>
+#include <kernel/earlycon.h>
 #include <kernel/scheduler.h>
 #include <kernel/sym.h>
 
@@ -14,7 +15,7 @@ void panic(const char *error, registers_t *fault) {
 	disable_interrupt();
 	panic_count++;
 	if (panic_count > 1) {
-		write_serial("\nkernel panic paniced\n");
+		earlycon_output_str("\nkernel panic paniced\n");
 		halt();
 	}
 	pid_t pid           = 0;

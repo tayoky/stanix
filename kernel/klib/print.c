@@ -1,4 +1,5 @@
 #include <kernel/print.h>
+#include <kernel/earlycon.h>
 #include <kernel/serial.h>
 #include <kernel/kernel.h>
 #include <kernel/string.h>
@@ -9,11 +10,7 @@
 void kprint_buf(const char *buf, size_t size) {
 	// when kout is not init just output trought serial
 	if(!kernel->outs){
-		while (size > 0) {
-			write_serial_char(*buf);
-			buf++;
-			size --;
-		}
+		earlycon_output_all(buf, size);
 		return;
 	}
 	// else output to all context open in kernel.outs

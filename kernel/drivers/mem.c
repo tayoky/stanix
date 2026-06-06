@@ -1,6 +1,7 @@
 #include <kernel/device.h>
 #include <kernel/string.h>
 #include <kernel/print.h>
+#include <kernel/earlycon.h>
 #include <kernel/kheap.h>
 #include <kernel/serial.h>
 
@@ -42,11 +43,7 @@ static ssize_t mem_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t cou
 		return count;
 	case DEV_TTYBOOT:;
 		const char *c = buf;
-		while (count > 0) {
-			write_serial_char(*c);
-			c++;
-			count--;
-		}
+		earlycon_output_all(c, count);
 		return count;
 
 	default:
