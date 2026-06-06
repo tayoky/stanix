@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#if defined(__KERNEL__) || defined(MODULE)
+
 /**
  * @brief read an given port
  * @param port the port to read
@@ -42,5 +44,7 @@ static inline uint32_t in_long(uint16_t port) {
 static inline void out_long(uint16_t port, uint32_t data) {
 	asm volatile("outl %%eax, %%dx" : : "d" (port), "a" (data));
 }
+
+#endif
 
 #endif
