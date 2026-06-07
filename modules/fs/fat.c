@@ -158,7 +158,7 @@ static int fat_read_entry(fat_superblock_t *fat_superblock, size_t offset, fat_e
 
 static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode,  uint32_t *cluster, size_t *offset, fat_entry_t *entry) {
 	if (*cluster == FAT_EOF) return -ENOENT;
-	int ret = fat_read_entry(fat_superblock, *offset, *cluster);
+	int ret = fat_read_entry(fat_superblock, *offset, entry);
 	if (ret < 0) return ret;
 
 	// jump to next entry
@@ -222,10 +222,10 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 		}
 
 		// convert name to utf8
-		ssize_t len = utf16_to_utf8(name, name_len, dirent->d_name);
+		ssize_t len = utf16_to_utf8(name, name_len, (uint8_t*)dirent->d_name);
 		if (len < 0) return len;
 		dirent->d_name[len] = '\0';
-		memcpy(&entry, &long_entry, sizeof(fat_entry));
+		memcpy(&entry, &long_entry, sizeof(fat_entry_t));
 	} else {
 		size_t j=0;
 		for (int i=0; i < 8; i++) {

@@ -187,7 +187,7 @@ ssize_t utf16_encode_buf(const int *codepoints, size_t count, uint16_t *data) {
 	return total;
 }
 
-int utf16_to_utf8(const uint16_t *utf16, size_t count, uint8_t *utf8) {
+ssize_t utf16_to_utf8(const uint16_t *utf16, size_t count, uint8_t *utf8) {
 	ssize_t total = 0;
 	for (;;) {
 		int codepoint;
@@ -196,7 +196,7 @@ int utf16_to_utf8(const uint16_t *utf16, size_t count, uint8_t *utf8) {
 		utf16 += ret;
 		count -= ret;
 
-		ret = utf8_encode_char(utf8, codepoint);
+		ret = utf8_encode_char(codepoint, utf8);
 		if (ret < 0) return ret;
 		utf8 += ret;
 		total += ret;
