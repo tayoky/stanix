@@ -88,13 +88,13 @@ typedef struct fat_entry {
 
 typedef struct fat_long_entry {
 	uint8_t ord;
-	char name1[10];
+	uint16_t name1[5];
 	uint8_t attribute;
 	uint8_t type;
 	uint8_t checksum;
-	char name2[12];
+	uint16_t name2[6];
 	uint16_t first_cluster;
-	char name3[4];
+	uint16_t name3[2];
 } __attribute__((packed)) fat_long_entry_t;
 
 typedef struct fat_superblock {

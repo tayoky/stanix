@@ -151,12 +151,35 @@ static ssize_t fat_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	return data_read;
 }
 
+static int fat_read_entry(fat_superblock_t *fat_superblock, size_t offset, fat_entry_t *entry) {
+	return vfs_read(fat_superblock->superblock.device, entry, offset, sizeof(fat_entry_t));
+}
+
+static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, size_t *offset, uint32_t *cluster, fat_entry_t *entry) {
+	if (*cluster == FAT_EOF) return -ENOENT;
+	int ret = fat_read_entry(fat_superblock, *offset, cluster);
+	if (ret < 0) return ret;
+
+	// jump to next entry
+	*offset += sizeof(fat_entry_t);
+	if (!inode->is_fat16_root && !((*offset) % fat_superblock->cluster_size)) {
+		// end of cluster
+		// jump to next cluster
+		*cluster = fat_get_next_cluster(fat_superblock, *cluster);
+		if (*cluster != FAT_EOF) {
+			*offset = fat_cluster2offset(fat_superblock, *cluster);
+		}
+	}
+	return 0;
+}
+
 /**
  * @brief parse fat entries and make a dirent from it
  */
-static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, size_t offset, struct dirent *dirent) {
+static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t cluster, size_t offset, struct dirent *dirent) {
 	fat_entry_t entry;
-	vfs_read(fat_superblock->superblock.device, &entry, offset, sizeof(entry));
+	int ret = fat_read_entry(fat_superblock, offset, &entry);
+	if (ret < 0) return ret;
 
 	if (entry.name[0] == 0x00) {
 		// everything is free after that
@@ -168,56 +191,51 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, size
 		kdebugf("long name\n");
 		// we a long name
 		size_t j=0;
-		size_t ord = 1;
 		fat_long_entry_t long_entry;
+		memcpy(&long_entry, *entry, sizeof(fat_entry_t));
 
-		for (;;) {
-			vfs_read(fat_superblock->superblock.device, &long_entry, offset, sizeof(entry));
-			if ((long_entry.ord & ~LAST_LONG_ENTRY) != ord++) {
+		// the first entry must have the last flag
+		// because entries are stored in reverse order
+		if (!(long_entry.ord & LAST_LONG_ENTRY)) return -EIO;
+
+		for (size_t ord = (long_entry.ord & ~LAST_LONG_ENTRY); ord > 0; ord--) {
+
+			if ((long_entry.ord & ~LAST_LONG_ENTRY) != ord) {
 				// corrupted
 				return -EIO;
 			}
-			if (!(long_entry.attribute & ATTR_LONG_NAME)) {
+			if ((long_entry.attribute & ATTR_LONG_NAME) != ATTR_LONG_NAME) {
 				// corrupted
 				return -EIO;
 			}
 
 			// append
-			for (size_t i=0; i < sizeof(long_entry.name1); i++) {
-				if (!long_entry.name1[i]) goto cont;
-				dirent->d_name[j++] = long_entry.name1[i];
+			// TODO : convert utf16 to utf8
+			// TODO : putback in reverse order
+			for (size_t i=0; i < 5; i++) {
+				if (!long_entry.name1[i]) break;
+				dirent->d_name[j++] = (char)long_entry.name1[i];
 			}
-			for (size_t i=0; i < sizeof(long_entry.name2); i++) {
-				if (!long_entry.name2[i]) goto cont;
-				dirent->d_name[j++] = long_entry.name2[i];
+			for (size_t i=0; i < 6; i++) {
+				if (!long_entry.name2[i]) break;
+				dirent->d_name[j++] = (char)long_entry.name2[i];
 			}
-			for (size_t i=0; i < sizeof(long_entry.name3); i++) {
-				if (!long_entry.name3[i]) goto cont;
-				dirent->d_name[j++] = long_entry.name3[i];
+			for (size_t i=0; i < 2; i++) {
+				if (!long_entry.name3[i]) break;
+				dirent->d_name[j++] = (char)long_entry.name3[i];
 			}
-
-			// next entry
-			cont:
-			offset += sizeof(fat_entry_t);
-			if (!inode->is_fat16_root && !(offset % fat_superblock->cluster_size)) {
-				// end of cluster
-				// jump to next cluster
-				uint32_t cluster = fat_get_next_cluster(fat_superblock, cluster);
-				if (cluster == FAT_EOF)return -ENOENT;
-				offset = fat_cluster2offset(fat_superblock, cluster);
-			}
-
-			if (long_entry.ord & LAST_LONG_ENTRY) break;
+			ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, (fat_entry_t*)&long_entry);
+			if (ret < 0) return ret;
 		}
-		vfs_read(fat_superblock->superblock.device, &entry, offset, sizeof(entry));
 		dirent->d_name[j] = '\0';
+		memcpy(&entry, &long_entry, sizeof(fat_entry));
 	} else {
 		size_t j=0;
 		for (int i=0; i < 8; i++) {
 			if (entry.name[i] == ' ')break;
 			dirent->d_name[j++] = entry.name[i];
 		}
-		//don't add . for directories without extention
+		// don't add . for directories without extention
 		if (!((entry.attribute & ATTR_DIRECTORY) && entry.name[8] == ' ')) {
 			dirent->d_name[j++] = '.';
 		}
@@ -280,7 +298,7 @@ static int fat_readdir(vfs_node_t *node, unsigned long index, struct dirent *dir
 	}
 	if (!remaning) return -ENOENT;
 
-	return fat2dirent(fat_superblock, inode, offset, dirent);
+	return fat2dirent(fat_superblock, inode, cluster, offset, dirent);
 }
 
 static int fat_lookup(vfs_node_t *node, vfs_dentry_t *dentry) {
