@@ -213,8 +213,8 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 			// append name
 			size_t i = (ord - 1) * 13;
 			memcpy(&name[i]     , long_entry.name1, sizeof(long_entry.name1));
-			memcpy(&name[i + 5] , long_entry.name1, sizeof(long_entry.name1));
-			memcpy(&name[i + 11], long_entry.name1, sizeof(long_entry.name1));
+			memcpy(&name[i + 5] , long_entry.name2, sizeof(long_entry.name2));
+			memcpy(&name[i + 11], long_entry.name3, sizeof(long_entry.name3));
 			name_len += 13;
 
 			ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, (fat_entry_t*)&long_entry);
