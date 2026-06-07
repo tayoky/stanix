@@ -87,7 +87,7 @@ static int ps2_write(uint8_t data) {
 
 int ps2_send(uint8_t port, uint8_t data) {
 	if (port == 2) {
-		ps2_send_command(PS2_SEND_PORT2);
+		if (ps2_send_command(PS2_SEND_PORT2) < 0) return -1;
 	}
 	int ret = ps2_write(data);
 	if (ret < 0) return ret;
@@ -142,7 +142,9 @@ static void print_device_name(int port) {
 
 	int c0, c1;
 	c0 = ps2_read();
-	if (c0 >= 0) {
+	if (c0 < 0) {
+		c1 = -1;
+	} else {
 		c1 = ps2_read();
 	}
 
@@ -210,31 +212,31 @@ static void setup_addr(int port) {
 }
 
 static int init_ps2(int argc, char **argv) {
-	//disable everything
+	// disable everything
 	ps2_send_command(PS2_DISABLE_PORT1);
 	ps2_send_command(PS2_DISABLE_PORT2);
 
-	//flush the output buffer
+	// flush the output buffer
 	while (in_byte(PS2_STATUS) & 1) in_byte(PS2_DATA);
 
-	//test the controller
+	// test the controller
 	ps2_send_command(PS2_TEST_CONTROLLER);
 	if (ps2_read() != PS2_CONTROLLER_TEST_SUCCESSED) {
 		kdebugf("ps2 : the 8042 ps2 controller didn't pass self test (broken controller ?)\n");
 		return -ENODEV;
 	}
 
-	//try to check for port 2
+	// try to check for port 2
 	ps2_send_command(PS2_ENABLE_PORT2);
 	ps2_send_command(PS2_READ_CONF);
 	uint8_t conf = (uint8_t)ps2_read();
 	if (!(conf & (1 << 5))) {
-		//there is a second port
+		// there is a second port
 		have_ports[1] = 1;
 	}
 	ps2_send_command(PS2_DISABLE_PORT2);
 
-	//test ports
+	// test ports
 	ps2_send_command(PS2_TEST_PORT1);
 	if (ps2_read() != 0) {
 		have_ports[0] = 0;
@@ -248,29 +250,33 @@ static int init_ps2(int argc, char **argv) {
 		}
 	}
 
-	//if no port available just give up
+	// if no port available just give up
 	if (!(have_ports[0] || have_ports[1])) {
 		kdebugf("ps2 : both ps2 ports are not available\n");
 		return -ENODEV;
 	}
 
-	//setup the configuration byte
+	// setup the configuration byte
 	ps2_send_command(PS2_READ_CONF);
 	conf = (uint8_t)ps2_read();
-	//start by setting all field to 0
-	conf &= 0b00000100;
-	//then activate irq
+
+	// start by setting fields to 0
+	conf &= ~1;
+	conf &= ~2;
+	conf &= ~0x40;
+
+	// then activate irq
 	if (have_ports[0]) {
 		conf |= 1;
 	}
 	if (have_ports[1]) {
 		conf |= 2;
 	}
-	//now write conf
+	// now write conf
 	ps2_send_command(PS2_WRITE_CONF);
 	ps2_write(conf);
 
-	//activate devices
+	// activate devices
 	if (have_ports[0]) {
 		ps2_send_command(PS2_ENABLE_PORT1);
 	}
@@ -278,24 +284,24 @@ static int init_ps2(int argc, char **argv) {
 		ps2_send_command(PS2_ENABLE_PORT2);
 	}
 
-	//setup driver and bus
+	// setup driver and bus
 	device_driver_register(&ps2_driver);
 
-	//now scan the device on each port
+	// now scan the device on each port
 	for (int i=1; i < 3; i++) {
 		if (!have_ports[i - 1]) continue;
 		if (ps2_send(i, PS2_DISABLE_SCANING) != PS2_ACK) {
-			//no device on the port
+			// no device on the port
 			have_ports[i - 1] = 0;
 			kdebugf("ps2 : no device on port %d\n", i);
 		} else {
-			//identify the device
+			// identify the device
 			print_device_name(i);
 			setup_addr(i);
 		}
 	}
 
-	//we now want to enable translation
+	// we now want to enable translation
 	if (!have_opt(argc, argv, "--no-translation")) {
 		conf |= 0x40;
 		ps2_send_command(PS2_WRITE_CONF);
@@ -306,10 +312,10 @@ static int init_ps2(int argc, char **argv) {
 
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");
 
-	//NOTE : at this point scanning is disable
-	//the driver specfic to the device as to enable scaning itself
+	// NOTE : at this point scanning is disable
+	// the driver specfic to the device as to enable scaning itself
 
-	//export time
+	// export time
 	EXPORT(ps2_read);
 	EXPORT(ps2_send);
 
