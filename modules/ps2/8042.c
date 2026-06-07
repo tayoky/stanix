@@ -28,8 +28,8 @@
 #define PS2_WRITE_CONF      0x60
 #define PS2_SEND_PORT2      0xD4
 
-#define PS2_CONTROLLER_TEST_SUCCESSED 0x55
-#define PS2_CONTROLLER_TEST_FAILED    0xFC
+#define PS2_CONTROLLER_TEST_SUCCEED 0x55
+#define PS2_CONTROLLER_TEST_FAILED  0xFC
 
 int have_ports[2] = { 1, 0 };
 static ps2_addr_t ports[2];
@@ -221,7 +221,7 @@ static int init_ps2(int argc, char **argv) {
 
 	// test the controller
 	ps2_send_command(PS2_TEST_CONTROLLER);
-	if (ps2_read() != PS2_CONTROLLER_TEST_SUCCESSED) {
+	if (ps2_read() != PS2_CONTROLLER_TEST_SUCCEED) {
 		kdebugf("ps2 : the 8042 ps2 controller didn't pass self test (broken controller ?)\n");
 		return -ENODEV;
 	}
@@ -290,7 +290,7 @@ static int init_ps2(int argc, char **argv) {
 	// now scan the device on each port
 	for (int i=1; i < 3; i++) {
 		if (!have_ports[i - 1]) continue;
-		if (ps2_send(i, PS2_DISABLE_SCANING) != PS2_ACK) {
+		if (ps2_send(i, PS2_DISABLE_SCANNING) != PS2_ACK) {
 			// no device on the port
 			have_ports[i - 1] = 0;
 			kdebugf("ps2 : no device on port %d\n", i);
@@ -313,7 +313,7 @@ static int init_ps2(int argc, char **argv) {
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");
 
 	// NOTE : at this point scanning is disable
-	// the driver specfic to the device as to enable scaning itself
+	// the driver specfic to the device as to enable scanning itself
 
 	// export time
 	EXPORT(ps2_read);
