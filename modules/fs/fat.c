@@ -2,6 +2,7 @@
 #include <kernel/string.h>
 #include <kernel/kheap.h>
 #include <kernel/print.h>
+#include <kernel/unicode.h>
 #include <kernel/time.h>
 #include <kernel/vfs.h>
 #include <module/fat.h>
@@ -155,9 +156,9 @@ static int fat_read_entry(fat_superblock_t *fat_superblock, size_t offset, fat_e
 	return vfs_read(fat_superblock->superblock.device, entry, offset, sizeof(fat_entry_t));
 }
 
-static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, size_t *offset, uint32_t *cluster, fat_entry_t *entry) {
+static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode,  uint32_t *cluster, size_t *offset, fat_entry_t *entry) {
 	if (*cluster == FAT_EOF) return -ENOENT;
-	int ret = fat_read_entry(fat_superblock, *offset, cluster);
+	int ret = fat_read_entry(fat_superblock, *offset, *cluster);
 	if (ret < 0) return ret;
 
 	// jump to next entry
@@ -189,15 +190,15 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 
 	if ((entry.attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
 		kdebugf("long name\n");
-		// we a long name
-		size_t j=0;
+		// we have a long name
 		fat_long_entry_t long_entry;
-		memcpy(&long_entry, *entry, sizeof(fat_entry_t));
+		memcpy(&long_entry, &entry, sizeof(fat_entry_t));
 
 		// the first entry must have the last flag
 		// because entries are stored in reverse order
 		if (!(long_entry.ord & LAST_LONG_ENTRY)) return -EIO;
-
+		uint16_t name[256];
+		size_t name_len = 0;
 		for (size_t ord = (long_entry.ord & ~LAST_LONG_ENTRY); ord > 0; ord--) {
 
 			if ((long_entry.ord & ~LAST_LONG_ENTRY) != ord) {
@@ -209,25 +210,21 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 				return -EIO;
 			}
 
-			// append
-			// TODO : convert utf16 to utf8
-			// TODO : putback in reverse order
-			for (size_t i=0; i < 5; i++) {
-				if (!long_entry.name1[i]) break;
-				dirent->d_name[j++] = (char)long_entry.name1[i];
-			}
-			for (size_t i=0; i < 6; i++) {
-				if (!long_entry.name2[i]) break;
-				dirent->d_name[j++] = (char)long_entry.name2[i];
-			}
-			for (size_t i=0; i < 2; i++) {
-				if (!long_entry.name3[i]) break;
-				dirent->d_name[j++] = (char)long_entry.name3[i];
-			}
+			// append name
+			size_t i = (ord - 1) * 13;
+			memcpy(&name[i]     , long_entry.name1, sizeof(long_entry.name1));
+			memcpy(&name[i + 5] , long_entry.name1, sizeof(long_entry.name1));
+			memcpy(&name[i + 11], long_entry.name1, sizeof(long_entry.name1));
+			name_len += 13;
+
 			ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, (fat_entry_t*)&long_entry);
 			if (ret < 0) return ret;
 		}
-		dirent->d_name[j] = '\0';
+
+		// convert name to utf8
+		ssize_t len = utf16_to_utf8(name, name_len, dirent->d_name);
+		if (len < 0) return len;
+		dirent->d_name[len] = '\0';
 		memcpy(&entry, &long_entry, sizeof(fat_entry));
 	} else {
 		size_t j=0;

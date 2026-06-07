@@ -14,4 +14,6 @@ ssize_t utf16_decode_buf(const uint16_t *data, size_t count, int *codepoints);
 int utf16_encode_char(int codepoint, uint16_t *data);
 ssize_t utf16_encode_buf(const int *codepoints, size_t count, uint16_t *data);
 
+ssize_t utf16_to_utf8(const uint16_t *utf16, size_t count, uint8_t *utf8);
+
 #endif
