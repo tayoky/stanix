@@ -7,6 +7,7 @@
 #include <kernel/vfs.h>
 #include <module/fat.h>
 #include <stdint.h>
+#include <ctype.h>
 #include <errno.h>
 
 #undef min
@@ -219,7 +220,7 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 			ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, (fat_entry_t *)&long_entry);
 			if (ret < 0) return ret;
 		}
-		
+
 		// convert name to utf8
 		ssize_t len = utf16_to_utf8(name, name_len, (uint8_t *)dirent->d_name);
 		if (len < 0) return len;
@@ -228,16 +229,24 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 	} else {
 		size_t j=0;
 		for (int i=0; i < 8; i++) {
-			if (entry.name[i] == ' ')break;
-			dirent->d_name[j++] = entry.name[i];
+			if (entry.name[i] == ' ') break;
+			if (entry.nt_reserved & FAT_NT_CASE_LOWER_BASE) {
+				dirent->d_name[j++] = tolower(entry.name[i]);
+			} else {
+				dirent->d_name[j++] = toupper(entry.name[i]);
+			}
 		}
-		// don't add . for directories without extention
-		if (!((entry.attribute & ATTR_DIRECTORY) && entry.name[8] == ' ')) {
+		// don't add . for directories/files without extention
+		if (entry.name[8] != ' ') {
 			dirent->d_name[j++] = '.';
 		}
 		for (int i=8; i < 11; i++) {
 			if (entry.name[i] == ' ')break;
-			dirent->d_name[j++] = entry.name[i];
+			if (entry.nt_reserved & FAT_NT_CASE_LOWER_BASE) {
+				dirent->d_name[j++] = tolower(entry.name[i]);
+			} else {
+				dirent->d_name[j++] = toupper(entry.name[i]);
+			}
 		}
 		dirent->d_name[j] = '\0';
 	}
@@ -282,6 +291,26 @@ static int fat_readdir(vfs_node_t *node, unsigned long index, struct dirent *dir
 	return fat2dirent(fat_superblock, inode, cluster, offset, dirent);
 }
 
+static int fat_entry_match(fat_entry_t *entry, const char *name) {
+	// note that this matching function is case non sensitive
+	size_t j = 0;
+	for (int i=0; i < 8; i++) {
+		if (entry->name[i] == ' ') break;
+		// broken entry check
+		if (entry->name[i] < 0x20) return 0;
+		if (toupper(name[j++]) != entry->name[i]) return 0;
+	}
+	if (name[j] == '.') j++;
+	for (int i=8; i < 11; i++) {
+		if (entry->name[i] == ' ') break;
+		// broken entry check
+		if (entry->name[i] < 0x20) return 0;
+		if (toupper(name[j++]) != entry->name[i]) return 0;
+	}
+	if (name[j]) return 0;
+	return 1;
+}
+
 static int fat_lookup(vfs_node_t *node, vfs_dentry_t *dentry) {
 	fat_inode_t *inode = node->private_inode;
 	fat_superblock_t *fat_superblock = container_of(node->superblock, fat_superblock_t, superblock);
@@ -292,45 +321,75 @@ static int fat_lookup(vfs_node_t *node, vfs_dentry_t *dentry) {
 
 	while (remaning > 0) {
 		fat_entry_t entry;
-		vfs_read(fat_superblock->superblock.device, &entry, offset, sizeof(entry));
-		offset += sizeof(fat_entry_t);
-		if (!inode->is_fat16_root && !(offset % fat_superblock->cluster_size)) {
-			//end of cluster
-			//jump to next
-			cluster = fat_get_next_cluster(fat_superblock, cluster);
-			if (cluster == FAT_EOF)return -ENOENT;
-			offset = fat_cluster2offset(fat_superblock, cluster);
-		}
+		int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
+		if (ret < 0) return ret;
 		if (inode->is_fat16_root)remaning--;
 
 		if (entry.name[0] == 0x00) {
-			//everything is free after that
-			//we hit last
+			// everything is free after that
+			// we hit last
 			return -ENOENT;
 		}
-		//TODO : long name support
-		if ((entry.attribute & ATTR_VOLUME_ID) || (entry.name[0] == (char)0xe5))cont: continue;
 
-		size_t j = 0;
-		for (int i=0; i < 8; i++) {
-			if (entry.name[i] == ' ')break;
-			//broken entry check
-			if (entry.name[i] < 0x20)goto cont;
-			if (dentry->name[j++] != entry.name[i])goto cont;
+		if (entry.name[0] == (char)0xe5) {
+			// free entry
+			continue;
 		}
-		if (dentry->name[j] == '.')j++;
-		for (int i=8; i < 11; i++) {
-			if (entry.name[i] == ' ')break;
-			//broken entry check
-			if (entry.name[i] < 0x20)goto cont;
-			if (dentry->name[j++] != entry.name[i])goto cont;
-		}
-		if (dentry->name[j])continue;
 
-		//we found it
-		dentry->inode = fat_entry2node(&entry, fat_superblock);
-		// TODO : inode number
-		return 0;
+		if ((entry.attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
+			// long name
+			fat_long_entry_t long_entry;
+			memcpy(&long_entry, &entry, sizeof(fat_entry_t));
+
+			// the first entry must have the last flag
+			// because entries are stored in reverse order
+			if (!(long_entry.ord & LAST_LONG_ENTRY)) return -EIO;
+			uint16_t name[256];
+			size_t name_len = 0;
+			for (size_t ord = (long_entry.ord & ~LAST_LONG_ENTRY); ord > 0; ord--) {
+				if ((long_entry.ord & ~LAST_LONG_ENTRY) != ord) {
+					// corrupted
+					return -EIO;
+				}
+				if ((long_entry.attribute & ATTR_LONG_NAME) != ATTR_LONG_NAME) {
+					// corrupted
+					return -EIO;
+				}
+
+				// append name
+				size_t i = (ord - 1) * 13;
+				memcpy(&name[i], long_entry.name1, sizeof(long_entry.name1));
+				memcpy(&name[i + 5], long_entry.name2, sizeof(long_entry.name2));
+				memcpy(&name[i + 11], long_entry.name3, sizeof(long_entry.name3));
+				name_len += 13;
+
+				ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, (fat_entry_t *)&long_entry);
+				if (ret < 0) return ret;
+			}
+			memcpy(&entry, &long_entry, sizeof(fat_entry_t));
+
+			// convert name to utf8
+			char utf8_name[512];
+			ssize_t len = utf16_to_utf8(name, name_len, (uint8_t *)utf8_name);
+			if (len < 0) return len;
+			utf8_name[len] = '\0';
+			if (!strcmp(dentry->name, utf8_name)) {
+				// we found it
+				dentry->inode = fat_entry2node(&entry, fat_superblock);
+				// TODO : inode number
+				return 0;
+			}
+		} else {
+			// we need to ignore volume id entries
+			if (entry.attribute & ATTR_VOLUME_ID) continue;
+		}
+
+		if (fat_entry_match(&entry, dentry->name)) {
+			// we found it
+			dentry->inode = fat_entry2node(&entry, fat_superblock);
+			// TODO : inode number
+			return 0;
+		}
 	}
 
 	return -ENOENT;

@@ -19,6 +19,9 @@
 #define ATTR_LONG_NAME (ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID)
 #define LAST_LONG_ENTRY 0x40
 
+#define FAT_NT_CASE_LOWER_BASE 0x08
+#define FAT_NT_CASE_LOWER_EXT  0x10
+
 //also for fat12
 typedef struct fat16_bpb {
 	uint8_t drive_num;
@@ -73,7 +76,7 @@ typedef struct fat_bpb {
 typedef struct fat_entry {
 	char name[11];
 	uint8_t attribute;
-	uint8_t reserved;
+	uint8_t nt_reserved;
 	uint8_t creation_time_tenth;
 	uint16_t creation_time;
 	uint16_t creation_date;
