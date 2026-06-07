@@ -156,7 +156,7 @@ static int fat_read_entry(fat_superblock_t *fat_superblock, size_t offset, fat_e
 	return vfs_read(fat_superblock->superblock.device, entry, offset, sizeof(fat_entry_t));
 }
 
-static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode,  uint32_t *cluster, size_t *offset, fat_entry_t *entry) {
+static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, size_t *offset, fat_entry_t *entry) {
 	if (*cluster == FAT_EOF) return -ENOENT;
 	int ret = fat_read_entry(fat_superblock, *offset, entry);
 	if (ret < 0) return ret;
@@ -179,7 +179,7 @@ static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, 
  */
 static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t cluster, size_t offset, struct dirent *dirent) {
 	fat_entry_t entry;
-	int ret = fat_read_entry(fat_superblock, offset, &entry);
+	int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
 	if (ret < 0) return ret;
 
 	if (entry.name[0] == 0x00) {
@@ -200,7 +200,6 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 		uint16_t name[256];
 		size_t name_len = 0;
 		for (size_t ord = (long_entry.ord & ~LAST_LONG_ENTRY); ord > 0; ord--) {
-
 			if ((long_entry.ord & ~LAST_LONG_ENTRY) != ord) {
 				// corrupted
 				return -EIO;
@@ -212,17 +211,17 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 
 			// append name
 			size_t i = (ord - 1) * 13;
-			memcpy(&name[i]     , long_entry.name1, sizeof(long_entry.name1));
-			memcpy(&name[i + 5] , long_entry.name2, sizeof(long_entry.name2));
+			memcpy(&name[i], long_entry.name1, sizeof(long_entry.name1));
+			memcpy(&name[i + 5], long_entry.name2, sizeof(long_entry.name2));
 			memcpy(&name[i + 11], long_entry.name3, sizeof(long_entry.name3));
 			name_len += 13;
 
-			ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, (fat_entry_t*)&long_entry);
+			ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, (fat_entry_t *)&long_entry);
 			if (ret < 0) return ret;
 		}
-
+		
 		// convert name to utf8
-		ssize_t len = utf16_to_utf8(name, name_len, (uint8_t*)dirent->d_name);
+		ssize_t len = utf16_to_utf8(name, name_len, (uint8_t *)dirent->d_name);
 		if (len < 0) return len;
 		dirent->d_name[len] = '\0';
 		memcpy(&entry, &long_entry, sizeof(fat_entry_t));
@@ -260,40 +259,25 @@ static int fat_readdir(vfs_node_t *node, unsigned long index, struct dirent *dir
 	uint32_t cluster  = inode->first_cluster;
 	kdebugf("readdir on %s , first cluster is %lx\n", inode->is_fat16_root ? "root" : "not root", cluster);
 	while (index > 0) {
-		if (!remaning) return -ENOENT;
+		if (remaning == 0) return -ENOENT;
 		// skip everything with VOLUME_ID attr or free
 		for (;;) {
 			fat_entry_t entry;
-			vfs_read(fat_superblock->superblock.device, &entry, offset, sizeof(entry));
+			int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
+			if (ret < 0) return ret;
 			if (entry.name[0] == 0x00) {
 				// everything is free after that
 				// we hit last
 				return -ENOENT;
 			}
-			if (!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5))break;
-			offset += sizeof(fat_entry_t);
-			if (!inode->is_fat16_root && !(offset % fat_superblock->cluster_size)) {
-				//end of cluster
-				//jump to next
-				cluster = fat_get_next_cluster(fat_superblock, cluster);
-				if (cluster == FAT_EOF)return -ENOENT;
-				offset = fat_cluster2offset(fat_superblock, cluster);
-			}
+			if (!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5)) break;
 			remaning--;
-			if (!remaning)return -ENOENT;
+			if (remaning == 0) return -ENOENT;
 		}
 		index--;
-		offset += sizeof(fat_entry_t);
-		if (!inode->is_fat16_root && !(offset % fat_superblock->cluster_size)) {
-			//end of cluster
-			//jump to next
-			cluster = fat_get_next_cluster(fat_superblock, cluster);
-			if (cluster == FAT_EOF) return -ENOENT;
-			offset = fat_cluster2offset(fat_superblock, cluster);
-		}
 		remaning--;
 	}
-	if (!remaning) return -ENOENT;
+	if (remaning == 0) return -ENOENT;
 
 	return fat2dirent(fat_superblock, inode, cluster, offset, dirent);
 }
