@@ -288,6 +288,7 @@ static socket_t *unix_create(int type, int protocol) {
 	if (type > SOCK_SEQPACKET) return NULL;
 
 	unix_socket_t *socket = slab_alloc(&unix_socket_slab);
+	memset(socket, 0, sizeof(unix_socket_t));
 	socket->socket.type     = type;
 	socket->socket.protocol = protocol;
 	socket->socket.domain   = &unix_domain;
