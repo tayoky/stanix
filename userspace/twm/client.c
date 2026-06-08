@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <errno.h>
 #include <twm.h>
 
 utils_vector_t clients;
@@ -39,6 +40,7 @@ int accept_client(void) {
 	static int client_id = 1;
 	int client_fd = accept(server_socket, NULL, NULL);
 	if (client_fd < 0) {
+		if (errno == EAGAIN) return 0;
 		error("fail to accept connection");
 		return -1;
 	}

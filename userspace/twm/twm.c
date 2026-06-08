@@ -59,7 +59,7 @@ int main() {
 		return 1;
 	}
 
-	server_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+	server_socket = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if (!server_socket) {
 		error("failed to create socket");
 		return 1;
