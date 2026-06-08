@@ -22,7 +22,12 @@ void earlycon_unregister_by_name(const char *name) {
 }
 
 void earlycon_output(earlycon_t *earlycon, const char *buf, size_t count) {
-	earlycon->output(earlycon, buf, count);
+	for (size_t i=0; i<count; i++) {
+		if (buf[i] == '\n') {
+			earlycon_output(earlycon, "\r", 1);
+		}
+		earlycon->output(earlycon, &buf[i], 1);
+	}
 }
 
 void earlycon_output_all(const char *buf, size_t count) {
