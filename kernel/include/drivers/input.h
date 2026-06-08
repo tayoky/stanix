@@ -23,7 +23,7 @@ typedef struct input_device {
 	char layout[INPUT_LAYOUT_SIZE];
 } input_device_t;
 
-int register_input_device(input_device_t *device);
-int send_input_event(input_device_t *device, struct input_event *event);
+int input_device_register(input_device_t *device);
+int input_device_send_event(input_device_t *device, struct input_event *event);
 
 #endif

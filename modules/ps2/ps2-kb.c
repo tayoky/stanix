@@ -48,7 +48,7 @@ static void keyboard_handler(registers_t *frame, void *arg) {
 	}
 
 	event.ie_key.scancode = keyboard->extended ? scancode + 0x80 : scancode;
-	send_input_event(&keyboard->input_device, &event);
+	input_device_send_event(&keyboard->input_device, &event);
 	keyboard->extended = 0;
 }
 
@@ -124,7 +124,7 @@ static int kb_probe(bus_addr_t *addr) {
 	keyboard->input_device.device.addr   = addr;
 	keyboard->input_device.class = IE_CLASS_KEYBOARD;
 	keyboard->input_device.subclass = IE_SUBCLASS_PS2_KBD;
-	register_input_device(&keyboard->input_device);
+	input_device_register(&keyboard->input_device);
 	bus_register_handler(addr, keyboard_handler, keyboard);
 	kdebugf("keyboard succefuly initialized\n");
 

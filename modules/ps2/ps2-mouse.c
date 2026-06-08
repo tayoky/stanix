@@ -79,7 +79,7 @@ static void mouse_handler(registers_t *frame, void *arg) {
 			} else {
 				event.ie_key.flags = IE_KEY_RELEASE;
 			}
-			send_input_event((input_device_t *)mouse, &event);
+			input_device_send_event((input_device_t *)mouse, &event);
 		}
 		mouse->button = mouse->flags & 0x7;
 	}
@@ -104,7 +104,7 @@ static void mouse_handler(registers_t *frame, void *arg) {
 				.axis = 0,
 			},
 		};
-		send_input_event((input_device_t *)mouse, &event);
+		input_device_send_event((input_device_t *)mouse, &event);
 	}
 }
 
@@ -129,11 +129,8 @@ static int mouse_probe(bus_addr_t *addr) {
 		kdebugf("mouse didn't pass self test\n");
 		return -EIO;
 	}
-	// discard the id of the mouse we aready know that
-	ps2_read();
-	ps2_read();
 
-	if (ps2_send(port, PS2_ENABLE_SCANING) != PS2_ACK) {
+	if (ps2_send(port, PS2_ENABLE_SCANNING) != PS2_ACK) {
 		kdebugf("error while enabling scanning\n");
 		return -EIO;
 	}
@@ -146,7 +143,7 @@ static int mouse_probe(bus_addr_t *addr) {
 	mouse->device.device.addr = addr;
 	mouse->device.class = IE_CLASS_MOUSE;
 	mouse->device.subclass = IE_SUBCLASS_PS2_MOUSE;
-	register_input_device((input_device_t *)mouse);
+	input_device_register((input_device_t *)mouse);
 	bus_register_handler(addr, mouse_handler, mouse);
 	return 0;
 }
