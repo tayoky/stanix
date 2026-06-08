@@ -12,18 +12,23 @@
 
 #define PS2_SET_SCANCODE_SET 0xF0
 
+
+typedef struct ps2_kb {
+	input_device_t input_device;
+	int extended;
+} ps2_kb_t;
+
 static device_driver_t ps2_kb_driver;
 
 static void keyboard_handler(registers_t *frame, void *arg) {
 	(void)frame;
-	input_device_t *keyboard = arg;
+	ps2_kb_t *keyboard = arg;
 
 	uint8_t scancode = ps2_read();
 
-	int extended = 0;
 	if (scancode == 0xE0) {
-		extended = 1;
-		scancode = ps2_read();
+		keyboard->extended = 1;
+		return;
 	}
 
 	int press = 1;
@@ -42,8 +47,9 @@ static void keyboard_handler(registers_t *frame, void *arg) {
 		event.ie_key.flags = IE_KEY_RELEASE;
 	}
 
-	event.ie_key.scancode = extended ? scancode + 0x80 : scancode;
-	send_input_event(keyboard, &event);
+	event.ie_key.scancode = keyboard->extended ? scancode + 0x80 : scancode;
+	send_input_event(&keyboard->input_device, &event);
+	keyboard->extended = 0;
 }
 
 //helper
@@ -87,10 +93,6 @@ static int kb_probe(bus_addr_t *addr) {
 		kdebugf("ps2 : keyboard didn't pass self test\n");
 		return -EIO;
 	}
-	// discard the id of the keyboard we aready know that
-	ps2_read();
-	ps2_read();
-
 
 	// set scancode 2 and keep it if translation enable
 	CHANGE_SCANCODE(2);
@@ -109,20 +111,20 @@ static int kb_probe(bus_addr_t *addr) {
 		}
 	}
 
-	if (ps2_send(port, PS2_ENABLE_SCANING) != PS2_ACK) {
+	if (ps2_send(port, PS2_ENABLE_SCANNING) != PS2_ACK) {
 		kdebugf("ps2 : error while enabling scaning\n");
 		return -EIO;
 	}
 
-	input_device_t *keyboard = kmalloc(sizeof(input_device_t));
-	memset(keyboard, 0, sizeof(input_device_t));
-	keyboard->device.driver = &ps2_kb_driver;
-	keyboard->device.number = ps2_addr->port;
-	keyboard->device.name   = strdup("kb0");
-	keyboard->device.addr   = addr;
-	keyboard->class = IE_CLASS_KEYBOARD;
-	keyboard->subclass = IE_SUBCLASS_PS2_KBD;
-	register_input_device(keyboard);
+	ps2_kb_t *keyboard = kmalloc(sizeof(ps2_kb_t));
+	memset(keyboard, 0, sizeof(ps2_kb_t));
+	keyboard->input_device.device.driver = &ps2_kb_driver;
+	keyboard->input_device.device.number = ps2_addr->port;
+	keyboard->input_device.device.name   = strdup("kb0");
+	keyboard->input_device.device.addr   = addr;
+	keyboard->input_device.class = IE_CLASS_KEYBOARD;
+	keyboard->input_device.subclass = IE_SUBCLASS_PS2_KBD;
+	register_input_device(&keyboard->input_device);
 	bus_register_handler(addr, keyboard_handler, keyboard);
 	kdebugf("keyboard succefuly initialized\n");
 
