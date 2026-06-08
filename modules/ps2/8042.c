@@ -54,7 +54,7 @@ static int wait_output() {
 		io_wait();
 	}
 
-	return -1;
+	return -ETIMEDOUT;
 }
 
 static int wait_input() {
@@ -65,33 +65,65 @@ static int wait_input() {
 		io_wait();
 	}
 
-	return -1;
+	return -ETIMEDOUT;
 }
 
 static int ps2_send_command(uint8_t command) {
-	if (wait_input() < 0) return -1;
+	int ret = wait_input();
+	if (ret < 0) return ret;
 	out_byte(PS2_COMMAND, command);
 	return 0;
 }
 
 int ps2_read(void) {
-	if (wait_output() < 0) return -1;
+	int ret = wait_output();
+	if (ret < 0) return ret;
 	return in_byte(PS2_DATA);
 }
 
 static int ps2_write(uint8_t data) {
-	if (wait_input() < 0) return -1;
+	int ret = wait_input();
+	if (ret < 0) return ret;
 	out_byte(PS2_DATA, data);
 	return 0;
 }
 
 int ps2_send(uint8_t port, uint8_t data) {
-	if (port == 2) {
-		if (ps2_send_command(PS2_SEND_PORT2) < 0) return -1;
+	for (int i=0; i < 3; i++) {
+		if (port == 2) {
+			int ret = ps2_send_command(PS2_SEND_PORT2);
+			if (ret < 0) return ret;
+		}
+		int ret = ps2_write(data);
+		if (ret < 0) return ret;
+
+		ret = ps2_read();
+		if (ret < 0) return ret;
+
+		if (ret == PS2_RESEND) {
+			// retry
+			continue;
+		}
+		return ret;
 	}
-	int ret = ps2_write(data);
+	return -ETIMEDOUT;
+}
+
+int ps2_reset(uint8_t port) {
+	int ret = ps2_send(port, PS2_RESET);
+	if (ret < 0)  return ret;
+	if (ret != PS2_ACK) return -EIO;
+
+	ret = ps2_read();
 	if (ret < 0) return ret;
-	return ps2_read();
+	if (ret != PS2_SELF_TEST_PASSED) return -EIO;
+
+	// discard the id
+	int c0 = ps2_read();
+	if (c0 == 0xAB || c0 == 0xAC) {
+		ps2_read();
+	}
+	return 0;
 }
 
 static ssize_t ps2_bus_read(bus_addr_t *addr, void *buf, off_t offset, size_t count) {
@@ -140,11 +172,9 @@ static void print_device_name(int port) {
 		kprintf("unknown device\n");
 	}
 
-	int c0, c1;
-	c0 = ps2_read();
-	if (c0 < 0) {
-		c1 = -1;
-	} else {
+	int c0 = ps2_read();
+	int c1 = -1;
+	if (c0 == 0xAB || c0 == 0xAC) {
 		c1 = ps2_read();
 	}
 
@@ -318,6 +348,7 @@ static int init_ps2(int argc, char **argv) {
 	// export time
 	EXPORT(ps2_read);
 	EXPORT(ps2_send);
+	EXPORT(ps2_reset);
 
 	return 0;
 }
@@ -327,6 +358,7 @@ static int fini_ps2() {
 	device_driver_unregister(&ps2_driver);
 	UNEXPORT(ps2_read);
 	UNEXPORT(ps2_send);
+	UNEXPORT(ps2_reset);
 	return 0;
 }
 

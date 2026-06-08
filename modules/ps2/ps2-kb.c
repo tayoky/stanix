@@ -84,27 +84,23 @@ static int kb_probe(bus_addr_t *addr) {
 	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
 	int port = ps2_addr->port;
 
-	//start by reset the device
-	if (ps2_send(port, 0xFF) != PS2_ACK) {
-		kdebugf("ps2 : failed to reset device\n");
+	// reset the device
+	if (ps2_reset(port) < 0) {
+		kinfof("ps2 : keyboard reset failed\n");
 		return -EIO;
 	}
-	if (ps2_read() != 0xAA) {
-		kdebugf("ps2 : keyboard didn't pass self test\n");
-		return -EIO;
-	}
-
-	// set scancode 2 and keep it if translation enable
+	
+	// set scancode 2 and keep it if translation enabled
 	CHANGE_SCANCODE(2);
 	GET_SCANCODE();
 	if (ps2_read() == 0x41) {
 		kdebugf("ps2 : using translation\n");
 	} else {
 		// tranlation not enabled so set scancode 1
-		CHANGE_SCANCODE(1)
+		CHANGE_SCANCODE(1);
 
-			// check it's actually using scancode 1
-			GET_SCANCODE();
+		// check it's actually using scancode 1
+		GET_SCANCODE();
 		if (ps2_read() != 1) {
 			kdebugf("ps2 : device don't support scancode set 1\n");
 			return -ENOTSUP;

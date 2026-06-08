@@ -121,17 +121,13 @@ static int mouse_probe(bus_addr_t *addr) {
 	int port = ps2_addr->port;
 
 	// first do a reset
-	if (ps2_send(port, 0xFF) != PS2_ACK) {
-		kdebugf("mouse reset failed\n");
-		return -EIO;
-	}
-	if (ps2_read() != 0xAA) {
-		kdebugf("mouse didn't pass self test\n");
+	if (ps2_reset(port) < 0) {
+		kinfof("mouse reset failed\n");
 		return -EIO;
 	}
 
 	if (ps2_send(port, PS2_ENABLE_SCANNING) != PS2_ACK) {
-		kdebugf("error while enabling scanning\n");
+		kinfof("error while enabling scanning\n");
 		return -EIO;
 	}
 
