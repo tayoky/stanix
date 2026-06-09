@@ -11,25 +11,25 @@
 //driver for the 8042 ps2 controller
 //work only on x86_64 computer
 
-#define PS2_DATA    0x60
-#define PS2_COMMAND 0x64
-#define PS2_STATUS  0x64
+#define I8042_DATA    0x60
+#define I8042_COMMAND 0x64
+#define I8042_STATUS  0x64
 
-//controller command
+// i8042 controller command
 
-#define PS2_DISABLE_PORT1   0xAD
-#define PS2_ENABLE_PORT1    0xAE
-#define PS2_DISABLE_PORT2   0xA7
-#define PS2_ENABLE_PORT2    0xA8
-#define PS2_TEST_CONTROLLER 0xAA
-#define PS2_TEST_PORT1      0xAB
-#define PS2_TEST_PORT2      0xA9
-#define PS2_READ_CONF       0x20
-#define PS2_WRITE_CONF      0x60
-#define PS2_SEND_PORT2      0xD4
+#define I8042_DISABLE_PORT1   0xAD
+#define I8042_ENABLE_PORT1    0xAE
+#define I8042_DISABLE_PORT2   0xA7
+#define I8042_ENABLE_PORT2    0xA8
+#define I8042_TEST_CONTROLLER 0xAA
+#define I8042_TEST_PORT1      0xAB
+#define I8042_TEST_PORT2      0xA9
+#define I8042_READ_CCB        0x20
+#define I8042_WRITE_CCB       0x60
+#define I8042_SEND_PORT2      0xD4
 
-#define PS2_CONTROLLER_TEST_SUCCEED 0x55
-#define PS2_CONTROLLER_TEST_FAILED  0xFC
+#define I8042_CONTROLLER_TEST_SUCCEED 0x55
+#define I8042_CONTROLLER_TEST_FAILED  0xFC
 
 int have_ports[2] = { 1, 0 };
 static ps2_addr_t ports[2];
@@ -46,9 +46,11 @@ static bus_t ps2_bus = {
 	.ops = &ps2_ops,
 };
 
-static int wait_output() {
+// i8042 specific I/O
+
+static int i8042_wait_output(void) {
 	for (size_t i = 0; i < 100000; i++) {
-		if (in_byte(PS2_STATUS) & 0x01) {
+		if (in_byte(I8042_STATUS) & 0x01) {
 			return 0;
 		}
 		io_wait();
@@ -57,9 +59,9 @@ static int wait_output() {
 	return -ETIMEDOUT;
 }
 
-static int wait_input() {
+static int i8042_wait_input(void) {
 	for (size_t i = 0; i < 100000; i++) {
-		if (!(in_byte(PS2_STATUS) & 0x02)) {
+		if (!(in_byte(I8042_STATUS) & 0x02)) {
 			return 0;
 		}
 		io_wait();
@@ -68,30 +70,59 @@ static int wait_input() {
 	return -ETIMEDOUT;
 }
 
-static int ps2_send_command(uint8_t command) {
-	int ret = wait_input();
+static int i8042_send_command(uint8_t command) {
+	int ret = i8042_wait_input();
 	if (ret < 0) return ret;
-	out_byte(PS2_COMMAND, command);
+	out_byte(I8042_COMMAND, command);
 	return 0;
 }
 
-int ps2_read(void) {
-	int ret = wait_output();
+static int i8042_read(void) {
+	int ret = i8042_wait_output();
 	if (ret < 0) return ret;
-	return in_byte(PS2_DATA);
+	return in_byte(I8042_DATA);
+}
+
+static int i8042_write(uint8_t data) {
+	int ret = i8042_wait_input();
+	if (ret < 0) return ret;
+	out_byte(I8042_DATA, data);
+	return 0;
+}
+
+int i8042_read_ccb(uint8_t *ccb) {
+	int ret = i8042_send_command(I8042_READ_CCB);
+	if (ret < 0) return ret;
+	ret = i8042_read();
+	if (ret < 0) return ret;
+	*ccb = (uint8_t)ret;
+	return 0;
+}
+
+int i8042_write_ccb(uint8_t ccb) {
+	int ret = i8042_send_command(I8042_WRITE_CCB);
+	if (ret < 0) return ret;
+	return i8042_write(ccb);
+}
+
+void i8042_flush(void) {
+	while (in_byte(I8042_STATUS) & 1) in_byte(I8042_DATA);
+}
+
+// generic ps2 I/O
+
+int ps2_read(void) {
+	return i8042_read();
 }
 
 static int ps2_write(uint8_t data) {
-	int ret = wait_input();
-	if (ret < 0) return ret;
-	out_byte(PS2_DATA, data);
-	return 0;
+	return i8042_write(data);
 }
 
 int ps2_send(uint8_t port, uint8_t data) {
 	for (int i=0; i < 3; i++) {
 		if (port == 2) {
-			int ret = ps2_send_command(PS2_SEND_PORT2);
+			int ret = i8042_send_command(I8042_SEND_PORT2);
 			if (ret < 0) return ret;
 		}
 		int ret = ps2_write(data);
@@ -99,12 +130,8 @@ int ps2_send(uint8_t port, uint8_t data) {
 
 		ret = ps2_read();
 		if (ret < 0) return ret;
-
-		if (ret == PS2_RESEND) {
-			// retry
-			continue;
-		}
-		return ret;
+		if (ret != PS2_RESEND) return ret;
+		// retry
 	}
 	return -ETIMEDOUT;
 }
@@ -241,42 +268,41 @@ static void setup_addr(int port) {
 	ports[port - 1].port = port;
 }
 
-static int init_ps2(int argc, char **argv) {
+static int init_i8042(int argc, char **argv) {
 	// disable everything
-	ps2_send_command(PS2_DISABLE_PORT1);
-	ps2_send_command(PS2_DISABLE_PORT2);
+	i8042_send_command(I8042_DISABLE_PORT1);
+	i8042_send_command(I8042_DISABLE_PORT2);
 
-	// flush the output buffer
-	while (in_byte(PS2_STATUS) & 1) in_byte(PS2_DATA);
+	i8042_flush();
 
 	// test the controller
-	ps2_send_command(PS2_TEST_CONTROLLER);
-	if (ps2_read() != PS2_CONTROLLER_TEST_SUCCEED) {
+	i8042_send_command(I8042_TEST_CONTROLLER);
+	if (i8042_read() != I8042_CONTROLLER_TEST_SUCCEED) {
 		kdebugf("ps2 : the 8042 ps2 controller didn't pass self test (broken controller ?)\n");
 		return -ENODEV;
 	}
 
 	// try to check for port 2
-	ps2_send_command(PS2_ENABLE_PORT2);
-	ps2_send_command(PS2_READ_CONF);
-	uint8_t conf = (uint8_t)ps2_read();
+	i8042_send_command(I8042_ENABLE_PORT2);
+	uint8_t conf;
+	i8042_read_ccb(&conf);
 	if (!(conf & (1 << 5))) {
 		// there is a second port
 		have_ports[1] = 1;
 	}
-	ps2_send_command(PS2_DISABLE_PORT2);
+	i8042_send_command(I8042_DISABLE_PORT2);
 
 	// test ports
-	ps2_send_command(PS2_TEST_PORT1);
-	if (ps2_read() != 0) {
+	i8042_send_command(I8042_TEST_PORT1);
+	if (i8042_read() != 0) {
 		have_ports[0] = 0;
 		kdebugf("ps2 : the first ps2 port didn't pass test (broken controller ?)\n");
 	}
 	if (have_ports[1]) {
-		ps2_send_command(PS2_TEST_PORT2);
-		if (ps2_read() != 0) {
+		i8042_send_command(I8042_TEST_PORT2);
+		if (i8042_read() != 0) {
 			have_ports[1] = 0;
-			kdebugf("ps2 : the second ps2 port didn't pass test (broken controller ?)\n");
+			kdebugf("ps2 : the second ps2 port didn't pass test (broken controller or non present aux port ?)\n");
 		}
 	}
 
@@ -287,8 +313,7 @@ static int init_ps2(int argc, char **argv) {
 	}
 
 	// setup the configuration byte
-	ps2_send_command(PS2_READ_CONF);
-	conf = (uint8_t)ps2_read();
+	i8042_read_ccb(&conf);
 
 	// start by setting fields to 0
 	conf &= ~1;
@@ -302,16 +327,13 @@ static int init_ps2(int argc, char **argv) {
 	if (have_ports[1]) {
 		conf |= 2;
 	}
-	// now write conf
-	ps2_send_command(PS2_WRITE_CONF);
-	ps2_write(conf);
 
 	// activate devices
 	if (have_ports[0]) {
-		ps2_send_command(PS2_ENABLE_PORT1);
+		i8042_send_command(I8042_ENABLE_PORT1);
 	}
 	if (have_ports[1]) {
-		ps2_send_command(PS2_ENABLE_PORT2);
+		i8042_send_command(I8042_ENABLE_PORT2);
 	}
 
 	// setup driver and bus
@@ -334,9 +356,10 @@ static int init_ps2(int argc, char **argv) {
 	// we now want to enable translation
 	if (!have_opt(argc, argv, "--no-translation")) {
 		conf |= 0x40;
-		ps2_send_command(PS2_WRITE_CONF);
-		ps2_write(conf);
 	}
+
+	// now write conf
+	i8042_write_ccb(conf);
 
 	device_register((device_t *)&ps2_bus);
 
@@ -353,7 +376,7 @@ static int init_ps2(int argc, char **argv) {
 	return 0;
 }
 
-static int fini_ps2() {
+static int fini_i8042() {
 	device_destroy((device_t *)&ps2_bus);
 	device_driver_unregister(&ps2_driver);
 	UNEXPORT(ps2_read);
@@ -364,8 +387,8 @@ static int fini_ps2() {
 
 kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
-	.init = init_ps2,
-	.fini = fini_ps2,
-	.name = "8042 ps2",
+	.init = init_i8042,
+	.fini = fini_i8042,
+	.name = "i8042 controller driver",
 	.author = "tayoky"
 };
