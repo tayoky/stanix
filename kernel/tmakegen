@@ -22,6 +22,7 @@ CFLAGS += -Wall \
     -fno-stack-protector \
     -fno-stack-check \
     -fno-PIC \
+	-fno-omit-frame-pointer \
     -fsanitize=undefined \
     -D__KERNEL__=1
 CFLAGS += -I ./include/
