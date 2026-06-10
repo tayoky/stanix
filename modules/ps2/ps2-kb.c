@@ -10,7 +10,7 @@
 #include <input.h>
 #include <errno.h>
 
-#define PS2_SET_SCANCODE_SET 0xF0
+#define PS2_KEYBOARD_SET_SCANCODE 0xF0
 
 
 typedef struct ps2_kb {
@@ -20,7 +20,7 @@ typedef struct ps2_kb {
 
 static device_driver_t ps2_kb_driver;
 
-static void keyboard_handler(registers_t *frame, void *arg) {
+static void ps2_kb_handler(registers_t *frame, void *arg) {
 	(void)frame;
 	ps2_kb_t *keyboard = arg;
 
@@ -52,26 +52,33 @@ static void keyboard_handler(registers_t *frame, void *arg) {
 	keyboard->extended = 0;
 }
 
-//helper
-#define CHANGE_SCANCODE(set) \
-	ps2_send(port,PS2_SET_SCANCODE_SET);\
-	if(ps2_send(port,set) != PS2_ACK){\
-		kdebugf("error while changing scancode\n");\
-		return -EIO;\
-	}
-#define GET_SCANCODE() \
-	ps2_send(port,PS2_SET_SCANCODE_SET);\
-	if(ps2_send(port,0) != PS2_ACK){\
-		kdebugf("error while reading scancode\n");\
-		return -EIO;\
-	}
+static int ps2_kb_set_scancode(ps2_addr_t *addr, int scancode) {
+	if (ps2_send(addr->port, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
+	if (ps2_send(addr->port, scancode) != PS2_ACK) goto error;
+	return 0;
 
-static int kb_check(bus_addr_t *addr) {
+error:
+	kdebugf("error while changing scancode\n");
+	return -EIO;
+}
+
+static int ps2_kb_get_scancode(ps2_addr_t *addr) {
+	if (ps2_send(addr->port, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
+	if (ps2_send(addr->port, 0) != PS2_ACK) goto error;
+	return ps2_read();
+
+error:
+	kdebugf("error while reading scancode\n");
+	return -EIO;
+}
+
+static int ps2_kb_check(bus_addr_t *addr) {
 	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
 	if (addr->type != BUS_PS2) return 0;
 
 	switch (ps2_addr->device_id[0]) {
 	case 0xAB:
+	case 0xAC:
 	case -1:
 		kdebugf("ps2 keyboard found on port %d\n", ps2_addr->port);
 		return 1;
@@ -80,7 +87,7 @@ static int kb_check(bus_addr_t *addr) {
 	}
 }
 
-static int kb_probe(bus_addr_t *addr) {
+static int ps2_kb_probe(bus_addr_t *addr) {
 	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
 	int port = ps2_addr->port;
 
@@ -91,17 +98,19 @@ static int kb_probe(bus_addr_t *addr) {
 	}
 	
 	// set scancode 2 and keep it if translation enabled
-	CHANGE_SCANCODE(2);
-	GET_SCANCODE();
-	if (ps2_read() == 0x41) {
+	if (ps2_kb_set_scancode(ps2_addr, 2) < 0) return -EIO;
+	int scancode = ps2_kb_get_scancode(ps2_addr);
+	if (scancode < 0) return -EIO;
+	if (scancode == 0x41) {
 		kdebugf("ps2 : using translation\n");
 	} else {
 		// tranlation not enabled so set scancode 1
-		CHANGE_SCANCODE(1);
+		if (ps2_kb_set_scancode(ps2_addr, 1) < 0) return -EIO;
 
 		// check it's actually using scancode 1
-		GET_SCANCODE();
-		if (ps2_read() != 1) {
+		int scancode = ps2_kb_get_scancode(ps2_addr);
+		if (scancode < 0) return -EIO;
+		if (scancode != 1) {
 			kdebugf("ps2 : device don't support scancode set 1\n");
 			return -ENOTSUP;
 		}
@@ -121,34 +130,34 @@ static int kb_probe(bus_addr_t *addr) {
 	keyboard->input_device.class = IE_CLASS_KEYBOARD;
 	keyboard->input_device.subclass = IE_SUBCLASS_PS2_KBD;
 	input_device_register(&keyboard->input_device);
-	bus_register_handler(addr, keyboard_handler, keyboard);
-	kdebugf("keyboard succefuly initialized\n");
+	bus_register_handler(addr, ps2_kb_handler, keyboard);
+	kdebugf("ps2 keyboard succefuly initialized\n");
 
 	return 0;
 }
 
 static device_driver_t ps2_kb_driver = {
 	.name = "ps2 keyboard",
-	.check = kb_check,
-	.probe = kb_probe,
+	.check = ps2_kb_check,
+	.probe = ps2_kb_probe,
 };
 
-static int init_ps2kb(int argc, char **argv) {
+static int init_ps2_kb(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
 	device_driver_register(&ps2_kb_driver);
 	return 0;
 }
 
-static int fini_ps2kb() {
+static int fini_ps2_kb() {
 	device_driver_unregister(&ps2_kb_driver);
 	return 0;
 }
 
 kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
-	.init = init_ps2kb,
-	.fini = fini_ps2kb,
+	.init = init_ps2_kb,
+	.fini = fini_ps2_kb,
 	.name = "ps2 keyboard",
 	.description = "driver for ps2 keyboard",
 	.author = "tayoky",
