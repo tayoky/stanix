@@ -50,7 +50,7 @@ $rbp = (uint64)$vcpu->arch.regs[VCPU_REGS_RBP];
     $frame_id = 0;
     printf("Resolving CR3: %lx\n", $cr3);
 
-    while ($frame_id < FRAME_COUNT && $rbp >= 0xFFFFF00000000000)
+    while ($frame_id < FRAME_COUNT && $rbp >= 0xffff800000000000)
     {{
     
         // Extract indices from the virtual RBP pointer
@@ -102,7 +102,7 @@ $rbp = (uint64)$vcpu->arch.regs[VCPU_REGS_RBP];
 
         if ($frame == 0) {{ break; }}
 	if ($frame == 0xCDCDCDCDCDCDCDCD) {{ break; }} // stack terminator
-	if ($frame <= 0xFFFF000000000000) {{ break; }} // non-kernel frame
+	if ($frame <= 0xffff800000000000) {{ break; }} // non-kernel frame
 
         printf("thread_id: %d\t0x%lx\n", tid, $frame);
 
