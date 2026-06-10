@@ -1,16 +1,15 @@
-#out things
+# out directory
 out
 
-#build of stanix kernel
+# build of stanix kernel
 stanix.elf
 
-#images build
+# images build
 stanix.iso
 stanix.hdd
 OVMF-img.bin
 
-
-#ramdisk
+# initial ramdisk
 initrd.tar
 initrd/bin/
 initrd/lib/
@@ -19,23 +18,26 @@ initrd/usr/
 initrd/share/
 initrd/*-*
 
-#default sysroot
+# default sysroot
 sysroot
 
-#build toolchain
+# built toolchain
 toolchain
-add-to-path.sh
 
-#config
+# config
 config.mk
 tconf
 kernel/Makefile
 
-#compiled modules
+# compiled modules
 *.ko
 
-#objects files
+# objects files
 build
 *.o
-#dump
+
+# dumps/flamegraph
 *.dump
+flamegraph
+flamegraph.*
+flamegraph_collapsed.txt
