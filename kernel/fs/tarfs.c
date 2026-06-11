@@ -1,4 +1,4 @@
-#include <kernel/asm.h>
+#include <kernel/bootinfo.h>
 #include <kernel/kernel.h>
 #include <kernel/pmm.h>
 #include <kernel/print.h>
@@ -26,7 +26,9 @@ void mount_initrd(void) {
 		halt();
 	}
 
-	char *addr = (char *)kernel->initrd->address;
+	bootinfo_initrd_t *initrd = bootinfo_get_initrd();
+
+	char *addr = initrd->start;
 
 	// for each file in the tar file create one on the tmpfs
 	while (!memcmp(((ustar_header *)addr)->ustar, "ustar", 5)) {
@@ -74,12 +76,12 @@ void mount_initrd(void) {
 
 		addr += (((size_t)file_size + 1023) / 512) * 512;
 	}
-	uintptr_t start = PAGE_ALIGN_UP((uintptr_t)kernel->initrd->address);
-	uintptr_t end   = PAGE_ALIGN_DOWN((uintptr_t)kernel->initrd->address + kernel->initrd->size);
+	uintptr_t start = PAGE_ALIGN_UP((uintptr_t)initrd->start);
+	uintptr_t end   = PAGE_ALIGN_DOWN((uintptr_t)initrd->start + initrd->size);
 
 	// now free the tar archive
 	// since the initrd is physcally continuous
-	pmm_set_free_pages(mmu_virt2phys((void*)start), (end - start) / PAGE_SIZE);
+	pmm_set_free_pages(mmu_virt2phys((void *)start), (end - start) / PAGE_SIZE);
 
 	kok();
 }

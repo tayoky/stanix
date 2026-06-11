@@ -105,6 +105,8 @@ void init_limine(void) {
 	limine_bootinfo.hhdm                 = hhdm_request.response->offset;
 	limine_bootinfo.kernel_paddr         = kernel_address_request.response->physical_base;
 	limine_bootinfo.memmap_entries_count = memmap_request.response->entry_count;
+	limine_bootinfo.initrd.start         = (void*)module_request.response->modules[0]->address;
+	limine_bootinfo.initrd.size          = module_request.response->modules[0]->size;
 
 	// caculate the total amount of memory
 	size_t total_memory = 0;

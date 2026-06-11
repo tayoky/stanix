@@ -21,6 +21,10 @@ uintptr_t bootinfo_get_kernel_paddr(void) {
 	return bootinfo->kernel_paddr;
 }
 
+bootinfo_initrd_t *bootinfo_get_initrd(void) {
+	return &bootinfo->initrd;
+}
+
 size_t bootinfo_memmap_get_entries_count(void) {
 	return bootinfo->memmap_entries_count;
 }
