@@ -12,7 +12,6 @@
 
 #define PS2_KEYBOARD_SET_SCANCODE 0xF0
 
-
 typedef struct ps2_kb {
 	input_device_t input_device;
 	int extended;
@@ -20,9 +19,9 @@ typedef struct ps2_kb {
 
 static device_driver_t ps2_kb_driver;
 
-static void ps2_kb_handler(registers_t *frame, void *arg) {
-	(void)frame;
-	ps2_kb_t *keyboard = arg;
+static void ps2_kb_handler(registers_t *registers, void *data) {
+	(void)registers;
+	ps2_kb_t *keyboard = data;
 
 	uint8_t scancode = ps2_read();
 

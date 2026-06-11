@@ -10,10 +10,10 @@
 #include <errno.h>
 #include <input.h>
 
-#define PS2_SET_RATE 0xF3
+#define PS2_MOUSE_SET_RATE 0xF3
 
 typedef struct ps2_mouse {
-	input_device_t device;
+	input_device_t input_device;
 	int button;
 	int packet;
 	int flags;
@@ -23,19 +23,15 @@ typedef struct ps2_mouse {
 
 static device_driver_t ps2_mouse_driver;
 
-static int set_mouse_rate(int port, int rate) {
-	if (ps2_send(port, PS2_SET_RATE) != PS2_ACK) {
-		return -1;
-	}
-	if (ps2_send(port, rate) != PS2_ACK) {
-		return -1;
-	}
+static int ps2_mouse_set_rate(int port, int rate) {
+	if (ps2_send(port, PS2_MOUSE_SET_RATE) != PS2_ACK) return -EIO;
+	if (ps2_send(port, rate) != PS2_ACK) return -EIO;
 	return 0;
 }
 
-static void mouse_handler(registers_t *frame, void *arg) {
-	(void)frame;
-	ps2_mouse_t *mouse = arg;
+static void ps2_mouse_handler(registers_t *registers, void *data) {
+	(void)registers;
+	ps2_mouse_t *mouse = data;
 	switch (mouse->packet++) {
 	case 0:
 		mouse->flags = ps2_read();
@@ -108,7 +104,7 @@ static void mouse_handler(registers_t *frame, void *arg) {
 	}
 }
 
-static int mouse_check(bus_addr_t *addr) {
+static int ps2_mouse_check(bus_addr_t *addr) {
 	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
 	if (addr->type != BUS_PS2) return 0;
 	if (ps2_addr->device_id[0]) return 0;
@@ -116,7 +112,7 @@ static int mouse_check(bus_addr_t *addr) {
 	return 1;
 }
 
-static int mouse_probe(bus_addr_t *addr) {
+static int ps2_mouse_probe(bus_addr_t *addr) {
 	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
 	int port = ps2_addr->port;
 
@@ -133,31 +129,31 @@ static int mouse_probe(bus_addr_t *addr) {
 
 	ps2_mouse_t *mouse = kmalloc(sizeof(ps2_mouse_t));
 	memset(mouse, 0, sizeof(ps2_mouse_t));
-	mouse->device.device.number = port;
-	mouse->device.device.driver = &ps2_mouse_driver;
-	mouse->device.device.name = strdup("mouse0");
-	mouse->device.device.addr = addr;
-	mouse->device.class = IE_CLASS_MOUSE;
-	mouse->device.subclass = IE_SUBCLASS_PS2_MOUSE;
-	input_device_register((input_device_t *)mouse);
-	bus_register_handler(addr, mouse_handler, mouse);
+	mouse->input_device.device.number = port;
+	mouse->input_device.device.driver = &ps2_mouse_driver;
+	mouse->input_device.device.name = strdup("mouse0");
+	mouse->input_device.device.addr = addr;
+	mouse->input_device.class = IE_CLASS_MOUSE;
+	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;
+	input_device_register(&mouse->input_device);
+	bus_register_handler(addr, ps2_mouse_handler, mouse);
 	return 0;
 }
 
 static device_driver_t ps2_mouse_driver = {
 	.name = "ps2 mouse",
-	.check = mouse_check,
-	.probe = mouse_probe,
+	.check = ps2_mouse_check,
+	.probe = ps2_mouse_probe,
 };
 
-int init_mouse(int argc, char **argv) {
+int init_ps2_mouse(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
 	device_driver_register(&ps2_mouse_driver);
 	return 0;
 }
 
-int fini_mouse() {
+int fini_ps2_mouse() {
 	device_driver_unregister(&ps2_mouse_driver);
 	return 0;
 }
@@ -165,8 +161,8 @@ int fini_mouse() {
 
 kmodule_t module_meta = {
 	.magic = MODULE_MAGIC,
-	.init = init_mouse,
-	.fini = fini_mouse,
+	.init = init_ps2_mouse,
+	.fini = fini_ps2_mouse,
 	.author = "tayoky",
 	.name = "ps2 mouse",
 	.description = "a ps2 mouse driver",
