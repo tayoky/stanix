@@ -49,7 +49,7 @@ static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 		if (!(seg->flags & VMM_FLAG_SHARED)) {
 			return -EINVAL;
 		}
-		kdebugf("map TRM framebuffer at %p in %p lenght : %p\n", seg->start, seg, VMM_SIZE(seg));
+		kdebugf("map TRM framebuffer at %p in %p length : %p\n", seg->start, seg, VMM_SIZE(seg));
 		
 		uintptr_t paddr = fb->base + fb->gpu->vram_mmio + PAGE_ALIGN_DOWN(offset);
 		for (uintptr_t vaddr=seg->start; vaddr < seg->end; vaddr += PAGE_SIZE) {

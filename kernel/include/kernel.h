@@ -4,12 +4,8 @@
 #include <sys/time.h>
 #include <kernel/limine.h>
 #include <kernel/bootinfo.h>
-#include <kernel/kheap.h>
 #include <kernel/vfs.h>
 #include <kernel/arch.h>
-#include <kernel/spinlock.h>
-
-struct task;
 
 typedef struct kernel_table_struct{
 	arch_specific arch;
@@ -17,7 +13,6 @@ typedef struct kernel_table_struct{
 	struct limine_kernel_address_response *kernel_address;
 	uint64_t hhdm;
 	struct limine_memmap_response *memmap;
-	heap_info kheap;
 	struct limine_file *initrd;
 	const char *conf_file;
 	vfs_fd_t **outs;
