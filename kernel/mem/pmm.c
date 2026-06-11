@@ -30,11 +30,6 @@ void init_PMM() {
 		if (type != LIMINE_MEMMAP_USABLE && type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && type != LIMINE_MEMMAP_KERNEL_AND_MODULES) {
 			continue;
 		}
-		total_pages += kernel->memmap->entries[i]->length / PAGE_SIZE;
-		used_pages += kernel->memmap->entries[i]->length / PAGE_SIZE;
-		if (type != LIMINE_MEMMAP_USABLE) {
-			continue;
-		}
 
 		// find start and end and page align it
 		uintptr_t start =  PAGE_ALIGN_UP(kernel->memmap->entries[i]->base);
@@ -45,14 +40,14 @@ void init_PMM() {
 			continue;
 		}
 
-		// create a new entry and push it to the top of the linked stack
-		pmm_entry_t *entry = (pmm_entry_t *)(start + kernel->hhdm);
-		entry->size = (end - start) / PAGE_SIZE;
-		entry->next = stack_head;
-		stack_head = entry;
+		size_t pages_count = (end - start) / PAGE_SIZE;
+		total_pages += pages_count;
+		used_pages  += pages_count;
+		if (type != LIMINE_MEMMAP_USABLE) {
+			continue;
+		}
 
-		// update used memory count
-		used_pages -= (end - start) / PAGE_SIZE;
+		pmm_set_free_pages(start, pages_count);
 	}
 	kok();
 }
