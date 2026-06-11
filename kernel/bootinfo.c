@@ -95,7 +95,6 @@ void get_bootinfo(void) {
 	kok();
 
 	kdebugf("info :\n");
-	kdebugf("stack start : 0x%lx\n", kernel->stack_start);
 	kdebugf("time at boot : %lu\n", kernel->bootinfo.boot_time_response->boot_time);
 	kdebugf("kernel loaded at Vaddress : %lx\n", kernel->kernel_address->virtual_base);
 	kdebugf("                 Paddress : %lx\n", kernel->kernel_address->physical_base);

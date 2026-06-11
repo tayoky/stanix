@@ -17,7 +17,6 @@ typedef struct kernel_table_struct{
 	struct limine_kernel_address_response *kernel_address;
 	uint64_t hhdm;
 	struct limine_memmap_response *memmap;
-	uint64_t stack_start;
 	heap_info kheap;
 	struct limine_file *initrd;
 	const char *conf_file;
