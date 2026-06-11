@@ -19,10 +19,6 @@ __attribute__((used, section(".limine_requests"))) volatile struct limine_memmap
 	.revision = 0
 };
 
-__attribute__((used, section(".limine_requests"))) volatile struct limine_boot_time_request boot_time_request = {
-	.id = LIMINE_BOOT_TIME_REQUEST
-};
-
 __attribute__((used, section(".limine_requests"))) volatile struct limine_hhdm_request hhdm_request = {
 	.id = LIMINE_HHDM_REQUEST
 };
@@ -64,7 +60,7 @@ static const char *memmap_types[] = {
 };
 
 
-void get_bootinfo(void) {
+void init_bootinfo(void) {
 	kstatusf("getting limine response ...");
 	//get the stack start
 #ifdef x86_64
@@ -79,7 +75,6 @@ void get_bootinfo(void) {
 	//get the response from the limine request
 	kernel->kernel_address = kernel_address_request.response;
 	kernel->memmap = memmap_request.response;
-	kernel->bootinfo.boot_time_response = boot_time_request.response;
 	kernel->hhdm = hhdm_request.response->offset;
 	kernel->initrd = module_request.response->modules[0];
 
@@ -95,7 +90,6 @@ void get_bootinfo(void) {
 	kok();
 
 	kdebugf("info :\n");
-	kdebugf("time at boot : %lu\n", kernel->bootinfo.boot_time_response->boot_time);
 	kdebugf("kernel loaded at Vaddress : %lx\n", kernel->kernel_address->virtual_base);
 	kdebugf("                 Paddress : %lx\n", kernel->kernel_address->physical_base);
 	kdebugf("memmap:\n");

@@ -28,6 +28,7 @@
 #include <kernel/poll.h>
 #include <kernel/vmm.h>
 #include <kernel/acpi.h>
+#include <kernel/bootinfo.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -101,7 +102,7 @@ void kmain() {
 	kprintf("██║  ██╗███████╗██║  ██║██║ ╚████║███████╗███████╗\n");
 	kprintf("╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝\n");
 	print_license();
-	get_bootinfo();
+	init_bootinfo();
 	init_PMM();
 	kprintf("used pages: 0x%lx\n", pmm_get_used_pages());
 	init_mmu();

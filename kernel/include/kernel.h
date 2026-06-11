@@ -3,11 +3,9 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include <kernel/limine.h>
-#include <kernel/bootinfo.h>
 #include <kernel/vfs.h>
 
 typedef struct kernel_table_struct{
-	bootinfo_table bootinfo;
 	struct limine_kernel_address_response *kernel_address;
 	uint64_t hhdm;
 	struct limine_memmap_response *memmap;
