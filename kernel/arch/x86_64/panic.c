@@ -20,7 +20,7 @@ void panic(const char *error, registers_t *fault) {
 	}
 	pid_t pid           = 0;
 	uintptr_t stack_top = 0;
-	if (kernel->can_task_switch) {
+	if (get_current_task()) {
 		pid       = get_current_task()->tid;
 		stack_top = KSTACK_TOP(get_current_task()->kernel_stack);
 	}

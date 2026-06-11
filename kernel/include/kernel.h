@@ -22,9 +22,6 @@ typedef struct kernel_table_struct{
 	struct limine_file *initrd;
 	const char *conf_file;
 	vfs_fd_t **outs;
-	pid_t tid_count;
-	struct task *current_task;
-	char can_task_switch;
 }kernel_table;
 
 extern kernel_table *kernel;

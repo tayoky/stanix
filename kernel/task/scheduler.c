@@ -20,6 +20,8 @@
 static run_queue_t main_run_queue;
 static xarray_t procs_list;
 static xarray_t tasks_list;
+static atomic_size_t tid_count = 1;
+static char can_task_switch = 0;
 list_t sleeping_tasks;
 spinlock_t sleep_lock;
 
@@ -116,7 +118,7 @@ void init_task() {
 	boot_task->cwd = vfs_get_dentry("/", 0);
 
 	// the current task is the boot task
-	kernel->current_task = boot_task->main_thread;
+	get_run_queue()->current = boot_task->main_thread;
 	set_cmdline("init");
 
 	proc_ref(boot_task);
@@ -124,10 +126,9 @@ void init_task() {
 	
 	// the first task will be the init task
 	init              = get_current_proc();
-	kernel->tid_count = 1;
 
 	// activate task switch
-	kernel->can_task_switch = 1;
+	can_task_switch = 1;
 
 	// setup the kernel proc and the idle task
 	kernel_proc = new_proc(idle_task, NULL);
@@ -181,7 +182,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	task_t *task = kmalloc(sizeof(task_t));
 	memset(task, 0, sizeof(task_t));
 
-	task->tid    = atomic_fetch_add(&kernel->tid_count, 1);
+	task->tid    = atomic_fetch_add(&tid_count, 1);
 	task->status = TASK_STATUS_BLOCKED;
 
 	kdebugf("new task 0x%p tid : %ld\n", task, task->tid);
@@ -271,7 +272,7 @@ void finish_yield(void) {
 }
 
 void yield(int preempt) {
-	if (!kernel->can_task_switch && preempt) return;
+	if (!can_task_switch && preempt) return;
 	if (get_current_task()->preempt_disable && preempt) return;
 
 	int prev_int = have_interrupt();
@@ -313,7 +314,7 @@ void yield(int preempt) {
 
 
 	// set the new task as the current
-	kernel->current_task = new;
+	get_run_queue()->current = new;
 
 	if (old->process->vmm_space.addrspace != new->process->vmm_space.addrspace) {
 		mmu_set_addr_space(new->process->vmm_space.addrspace);
@@ -324,7 +325,7 @@ void yield(int preempt) {
 }
 
 task_t *get_current_task(void) {
-	return kernel->current_task;
+	return get_run_queue()->current;
 }
 
 static void alert_parent(process_t *proc) {

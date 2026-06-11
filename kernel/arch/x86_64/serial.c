@@ -9,11 +9,12 @@ static void serial_write_char(const char data) {
 }
 
 
-static void serial_output(earlycon_t *earlycon, const char *buf, size_t count) {
+static ssize_t serial_output(earlycon_t *earlycon, const char *buf, size_t count) {
 	(void)earlycon;
 	for (size_t i=0; i < count; i++) {
 		serial_write_char(buf[i]);
 	}
+	return count;
 }
 
 static earlycon_t serial_con = {
