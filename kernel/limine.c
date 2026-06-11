@@ -98,10 +98,7 @@ void init_limine(void) {
 	kstatusf("getting limine response ...");
 
 	// get the response from the limine request
-	kernel->kernel_address = kernel_address_request.response;
-	kernel->memmap = memmap_request.response;
 	kernel->hhdm = hhdm_request.response->offset;
-	kernel->initrd = module_request.response->modules[0];
 	limine_bootinfo.hhdm                 = hhdm_request.response->offset;
 	limine_bootinfo.kernel_paddr         = kernel_address_request.response->physical_base;
 	limine_bootinfo.memmap_entries_count = memmap_request.response->entry_count;
@@ -110,10 +107,10 @@ void init_limine(void) {
 
 	// caculate the total amount of memory
 	size_t total_memory = 0;
-	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++) {
-		int type = kernel->memmap->entries[i]->type;
+	for (uint64_t i = 0; i < memmap_request.response->entry_count; i++) {
+		int type = memmap_request.response->entries[i]->type;
 		if (type == LIMINE_MEMMAP_USABLE || type == LIMINE_MEMMAP_KERNEL_AND_MODULES || type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
-			total_memory += kernel->memmap->entries[i]->length;
+			total_memory += memmap_request.response->entries[i]->length;
 		}
 	}
 
@@ -121,16 +118,16 @@ void init_limine(void) {
 	bootinfo_set(&limine_bootinfo);
 
 	kdebugf("info :\n");
-	kdebugf("kernel loaded at Vaddress : %lx\n", kernel->kernel_address->virtual_base);
-	kdebugf("                 Paddress : %lx\n", kernel->kernel_address->physical_base);
+	kdebugf("kernel loaded at Vaddress : %lx\n", kernel_address_request.response->virtual_base);
+	kdebugf("                 Paddress : %lx\n", kernel_address_request.response->physical_base);
 	kdebugf("memmap:\n");
-	for (uint64_t i=0;i < kernel->memmap->entry_count;i++) {
-		kdebugf("	segment of type %s\n", memmap_types[kernel->memmap->entries[i]->type]);
-		kdebugf("		offset : %lx\n", kernel->memmap->entries[i]->base);
-		kdebugf("		size   : %lu\n", kernel->memmap->entries[i]->length);
+	for (uint64_t i=0;i < memmap_request.response->entry_count;i++) {
+		kdebugf("	segment of type %s\n", memmap_types[memmap_request.response->entries[i]->type]);
+		kdebugf("		offset : %lx\n", memmap_request.response->entries[i]->base);
+		kdebugf("		size   : %lu\n", memmap_request.response->entries[i]->length);
 	}
 	kinfof("total memory amount : %dMB\n", total_memory / (1024 * 1024));
-	kdebugf("initrd loaded at 0x%lx size : %ld KB\n", kernel->initrd->address, kernel->initrd->size / 1024);
+	kdebugf("initrd loaded at 0x%lx size : %ld KB\n", limine_bootinfo.initrd.start,  limine_bootinfo.initrd.size / 1024);
 
 	if (rsdp_request.response) {
 		acpi_set_rsdp((void*)((uintptr_t)rsdp_request.response->address + kernel->hhdm));

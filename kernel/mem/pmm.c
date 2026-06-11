@@ -54,7 +54,7 @@ void init_PMM() {
 }
 
 void init_second_stage_pmm(void) {
-	for (size_t i = 0; i < kernel->memmap->entry_count; i++) {
+	for (size_t i = 0; i < bootinfo_memmap_get_entries_count(); i++) {
 		bootinfo_memmap_entry_t entry;
 		bootinfo_memmap_get_entry(i, &entry);
 		if (entry.type != MEMMAP_USABLE && entry.type != MEMMAP_BOOTLOADER && entry.type != MEMMAP_KERNEL) {

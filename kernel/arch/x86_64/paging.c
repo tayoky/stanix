@@ -281,7 +281,7 @@ void mmu_map_kernel(uint64_t *PML4) {
 }
 
 void mmu_map_hhdm(uint64_t *PML4) {
-	for (size_t index = 0; index < kernel->memmap->entry_count; index++) {
+	for (size_t index = 0; index < bootinfo_memmap_get_entries_count(); index++) {
 		bootinfo_memmap_entry_t entry;
 		bootinfo_memmap_get_entry(index, &entry);
 
