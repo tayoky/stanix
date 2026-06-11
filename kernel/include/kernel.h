@@ -25,7 +25,6 @@ typedef struct kernel_table_struct{
 	pid_t tid_count;
 	struct task *current_task;
 	char can_task_switch;
-	int pty_count;
 }kernel_table;
 
 extern kernel_table *kernel;
