@@ -12,16 +12,20 @@ mount -t tmpfs -S / -T /dev/shm
 chmod 01777 /dev/shm
 chmod 0755 /dev
 echo "loading modules"
-insmod /mod/test.ko
-insmod /mod/pci.ko
-insmod /mod/nvme.ko
-insmod /mod/ata.ko
-insmod /mod/part.ko
-insmod /mod/fat.ko
-insmod /mod/8042.ko
-insmod /mod/ps2-kb.ko
-insmod /mod/ps2-mouse.ko
-insmod /mod/serial.ko
+
+for MODULE in test \
+pci \
+nvme ata \
+part fat \
+i8042 ps2-kb ps2-mouse \
+serial ; do
+    if kcmdline "--disable-$MODULE" ; then
+        echo "skiped loading of $MODULE.ko"
+        continue
+    fi
+    insmod "/mod/$MODULE.ko"
+done
+
 echo "mount partitions"
 automount
 
