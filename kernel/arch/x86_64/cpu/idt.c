@@ -12,6 +12,8 @@
 static interrupt_handler_t handlers[256];
 static void *handlers_data[256];
 static irqnum_t irqs[256];
+static idt_gate idt[256];
+static IDTR idtr;
 
 void safe_copy_fault(void);
 void safe_copy_resolve_fault(void);
@@ -106,22 +108,22 @@ void init_idt(void) {
 	kstatusf("init IDT... ");
 
 // register exceptions handlers
-#define X(name, i) set_idt_gate(kernel->arch.idt, i, name, 0x8E);
+#define X(name, i) set_idt_gate(idt, i, name, 0x8E);
 	EXCEPTIONS();
 #undef X
 
 // irq
-#define X(name, i) set_idt_gate(kernel->arch.idt, i, name, 0xEE);
+#define X(name, i) set_idt_gate(idt, i, name, 0xEE);
 	IRQS();
 #undef X
 
 	idt_register_handler(0x80, syscall_handler, NULL, -1);
 
 	// create the IDTR
-	kernel->arch.idtr.size   = sizeof(kernel->arch.idt) - 1;
-	kernel->arch.idtr.offset = (uint64_t)&kernel->arch.idt;
+	idtr.size   = sizeof(idt) - 1;
+	idtr.offset = (uint64_t)&idt;
 	// and load it
-	asm("lidt %0" : : "m"(kernel->arch.idtr));
+	asm("lidt %0" : : "m"(idtr));
 	kok();
 }
 

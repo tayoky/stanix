@@ -49,15 +49,6 @@ typedef struct registers {
 	uint64_t ss;
 } registers_t;
 
-typedef struct arch_specific {
-	gdt_segment gdt[7];
-	GDTR gdtr;
-	idt_gate idt[256];
-	IDTR idtr;
-	TSS tss;
-	uint64_t hPDP[8];
-} arch_specific;
-
 typedef struct acontext {
 	char sse[512];
 	registers_t frame;

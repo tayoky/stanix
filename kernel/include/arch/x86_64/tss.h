@@ -14,6 +14,8 @@ typedef struct {
 	uint64_t bloat[22]; //yeah just some bloat not even used in long mode
 } TSS;
 
+extern TSS tss;
+
 void init_tss();
 
 #endif
