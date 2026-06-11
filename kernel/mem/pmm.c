@@ -1,7 +1,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/kernel.h>
 #include <kernel/string.h>
-#include <kernel/limine.h>
+#include <kernel/bootinfo.h>
 #include <kernel/assert.h>
 #include <kernel/print.h>
 #include <kernel/panic.h>
@@ -25,15 +25,16 @@ void init_PMM() {
 	stack_head = NULL;
 	used_pages = 0;
 	total_pages = 0;
-	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++) {
-		uint64_t type = kernel->memmap->entries[i]->type;
-		if (type != LIMINE_MEMMAP_USABLE && type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && type != LIMINE_MEMMAP_KERNEL_AND_MODULES) {
+	for (size_t i = 0; i < bootinfo_memmap_get_entries_count(); i++) {
+		bootinfo_memmap_entry_t entry;
+		bootinfo_memmap_get_entry(i, &entry);
+		if (entry.type != MEMMAP_USABLE && entry.type != MEMMAP_BOOTLOADER && entry.type != MEMMAP_KERNEL) {
 			continue;
 		}
 
 		// find start and end and page align it
-		uintptr_t start =  PAGE_ALIGN_UP(kernel->memmap->entries[i]->base);
-		uintptr_t end = PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->length + kernel->memmap->entries[i]->base);
+		uintptr_t start =  PAGE_ALIGN_UP(entry.start);
+		uintptr_t end = PAGE_ALIGN_DOWN(entry.start + entry.size);
 
 		// when we page align it might become empty
 		if (start >= end) {
@@ -43,7 +44,7 @@ void init_PMM() {
 		size_t pages_count = (end - start) / PAGE_SIZE;
 		total_pages += pages_count;
 		used_pages  += pages_count;
-		if (type != LIMINE_MEMMAP_USABLE) {
+		if (entry.type != MEMMAP_USABLE) {
 			continue;
 		}
 
@@ -53,15 +54,16 @@ void init_PMM() {
 }
 
 void init_second_stage_pmm(void) {
-	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++) {
-		uint64_t type = kernel->memmap->entries[i]->type;
-		if (type != LIMINE_MEMMAP_USABLE && type != LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE && type != LIMINE_MEMMAP_KERNEL_AND_MODULES) {
+	for (size_t i = 0; i < kernel->memmap->entry_count; i++) {
+		bootinfo_memmap_entry_t entry;
+		bootinfo_memmap_get_entry(i, &entry);
+		if (entry.type != MEMMAP_USABLE && entry.type != MEMMAP_BOOTLOADER && entry.type != MEMMAP_KERNEL) {
 			continue;
 		}
 
 		// find start and end and page align it
-		uintptr_t start =  PAGE_ALIGN_UP(kernel->memmap->entries[i]->base);
-		uintptr_t end = PAGE_ALIGN_DOWN(kernel->memmap->entries[i]->length + kernel->memmap->entries[i]->base);
+		uintptr_t start =  PAGE_ALIGN_UP(entry.start);
+		uintptr_t end = PAGE_ALIGN_DOWN(entry.start + entry.size);
 
 		// when we page align it might become empty
 		if (start >= end) {

@@ -1,3 +1,4 @@
+#include <kernel/bootinfo.h>
 #include <kernel/kernel.h>
 #include <kernel/mmu.h>
 #include <kernel/paging.h>
@@ -262,10 +263,10 @@ void mmu_map_kernel(uint64_t *PML4) {
 	uint64_t kernel_text_end = (uint64_t)*(&p_kernel_text_end);
 
 	uint64_t kernel_size = PAGE_DIV_UP(kernel_end - kernel_start);
-	uint64_t phys_page   = PAGE_ALIGN_DOWN(kernel->kernel_address->physical_base);
-	uint64_t virt_page   = PAGE_ALIGN_DOWN(kernel->kernel_address->virtual_base);
+	uint64_t phys_page   = PAGE_ALIGN_DOWN(bootinfo_get_kernel_paddr());
+	uint64_t virt_page   = PAGE_ALIGN_DOWN(kernel_start);
 
-	for (uint64_t i = 0; i < kernel_size; i++) {
+	for (size_t i = 0; i < kernel_size; i++) {
 		long flags = MMU_FLAG_READ | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL;
 		if (virt_page < kernel_text_end) {
 			flags |= MMU_FLAG_EXEC;
@@ -280,17 +281,19 @@ void mmu_map_kernel(uint64_t *PML4) {
 }
 
 void mmu_map_hhdm(uint64_t *PML4) {
-	for (uint64_t index = 0; index < kernel->memmap->entry_count; index++) {
-		uint64_t type = kernel->memmap->entries[index]->type;
-		// map all the section
+	for (size_t index = 0; index < kernel->memmap->entry_count; index++) {
+		bootinfo_memmap_entry_t entry;
+		bootinfo_memmap_get_entry(index, &entry);
+
+		// map all the whole region
 		long flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL;
-		if (type == LIMINE_MEMMAP_FRAMEBUFFER) {
+		if (entry.type == LIMINE_MEMMAP_FRAMEBUFFER) {
 			flags |= MMU_FLAG_WRITE_COMBINE;
 		}
-		uintptr_t phys_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base);
-		uintptr_t end       = PAGE_ALIGN_UP(kernel->memmap->entries[index]->base + kernel->memmap->entries[index]->length);
-		uintptr_t virt_page = PAGE_ALIGN_DOWN(kernel->memmap->entries[index]->base + kernel->hhdm);
-		while (phys_page < end) {
+		uintptr_t phys_page = PAGE_ALIGN_DOWN(entry.start);
+		uintptr_t phys_end  = PAGE_ALIGN_UP(entry.start + entry.size);
+		uintptr_t virt_page = PAGE_ALIGN_DOWN(entry.start + kernel->hhdm);
+		while (phys_page < phys_end) {
 			mmu_map_page(PML4, phys_page, virt_page, flags);
 			virt_page += PAGE_SIZE;
 			phys_page += PAGE_SIZE;

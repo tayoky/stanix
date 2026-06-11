@@ -1,110 +1,34 @@
-#include <kernel/limine.h>
 #include <kernel/bootinfo.h>
-#include <kernel/acpi.h>
-#include <kernel/kernel.h>
-#include <kernel/cmdline.h>
 #include <kernel/print.h>
 
-__attribute__((used, section(".limine_requests_start"))) LIMINE_REQUESTS_START_MARKER
+static bootinfo_t *bootinfo;
 
-__attribute__((used, section(".limine_requests"))) static volatile LIMINE_BASE_REVISION(3);
-
-__attribute__((used, section(".limine_requests"))) volatile struct limine_kernel_address_request kernel_address_request = {
-	.id = LIMINE_KERNEL_ADDRESS_REQUEST,
-	.revision = 2
-};
-
-__attribute__((used, section(".limine_requests"))) volatile struct limine_memmap_request memmap_request = {
-	.id = LIMINE_MEMMAP_REQUEST,
-	.revision = 0
-};
-
-__attribute__((used, section(".limine_requests"))) volatile struct limine_hhdm_request hhdm_request = {
-	.id = LIMINE_HHDM_REQUEST
-};
-
-__attribute__((used, section(".limine_requests"))) volatile struct limine_rsdp_request rsdp_request = {
-	.id = LIMINE_RSDP_REQUEST,
-};
-
-__attribute__((used, section(".limine_requests"))) volatile struct limine_executable_cmdline_request cmdline_request = {
-	.id = LIMINE_EXECUTABLE_CMDLINE_REQUEST,
-};
-
-struct limine_internal_module initrd_request = {
-	.flags = LIMINE_INTERNAL_MODULE_REQUIRED,
-	.path = "initrd.tar",
-};
-
-struct limine_internal_module *internal_module_list[] = {
-	&initrd_request,
-};
-
-__attribute__((used, section(".limine_requests"))) volatile struct limine_module_request module_request = {
-	.id = LIMINE_MODULE_REQUEST,
-	.revision = 0,
-	.internal_modules = internal_module_list,
-	.internal_module_count = 1
-};
-__attribute__((used, section(".limine_requests_end"))) static volatile LIMINE_REQUESTS_END_MARKER
-
-static const char *memmap_types[] = {
-	"usable",
-	"reserved",
-	"acpi reclamable",
-	"acpi NVS",
-	"bad memory",
-	"bootloader reclamable",
-	"kernel and modules",
-	"framebuffer"
-};
-
+void bootinfo_set(bootinfo_t *new_bootinfo) {
+	bootinfo = new_bootinfo;
+}
 
 void init_bootinfo(void) {
-	kstatusf("getting limine response ...");
-	//get the stack start
-#ifdef x86_64
-	uint64_t *rbp;
-	asm("mov %%rbp, %%rax":"=a"(rbp));
-	while (*rbp) {
-		rbp = (uint64_t *)*rbp;
-	}
-	kernel->stack_start = (uint64_t)rbp;
-#endif
+	// TODO : support other bootloaders
+	init_limine();
+    kinfof("using bootloader '%s'\n", bootinfo->name);
+}
 
-	//get the response from the limine request
-	kernel->kernel_address = kernel_address_request.response;
-	kernel->memmap = memmap_request.response;
-	kernel->hhdm = hhdm_request.response->offset;
-	kernel->initrd = module_request.response->modules[0];
+uintptr_t bootinfo_get_hhdm(void) {
+	return bootinfo->hhdm;
+}
 
-	//cacul the total amount of memory
-	size_t total_memory = 0;
-	for (uint64_t i = 0; i < kernel->memmap->entry_count; i++) {
-		int type = kernel->memmap->entries[i]->type;
-		if (type == LIMINE_MEMMAP_USABLE || type == LIMINE_MEMMAP_KERNEL_AND_MODULES || type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE) {
-			total_memory += kernel->memmap->entries[i]->length;
-		}
-	}
+uintptr_t bootinfo_get_kernel_paddr(void) {
+	return bootinfo->kernel_paddr;
+}
 
-	kok();
+size_t bootinfo_memmap_get_entries_count(void) {
+	return bootinfo->memmap_entries_count;
+}
 
-	kdebugf("info :\n");
-	kdebugf("kernel loaded at Vaddress : %lx\n", kernel->kernel_address->virtual_base);
-	kdebugf("                 Paddress : %lx\n", kernel->kernel_address->physical_base);
-	kdebugf("memmap:\n");
-	for (uint64_t i=0;i < kernel->memmap->entry_count;i++) {
-		kdebugf("	segment of type %s\n", memmap_types[kernel->memmap->entries[i]->type]);
-		kdebugf("		offset : %lx\n", kernel->memmap->entries[i]->base);
-		kdebugf("		size   : %lu\n", kernel->memmap->entries[i]->length);
+void bootinfo_memmap_get_entry(size_t index, bootinfo_memmap_entry_t *entry) {
+	if (!bootinfo->memmap_get_entry) {
+		kerrorf("unimplemented operation memmap_get_entry for bootloader '%s'\n", bootinfo->name);
+		return;
 	}
-	kinfof("total memory amount : %dMB\n", total_memory / (1024 * 1024));
-	kdebugf("initrd loaded at 0x%lx size : %ld KB\n", kernel->initrd->address, kernel->initrd->size / 1024);
-
-	if (rsdp_request.response) {
-		acpi_set_rsdp((void*)((uintptr_t)rsdp_request.response->address + kernel->hhdm));
-	}
-	if (cmdline_request.response) {
-		kcmdline_set(cmdline_request.response->cmdline);
-	}
+	bootinfo->memmap_get_entry(index, entry);
 }
