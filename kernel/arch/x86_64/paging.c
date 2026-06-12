@@ -28,11 +28,14 @@ static uint64_t mmu2paging_flags(long mmu_flags) {
 	if (mmu_flags & MMU_FLAG_USER) {
 		flags |= PAGING_FLAG_USER;
 	}
+	if (mmu_flags & MMU_FLAG_GLOBAL) {
+		flags |= PAGING_FLAG_GLOBAL;
+	}
 	if (mmu_flags & MMU_FLAG_WRITE_COMBINE) {
 		flags |= PAGING_FLAG_PAT;
 	}
-	if (mmu_flags & MMU_FLAG_GLOBAL) {
-		flags |= PAGING_FLAG_GLOBAL;
+	if (mmu_flags & MMU_FLAG_UNCACHED) {
+		flags |= PAGING_FLAG_PCD;
 	}
 	return flags;
 }
@@ -58,7 +61,10 @@ static long paging2mmu_flags(uint64_t paging_flags) {
 		flags |= MMU_FLAG_DIRTY;
 	}
 	if (paging_flags & PAGING_FLAG_PAT) {
-		flags |= MMU_FLAG_WRITE;
+		flags |= MMU_FLAG_WRITE_COMBINE;
+	}
+	if (paging_flags & PAGING_FLAG_PCD) {
+		flags |= MMU_FLAG_UNCACHED;
 	}
 	return flags;
 }
@@ -297,7 +303,7 @@ void mmu_map_hhdm(uint64_t *PML4) {
 		}
 		uintptr_t phys_page = PAGE_ALIGN_DOWN(entry.start);
 		uintptr_t phys_end  = PAGE_ALIGN_UP(entry.start + entry.size);
-		uintptr_t virt_page = mmu_phys2virt(phys_page);
+		uintptr_t virt_page = (uintptr_t)mmu_phys2virt(phys_page);
 		while (phys_page < phys_end) {
 			mmu_map_page(PML4, phys_page, virt_page, flags);
 			virt_page += PAGE_SIZE;
