@@ -12,7 +12,7 @@ extern uint64_t p_kernel_text_end[];
 
 #define SHARED_PML4_ENTRIES_COUNT 256
 static uintptr_t shared_PML4_entries[SHARED_PML4_ENTRIES_COUNT];
-static uintptr_t hhdm;
+uintptr_t hhdm_base;
 
 static uint64_t mmu2paging_flags(long mmu_flags) {
 	uint64_t flags = 0;
@@ -75,11 +75,6 @@ void mmu_set_addr_space(addrspace_t new_addrspace) {
 
 void init_mmu(void) {
 	kstatusf("init paging... ");
-
-	// keep the same hhdm address as the bootloader
-	// as driver might already be using the old one from the bootloader
-	// so keep the same addresses to avoid issues
-	hhdm = bootinfo_get_hhdm();
 
 	// init the shared PML4 entries
 	// the shared PML4 entries mapping are conserved across all address space
@@ -179,16 +174,8 @@ uintptr_t mmu_space_virt2phys(addrspace_t PML4, void *address) {
 	return (PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF);
 }
 
-void *mmu_phys2virt(uintptr_t address) {
-	return (void*)(address + hhdm);
-}
-
-uintptr_t mmu_hhdm2phys(void *address) {
-	return (uintptr_t)address - hhdm;	
-}
-
-void mmu_set_hhdm(uintptr_t new_hhdm) {
-	hhdm = new_hhdm;
+void mmu_set_hhdm(uintptr_t hhdm) {
+	hhdm_base = hhdm;
 }
 
 void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t vaddr, long mmu_flags) {
@@ -310,7 +297,7 @@ void mmu_map_hhdm(uint64_t *PML4) {
 		}
 		uintptr_t phys_page = PAGE_ALIGN_DOWN(entry.start);
 		uintptr_t phys_end  = PAGE_ALIGN_UP(entry.start + entry.size);
-		uintptr_t virt_page = PAGE_ALIGN_DOWN(entry.start + hhdm);
+		uintptr_t virt_page = mmu_phys2virt(phys_page);
 		while (phys_page < phys_end) {
 			mmu_map_page(PML4, phys_page, virt_page, flags);
 			virt_page += PAGE_SIZE;

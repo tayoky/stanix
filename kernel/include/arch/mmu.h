@@ -15,6 +15,7 @@
 #define MMU_FLAG_ACCESS        0x40  // as been read
 #define MMU_FLAG_DIRTY         0x80  // as been written
 #define MMU_FLAG_WRITE_COMBINE 0x100 // combine writes
+#define MMU_FLAG_UNCACHED      0x200 // disable caching
 
 void init_mmu(void);
 
@@ -76,12 +77,16 @@ uintptr_t mmu_virt2phys(void *address);
  */
 uintptr_t mmu_space_virt2phys(addrspace_t addrspace, void *address);
 
+extern uintptr_t hhdm_base;
+
 /**
  * @brief turn a physical address into a virtual address via hhdm
  * @param address the physical address
  * @return a virtual address inside the hhdm
  */
-void *mmu_phys2virt(uintptr_t address);
+static inline void *mmu_phys2virt(uintptr_t address) {
+	return (void *)(hhdm_base + address);
+}
 
 /**
  * @brief turn a virtual address pointing to hhdm back into a physical address, faster than \ref mmu_virt2phys
@@ -89,7 +94,9 @@ void *mmu_phys2virt(uintptr_t address);
  * @return the physical address
  * @note if you cannot guarantee the virtual address is inside hhdm, use \ref mmu_virt2phys instead
  */
-uintptr_t mmu_hhdm2phys(void *address);
+static inline uintptr_t mmu_hhdm2phys(void *address) {
+    return (uintptr_t)address - hhdm_base;
+}
 
 /**
  * @brief set the base address of the hhdm
