@@ -56,7 +56,7 @@ typedef struct task {
 	sigset_t pending_sig;
 	struct sigaction sig_handling[32];
 
-	struct timeval wakeup_time;
+	struct timespec wakeup_time;
 	pid_t waitfor;
 	atomic_int flags;
 	int status;
@@ -271,10 +271,10 @@ static inline void set_cmdline(const char *cmdline) {
 
 /**
  * @brief block the current task
- * @param timeout the timeout (timeval until it can block)
+ * @param timeout the timeout (timespec until it can block)
  * @return -EINTR if interrupted by signal delivery or -ETIMEDOUT if interrupted by timeout or 0
  */
-int block_task_timeout(struct timeval *timeout);
+int block_task_timeout(struct timespec *timeout);
 
 /**
  * @brief block the current task

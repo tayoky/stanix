@@ -3,6 +3,7 @@
 #include <kernel/vfs.h>
 #include <kernel/kernel.h>
 #include <kernel/paging.h>
+#include <kernel/mmio.h>
 #include <module/pci.h>
 #include <errno.h>
 
@@ -21,7 +22,7 @@ typedef struct {
 } nvme_regs;
 
 static void reset_nvme(uint64_t BAR){
-	volatile nvme_regs *nvme = (nvme_regs *)(BAR + kernel->hhdm);
+	volatile nvme_regs *nvme = mmio_map(BAR, sizeof(nvme_regs));
 	
 }
 

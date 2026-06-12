@@ -13,7 +13,7 @@ void init_sleep(void) {
 	slab_init(&sleep_nodes_slab, sizeof(sleep_queue_node_t), "sleep-queue-nodes");
 }
 
-void sleep_add_timeout(struct timeval *wakeup_time) {
+void sleep_add_timeout(struct timespec *wakeup_time) {
 	get_current_task()->wakeup_time = *wakeup_time;
 	atomic_fetch_or(&get_current_task()->flags, TASK_FLAG_SLEEP);
 	
@@ -23,7 +23,7 @@ void sleep_add_timeout(struct timeval *wakeup_time) {
 	task_t *prev = NULL;
 	foreach (node, &sleeping_tasks) {
 		task_t *task = container_of(node, task_t, waiter_list_node);
-		if (!task || task->wakeup_time.tv_sec > wakeup_time->tv_usec || (task->wakeup_time.tv_sec == wakeup_time->tv_sec && task->wakeup_time.tv_usec > wakeup_time->tv_usec)) {
+		if (timespec_cmp(wakeup_time, &task->wakeup_time) < 0) {
 			break;
 		}
 		prev = task;
@@ -43,9 +43,9 @@ void sleep_remove_timeout(void) {
 	spinlock_release(&sleep_lock);
 }
 
-int sleep_until(struct timeval wakeup_time) {
+int sleep_until(struct timespec *wakeup_time) {
 	block_prepare_interruptible();
-	int ret = block_task_timeout(&wakeup_time);
+	int ret = block_task_timeout(wakeup_time);
 	if (ret == -ETIMEDOUT) ret = 0;
 	return ret;
 }
@@ -54,25 +54,26 @@ int sleep(long seconds) {
 	return micro_sleep(seconds * 1000000);
 }
 
-int micro_sleep(suseconds_t micro_second) {
-	if (micro_second < 100) {
+int nano_sleep(long nano_seconds) {
+	if (nano_seconds < 100) {
 		return 0;
 	}
-	//caclulate new time val
-	struct timeval new_timeval = time;
-	if (1000000 - new_timeval.tv_usec > micro_second) {
-		new_timeval.tv_usec += micro_second;
+	// caclulate new timespec
+	struct timespec new_timespec;
+	gettime(CLOCK_MONOTONIC, &new_timespec);
+	if (1000000000 - new_timespec.tv_nsec > nano_seconds) {
+		new_timespec.tv_nsec += nano_seconds;
 	} else {
-		micro_second -= 1000000 - new_timeval.tv_usec;
-		new_timeval.tv_sec++;
-		new_timeval.tv_usec = 0;
+		nano_seconds -= 1000000000 - new_timespec.tv_nsec;
+		new_timespec.tv_sec++;
+		new_timespec.tv_nsec = 0;
 
 		//now we need to cut the remaing micro second in second and micro second
-		new_timeval.tv_sec += micro_second / 1000000;
-		new_timeval.tv_usec = micro_second % 1000000;
+		new_timespec.tv_sec += nano_seconds / 1000000;
+		new_timespec.tv_nsec = nano_seconds % 1000000;
 	}
 
-	return sleep_until(new_timeval);
+	return sleep_until(&new_timespec);
 }
 
 

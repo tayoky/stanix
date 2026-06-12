@@ -34,11 +34,6 @@
 kernel_table master_kernel_table;
 kernel_table *kernel = &master_kernel_table;
 
-struct timeval time = {
-	.tv_sec = 0,
-	.tv_usec = 0,
-};
-
 void print_license(void) {
 	kinfof("the STANIX kernel\n"
 		"Copyright (C) 2025  tayoky\n"

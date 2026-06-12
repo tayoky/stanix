@@ -38,7 +38,7 @@ static void ps2_kb_handler(registers_t *registers, void *data) {
 
 	struct input_event event;
 	memset(&event, 0, sizeof(struct input_event));
-	event.timestamp = time;
+	gettime(CLOCK_MONOTONIC, &event.timestamp);
 	event.ie_type = IE_KEY_EVENT;
 	if (press) {
 		event.ie_key.flags = IE_KEY_PRESS;

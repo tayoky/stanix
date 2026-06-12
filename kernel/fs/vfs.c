@@ -109,13 +109,13 @@ void vfs_unregister_fs(vfs_filesystem_t *fs) {
 void vfs_init_created_node(vfs_node_t *node) {
 	node->uid   = get_current_euid();
 	node->gid   = get_current_egid();
-	node->atime = node->mtime = node->ctime = NOW();
+	node->atime = node->mtime = node->ctime = gettime_sec(CLOCK_REALTIME);
 	node->ref_count                         = 1;
 }
 
 static int vfs_update_time(vfs_node_t *node, int mask) {
 	struct stat st;
-	st.st_atime = st.st_mtime = st.st_ctime = NOW();
+	st.st_atime = st.st_mtime = st.st_ctime = gettime_sec(CLOCK_REALTIME);
 	return vfs_setattr(node, &st, mask);
 }
 

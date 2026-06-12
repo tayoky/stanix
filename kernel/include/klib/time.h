@@ -9,14 +9,18 @@
 time_t date2time(long year, long month, long day, long hour, long minute, long second);
 
 /**
- * @brief comapre two timeval
+ * @brief comapre two timespec
  */
-int timeval_cmp(struct timeval *time1, struct timeval *time2);
+int timespec_cmp(struct timespec *time1, struct timespec *time2);
+
+int gettime(clockid_t clock, struct timespec *time);
+int settime(clockid_t clock, struct timespec *time);
 
 
-extern struct timeval time;
-
-
-#define NOW() time.tv_sec
+static inline gettime_sec(clockid_t clock) {
+    struct timespec time;
+    gettime(clock, &time);
+    return time.tv_sec;
+}
 
 #endif

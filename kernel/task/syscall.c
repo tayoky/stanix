@@ -211,11 +211,15 @@ int sys_nanosleep(const struct timespec *duration, struct timespec *rem) {
 	return micro_sleep(duration->tv_nsec / 1000 + duration->tv_sec * 1000000);
 }
 
-int sys_sleepuntil(struct timeval *time) {
+int sys_sleepuntil(struct timespec *time) {
 	if (!CHECK_STRUCT(time)) {
 		return -EFAULT;
 	}
-	sleep_until(*time);
+	struct timespec ktime;
+	if (safe_copy_from(&ktime, time, sizeof(struct timespec)) < 0) {
+		return -EFAULT;
+	}
+	sleep_until(&ktime);
 	return 0;
 }
 
@@ -224,15 +228,10 @@ int sys_clock_gettime(clockid_t clockid, struct timespec *tp) {
 		return -EFAULT;
 	}
 
-	switch (clockid) {
-	case CLOCK_MONOTONIC:
-	case CLOCK_REALTIME:
-		tp->tv_sec  = time.tv_sec;
-		tp->tv_nsec = time.tv_usec * 1000;
-		return 0;
-	default:
-		return -EINVAL;
-	}
+	struct timespec time;
+	int ret = gettime(clockid, &time);
+	if (ret < 0) return ret;
+	return safe_copy_to(tp, &time, sizeof(struct timespec));
 }
 
 int sys_pipe(int pipefd[2]) {
@@ -602,18 +601,17 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 		return -EFAULT;
 	}
 
-	struct timeval end;
+	struct timespec end;
 	if (timeout >= 0) {
-		end.tv_usec = time.tv_usec;
-		end.tv_sec  = time.tv_sec;
+		gettime(CLOCK_MONOTONIC, &end);
 
 		end.tv_sec = timeout / 1000;
 		timeout %= 1000;
 
-		end.tv_usec += timeout * 1000;
+		end.tv_nsec += timeout * 1000000;
 
-		if (end.tv_usec > 1000000) {
-			end.tv_usec -= 1000000;
+		if (end.tv_nsec > 1000000000) {
+			end.tv_nsec -= 1000000000;
 			end.tv_sec++;
 		}
 	}

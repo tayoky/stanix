@@ -72,10 +72,10 @@ time_t date2time(long year, long month, long day, long hour, long minute, long s
 	return time;
 }
 
-int timeval_cmp(struct timeval *time1, struct timeval *time2) {
+int timespec_cmp(struct timespec *time1, struct timespec *time2) {
 	if (time1->tv_sec > time2->tv_sec) return 1;
 	if (time1->tv_sec < time2->tv_sec) return -1;
-	if (time1->tv_usec > time2->tv_usec) return 1;
-	if (time1->tv_usec < time2->tv_usec) return -1;
+	if (time1->tv_nsec > time2->tv_nsec) return 1;
+	if (time1->tv_nsec < time2->tv_nsec) return -1;
 	return 0;
 }

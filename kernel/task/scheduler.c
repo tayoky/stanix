@@ -148,15 +148,17 @@ static task_t *schedule() {
 	}
 
 	// see if we can wakeup anything
+	struct timespec time;
+	gettime(CLOCK_MONOTONIC, &time);
 	spinlock_acquire(&sleep_lock);
 	foreach (node, &sleeping_tasks) {
-		task_t *thread = container_of(node, task_t, waiter_list_node);
-		if (thread->wakeup_time.tv_sec > time.tv_sec || (thread->wakeup_time.tv_sec == time.tv_sec && thread->wakeup_time.tv_usec > time.tv_usec)) {
+		task_t *task = container_of(node, task_t, waiter_list_node);
+		if (timespec_cmp(&task->wakeup_time, &time) <= 0) {
 			break;
 		}
-		atomic_fetch_and(&thread->flags, ~TASK_FLAG_SLEEP);
-		list_remove(&sleeping_tasks, &thread->waiter_list_node);
-		unblock_task(thread);
+		atomic_fetch_and(&task->flags, ~TASK_FLAG_SLEEP);
+		list_remove(&sleeping_tasks, &task->waiter_list_node);
+		unblock_task(task);
 	}
 	spinlock_release(&sleep_lock);
 
@@ -438,7 +440,6 @@ task_t *tid2task(pid_t tid) {
 	return task;
 }
 
-
 int block_task(void) {
 	yield(0);
 
@@ -450,17 +451,27 @@ int block_task(void) {
 	return 0;
 }
 
-int block_task_timeout(struct timeval *timeout) {
+int block_task_timeout(struct timespec *timeout) {
 	if (!timeout) {
 		return block_task();
 	}
 
-	// check if timeout is already out
-	if (timeval_cmp(timeout, &time) <= 0) {
+	// fast path
+	struct timespec time;
+	gettime(CLOCK_MONOTONIC, &time);
+	if (timespec_cmp(timeout, &time) <= 0) {
 		block_cancel();
 		return -ETIMEDOUT;
 	}
+
 	sleep_add_timeout(timeout);
+
+	// check if timeout is already out
+	gettime(CLOCK_MONOTONIC, &time);
+	if (timespec_cmp(timeout, &time) <= 0) {
+		block_cancel();
+		return -ETIMEDOUT;
+	}
 
 	yield(0);
 
