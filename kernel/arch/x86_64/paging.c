@@ -12,6 +12,7 @@ extern uint64_t p_kernel_text_end[];
 
 #define SHARED_PML4_ENTRIES_COUNT 256
 static uintptr_t shared_PML4_entries[SHARED_PML4_ENTRIES_COUNT];
+static uintptr_t hhdm;
 
 static uint64_t mmu2paging_flags(long mmu_flags) {
 	uint64_t flags = 0;
@@ -65,22 +66,27 @@ static long paging2mmu_flags(uint64_t paging_flags) {
 addrspace_t mmu_get_addr_space() {
 	uint64_t cr3;
 	asm("mov %%cr3, %%rax" : "=a"(cr3));
-	return (addrspace_t)(cr3 + kernel->hhdm);
+	return (addrspace_t)mmu_phys2virt(cr3);
 }
 
 void mmu_set_addr_space(addrspace_t new_addrspace) {
-	asm volatile("movq %0, %%cr3" : : "r"((uintptr_t)new_addrspace - kernel->hhdm));
+	asm volatile("movq %0, %%cr3" : : "r"(mmu_hhdm2phys(new_addrspace)));
 }
 
 void init_mmu(void) {
 	kstatusf("init paging... ");
+
+	// keep the same hhdm address as the bootloader
+	// as driver might already be using the old one from the bootloader
+	// so keep the same addresses to avoid issues
+	hhdm = bootinfo_get_hhdm();
 
 	// init the shared PML4 entries
 	// the shared PML4 entries mapping are conserved across all address space
 	// for kernel module kheap , ...
 	for (int i = 0; i < SHARED_PML4_ENTRIES_COUNT; i++) {
 		shared_PML4_entries[i] = pmm_allocate_page() | PAGING_FLAG_RW_CPL0;
-		memset((void *)((shared_PML4_entries[i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm), 0, PAGE_SIZE);
+		memset(mmu_phys2virt(shared_PML4_entries[i] & PAGING_ENTRY_ADDRESS), 0, PAGE_SIZE);
 	}
 
 	addrspace_t PML4 = mmu_create_addr_space();
@@ -101,9 +107,9 @@ void init_mmu(void) {
 }
 
 addrspace_t mmu_create_addr_space() {
-	uint64_t *PML4 = (uint64_t *)(pmm_allocate_page() + kernel->hhdm);
+	uint64_t *PML4 = mmu_phys2virt(pmm_allocate_page());
 
-	// Set all entry as 0
+	// set every entry to 0
 	memset(PML4, 0, PAGE_SIZE);
 
 	// copy the shared PML4 entries
@@ -120,25 +126,25 @@ void mmu_delete_addr_space(addrspace_t PML4) {
 	for (uint16_t PML4i = 0; PML4i < (512 - SHARED_PML4_ENTRIES_COUNT); PML4i++) {
 		if (!(PML4[PML4i] & 1)) continue;
 
-		uint64_t *PDP = (uint64_t *)((PML4[PML4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+		uint64_t *PDP = mmu_phys2virt(PML4[PML4i] & PAGING_ENTRY_ADDRESS);
 		for (uint16_t PDPi = 0; PDPi < 512; PDPi++) {
 			if (!(PDP[PDPi] & 1)) continue;
-			uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+			uint64_t *PD = mmu_phys2virt(PDP[PDPi] & PAGING_ENTRY_ADDRESS);
 
 			for (uint16_t PDi = 0; PDi < 512; PDi++) {
 				if (!(PD[PDi] & 1)) continue;
-				uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+				uint64_t *PT = mmu_phys2virt(PD[PDi] & PAGING_ENTRY_ADDRESS);
 
-				pmm_release_page((uintptr_t)PT - kernel->hhdm);
+				pmm_release_page(mmu_hhdm2phys(PT));
 			}
 
-			pmm_release_page((uintptr_t)PD - kernel->hhdm);
+			pmm_release_page(mmu_hhdm2phys(PD));
 		}
 
-		pmm_release_page((uintptr_t)PDP - kernel->hhdm);
+		pmm_release_page(mmu_hhdm2phys(PDP));
 	}
 
-	pmm_release_page((uintptr_t)PML4 - kernel->hhdm);
+	pmm_release_page(mmu_hhdm2phys(PML4));
 }
 
 uintptr_t mmu_virt2phys(void *address) {
@@ -156,21 +162,33 @@ uintptr_t mmu_space_virt2phys(addrspace_t PML4, void *address) {
 		return PAGE_INVALID;
 	}
 
-	uint64_t *PDP = (uint64_t *)((PML4[PML4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+	uint64_t *PDP = mmu_phys2virt(PML4[PML4i] & PAGING_ENTRY_ADDRESS);
 	if (!(PDP[PDPi] & 1)) {
 		return PAGE_INVALID;
 	}
 
-	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+	uint64_t *PD = mmu_phys2virt(PDP[PDPi] & PAGING_ENTRY_ADDRESS);
 	if (!(PD[PDi] & 1)) {
 		return PAGE_INVALID;
 	}
 
-	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+	uint64_t *PT = mmu_phys2virt(PD[PDi] & PAGING_ENTRY_ADDRESS);
 	if (!(PT[PTi] & 1)) {
 		return PAGE_INVALID;
 	}
 	return (PT[PTi] & PAGING_ENTRY_ADDRESS) + ((uint64_t)address & 0XFFF);
+}
+
+void *mmu_phys2virt(uintptr_t address) {
+	return (void*)(address + hhdm);
+}
+
+uintptr_t mmu_hhdm2phys(void *address) {
+	return (uintptr_t)address - hhdm;	
+}
+
+void mmu_set_hhdm(uintptr_t new_hhdm) {
+	hhdm = new_hhdm;
 }
 
 void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t vaddr, long mmu_flags) {
@@ -182,22 +200,22 @@ void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t vaddr, lo
 
 	if (!(PML4[PML4i] & 1)) {
 		PML4[PML4i] = pmm_allocate_page() | PAGING_FLAG_RW_CPL3;
-		memset((uint64_t *)((PML4[PML4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm), 0, PAGE_SIZE);
+		memset(mmu_phys2virt(PML4[PML4i] & PAGING_ENTRY_ADDRESS), 0, PAGE_SIZE);
 	}
 
-	uint64_t *PDP = (uint64_t *)((PML4[PML4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+	uint64_t *PDP = mmu_phys2virt(PML4[PML4i] & PAGING_ENTRY_ADDRESS);
 	if (!(PDP[PDPi] & 1)) {
 		PDP[PDPi] = pmm_allocate_page() | PAGING_FLAG_RW_CPL3;
-		memset((uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm), 0, PAGE_SIZE);
+		memset(mmu_phys2virt(PDP[PDPi] & PAGING_ENTRY_ADDRESS), 0, PAGE_SIZE);
 	}
 
-	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+	uint64_t *PD = mmu_phys2virt(PDP[PDPi] & PAGING_ENTRY_ADDRESS);
 	if (!(PD[PDi] & 1)) {
 		PD[PDi] = pmm_allocate_page() | PAGING_FLAG_RW_CPL3;
-		memset((uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm), 0, PAGE_SIZE);
+		memset(mmu_phys2virt(PD[PDi] & PAGING_ENTRY_ADDRESS), 0, PAGE_SIZE);
 	}
 
-	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+	uint64_t *PT = mmu_phys2virt(PD[PDi] & PAGING_ENTRY_ADDRESS);
 	PT[PTi]      = (physical_page & ~0xFFFUL) | flags;
 
 	asm volatile("invlpg (%0)" ::"r"(vaddr) : "memory");
@@ -213,17 +231,17 @@ static uint64_t *mmu_get_entry(addrspace_t PML4, uintptr_t vaddr) {
 		return NULL;
 	}
 
-	uint64_t *PDP = (uint64_t *)((PML4[PML4i] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+	uint64_t *PDP = mmu_phys2virt(PML4[PML4i] & PAGING_ENTRY_ADDRESS);
 	if (!(PDP[PDPi] & 1)) {
 		return NULL;
 	}
 
-	uint64_t *PD = (uint64_t *)((PDP[PDPi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+	uint64_t *PD = mmu_phys2virt(PDP[PDPi] & PAGING_ENTRY_ADDRESS);
 	if (!(PD[PDi] & 1)) {
 		return NULL;
 	}
 
-	uint64_t *PT = (uint64_t *)((PD[PDi] & PAGING_ENTRY_ADDRESS) + kernel->hhdm);
+	uint64_t *PT = mmu_phys2virt(PD[PDi] & PAGING_ENTRY_ADDRESS);
 	if (!(PT[PTi] & 1)) {
 		return NULL;
 	}
@@ -292,7 +310,7 @@ void mmu_map_hhdm(uint64_t *PML4) {
 		}
 		uintptr_t phys_page = PAGE_ALIGN_DOWN(entry.start);
 		uintptr_t phys_end  = PAGE_ALIGN_UP(entry.start + entry.size);
-		uintptr_t virt_page = PAGE_ALIGN_DOWN(entry.start + kernel->hhdm);
+		uintptr_t virt_page = PAGE_ALIGN_DOWN(entry.start + hhdm);
 		while (phys_page < phys_end) {
 			mmu_map_page(PML4, phys_page, virt_page, flags);
 			virt_page += PAGE_SIZE;

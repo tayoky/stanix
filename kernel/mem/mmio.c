@@ -6,13 +6,13 @@ volatile void *mmio_map(uintptr_t paddr, size_t size) {
 	// TODO : do not rely on hhdm
 	uintptr_t start = PAGE_ALIGN_DOWN(paddr);
 	uintptr_t end   = PAGE_ALIGN_UP(paddr + size);
-	void *vaddr = (void *)(paddr + kernel->hhdm);
+	void *vaddr     = mmu_phys2virt(paddr);
 	if (mmu_virt2phys(vaddr) != PAGE_INVALID) {
 		// already mapped
 		return vaddr;
 	}
 	size_t pages_count = (end - start) / PAGE_SIZE;
-	uintptr_t vcurrent = start + kernel->hhdm;
+	uintptr_t vcurrent = (uintptr_t)mmu_phys2virt(start);
 	uintptr_t pcurrent = start;
 	for (size_t i = 0; i < pages_count; i++) {
 		// TODO : map as uncacheable

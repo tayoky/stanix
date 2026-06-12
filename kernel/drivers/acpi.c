@@ -1,8 +1,9 @@
 #include <kernel/acpi.h>
+#include <kernel/cmdline.h>
 #include <kernel/kernel.h>
+#include <kernel/mmu.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
-#include <kernel/cmdline.h>
 #include <errno.h>
 
 static acpi_xsdp_t *rsdp;
@@ -16,7 +17,7 @@ void acpi_set_rsdp(void *new_rsdp) {
 int acpi_sdt_verify(acpi_sdt_t *sdt, const char *name) {
 	if (memcmp(sdt->signature, name, sizeof(sdt->signature))) {
 		// invalid name
-        kwarningf("invalid name for %s (corrupted %s ?)\n", name);
+		kwarningf("invalid name for %s (corrupted %s ?)\n", name);
 		return -EINVAL;
 	}
 	uint8_t sum   = 0;
@@ -35,23 +36,23 @@ void *acpi_find_table(const char *name) {
 	if (rsdt) {
 		size_t entries_count = (rsdt->sdt.length - sizeof(acpi_sdt_t)) / sizeof(uint32_t);
 		for (size_t i = 0; i < entries_count; i++) {
-			acpi_sdt_t *current = (acpi_sdt_t *)(rsdt->entries[i] + kernel->hhdm);
+			acpi_sdt_t *current = mmu_phys2virt(rsdt->entries[i]);
 			if (!memcmp(current->signature, name, 4)) {
 				if (acpi_sdt_verify(current, name) < 0) return NULL;
 				return current;
 			}
 		}
-        return NULL;
+		return NULL;
 	} else if (xsdt) {
 		size_t entries_count = (xsdt->sdt.length - sizeof(acpi_sdt_t)) / sizeof(uint64_t);
 		for (size_t i = 0; i < entries_count; i++) {
-			acpi_sdt_t *current = (acpi_sdt_t *)(xsdt->entries[i] + kernel->hhdm);
+			acpi_sdt_t *current = mmu_phys2virt(xsdt->entries[i]);
 			if (!strcmp(current->signature, name)) {
 				if (acpi_sdt_verify(current, name) < 0) return NULL;
 				return current;
 			}
 		}
-        return NULL;
+		return NULL;
 	} else {
 		return NULL;
 	}
@@ -91,14 +92,14 @@ void init_acpi(void) {
 
 	switch (rsdp->revision) {
 	case 0:
-		// version1
-		rsdt = (acpi_rsdt_t *)(rsdp->rsdt_address + kernel->hhdm);
-        if (acpi_sdt_verify(&rsdt->sdt, "RSDT") < 0) {
-            kfail();
-            kinfof("invalid rsdt\n");
-            rsdt = NULL;
-            return;
-        }
+		// version 1
+		rsdt = mmu_phys2virt(rsdp->rsdt_address);
+		if (acpi_sdt_verify(&rsdt->sdt, "RSDT") < 0) {
+			kfail();
+			kinfof("invalid rsdt\n");
+			rsdt = NULL;
+			return;
+		}
 		break;
 	case 1:
 		kfail();
@@ -118,13 +119,13 @@ void init_acpi(void) {
 			kfail();
 			kinfof("invalid extended checksum for rsdp (corrupted rsdp ?)\n");
 		}
-		xsdt = (acpi_xsdt_t *)(rsdp->xsdt_address + kernel->hhdm);
-        if (acpi_sdt_verify(&xsdt->sdt, "XSDT") < 0) {
-            kfail();
-            kinfof("invalid xsdt\n");
-            xsdt = NULL;
-            return;
-        }
+		xsdt = mmu_phys2virt(rsdp->xsdt_address);
+		if (acpi_sdt_verify(&xsdt->sdt, "XSDT") < 0) {
+			kfail();
+			kinfof("invalid xsdt\n");
+			xsdt = NULL;
+			return;
+		}
 		break;
 	}
 	kok();

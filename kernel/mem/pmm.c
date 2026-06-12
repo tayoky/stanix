@@ -84,7 +84,7 @@ void init_second_stage_pmm(void) {
 	}
 	pages_info = (page_t*)MEM_PAGES_START;
 	zero_page = pmm_allocate_page();
-	memset((void*)(kernel->hhdm + zero_page), 0, PAGE_SIZE);
+	memset(mmu_phys2virt(zero_page), 0, PAGE_SIZE);
 }
 
 page_t *pmm_page_info(uintptr_t addr) {
@@ -104,10 +104,10 @@ uintptr_t pmm_allocate_page(void) {
 	// take the head entry and (maybee) pop it
 	uintptr_t page;
 	if (stack_head->size > 1) {
-		page = ((uintptr_t)stack_head) - kernel->hhdm + (stack_head->size - 1) * PAGE_SIZE;
+		page = (uintptr_t)mmu_hhdm2phys(stack_head) + (stack_head->size - 1) * PAGE_SIZE;
 		stack_head->size--;
 	} else {
-		page = ((uintptr_t)stack_head) - kernel->hhdm;
+		page = (uintptr_t)mmu_hhdm2phys(stack_head);
 		stack_head = stack_head->next;
 	}
 	used_pages++;
@@ -126,7 +126,7 @@ void pmm_set_free_pages(uintptr_t start, size_t count) {
 	spinlock_acquire(&pmm_lock);
 
 	used_pages -= count;
-	pmm_entry_t *entry = (pmm_entry_t *)(start + kernel->hhdm);
+	pmm_entry_t *entry = mmu_phys2virt(start);
 	entry->size = count;
 	entry->next = stack_head;
 	stack_head = entry;
@@ -173,7 +173,7 @@ uintptr_t pmm_dup_page(uintptr_t page) {
 	kassert(page != PAGE_INVALID);
 	uintptr_t new_page = pmm_allocate_page();
 	if (new_page == PAGE_INVALID) return PAGE_INVALID;
-	memcpy((void*)(kernel->hhdm + new_page), (void*)(kernel->hhdm + page), PAGE_SIZE);
+	memcpy(mmu_phys2virt(new_page), mmu_phys2virt(page), PAGE_SIZE);
 	return new_page;
 }
 

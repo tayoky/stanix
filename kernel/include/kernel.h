@@ -6,7 +6,6 @@
 #include <kernel/vfs.h>
 
 typedef struct kernel_table_struct{
-	uint64_t hhdm;
 	const char *conf_file;
 	vfs_fd_t **outs;
 }kernel_table;

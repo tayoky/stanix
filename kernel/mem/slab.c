@@ -29,7 +29,7 @@ static slab_t *new_slab(slab_cache_t *slab_cache) {
 	uintptr_t page = pmm_allocate_page();
 	if (page == PAGE_INVALID) return NULL;
 
-	slab_t *slab = (slab_t*)(kernel->hhdm + page);
+	slab_t *slab = mmu_phys2virt(page);
 	memset(slab, 0, sizeof(slab_t));
 	slab->cache = slab_cache;
 	slab->state = SLAB_FREE;

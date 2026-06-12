@@ -72,7 +72,7 @@ void init_liminefb(void) {
 
 		framebuffer_dev->framebuffer.device.driver = &liminefb_driver;
 		framebuffer_dev->framebuffer.ops  = &liminefb_ops;
-		framebuffer_dev->framebuffer.base = (uintptr_t)limine_data->address - kernel->hhdm;
+		framebuffer_dev->framebuffer.base = mmu_hhdm2phys(limine_data->address);
 		framebuffer_dev->framebuffer.size = limine_data->height * limine_data->pitch;
 		framebuffer_dev->limine_data = limine_data;
 

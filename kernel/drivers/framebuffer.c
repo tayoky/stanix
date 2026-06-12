@@ -7,6 +7,7 @@
 #include <kernel/device.h>
 #include <kernel/print.h>
 #include <kernel/vmm.h>
+#include <kernel/mmu.h>
 #include <kernel/tmpfs.h>
 #include <sys/fb.h>
 #include <errno.h>
@@ -38,12 +39,12 @@ static ssize_t framebuffer_write(vfs_fd_t *fd, const void *buffer, off_t offset,
 	}
 	if (count == sizeof(uint32_t)) {
 		// special case if we set only one pixel to go faster
-		*(uint32_t *)(((char*)framebuffer->base) + offset + kernel->hhdm) = *(uint32_t *)buffer;
+		*(uint32_t *)mmu_phys2virt(framebuffer->base + offset) = *(uint32_t *)buffer;
 		return sizeof(uint32_t);
 	}
 
 	// write to the framebuffer is easy just memcpy
-	if (safe_copy_from((char*)framebuffer->base + offset + kernel->hhdm, buffer, count) < 0) {
+	if (safe_copy_from(mmu_phys2virt(framebuffer->base + offset), buffer, count) < 0) {
 		return -EFAULT;
 	}
 

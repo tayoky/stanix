@@ -211,7 +211,7 @@ static int vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_t size,
 			uintptr_t page;
 			if (flags & VMM_FLAG_SHARED) {
 				page = pmm_allocate_page();
-				memset((void *)(kernel->hhdm + page), 0, PAGE_SIZE);
+				memset(mmu_phys2virt(page), 0, PAGE_SIZE);
 				mmu_map_page(space->addrspace, page, addr, prot);
 			} else {
 				page = pmm_get_zero_page();

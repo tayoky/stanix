@@ -3,6 +3,7 @@
 #include <kernel/acpi.h>
 #include <kernel/kernel.h>
 #include <kernel/cmdline.h>
+#include <kernel/mmu.h>
 #include <kernel/print.h>
 
 __attribute__((used, section(".limine_requests_start"))) LIMINE_REQUESTS_START_MARKER
@@ -98,7 +99,7 @@ void init_limine(void) {
 	kstatusf("getting limine response ...");
 
 	// get the response from the limine request
-	kernel->hhdm = hhdm_request.response->offset;
+	mmu_set_hhdm(hhdm_request.response->offset);
 	limine_bootinfo.hhdm                 = hhdm_request.response->offset;
 	limine_bootinfo.kernel_paddr         = kernel_address_request.response->physical_base;
 	limine_bootinfo.memmap_entries_count = memmap_request.response->entry_count;
@@ -130,7 +131,7 @@ void init_limine(void) {
 	kdebugf("initrd loaded at 0x%lx size : %ld KB\n", limine_bootinfo.initrd.start,  limine_bootinfo.initrd.size / 1024);
 
 	if (rsdp_request.response) {
-		acpi_set_rsdp((void*)((uintptr_t)rsdp_request.response->address + kernel->hhdm));
+		acpi_set_rsdp(mmu_phys2virt((uintptr_t)rsdp_request.response->address));
 	}
 	if (cmdline_request.response) {
 		kcmdline_set(cmdline_request.response->cmdline);

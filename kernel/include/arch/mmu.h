@@ -77,6 +77,27 @@ uintptr_t mmu_virt2phys(void *address);
 uintptr_t mmu_space_virt2phys(addrspace_t addrspace, void *address);
 
 /**
+ * @brief turn a physical address into a virtual address via hhdm
+ * @param address the physical address
+ * @return a virtual address inside the hhdm
+ */
+void *mmu_phys2virt(uintptr_t address);
+
+/**
+ * @brief turn a virtual address pointing to hhdm back into a physical address, faster than \ref mmu_virt2phys
+ * @param address the virtual address
+ * @return the physical address
+ * @note if you cannot guarantee the virtual address is inside hhdm, use \ref mmu_virt2phys instead
+ */
+uintptr_t mmu_hhdm2phys(void *address);
+
+/**
+ * @brief set the base address of the hhdm
+ * @param hhdm the base hhdm address
+ */
+void mmu_set_hhdm(uintptr_t hhdm);
+
+/**
  * @brief get the current address space
  * @return the current address space
  */
