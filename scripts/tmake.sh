@@ -44,7 +44,10 @@ all :
 install :
 
 .PHONY : uninstall
-uninstall :" > "$MAKEFILE"
+uninstall :
+
+.PHONY : clean
+clean :" > "$MAKEFILE"
 }
 
 tmake_fini () {
@@ -58,6 +61,7 @@ targets :
 	@echo \"install   : install every component\"
 	@echo \"uninstall : uninstall every component\"
 	@echo \"clean     : clean every component\"
+	@echo \"distclean : clean every component and delete build dir\"
 $(for TARG in $TARGETS ; do
 	echo "	@echo \"====== $TARG targets ======\"
 	@echo \"all-$TARG       : build $TARG\"
@@ -70,8 +74,8 @@ Makefile : $SCRIPT $(realpath --relative-to="$DIR" "$TMAKE")
 	@echo \"GEN Makefile\"
 	\$(Q)./$SCRIPT
 
-.PHONY : clean
-clean :
+.PHONY : distclean
+distclean :
 	@echo \"CLEAN \$(BUILDDIR)\"
 	\$(Q)rm -fr \"\$(BUILDDIR)\""
 
@@ -169,13 +173,6 @@ tmake_add_compile_rules () {
 	@echo \"CC \$<\"
 	\$(Q)\$(CC) $TARGET_CFLAGS -o \$@ -c \$<"
 	fi
-	if test "$HAVE_GEN_C" = "yes" ; then
-		echo "
-\$(BUILDDIR)/$1/%.c.o : \$(BUILDDIR)/$1/%.c
-	@mkdir -p \"\$(@D)\"
-	@echo \"CC \$<\"
-	\$(Q)\$(CC) $TARGET_CFLAGS -o \$@ -c \$<"
-	fi
 	if test "$HAVE_CXX" = "yes" ; then
 		echo "
 \$(BUILDDIR)/$1/%.c.o : %.cxx
@@ -266,6 +263,7 @@ uninstall-$TARGET_TARGET :
 	echo "$TO_REMOVE")
 
 .PHONY : clean-$TARGET_TARGET
+clean : clean-$TARGET_TARGET
 clean-$TARGET_TARGET :
 	@echo \"CLEAN \$(BUILDDIR)/$TARGET_TARGET\"
 	\$(Q)rm -fr \"\$(BUILDDIR)/$TARGET_TARGET\""
@@ -274,11 +272,11 @@ clean-$TARGET_TARGET :
 	tmake_add_compile_rules "$TARGET_TARGET"
 
 	TARGETS="$TARGETS $TARGET_TARGET"
-	ALL_DEPENDENCIES=""
+	ALL_DEPENDENCIES="$TARGET_DDEPENDENCIES"
 	for DEPENDENCY in $TARGET_DEPENDENCIES ; do
 		ALL_DEPENDENCIES="$ALL_DEPENDENCIES\$(LINK_$DEPENDENCY) "
 	done
-	ALL_DEPENDENCIES="$ALL_DEPENDENCIES\$(OBJ_$TARGET_TARGET) $TARGET_DDEPENDENCIES"
+	ALL_DEPENDENCIES="$ALL_DEPENDENCIES\$(OBJ_$TARGET_TARGET)"
 } >> "$MAKEFILE"
 
 tmake_add_executable () {
