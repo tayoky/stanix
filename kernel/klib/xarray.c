@@ -116,12 +116,12 @@ void *xarray_get(xarray_t *xarray, size_t index) {
 	return ret;
 }
 
-static void xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
+static void *xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 	rcu_ptr_t *current_entry = &xarray->rcu.ptr;
 
 	uintptr_t current_entry_value = xarray_entry_fetch(current_entry);
 	if (!xarray_is_in_bound(current_entry_value, index)) {
-		if (!value) return;
+		if (!value) return NULL;
 		// we need to grow the array
 		// but how many level ?
 		size_t current_shift;
@@ -165,8 +165,8 @@ static void xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 	size_t current_shift = 0;
 	while (current_entry_value) {
 		if (xarray_entry_is_value(current_entry_value)) {
-			xarray_entry_store(current_entry, xarray_entry_from_value(value));
-			if (!value) return;
+			uintptr_t old = xarray_entry_store(current_entry, xarray_entry_from_value(value));
+			if (!value) return xarray_entry_get_value(old);
 			// backtrack to set mask
 			for (size_t i = parents_count; i > 0;) {
 				i--;
@@ -179,7 +179,7 @@ static void xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 					break;
 				}
 			}
-			return;
+			return xarray_entry_get_value(old);
 		} else {
 			xarray_node_t *node = xarray_entry_get_node(current_entry_value);
 			if (value) {
@@ -195,7 +195,7 @@ static void xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 		}
 	}
 
-	if (!value) return;
+	if (!value) return NULL;
 	kassert((current_shift % XARRAY_SHIFT_BITS) == 0);
 	while (current_shift >= XARRAY_SHIFT_BITS) {
 		current_shift -= XARRAY_SHIFT_BITS;
@@ -207,13 +207,15 @@ static void xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 		current_entry = xarray_node_get_entry(node, index);
 	}
 	xarray_entry_store(current_entry, xarray_entry_from_value(value));
+	return NULL;
 }
 
-void xarray_set(xarray_t *xarray, size_t index, void *value) {
+void *xarray_set(xarray_t *xarray, size_t index, void *value) {
 	kassert((((uintptr_t)value) & 0x1) == 0);
 	rcu_acquire_write(&xarray->rcu);
-	xarray_raw_set(xarray, index, value);
+	void *ret = xarray_raw_set(xarray, index, value);
 	rcu_release_write(&xarray->rcu);
+	return ret;
 }
 
 // return 1 if found
