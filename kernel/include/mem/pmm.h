@@ -22,6 +22,13 @@ typedef struct page {
 
 #define PAGE_FLAG_DIRTY 0x1
 #define PAGE_FLAG_READY 0x2
+#define PAGE_USABLE     0x4 // the page is usable memory
+
+#define ZONE_DEFAULT   0
+#define ZONE_DMA24     1
+#define ZONE_DMA32     2
+#define ZONE_NORMAL    3
+#define ZONE_EMERGENCY 4
 
 /**
  * @brief get informations on a page
@@ -66,6 +73,13 @@ static inline void pmm_set_free_page(uintptr_t page) {
  * @brief setup the second stage of pmm (zero page, page_t info, ...)
  */
 void init_second_stage_pmm(void);
+
+/**
+ * @brief check if a specified page is a usable page (usable, not free)
+ * @param page the page to check
+ * return 1 if usable else 0
+ */
+int pmm_is_page_usable(uintptr_t page);
 
 /**
  * @brief get the amount of currently used physical pages
