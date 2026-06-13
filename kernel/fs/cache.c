@@ -106,7 +106,7 @@ static void cached_page_mark_dirty(uintptr_t page, page_t *page_info) {
 
 static int cached_page_clear_dirty(uintptr_t page, page_t *page_info) {
 	spinlock_acquire(&lru_lock);
-	int ret = atomic_fetch_or(&page_info->flags, ~PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY;
+	int ret = atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY;
 	if (ret) {
 		cached_page_remove_lru(page_info);
 		cached_page_add_lru(page, page_info);
@@ -191,7 +191,6 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 		spinlock_acquire(&lru_lock);
 		cached_page_add_lru(page, page_info);
 		spinlock_release(&lru_lock);
-		pmm_release_page(page);
 	}
 }
 
@@ -209,8 +208,14 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t batch_start = start;
 	int ret = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+		rcu_acquire_read(&cache->pages.rcu);
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page != PAGE_INVALID) {
+already_cached:
+			// make a new ref that we pass to the caller
+			pmm_retain(page);
+			rcu_release_read(&cache->pages.rcu);
+
 			// the page is already cached
 			// there is nothing to cache
 			if (batch_start != addr) {
@@ -220,6 +225,7 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 			continue;
 		}
 
+		rcu_release_read(&cache->pages.rcu);
 		page = pmm_allocate_page();
 		if (page == PAGE_INVALID) {
 			ret = -ENOMEM;
@@ -232,14 +238,19 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 		page_info->cached.offset = addr / PAGE_SIZE;
 
 		// FIXME : we might have a race here
-		if (cache_get_page(cache, addr) == PAGE_INVALID) {
+		rcu_acquire_read(&cache->pages.rcu);
+		uintptr_t new_page = cache_get_page(cache, addr);
+		if (new_page == PAGE_INVALID) {
 			xarray_set(&cache->pages, addr, (void *)page);
-			// prevent it from being freed before we populate it
+			// make a new ref that we pass to the caller
 			pmm_retain(page);
 		} else {
 			// we lost a race
 			pmm_release_page(page);
+			page = new_page;
+			goto already_cached;
 		}
+		rcu_release_read(&cache->pages.rcu);
 	}
 
 	if (batch_start != end) {
@@ -372,10 +383,16 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 		uintptr_t page = mmu_virt2phys((void *)addr);
 		long mmu_flags = mmu_get_flags(get_current_proc()->vmm_space.addrspace, addr);
 		if (mmu_flags & MMU_FLAG_DIRTY) {
-			atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_DIRTY);
+			mmu_set_flags(get_current_proc()->vmm_space.addrspace, addr, mmu_flags & ~MMU_FLAG_DIRTY);
+			cached_page_mark_dirty(page, pmm_page_info(page));
 		}
 	}
-	return 0;
+
+	if (flags == MS_SYNC) {
+		return cache_flush(seg->private_data, seg->offset, VMM_SIZE(seg));
+	} else {
+		return 0;
+	}
 }
 
 static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
@@ -390,15 +407,15 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
 	off_t offset    = vpage - seg->start + seg->offset;
 
-
-	rcu_acquire_read(&cache->pages.rcu);
+	// no need to hold rcu read lock
+	// since we already hold a ref to the pages
+	// thanks to cache_cache_async
 	uintptr_t page = cache_get_page(cache, offset);
 	if (page == PAGE_INVALID) {
 		// the page is not cached
 		// we are cooked
 		kdebugf("uncached mapped page access\n");
 		send_sig_task(get_current_task(), SIGBUS);
-		rcu_release_read(&cache->pages.rcu);
 		return 1;
 	}
 
@@ -411,21 +428,18 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 		if (prot == MMU_FLAG_WRITE) {
 			// if we faulted for write duplicate now
 			page = pmm_dup_page(page);
+			pmm_release_page(page);
 			if (page == PAGE_INVALID) {
 				send_sig_task(get_current_task(), SIGBUS);
-				rcu_release_read(&cache->pages.rcu);
 				return 1;
 			}
 		} else {
 			mapping_prot &= ~MMU_FLAG_WRITE;
-			pmm_retain(page);
 		}
-	} else {
-		pmm_retain(page);
 	}
 
+	// cache_cache_async already made a new ref to the page
 	mmu_map_page(get_current_proc()->vmm_space.addrspace, page, vpage, mapping_prot);
-	rcu_release_read(&cache->pages.rcu);
 	return 1;
 }
 
@@ -451,15 +465,17 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 		prot &= ~MMU_FLAG_WRITE;
 	}
 
-	rcu_acquire_read(&cache->pages.rcu);
+	// no need to hold rcu read lock
+	// since we already hold a ref to the pages
+	// thanks to cache_cache_async
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
-		pmm_retain(page);
+		
+		// cache_cache_async already made a new ref to the page
 		mmu_map_page(get_current_proc()->vmm_space.addrspace, page, vaddr, prot);
 		vaddr += PAGE_SIZE;
 	}
-	rcu_release_read(&cache->pages.rcu);
 	return 0;
 }
 
@@ -473,11 +489,16 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	uintptr_t start = PAGE_ALIGN_DOWN(offset);
 	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
 
-	rcu_acquire_read(&cache->pages.rcu);
+	// no need to hold rcu read lock
+	// since we already hold a ref to the pages
+	// thanks to cache_cache
 	char *buf = buffer;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t phys = cache_get_page(cache, addr);
-		if (phys == PAGE_INVALID) return -EIO;
+		uintptr_t page = cache_get_page(cache, addr);
+		if (page == PAGE_INVALID) {
+			ret = -EIO;
+			goto error;
+		}
 		uintptr_t page_start = 0;
 		uintptr_t page_end   = PAGE_SIZE;
 		if (addr == start) {
@@ -487,13 +508,16 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 			page_end = (offset + size) % PAGE_SIZE;
 			if (page_end == 0) page_end = PAGE_SIZE;
 		}
-		if (safe_copy_to(buf, mmu_phys2virt(phys + page_start), page_end - page_start) < 0) {
-			rcu_release_read(&cache->pages.rcu);
-			return -EFAULT;
+		if (safe_copy_to(buf, mmu_phys2virt(page + page_start), page_end - page_start) < 0) {
+			ret = -EFAULT;
+error:
+			// release other pages on error
+			release_pages_in_range(cache, addr, end);
+			return ret;
 		}
+		pmm_release_page(page);
 		buf += page_end - page_start;
 	}
-	rcu_release_read(&cache->pages.rcu);
 	return size;
 }
 
@@ -507,13 +531,15 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 	uintptr_t start = PAGE_ALIGN_DOWN(offset);
 	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
 
-	rcu_acquire_read(&cache->pages.rcu);
+	// no need to hold rcu read lock
+	// since we already hold a ref to the pages
+	// thanks to cache_cache
 	const char *buf = buffer;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) {
-			rcu_release_read(&cache->pages.rcu);
-			return -EIO;
+			ret = -EIO;
+			goto error;
 		}
 		uintptr_t page_start = 0;
 		uintptr_t page_end   = PAGE_SIZE;
@@ -525,15 +551,18 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 			if (page_end == 0) page_end = PAGE_SIZE;
 		}
 		if (safe_copy_from(mmu_phys2virt(page + page_start), buf, page_end - page_start) < 0) {
-			rcu_release_read(&cache->pages.rcu);
-			return -EFAULT;
+			ret = -EFAULT;
+error:
+			// release other pages on error
+			release_pages_in_range(cache, addr, end);
+			return ret;
 		}
 
 		cached_page_mark_dirty(page, pmm_page_info(page));
 
+		pmm_release_page(page);
 		buf += page_end - page_start;
 	}
-	rcu_release_read(&cache->pages.rcu);
 	return size;
 }
 
