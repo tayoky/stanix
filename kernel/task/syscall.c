@@ -34,6 +34,13 @@
 #include <poll.h>
 #include <sched.h>
 
+static int user_copy_struct_from(void *dest, void *src, size_t size) {
+	if (!CHECK_MEM(src, size)) return -EFAULT;
+	return safe_copy_from(dest, src, size);
+}
+
+#define COPY_STRUCT_FROM(dest, src) user_copy_struct_from(dest, src, sizeof(*dest))
+
 int sys_open(const char *path, int flags, mode_t mode) {
 	if (!CHECK_STR(path)) {
 		return -EFAULT;
@@ -1095,6 +1102,16 @@ int sys_access(const char *pathname, int mode) {
 	return succed ? 0 : -EACCES;
 }
 
+int sys_utimes(const char *path, const struct timeval times[2]) {
+	struct timeval ktimes[2];
+	if (COPY_STRUCT_FROM(&ktimes, &times) < 0) return -EFAULT;
+	vfs_node_t *node = vfs_get_node(path, O_NOFOLLOW);
+	if (IS_ERR(node)) return PTR2ERR(node);
+	int ret = vfs_utimes(node, ktimes);
+	vfs_node_release(node);
+	return ret;
+}
+
 int sys_truncate(const char *path, off_t length) {
 	vfs_node_t *node = vfs_get_node(path, O_WRONLY);
 	if (IS_ERR(node)) return PTR2ERR(node);
@@ -1438,7 +1455,7 @@ void *syscall_table[] = {
 	(void *)sys_fcntl,
 	(void *)sys_umask,
 	(void *)sys_access,
-	(void *)sys_stub,   //sys_utimes
+	(void *)sys_utimes,
 	(void *)sys_truncate,
 	(void *)sys_ftruncate,
 	(void *)sys_link,

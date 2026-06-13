@@ -766,21 +766,6 @@ int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
 	}
 }
 
-int vfs_chmod(vfs_node_t *node, mode_t perm) {
-	struct stat st;
-	st.st_mode = perm;
-	return vfs_setattr(node, &st, VNODE_ATTR_MODE);
-}
-
-int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
-	struct stat st;
-	int ret = vfs_getattr(node, &st);
-	if (ret < 0) return ret;
-	st.st_uid = owner;
-	st.st_gid = group_owner;
-	return vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
-}
-
 int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	if (!node) return -EINVAL;
 	memset(st, 0, sizeof(struct stat));

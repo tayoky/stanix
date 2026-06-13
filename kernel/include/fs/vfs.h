@@ -417,20 +417,42 @@ static inline int vfs_truncate(vfs_node_t *node, size_t size) {
 
 /**
  * @brief change permission of a file/dir
- * @param node context of the file/dir
+ * @param node inode of the file/dir
  * @param perm new permission
  * @return 0 on succes else error code
  */
-int vfs_chmod(vfs_node_t *node, mode_t perm);
+static inline int vfs_chmod(vfs_node_t *node, mode_t perm) {
+	struct stat st;
+	st.st_mode = perm;
+	return vfs_setattr(node, &st, VNODE_ATTR_MODE);
+}
 
 /**
  * @brief change owner of a file/dir
- * @param node context for the file/dir
+ * @param node inode for the file/dir
  * @param owner uid of new owner
  * @param group_owner gid of new group_owner
  * @return 0 on succes else error code
  */
-int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner);
+static inline int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
+	struct stat st;
+	st.st_uid = owner;
+	st.st_gid = group_owner;
+	return vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
+}
+
+/**
+ * @brief change times of a file/dir
+ * @param node inode for the file/dir
+ * @param times the times (0 is atime and 1 is mtime)
+ * @return 0 on succes else error code
+ */
+static inline int vfs_utimes(vfs_node_t *node, const struct timeval times[2]) {
+	struct stat st;
+	st.st_atime = times[0].tv_sec;
+	st.st_mtime = times[1].tv_sec;
+	return vfs_setattr(node, &st, VNODE_ATTR_ATIME | VNODE_ATTR_MTIME);
+}
 
 /**
  * @brief device specific operation
