@@ -85,47 +85,59 @@ static int cached_page_is_dirty(page_t *page_info) {
 	return atomic_load(&page_info->flags) & PAGE_FLAG_DIRTY;
 }
 
-static void cached_page_remove_lru(page_t *page_info) {
+static page_lru_list_t *get_lru_list(page_t *page_info) {
 	size_t index = 0;
-	if (cached_page_is_active(page_info)) {
-		index += LRU_ACTIVE;
-	}
-	if (cached_page_is_dirty((page_info))) {
-		index += LRU_DIRTY;
-	}
+	if (cached_page_is_active(page_info)) index += LRU_ACTIVE;
+	if (cached_page_is_dirty((page_info))) index += LRU_DIRTY;
+	return &lru_lists[index];
+}
+
+static void cached_page_remove_lru(page_t *page_info) {
+	page_lru_list_t *lru_list = get_lru_list(page_info);
 	uintptr_t prev = cached_page_get_lru_prev(page_info);
 	uintptr_t next = cached_page_get_lru_next(page_info);
 	if (prev != PAGE_INVALID) {
 		page_t *prev_info = pmm_page_info(prev);
 		cached_page_set_lru_next(prev_info, next);
 	} else {
-		lru_lists[index].first = next;
+		lru_list->first = next;
 	}
 	if (next != PAGE_INVALID) {
 		page_t *next_info = pmm_page_info(next);
 		cached_page_set_lru_prev(next_info, prev);
 	} else {
-		lru_lists[index].last = prev;
+		lru_list->last = prev;
 	}
 }
 
 static void cached_page_add_lru(uintptr_t page, page_t *page_info) {
-	size_t index = 0;
-	if (cached_page_is_active(page_info)) {
-		index += LRU_ACTIVE;
-	}
-	if (cached_page_is_dirty((page_info))) {
-		index += LRU_DIRTY;
-	}
+	page_lru_list_t *lru_list = get_lru_list(page_info);
 	cached_page_set_lru_prev(page_info, PAGE_INVALID);
-	cached_page_set_lru_next(page_info, lru_lists[index].first);
-	if (lru_lists[index].first != PAGE_INVALID) {
-		page_t *next_info = pmm_page_info(lru_lists[index].first);
+	cached_page_set_lru_next(page_info, lru_list->first);
+	if (lru_list->first != PAGE_INVALID) {
+		page_t *next_info = pmm_page_info(lru_list->first);
 		cached_page_set_lru_prev(next_info, page);
 	} else {
-		lru_lists[index].last = page;
+		lru_list->last = page;
 	}
-	lru_lists[index].first = page;
+	lru_list->first = page;
+}
+
+static void cached_page_mark_dirty(uintptr_t page, page_t *page_info) {
+	spinlock_acquire(&lru_lock);
+	atomic_fetch_or(&page_info->flags, PAGE_FLAG_DIRTY);
+	cached_page_remove_lru(page_info);
+	cached_page_add_lru(page, page_info);
+	spinlock_release(&lru_lock);
+}
+
+static int cached_page_clear_dirty(uintptr_t page, page_t *page_info) {
+	spinlock_acquire(&lru_lock);
+	int ret = atomic_fetch_or(&page_info->flags, ~PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY;
+	cached_page_remove_lru(page_info);
+	cached_page_add_lru(page, page_info);
+	spinlock_release(&lru_lock);
+	return ret;
 }
 
 uintptr_t cache_evict(void) {
@@ -143,9 +155,12 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr=offset; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
-		atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_READY);
-		pmm_release_page(page);
+		page_t *page_info = pmm_page_info(page);
+		atomic_fetch_or(&page_info->flags, PAGE_FLAG_READY);
+		spinlock_acquire(&lru_lock);
 		cached_page_add_lru(page, page_info);
+		spinclok_release(&lru_lock);
+		pmm_release_page(page);
 	}
 }
 
@@ -285,12 +300,12 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 		// prevent the page from being freed
 		pmm_retain(page);
 		rwlock_release_read(&cache->lock, &have_interrupt);
-		long flags = 0;
+		int is_dirty = 0;
 		if (page != PAGE_INVALID) {
-			flags = atomic_fetch_and(&pmm_page_info(page)->flags, ~PAGE_FLAG_DIRTY);
+			is_dirty = cached_page_clear_dirty(page, pmm_page_info(page));
 		}
 
-		if (!(flags & PAGE_FLAG_DIRTY)) {
+		if (!is_dirty) {
 			pmm_release_page(page);
 			if (batch_start != addr) {
 				// we reached end of the batch
@@ -485,8 +500,7 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 			return -EFAULT;
 		}
 
-		// mark as dirty
-		atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_DIRTY);
+		cached_page_mark_dirty(page, pmm_page_info(page));
 
 		buf += page_end - page_start;
 	}
