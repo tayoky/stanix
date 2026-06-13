@@ -133,4 +133,12 @@ uintptr_t pmm_get_zero_page(void);
  */
 int pmm_retain(uintptr_t page);
 
+/**
+ * @brief wait until a specified page has a masked flag equal to a value
+ * @param mask the mask to apply to the flags
+ * @param value the value the masked flags must be equal to
+ * @return -EINTR if interrupted else 0
+ */
+int pmm_wait(uintptr_t page, unsigned int mask, unsigned int value);
+
 #endif

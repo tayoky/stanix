@@ -148,6 +148,16 @@ static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t en
 	}
 }
 
+static int wait_pages_non_busy(cache_t *cache, uintptr_t start, uintptr_t end) {
+	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+		uintptr_t page = cache_get_page(cache, addr);
+		if (page == PAGE_INVALID) continue;
+		int ret = pmm_wait(page, PAGE_FLAG_BUSY, 0);
+		if (ret < 0) return ret;
+	}
+	return 0;
+}
+
 uintptr_t cache_evict(void) {
 	// for now only evict inactive pages
 	uintptr_t page = lru_lists[LRU_INACTIVE + LRU_CLEAN].last;
@@ -236,8 +246,9 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 int cache_cache(cache_t *cache, off_t offset, size_t size) {
 	int ret = cache_cache_async(cache, offset, size);
 	if (ret < 0) return ret;
-	// TODO : wait until pages are marked as non busy
-	return 0;
+	uintptr_t start = PAGE_ALIGN_DOWN(offset);
+	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
+	return wait_pages_non_busy(cache, start, end);
 }
 
 typedef struct uncache_req {

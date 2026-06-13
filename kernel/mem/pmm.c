@@ -239,6 +239,14 @@ uintptr_t pmm_dup_page(uintptr_t page) {
 	return new_page;
 }
 
+int pmm_wait(uintptr_t page, unsigned int mask, unsigned int value) {
+	// TODO
+	(void)page;
+	(void)mask;
+	(void)value;
+	return 0;
+}
+
 uintptr_t pmm_get_zero_page(void) {
 	pmm_retain(zero_page);
 	return zero_page;
