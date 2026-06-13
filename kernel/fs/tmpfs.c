@@ -13,7 +13,7 @@ static slab_cache_t tmpfs_inode_slab;
 static slab_cache_t tmpfs_entry_slab;
 static vfs_inode_ops_t tmpfs_inode_ops;
 
-#define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - MEM_KHEAP_START)
+#define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - (uintptr_t)mmu_phys2virt(0))
 
 // page cache ops
 static int tmpfs_cache_read(cache_t *cache, off_t offset, size_t size) {
