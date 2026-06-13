@@ -23,7 +23,7 @@ static uintptr_t highest_page = 0;
 
 #define PAGES_INFO_MMU_FLAGS MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL
 
-void init_PMM() {
+void init_pmm() {
 	kstatusf("init PMM ... ");
 
 	stack_head = NULL;
@@ -89,7 +89,7 @@ void init_second_stage_pmm(void) {
 	}
 	page_info_sections = (page_t**)MEM_PAGES_START;
 	memset((void*)sections_start, 0, sections_end - sections_start);
-	static uintptr_t map_addr = sections_end;
+	uintptr_t map_addr = sections_end;
 
 	for (size_t i = 0; i < bootinfo_memmap_get_entries_count(); i++) {
 		bootinfo_memmap_entry_t entry;
@@ -116,11 +116,12 @@ void init_second_stage_pmm(void) {
 				continue;
 			}
 			*current = pmm_allocate_page_section(&map_addr);
+			kdebugf("alloate section for %p at %p\n", addr, *current);
 		}
 
 		// setup flags
 		for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
-			pmm_page_info(addr).flags = PAGE_FLAG_USABLE;
+			pmm_page_info(addr)->flags = PAGE_FLAG_USABLE;
 		}
 	}
 	zero_page = pmm_allocate_page();
@@ -215,7 +216,7 @@ void pmm_release_page(uintptr_t page) {
 
 int pmm_retain(uintptr_t page) {
 	page_t *page_info = pmm_page_info(page);
-	size_t old = atomic_load(&page_info->ref_count);
+	unsigned int old = atomic_load(&page_info->ref_count);
     while (old != 0) {
         if (atomic_compare_exchange_weak(&page_info->ref_count, &old, old + 1)) {
 			if (old == 1) {

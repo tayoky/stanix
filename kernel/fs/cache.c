@@ -58,11 +58,11 @@ static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t en
 }
 
 static uintptr_t cached_page_get_lru_prev(page_t *page_info) {
-	return page_info->cached.lru_prev * PAGE_SIZE;
+	return (uintptr_t)page_info->cached.lru_prev * PAGE_SIZE;
 }
 
 static uintptr_t cached_page_get_lru_next(page_t *page_info) {
-	return page_info->cached.lru_next * PAGE_SIZE;
+	return (uintptr_t)page_info->cached.lru_next * PAGE_SIZE;
 }
 
 static void cached_page_set_lru_prev(page_t *page_info, uintptr_t prev) {
@@ -74,7 +74,7 @@ static void cached_page_set_lru_next(page_t *page_info, uintptr_t next) {
 }
 
 static uintptr_t cached_page_get_offset(page_t *page_info) {
-	return page_info->cached.offset * PAGE_SIZE;
+	return (uintptr_t)page_info->cached.offset * PAGE_SIZE;
 }
 
 static int cached_page_is_active(page_t *page_info) {
@@ -159,7 +159,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 		atomic_fetch_or(&page_info->flags, PAGE_FLAG_READY);
 		spinlock_acquire(&lru_lock);
 		cached_page_add_lru(page, page_info);
-		spinclok_release(&lru_lock);
+		spinlock_release(&lru_lock);
 		pmm_release_page(page);
 	}
 }

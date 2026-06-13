@@ -98,7 +98,7 @@ void kmain() {
 	kprintf("╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝\n");
 	print_license();
 	init_bootinfo();
-	init_PMM();
+	init_pmm();
 	kprintf("used pages: 0x%lx\n", pmm_get_used_pages());
 	init_mmu();
 	init_second_stage_pmm();

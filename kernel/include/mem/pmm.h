@@ -1,16 +1,16 @@
 #ifndef KERNEL_PMM_H
 #define KERNEL_PMM_H
 
-#include <kernel/page.h>
 #include <kernel/mmu.h>
+#include <kernel/page.h>
 #include <sys/type.h>
-#include <stdint.h>
 #include <limits.h>
 #include <stdatomic.h>
+#include <stdint.h>
 
 typedef struct pmm_entry {
 	struct pmm_entry *next;
-	size_t size; //size of the chunk in page
+	size_t size; // size of the chunk in page
 } pmm_entry_t;
 
 typedef struct page {
@@ -21,16 +21,16 @@ typedef struct page {
 		struct {
 			// TODO : support 32 bits arch
 			uint64_t lru_prev : 42;
-			uint64_t offset   : 42;
+			uint64_t offset : 42;
 			uint64_t lru_next : 42;
 			uint64_t reserved : 2;
 		} __attribute__((packed)) cached;
 	};
 } page_t;
 
-#define PAGE_FLAG_DIRTY 0x1
-#define PAGE_FLAG_READY 0x2
-#define PAGE_USABLE     0x4 // the page is usable memory
+#define PAGE_FLAG_DIRTY  0x1
+#define PAGE_FLAG_READY  0x2
+#define PAGE_FLAG_USABLE 0x4 // the page is usable memory
 
 #define ZONE_DEFAULT   0
 #define ZONE_DMA24     1
@@ -48,7 +48,7 @@ page_t *pmm_page_info(uintptr_t page);
 /**
  * @brief init the PMM
  */
-void init_PMM();
+void init_pmm();
 
 /**
  * @brief find an free page and allocate it
