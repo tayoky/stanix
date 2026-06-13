@@ -97,17 +97,20 @@ static void cached_page_add_lru(uintptr_t page, page_t *page_info) {
 
 static void cached_page_mark_dirty(uintptr_t page, page_t *page_info) {
 	spinlock_acquire(&lru_lock);
-	atomic_fetch_or(&page_info->flags, PAGE_FLAG_DIRTY);
-	cached_page_remove_lru(page_info);
-	cached_page_add_lru(page, page_info);
+	if (!(atomic_fetch_or(&page_info->flags, PAGE_FLAG_DIRTY) & MMU_FLAG_DIRTY)) {
+		cached_page_remove_lru(page_info);
+		cached_page_add_lru(page, page_info);
+	}
 	spinlock_release(&lru_lock);
 }
 
 static int cached_page_clear_dirty(uintptr_t page, page_t *page_info) {
 	spinlock_acquire(&lru_lock);
 	int ret = atomic_fetch_or(&page_info->flags, ~PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY;
-	cached_page_remove_lru(page_info);
-	cached_page_add_lru(page, page_info);
+	if (ret) {
+		cached_page_remove_lru(page_info);
+		cached_page_add_lru(page, page_info);
+	}
 	spinlock_release(&lru_lock);
 	return ret;
 }
