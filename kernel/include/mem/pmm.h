@@ -29,7 +29,7 @@ typedef struct page {
 } page_t;
 
 #define PAGE_FLAG_DIRTY  0x1
-#define PAGE_FLAG_READY  0x2
+#define PAGE_FLAG_BUSY   0x2 // page is busy (doing IO, ...)
 #define PAGE_FLAG_USABLE 0x4 // the page is usable memory
 
 #define ZONE_DEFAULT   0

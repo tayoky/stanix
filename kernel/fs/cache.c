@@ -164,7 +164,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page    = cache_get_page(cache, addr);
 		page_t *page_info = pmm_page_info(page);
-		atomic_fetch_or(&page_info->flags, PAGE_FLAG_READY);
+		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_BUSY);
 		spinlock_acquire(&lru_lock);
 		cached_page_add_lru(page, page_info);
 		spinlock_release(&lru_lock);
@@ -199,7 +199,8 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 		page = pmm_allocate_page();
 		if (page == PAGE_INVALID) return -ENOMEM;
 		page_t *page_info = pmm_page_info(page);
-		page_info->flags &= ~(PAGE_FLAG_DIRTY | PAGE_FLAG_READY);
+		page_info->flags &= ~(PAGE_FLAG_DIRTY);
+		page_info->flags |= PAGE_FLAG_BUSY;
 		page_info->private       = cache;
 		page_info->cached.offset = addr / PAGE_SIZE;
 		int have_interrupt;
@@ -235,7 +236,7 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 int cache_cache(cache_t *cache, off_t offset, size_t size) {
 	int ret = cache_cache_async(cache, offset, size);
 	if (ret < 0) return ret;
-	// TODO : wait until pages are marked as ready
+	// TODO : wait until pages are marked as non busy
 	return 0;
 }
 
