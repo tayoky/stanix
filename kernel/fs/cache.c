@@ -11,6 +11,24 @@
 #include <kernel/vfs.h>
 #include <kernel/pmm.h>
 
+typedef struct page_lru_list {
+	uintptr_t first;
+	uintptr_t last;
+} page_lru_list_t;
+
+static page_lru_list_t lru_lists[4] = {
+	{PAGE_INVALID, PAGE_INVALID},
+	{PAGE_INVALID, PAGE_INVALID},
+	{PAGE_INVALID, PAGE_INVALID},
+	{PAGE_INVALID, PAGE_INVALID},
+};
+static spinlock_t lru_lock;
+
+#define LRU_INACTIVE 0
+#define LRU_ACTIVE   2
+#define LRU_CLEAN    0
+#define LRU_DIRTY    1
+
 void init_cache(cache_t *cache) {
 	memset(cache, 0, sizeof(cache_t));
 	xarray_init(&cache->pages);
@@ -39,12 +57,95 @@ static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t en
 	}
 }
 
+static uintptr_t cached_page_get_lru_prev(page_t *page_info) {
+	return page_info->cached.lru_prev * PAGE_SIZE;
+}
+
+static uintptr_t cached_page_get_lru_next(page_t *page_info) {
+	return page_info->cached.lru_next * PAGE_SIZE;
+}
+
+static void cached_page_set_lru_prev(page_t *page_info, uintptr_t prev) {
+	page_info->cached.lru_prev = prev / PAGE_SIZE;
+}
+
+static void cached_page_set_lru_next(page_t *page_info, uintptr_t next) {
+	page_info->cached.lru_next = next / PAGE_SIZE;
+}
+
+static uintptr_t cached_page_get_offset(page_t *page_info) {
+	return page_info->cached.offset * PAGE_SIZE;
+}
+
+static int cached_page_is_active(page_t *page_info) {
+	return atomic_load(&page_info->ref_count) > 1;
+}
+
+static int cached_page_is_dirty(page_t *page_info) {
+	return atomic_load(&page_info->flags) & PAGE_FLAG_DIRTY;
+}
+
+static void cached_page_remove_lru(page_t *page_info) {
+	size_t index = 0;
+	if (cached_page_is_active(page_info)) {
+		index += LRU_ACTIVE;
+	}
+	if (cached_page_is_dirty((page_info))) {
+		index += LRU_DIRTY;
+	}
+	uintptr_t prev = cached_page_get_lru_prev(page_info);
+	uintptr_t next = cached_page_get_lru_next(page_info);
+	if (prev != PAGE_INVALID) {
+		page_t *prev_info = pmm_page_info(prev);
+		cached_page_set_lru_next(prev_info, next);
+	} else {
+		lru_lists[index].first = next;
+	}
+	if (next != PAGE_INVALID) {
+		page_t *next_info = pmm_page_info(next);
+		cached_page_set_lru_prev(next_info, prev);
+	} else {
+		lru_lists[index].last = prev;
+	}
+}
+
+static void cached_page_add_lru(uintptr_t page, page_t *page_info) {
+	size_t index = 0;
+	if (cached_page_is_active(page_info)) {
+		index += LRU_ACTIVE;
+	}
+	if (cached_page_is_dirty((page_info))) {
+		index += LRU_DIRTY;
+	}
+	cached_page_set_lru_prev(page_info, PAGE_INVALID);
+	cached_page_set_lru_next(page_info, lru_lists[index].first);
+	if (lru_lists[index].first != PAGE_INVALID) {
+		page_t *next_info = pmm_page_info(lru_lists[index].first);
+		cached_page_set_lru_prev(next_info, page);
+	} else {
+		lru_lists[index].last = page;
+	}
+	lru_lists[index].first = page;
+}
+
+uintptr_t cache_evict(void) {
+	// for now only evict inactive pages
+	uintptr_t page = lru_lists[LRU_INACTIVE + LRU_CLEAN].last;
+	if (page == PAGE_INVALID) return PAGE_INVALID;
+	page_t *page_info = pmm_page_info(page);
+	cache_t *cache = page_info->private;
+	off_t offset = cached_page_get_offset(page_info);
+	if (cache_uncache(cache, offset, PAGE_SIZE) < 0) return PAGE_INVALID;
+	return page;
+}
+
 void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr=offset; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_READY);
 		pmm_release_page(page);
+		cached_page_add_lru(page, page_info);
 	}
 }
 
@@ -74,7 +175,10 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 
 		page = pmm_allocate_page();
 		if (page == PAGE_INVALID) return -ENOMEM;
-		pmm_page_info(page)->flags = 0;
+		page_t *page_info = pmm_page_info(page);
+		page_info->flags &= ~(PAGE_FLAG_DIRTY | PAGE_FLAG_READY);
+		page_info->private = cache;
+		page_info->cached.offset = addr / PAGE_SIZE;
 		int have_interrupt;
 
 		rwlock_acquire_write(&cache->lock, &have_interrupt);
@@ -135,6 +239,8 @@ static void uncache_callback(cache_t *cache, void *arg) {
 			continue;
 		}
 		xarray_clear(&cache->pages, addr);
+		page_t *page_info = pmm_page_info(page);
+		cached_page_remove_lru(page_info);
 		pmm_release_page(page);
 	}
 	rwlock_release_write(&cache->lock, &have_interrupt);

@@ -12,7 +12,7 @@
 #define PAGE_DIV_UP(address)  (((address) + PAGE_SIZE -1)/PAGE_SIZE)
 
 
-#define PAGE_INVALID ULONG_MAX - PAGE_SIZE + 1
+#define PAGE_INVALID ((1UL << 54) - PAGE_SIZE)
 
 #define KERNEL_STACK_SIZE (64 * 1024)
 #define USER_STACK_SIZE 128 * PAGE_SIZE
