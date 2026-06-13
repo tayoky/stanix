@@ -220,9 +220,8 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 		page_info->flags |= PAGE_FLAG_BUSY;
 		page_info->private       = cache;
 		page_info->cached.offset = addr / PAGE_SIZE;
-		int have_interrupt;
 
-		rwlock_acquire_write(&cache->lock, &have_interrupt);
+		// FIXME : we might have a racd here
 		if (cache_get_page(cache, addr) == PAGE_INVALID) {
 			xarray_set(&cache->pages, addr, (void *)page);
 			// prevent it from being freed before we populate it
@@ -231,7 +230,6 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 			// we lost a race
 			pmm_release_page(page);
 		}
-		rwlock_release_write(&cache->lock, &have_interrupt);
 	}
 
 	int ret = 0;
@@ -240,6 +238,7 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 	}
 
 	if (ret < 0) {
+		// FIXME : only free pages that were busy
 		for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 			uintptr_t page = cache_get_page(cache, addr);
 			xarray_clear(&cache->pages, addr);
@@ -271,9 +270,8 @@ static void uncache_callback(cache_t *cache, void *arg) {
 	uintptr_t start = PAGE_ALIGN_DOWN(req->offset);
 	uintptr_t end   = PAGE_ALIGN_UP(req->offset + req->size);
 
-	int have_interrupt;
-	rwlock_acquire_write(&cache->lock, &have_interrupt);
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+		// FIXME : we might have a race
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) {
 			// the page is not cached
@@ -283,7 +281,6 @@ static void uncache_callback(cache_t *cache, void *arg) {
 		xarray_clear(&cache->pages, addr);
 		cached_page_free(page);
 	}
-	rwlock_release_write(&cache->lock, &have_interrupt);
 	cache_callback_t callback = req->callback;
 	void *callback_arg        = req->arg;
 	kfree(req);
@@ -319,12 +316,12 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 
 	uintptr_t batch_start = start;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		int have_interrupt;
-		rwlock_acquire_read(&cache->lock, &have_interrupt);
+		rcu_acquire_read(&cache->pages.rcu);
 		uintptr_t page = cache_get_page(cache, addr);
+
 		// prevent the page from being freed
 		pmm_retain(page);
-		rwlock_release_read(&cache->lock, &have_interrupt);
+		rcu_release_read(&cache->pages.rcu);
 		int is_dirty = 0;
 		if (page != PAGE_INVALID) {
 			is_dirty = cached_page_clear_dirty(page, pmm_page_info(page));
