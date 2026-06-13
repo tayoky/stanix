@@ -165,6 +165,12 @@ static int wait_pages_non_busy(cache_t *cache, uintptr_t start, uintptr_t end) {
 	return 0;
 }
 
+static uintptr_t cache_get_page_and_clear(cache_t *cache, off_t offset) {
+	uintptr_t page = (uintptr_t)xarray_clear(&cache->pages, offset);
+	if (!page) return PAGE_INVALID;
+	return page;
+}
+
 uintptr_t cache_evict(void) {
 	// for now only evict inactive pages
 	uintptr_t page = lru_lists[LRU_INACTIVE + LRU_CLEAN].last;
@@ -201,6 +207,7 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 	if (!cache->ops || !cache->ops->read) return -EINVAL;
 
 	uintptr_t batch_start = start;
+	int ret = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page != PAGE_INVALID) {
@@ -214,14 +221,17 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 		}
 
 		page = pmm_allocate_page();
-		if (page == PAGE_INVALID) return -ENOMEM;
+		if (page == PAGE_INVALID) {
+			ret = -ENOMEM;
+			goto error;
+		}
 		page_t *page_info = pmm_page_info(page);
 		page_info->flags &= ~(PAGE_FLAG_DIRTY);
 		page_info->flags |= PAGE_FLAG_BUSY;
 		page_info->private       = cache;
 		page_info->cached.offset = addr / PAGE_SIZE;
 
-		// FIXME : we might have a racd here
+		// FIXME : we might have a race here
 		if (cache_get_page(cache, addr) == PAGE_INVALID) {
 			xarray_set(&cache->pages, addr, (void *)page);
 			// prevent it from being freed before we populate it
@@ -232,12 +242,12 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 		}
 	}
 
-	int ret = 0;
 	if (batch_start != end) {
 		ret = cache->ops->read(cache, batch_start, end - batch_start);
 	}
 
 	if (ret < 0) {
+error:
 		// FIXME : only free pages that were busy
 		for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 			uintptr_t page = cache_get_page(cache, addr);
@@ -271,14 +281,12 @@ static void uncache_callback(cache_t *cache, void *arg) {
 	uintptr_t end   = PAGE_ALIGN_UP(req->offset + req->size);
 
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		// FIXME : we might have a race
-		uintptr_t page = cache_get_page(cache, addr);
+		uintptr_t page = cache_get_page_and_clear(cache, addr);
 		if (page == PAGE_INVALID) {
 			// the page is not cached
 			// there is nothing to uncache
 			continue;
 		}
-		xarray_clear(&cache->pages, addr);
 		cached_page_free(page);
 	}
 	cache_callback_t callback = req->callback;
