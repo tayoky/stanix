@@ -151,11 +151,15 @@ static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t en
 	}
 }
 
+static int wait_page_non_busy(uintptr_t page) {
+	return pmm_wait(page, PAGE_FLAG_BUSY, 0);
+}
+
 static int wait_pages_non_busy(cache_t *cache, uintptr_t start, uintptr_t end) {
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
-		int ret = pmm_wait(page, PAGE_FLAG_BUSY, 0);
+		int ret = wait_page_non_busy(page);
 		if (ret < 0) return ret;
 	}
 	return 0;
@@ -382,18 +386,19 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	off_t offset    = vpage - seg->start + seg->offset;
 
 
-	int interrupt_save;
-	rwlock_acquire_read(&cache->lock, &interrupt_save);
-
+	rcu_acquire_read(&cache->pages.rcu);
 	uintptr_t page = cache_get_page(cache, offset);
 	if (page == PAGE_INVALID) {
 		// the page is not cached
 		// we are cooked
 		kdebugf("uncached mapped page access\n");
 		send_sig_task(get_current_task(), SIGBUS);
-		rwlock_release_read(&cache->lock, &interrupt_save);
+		rcu_release_read(&cache->pages.rcu);
 		return 1;
 	}
+
+	// we need to write until the page is ready
+	while (wait_page_non_busy(page) == -EINTR);
 
 	// Copy on Write check
 	long mapping_prot = seg->prot;
@@ -403,7 +408,7 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 			page = pmm_dup_page(page);
 			if (page == PAGE_INVALID) {
 				send_sig_task(get_current_task(), SIGBUS);
-				rwlock_release_read(&cache->lock, &interrupt_save);
+				rcu_release_read(&cache->pages.rcu);
 				return 1;
 			}
 		} else {
@@ -415,7 +420,7 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	}
 
 	mmu_map_page(get_current_proc()->vmm_space.addrspace, page, vpage, mapping_prot);
-	rwlock_release_read(&cache->lock, &interrupt_save);
+	rcu_release_read(&cache->pages.rcu);
 	return 1;
 }
 
@@ -441,8 +446,7 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 		prot &= ~MMU_FLAG_WRITE;
 	}
 
-	int interrupt_save;
-	rwlock_acquire_read(&cache->lock, &interrupt_save);
+	rcu_acquire_read(&cache->pages.rcu);
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
@@ -450,7 +454,7 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 		mmu_map_page(get_current_proc()->vmm_space.addrspace, page, vaddr, prot);
 		vaddr += PAGE_SIZE;
 	}
-	rwlock_release_read(&cache->lock, &interrupt_save);
+	rcu_release_read(&cache->pages.rcu);
 	return 0;
 }
 
@@ -464,8 +468,7 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	uintptr_t start = PAGE_ALIGN_DOWN(offset);
 	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
 
-	int interrupt_save;
-	rwlock_acquire_read(&cache->lock, &interrupt_save);
+	rcu_acquire_read(&cache->pages.rcu);
 	char *buf = buffer;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t phys = cache_get_page(cache, addr);
@@ -480,12 +483,12 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 			if (page_end == 0) page_end = PAGE_SIZE;
 		}
 		if (safe_copy_to(buf, mmu_phys2virt(phys + page_start), page_end - page_start) < 0) {
-			rwlock_release_read(&cache->lock, &interrupt_save);
+			rcu_release_read(&cache->pages.rcu);
 			return -EFAULT;
 		}
 		buf += page_end - page_start;
 	}
-	rwlock_release_read(&cache->lock, &interrupt_save);
+	rcu_release_read(&cache->pages.rcu);
 	return size;
 }
 
@@ -498,13 +501,13 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 
 	uintptr_t start = PAGE_ALIGN_DOWN(offset);
 	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
-	int interrupt_save;
-	rwlock_acquire_read(&cache->lock, &interrupt_save);
+
+	rcu_acquire_read(&cache->pages.rcu);
 	const char *buf = buffer;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) {
-			rwlock_release_read(&cache->lock, &interrupt_save);
+			rcu_release_read(&cache->pages.rcu);
 			return -EIO;
 		}
 		uintptr_t page_start = 0;
@@ -517,7 +520,7 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 			if (page_end == 0) page_end = PAGE_SIZE;
 		}
 		if (safe_copy_from(mmu_phys2virt(page + page_start), buf, page_end - page_start) < 0) {
-			rwlock_release_read(&cache->lock, &interrupt_save);
+			rcu_release_read(&cache->pages.rcu);
 			return -EFAULT;
 		}
 
@@ -525,7 +528,7 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 
 		buf += page_end - page_start;
 	}
-	rwlock_release_read(&cache->lock, &interrupt_save);
+	rcu_release_read(&cache->pages.rcu);
 	return size;
 }
 
