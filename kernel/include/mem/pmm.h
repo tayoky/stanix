@@ -14,10 +14,18 @@ typedef struct pmm_entry {
 } pmm_entry_t;
 
 typedef struct page {
-	atomic_size_t ref_count;
-	atomic_long flags;
+	atomic_uint ref_count;
+	atomic_uint flags;
 	void *private;
-	size_t size;
+	union {
+		struct {
+			// TODO : support 32 bits arch
+			uint64_t lru_prev : 42;
+			uint64_t offset   : 42;
+			uint64_t lru_next : 42;
+			uint64_t reserved : 2;
+		} __attribute__((packed)) cached;
+	};
 } page_t;
 
 #define PAGE_FLAG_DIRTY 0x1
