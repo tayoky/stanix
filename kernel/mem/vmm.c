@@ -31,7 +31,7 @@ void init_vmm(void) {
 }
 
 static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
-	uintptr_t phys  = mmu_virt2phys((void *)vpage);
+	uintptr_t phys = mmu_virt2phys((void *)vpage);
 	if (atomic_load(&pmm_page_info(phys)->ref_count) <= 1) {
 		// other processes already copied
 		mmu_set_flags(get_current_proc()->vmm_space.addrspace, vpage, seg->prot);
@@ -144,14 +144,14 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 	return 0;
 }
 
-static int vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, vmm_seg_t **seg) {
+static vmm_seg_t *vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags) {
 	vmm_seg_t *prev = NULL;
 	if (address) {
 		uintptr_t end = address + size;
 
 		// first remove any overlaping mapping
 		int ret = vmm_space_raw_unmap_range(space, address, end);
-		if (ret < 0) return ret;
+		if (ret < 0) return ERR2PTR(ret);
 
 		// then find where we need to insert
 		foreach (node, &space->segs) {
@@ -188,22 +188,22 @@ static int vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address, size_
 	new_seg->end       = address + size;
 	new_seg->prot      = prot;
 	new_seg->flags     = flags;
-	*seg               = new_seg;
+	spinlock_acquire(&new_seg->lock);
 
 	list_add_after(&space->segs, prev ? &prev->node : NULL, &new_seg->node);
 
-	return 0;
+	return new_seg;
 }
 
-static int vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset, vmm_seg_t **seg) {
+static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset) {
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
 
-	vmm_seg_t *new_seg;
-	int ret = vmm_space_raw_create_seg(space, address, size, prot, flags, &new_seg);
-	if (ret < 0) return ret;
+	vmm_seg_t *new_seg = vmm_space_raw_create_seg(space, address, size, prot, flags);
+	if (IS_ERR(new_seg)) return new_seg;
 
 	// kdebugf("map %p size : %lx\n", new_seg->start, size);
+	int ret = 0;
 	if (flags & VMM_FLAG_ANONYMOUS) {
 		fd = NULL;
 		for (uintptr_t addr = new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
@@ -226,35 +226,37 @@ static int vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_t size,
 
 	if (ret < 0) {
 		list_remove(&space->segs, &new_seg->node);
+		spinlock_release(&new_seg->lock);
 		slab_free(new_seg);
-	} else {
-		if (seg) *seg = new_seg;
-		if (fd) {
-			new_seg->fd     = vfs_dup(fd);
-			new_seg->offset = offset;
-			space->file_size += VMM_SIZE(new_seg);
-		} else {
-			space->anon_size += VMM_SIZE(new_seg);
-		}
-		if (flags & VMM_FLAG_PRIVATE) {
-			space->private_size += VMM_SIZE(new_seg);
-		} else {
-			space->shared_size += VMM_SIZE(new_seg);
-		}
-		space->total_size += VMM_SIZE(new_seg);
-		if (space->total_size > space->peak_size) {
-			space->peak_size = space->total_size;
-		}
+		return ERR2PTR(ret);
 	}
-	return ret;
+
+	if (fd) {
+		new_seg->fd     = vfs_dup(fd);
+		new_seg->offset = offset;
+		space->file_size += VMM_SIZE(new_seg);
+	} else {
+		space->anon_size += VMM_SIZE(new_seg);
+	}
+	if (flags & VMM_FLAG_PRIVATE) {
+		space->private_size += VMM_SIZE(new_seg);
+	} else {
+		space->shared_size += VMM_SIZE(new_seg);
+	}
+	space->total_size += VMM_SIZE(new_seg);
+	if (space->total_size > space->peak_size) {
+		space->peak_size = space->total_size;
+	}
+	spinlock_release(&new_seg->lock);
+	return new_seg;
 }
 
-int vmm_space_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, struct vfs_fd *fd, off_t offset, vmm_seg_t **seg) {
+vmm_seg_t *vmm_space_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, struct vfs_fd *fd, off_t offset) {
 	int interrupt_save;
 	rwlock_acquire_write(&space->lock, &interrupt_save);
-	int ret = vmm_space_raw_map(space, address, size, prot, flags, fd, offset, seg);
+	vmm_seg_t *new_seg = vmm_space_raw_map(space, address, size, prot, flags, fd, offset);
 	rwlock_release_write(&space->lock, &interrupt_save);
-	return ret;
+	return new_seg;
 }
 
 int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {

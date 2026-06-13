@@ -203,8 +203,8 @@ error:
 			}
 
 			if (filesz > 0) {
-				vmm_seg_t *seg;
-				if (vmm_map(vaddr, filesz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE, file, offset, &seg) < 0) {
+				vmm_seg_t *seg = vmm_map(vaddr, filesz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE, file, offset);
+				if (IS_ERR(seg)) {
 					goto error;
 				}
 				// zero the last page
@@ -217,13 +217,15 @@ error:
 			if (memsz > filesz) {
 				// we need to fill with anonymous mapping
 				vaddr += filesz;
-				if (vmm_map(vaddr, memsz - filesz, prot, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, NULL) < 0) {
+				if (IS_ERR(vmm_map(vaddr, memsz - filesz, prot, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0))) {
 					goto error;
 				}
 			}
 		} else {
-			vmm_seg_t *seg;
-			vmm_map(prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, &seg);
+			vmm_seg_t *seg = vmm_map(prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0);
+			if (IS_ERR(seg)) {
+				goto error;
+			}
 
 			// file size must be <= to virtual size
 			if (prog_header[i].p_filesz > prog_header[i].p_memsz) {
@@ -243,7 +245,7 @@ error:
 
 	// map stack
 	long stack_flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_USER | MMU_FLAG_PRESENT;
-	vmm_map(USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS | VMM_FLAG_PRIVATE, NULL, 0, NULL);
+	vmm_map(USER_STACK_BOTTOM, USER_STACK_SIZE, stack_flags, VMM_FLAG_ANONYMOUS | VMM_FLAG_PRIVATE, NULL, 0);
 
 	// keep a one page guard between the executable and the heap
 	get_current_proc()->heap_start += PAGE_SIZE;

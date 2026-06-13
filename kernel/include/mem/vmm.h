@@ -83,13 +83,13 @@ vmm_space_t *vmm_get_current_space(void);
 /**
  * @brief mmap memory and create a segment for it into a specfied address space
  */
-int vmm_space_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, struct vfs_fd *fd, off_t offset, vmm_seg_t **seg);
+vmm_seg_t *vmm_space_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, struct vfs_fd *fd, off_t offset);
 
 /**
  * @brief mmap memory and create a segment for it
  */
-static inline int vmm_map(uintptr_t address, size_t size, long prot, int flags, struct vfs_fd *fd, off_t offset, vmm_seg_t **seg) {
-	return vmm_space_map(vmm_get_current_space(), address, size, prot, flags, fd, offset, seg);
+static inline vmm_seg_t *vmm_map(uintptr_t address, size_t size, long prot, int flags, struct vfs_fd *fd, off_t offset) {
+	return vmm_space_map(vmm_get_current_space(), address, size, prot, flags, fd, offset);
 }
 
 /**

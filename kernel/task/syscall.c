@@ -185,8 +185,8 @@ uint64_t sys_sbrk(intptr_t incr) {
 		// make heap smaller
 		vmm_unmap_range(PAGE_ALIGN_UP(proc->heap_end + incr), proc->heap_end);
 	} else {
-		//make heap bigger
-		vmm_map(proc->heap_end, PAGE_SIZE * incr_pages, heap_flags, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0, NULL);
+		// make heap bigger
+		vmm_map(proc->heap_end, PAGE_SIZE * incr_pages, heap_flags, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0);
 	}
 	proc->heap_end += incr_pages * PAGE_SIZE;
 	return proc->heap_end;
@@ -854,10 +854,9 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 		vfs_fd = file.fd;
 	}
 
-	vmm_seg_t *seg;
-	int ret = vmm_map(addr, length, mmu_flags, vmm_flags, vfs_fd, offset, &seg);
-	if (ret < 0) {
-		return (void *)(uintptr_t)ret;
+	vmm_seg_t *seg = vmm_map(addr, length, mmu_flags, vmm_flags, vfs_fd, offset);
+	if (IS_ERR(seg)) {
+		return (void *)(uintptr_t)PTR2ERR(seg);
 	} else {
 		return (void *)seg->start;
 	}
