@@ -480,7 +480,7 @@ int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
 	if (!node || !node->ops || !node->ops->setattr) {
 		return -EINVAL; // should be another error ... but what ???
 	}
-	if (mask & VNODE_ATTR_MODE) node->mode = st->st_mode;
+	if (mask & VNODE_ATTR_MODE) node->mode = st->st_mode | (node->mode & S_IFMT);
 	if (mask & VNODE_ATTR_UID) node->uid = st->st_uid;
 	if (mask & VNODE_ATTR_GID) node->gid = st->st_gid;
 	if (mask & VNODE_ATTR_ATIME) node->atime = st->st_atime;
