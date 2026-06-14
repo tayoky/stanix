@@ -333,7 +333,7 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 
 	// flush shared mappings so we don't lost changes
 	if ((seg->flags & VMM_FLAG_SHARED) && seg->ops && seg->ops->msync) {
-		seg->ops->msync(seg, seg->start, seg->end, 0);
+		seg->ops->msync(seg, seg->start, seg->end, VMM_FLAG_ASYNC);
 	}
 
 	if (seg->ops && seg->ops->close) {
@@ -341,7 +341,7 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	}
 	vfs_close(seg->fd);
 
-	// IO cannot be allocated/freed using the PMM
+	// IO cannot be allocated/freed using the pmm
 	// so do not free them
 	// it's the driver job to do it
 	if (!(seg->flags & VMM_FLAG_IO)) {

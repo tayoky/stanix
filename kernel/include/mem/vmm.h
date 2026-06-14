@@ -39,6 +39,8 @@ typedef struct vmm_seg {
 #define VMM_FLAG_SHARED    0x04
 #define VMM_FLAG_IO        0x08
 #define VMM_SIZE(seg) (seg->end - seg->start)
+#define VMM_FLAG_SYNC  0x1
+#define VMM_FLAG_ASYNC 0x2
 
 typedef struct vmm_space {
 	addrspace_t addrspace;

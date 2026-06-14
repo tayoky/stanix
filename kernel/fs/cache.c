@@ -404,7 +404,7 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 		}
 	}
 
-	if (flags == MS_SYNC) {
+	if (flags & VMM_FLAG_SYNC) {
 		return cache_flush(seg->private_data, seg->offset + start - seg->start, end - start);
 	} else {
 		return 0;
