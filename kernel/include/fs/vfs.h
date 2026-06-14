@@ -1,20 +1,21 @@
 #ifndef KERNEL_VFS_H
 #define KERNEL_VFS_H
 
-#include <kernel/spinlock.h>
-#include <kernel/xarray.h>
 #include <kernel/list.h>
 #include <kernel/refcount.h>
-#include <sys/types.h>
-#include <sys/time.h>
+#include <kernel/spinlock.h>
+#include <kernel/xarray.h>
+#include <kernel/time.h>
 #include <sys/stat.h>
-#include <stdint.h>
-#include <stddef.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <dirent.h>
-#include <limits.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <poll.h>
+#include <stddef.h>
+#include <stdint.h>
 
 // just in case we use a weird limits.h
 #ifndef PATH_MAX
@@ -44,6 +45,7 @@ struct vfs_node;
 struct vmm_seg;
 struct vfs_inode_ops;
 struct vfs_fd_ops;
+struct vfs_superblock_ops;
 struct superblock;
 struct poll_event;
 
@@ -115,7 +117,7 @@ typedef struct vfs_inode_ops {
 	int (*rename)(vfs_node_t *old_dir, vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry, unsigned int flags);
 	int (*link)(vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry);
 	int (*symlink)(vfs_node_t *vnode, vfs_dentry_t *, const char *target);
-	ssize_t(*readlink)(vfs_node_t *vnode, char *, size_t);
+	ssize_t (*readlink)(vfs_node_t *vnode, char *, size_t);
 	int (*setattr)(vfs_node_t *vnode, struct stat *, int mask);
 	int (*getattr)(vfs_node_t *vnode, struct stat *);
 	int (*truncate)(vfs_node_t *vnode, size_t);
@@ -128,8 +130,8 @@ typedef struct vfs_inode_ops {
  */
 typedef struct vfs_fd_ops {
 	int (*open)(vfs_fd_t *);
-	ssize_t(*read)(vfs_fd_t *, void *buf, off_t off, size_t count);
-	ssize_t(*write)(vfs_fd_t *, const void *buf, off_t off, size_t count);
+	ssize_t (*read)(vfs_fd_t *, void *buf, off_t off, size_t count);
+	ssize_t (*write)(vfs_fd_t *, const void *buf, off_t off, size_t count);
 	int (*ioctl)(vfs_fd_t *, long, void *);
 	int (*mmap)(vfs_fd_t *, off_t, struct vmm_seg *);
 	void (*close)(vfs_fd_t *);
@@ -139,29 +141,33 @@ typedef struct vfs_fd_ops {
 	int (*poll_get)(vfs_fd_t *, struct poll_event *);
 } vfs_fd_ops_t;
 
-typedef struct vfs_superblock_ops {
-	void (*destroy)(struct vfs_superblock *superblock);
-} vfs_superblock_ops_t;
-
 typedef struct vfs_superblock {
 	list_node_t node;
 	xarray_t inodes;
 	vfs_node_t *root;
-	vfs_superblock_ops_t *ops;
+	struct vfs_superblock_ops *ops;
 	vfs_fd_t *device;
 	long flags;
 	char name[PATH_MAX];
 } vfs_superblock_t;
 
+typedef struct vfs_superblock_ops {
+	void (*destroy)(vfs_superblock_t *superblock);
+	void (*write_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
+	void (*read_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
+} vfs_superblock_ops_t;
+
 #define VFS_SUPERBLOCK_NO_DCACHE 0x01
 
-typedef struct vfs_filesystem_struct {
+typedef struct vfs_filesystem {
 	list_node_t node;
 	char name[16];
 	int (*mount)(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **mount_point);
 } vfs_filesystem_t;
 
 void init_vfs(void);
+void init_vfs_dentry(void);
+void init_vfs_fd(void);
 
 // inode operations
 
@@ -210,7 +216,7 @@ static inline off_t vfs_seek(vfs_fd_t *fd, off_t offset, int whence) {
 		return -EISDIR;
 	} else if (fd->ops && fd->ops->seek) {
 		return fd->ops->seek(fd, offset, whence);
-	} else if(fd->type == VFS_FILE || fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+	} else if (fd->type == VFS_FILE || fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
 		return vfs_generic_seek(fd, offset, whence);
 	} else {
 		return -ESPIPE;
@@ -398,7 +404,7 @@ static inline vfs_fd_t *vfs_dup(vfs_fd_t *fd) {
 	return fd;
 }
 
-vfs_fd_t *vfs_alloc_fd(void);
+vfs_fd_t *vfs_fd_alloc(void);
 
 /**
  * @brief get a path from a dentry
@@ -460,6 +466,12 @@ static inline int vfs_utimes(vfs_node_t *node, const struct timeval times[2]) {
 	return vfs_setattr(node, &st, VNODE_ATTR_ATIME | VNODE_ATTR_MTIME);
 }
 
+static inline int vfs_update_time(vfs_node_t *node, int mask) {
+	struct stat st;
+	st.st_atime = st.st_mtime = st.st_ctime = gettime_sec(CLOCK_REALTIME);
+	return vfs_setattr(node, &st, mask);
+}
+
 /**
  * @brief device specific operation
  * @param node the context of the file/dev
@@ -500,7 +512,15 @@ static inline vfs_dentry_t *vfs_get_dentry(const char *path, long flags, ...) {
 
 void vfs_dentry_release(vfs_dentry_t *dentry);
 
-static vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentry_t *dentry) {
+vfs_dentry_t *vfs_dentry_allocate(void);
+vfs_dentry_t *vfs_get_root(void);
+void vfs_set_root(vfs_dentry_t *dentry);
+void dentry_add_lru(vfs_dentry_t *dentry);
+void vfs_dentry_remove_lru(vfs_dentry_t *dentry);
+void vfs_dentry_add(vfs_dentry_t *parent, vfs_dentry_t *child);
+void vfs_dentry_remove(vfs_dentry_t *dentry);
+
+static inline vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentry_t *dentry) {
 	vfs_node_t *node = dentry->inode;
 	if (node) {
 		return vfs_node_ref(node);
@@ -516,11 +536,11 @@ static vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentr
 	return NULL;
 }
 
-static int vfs_dentry_is_negative(vfs_dentry_t *dentry) {
+static inline int vfs_dentry_is_negative(vfs_dentry_t *dentry) {
 	return dentry->inode == NULL;
 }
 
-//flags
-#define O_PARENT       0x4000 //open the parent
+// flags
+#define O_PARENT 0x4000 // open the parent
 
 #endif

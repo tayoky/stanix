@@ -102,12 +102,12 @@ int pipe_create(vfs_fd_t **read, vfs_fd_t **write) {
 	pipe->isbroken = 0;
 	ringbuffer_init(&pipe->ring, PIPE_SIZE);
 
-	*read = vfs_alloc_fd();
+	*read = vfs_fd_alloc();
 	if (!*read) {
 		kfree(pipe);
 		return -ENOMEM;
 	}
-	*write = vfs_alloc_fd();
+	*write = vfs_fd_alloc();
 	if (!*write) {
 		vfs_close(*read);
 		kfree(pipe);
