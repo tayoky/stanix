@@ -58,14 +58,14 @@ int sys_open(const char *path, int flags, mode_t mode) {
 
 	// is a directory check
 	if (flags & O_DIRECTORY) {
-		if (!(vfs_fd->inode->flags & VFS_DIR)) {
+		if (!S_ISDIR(vfs_fd->inode->mode)) {
 			vfs_close(vfs_fd);
 			return -ENOTDIR;
 		}
 	}
 
 	// simple check for writing on directory
-	if (((flags & O_WRONLY) || (flags & O_RDWR) || (flags & O_TRUNC) || (flags & O_CREAT)) && (vfs_fd->inode->flags & VFS_DIR)) {
+	if (((flags & O_WRONLY) || (flags & O_RDWR) || (flags & O_TRUNC) || (flags & O_CREAT)) && S_ISDIR(vfs_fd->inode->mode)) {
 		vfs_close(vfs_fd);
 		return -EISDIR;
 	}
@@ -412,7 +412,7 @@ int sys_chdir(const char *path) {
 	vfs_dentry_t *entry = vfs_get_dentry(path, 0);
 	if (IS_ERR(entry)) return PTR2ERR(entry);
 
-	if (entry->inode->flags != VFS_DIR) {
+	if (!S_ISDIR(entry->inode->mode)) {
 		return -ENOTDIR;
 	}
 

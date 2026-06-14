@@ -25,7 +25,7 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 		return PTR2ERR(parent);
 	}
 
-	if (parent->inode->flags != VFS_DIR) {
+	if (!S_ISDIR(parent->inode->mode)) {
 		vfs_dentry_release(parent);
 		return -ENOTDIR;
 	}
@@ -62,7 +62,7 @@ void vfs_init_created_node(vfs_node_t *node) {
 }
 
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
-	if (node->flags != VFS_LINK) {
+	if (!S_ISLNK(node->mode)) {
 		return -ENOLINK;
 	}
 	if (node->ops->readlink) {
@@ -84,7 +84,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 		return ERR2PTR(-EINVAL);
 	}
 
-	if (entry->inode->flags != VFS_DIR) {
+	if (!S_ISDIR(entry->inode->mode)) {
 		return ERR2PTR(-ENOTDIR);
 	}
 
@@ -333,7 +333,7 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 		goto error;
 	}
 
-	if (dentry->inode->flags == VFS_DIR) {
+	if (S_ISDIR(dentry->inode->mode)) {
 		ret = -EISDIR;
 		goto error;
 	}
@@ -393,7 +393,7 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 		goto error;
 	}
 
-	if (dentry->inode->flags != VFS_DIR) {
+	if (!S_ISDIR(dentry->inode->mode)) {
 		ret = -ENOTDIR;
 		goto error;
 	}
@@ -442,7 +442,7 @@ int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
 	if (!node) {
 		return -EINVAL;
 	}
-	if (!(node->flags & VFS_DIR)) {
+	if (!S_ISDIR(node->mode)) {
 		return -ENOTDIR;
 	}
 	dirent->d_type = DT_UNKNOWN;
@@ -472,20 +472,6 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 		if (ret < 0) return ret;
 	}
 
-	// file type to mode
-	if (node->flags & VFS_FILE) {
-		st->st_mode |= S_IFREG;
-	} else if (node->flags & VFS_DIR) {
-		st->st_mode |= S_IFDIR;
-	} else if (node->flags & VFS_SOCK) {
-		st->st_mode |= S_IFSOCK;
-	} else if (node->flags & VFS_BLOCK) {
-		st->st_mode |= S_IFBLK;
-	} else if (node->flags & VFS_CHAR) {
-		st->st_mode |= S_IFCHR;
-	} else if (node->flags & VFS_LINK) {
-		st->st_mode |= S_IFLNK;
-	}
 	return 0;
 }
 

@@ -1,4 +1,5 @@
 #include <kernel/bus.h>
+#include <kernel/cmdline.h>
 #include <kernel/device.h>
 #include <kernel/kheap.h>
 #include <kernel/pmm.h>
@@ -6,7 +7,6 @@
 #include <kernel/slab.h>
 #include <kernel/string.h>
 #include <kernel/sysfs.h>
-#include <kernel/cmdline.h>
 #include <kernel/vfs.h>
 #include <errno.h>
 
@@ -35,27 +35,34 @@ typedef struct static_entry {
 #define ENTRY(_type, _inode, _name) {.type = _type, .inode = _inode, .name = _name}
 
 static static_entry_t root_entries[] = {
-	ENTRY(VFS_DIR, INODE_BLOCK_DIR, "block"),
-	ENTRY(VFS_DIR, INODE_CHAR_DIR, "char"),
-	ENTRY(VFS_DIR, INODE_BUS_DIR, "bus"),
-	ENTRY(VFS_DIR, INODE_KERNEL_DIR, "kernel"),
-	ENTRY(VFS_FILE, INODE_MEM, "mem"),
+	ENTRY(S_IFDIR, INODE_BLOCK_DIR, "block"),
+	ENTRY(S_IFDIR, INODE_CHAR_DIR, "char"),
+	ENTRY(S_IFDIR, INODE_BUS_DIR, "bus"),
+	ENTRY(S_IFDIR, INODE_KERNEL_DIR, "kernel"),
+	ENTRY(S_IFREG, INODE_MEM, "mem"),
 };
 
 static static_entry_t kernel_entries[] = {
-	ENTRY(VFS_DIR, INODE_SLAB_DIR, "slab"),
-	ENTRY(VFS_FILE, INODE_KCMDLINE, "cmdline"),
+	ENTRY(S_IFDIR, INODE_SLAB_DIR, "slab"),
+	ENTRY(S_IFREG, INODE_KCMDLINE, "cmdline"),
 };
 
-static sysfs_inode_t *sysfs_new_inode(int type, void *ptr, int flags) {
+static sysfs_inode_t *sysfs_new_inode(int type, void *ptr, mode_t mode) {
 	sysfs_inode_t *inode = slab_alloc(&sysfs_inodes_cache);
 	if (!inode) return NULL;
 	memset(inode, 0, sizeof(sysfs_inode_t));
-	inode->node.ref_count = 1;
-	inode->node.ops       = &sysfs_inode_ops;
-	inode->node.flags     = flags;
-	inode->type           = type;
-	inode->ptr            = ptr;
+	inode->vnode.ref_count = 1;
+	inode->vnode.ops       = &sysfs_inode_ops;
+	inode->vnode.mode      = mode;
+	inode->type            = type;
+	inode->ptr             = ptr;
+
+	// allow execute perm only on directories
+	if (S_ISDIR(inode->vnode.mode)) {
+		inode->vnode.mode |= 0555;
+	} else {
+		inode->vnode.mode |= 0444;
+	}
 	return inode;
 }
 
@@ -67,10 +74,10 @@ static int sysfs_static_entries_readdir(static_entry_t *entries, size_t entries_
 	strcpy(dirent->d_name, entries[index].name);
 	dirent->d_ino = entries[index].inode;
 	switch (entries[index].type) {
-	case VFS_DIR:
+	case S_IFDIR:
 		dirent->d_type = DT_DIR;
 		break;
-	case VFS_FILE:
+	case S_IFREG:
 		dirent->d_type = DT_REG;
 		break;
 	default:
@@ -91,7 +98,7 @@ static sysfs_inode_t *sysfs_static_entries_lookup(static_entry_t *entries, size_
 }
 
 static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
-	sysfs_inode_t *inode       = container_of(vnode, sysfs_inode_t, node);
+	sysfs_inode_t *inode       = container_of(vnode, sysfs_inode_t, vnode);
 	sysfs_inode_t *child_inode = NULL;
 	switch (inode->type) {
 	case INODE_ROOT:
@@ -103,7 +110,7 @@ static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 			bus_t *bus = value;
 			if (bus->device.type != DEVICE_BUS) continue;
 			if (!strcmp(bus->device.name, dentry->name)) {
-				child_inode = sysfs_new_inode(INODE_BUS, bus, VFS_DIR);
+				child_inode = sysfs_new_inode(INODE_BUS, bus, S_IFDIR);
 				break;
 			}
 		}
@@ -113,7 +120,7 @@ static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		foreach (node, &bus->addresses) {
 			bus_addr_t *addr = container_of(node, bus_addr_t, node);
 			if (!strcmp(addr->name, dentry->name)) {
-				child_inode = sysfs_new_inode(INODE_BUS_ADDR, addr, VFS_FILE);
+				child_inode = sysfs_new_inode(INODE_BUS_ADDR, addr, S_IFREG);
 				break;
 			}
 		}
@@ -125,22 +132,22 @@ static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		foreach (node, slab_get_list()) {
 			slab_cache_t *slab = container_of(node, slab_cache_t, node);
 			if (!strcmp(slab->name, dentry->name)) {
-				child_inode = sysfs_new_inode(INODE_SLAB, slab, VFS_FILE);
+				child_inode = sysfs_new_inode(INODE_SLAB, slab, S_IFREG);
 				break;
 			}
 		}
 		break;
 	}
 	if (child_inode) {
-		child_inode->node.superblock = vnode->superblock;
-		dentry->inode                = &child_inode->node;
+		child_inode->vnode.superblock = vnode->superblock;
+		dentry->inode                 = &child_inode->vnode;
 		return 0;
 	}
 	return -ENOENT;
 }
 
 static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
-	sysfs_inode_t *inode = container_of(vnode, sysfs_inode_t, node);
+	sysfs_inode_t *inode = container_of(vnode, sysfs_inode_t, vnode);
 	if (index < 2) {
 		if (index == 0) {
 			strcpy(dirent->d_name, ".");
@@ -206,24 +213,13 @@ static int sysfs_open(vfs_fd_t *fd) {
 	return 0;
 }
 
-static int sysfs_getattr(vfs_node_t *vnode, struct stat *stat) {
-	// allow execute perm only on directories
-	if (vnode->flags == VFS_DIR) {
-		stat->st_mode = 0555;
-	} else {
-		stat->st_mode = 0444;
-	}
-
-	return 0;
-}
-
 static void sysfs_cleanup(vfs_node_t *vnode) {
-	sysfs_inode_t *inode = container_of(vnode, sysfs_inode_t, node);
+	sysfs_inode_t *inode = container_of(vnode, sysfs_inode_t, vnode);
 	slab_free(inode);
 }
 
 static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
-	sysfs_inode_t *inode = container_of(fd->inode, sysfs_inode_t, node);
+	sysfs_inode_t *inode = container_of(fd->inode, sysfs_inode_t, vnode);
 	char str[4096];
 	switch (inode->type) {
 	case INODE_BUS_ADDR:;
@@ -265,7 +261,6 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 static vfs_inode_ops_t sysfs_inode_ops = {
 	.lookup  = sysfs_lookup,
 	.readdir = sysfs_readdir,
-	.getattr = sysfs_getattr,
 	.cleanup = sysfs_cleanup,
 	.open    = sysfs_open,
 };
@@ -282,9 +277,9 @@ static int sysfs_mount(const char *source, const char *target, unsigned long fla
 
 	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
 	memset(superblock, 0, sizeof(vfs_superblock_t));
-	sysfs_inode_t *root  = sysfs_new_inode(INODE_ROOT, NULL, VFS_DIR);
-	root->node.ref_count = 1;
-	superblock->root     = &root->node;
+	sysfs_inode_t *root   = sysfs_new_inode(INODE_ROOT, NULL, S_IFDIR);
+	root->vnode.ref_count = 1;
+	superblock->root      = &root->vnode;
 
 	*out_superblock = superblock;
 	return 0;

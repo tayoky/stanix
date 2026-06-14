@@ -130,7 +130,7 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	(*master_fd)->private   = pty;
 	(*master_fd)->ops       = &pty_master_ops;
 	(*master_fd)->ref_count = 1;
-	(*master_fd)->type      = VFS_FILE;
+	(*master_fd)->type      = S_IFREG;
 	(*master_fd)->flags     = O_RDWR;
 
 	// register and save the slave

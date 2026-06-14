@@ -21,7 +21,6 @@ typedef struct tmpfs_inode{
 	void *buffer;
 	size_t buffer_size;
 	list_t entries;
-	long type;
 	dev_t dev;
 	size_t link_count;
 	void *data;
@@ -32,12 +31,5 @@ typedef struct tmpfs_dirent {
 	char name[PATH_MAX];
 	tmpfs_inode_t *inode;
 } tmpfs_dirent_t;
-
-#define TMPFS_TYPE_FILE  0x01
-#define TMPFS_TYPE_DIR   0x02
-#define TMPFS_TYPE_LINK  0x04
-#define TMPFS_TYPE_SOCK  0x08
-#define TMPFS_TYPE_CHAR  0x10
-#define TMPFS_TYPE_BLOCK 0x20
 
 #endif

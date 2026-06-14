@@ -93,9 +93,9 @@ static vfs_node_t *fat_entry2node(fat_entry_t *entry, fat_superblock_t *fat_supe
 	node->superblock    = &fat_superblock->superblock;
 	node->ref_count = 1;
 	if (entry->attribute & ATTR_DIRECTORY) {
-		node->flags = VFS_DIR;
+		node->mode = S_IFDIR | 0777;
 	} else {
-		node->flags = VFS_FILE;
+		node->mode = S_IFREG | 0777;
 	}
 	return node;
 }
@@ -487,7 +487,7 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 		local_root = kmalloc(sizeof(vfs_node_t));
 		memset(local_root, 0, sizeof(vfs_node_t));
 		local_root->private_inode = root;
-		local_root->flags = VFS_DIR;
+		local_root->mode = S_IFDIR | 0777;
 		local_root->ops = &fat_inode_ops;
 		local_root->superblock = &fat_superblock->superblock;
 	}

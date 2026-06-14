@@ -1,6 +1,7 @@
 #include <kernel/cache.h>
 #include <kernel/kernel.h>
 #include <kernel/kheap.h>
+#include <kernel/assert.h>
 #include <kernel/list.h>
 #include <kernel/print.h>
 #include <kernel/slab.h>
@@ -30,39 +31,24 @@ static cache_ops_t tmpfs_cache_ops = {
 	.read = tmpfs_cache_read,
 };
 
-static tmpfs_inode_t *new_inode(vfs_superblock_t *superblock, long type) {
+static tmpfs_inode_t *new_inode(vfs_superblock_t *superblock, mode_t mode) {
 	tmpfs_inode_t *inode = slab_alloc(&tmpfs_inode_slab);
 	memset(inode, 0, sizeof(tmpfs_inode_t));
 	vfs_init_created_node(&inode->vnode);
 	inode->vnode.superblock = superblock;
 	inode->vnode.ops        = &tmpfs_inode_ops;
-	switch (type) {
-	case TMPFS_TYPE_FILE:
-		inode->vnode.flags |= VFS_FILE;
+	inode->vnode.mode       = mode;
+	switch (mode & S_IFMT) {
+	case S_IFREG:
 		init_cache(&inode->cache);
 		inode->cache.ops = &tmpfs_cache_ops;
 		break;
-	case TMPFS_TYPE_DIR:
-		inode->vnode.flags |= VFS_DIR;
+	case S_IFDIR:
 		list_init(&inode->entries);
 		break;
-	case TMPFS_TYPE_SOCK:
-		inode->vnode.flags |= VFS_SOCK;
-		break;
-	case TMPFS_TYPE_CHAR:
-		inode->vnode.flags |= VFS_CHAR;
-		break;
-	case TMPFS_TYPE_BLOCK:
-		inode->vnode.flags |= VFS_BLOCK;
-		break;
-	case TMPFS_TYPE_LINK:
-		inode->vnode.flags |= VFS_LINK;
-		break;
 	}
-	inode->type       = type;
-	inode->parent     = NULL;
-	inode->link_count = 0;
-	inode->vnode.mode = 0555;
+	inode->parent       = NULL;
+	inode->link_count   = 0;
 	inode->vnode.number = INODE_NUMBER(inode);
 
 	return inode;
@@ -124,7 +110,7 @@ vfs_superblock_t *new_tmpfs(void) {
 	vfs_superblock_t *superblock = kmalloc(sizeof(vfs_superblock_t));
 	memset(superblock, 0, sizeof(vfs_superblock_t));
 
-	tmpfs_inode_t *root_inode   = new_inode(superblock, TMPFS_TYPE_DIR);
+	tmpfs_inode_t *root_inode   = new_inode(superblock, S_IFDIR | 0555);
 	root_inode->link_count      = 0; // so it get freed when the tmpfs is unmounted
 	superblock->root            = &root_inode->vnode;
 	superblock->root->ref_count = 1;
@@ -134,6 +120,7 @@ vfs_superblock_t *new_tmpfs(void) {
 
 static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
 	if (!strcmp(dentry->name, ".")) {
 		dentry->inode        = vfs_node_ref(&inode->vnode);
 		dentry->inode_number = INODE_NUMBER(inode);
@@ -163,16 +150,19 @@ static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 static ssize_t tmpfs_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)fd->private;
+	kassert(S_ISREG(inode->vnode.mode));
 	return cache_read(&inode->cache, buffer, offset, count);
 }
 
 static int tmpfs_truncate(vfs_node_t *vnode, size_t size) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISREG(inode->vnode.mode));
 	return cache_truncate(&inode->cache, size);
 }
 
 static ssize_t tmpfs_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)fd->private;
+	kassert(S_ISREG(inode->vnode.mode));
 
 	// if the write is out of bound make the file bigger
 	if (offset + count > inode->cache.size) {
@@ -183,7 +173,7 @@ static ssize_t tmpfs_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_
 
 static int tmpfs_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)fd->private;
-
+	kassert(S_ISREG(inode->vnode.mode));
 	return cache_mmap(&inode->cache, offset, seg);
 }
 
@@ -193,6 +183,7 @@ static int tmpfs_exist(tmpfs_inode_t *inode, vfs_dentry_t *dentry) {
 
 static ssize_t tmpfs_readlink(vfs_node_t *vnode, char *buf, size_t bufsize) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISLNK(inode->vnode.mode));
 	if (bufsize > inode->buffer_size) bufsize = inode->buffer_size;
 
 	memcpy(buf, inode->buffer, bufsize);
@@ -201,6 +192,7 @@ static ssize_t tmpfs_readlink(vfs_node_t *vnode, char *buf, size_t bufsize) {
 
 static int tmpfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
 
 	if (index == 0) {
 		strcpy(dirent->d_name, ".");
@@ -222,27 +214,28 @@ static int tmpfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 			tmpfs_dirent_t *entry = container_of(node, tmpfs_dirent_t, node);
 			strcpy(dirent->d_name, entry->name);
 			dirent->d_ino = INODE_NUMBER(entry->inode);
-			switch (entry->inode->type) {
-			case TMPFS_TYPE_DIR:
-				dirent->d_type = DT_DIR;
-				break;
-			case TMPFS_TYPE_FILE:
+			switch (entry->inode->vnode.mode & S_IFMT) {
+			case S_IFREG:
 				dirent->d_type = DT_REG;
 				break;
-			case TMPFS_TYPE_LINK:
+			case S_IFDIR:
+				dirent->d_type = DT_DIR;
+				break;
+			case S_IFLNK:
 				dirent->d_type = DT_LNK;
 				break;
-			case TMPFS_TYPE_SOCK:
+			case S_IFSOCK:
 				dirent->d_type = DT_SOCK;
 				break;
-			case TMPFS_TYPE_CHAR:
+			case S_IFCHR:
 				dirent->d_type = DT_CHR;
 				break;
-			case TMPFS_TYPE_BLOCK:
+			case S_IFBLK:
 				dirent->d_type = DT_BLK;
 				break;
 			default:
 				dirent->d_type = DT_UNKNOWN;
+				break;
 			}
 			return 0;
 		}
@@ -253,67 +246,28 @@ static int tmpfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 
 static void tmpfs_cleanup(vfs_node_t *vnode) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
-	switch (inode->type) {
-	case TMPFS_TYPE_FILE:
+	switch (inode->vnode.mode & S_IFMT) {
+	case S_IFREG:
 		free_cache(&inode->cache);
 		break;
-	case TMPFS_TYPE_DIR:
+	case S_IFDIR:
 		list_destroy(&inode->entries);
 		break;
-	case TMPFS_TYPE_LINK:
+	case S_IFLNK:
 		kfree(inode->buffer);
 		break;
 	}
 	slab_free(inode);
 }
 
-static int tmpfs_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
-	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
-	if (tmpfs_exist(inode, dentry)) return -EEXIST;
-
-	// create new inode
-	tmpfs_inode_t *child_inode = new_inode(vnode->superblock, TMPFS_TYPE_FILE);
-	child_inode->parent        = inode;
-	child_inode->vnode.mode    = mode;
-
-	tmpfs_add_entry(inode, child_inode, dentry);
-
-	return 0;
-}
-
-static int tmpfs_mkdir(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
-	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
-	if (tmpfs_exist(inode, dentry)) return -EEXIST;
-
-	// create new inode
-	tmpfs_inode_t *child_inode = new_inode(vnode->superblock, TMPFS_TYPE_DIR);
-	child_inode->parent        = inode;
-	child_inode->vnode.mode    = mode;
-
-	tmpfs_add_entry(inode, child_inode, dentry);
-
-	return 0;
-}
-
 static int tmpfs_mknod(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode, dev_t dev) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
 	if (tmpfs_exist(inode, dentry)) return -EEXIST;
 
-	int type = 0;
-	if (S_ISBLK(mode)) {
-		type = TMPFS_TYPE_BLOCK;
-	} else if (S_ISCHR(mode)) {
-		type = TMPFS_TYPE_CHAR;
-	} else if (S_ISSOCK(mode)) {
-		type = TMPFS_TYPE_SOCK;
-	} else {
-		return -EINVAL;
-	}
-
 	// create new inode
-	tmpfs_inode_t *child_inode = new_inode(vnode->superblock, type);
+	tmpfs_inode_t *child_inode = new_inode(vnode->superblock, mode);
 	child_inode->parent        = inode;
-	child_inode->vnode.mode    = mode;
 	child_inode->dev           = dev;
 
 	tmpfs_add_entry(inode, child_inode, dentry);
@@ -321,9 +275,18 @@ static int tmpfs_mknod(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode, dev
 	return 0;
 }
 
+static int tmpfs_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
+	return tmpfs_mknod(vnode, dentry, S_IFREG | mode, 0);
+}
+
+static int tmpfs_mkdir(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
+	return tmpfs_mknod(vnode, dentry, S_IFDIR | mode, 0);
+}
+
 static int tmpfs_link(vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_t *new_dentry) {
 	kdebugf("link %s %s\n", old_dentry->name, new_dentry->name);
 	tmpfs_inode_t *new_dir_inode = container_of(new_dir, tmpfs_inode_t, vnode);
+	kassert(S_ISDIR(new_dir_inode->vnode.mode));
 	tmpfs_inode_t *old_inode     = container_of(old_dentry->inode, tmpfs_inode_t, vnode);
 
 	if (tmpfs_exist(new_dir_inode, new_dentry)) return -EEXIST;
@@ -334,9 +297,10 @@ static int tmpfs_link(vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_
 
 static int tmpfs_symlink(vfs_node_t *vnode, vfs_dentry_t *dentry, const char *target) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
 	if (tmpfs_exist(inode, dentry)) return -EEXIST;
 
-	tmpfs_inode_t *symlink = new_inode(vnode->superblock, TMPFS_TYPE_LINK);
+	tmpfs_inode_t *symlink = new_inode(vnode->superblock, S_IFLNK | 0777);
 	symlink->buffer_size   = strlen(target);
 	symlink->buffer        = strdup(target);
 
@@ -349,7 +313,9 @@ static int tmpfs_rename(vfs_node_t *old_vnode, vfs_dentry_t *old_dentry, vfs_nod
 	(void)flags;
 	kdebugf("rename %s to %s\n", old_dentry->name, new_dentry->name);
 	tmpfs_inode_t *old_parent = container_of(old_vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISDIR(old_parent->vnode.mode));
 	tmpfs_inode_t *new_parent = container_of(new_vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISDIR(new_parent->vnode.mode));
 	tmpfs_dirent_t *old_entry = tmpfs_get_entry(old_parent, old_dentry);
 
 	tmpfs_add_entry(new_parent, old_entry->inode, new_dentry);
@@ -361,10 +327,11 @@ static int tmpfs_rename(vfs_node_t *old_vnode, vfs_dentry_t *old_dentry, vfs_nod
 static int tmpfs_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	kdebugf("unlink %s\n", dentry->name);
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
 
 	tmpfs_dirent_t *entry = tmpfs_get_entry(inode, dentry);
 	if (!entry) return ENOENT;
-	if (entry->inode->type == TMPFS_TYPE_DIR) return -EISDIR;
+	kassert(!S_ISDIR(entry->inode->vnode.mode));
 
 	tmpfs_remove_entry(inode, entry);
 
@@ -374,10 +341,11 @@ static int tmpfs_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 static int tmpfs_rmdir(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	kdebugf("rmdir %s\n", dentry->name);
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
 
 	tmpfs_dirent_t *entry = tmpfs_get_entry(inode, dentry);
 	if (!entry) return ENOENT;
-	if (entry->inode->type != TMPFS_TYPE_DIR) return -ENOTDIR;
+	kassert(S_ISDIR(entry->inode->vnode.mode));
 
 	// check if the directory is empty
 	tmpfs_inode_t *child_inode = entry->inode;

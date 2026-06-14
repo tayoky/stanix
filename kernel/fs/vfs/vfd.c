@@ -20,10 +20,10 @@ void init_vfs_fd(void) {
 }
 
 ssize_t vfs_read(vfs_fd_t *fd, void *buffer, uint64_t offset, size_t count) {
-	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+	if (fd->type == S_IFBLK || fd->type == S_IFCHR) {
 		// check if device is unplugged
 		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
-	} else if (fd->type & VFS_DIR) {
+	} else if (fd->type == S_IFDIR) {
 		return -EISDIR;
 	}
 	if (fd->flags & O_WRONLY) {
@@ -39,10 +39,10 @@ ssize_t vfs_read(vfs_fd_t *fd, void *buffer, uint64_t offset, size_t count) {
 }
 
 ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t count) {
-	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+	if (fd->type == S_IFBLK || fd->type == S_IFCHR) {
 		// check if device is unplugged
 		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
-	} else if (fd->type & VFS_DIR) {
+	} else if (fd->type == S_IFDIR) {
 		return -EISDIR;
 	}
 	if (!(fd->flags & (O_WRONLY | O_RDWR))) {
@@ -58,7 +58,7 @@ ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t coun
 
 int vfs_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	if (!fd || !fd->ops->ioctl) return -EBADF;
-	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+	if (fd->type == S_IFBLK|| fd->type == S_IFCHR) {
 		// check if device is unplugged
 		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
 	}
@@ -138,7 +138,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 	fd->inode   = vfs_node_ref(node);
 	fd->dentry  = vfs_dentry_ref(dentry);
 	fd->flags   = flags;
-	fd->type    = node->flags;
+	fd->type    = node->mode & S_IFMT;
 
 	// call inode specific open before fd specific open
 	if (node->ops && node->ops->open) {
@@ -189,7 +189,7 @@ void vfs_close(vfs_fd_t *fd) {
 		fd->ops->close(fd);
 	}
 
-	if (fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+	if (fd->type == S_IFBLK || fd->type == S_IFCHR) {
 		device_release(fd->private);
 	}
 	vfs_node_release(fd->inode);

@@ -163,7 +163,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 		}
 
 		// follow symlink
-		while (current_entry && current_entry->inode->flags == VFS_LINK) {
+		while (current_entry && S_ISLNK(current_entry->inode->mode)) {
 			if (*loop_max <= 0) goto error;
 			(*loop_max)--;
 			vfs_node_t *symlink = current_entry->inode;

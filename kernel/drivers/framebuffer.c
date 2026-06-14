@@ -116,6 +116,6 @@ static vfs_fd_ops_t framebuffer_ops = {
 
 int register_framebuffer(framebuffer_t *fb) {
 	fb->device.ops = &framebuffer_ops;
-	fb->device.type = VFS_BLOCK;
+	fb->device.type = DEVICE_BLOCK;
 	return device_register_fmt(&fb->device, "fb%d");
 }

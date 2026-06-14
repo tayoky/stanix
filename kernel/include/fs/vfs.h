@@ -33,14 +33,6 @@
 #define SEEK_END 2
 #endif
 
-#define VFS_FILE  0x001
-#define VFS_DIR   0x002
-#define VFS_LINK  0x004
-#define VFS_CHAR  0x020
-#define VFS_BLOCK 0x040
-#define VFS_FIFO  0x080
-#define VFS_SOCK  0x100
-
 struct vfs_node;
 struct vmm_seg;
 struct vfs_inode_ops;
@@ -212,11 +204,11 @@ static inline off_t vfs_generic_seek(vfs_fd_t *fd, off_t offset, int whence) {
 }
 
 static inline off_t vfs_seek(vfs_fd_t *fd, off_t offset, int whence) {
-	if (fd->type == VFS_DIR) {
+	if (fd->type == S_IFDIR) {
 		return -EISDIR;
 	} else if (fd->ops && fd->ops->seek) {
 		return fd->ops->seek(fd, offset, whence);
-	} else if (fd->type == VFS_FILE || fd->type == VFS_BLOCK || fd->type == VFS_CHAR) {
+	} else if (fd->type == S_IFREG || fd->type == S_IFBLK || fd->type == S_IFCHR) {
 		return vfs_generic_seek(fd, offset, whence);
 	} else {
 		return -ESPIPE;
@@ -421,7 +413,7 @@ char *vfs_dentry_path(vfs_dentry_t *dentry);
  */
 static inline int vfs_truncate(vfs_node_t *node, size_t size) {
 	if (!node || !node->ops->truncate) return -EBADF;
-	if (node->flags & VFS_DIR) {
+	if (S_ISDIR(node->mode)) {
 		return -EISDIR;
 	}
 	return node->ops->truncate(node, size);

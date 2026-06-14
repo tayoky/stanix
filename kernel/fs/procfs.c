@@ -41,19 +41,16 @@ static vfs_node_t *proc_new_node(vfs_superblock_t *superblock, process_t *proc, 
 	case INODE_SELF:
 	case INODE_CWD:
 	case INODE_EXE:
-		inode->vnode.mode  = 0550;
-		inode->vnode.flags = VFS_LINK;
+		inode->vnode.mode  = 0550 | S_IFLNK;
 		break;
 	case INODE_MAPS:
 	case INODE_CMDLINE:
 	case INODE_STATUS:
-		inode->vnode.mode  = 0444;
-		inode->vnode.flags = VFS_FILE;
+		inode->vnode.mode  = 0444 | S_IFREG;
 		break;
 	case INODE_DIR:
 	case INODE_FD_DIR:
-		inode->vnode.mode  = 0550;
-		inode->vnode.flags = VFS_DIR;
+		inode->vnode.mode  = 0550 | S_IFDIR;
 		break;
 	}
 	return &inode->vnode;
@@ -289,10 +286,9 @@ int proc_mount(const char *source, const char *target, unsigned long flags, cons
 
 	vfs_node_t *vnode = kmalloc(sizeof(vfs_node_t));
 	memset(vnode, 0, sizeof(vfs_node_t));
-	vnode->flags     = VFS_DIR;
 	vnode->ops       = &proc_root_ops;
 	vnode->ref_count = 1;
-	vnode->mode      = 0555;
+	vnode->mode      = 0555 | S_IFDIR;
 	vnode->uid       = EUID_ROOT;
 	vnode->gid       = EUID_ROOT;
 

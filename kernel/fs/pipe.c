@@ -119,8 +119,8 @@ int pipe_create(vfs_fd_t **read, vfs_fd_t **write) {
 	(*write)->ops     = &pipe_write_ops;
 	(*read)->flags    = O_RDONLY;
 	(*write)->flags   = O_WRONLY;
-	(*read)->type     = VFS_FILE;
-	(*write)->type    = VFS_FILE;
+	(*read)->type     = S_IFREG;
+	(*write)->type    = S_IFREG;
 	(*read)->private  = pipe;
 	(*write)->private = pipe;
 

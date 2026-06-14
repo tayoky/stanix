@@ -140,7 +140,7 @@ device_t *device_from_number(dev_t dev) {
 vfs_fd_t *device_open(device_t *device, long flags) {
 	vfs_fd_t *fd = vfs_fd_alloc();
 	fd->ops = device->ops;
-	fd->type = device->type == DEVICE_BLOCK ? VFS_BLOCK : VFS_CHAR;
+	fd->type = device->type == DEVICE_BLOCK ? S_IFBLK : S_IFCHR;
 	fd->flags = flags;
 	fd->private = device_ref(device);
 	if (fd->ops->open) {
