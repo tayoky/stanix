@@ -2,7 +2,7 @@
 #define KERNEL_VFS_H
 
 #include <kernel/spinlock.h>
-#include <kernel/hashmap.h>
+#include <kernel/xarray.h>
 #include <kernel/list.h>
 #include <kernel/refcount.h>
 #include <sys/types.h>
@@ -65,6 +65,8 @@ typedef struct vfs_node {
 	time_t mtime;
 	time_t ctime;
 } vfs_node_t;
+
+#define VNODE_DIRTY 0x01
 
 /**
  * @brief represent a directory entry
@@ -143,7 +145,7 @@ typedef struct vfs_superblock_ops {
 
 typedef struct vfs_superblock {
 	list_node_t node;
-	hashmap_t inodes;
+	xarray_t inodes;
 	vfs_node_t *root;
 	vfs_superblock_ops_t *ops;
 	vfs_fd_t *device;
@@ -503,11 +505,14 @@ static vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentr
 	if (node) {
 		return vfs_node_ref(node);
 	}
-	node = hashmap_get(&superblock->inodes, dentry->inode_number);
+	rcu_acquire_read(&superblock->inode.rcu);
+	node = xarray_get(&superblock->inodes, dentry->inode_number);
 	if (node) {
 		dentry->inode = vfs_node_ref(node);
+		rcu_release_read(&superblock->inode.rcu);
 		return vfs_node_ref(node);
 	}
+	rcu_release_read(&superblock->inode.rcu);
 	return NULL;
 }
 
