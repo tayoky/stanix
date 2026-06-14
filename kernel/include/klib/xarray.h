@@ -52,6 +52,16 @@ void *xarray_get(xarray_t *xarray, size_t index);
 void *xarray_set(xarray_t *xarray, size_t index, void *value);
 
 /**
+ * @brief compare and set a value in a xarray by index atomicly
+ * @param xarray the xarray in which to set the value
+ * @param index the index of the value to compare and set
+ * @param expected the value to test against
+ * @param value the new value that will be set if the comaraison is equal, must be 2 bytes aligned
+ * @return the previous value at this index, if equal to expected, the value was set
+ */
+void *xarray_cmpxchg(xarray_t *xarray, size_t index, void *expected, void *value);
+
+/**
  * @brief allocate an index inside a xarray, the allocated index will be the index of the first NULL value starting from start
  * @param xarray the xarray in which to allocate an index
  * @param start the index at which to start search for a NULL entry

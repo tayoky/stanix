@@ -177,10 +177,24 @@ static int wait_pages_non_busy(cache_t *cache, uintptr_t start, uintptr_t end) {
 	return 0;
 }
 
+static void *page2value(uintptr_t page) {
+	if (page == PAGE_INVALID) return NULL;
+	return (void*)page;
+}
+
+static uintptr_t value2page(void *value) {
+	if (!value) return PAGE_INVALID;
+	return (uintptr_t)value;
+}
+
 static uintptr_t cache_get_page_and_clear(cache_t *cache, off_t offset) {
-	uintptr_t page = (uintptr_t)xarray_clear(&cache->pages, offset);
-	if (!page) return PAGE_INVALID;
-	return page;
+	return value2page(xarray_clear(&cache->pages, offset));
+}
+
+static uintptr_t cache_compare_and_set_page(cache_t *cache, off_t offset, uintptr_t expected, uintptr_t page) {
+	void *expected_value = page2value(expected);
+	void *value          = page2value(page);	
+	return value2page(xarray_cmpxchg(&cache->pages, offset, expected_value, value));
 }
 
 uintptr_t cache_evict(void) {
@@ -222,6 +236,7 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		rcu_acquire_read(&cache->pages.rcu);
 		uintptr_t page = cache_get_page(cache, addr);
+		// fast path
 		if (page != PAGE_INVALID) {
 already_cached:
 			// make a new ref that we pass to the caller
@@ -249,16 +264,12 @@ already_cached:
 		page_info->private       = cache;
 		page_info->cached.offset = addr / PAGE_SIZE;
 
-		// FIXME : we have a race here
-		// if somebody set the page between cache_get_page and xarray_set
-		// TODO : fix this when we get xarrat_cmpxchg
 		rcu_acquire_read(&cache->pages.rcu);
-		uintptr_t new_page = cache_get_page(cache, addr);
+		uintptr_t new_page = cache_compare_and_set_page(cache, addr, PAGE_INVALID, page);
 		if (new_page == PAGE_INVALID) {
-			rcu_release_read(&cache->pages.rcu);
-			xarray_set(&cache->pages, addr, (void *)page);
 			// make a new ref that we pass to the caller
 			pmm_retain(page);
+			rcu_release_read(&cache->pages.rcu);
 		} else {
 			// we lost a race
 			pmm_release_page(page);

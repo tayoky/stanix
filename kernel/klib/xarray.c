@@ -218,6 +218,21 @@ void *xarray_set(xarray_t *xarray, size_t index, void *value) {
 	return ret;
 }
 
+static void *xarray_raw_cmpxchg(xarray_t *xarray, size_t index, void *expected, void *value) {
+	// TODO : optimize this without going throught the tree twice
+	void *old = xarray_raw_get(xarray, index);
+	if (old != expected) return old;
+	return xarray_raw_set(xarray, index, value);
+}
+
+void *xarray_cmpxchg(xarray_t *xarray, size_t index, void *expected, void *value) {
+	kassert((((uintptr_t)value) & 0x1) == 0);
+	rcu_acquire_write(&xarray->rcu);
+	void *ret = xarray_raw_cmpxchg(xarray, index, expected, value);
+	rcu_release_write(&xarray->rcu);
+	return ret;
+}
+
 // return 1 if found
 static int xarray_entry_allocate(rcu_ptr_t *entry, size_t min, size_t parent_shift, size_t *index, int *full, void *value) {
 	uintptr_t entry_value = xarray_entry_fetch(entry);
