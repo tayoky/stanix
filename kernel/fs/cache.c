@@ -151,6 +151,18 @@ static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t en
 	}
 }
 
+static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t *start, uintptr_t *end) {
+	*start     = PAGE_ALIGN_DOWN(offset);
+	*end       = PAGE_ALIGN_UP(offset + size);
+	uintptr_t cache_end = PAGE_ALIGN_UP(cache->size);
+	if (*start > cache_end) {
+		*start = cache_end;
+	}
+	if (*end > cache_end) {
+		*end = cache_end;
+	}
+}
+
 static int wait_page_non_busy(uintptr_t page) {
 	return pmm_wait(page, PAGE_FLAG_BUSY, 0);
 }
@@ -200,10 +212,10 @@ void cache_write_terminate(cache_t *cache, off_t offset, size_t size, cache_call
 }
 
 int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
-	uintptr_t start = PAGE_ALIGN_DOWN(offset);
-	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
-
 	if (!cache->ops || !cache->ops->read) return -EINVAL;
+
+	uintptr_t start, end;
+	cache_get_range(cache, offset, size);
 
 	uintptr_t batch_start = start;
 	int ret = 0;
@@ -237,10 +249,13 @@ already_cached:
 		page_info->private       = cache;
 		page_info->cached.offset = addr / PAGE_SIZE;
 
-		// FIXME : we might have a race here
+		// FIXME : we have a race here
+		// if somebody set the page between cache_get_page and xarray_set
+		// TODO : fix this when we get xarrat_cmpxchg
 		rcu_acquire_read(&cache->pages.rcu);
 		uintptr_t new_page = cache_get_page(cache, addr);
 		if (new_page == PAGE_INVALID) {
+			rcu_release_read(&cache->pages.rcu);
 			xarray_set(&cache->pages, addr, (void *)page);
 			// make a new ref that we pass to the caller
 			pmm_retain(page);
@@ -250,7 +265,6 @@ already_cached:
 			page = new_page;
 			goto already_cached;
 		}
-		rcu_release_read(&cache->pages.rcu);
 	}
 
 	if (batch_start != end) {
@@ -273,8 +287,8 @@ error:
 int cache_cache(cache_t *cache, off_t offset, size_t size) {
 	int ret = cache_cache_async(cache, offset, size);
 	if (ret < 0) return ret;
-	uintptr_t start = PAGE_ALIGN_DOWN(offset);
-	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
+	uintptr_t start, end;
+	cache_get_range(cache, offset, size);
 	return wait_pages_non_busy(cache, start, end);
 }
 
@@ -288,8 +302,8 @@ typedef struct uncache_req {
 static void uncache_callback(cache_t *cache, void *arg) {
 	uncache_req_t *req = arg;
 
-	uintptr_t start = PAGE_ALIGN_DOWN(req->offset);
-	uintptr_t end   = PAGE_ALIGN_UP(req->offset + req->size);
+	uintptr_t start, end;
+	cache_get_range(cache, req->offset, req->size);
 
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page_and_clear(cache, addr);
@@ -328,32 +342,34 @@ int cache_uncache(cache_t *cache, off_t offset, size_t size) {
 }
 
 int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
-	uintptr_t start = PAGE_ALIGN_DOWN(offset);
-	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
-
 	if (!cache->ops || !cache->ops->write) return -EINVAL;
+
+	uintptr_t start, end;
+	cache_get_range(cache, offset, size);
 
 	uintptr_t batch_start = start;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		rcu_acquire_read(&cache->pages.rcu);
 		uintptr_t page = cache_get_page(cache, addr);
 
-		// prevent the page from being freed
-		pmm_retain(page);
-		rcu_release_read(&cache->pages.rcu);
-		int is_dirty = 0;
-		if (page != PAGE_INVALID) {
-			is_dirty = cached_page_clear_dirty(page, pmm_page_info(page));
-		}
-
-		if (!is_dirty) {
-			pmm_release_page(page);
+		if (page == PAGE_INVALID) {
+end_batch:
+			rcu_release_read(&cache->pages.rcu);
 			if (batch_start != addr) {
 				// we reached end of the batch
 				cache->ops->write(cache, batch_start, addr - batch_start, callback, arg);
 			}
 			batch_start = addr + PAGE_SIZE;
+			continue;
 		}
+
+		if (!cached_page_clear_dirty(page, pmm_page_info(page))) {
+			goto end_batch;
+		}
+
+		// prevent the page from being freed while we write
+		pmm_retain(page);
+		rcu_release_read(&cache->pages.rcu);
 	}
 
 	if (batch_start != end) {
@@ -389,7 +405,7 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 	}
 
 	if (flags == MS_SYNC) {
-		return cache_flush(seg->private_data, seg->offset, VMM_SIZE(seg));
+		return cache_flush(seg->private_data, seg->offset + start - seg->start, end - start);
 	} else {
 		return 0;
 	}
@@ -455,8 +471,8 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 	seg->ops          = &cache_vmm_ops;
 	seg->private_data = cache;
 
-	uintptr_t start = PAGE_ALIGN_DOWN(offset);
-	uintptr_t end   = PAGE_ALIGN_UP(offset + VMM_SIZE(seg));
+	uintptr_t start, end;
+	cache_get_range(cache, offset, VMM_SIZE(seg));
 	uintptr_t vaddr = seg->start;
 
 	// Copy on Write check
@@ -468,13 +484,12 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 	// no need to hold rcu read lock
 	// since we already hold a ref to the pages
 	// thanks to cache_cache_async
-	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE, vaddr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
 		
 		// cache_cache_async already made a new ref to the page
 		mmu_map_page(get_current_proc()->vmm_space.addrspace, page, vaddr, prot);
-		vaddr += PAGE_SIZE;
 	}
 	return 0;
 }
@@ -486,8 +501,8 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	int ret = cache_cache(cache, offset, size);
 	if (ret < 0) return ret;
 
-	uintptr_t start = PAGE_ALIGN_DOWN(offset);
-	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
+	uintptr_t start, end;
+	cache_get_range(cache, offset, size);
 
 	// no need to hold rcu read lock
 	// since we already hold a ref to the pages
@@ -528,8 +543,8 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 	int ret = cache_cache(cache, offset, size);
 	if (ret < 0) return ret;
 
-	uintptr_t start = PAGE_ALIGN_DOWN(offset);
-	uintptr_t end   = PAGE_ALIGN_UP(offset + size);
+	uintptr_t start, end;
+	cache_get_range(cache, offset, size);
 
 	// no need to hold rcu read lock
 	// since we already hold a ref to the pages
@@ -567,7 +582,11 @@ error:
 }
 
 int cache_truncate(cache_t *cache, size_t size) {
-	// TODO : free pages after the truncate
+	// FIXME : we might need a lock for this
+	if (size < cache->size) {
+		int ret = cache_uncache(cache, PAGE_ALIGN_UP(size), cache->size - size);
+		if (ret < 0) return ret;
+	}
 	cache->size = size;
 	return 0;
 }
