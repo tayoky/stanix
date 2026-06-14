@@ -4,6 +4,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/hashmap.h>
 #include <kernel/list.h>
+#include <kernel/refcount.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -46,12 +47,15 @@ struct vfs_fd_ops;
 struct superblock;
 struct poll_event;
 
+/**
+ * @brief represent an inode
+ */
 typedef struct vfs_node {
 	void *private_inode;
 	struct vfs_superblock *superblock;
 	struct vfs_inode_ops *ops;
 	unsigned long flags;
-	size_t ref_count;
+	ref_count_t ref_count;
 	uid_t uid;
 	gid_t gid;
 	mode_t mode;
@@ -75,7 +79,7 @@ typedef struct vfs_dentry {
 	struct vfs_dentry *parent;
 	struct vfs_dentry *old; // used for mount point
 	list_t children;
-	size_t ref_count;
+	ref_count_t ref_count;
 } vfs_dentry_t;
 
 #define VFS_DENTRY_MOUNT    0x01 // the dentry is a mount point
@@ -161,7 +165,7 @@ void init_vfs(void);
 
 /**
  * @brief initalize a newly created inode with default owner, time, ...
- * @param node the inode to inialize
+ * @param node the inode to initialize
  */
 void vfs_init_created_node(vfs_node_t *node);
 
@@ -330,7 +334,7 @@ static inline vfs_node_t *vfs_get_node(const char *pathname, long flags, ...) {
 }
 
 static inline vfs_node_t *vfs_node_ref(vfs_node_t *node) {
-	if (node) node->ref_count++;
+	if (node) ref_count_inc(&node->ref_count);
 	return node;
 }
 
@@ -388,7 +392,7 @@ int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent);
  * @return the new fd
  */
 static inline vfs_fd_t *vfs_dup(vfs_fd_t *fd) {
-	if (fd) fd->ref_count++;
+	if (fd) ref_count_inc(&fd->ref_count);
 	return fd;
 }
 
@@ -475,7 +479,7 @@ int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid);
 #define PERM_EXECUTE 01
 
 static vfs_dentry_t *vfs_dentry_ref(vfs_dentry_t *dentry) {
-	if (dentry) dentry->ref_count++;
+	if (dentry) ref_count_inc(&dentry->ref_count);
 	return dentry;
 }
 

@@ -6,6 +6,7 @@
 #include <kernel/panic.h>
 #include <kernel/poll.h>
 #include <kernel/print.h>
+#include <kernel/refcount.h>
 #include <kernel/scheduler.h>
 #include <kernel/slab.h>
 #include <kernel/string.h>
@@ -421,8 +422,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 
 void vfs_dentry_release(vfs_dentry_t *dentry) {
 	while (dentry) {
-		dentry->ref_count--;
-		if (dentry->ref_count > 0) {
+		if (ref_count_dec(&dentry->ref_count) > 1) {
 			return;
 		}
 
@@ -447,9 +447,8 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 
 void vfs_node_release(vfs_node_t *node) {
 	if (!node) return;
-	node->ref_count--;
 
-	if (node->ref_count > 0) {
+	if (ref_count_dec(&node->ref_count) > 1) {
 		return;
 	}
 
@@ -1002,7 +1001,6 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 	fd->inode     = vfs_node_ref(node);
 	fd->dentry    = vfs_dentry_ref(dentry);
 	fd->flags     = flags;
-	fd->ref_count = 1;
 	fd->type      = node->flags;
 
 	// call inode specific open before fd specific open
@@ -1046,8 +1044,7 @@ error:
 
 void vfs_close(vfs_fd_t *fd) {
 	if (!fd) return;
-	if (fd->ref_count > 1) {
-		fd->ref_count--;
+	if (ref_count_dec(&fd->ref_count) > 1) {
 		return;
 	}
 
