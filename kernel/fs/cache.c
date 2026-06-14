@@ -30,23 +30,23 @@ static spinlock_t lru_lock;
 #define LRU_DIRTY    1
 
 static uintptr_t cached_page_get_lru_prev(page_t *page_info) {
-	return (uintptr_t)page_info->cached.lru_prev * PAGE_SIZE;
+	return PFN2PAGE(page_info->cached.lru_prev);
 }
 
 static uintptr_t cached_page_get_lru_next(page_t *page_info) {
-	return (uintptr_t)page_info->cached.lru_next * PAGE_SIZE;
+	return PFN2PAGE(page_info->cached.lru_next);
 }
 
 static void cached_page_set_lru_prev(page_t *page_info, uintptr_t prev) {
-	page_info->cached.lru_prev = prev / PAGE_SIZE;
+	page_info->cached.lru_prev = PAGE2PFN(prev);
 }
 
 static void cached_page_set_lru_next(page_t *page_info, uintptr_t next) {
-	page_info->cached.lru_next = next / PAGE_SIZE;
+	page_info->cached.lru_next = PAGE2PFN(next);
 }
 
 static uintptr_t cached_page_get_offset(page_t *page_info) {
-	return (uintptr_t)page_info->cached.offset * PAGE_SIZE;
+	return PFN2PAGE(page_info->cached.offset);
 }
 
 static int cached_page_is_active(page_t *page_info) {
@@ -188,13 +188,13 @@ static uintptr_t value2page(void *value) {
 }
 
 static uintptr_t cache_get_page_and_clear(cache_t *cache, off_t offset) {
-	return value2page(xarray_clear(&cache->pages, offset));
+	return value2page(xarray_clear(&cache->pages, PAGE2PFN(offset)));
 }
 
 static uintptr_t cache_compare_and_set_page(cache_t *cache, off_t offset, uintptr_t expected, uintptr_t page) {
 	void *expected_value = page2value(expected);
 	void *value          = page2value(page);	
-	return value2page(xarray_cmpxchg(&cache->pages, offset, expected_value, value));
+	return value2page(xarray_cmpxchg(&cache->pages, PAGE2PFN(offset), expected_value, value));
 }
 
 uintptr_t cache_evict(void) {
@@ -262,7 +262,7 @@ already_cached:
 		page_info->flags &= ~(PAGE_FLAG_DIRTY);
 		page_info->flags |= PAGE_FLAG_BUSY;
 		page_info->private       = cache;
-		page_info->cached.offset = addr / PAGE_SIZE;
+		page_info->cached.offset = PAGE2PFN(addr);
 
 		rcu_acquire_read(&cache->pages.rcu);
 		uintptr_t new_page = cache_compare_and_set_page(cache, addr, PAGE_INVALID, page);
@@ -286,8 +286,7 @@ already_cached:
 error:
 		// FIXME : only free pages that were busy
 		for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-			uintptr_t page = cache_get_page(cache, addr);
-			xarray_clear(&cache->pages, addr);
+			uintptr_t page = cache_get_page_and_clear(cache, addr);
 			pmm_release_page(page);
 		}
 		return ret;
