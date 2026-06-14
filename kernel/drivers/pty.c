@@ -1,8 +1,10 @@
-#include <kernel/ringbuf.h>
-#include <kernel/kernel.h>
 #include <kernel/device.h>
-#include <kernel/string.h>
+#include <kernel/kernel.h>
+#include <kernel/kheap.h>
 #include <kernel/print.h>
+#include <kernel/process.h>
+#include <kernel/ringbuf.h>
+#include <kernel/string.h>
 #include <kernel/tty.h>
 #include <poll.h>
 
@@ -22,7 +24,7 @@ static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t 
 	pty_t *pty = (pty_t *)fd->private;
 
 	if (atomic_load(&pty->slave->device.ref_count) == 1 && !ringbuffer_read_available(&pty->output_buffer)) {
-		//nobody as open the slave and there no data
+		// nobody as open the slave and there no data
 		return -EIO;
 	}
 
@@ -34,7 +36,7 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 	pty_t *pty = (pty_t *)fd->private;
 	tty_t *tty = pty->slave;
 
-	for (size_t i=0; i < count; i++) {
+	for (size_t i = 0; i < count; i++) {
 		tty_input(tty, *(char *)buffer);
 		(char *)buffer++;
 	}
@@ -104,7 +106,7 @@ static vfs_fd_ops_t pty_master_ops = {
 };
 
 static tty_ops_t pty_slave_ops = {
-	.out     = pty_output,
+	.out = pty_output,
 };
 
 static device_driver_t pty_driver = {
@@ -116,15 +118,15 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	memset(pty, 0, sizeof(pty_t));
 	ringbuffer_init(&pty->output_buffer, 4096);
 
-	tty_t *slave = new_tty(NULL);
-	pty->slave = slave;
-	*rep = slave;
-	slave->private_data = pty;
+	tty_t *slave         = new_tty(NULL);
+	pty->slave           = slave;
+	*rep                 = slave;
+	slave->private_data  = pty;
 	slave->device.driver = &pty_driver;
-	slave->ops = &pty_slave_ops;
+	slave->ops           = &pty_slave_ops;
 
 	// create the master fd
-	(*master_fd) = vfs_alloc_fd();
+	(*master_fd)            = vfs_alloc_fd();
 	(*master_fd)->private   = pty;
 	(*master_fd)->ops       = &pty_master_ops;
 	(*master_fd)->ref_count = 1;

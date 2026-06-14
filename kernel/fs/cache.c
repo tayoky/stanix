@@ -229,7 +229,7 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 	if (!cache->ops || !cache->ops->read) return -EINVAL;
 
 	uintptr_t start, end;
-	cache_get_range(cache, offset, size);
+	cache_get_range(cache, offset, size, &start, &end);
 
 	uintptr_t batch_start = start;
 	int ret = 0;
@@ -299,7 +299,7 @@ int cache_cache(cache_t *cache, off_t offset, size_t size) {
 	int ret = cache_cache_async(cache, offset, size);
 	if (ret < 0) return ret;
 	uintptr_t start, end;
-	cache_get_range(cache, offset, size);
+	cache_get_range(cache, offset, size, &start, &end);
 	return wait_pages_non_busy(cache, start, end);
 }
 
@@ -314,7 +314,7 @@ static void uncache_callback(cache_t *cache, void *arg) {
 	uncache_req_t *req = arg;
 
 	uintptr_t start, end;
-	cache_get_range(cache, req->offset, req->size);
+	cache_get_range(cache, req->offset, req->size, &start, &end);
 
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page_and_clear(cache, addr);
@@ -356,7 +356,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 	if (!cache->ops || !cache->ops->write) return -EINVAL;
 
 	uintptr_t start, end;
-	cache_get_range(cache, offset, size);
+	cache_get_range(cache, offset, size, &start, &end);
 
 	uintptr_t batch_start = start;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
@@ -483,7 +483,7 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 	seg->private_data = cache;
 
 	uintptr_t start, end;
-	cache_get_range(cache, offset, VMM_SIZE(seg));
+	cache_get_range(cache, offset, VMM_SIZE(seg), &start, &end);
 	uintptr_t vaddr = seg->start;
 
 	// Copy on Write check
@@ -513,7 +513,7 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	if (ret < 0) return ret;
 
 	uintptr_t start, end;
-	cache_get_range(cache, offset, size);
+	cache_get_range(cache, offset, size, &start, &end);
 
 	// no need to hold rcu read lock
 	// since we already hold a ref to the pages
@@ -555,7 +555,7 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 	if (ret < 0) return ret;
 
 	uintptr_t start, end;
-	cache_get_range(cache, offset, size);
+	cache_get_range(cache, offset, size, &start, &end);
 
 	// no need to hold rcu read lock
 	// since we already hold a ref to the pages

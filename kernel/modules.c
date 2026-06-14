@@ -1,34 +1,35 @@
-#include <kernel/module.h>
 #include <kernel/kernel.h>
-#include <kernel/print.h>
-#include <kernel/vfs.h>
-#include <kernel/string.h>
+#include <kernel/kheap.h>
 #include <kernel/mmu.h>
-#include <kernel/sym.h>
+#include <kernel/module.h>
 #include <kernel/pmm.h>
-#include <errno.h>
+#include <kernel/print.h>
+#include <kernel/string.h>
+#include <kernel/sym.h>
+#include <kernel/vfs.h>
 #include <elf.h>
+#include <errno.h>
 
-//dynamic module loading
+// dynamic module loading
 
 extern uintptr_t p_kernel_end[];
 static uintptr_t ptr = MEM_MODULE_START;
 
 #ifdef i386
-#define Elf_Ehdr Elf32_Ehdr
-#define Elf_Shdr Elf32_Shdr
-#define Elf_Addr Elf32_Addr
-#define Elf_Sym  Elf32_Sym
-#define Elf_Rela Elf32_Rela
+#define Elf_Ehdr      Elf32_Ehdr
+#define Elf_Shdr      Elf32_Shdr
+#define Elf_Addr      Elf32_Addr
+#define Elf_Sym       Elf32_Sym
+#define Elf_Rela      Elf32_Rela
 #define ELF_R_SYM(i)  ELF32_R_SYM(i)
 #define ELF_R_TYPE(i) ELF32_R_TYPE(i)
 #define ELF_R_INFO(i) ELF32_R_INFO(i)
 #else
-#define Elf_Ehdr Elf64_Ehdr
-#define Elf_Shdr Elf64_Shdr
-#define Elf_Addr Elf64_Addr
-#define Elf_Sym  Elf64_Sym
-#define Elf_Rela Elf64_Rela
+#define Elf_Ehdr      Elf64_Ehdr
+#define Elf_Shdr      Elf64_Shdr
+#define Elf_Addr      Elf64_Addr
+#define Elf_Sym       Elf64_Sym
+#define Elf_Rela      Elf64_Rela
 #define ELF_R_SYM(i)  ELF64_R_SYM(i)
 #define ELF_R_TYPE(i) ELF64_R_TYPE(i)
 #define ELF_R_INFO(i) ELF64_R_INFO(i)
@@ -63,8 +64,8 @@ int check_mod_header(Elf_Ehdr *header) {
 }
 
 void *map_mod(size_t size) {
-	size = PAGE_ALIGN_UP(size);
-	ptr = PAGE_ALIGN_UP(ptr);
+	size      = PAGE_ALIGN_UP(size);
+	ptr       = PAGE_ALIGN_UP(ptr);
 	void *buf = (void *)ptr;
 	kdebugf("insmod : map module at 0x%p size : %ld\n", ptr, size);
 	while (size > 0) {
@@ -87,7 +88,7 @@ uintptr_t sym_lookup(const char *name) {
 }
 
 #define get_Shdr(index) \
-((Elf_Shdr *)((uintptr_t)mod + header.e_shoff + (index * header.e_shentsize)))
+	((Elf_Shdr *)((uintptr_t)mod + header.e_shoff + (index * header.e_shentsize)))
 
 int insmod(const char *pathname, const char **args, char **name) {
 	(void)args;
@@ -107,7 +108,7 @@ int insmod(const char *pathname, const char **args, char **name) {
 		goto close;
 	}
 
-	//load the entire things into memory
+	// load the entire things into memory
 	struct stat st;
 	vfs_getattr(file->inode, &st);
 	char *mod = map_mod(PAGE_ALIGN_UP(st.st_size));
@@ -123,8 +124,8 @@ int insmod(const char *pathname, const char **args, char **name) {
 	main_section->base = mod;
 	main_section->size = PAGE_ALIGN_UP(st.st_size);
 
-	//update sections address and allocate no bits
-	for (int i=0; i < header.e_shnum; i++) {
+	// update sections address and allocate no bits
+	for (int i = 0; i < header.e_shnum; i++) {
 		Elf_Shdr *sheader = get_Shdr(i);
 		if (sheader->sh_type == SHT_NOBITS && sheader->sh_flags & SHF_ALLOC) {
 			kmodule_section_t *section = kmalloc(sizeof(kmodule_section_t));
@@ -141,23 +142,23 @@ int insmod(const char *pathname, const char **args, char **name) {
 
 	kmodule_t *module_meta = NULL;
 
-	//relocate and link symbols
-	for (int i=0; i < header.e_shnum; i++) {
+	// relocate and link symbols
+	for (int i = 0; i < header.e_shnum; i++) {
 		Elf_Shdr *sheader = get_Shdr(i);
 		if (sheader->sh_type != SHT_SYMTAB) continue;
 
-		//get the symbols table and the string table
+		// get the symbols table and the string table
 		Elf_Sym *symtab = (Elf_Sym *)sheader->sh_addr;
-		char *strtab = (char *)get_Shdr(sheader->sh_link)->sh_addr;
+		char *strtab    = (char *)get_Shdr(sheader->sh_link)->sh_addr;
 
-		//iterate trought each symbol
-		//note that we skip the first symbol ( the NULL symbol)
+		// iterate trought each symbol
+		// note that we skip the first symbol ( the NULL symbol)
 		for (size_t i = 1; i < sheader->sh_size / sizeof(Elf_Sym); i++) {
 			if (symtab[i].st_shndx > SHN_UNDEF && symtab[i].st_shndx < SHN_LOPROC) {
-				//symbol to relocate
+				// symbol to relocate
 				symtab[i].st_value += get_Shdr(symtab[i].st_shndx)->sh_addr;
 			} else if (symtab[i].st_shndx == SHN_UNDEF) {
-				//symbols undefined (maybee we can link it)
+				// symbols undefined (maybee we can link it)
 				uintptr_t value = sym_lookup(strtab + symtab[i].st_name);
 				if (value) {
 					symtab[i].st_value += value;
@@ -171,35 +172,33 @@ int insmod(const char *pathname, const char **args, char **name) {
 			if (!strcmp(strtab + symtab[i].st_name, "module_meta")) {
 				module_meta = (kmodule_t *)symtab[i].st_value;
 			}
-			//kdebugf("sym %s : %p\n",strtab + symtab[i].st_name,symtab[i].st_value);
+			// kdebugf("sym %s : %p\n",strtab + symtab[i].st_name,symtab[i].st_value);
 		}
-
 	}
 
-	//check it as meta
+	// check it as meta
 	if (!module_meta) {
 		kdebugf("insmod : module don't contain metadata\n");
 		ret = -ENOEXEC;
 		goto unmap;
 	}
 
-	//update the base address in the metadata struct
+	// update the base address in the metadata struct
 	module_meta->base = mod;
 
-	//apply relocation
-	for (int i=0; i < header.e_shnum; i++) {
+	// apply relocation
+	for (int i = 0; i < header.e_shnum; i++) {
 		Elf_Shdr *sheader = get_Shdr(i);
 		if (sheader->sh_type != SHT_RELA) continue;
 
-		//find the relocation table and the symbol table and the section it apply to
-		Elf_Rela *rela = (Elf_Rela *)sheader->sh_addr;
-		Elf_Sym *symtab = (Elf_Sym *)get_Shdr(sheader->sh_link)->sh_addr;
+		// find the relocation table and the symbol table and the section it apply to
+		Elf_Rela *rela    = (Elf_Rela *)sheader->sh_addr;
+		Elf_Sym *symtab   = (Elf_Sym *)get_Shdr(sheader->sh_link)->sh_addr;
 		Elf_Shdr *section = get_Shdr(sheader->sh_info);
 
-		//ietarate trought each relocation
+		// ietarate trought each relocation
 		for (size_t i = 0; i < sheader->sh_size / sizeof(Elf_Rela); i++) {
-
-			//let define some macro
+			// let define some macro
 #define A rela[i].r_addend
 #define B mod
 #define P (section->sh_addr + rela[i].r_offset)
@@ -234,13 +233,11 @@ int insmod(const char *pathname, const char **args, char **name) {
 				goto unmap;
 			}
 		}
-
-
 	}
 
 	kdebugf("insmod : module name : %s\n", module_meta->name);
 
-	//count argc and launch init function
+	// count argc and launch init function
 	int argc = 0;
 	while (args[argc]) {
 		argc++;
@@ -248,12 +245,12 @@ int insmod(const char *pathname, const char **args, char **name) {
 	ret = module_meta->init(argc, (char **)args);
 	kdebugf("return status : %d\n", ret);
 
-	//if return an error code then unmap
+	// if return an error code then unmap
 	if (ret < 0) {
 		goto unmap;
 	}
 
-	//add the module to the list
+	// add the module to the list
 	module->meta = module_meta;
 	list_append(&loaded_mods, &module->node);
 
@@ -262,7 +259,7 @@ close:
 	return ret;
 
 unmap:
-	//TODO actually unmap
+	// TODO actually unmap
 	kdebugf("insmod : insmod failed\n");
 	goto close;
 }
@@ -275,10 +272,10 @@ int rmmod(const char *name) {
 void init_mod() {
 	kstatusf("init exported symbol list and module loader ... ");
 
-	//init the list to keep track of all modules
+	// init the list to keep track of all modules
 	list_init(&loaded_mods);
 
-	//export all symbols of the core module
+	// export all symbols of the core module
 	for (size_t i = 0; i < symbols_count; i++) {
 		__export_symbol((void *)symbols[i].value, symbols[i].name);
 	}
@@ -287,18 +284,18 @@ void init_mod() {
 }
 
 void __export_symbol(void *sym, const char *name) {
-	//add the symbol at the start of the list
+	// add the symbol at the start of the list
 	exported_sym *new_sym = kmalloc(sizeof(exported_sym));
-	new_sym->value = (uintptr_t)sym;
-	new_sym->name = name;
-	new_sym->next = exported_sym_list;
-	exported_sym_list = new_sym;
+	new_sym->value        = (uintptr_t)sym;
+	new_sym->name         = name;
+	new_sym->next         = exported_sym_list;
+	exported_sym_list     = new_sym;
 }
 
 void __unexport_symbol(void *sym, const char *name) {
-	//search the sym in the list and remove it
+	// search the sym in the list and remove it
 	exported_sym *current_sym = exported_sym_list;
-	exported_sym *prev = NULL;
+	exported_sym *prev        = NULL;
 	while (current_sym) {
 		if ((!strcmp(current_sym->name, name) && (uintptr_t)sym == current_sym->value)) {
 			if (prev) {
@@ -309,12 +306,12 @@ void __unexport_symbol(void *sym, const char *name) {
 			kfree(current_sym);
 			return;
 		}
-		prev = current_sym;
+		prev        = current_sym;
 		current_sym = current_sym->next;
 	}
 }
 
-//a simple tool used by modules
+// a simple tool used by modules
 int have_opt(int argc, char **argv, char *option) {
 	for (int i = 0; i < argc; i++) {
 		if (!strcmp(argv[i], option)) {

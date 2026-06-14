@@ -95,7 +95,7 @@ typedef struct vfs_fd {
 	vfs_dentry_t *dentry;
 	struct vfs_fd_ops *ops;
 	void *private;
-	size_t ref_count;
+	ref_count_t ref_count;
 	long flags;
 	long type;
 	off_t offset;
@@ -505,14 +505,14 @@ static vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentr
 	if (node) {
 		return vfs_node_ref(node);
 	}
-	rcu_acquire_read(&superblock->inode.rcu);
+	rcu_acquire_read(&superblock->inodes.rcu);
 	node = xarray_get(&superblock->inodes, dentry->inode_number);
 	if (node) {
 		dentry->inode = vfs_node_ref(node);
-		rcu_release_read(&superblock->inode.rcu);
+		rcu_release_read(&superblock->inodes.rcu);
 		return vfs_node_ref(node);
 	}
-	rcu_release_read(&superblock->inode.rcu);
+	rcu_release_read(&superblock->inodes.rcu);
 	return NULL;
 }
 

@@ -1,7 +1,7 @@
 #include <kernel/limine.h>
 #include <kernel/framebuffer.h>
 #include <kernel/userspace.h>
-#include <kernel/scheduler.h>
+#include <kernel/process.h>
 #include <kernel/kernel.h>
 #include <kernel/string.h>
 #include <kernel/device.h>

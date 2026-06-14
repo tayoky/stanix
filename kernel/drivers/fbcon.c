@@ -1,10 +1,11 @@
-#include <kernel/fbcon.h>
-#include <kernel/ini.h>
-#include <kernel/print.h>
-#include <kernel/kernel.h>
-#include <kernel/string.h>
 #include <kernel/device.h>
+#include <kernel/fbcon.h>
 #include <kernel/framebuffer.h>
+#include <kernel/ini.h>
+#include <kernel/kernel.h>
+#include <kernel/kheap.h>
+#include <kernel/print.h>
+#include <kernel/string.h>
 #include <ctype.h>
 
 // a lot of code here is taken from libterm, https://github.com/tayoky/libterm
@@ -58,7 +59,7 @@ static void fbcon_handle_c0(fbcon_t *fbcon, char c) {
 }
 
 static void fbcon_handle_sgr(fbcon_t *fbcon) {
-	for (int i=0; i < fbcon->params_count; i++) {
+	for (int i = 0; i < fbcon->params_count; i++) {
 		switch (fbcon->params[i]) {
 		case -1:
 		case 0:
@@ -166,17 +167,17 @@ static void fbcon_handle_csi_ignore(fbcon_t *fbcon, char c) {
 
 static void fbcon_handle_esc(fbcon_t *fbcon, char c) {
 	if (c == '[') {
-		fbcon->state = FBCON_STATE_CSI_ENTRY;
+		fbcon->state        = FBCON_STATE_CSI_ENTRY;
 		fbcon->params_count = 0;
-		fbcon->params[0] = -1;
+		fbcon->params[0]    = -1;
 	} else {
 		fbcon->state = FBCON_STATE_GROUND;
 	}
 }
 
 static void fbcon_print_char(fbcon_t *fbcon, char c) {
-	PSF1_Header *header = fbcon->header;
-	char *font_data = fbcon->font;
+	PSF1_Header *header    = fbcon->header;
+	char *font_data        = fbcon->font;
 	uintptr_t current_byte = c * header->characterSize;
 	for (uint16_t y = 0; y < header->characterSize; y++) {
 		for (uint8_t x = 0; x < 8; x++) {
@@ -219,7 +220,7 @@ void fbcon_output_char(fbcon_t *fbcon, char c) {
 
 static ssize_t fbcon_output(tty_t *tty, const char *buf, size_t count) {
 	fbcon_t *fbcon = container_of(tty, fbcon_t, tty);
-	for (size_t i=0; i < count; i++) {
+	for (size_t i = 0; i < count; i++) {
 		fbcon_output_char(fbcon, buf[i]);
 	}
 	return count;
@@ -235,8 +236,8 @@ static int fbcon_ioctl(tty_t *tty, long request, void *arg) {
 }
 
 static tty_ops_t fbcon_ops = {
-	.ioctl =  fbcon_ioctl,
-	.out = fbcon_output,
+	.ioctl = fbcon_ioctl,
+	.out   = fbcon_output,
 };
 
 static device_driver_t fbcon_driver = {
@@ -245,7 +246,7 @@ static device_driver_t fbcon_driver = {
 
 void init_fbcon(void) {
 	kstatusf("init terminal fbcon ...");
-	//not activated by default
+	// not activated by default
 	char *activated_value = ini_get_value(kernel->conf_file, "terminal_emulator", "activate");
 	if (!activated_value) {
 		kfail();
@@ -263,7 +264,7 @@ void init_fbcon(void) {
 
 	device_driver_register(&fbcon_driver);
 
-	//now find the framebuffer to use
+	// now find the framebuffer to use
 	char *framebuffer_path = ini_get_value(kernel->conf_file, "terminal_emulator", "framebuffer");
 	if (!framebuffer_path) {
 		kfail();
@@ -271,7 +272,7 @@ void init_fbcon(void) {
 		return;
 	}
 
-	//and open the frammebuffer
+	// and open the frammebuffer
 	vfs_fd_t *framebuffer_dev = vfs_open(framebuffer_path, O_WRONLY);
 	if (IS_ERR(framebuffer_dev)) {
 		kfail();
@@ -333,17 +334,17 @@ void init_fbcon(void) {
 
 	// init width height and the char buffer
 	vfs_ioctl(framebuffer_dev, IOCTL_GET_FB_INFO, &fbcon->fb_info);
-	fbcon->tty.size.ws_col = fbcon->fb_info.width / 8;
-	fbcon->tty.size.ws_row = fbcon->fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
+	fbcon->tty.size.ws_col    = fbcon->fb_info.width / 8;
+	fbcon->tty.size.ws_row    = fbcon->fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
 	fbcon->tty.size.ws_xpixel = fbcon->fb_info.width;
 	fbcon->tty.size.ws_ypixel = fbcon->fb_info.height;
 
 	fbcon->font_type = FONT_TYPE_PSF1;
-	fbcon->font = font + sizeof(PSF1_Header);
+	fbcon->font      = font + sizeof(PSF1_Header);
 
 	// init cursor position
-	fbcon->x = 0;
-	fbcon->y = 0;
+	fbcon->x     = 0;
+	fbcon->y     = 0;
 	fbcon->state = FBCON_STATE_GROUND;
 
 	// init default color

@@ -5,6 +5,7 @@
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <kernel/print.h>
+#include <kernel/process.h>
 #include <kernel/rwlock.h>
 #include <kernel/scheduler.h>
 #include <kernel/signal.h>
@@ -12,8 +13,8 @@
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/time.h>
-#include <kernel/xarray.h>
 #include <kernel/vmm.h>
+#include <kernel/xarray.h>
 #include <errno.h>
 #include <stdatomic.h>
 
@@ -21,7 +22,7 @@ static run_queue_t main_run_queue;
 static xarray_t procs_list;
 static xarray_t tasks_list;
 static atomic_size_t tid_count = 1;
-static char can_task_switch = 0;
+static char can_task_switch    = 0;
 list_t sleeping_tasks;
 spinlock_t sleep_lock;
 
@@ -123,9 +124,9 @@ void init_task() {
 
 	proc_ref(boot_task);
 	proc_register(boot_task);
-	
+
 	// the first task will be the init task
-	init              = get_current_proc();
+	init = get_current_proc();
 
 	// activate task switch
 	can_task_switch = 1;

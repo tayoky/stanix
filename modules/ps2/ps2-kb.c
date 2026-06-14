@@ -1,14 +1,15 @@
+#include <kernel/arch.h>
+#include <kernel/input.h>
+#include <kernel/kheap.h>
 #include <kernel/module.h>
 #include <kernel/print.h>
 #include <kernel/ringbuf.h>
-#include <kernel/input.h>
-#include <kernel/time.h>
 #include <kernel/string.h>
-#include <kernel/arch.h>
+#include <kernel/time.h>
 #include <module/ps2.h>
-#include <poll.h>
-#include <input.h>
 #include <errno.h>
+#include <input.h>
+#include <poll.h>
 
 #define PS2_KEYBOARD_SET_SCANCODE 0xF0
 
@@ -88,14 +89,14 @@ static int ps2_kb_check(bus_addr_t *addr) {
 
 static int ps2_kb_probe(bus_addr_t *addr) {
 	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
-	int port = ps2_addr->port;
+	int port             = ps2_addr->port;
 
 	// reset the device
 	if (ps2_reset(port) < 0) {
 		kinfof("ps2 : keyboard reset failed\n");
 		return -EIO;
 	}
-	
+
 	// set scancode 2 and keep it if translation enabled
 	if (ps2_kb_set_scancode(ps2_addr, 2) < 0) return -EIO;
 	int scancode = ps2_kb_get_scancode(ps2_addr);
@@ -126,8 +127,8 @@ static int ps2_kb_probe(bus_addr_t *addr) {
 	keyboard->input_device.device.number = ps2_addr->port;
 	keyboard->input_device.device.name   = strdup("kb0");
 	keyboard->input_device.device.addr   = addr;
-	keyboard->input_device.class = IE_CLASS_KEYBOARD;
-	keyboard->input_device.subclass = IE_SUBCLASS_PS2_KBD;
+	keyboard->input_device.class         = IE_CLASS_KEYBOARD;
+	keyboard->input_device.subclass      = IE_SUBCLASS_PS2_KBD;
 	input_device_register(&keyboard->input_device);
 	bus_register_handler(addr, ps2_kb_handler, keyboard);
 	kdebugf("ps2 keyboard succefuly initialized\n");
@@ -136,7 +137,7 @@ static int ps2_kb_probe(bus_addr_t *addr) {
 }
 
 static device_driver_t ps2_kb_driver = {
-	.name = "ps2 keyboard",
+	.name  = "ps2 keyboard",
 	.check = ps2_kb_check,
 	.probe = ps2_kb_probe,
 };
@@ -154,11 +155,11 @@ static int fini_ps2_kb() {
 }
 
 kmodule_t module_meta = {
-	.magic = MODULE_MAGIC,
-	.init = init_ps2_kb,
-	.fini = fini_ps2_kb,
-	.name = "ps2 keyboard",
+	.magic       = MODULE_MAGIC,
+	.init        = init_ps2_kb,
+	.fini        = fini_ps2_kb,
+	.name        = "ps2 keyboard",
 	.description = "driver for ps2 keyboard",
-	.author = "tayoky",
-	.license = "GPL 3"
+	.author      = "tayoky",
+	.license     = "GPL 3"
 };

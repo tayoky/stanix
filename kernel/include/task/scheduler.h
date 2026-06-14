@@ -2,19 +2,16 @@
 #define KERNEL_SCHEDULER_H
 
 #include <kernel/arch.h>
-#include <kernel/spinlock.h>
-#include <kernel/rwlock.h>
-#include <kernel/string.h>
 #include <kernel/list.h>
-#include <kernel/vfs.h>
 #include <kernel/mmu.h>
-#include <kernel/vmm.h>
 #include <kernel/refcount.h>
+#include <kernel/spinlock.h>
+#include <kernel/string.h>
+#include <sys/signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/signal.h>
-#include <stdint.h>
 #include <fcntl.h>
+#include <stdint.h>
 
 struct registers;
 struct process;
@@ -27,21 +24,6 @@ typedef struct run_queue {
 	struct task *current;
 	int prev_is_on_queue;
 } run_queue_t;
-
-#define MAX_FD 32
-
-typedef struct file_descriptor {
-	vfs_fd_t *fd;
-	long present;
-	long flags;
-} file_descriptor_t;
-
-typedef struct fd_table {
-	file_descriptor_t fds[MAX_FD];
-	rwlock_t lock;
-} fd_table_t;
-
-struct process;
 
 typedef struct task {
 	list_node_t thread_list_node;
@@ -66,40 +48,13 @@ typedef struct task {
 	struct registers *syscall_frame;
 	void *exit_arg;
 	struct task *waker;
-	struct task * _Atomic waiter; //task waiting on us
+	struct task *_Atomic waiter; // task waiting on us
 	spinlock_t state_lock;
-	run_queue_t * _Atomic run_queue;
+	run_queue_t *_Atomic run_queue;
 	size_t preempt_disable;
 	atomic_size_t preempt_context_switches;
 	atomic_size_t voluntary_context_switches;
 } task_t;
-
-typedef struct process {
-	list_node_t child_list_node;
-	vmm_space_t vmm_space;
-	ref_count_t ref_count;
-	pid_t pid;
-	struct process *parent;
-	fd_table_t fd_table;
-	vfs_dentry_t *cwd;
-	vfs_dentry_t *exe;
-	char *cmdline;
-	uintptr_t heap_start;
-	uintptr_t heap_end;
-	list_t child;
-	list_t threads;
-	pid_t group;
-	pid_t sid;
-	uid_t uid;
-	uid_t euid;
-	uid_t suid;
-	gid_t gid;
-	gid_t egid;
-	gid_t sgid;
-	mode_t umask;
-	task_t *main_thread;
-	long exit_status;
-} process_t;
 
 #define TASK_STATUS_RUNNING       1 // is the task actually running on a cpu
 #define TASK_STATUS_ZOMBIE        2
@@ -120,23 +75,6 @@ void init_task(void);
 
 task_t *get_current_task(void);
 
-static inline process_t *get_current_proc(void) {
-	task_t *task = get_current_task();
-	return task ? task->process : NULL;
-}
-
-static inline uid_t get_current_euid(void) {
-	process_t *proc = get_current_proc();
-	return proc ? proc->euid : EUID_ROOT;
-}
-
-static inline gid_t get_current_egid(void) {
-	process_t *proc = get_current_proc();
-	return proc ? proc->egid : EUID_ROOT;
-}
-
-process_t *new_proc(void (*func)(void *arg), void *arg);
-
 task_t *new_kernel_task(void (*func)(void *arg), void *arg);
 
 /**
@@ -146,17 +84,12 @@ task_t *new_kernel_task(void (*func)(void *arg), void *arg);
  * @param arg the argument to pass to the kernel function
  * @return a pointer to the new task
  */
-task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg);
+task_t *new_task(struct process *proc, void (*func)(void *arg), void *arg);
 
 /**
  * @brief kill the current task
  */
 void kill_task(void);
-
-/**
- * @brief kill the current process
- */
-void kill_proc();
 
 /**
  * @brief get a task from its tid
@@ -165,14 +98,6 @@ void kill_proc();
  * @note this create a new reference to the task
  */
 task_t *tid2task(pid_t tid);
-
-/**
- * @brief get a process from its pid
- * @param pid the pid of the process
- * @return the process with the specfied pid
- * @note this create a new reference to the process
- */
-process_t *pid2proc(pid_t pid);
 
 /**
  * @brief increment the ref count of a task
@@ -185,26 +110,10 @@ static inline task_t *task_ref(task_t *task) {
 }
 
 /**
- * @brief increment the ref count of a process
- * @param proc the process to increment the ref count of
- * @return the process
- */
-static inline process_t *proc_ref(process_t *proc) {
-	if (proc) ref_count_inc(&proc->ref_count);
-	return proc;
-}
-
-/**
  * @brief release a reference to a task
  * @param task the task to release
  */
 void task_release(task_t *task);
-
-/**
- * @brief release a reference to a process
- * @param proc the process to release
- */
-void proc_release(process_t *proc);
 
 /**
  * @brief safely set the status of the current task
@@ -252,24 +161,6 @@ static inline void preempt_disable(void) {
 }
 
 /**
- * @brief set cmdline of a process
- * @param proc the process to set the cmdline of
- * @param cmdline the new cmdline
- */
-static inline void proc_set_cmdline(process_t *proc, const char *cmdline) {
-	kfree(proc->cmdline);
-	proc->cmdline = strdup(cmdline);
-}
-
-/**
- * @brief set cmdline of current process
- * @param cmdline the new cmdline
- */
-static inline void set_cmdline(const char *cmdline) {
-	proc_set_cmdline(get_current_proc(), cmdline);
-}
-
-/**
  * @brief block the current task
  * @param timeout the timeout (timespec until it can block)
  * @return -EINTR if interrupted by signal delivery or -ETIMEDOUT if interrupted by timeout or 0
@@ -281,7 +172,6 @@ int block_task_timeout(struct timespec *timeout);
  * @return -EINTR if interrupted by signal delivery or 0
  */
 int block_task(void);
-
 
 /**
  * @brief unblock a task for a reason
@@ -318,33 +208,7 @@ void finish_yield(void);
  * @param waker the thread that died
  * @return the tid of the threads that died or negative errno number
  */
-int waitfor(task_t **threads,size_t threads_count,int flags,task_t **waker);
-
-/**
- * @brief add a file descriptor to the current's process fd table
- * @param fd the \ref vfs_fd_t to add
- * @param flags the fd flags to add with (FD_CLOEXEC, ...)
- * @return the fd number on success else an error code
- */
-int add_fd(vfs_fd_t *fd, long flags);
-
-/**
- * @brief get a file descriptor from the current's process fd table
- * @param fd the fd number to get the data of
- * @param file_descriptor where to store the fetched data (can be NULL)
- * @return the fd number on success else an error code
- */
-int get_fd(int fd, file_descriptor_t *file_descriptor);
-
-/**
- * @brief remove and close a file descriptor from the current's process fd table
- * @param fd the fd number to close
- * @return the fd number on succes else an error code
- */
-int close_fd(int fd);
-
-struct xarray;
-struct xarray *get_procs_list(void);
+int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker);
 
 extern list_t sleeping_tasks;
 extern spinlock_t sleep_lock;

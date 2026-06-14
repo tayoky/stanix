@@ -2,6 +2,7 @@
 #define KERNEL_SIGNAL_H
 
 #include <kernel/scheduler.h>
+#include <kernel/process.h>
 #include <kernel/arch.h>
 
 int send_sig_task(task_t *thread,int signum);

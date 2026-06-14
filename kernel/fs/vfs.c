@@ -6,8 +6,8 @@
 #include <kernel/panic.h>
 #include <kernel/poll.h>
 #include <kernel/print.h>
+#include <kernel/process.h>
 #include <kernel/refcount.h>
-#include <kernel/scheduler.h>
 #include <kernel/slab.h>
 #include <kernel/string.h>
 #include <kernel/time.h>
@@ -389,7 +389,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 			// cached entries must not be negative
 			kassert(!vfs_dentry_is_negative(current_entry));
 			vfs_dentry_t *ret = vfs_dentry_ref(current_entry);
-			
+
 			// we might need to remove it from lru
 			if (ret->ref_count == 1) {
 				dentry_remove_lru(ret);
@@ -432,7 +432,9 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 			if (parent == dentry) parent = NULL;
 
 			// we cannot use vfs_remove_entry cause it call vfs_dentry_release
-			list_remove(&parent->children, &dentry->children_node);
+			if (parent) {
+				list_remove(&parent->children, &dentry->children_node);
+			}
 			dentry->parent = NULL;
 			slab_free(dentry);
 			dentry = parent;
@@ -996,12 +998,12 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 	struct stat st;
 	vfs_getattr(node, &st);
 
-	fd->ops       = NULL;
-	fd->private   = node->private_inode;
-	fd->inode     = vfs_node_ref(node);
-	fd->dentry    = vfs_dentry_ref(dentry);
-	fd->flags     = flags;
-	fd->type      = node->flags;
+	fd->ops     = NULL;
+	fd->private = node->private_inode;
+	fd->inode   = vfs_node_ref(node);
+	fd->dentry  = vfs_dentry_ref(dentry);
+	fd->flags   = flags;
+	fd->type    = node->flags;
 
 	// call inode specific open before fd specific open
 	if (node->ops && node->ops->open) {

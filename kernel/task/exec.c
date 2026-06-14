@@ -1,7 +1,7 @@
 #include <kernel/exec.h>
 #include <kernel/kernel.h>
 #include <kernel/print.h>
-#include <kernel/scheduler.h>
+#include <kernel/process.h>
 #include <kernel/string.h>
 #include <kernel/sys.h>
 #include <kernel/userspace.h>

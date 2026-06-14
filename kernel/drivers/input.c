@@ -1,6 +1,6 @@
 #include <kernel/print.h>
 #include <kernel/input.h>
-#include <kernel/scheduler.h>
+#include <kernel/process.h>
 #include <kernel/userspace.h>
 #include <sys/input.h>
 #include <poll.h>

@@ -1,6 +1,7 @@
 #include <kernel/cond.h>
 #include <kernel/sleep.h>
 #include <kernel/string.h>
+#include <errno.h>
 
 void init_cond(cond_t *cond) {
 	memset(cond, 0, sizeof(cond_t));

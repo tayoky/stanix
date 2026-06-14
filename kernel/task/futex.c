@@ -1,8 +1,9 @@
-#include <kernel/sleep.h>
-#include <kernel/scheduler.h>
 #include <kernel/hashmap.h>
 #include <kernel/mmu.h>
+#include <kernel/scheduler.h>
+#include <kernel/sleep.h>
 #include <sys/futex.h>
+#include <errno.h>
 #include <stdint.h>
 
 static hashmap_t futexes;

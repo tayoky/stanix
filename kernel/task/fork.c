@@ -1,6 +1,6 @@
 #include <kernel/fork.h>
 #include <kernel/arch.h>
-#include <kernel/scheduler.h>
+#include <kernel/process.h>
 #include <kernel/print.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>

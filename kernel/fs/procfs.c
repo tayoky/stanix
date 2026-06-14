@@ -1,7 +1,7 @@
 #include <kernel/kheap.h>
 #include <kernel/print.h>
+#include <kernel/process.h>
 #include <kernel/procfs.h>
-#include <kernel/scheduler.h>
 #include <kernel/string.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
