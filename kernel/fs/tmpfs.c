@@ -1,7 +1,7 @@
+#include <kernel/assert.h>
 #include <kernel/cache.h>
 #include <kernel/kernel.h>
 #include <kernel/kheap.h>
-#include <kernel/assert.h>
 #include <kernel/list.h>
 #include <kernel/print.h>
 #include <kernel/slab.h>
@@ -40,11 +40,11 @@ static tmpfs_inode_t *new_inode(vfs_superblock_t *superblock, mode_t mode) {
 	inode->vnode.mode       = mode;
 	switch (mode & S_IFMT) {
 	case S_IFREG:
-		init_cache(&inode->cache);
-		inode->cache.ops = &tmpfs_cache_ops;
+		init_cache(&inode->file.cache);
+		inode->file.cache.ops = &tmpfs_cache_ops;
 		break;
 	case S_IFDIR:
-		list_init(&inode->entries);
+		list_init(&inode->directory.entries);
 		break;
 	}
 	inode->parent       = NULL;
@@ -60,12 +60,12 @@ static int tmpfs_add_entry(tmpfs_inode_t *dir, tmpfs_inode_t *child, vfs_dentry_
 	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
 	strcpy(entry->name, dentry->name);
 	entry->inode = child;
-	list_append(&dir->entries, &entry->node);
+	list_append(&dir->directory.entries, &entry->node);
 	return 0;
 }
 
 static tmpfs_dirent_t *tmpfs_get_entry(tmpfs_inode_t *dir, vfs_dentry_t *dentry) {
-	foreach (node, &dir->entries) {
+	foreach (node, &dir->directory.entries) {
 		tmpfs_dirent_t *current_entry = container_of(node, tmpfs_dirent_t, node);
 		if (!strcmp(current_entry->name, dentry->name)) {
 			return current_entry;
@@ -75,7 +75,7 @@ static tmpfs_dirent_t *tmpfs_get_entry(tmpfs_inode_t *dir, vfs_dentry_t *dentry)
 }
 
 static void tmpfs_remove_entry(tmpfs_inode_t *dir, tmpfs_dirent_t *entry) {
-	list_remove(&dir->entries, &entry->node);
+	list_remove(&dir->directory.entries, &entry->node);
 	if ((--entry->inode->link_count) == 0) {
 		// nobody uses it we can release the inode
 		vfs_node_release(&entry->inode->vnode);
@@ -100,8 +100,8 @@ static vfs_filesystem_t tmpfs = {
 
 void init_tmpfs() {
 	kstatusf("init tmpfs... ");
-	slab_init(&tmpfs_inode_slab, sizeof(tmpfs_inode_t), "tmpfs-inode");
-	slab_init(&tmpfs_entry_slab, sizeof(tmpfs_dirent_t), "tmpfs-entry");
+	slab_init(&tmpfs_inode_slab, sizeof(tmpfs_inode_t), "tmpfs-inodes");
+	slab_init(&tmpfs_entry_slab, sizeof(tmpfs_dirent_t), "tmpfs-entries");
 	vfs_register_fs(&tmpfs);
 	kok();
 }
@@ -116,7 +116,6 @@ vfs_superblock_t *new_tmpfs(void) {
 	superblock->root->ref_count = 1;
 	return superblock;
 }
-
 
 static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
@@ -151,13 +150,13 @@ static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 static ssize_t tmpfs_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)fd->private;
 	kassert(S_ISREG(inode->vnode.mode));
-	return cache_read(&inode->cache, buffer, offset, count);
+	return cache_read(&inode->file.cache, buffer, offset, count);
 }
 
 static int tmpfs_truncate(vfs_node_t *vnode, size_t size) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
 	kassert(S_ISREG(inode->vnode.mode));
-	return cache_truncate(&inode->cache, size);
+	return cache_truncate(&inode->file.cache, size);
 }
 
 static ssize_t tmpfs_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
@@ -165,16 +164,16 @@ static ssize_t tmpfs_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_
 	kassert(S_ISREG(inode->vnode.mode));
 
 	// if the write is out of bound make the file bigger
-	if (offset + count > inode->cache.size) {
+	if (offset + count > inode->file.cache.size) {
 		tmpfs_truncate(fd->inode, offset + count);
 	}
-	return cache_write(&inode->cache, buffer, offset, count);
+	return cache_write(&inode->file.cache, buffer, offset, count);
 }
 
 static int tmpfs_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 	tmpfs_inode_t *inode = (tmpfs_inode_t *)fd->private;
 	kassert(S_ISREG(inode->vnode.mode));
-	return cache_mmap(&inode->cache, offset, seg);
+	return cache_mmap(&inode->file.cache, offset, seg);
 }
 
 static int tmpfs_exist(tmpfs_inode_t *inode, vfs_dentry_t *dentry) {
@@ -184,9 +183,9 @@ static int tmpfs_exist(tmpfs_inode_t *inode, vfs_dentry_t *dentry) {
 static ssize_t tmpfs_readlink(vfs_node_t *vnode, char *buf, size_t bufsize) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
 	kassert(S_ISLNK(inode->vnode.mode));
-	if (bufsize > inode->buffer_size) bufsize = inode->buffer_size;
+	if (bufsize > inode->link.buffer_size) bufsize = inode->link.buffer_size;
 
-	memcpy(buf, inode->buffer, bufsize);
+	memcpy(buf, inode->link.buffer, bufsize);
 	return bufsize;
 }
 
@@ -209,7 +208,7 @@ static int tmpfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 	}
 
 	index -= 2;
-	foreach (node, &inode->entries) {
+	foreach (node, &inode->directory.entries) {
 		if (!index) {
 			tmpfs_dirent_t *entry = container_of(node, tmpfs_dirent_t, node);
 			strcpy(dirent->d_name, entry->name);
@@ -248,13 +247,13 @@ static void tmpfs_cleanup(vfs_node_t *vnode) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
 	switch (inode->vnode.mode & S_IFMT) {
 	case S_IFREG:
-		free_cache(&inode->cache);
+		free_cache(&inode->file.cache);
 		break;
 	case S_IFDIR:
-		list_destroy(&inode->entries);
+		list_destroy(&inode->directory.entries);
 		break;
 	case S_IFLNK:
-		kfree(inode->buffer);
+		kfree(inode->link.buffer);
 		break;
 	}
 	slab_free(inode);
@@ -287,7 +286,7 @@ static int tmpfs_link(vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_
 	kdebugf("link %s %s\n", old_dentry->name, new_dentry->name);
 	tmpfs_inode_t *new_dir_inode = container_of(new_dir, tmpfs_inode_t, vnode);
 	kassert(S_ISDIR(new_dir_inode->vnode.mode));
-	tmpfs_inode_t *old_inode     = container_of(old_dentry->inode, tmpfs_inode_t, vnode);
+	tmpfs_inode_t *old_inode = container_of(old_dentry->inode, tmpfs_inode_t, vnode);
 
 	if (tmpfs_exist(new_dir_inode, new_dentry)) return -EEXIST;
 
@@ -301,8 +300,8 @@ static int tmpfs_symlink(vfs_node_t *vnode, vfs_dentry_t *dentry, const char *ta
 	if (tmpfs_exist(inode, dentry)) return -EEXIST;
 
 	tmpfs_inode_t *symlink = new_inode(vnode->superblock, S_IFLNK | 0777);
-	symlink->buffer_size   = strlen(target);
-	symlink->buffer        = strdup(target);
+	symlink->link.buffer_size   = strlen(target);
+	symlink->link.buffer        = strdup(target);
 
 	tmpfs_add_entry(inode, symlink, dentry);
 
@@ -349,7 +348,7 @@ static int tmpfs_rmdir(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 	// check if the directory is empty
 	tmpfs_inode_t *child_inode = entry->inode;
-	if (child_inode->entries.first_node) return -ENOTEMPTY;
+	if (child_inode->directory.entries.first_node) return -ENOTEMPTY;
 
 	tmpfs_remove_entry(inode, entry);
 
@@ -367,13 +366,12 @@ static int tmpfs_setattr(vfs_node_t *vnode, struct stat *st, int mask) {
 
 static int tmpfs_getattr(vfs_node_t *vnode, struct stat *st) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
-	st->st_size          = inode->cache.size;
+	st->st_size          = inode->file.cache.size;
 	st->st_nlink         = inode->link_count;
 	st->st_rdev          = inode->dev;
 
-	// simulate fake blocks of 512 bytes
-	// because blocks don't exist on tmpfs
-	st->st_blksize = 512;
+	// a tmpfs block is a page
+	st->st_blksize = PAGE_SIZE;
 	st->st_blocks  = (st->st_size + st->st_blksize - 1) / st->st_blksize;
 	return 0;
 }
