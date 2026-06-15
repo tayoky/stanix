@@ -134,7 +134,7 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 	vfs_getattr(node, &st);
 
 	fd->ops     = NULL;
-	fd->private = node->private_inode;
+	fd->private = node;
 	fd->inode   = vfs_node_ref(node);
 	fd->dentry  = vfs_dentry_ref(dentry);
 	fd->flags   = flags;

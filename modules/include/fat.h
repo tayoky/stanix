@@ -10,19 +10,19 @@
 
 #define FAT_EOF 0xFFFFFFFF
 
-#define ATTR_READ_ONLY 0x01
-#define ATTR_HIDDEN    0x02
-#define ATTR_SYSTEM    0x04
-#define ATTR_VOLUME_ID 0x08
-#define ATTR_DIRECTORY 0x10
-#define ATTR_ARCHIVE   0x20
-#define ATTR_LONG_NAME (ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID)
+#define ATTR_READ_ONLY  0x01
+#define ATTR_HIDDEN     0x02
+#define ATTR_SYSTEM     0x04
+#define ATTR_VOLUME_ID  0x08
+#define ATTR_DIRECTORY  0x10
+#define ATTR_ARCHIVE    0x20
+#define ATTR_LONG_NAME  (ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID)
 #define LAST_LONG_ENTRY 0x40
 
 #define FAT_NT_CASE_LOWER_BASE 0x08
 #define FAT_NT_CASE_LOWER_EXT  0x10
 
-//also for fat12
+// also for fat12
 typedef struct fat16_bpb {
 	uint8_t drive_num;
 	uint8_t reserved;
@@ -37,8 +37,8 @@ typedef struct fat16_bpb {
 typedef struct fat32_bpb {
 	uint32_t sectors_per_fat32;
 	uint16_t ext_flags;
-	uint16_t version;      //must be 0
-	uint32_t root_cluster; //first cluster of root
+	uint16_t version;      // must be 0
+	uint32_t root_cluster; // first cluster of root
 	uint16_t fs_info;
 	uint16_t bk_boot_sector;
 	char reserved[12];
@@ -57,16 +57,16 @@ typedef struct fat_bpb {
 	char oem_name[8];
 	uint16_t byte_per_sector;
 	uint8_t sector_per_cluster;
-	uint16_t reserved_sectors; //count
+	uint16_t reserved_sectors; // count
 	uint8_t fat_count;
-	uint16_t root_entires_count; //only fat12/16
-	uint16_t sectors_count16;    //16 bits version of total sectors count (must be 0 for fat32)
+	uint16_t root_entires_count; // only fat12/16
+	uint16_t sectors_count16;    // 16 bits version of total sectors count (must be 0 for fat32)
 	uint8_t media;
-	uint16_t sectors_per_fat16;  //only fat12/16
+	uint16_t sectors_per_fat16; // only fat12/16
 	uint16_t sectors_per_track;
 	uint16_t head_count;
 	uint32_t hidden_sectors;
-	uint32_t sectors_count32;    //32 bits version of total sectors count (must be not 0 if 16bits version is 0 or fat32)
+	uint32_t sectors_count32; // 32 bits version of total sectors count (must be not 0 if 16bits version is 0 or fat32)
 	union {
 		fat32_bpb_t fat32;
 		fat16_bpb_t fat16;
@@ -81,10 +81,10 @@ typedef struct fat_entry {
 	uint16_t creation_time;
 	uint16_t creation_date;
 	uint16_t access_date;
-	uint16_t cluster_higher; //high 16 bits of first cluser MUST BE 0 on fat 12/16
+	uint16_t cluster_higher; // high 16 bits of first cluser MUST BE 0 on fat 12/16
 	uint16_t write_time;
 	uint16_t write_date;
-	uint16_t cluster_lower;  //low 16 bits of first cluser
+	uint16_t cluster_lower; // low 16 bits of first cluser
 	uint32_t file_size;
 } __attribute__((packed)) fat_entry_t;
 
@@ -107,14 +107,15 @@ typedef struct fat_superblock {
 	uint16_t sector_size;
 	uint32_t sectors_per_fat;
 	uint32_t cluster_size;
-	off_t data_start;          //start of root/data section start
+	off_t data_start; // start of root/data section start
 } fat_superblock_t;
 
-//in memory inode
+// in memory inode
 typedef struct fat_inode {
+	vfs_node_t vnode;
 	fat_entry_t entry;
 	uint32_t first_cluster;
-	//used for fat16/12 root
+	// used for fat16/12 root
 	int is_fat16_root;
 	uint64_t start;
 	uint16_t entries_count;

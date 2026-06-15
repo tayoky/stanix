@@ -46,7 +46,6 @@ struct poll_event;
  * @brief represent an inode
  */
 typedef struct vfs_node {
-	void *private_inode;
 	struct vfs_superblock *superblock;
 	struct vfs_inode_ops *ops;
 	atomic_size_t flags;
@@ -366,7 +365,6 @@ static inline int vfs_update_time(vfs_node_t *node, int mask) {
 
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
-
 /**
  * @brief write an inode back to disk
  * @param node the node to writeback
