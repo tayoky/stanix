@@ -31,13 +31,11 @@ static int fat_getattr(vfs_node_t *vnode, struct stat *st) {
 	if (inode->is_fat16_root) return 0;
 
 	// TODO : parse times
-	st->st_ino   = inode->first_cluster;
 	st->st_size  = inode->entry.file_size;
 	st->st_atime = fat_date2time(inode->entry.access_date);
 	st->st_mtime = fat_date2time(inode->entry.write_date);
 	// technicly the ctime is not creation but change, but fat does not have ctime
 	st->st_ctime = fat_date2time(inode->entry.creation_date);
-	st->st_mode  = 0777;
 	return 0;
 }
 
@@ -83,13 +81,14 @@ static uint32_t fat_get_next_cluster(fat_superblock_t *fat_superblock, uint32_t 
 }
 
 static vfs_node_t *fat_entry2node(fat_entry_t *entry, fat_superblock_t *fat_superblock) {
-	fat_inode_t *inode = slab_alloc(&fat_inodes_slab);
+	fat_inode_t *inode   = slab_alloc(&fat_inodes_slab);
 	inode->entry         = *entry;
 	inode->first_cluster = (entry->cluster_higher << 16) | entry->cluster_lower;
 
-	inode->vnode.ops           = &fat_inode_ops;
-	inode->vnode.superblock    = &fat_superblock->superblock;
-	inode->vnode.ref_count     = 1;
+	inode->vnode.ops        = &fat_inode_ops;
+	inode->vnode.superblock = &fat_superblock->superblock;
+	inode->vnode.ref_count  = 1;
+	inode->vnode.number     = inode->first_cluster;
 	if (entry->attribute & ATTR_DIRECTORY) {
 		inode->vnode.mode = S_IFDIR | 0777;
 	} else {
@@ -482,10 +481,10 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 		root->start         = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector;
 		root->is_fat16_root = 1;
 
-		local_root = &root->vnode;
-		local_root->mode          = S_IFDIR | 0777;
-		local_root->ops           = &fat_inode_ops;
-		local_root->superblock    = &fat_superblock->superblock;
+		local_root             = &root->vnode;
+		local_root->mode       = S_IFDIR | 0777;
+		local_root->ops        = &fat_inode_ops;
+		local_root->superblock = &fat_superblock->superblock;
 	}
 	local_root->ref_count           = 1;
 	fat_superblock->superblock.root = local_root;
