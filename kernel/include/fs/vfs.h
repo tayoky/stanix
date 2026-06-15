@@ -1,12 +1,13 @@
 #ifndef KERNEL_VFS_H
 #define KERNEL_VFS_H
 
+#include <kernel/assert.h>
+#include <kernel/atomic.h>
 #include <kernel/list.h>
 #include <kernel/refcount.h>
 #include <kernel/spinlock.h>
-#include <kernel/xarray.h>
 #include <kernel/time.h>
-#include <kernel/assert.h>
+#include <kernel/xarray.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -48,16 +49,16 @@ struct poll_event;
 typedef struct vfs_node {
 	struct vfs_superblock *superblock;
 	struct vfs_inode_ops *ops;
-	atomic_size_t flags;
-	ref_count_t ref_count;
-	uid_t uid;
-	gid_t gid;
-	mode_t mode;
 	ino_t number;
+	ATOMIC(long) flags;
+	ref_count_t ref_count;
+	ATOMIC(uid_t) uid;
+	ATOMIC(gid_t) gid;
+	ATOMIC(mode_t) mode;
+	ATOMIC(time_t) atime;
+	ATOMIC(time_t) mtime;
+	ATOMIC(time_t) ctime;
 	spinlock_t lock;
-	time_t atime;
-	time_t mtime;
-	time_t ctime;
 } vfs_node_t;
 
 #define VNODE_FLAG_DIRTY 0x01

@@ -459,14 +459,15 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	if (!node) return -EINVAL;
 	memset(st, 0, sizeof(struct stat));
 	st->st_nlink = 1; // in case a driver forgot to set :D
-	st->st_mode  = node->mode;
-	st->st_atime = node->atime;
-	st->st_mtime = node->mtime;
-	st->st_ctime = node->ctime;
-	st->st_uid   = node->uid;
-	st->st_gid   = node->gid;
 	st->st_ino   = node->number;
-	// maybee we can sync
+	st->st_mode  = atomic_load(&node->mode);
+	st->st_uid   = atomic_load(&node->uid);
+	st->st_gid   = atomic_load(&node->gid);
+	st->st_atime = atomic_load(&node->atime);
+	st->st_mtime = atomic_load(&node->mtime);
+	st->st_ctime = atomic_load(&node->ctime);
+
+	// maybee the fs has a custom getattr
 	if (node->ops && node->ops->getattr) {
 		int ret = node->ops->getattr(node, st);
 		if (ret < 0) return ret;
@@ -477,20 +478,21 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 
 int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask) {
 	// make sure we can actually sync
-	if (!node || !node->ops || !node->ops->setattr) {
-		return -EINVAL; // should be another error ... but what ???
+	if (!node) return -EINVAL;
+	if (!node->ops || !node->ops->setattr) {
+		return -EOPNOTSUPP;
 	}
 	if (get_current_euid() != node->uid && get_current_euid() != EUID_ROOT) {
 		return -EPERM;
 	}
 	int ret = node->ops->setattr(node, st, mask);
 	if (ret < 0) return ret;
-	if (mask & VNODE_ATTR_MODE) node->mode = st->st_mode | (node->mode & S_IFMT);
-	if (mask & VNODE_ATTR_UID) node->uid = st->st_uid;
-	if (mask & VNODE_ATTR_GID) node->gid = st->st_gid;
-	if (mask & VNODE_ATTR_ATIME) node->atime = st->st_atime;
-	if (mask & VNODE_ATTR_MTIME) node->mtime = st->st_mtime;
-	if (mask & VNODE_ATTR_CTIME) node->ctime = st->st_ctime;
+	if (mask & VNODE_ATTR_MODE) atomic_store(&node->mode, (st->st_mode & ~S_IFMT) | (node->mode & S_IFMT));
+	if (mask & VNODE_ATTR_UID) atomic_store(&node->uid, st->st_uid);
+	if (mask & VNODE_ATTR_GID) atomic_store(&node->gid, st->st_gid);
+	if (mask & VNODE_ATTR_ATIME) atomic_store(&node->atime, st->st_atime);
+	if (mask & VNODE_ATTR_MTIME) atomic_store(&node->mtime, st->st_mtime);
+	if (mask & VNODE_ATTR_CTIME) atomic_store(&node->ctime, st->st_ctime);
 	atomic_fetch_or(&node->flags, VNODE_FLAG_DIRTY);
 	return ret;
 }
