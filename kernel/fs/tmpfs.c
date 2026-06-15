@@ -57,6 +57,7 @@ static tmpfs_inode_t *new_inode(vfs_superblock_t *superblock, mode_t mode) {
 static int tmpfs_add_entry(tmpfs_inode_t *dir, tmpfs_inode_t *child, vfs_dentry_t *dentry) {
 	// create new entry
 	child->link_count++;
+	vfs_node_ref(&child->vnode);
 	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
 	strcpy(entry->name, dentry->name);
 	entry->inode = child;
@@ -76,10 +77,8 @@ static tmpfs_dirent_t *tmpfs_get_entry(tmpfs_inode_t *dir, vfs_dentry_t *dentry)
 
 static void tmpfs_remove_entry(tmpfs_inode_t *dir, tmpfs_dirent_t *entry) {
 	list_remove(&dir->directory.entries, &entry->node);
-	if ((--entry->inode->link_count) == 0) {
-		// nobody uses it we can release the inode
-		vfs_node_release(&entry->inode->vnode);
-	}
+	entry->inode->link_count--;
+	vfs_node_release(&entry->inode->vnode);
 	slab_free(entry);
 }
 
@@ -129,11 +128,9 @@ static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	if (!strcmp(dentry->name, "..")) {
 		if (inode->parent) {
 			dentry->inode            = vfs_node_ref(&inode->parent->vnode);
-			dentry->inode->ref_count = 1;
 			dentry->inode_number     = INODE_NUMBER(inode->parent);
 		} else {
 			dentry->inode            = vfs_node_ref(&inode->vnode);
-			dentry->inode->ref_count = 1;
 			dentry->inode_number     = INODE_NUMBER(inode);
 		}
 		return 0;
@@ -142,7 +139,6 @@ static int tmpfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	tmpfs_dirent_t *entry = tmpfs_get_entry(inode, dentry);
 	if (!entry) return -ENOENT;
 	dentry->inode            = vfs_node_ref(&entry->inode->vnode);
-	dentry->inode->ref_count = 1;
 	dentry->inode_number     = INODE_NUMBER(entry->inode);
 	return 0;
 }
@@ -299,9 +295,9 @@ static int tmpfs_symlink(vfs_node_t *vnode, vfs_dentry_t *dentry, const char *ta
 	kassert(S_ISDIR(inode->vnode.mode));
 	if (tmpfs_exist(inode, dentry)) return -EEXIST;
 
-	tmpfs_inode_t *symlink = new_inode(vnode->superblock, S_IFLNK | 0777);
-	symlink->link.buffer_size   = strlen(target);
-	symlink->link.buffer        = strdup(target);
+	tmpfs_inode_t *symlink    = new_inode(vnode->superblock, S_IFLNK | 0777);
+	symlink->link.buffer_size = strlen(target);
+	symlink->link.buffer      = strdup(target);
 
 	tmpfs_add_entry(inode, symlink, dentry);
 
