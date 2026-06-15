@@ -58,7 +58,6 @@ void vfs_init_created_node(vfs_node_t *node) {
 	node->uid   = get_current_euid();
 	node->gid   = get_current_egid();
 	node->atime = node->mtime = node->ctime = gettime_sec(CLOCK_REALTIME);
-	node->ref_count                         = 1;
 }
 
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
@@ -129,6 +128,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 		slab_free(child_entry);
 		return ERR2PTR(ret);
 	}
+	kassert(!vfs_dentry_is_negative(child_entry));
 
 	// link it in the dentry cache
 	vfs_dentry_add(entry, child_entry);
