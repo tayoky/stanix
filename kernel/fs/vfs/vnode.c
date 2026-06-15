@@ -491,7 +491,7 @@ int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask) {
 	if (mask & VNODE_ATTR_ATIME) node->atime = st->st_atime;
 	if (mask & VNODE_ATTR_MTIME) node->mtime = st->st_mtime;
 	if (mask & VNODE_ATTR_CTIME) node->ctime = st->st_ctime;
-	node->flags |= VNODE_DIRTY;
+	atomic_fetch_or(&node->flags, VNODE_FLAG_DIRTY);
 	return ret;
 }
 

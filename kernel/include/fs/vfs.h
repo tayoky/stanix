@@ -6,6 +6,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/xarray.h>
 #include <kernel/time.h>
+#include <kernel/assert.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -48,7 +49,7 @@ typedef struct vfs_node {
 	void *private_inode;
 	struct vfs_superblock *superblock;
 	struct vfs_inode_ops *ops;
-	unsigned long flags;
+	atomic_size_t flags;
 	ref_count_t ref_count;
 	uid_t uid;
 	gid_t gid;
@@ -60,7 +61,7 @@ typedef struct vfs_node {
 	time_t ctime;
 } vfs_node_t;
 
-#define VNODE_DIRTY 0x01
+#define VNODE_FLAG_DIRTY 0x01
 
 /**
  * @brief represent a directory entry
@@ -145,8 +146,8 @@ typedef struct vfs_superblock {
 
 typedef struct vfs_superblock_ops {
 	void (*destroy)(vfs_superblock_t *superblock);
-	void (*write_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
-	void (*read_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
+	int (*write_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
+	int (*read_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
 } vfs_superblock_ops_t;
 
 #define VFS_SUPERBLOCK_NO_DCACHE 0x01
@@ -186,9 +187,6 @@ static inline int vfs_unmount(const char *path) {
 }
 
 int vfs_chroot(vfs_dentry_t *new_root);
-
-vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
-ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
 
 int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode);
 int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode);
@@ -366,6 +364,23 @@ static inline int vfs_update_time(vfs_node_t *node, int mask) {
 	return vfs_setattr(node, &st, mask);
 }
 
+vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
+ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
+
+/**
+ * @brief write an inode back to disk
+ * @param node the node to writeback
+ */
+static inline int vfs_node_write(vfs_node_t *node) {
+	if (!node) return -EINVAL;
+	if (!atomic_fetch_and(&node->flags, ~VNODE_FLAG_DIRTY)) {
+		// not dirty
+		return 0;
+	}
+	kassert(node->superblock);
+	if (!node->superblock->ops || !node->superblock->ops->write_inode) return -EINVAL;
+	return node->superblock->ops->write_inode(node->superblock, node);
+}
 
 // fds operations
 /**
