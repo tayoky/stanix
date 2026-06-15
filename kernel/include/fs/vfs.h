@@ -305,7 +305,8 @@ static inline int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
  * @return 0 on success else error code
  */
 static inline int vfs_truncate(vfs_node_t *node, size_t size) {
-	if (!node || !node->ops->truncate) return -EBADF;
+	if (!node) return -EBADF;
+	if (!node->ops->truncate) return -EOPNOTSUPP;
 	switch (node->mode & S_IFMT) {
 	case S_IFREG:
 		return node->ops->truncate(node, size);
@@ -375,13 +376,13 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
  * @param node the node to writeback
  */
 static inline int vfs_node_write(vfs_node_t *node) {
-	if (!node) return -EINVAL;
+	if (!node) return -EBADF;
 	if (!atomic_fetch_and(&node->flags, ~VNODE_FLAG_DIRTY)) {
 		// not dirty
 		return 0;
 	}
 	kassert(node->superblock);
-	if (!node->superblock->ops || !node->superblock->ops->write_inode) return -EINVAL;
+	if (!node->superblock->ops || !node->superblock->ops->write_inode) return -EOPNOTSUPP;
 	return node->superblock->ops->write_inode(node->superblock, node);
 }
 
@@ -456,13 +457,26 @@ static inline off_t vfs_generic_seek(vfs_fd_t *fd, off_t offset, int whence) {
 }
 
 static inline off_t vfs_seek(vfs_fd_t *fd, off_t offset, int whence) {
-	if (fd->type == S_IFDIR) {
+	switch (fd->type) {
+	case S_IFREG:
+	case S_IFBLK:
+		if (fd->ops && fd->ops->seek) {
+			return fd->ops->seek(fd, offset, whence);
+		} else {
+			return vfs_generic_seek(fd, offset, whence);
+		}
+	case S_IFCHR:
+		if (fd->ops && fd->ops->seek) {
+			return fd->ops->seek(fd, offset, whence);
+		} else {
+			return -ESPIPE;
+		}
+	case S_IFDIR:
 		return -EISDIR;
-	} else if (fd->ops && fd->ops->seek) {
-		return fd->ops->seek(fd, offset, whence);
-	} else if (fd->type == S_IFREG || fd->type == S_IFBLK || fd->type == S_IFCHR) {
-		return vfs_generic_seek(fd, offset, whence);
-	} else {
+	case S_IFLNK:
+		return -EBADF;
+	case S_IFSOCK:
+	case S_IFIFO:
 		return -ESPIPE;
 	}
 }
@@ -488,7 +502,8 @@ static inline ssize_t vfs_user_write(vfs_fd_t *fd, const void *buffer, size_t si
 }
 
 static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
-	if (!fd || !fd->ops->mmap) return -EBADF;
+	if (!fd) return -EBADF;
+	if (!fd->ops->mmap) return -ENODEV;
 	return fd->ops->mmap(fd, offset, seg);
 }
 

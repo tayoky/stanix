@@ -31,6 +31,7 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 	}
 
 	if (!(vfs_perm(parent->inode) & PERM_WRITE)) {
+		vfs_dentry_release(parent);
 		return -EACCES;
 	}
 
@@ -53,7 +54,6 @@ static void vfs_unlink_dentry(vfs_dentry_t *dentry) {
 	dentry->flags |= VFS_DENTRY_UNLINKED;
 }
 
-
 void vfs_init_created_node(vfs_node_t *node) {
 	node->uid   = get_current_euid();
 	node->gid   = get_current_egid();
@@ -68,7 +68,7 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 		vfs_update_time(node, VNODE_ATTR_ATIME);
 		return node->ops->readlink(node, buf, bufsiz);
 	} else {
-		return -EINVAL;
+		return -EOPNOTSUPP;
 	}
 }
 
@@ -116,7 +116,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	// it isen't chached
 	// ask the fs for it
 	if (!entry->inode->ops->lookup) {
-		return ERR2PTR(-EINVAL);
+		return ERR2PTR(-EOPNOTSUPP);
 	}
 
 	vfs_dentry_t *child_entry = vfs_dentry_allocate();
@@ -158,7 +158,7 @@ int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 	if (ret < 0) return ret;
 
 	if (!parent->inode->ops || !parent->inode->ops->create) {
-		ret = -EINVAL;
+		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = parent->inode->ops->create(parent->inode, dentry, mode);
@@ -182,7 +182,7 @@ int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 	if (ret < 0) return ret;
 
 	if (!parent->inode->ops || !parent->inode->ops->mkdir) {
-		ret = -EINVAL;
+		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = parent->inode->ops->mkdir(parent->inode, dentry, mode);
@@ -206,7 +206,7 @@ int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev) {
 	if (ret < 0) return ret;
 
 	if (!parent->inode->ops || !parent->inode->ops->mknod) {
-		ret = -EINVAL;
+		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = parent->inode->ops->mknod(parent->inode, dentry, mode, dev);
@@ -240,7 +240,7 @@ int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at
 
 	// call link on the parents
 	if (!new_parent->inode->ops || !new_parent->inode->ops->link) {
-		ret = -EINVAL;
+		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = new_parent->inode->ops->link(old_dentry, new_parent->inode, new_dentry);
@@ -265,7 +265,7 @@ int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path) {
 	if (ret < 0) return ret;
 
 	if (!parent->inode->ops || !parent->inode->ops->symlink) {
-		ret = -EINVAL;
+		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = parent->inode->ops->symlink(parent->inode, dentry, target);
@@ -301,7 +301,7 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 
 	// call rename on the parent
 	if (!new_parent->inode->ops || !new_parent->inode->ops->rename) {
-		ret = -EINVAL;
+		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = new_parent->inode->ops->rename(old_parent->inode, old_dentry, new_parent->inode, new_dentry, flags);
@@ -365,7 +365,7 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	// call unlink on the parent
 	vfs_node_t *parent = parent_entry->inode;
 	if (!parent->ops || !parent->ops->unlink) {
-		ret = -EINVAL;
+		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = parent->ops->unlink(parent, dentry);
@@ -425,7 +425,7 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	// call rmdir on the parent
 	vfs_node_t *parent = parent_entry->inode;
 	if (!parent->ops || !parent->ops->rmdir) {
-		ret = -EINVAL;
+		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = parent->ops->rmdir(parent, dentry);
@@ -439,9 +439,7 @@ error:
 }
 
 int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
-	if (!node) {
-		return -EINVAL;
-	}
+	if (!node) return -EBADF;
 	if (!S_ISDIR(node->mode)) {
 		return -ENOTDIR;
 	}
@@ -451,7 +449,7 @@ int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
 		vfs_update_time(node, VNODE_ATTR_ATIME);
 		return node->ops->readdir(node, index, dirent);
 	} else {
-		return -EINVAL;
+		return -EOPNOTSUPP;
 	}
 }
 
@@ -477,8 +475,8 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 }
 
 int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask) {
-	// make sure we can actually sync
-	if (!node) return -EINVAL;
+	// make sure we can actually setattr
+	if (!node) return -EBADF;
 	if (!node->ops || !node->ops->setattr) {
 		return -EOPNOTSUPP;
 	}

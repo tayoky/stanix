@@ -30,12 +30,9 @@ ssize_t vfs_read(vfs_fd_t *fd, void *buffer, uint64_t offset, size_t count) {
 		return -EBADF;
 	}
 
-	if (fd->ops->read) {
-		vfs_update_time(fd->inode, VNODE_ATTR_ATIME);
-		return fd->ops->read(fd, buffer, offset, count);
-	} else {
-		return -EINVAL;
-	}
+	if (!fd->ops->read) return -EOPNOTSUPP;
+	vfs_update_time(fd->inode, VNODE_ATTR_ATIME);
+	return fd->ops->read(fd, buffer, offset, count);
 }
 
 ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t count) {
@@ -48,20 +45,18 @@ ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t coun
 	if (!(fd->flags & (O_WRONLY | O_RDWR))) {
 		return -EBADF;
 	}
-	if (fd->ops->write) {
-		vfs_update_time(fd->inode, VNODE_ATTR_MTIME);
-		return fd->ops->write(fd, buffer, offset, count);
-	} else {
-		return -EINVAL;
-	}
+	if (!fd->ops->write) return -EOPNOTSUPP;
+	vfs_update_time(fd->inode, VNODE_ATTR_MTIME);
+	return fd->ops->write(fd, buffer, offset, count);
 }
 
 int vfs_ioctl(vfs_fd_t *fd, long request, void *arg) {
-	if (!fd || !fd->ops->ioctl) return -EBADF;
+	if (!fd) return -EBADF;
 	if (fd->type == S_IFBLK|| fd->type == S_IFCHR) {
 		// check if device is unplugged
 		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
 	}
+	if (!fd->ops->ioctl) return -EOPNOTSUPP;
 	return fd->ops->ioctl(fd, request, arg);
 }
 
@@ -91,7 +86,7 @@ int vfs_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	event->revents = 0;
 	int ret        = fd->ops->poll_get(fd, event);
 	// cap events
-	event->revents &= event->events | POLLHUP | POLLNVAL | POLLHUP;
+	event->revents &= event->events | POLLHUP | POLLNVAL | POLLERR;
 	return ret;
 }
 
