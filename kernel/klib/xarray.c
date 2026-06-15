@@ -56,7 +56,7 @@ static void xarray_entry_destroy(uintptr_t entry) {
 	for (size_t i = 0; i < XARRAY_ENTRIES_PER_NODE; i++) {
 		// no need for xarray_entry_fetch since we are destroying
 		// so nobody can access it and there are no risk of race condtions
-		xarray_entry_destroy(node->entries[i]);
+		xarray_entry_destroy((uintptr_t)node->entries[i]);
 	}
 	slab_free(node);
 }
@@ -149,7 +149,7 @@ static void *xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 		while (current_shift < target_shift) {
 			xarray_node_t *node = slab_alloc(&xarray_nodes_slab);
 			node->shift         = current_shift;
-			node->entries[0]    = current_entry_value;
+			node->entries[0]    = (rcu_ptr_t)current_entry_value;
 			node->full_mask     = previous_is_full ? 0x1 : 0x0;
 			current_entry_value = xarray_entry_from_node(node);
 			current_shift += XARRAY_SHIFT_BITS;
@@ -290,7 +290,7 @@ static size_t xarray_raw_allocate_from(xarray_t *xarray, size_t start, void *val
 	if (!xarray_entry_allocate(entry, start, 0, &index, &child_is_full, value)) {
 		// reroot to make place
 		xarray_node_t *new_root = slab_alloc(&xarray_nodes_slab);
-		new_root->entries[0]    = entry_value;
+		new_root->entries[0]    = (rcu_ptr_t)entry_value;
 		new_root->full_mask     = child_is_full ? 0x1 : 0x0;
 		if (xarray_entry_is_value(entry_value)) {
 			new_root->shift = 0;

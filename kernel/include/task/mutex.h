@@ -1,13 +1,13 @@
 #ifndef KERNEL_MUTEX_H
 #define KERNEL_MUTEX_H
 
-#include <kernel/spinlock.h>
+#include <kernel/atomic.h>
 #include <kernel/sleep.h>
+#include <kernel/spinlock.h>
 #include <stddef.h>
-#include <stdatomic.h>
 
 typedef struct mutex {
-	atomic_uintptr_t lock;
+	ATOMIC(task_t *) lock;
 	sleep_queue_t sleep_queue;
 	size_t depth;
 } mutex_t;

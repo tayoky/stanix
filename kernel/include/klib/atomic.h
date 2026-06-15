@@ -3,6 +3,6 @@
 
 #include <stdatomic.h>
 
-#define ATOMIC(type) _Atomic type
+#define ATOMIC(type) _Atomic(type)
 
 #endif

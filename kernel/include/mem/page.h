@@ -3,7 +3,6 @@
 
 #include <limits.h> //to get PAGE_SIZE
 #include <stdint.h>
-#include <stdatomic.h>
 
 #define PAGE_SHIFT  12
 

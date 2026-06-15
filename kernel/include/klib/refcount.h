@@ -1,10 +1,10 @@
 #ifndef KERNEL_REFCOUNT_H
 #define KERNEL_REFCOUNT_H
 
-#include <stdatomic.h>
+#include <kernel/atomic.h>
 #include <stddef.h>
 
-typedef atomic_size_t ref_count_t;
+typedef ATOMIC(size_t) ref_count_t;
 
 /**
  * @brief increment a ref count

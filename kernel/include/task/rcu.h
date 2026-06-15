@@ -1,15 +1,15 @@
 #ifndef KERNEL_RCU_H
 #define KERNEL_RCU_H
 
-#include <stdatomic.h>
-#include <kernel/spinlock.h>
+#include <kernel/atomic.h>
 #include <kernel/scheduler.h>
+#include <kernel/spinlock.h>
 
-typedef atomic_uintptr_t rcu_ptr_t;
+typedef ATOMIC(void *) rcu_ptr_t;
 
 typedef struct rcu {
-    rcu_ptr_t ptr;
-    spinlock_t lock;
+	rcu_ptr_t ptr;
+	spinlock_t lock;
 } rcu_t;
 
 /**
@@ -17,8 +17,8 @@ typedef struct rcu {
  * @param rcu the rcu to acquire the read lock of
  */
 static inline void rcu_acquire_read(rcu_t *rcu) {
-    (void)rcu;
-    preempt_disable();
+	(void)rcu;
+	preempt_disable();
 }
 
 /**
@@ -26,8 +26,8 @@ static inline void rcu_acquire_read(rcu_t *rcu) {
  * @param rcu the rcu to release the read lock of
  */
 static inline void rcu_release_read(rcu_t *rcu) {
-    (void)rcu;
-    preempt_enable();
+	(void)rcu;
+	preempt_enable();
 }
 
 /**
@@ -36,7 +36,7 @@ static inline void rcu_release_read(rcu_t *rcu) {
  * @return the value of the pointer
  */
 static inline void *rcu_ptr_fetch(rcu_ptr_t *ptr) {
-    return (void*)atomic_load(ptr);
+	return atomic_load(ptr);
 }
 
 /**
@@ -45,7 +45,7 @@ static inline void *rcu_ptr_fetch(rcu_ptr_t *ptr) {
  * @return the pointer of the rcu
  */
 static inline void *rcu_fetch_ptr(rcu_t *rcu) {
-    return rcu_ptr_fetch(&rcu->ptr);
+	return rcu_ptr_fetch(&rcu->ptr);
 }
 
 
@@ -54,7 +54,7 @@ static inline void *rcu_fetch_ptr(rcu_t *rcu) {
  * @param rcu the rcu to acquire the write lock of
  */
 static inline rcu_raw_acquire_write(rcu_t *rcu) {
-    spinlock_raw_acquire(&rcu->lock);
+	spinlock_raw_acquire(&rcu->lock);
 }
 
 /**
@@ -62,7 +62,7 @@ static inline rcu_raw_acquire_write(rcu_t *rcu) {
  * @param rcu the rcu to release the write lock of
  */
 static inline rcu_raw_release_write(rcu_t *rcu) {
-    spinlock_raw_release(&rcu->lock);
+	spinlock_raw_release(&rcu->lock);
 }
 
 /**
@@ -70,7 +70,7 @@ static inline rcu_raw_release_write(rcu_t *rcu) {
  * @param rcu the rcu to acquire the write lock of
  */
 static inline rcu_acquire_write(rcu_t *rcu) {
-    spinlock_acquire(&rcu->lock);
+	spinlock_acquire(&rcu->lock);
 }
 
 /**
@@ -78,7 +78,7 @@ static inline rcu_acquire_write(rcu_t *rcu) {
  * @param rcu the rcu to release the write lock of
  */
 static inline rcu_release_write(rcu_t *rcu) {
-    spinlock_release(&rcu->lock);
+	spinlock_release(&rcu->lock);
 }
 
 /**
@@ -88,7 +88,7 @@ static inline rcu_release_write(rcu_t *rcu) {
  * @return the old value of the pointer
  */
 static inline void *rcu_ptr_store(rcu_ptr_t *ptr, void *value) {
-    return atomic_exchange(ptr, (uintptr_t)value);
+	return atomic_exchange(ptr, value);
 }
 
 /**
@@ -98,7 +98,7 @@ static inline void *rcu_ptr_store(rcu_ptr_t *ptr, void *value) {
  * @return the old pointer value
  */
 static inline void *rcu_store_ptr(rcu_t *rcu, void *value) {
-    return rcu_ptr_store(&rcu->ptr, value);
+	return rcu_ptr_store(&rcu->ptr, value);
 }
 
 /**
@@ -106,8 +106,8 @@ static inline void *rcu_store_ptr(rcu_t *rcu, void *value) {
  * @param rcu the rcu to wait the grace period for
  */
 static inline void rcu_sync(rcu_t *rcu) {
-    (void)rcu;
-    // TODO : complete this when we get SMP
+	(void)rcu;
+	// TODO : complete this when we get SMP
 }
 
 #endif
