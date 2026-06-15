@@ -942,20 +942,11 @@ uid_t sys_getegid(void) {
 	return get_current_proc()->egid;
 }
 
-static int chmod_node(vfs_node_t *node, mode_t mode) {
-	struct stat st;
-	vfs_getattr(node, &st);
-	if (st.st_uid != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT) {
-		return -EPERM;
-	}
-	return vfs_chmod(node, mode);
-}
-
 int sys_chmod(const char *pathname, mode_t mode) {
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
-	int ret = chmod_node(node, mode);
+	int ret = vfs_chmod(node, mode);
 	vfs_node_release(node);
 
 	return ret;
@@ -965,7 +956,7 @@ int sys_lchmod(const char *pathname, mode_t mode) {
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY | O_NOFOLLOW);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
-	int ret = chmod_node(node, mode);
+	int ret = vfs_chmod(node, mode);
 	vfs_node_release(node);
 
 	return ret;
@@ -977,26 +968,14 @@ int sys_fchmod(int fd, mode_t mode) {
 	if (ret < 0) return ret;
 	if (!file.fd->inode) return -EINVAL;
 
-	return chmod_node(file.fd->inode, mode);
-}
-
-static int chown_node(vfs_node_t *node, uid_t owner, gid_t group) {
-	struct stat st;
-	vfs_getattr(node, &st);
-	if (st.st_uid != get_current_proc()->euid && get_current_proc()->euid != EUID_ROOT) {
-		return -EPERM;
-	}
-	st.st_uid = owner;
-	st.st_gid = group;
-	st.st_mode &= ~(S_ISUID | S_ISGID);
-	return vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID | VNODE_ATTR_MODE);
+	return vfs_chmod(file.fd->inode, mode);
 }
 
 int sys_chown(const char *pathname, uid_t owner, gid_t group) {
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
-	int ret = chown_node(node, owner, group);
+	int ret = vfs_chown(node, owner, group);
 	vfs_node_release(node);
 
 	return ret;
@@ -1006,7 +985,7 @@ int sys_lchown(const char *pathname, uid_t owner, gid_t group) {
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY | O_NOFOLLOW);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
-	int ret = chown_node(node, owner, group);
+	int ret = vfs_chown(node, owner, group);
 	vfs_node_release(node);
 
 	return ret;
@@ -1018,7 +997,7 @@ int sys_fchown(int fd, uid_t owner, gid_t group) {
 	if (ret < 0) return ret;
 	if (!file.fd->inode) return -EINVAL;
 
-	return chown_node(file.fd->inode, owner, group);
+	return vfs_chown(file.fd->inode, owner, group);
 }
 
 //TODO : check if group exist

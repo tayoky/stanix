@@ -171,10 +171,244 @@ void vfs_init_created_node(vfs_node_t *node);
 
 int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock);
 
+/**
+ * @brief mount a \ref vfs_superblock_t to the specified path
+ * @param path the path to mount to
+ * @param sueprblock the superblock to mount
+ * @return 0 on success else error code
+ */
+static inline int vfs_mount(const char *name, vfs_superblock_t *superblock) {
+	return vfs_mount_at(NULL, name, superblock);
+}
+
+static inline int vfs_unmount(const char *path) {
+	return vfs_unmount_at(NULL, path);
+}
+
 int vfs_chroot(vfs_dentry_t *new_root);
 
-
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
+ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
+
+int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode);
+int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode);
+int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev);
+int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path);
+int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path);
+int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags);
+int vfs_unlink_at(vfs_dentry_t *at, const char *path);
+int vfs_rmdir_at(vfs_dentry_t *at, const char *path);
+int vfs_mount_at(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock);
+int vfs_unmount_at(vfs_dentry_t *at, const char *path);
+
+static inline int vfs_create(const char *path, mode_t mode) {
+	return vfs_create_at(NULL, path, mode);
+}
+
+static inline int vfs_mkdir(const char *path, mode_t mode) {
+	return vfs_mkdir_at(NULL, path, mode);
+}
+
+static inline int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
+	return vfs_mknod_at(NULL, path, mode, dev);
+}
+
+static inline vfs_link(const char *old_path, const char *new_path) {
+	return vfs_link_at(NULL, old_path, NULL, new_path);
+}
+
+static inline int vfs_symlink(const char *target, const char *path) {
+	return vfs_symlink_at(target, NULL, path);
+}
+
+static inline vfs_rename(const char *old_path, const char *new_path, unsigned int flags) {
+	return vfs_rename_at(NULL, old_path, NULL, new_path, flags);
+}
+
+static inline vfs_unlink(const char *path) {
+	return vfs_unlink_at(NULL, path);
+}
+
+static inline vfs_rmdir(const char *path) {
+	return vfs_rmdir_at(NULL, path);
+}
+
+vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *pathname, long flags, ...);
+static inline vfs_node_t *vfs_get_node(const char *pathname, long flags, ...) {
+	mode_t mode = 0777;
+	if (flags & O_CREAT) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+	return vfs_get_node_at(NULL, pathname, flags, mode);
+}
+
+static inline vfs_node_t *vfs_node_ref(vfs_node_t *node) {
+	if (node) ref_count_inc(&node->ref_count);
+	return node;
+}
+
+void vfs_node_release(vfs_node_t *node);
+
+/**
+ * @brief lock an inode for writing
+ * @param node the inode to lock
+ */
+static inline vfs_node_lock(vfs_node_t *node) {
+	if (node) spinlock_acquire(&node->lock);
+}
+
+/**
+ * @brief unlock a inode previously locked with \ref vfs_node_lock
+ * @param node the inode to unlock
+ */
+static inline vfs_node_unlock(vfs_node_t *node) {
+	if (node) spinlock_release(&node->lock);
+}
+
+int vfs_getattr(vfs_node_t *node, struct stat *st);
+
+/**
+ * @brief set attributes on an inode
+ * @param node the node to set the attribute of
+ * @param st the value of the attributes
+ * @param mask a mask of the atrributes to set
+ * @return 0 on success, else error code
+ * @note must be wrapped between \ref vfs_node_lock and \ref vfs_node_unlock
+ */
+int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask);
+#define VNODE_ATTR_MODE  0x01
+#define VNODE_ATTR_UID   0x02
+#define VNODE_ATTR_GID   0x04
+#define VNODE_ATTR_ATIME 0x08
+#define VNODE_ATTR_MTIME 0x10
+#define VNODE_ATTR_CTIME 0x20
+
+/**
+ * @brief safely set attributes on an inode
+ * @param node the node to set the attribute of
+ * @param st the value of the attributes
+ * @param mask a mask of the atrributes to set
+ * @return 0 on success, else error code
+ */
+static inline int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
+	vfs_node_lock(node);
+	int ret = vfs_raw_setattr(node, st, mask);
+	vfs_node_unlock(node);
+	return ret;
+}
+
+/**
+ * @brief truncate a file to a specfied size
+ * @param node context of the file
+ * @param size the new size
+ * @return 0 on success else error code
+ */
+static inline int vfs_truncate(vfs_node_t *node, size_t size) {
+	if (!node || !node->ops->truncate) return -EBADF;
+	if (S_ISDIR(node->mode)) {
+		return -EISDIR;
+	}
+	return node->ops->truncate(node, size);
+}
+
+/**
+ * @brief change permission of a file/dir
+ * @param node inode of the file/dir
+ * @param perm new permission
+ * @return 0 on succes else error code
+ */
+static inline int vfs_chmod(vfs_node_t *node, mode_t perm) {
+	struct stat st;
+	st.st_mode = perm;
+	return vfs_setattr(node, &st, VNODE_ATTR_MODE);
+}
+
+/**
+ * @brief change owner of a file/dir
+ * @param node inode for the file/dir
+ * @param owner uid of new owner
+ * @param group_owner gid of new group_owner
+ * @return 0 on succes else error code
+ */
+static inline int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
+	struct stat st;
+	st.st_uid = owner;
+	st.st_gid = group_owner;
+	vfs_node_lock(node);
+
+	// clear setuid bit and setgid bit
+	st.st_mode = node->mode & ~(S_ISUID | S_ISGID);
+
+	int ret = vfs_raw_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
+	vfs_node_unlock(node);
+	return ret;
+}
+
+/**
+ * @brief change times of a file/dir
+ * @param node inode for the file/dir
+ * @param times the times (0 is atime and 1 is mtime)
+ * @return 0 on succes else error code
+ */
+static inline int vfs_utimes(vfs_node_t *node, const struct timeval times[2]) {
+	struct stat st;
+	st.st_atime = times[0].tv_sec;
+	st.st_mtime = times[1].tv_sec;
+	return vfs_setattr(node, &st, VNODE_ATTR_ATIME | VNODE_ATTR_MTIME);
+}
+
+static inline int vfs_update_time(vfs_node_t *node, int mask) {
+	struct stat st;
+	st.st_atime = st.st_mtime = st.st_ctime = gettime_sec(CLOCK_REALTIME);
+	return vfs_setattr(node, &st, mask);
+}
+
+
+// fds operations
+/**
+ * @brief open a context for a given path relative to at
+ * @param at
+ * @param path the path (even if this absolute it will be interptreted as relative)
+ * @param flags open flags (VFS_READONLY,...)
+ * @return a pointer to the vfs_node_t on success, else an error ptr (check with IS_ERR)
+ */
+vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags, ...);
+
+/**
+ * @brief open a context for a given path (absolute)
+ * @param path
+ * @param flags open flags (VFS_READONLY,...)
+ * @return a pointer to the vfs_node_t on success, else an error ptr (check with IS_ERR)
+ */
+static inline vfs_fd_t *vfs_open(const char *path, long flags, ...) {
+	mode_t mode = 0777;
+	if (flags & O_CREAT) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+	return vfs_open_at(NULL, path, flags, mode);
+}
+
+/**
+ * @brief open an inode
+ * @param node the inode to open
+ * @param dentry the dentry of the inodes
+ * @param flags the flags to open with
+ * @return a vfs fd on success, else an error ptr (check with IS_ERR)
+ */
+vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags);
+
+/**
+ * @brief close a file descritor
+ * @param fd the fd to close
+ */
+void vfs_close(vfs_fd_t *fd);
+
 ssize_t vfs_read(vfs_fd_t *node, void *buffer, uint64_t offset, size_t count);
 ssize_t vfs_write(vfs_fd_t *node, const void *buffer, uint64_t offset, size_t count);
 
@@ -235,16 +469,6 @@ static inline ssize_t vfs_user_write(vfs_fd_t *fd, const void *buffer, size_t si
 	return ret;
 }
 
-/**
- * @brief wait on a file for read/write
- * @param node the node to wait for
- * @param type the type of action (write and/or read)
- * @return 0 or -INVAL
- * @note vfs_wait don't block the wait start only after calling block_task()
- * @note this is unimplemented
- */
-int vfs_wait(vfs_fd_t *node, short type);
-
 static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
 	if (!fd || !fd->ops->mmap) return -EBADF;
 	return fd->ops->mmap(fd, offset, seg);
@@ -253,136 +477,6 @@ static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
 int vfs_poll_add(vfs_fd_t *fd, struct poll_event *event);
 int vfs_poll_remove(vfs_fd_t *fd, struct poll_event *event);
 int vfs_poll_get(vfs_fd_t *fd, struct poll_event *event);
-
-int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode);
-int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode);
-int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev);
-int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path);
-int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path);
-int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags);
-int vfs_unlink_at(vfs_dentry_t *at, const char *path);
-int vfs_rmdir_at(vfs_dentry_t *at, const char *path);
-int vfs_mount_at(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock);
-int vfs_unmount_at(vfs_dentry_t *at, const char *path);
-
-static inline int vfs_create(const char *path, mode_t mode) {
-	return vfs_create_at(NULL, path, mode);
-}
-
-static inline int vfs_mkdir(const char *path, mode_t mode) {
-	return vfs_mkdir_at(NULL, path, mode);
-}
-
-static inline int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
-	return vfs_mknod_at(NULL, path, mode, dev);
-}
-
-static inline vfs_link(const char *old_path, const char *new_path) {
-	return vfs_link_at(NULL, old_path, NULL, new_path);
-}
-
-static inline int vfs_symlink(const char *target, const char *path) {
-	return vfs_symlink_at(target, NULL, path);
-}
-
-static inline vfs_rename(const char *old_path, const char *new_path, unsigned int flags) {
-	return vfs_rename_at(NULL, old_path, NULL, new_path, flags);
-}
-
-static inline vfs_unlink(const char *path) {
-	return vfs_unlink_at(NULL, path);
-}
-
-static inline vfs_rmdir(const char *path) {
-	return vfs_rmdir_at(NULL, path);
-}
-
-/**
- * @brief mount a \ref vfs_superblock_t to the specified path
- * @param path the path to mount to
- * @param sueprblock the superblock to mount
- * @return 0 on success else error code
- */
-static inline int vfs_mount(const char *name, vfs_superblock_t *superblock) {
-	return vfs_mount_at(NULL, name, superblock);
-}
-
-static inline int vfs_unmount(const char *path) {
-	return vfs_unmount_at(NULL, path);
-}
-
-ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
-int vfs_getattr(vfs_node_t *node, struct stat *st);
-int vfs_setattr(vfs_node_t *node, struct stat *st, int mask);
-#define VNODE_ATTR_MODE  0x01
-#define VNODE_ATTR_UID   0x02
-#define VNODE_ATTR_GID   0x04
-#define VNODE_ATTR_ATIME 0x08
-#define VNODE_ATTR_MTIME 0x10
-#define VNODE_ATTR_CTIME 0x20
-
-vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *pathname, long flags, ...);
-static inline vfs_node_t *vfs_get_node(const char *pathname, long flags, ...) {
-	mode_t mode = 0777;
-	if (flags & O_CREAT) {
-		va_list args;
-		va_start(args, flags);
-		mode = va_arg(args, mode_t);
-		va_end(args);
-	}
-	return vfs_get_node_at(NULL, pathname, flags, mode);
-}
-
-static inline vfs_node_t *vfs_node_ref(vfs_node_t *node) {
-	if (node) ref_count_inc(&node->ref_count);
-	return node;
-}
-
-void vfs_node_release(vfs_node_t *node);
-
-
-// fds operations
-/**
- * @brief open a context for a given path relative to at
- * @param at
- * @param path the path (even if this absolute it will be interptreted as relative)
- * @param flags open flags (VFS_READONLY,...)
- * @return a pointer to the vfs_node_t on success, else an error ptr (check with IS_ERR)
- */
-vfs_fd_t *vfs_open_at(vfs_dentry_t *at, const char *path, long flags, ...);
-
-/**
- * @brief open a context for a given path (absolute)
- * @param path
- * @param flags open flags (VFS_READONLY,...)
- * @return a pointer to the vfs_node_t on success, else an error ptr (check with IS_ERR)
- */
-static inline vfs_fd_t *vfs_open(const char *path, long flags, ...) {
-	mode_t mode = 0777;
-	if (flags & O_CREAT) {
-		va_list args;
-		va_start(args, flags);
-		mode = va_arg(args, mode_t);
-		va_end(args);
-	}
-	return vfs_open_at(NULL, path, flags, mode);
-}
-
-/**
- * @brief open an inode
- * @param node the inode to open
- * @param dentry the dentry of the inodes
- * @param flags the flags to open with
- * @return a vfs fd on success, else an error ptr (check with IS_ERR)
- */
-vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags);
-
-/**
- * @brief close a file descritor
- * @param fd the fd to close
- */
-void vfs_close(vfs_fd_t *fd);
-
 
 int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent);
 
@@ -404,65 +498,6 @@ vfs_fd_t *vfs_fd_alloc(void);
  * @return a dynamicly allocated string that must be freed !
  */
 char *vfs_dentry_path(vfs_dentry_t *dentry);
-
-/**
- * @brief truncate a file to a specfied size
- * @param node context of the file
- * @param size the new size
- * @return 0 on success else error code
- */
-static inline int vfs_truncate(vfs_node_t *node, size_t size) {
-	if (!node || !node->ops->truncate) return -EBADF;
-	if (S_ISDIR(node->mode)) {
-		return -EISDIR;
-	}
-	return node->ops->truncate(node, size);
-}
-
-/**
- * @brief change permission of a file/dir
- * @param node inode of the file/dir
- * @param perm new permission
- * @return 0 on succes else error code
- */
-static inline int vfs_chmod(vfs_node_t *node, mode_t perm) {
-	struct stat st;
-	st.st_mode = perm;
-	return vfs_setattr(node, &st, VNODE_ATTR_MODE);
-}
-
-/**
- * @brief change owner of a file/dir
- * @param node inode for the file/dir
- * @param owner uid of new owner
- * @param group_owner gid of new group_owner
- * @return 0 on succes else error code
- */
-static inline int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
-	struct stat st;
-	st.st_uid = owner;
-	st.st_gid = group_owner;
-	return vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
-}
-
-/**
- * @brief change times of a file/dir
- * @param node inode for the file/dir
- * @param times the times (0 is atime and 1 is mtime)
- * @return 0 on succes else error code
- */
-static inline int vfs_utimes(vfs_node_t *node, const struct timeval times[2]) {
-	struct stat st;
-	st.st_atime = times[0].tv_sec;
-	st.st_mtime = times[1].tv_sec;
-	return vfs_setattr(node, &st, VNODE_ATTR_ATIME | VNODE_ATTR_MTIME);
-}
-
-static inline int vfs_update_time(vfs_node_t *node, int mask) {
-	struct stat st;
-	st.st_atime = st.st_mtime = st.st_ctime = gettime_sec(CLOCK_REALTIME);
-	return vfs_setattr(node, &st, mask);
-}
 
 /**
  * @brief device specific operation

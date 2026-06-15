@@ -475,19 +475,23 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	return 0;
 }
 
-int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
+int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask) {
 	// make sure we can actually sync
 	if (!node || !node->ops || !node->ops->setattr) {
 		return -EINVAL; // should be another error ... but what ???
 	}
+	if (get_current_euid() != node->uid && get_current_euid() != EUID_ROOT) {
+		return -EPERM;
+	}
+	int ret = node->ops->setattr(node, st, mask);
+	if (ret < 0) return ret;
 	if (mask & VNODE_ATTR_MODE) node->mode = st->st_mode | (node->mode & S_IFMT);
 	if (mask & VNODE_ATTR_UID) node->uid = st->st_uid;
 	if (mask & VNODE_ATTR_GID) node->gid = st->st_gid;
 	if (mask & VNODE_ATTR_ATIME) node->atime = st->st_atime;
 	if (mask & VNODE_ATTR_MTIME) node->mtime = st->st_mtime;
 	if (mask & VNODE_ATTR_CTIME) node->ctime = st->st_ctime;
-	int ret = node->ops->setattr(node, st, mask);
-	if (ret < 0) return ret;
+	node->flags |= VNODE_DIRTY;
 	return ret;
 }
 
