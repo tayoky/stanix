@@ -1,3 +1,4 @@
+#include <kernel/cache.h>
 #include <kernel/kheap.h>
 #include <kernel/module.h>
 #include <kernel/print.h>
@@ -17,27 +18,6 @@
 static vfs_inode_ops_t fat_inode_ops;
 static vfs_fd_ops_t fat_fd_ops;
 static slab_cache_t fat_inodes_slab;
-
-static time_t fat_date2time(uint16_t data) {
-	int day   = data & 0x1f;
-	int month = (data >> 5) & 0xf;
-	int year  = ((data >> 9) & 0x7f) + 1980;
-	return date2time(year, month, day, 0, 0, 0);
-}
-
-static int fat_getattr(vfs_node_t *vnode, struct stat *st) {
-	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
-	// no meta data on root (emulated on fat 32 root)
-	if (inode->is_fat16_root) return 0;
-
-	// TODO : parse times
-	st->st_size  = inode->entry.file_size;
-	st->st_atime = fat_date2time(inode->entry.access_date);
-	st->st_mtime = fat_date2time(inode->entry.write_date);
-	// technicly the ctime is not creation but change, but fat does not have ctime
-	st->st_ctime = fat_date2time(inode->entry.creation_date);
-	return 0;
-}
 
 static size_t fat_cluster2offset(fat_superblock_t *fat_superblock, uint32_t cluster) {
 	return cluster * fat_superblock->cluster_size + fat_superblock->data_start;
@@ -80,6 +60,52 @@ static uint32_t fat_get_next_cluster(fat_superblock_t *fat_superblock, uint32_t 
 	return ent;
 }
 
+static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
+	fat_inode_t *inode               = container_of(cache, fat_inode_t, cache);
+	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
+	// cluster size is always divier or multiple of page size
+
+	// start by going to the first cluster
+	uint32_t start_cluster = offset / fat_superblock->cluster_size;
+	uint32_t cluster       = inode->first_cluster;
+	for (size_t i = 0; i < start_cluster; i++) {
+		// early EOF ??? probably corrupted fat fs
+		if (cluster == FAT_EOF) return -EIO;
+		cluster = fat_get_next_cluster(fat_superblock, cluster);
+	}
+
+	// we got the first cluster
+	// read page per page
+	size_t cluster_offset = offset % fat_superblock->cluster_size; // offset within the current cluster
+	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
+		uintptr_t page = cache_get_page(cache, addr);
+		kassert(page != PAGE_INVALID);
+		char *vaddr      = mmu_phys2virt(page);
+		size_t read_size = min(PAGE_SIZE, fat_superblock->cluster_size);
+		for (size_t count = 0; count < PAGE_SIZE; count += read_size) {
+			// early EOF ??? probably corrupted fat fs
+			if (cluster == FAT_EOF) return -EIO;
+
+			ssize_t ret = vfs_read(fat_superblock->superblock.device, vaddr, fat_cluster2offset(fat_superblock, cluster) + cluster_offset, read_size);
+			if (ret < 0) return (int)ret;
+			if (ret != (ssize_t)read_size) return -EIO;
+
+			vaddr += read_size;
+			cluster_offset += read_size;
+			if (cluster_offset == fat_superblock->cluster_size) {
+				cluster_offset = 0;
+				cluster        = fat_get_next_cluster(fat_superblock, cluster);
+			}
+		}
+	}
+	cache_read_terminate(cache, offset, size);
+	return 0;
+}
+
+static cache_ops_t fat_cache_ops = {
+	.read = fat_read_pages,
+};
+
 static vfs_node_t *fat_entry2node(fat_entry_t *entry, fat_superblock_t *fat_superblock) {
 	fat_inode_t *inode   = slab_alloc(&fat_inodes_slab);
 	inode->entry         = *entry;
@@ -93,61 +119,44 @@ static vfs_node_t *fat_entry2node(fat_entry_t *entry, fat_superblock_t *fat_supe
 		inode->vnode.mode = S_IFDIR | 0777;
 	} else {
 		inode->vnode.mode = S_IFREG | 0777;
+		init_cache(&inode->cache);
+		inode->cache.ops  = &fat_cache_ops;
+		inode->cache.size = entry->file_size;
 	}
 	return &inode->vnode;
 }
 
-static ssize_t fat_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
-	fat_inode_t *inode               = fd->private;
-	fat_superblock_t *fat_superblock = container_of(fd->inode->superblock, fat_superblock_t, superblock);
+static ssize_t fat_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
+	fat_inode_t *inode = fd->private;
+	return cache_read(&inode->cache, buffer, offset, count);
+}
 
-	if (offset > inode->entry.file_size) {
-		return 0;
-	} else if (offset + count > inode->entry.file_size) {
-		count = inode->entry.file_size - offset;
-	}
+static int fat_open(vfs_fd_t *fd) {
+	fat_inode_t *inode = container_of(fd->inode, fat_inode_t, vnode);
+	fd->ops            = &fat_fd_ops;
+	fd->private        = inode;
+	return 0;
+}
 
-	uint32_t start   = offset / fat_superblock->cluster_size;
-	uint32_t end     = (offset + count + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
-	uint32_t cluster = inode->first_cluster;
+static time_t fat_date2time(uint16_t data) {
+	int day   = data & 0x1f;
+	int month = (data >> 5) & 0xf;
+	int year  = ((data >> 9) & 0x7f) + 1980;
+	return date2time(year, month, day, 0, 0, 0);
+}
 
-	// amount of data read
-	size_t data_read = 0;
+static int fat_getattr(vfs_node_t *vnode, struct stat *st) {
+	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
+	// no meta data on root (emulated on fat 32 root)
+	if (inode->is_fat16_root) return 0;
 
-	// start by going to the first cluster
-	for (size_t i = 0; i < start; i++) {
-		// early EOF ??? probably corrupted fat fs
-		if (cluster == FAT_EOF) return -EIO;
-		cluster = fat_get_next_cluster(fat_superblock, cluster);
-	}
-	for (size_t i = start; i < end; i++) {
-		// early EOF ??? probably corrupted fat fs
-		if (cluster == FAT_EOF) return -EIO;
-
-		size_t off       = fat_cluster2offset(fat_superblock, cluster);
-		size_t read_size = min(count, fat_superblock->cluster_size);
-		if (i == start) {
-			// allow unaligned read
-			off += offset % fat_superblock->cluster_size;
-
-			if (read_size + (offset % fat_superblock->cluster_size) > fat_superblock->cluster_size) {
-				read_size = fat_superblock->cluster_size - (offset % fat_superblock->cluster_size);
-			}
-		}
-
-
-		ssize_t r = vfs_read(fat_superblock->superblock.device, buf, off, read_size);
-
-		if (r < 0) return r;
-		data_read += r;
-		if ((size_t)r < min(count, fat_superblock->cluster_size)) return data_read;
-		buf = (char *)buf + r;
-		count -= r;
-
-		cluster = fat_get_next_cluster(fat_superblock, cluster);
-	}
-
-	return data_read;
+	// TODO : parse times
+	st->st_size  = inode->entry.file_size;
+	st->st_atime = fat_date2time(inode->entry.access_date);
+	st->st_mtime = fat_date2time(inode->entry.write_date);
+	// technicly the ctime is not creation but change, but fat does not have ctime
+	st->st_ctime = fat_date2time(inode->entry.creation_date);
+	return 0;
 }
 
 static int fat_read_entry(fat_superblock_t *fat_superblock, size_t offset, fat_entry_t *entry) {
@@ -394,11 +403,6 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 static void fat_cleanup(vfs_node_t *vnode) {
 	slab_free(vnode);
-}
-
-static int fat_open(vfs_fd_t *fd) {
-	fd->ops = &fat_fd_ops;
-	return 0;
 }
 
 int fat_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {

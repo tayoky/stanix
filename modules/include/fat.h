@@ -2,6 +2,7 @@
 #define _FAT_H
 
 #include <kernel/vfs.h>
+#include <kernel/cache.h>
 #include <stdint.h>
 
 #define FAT12 1
@@ -119,6 +120,7 @@ typedef struct fat_inode {
 	int is_fat16_root;
 	uint64_t start;
 	uint16_t entries_count;
+	cache_t cache;
 } fat_inode_t;
 
 #endif
