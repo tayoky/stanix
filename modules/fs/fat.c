@@ -24,40 +24,35 @@ static size_t fat_cluster2offset(fat_superblock_t *fat_superblock, uint32_t clus
 }
 
 static uint32_t fat_get_next_cluster(fat_superblock_t *fat_superblock, uint32_t cluster) {
-	// check oob first
-	size_t ent_size; // one unit = half a byte
-	switch (fat_superblock->fat_type) {
-	case FAT12:
-		ent_size = 3;
-		break;
-	case FAT16:
-		ent_size = 4;
-		break;
-	case FAT32:
-		ent_size = 8;
-		break;
-	}
-	if (cluster > fat_superblock->sectors_per_fat * fat_superblock->sector_size * 2 / ent_size) return FAT_EOF;
-	off_t offset = fat_superblock->reserved_sectors * fat_superblock->sector_size + cluster * ent_size / 2;
-	uint32_t ent;
 	switch (fat_superblock->fat_type) {
 	case FAT12:;
+		off_t offset12 = fat_superblock->reserved_sectors * fat_superblock->sector_size + (cluster * 3) / 2;
+		uint8_t ent12[3];
+		vfs_read(fat_superblock->superblock.device, &ent12, offset12, sizeof(ent12));
+		uint16_t ent;
+		if (cluster % 2) {
+			ent = (ent12[1] >> 4) | (ent12[2] << 4);
+		} else {
+			ent = ent12[0] | ((ent12[1] & 0x0F) << 8);
+		}
+		if (ent >= 0xFF8) return FAT_EOF;
+		return ent;
+	case FAT16:;
 		uint16_t ent16;
-		vfs_read(fat_superblock->superblock.device, &ent16, offset, sizeof(ent16));
-		ent = ent16 >> (cluster % 2) * 8; // not sure might be the inverse
-		if (ent == 0xFFF) ent = 0xFFFFFFFF;
-		break;
-	case FAT16:
-		vfs_read(fat_superblock->superblock.device, &ent16, offset, sizeof(ent16));
-		ent = ent16;
-		if (ent == 0xFFFF) ent = 0xFFFFFFFF;
-		break;
-	case FAT32:
-		vfs_read(fat_superblock->superblock.device, &ent, offset, sizeof(ent));
-		break;
+		off_t offset16 = fat_superblock->reserved_sectors * fat_superblock->sector_size + cluster * 2;
+		vfs_read(fat_superblock->superblock.device, &ent16, offset16, sizeof(ent16));
+		if (ent16 >= 0xFFF8) return FAT_EOF;
+		return ent16;
+	case FAT32:;
+		uint32_t ent32;
+		off_t offset32 = fat_superblock->reserved_sectors * fat_superblock->sector_size + cluster * 4;
+		vfs_read(fat_superblock->superblock.device, &ent32, offset32, sizeof(ent32));
+		if (ent32 >= 0x0FFFFFF8) return FAT_EOF;
+		return ent32 & 0x0FFFFFFF;
+	default:
+		kassert(!"invalid fat type");
+		return FAT_EOF;
 	}
-	ent &= 0xFFFFFFFF;
-	return ent;
 }
 
 static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
@@ -80,9 +75,10 @@ static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
 	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
 		kassert(page != PAGE_INVALID);
-		char *vaddr      = mmu_phys2virt(page);
-		size_t read_size = min(PAGE_SIZE, fat_superblock->cluster_size);
-		for (size_t count = 0; count < PAGE_SIZE; count += read_size) {
+		char *vaddr = mmu_phys2virt(page);
+		for (size_t count = 0; count < PAGE_SIZE;) {
+			size_t read_size = min(PAGE_SIZE, fat_superblock->cluster_size - cluster_offset);
+
 			// early EOF ??? probably corrupted fat fs
 			if (cluster == FAT_EOF) return -EIO;
 
@@ -92,6 +88,7 @@ static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
 
 			vaddr += read_size;
 			cluster_offset += read_size;
+			count += read_size;
 			if (cluster_offset == fat_superblock->cluster_size) {
 				cluster_offset = 0;
 				cluster        = fat_get_next_cluster(fat_superblock, cluster);
@@ -130,6 +127,16 @@ static ssize_t fat_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) 
 	fat_inode_t *inode = fd->private;
 	return cache_read(&inode->cache, buffer, offset, count);
 }
+
+static ssize_t fat_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
+	fat_inode_t *inode = fd->private;
+	return cache_write(&inode->cache, buffer, offset, count);
+}
+
+static vfs_fd_ops_t fat_fd_ops = {
+	.read  = fat_read,
+	.write = fat_write,
+};
 
 static int fat_open(vfs_fd_t *fd) {
 	fat_inode_t *inode = container_of(fd->inode, fat_inode_t, vnode);
@@ -502,10 +509,6 @@ static vfs_inode_ops_t fat_inode_ops = {
 	.getattr = fat_getattr,
 	.cleanup = fat_cleanup,
 	.open    = fat_open,
-};
-
-static vfs_fd_ops_t fat_fd_ops = {
-	.read = fat_read,
 };
 
 static vfs_filesystem_t fat_fs = {
