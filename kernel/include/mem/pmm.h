@@ -14,8 +14,11 @@
 #define ORDER_SIZE4  2
 #define ORDER_SIZE8  3
 #define ORDER_SIZE16 4
-#define ORDERS_COUNT 5
+#define ORDER_SIZE32 5
+#define ORDER_SIZE64 6
+#define ORDERS_COUNT 7
 #define ORDER2COUNT(order) (1UL << order)
+
 typedef struct pmm {
 	list_t entries[ORDERS_COUNT];
 	spinlock_t lock;

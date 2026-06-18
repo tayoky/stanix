@@ -33,6 +33,7 @@ typedef struct slab_cache {
     list_t partial;
     list_t full;
     spinlock_t lock;
+    int order;
     size_t size;
 } slab_cache_t;
 

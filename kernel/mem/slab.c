@@ -7,12 +7,40 @@
 
 static list_t slabs_list;
 
+static void slab_calculate_order(slab_cache_t *slab_cache) {
+	// for small object keep small order
+	if (slab_cache->size < 1024) {
+		slab_cache->order = ORDER_SIZE1;
+		return;
+	}
+
+	size_t best_waste = SIZE_MAX;
+	int best_order = ORDER_SIZE64;
+	for (int order=0; order<ORDERS_COUNT; order++) {
+		size_t usable_size = ORDER2COUNT(order) * PAGE_SIZE - sizeof(slab_t);
+		size_t objects_per_slab = usable_size / slab_cache->size;
+		if (objects_per_slab == 0) continue;
+		size_t used_size = objects_per_slab * slab_cache->size;
+		size_t wasted_size = usable_size - used_size;
+
+		// big order need really smaller wasted to be choiced
+		// so we give a penalty based on order
+		size_t penalty = 256 * (ORDER2COUNT(order) - 1);
+		if (wasted_size + penalty <= best_waste) {
+			best_waste = wasted_size;
+			best_order = order;
+		}
+	}
+	slab_cache->order = best_order;
+}
+
 int slab_init(slab_cache_t *slab_cache, size_t size, const char *name) {
 	if (size > PAGE_SIZE - sizeof(slab_t)) return -EINVAL;
 	kdebugf("init slab '%s'\n", name);
 	memset(slab_cache, 0, sizeof(slab_cache_t));
 	slab_cache->name = name;
 	slab_cache->size = size;
+	slab_calculate_order(slab_cache);
 	list_append(&slabs_list, &slab_cache->node);
 	return 0;
 }
@@ -26,17 +54,19 @@ list_t *slab_get_list(void) {
 }
 
 static slab_t *new_slab(slab_cache_t *slab_cache) {
-	uintptr_t page = pmm_allocate_page();
+	uintptr_t page = pmm_allocate_pages(slab_cache->order);
 	if (page == PAGE_INVALID) return NULL;
 
 	slab_t *slab = mmu_phys2virt(page);
 	memset(slab, 0, sizeof(slab_t));
 	slab->cache = slab_cache;
 	slab->state = SLAB_FREE;
-	pmm_page_info(page)->private = slab;
+	for (int i=0; i<ORDER2COUNT(slab_cache); i++) {
+		pmm_page_info(page + i * PAGE_SIZE)->private = slab;
+	}
 
 	// init the free list
-	size_t objects_count = (PAGE_SIZE - sizeof(slab_t)) / slab_cache->size;
+	size_t objects_count = (ORDER2COUNT(slab_cache->order) * PAGE_SIZE - sizeof(slab_t)) / slab_cache->size;
 	for (size_t i=0; i<objects_count; i++) {
 		slab_free_node_t *current = (slab_free_node_t*)((uintptr_t)slab + sizeof(slab_t) + i * slab_cache->size);
 		if (i == objects_count - 1) {
@@ -60,8 +90,8 @@ static void *slab_evict(slab_cache_t *slab_cache) {
 }
 
 static void free_slab(slab_t *slab) {
-	uintptr_t page = PAGE_ALIGN_DOWN(mmu_virt2phys(slab));
-	pmm_release_page(page);
+	uintptr_t pages = mmu_virt2phys(slab);
+	pmm_set_free_pages(pages, slab->cache->order);
 }
 
 void *slab_alloc(slab_cache_t *slab_cache) {
