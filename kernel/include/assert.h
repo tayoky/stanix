@@ -1,5 +1,5 @@
 #ifndef KERNEL_ASSERT_H
-#define _KERNEM_ASSERT_H
+#define KERNEL_ASSERT_H
 
 #define KASSERT_DEBUG
 
