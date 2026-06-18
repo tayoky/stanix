@@ -61,7 +61,7 @@ static slab_t *new_slab(slab_cache_t *slab_cache) {
 	memset(slab, 0, sizeof(slab_t));
 	slab->cache = slab_cache;
 	slab->state = SLAB_FREE;
-	for (int i=0; i<ORDER2COUNT(slab_cache); i++) {
+	for (size_t i=0; i<ORDER2COUNT(slab_cache->order); i++) {
 		pmm_page_info(page + i * PAGE_SIZE)->private = slab;
 	}
 

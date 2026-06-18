@@ -4,6 +4,7 @@
 #include <kernel/mmu.h>
 #include <kernel/page.h>
 #include <kernel/assert.h>
+#include <kernel/list.h>
 #include <sys/type.h>
 #include <limits.h>
 #include <stdatomic.h>
@@ -79,6 +80,10 @@ void init_pmm();
 
 uintptr_t pmm_zone_allocate_pages(int zone, int order);
 
+static inline uintptr_t pmm_allocate_pages(int order) {
+	return pmm_zone_allocate_pages(ZONE_DEFAULT, order);
+}
+
 static inline uintptr_t pmm_zone_allocate_page(int zone){
 	return pmm_zone_allocate_pages(zone, ORDER_SIZE1);
 }
@@ -116,9 +121,8 @@ void pmm_set_free_pages_range(uintptr_t start, size_t count);
  * @param page the page to mark as free
  */
 static inline void pmm_set_free_page(uintptr_t page) {
-	pmm_set_free_pages(start, ORDER_SIZE1);
+	pmm_set_free_pages(page, ORDER_SIZE1);
 }
-
 
 uintptr_t pmm1_allocate_page(void);
 void pmm1_add_free_pages(uintptr_t start, size_t count);

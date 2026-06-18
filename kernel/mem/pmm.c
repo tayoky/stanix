@@ -164,8 +164,8 @@ page_t *pmm_page_info(uintptr_t addr) {
 }
 
 int pmm_get_zone(uintptr_t page) {
-	if (page < ZONE_DMA16_END) {
-		return ZONE_DMA16;
+	if (page < ZONE_DMA24_END) {
+		return ZONE_DMA24;
 	} else if (page < ZONE_DMA32_END) {
 		return ZONE_DMA32;
 	} else {
@@ -180,10 +180,10 @@ static int pmm_is_free(page_t *page_info) {
 
 static uintptr_t pmm_raw_helper_allocate_pages(pmm_t *pmm, int order) {
 	if (order >= ORDERS_COUNT) return PAGE_INVALID;
-	list_node_t *node = pmm->entries[order];
+	list_node_t *node = pmm->entries[order].last_node;
 	if (node) {
 		uintptr_t pages = mmu_hhdm2phys(node);
-		list_remove(&pmm->entries[order], &node);
+		list_remove(&pmm->entries[order], node);
 		return pages;
 	} else {
 		// get pages from next order and split
@@ -195,7 +195,7 @@ static uintptr_t pmm_raw_helper_allocate_pages(pmm_t *pmm, int order) {
 		kassert(unused_info);
 		unused_info->pmm.order = order;
 		node = mmu_phys2virt(unused);
-		list_append(&pmm->entries[order], &node);
+		list_append(&pmm->entries[order], node);
 		return pages;
 	}
 }
