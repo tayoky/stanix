@@ -131,8 +131,8 @@ void init_second_stage_pmm(void) {
 		for (size_t i=0; i<count; i++) {
 			page_t *page_info = pmm_page_info(start + i * PAGE_SIZE);
 			page_info->flags = PAGE_FLAG_USABLE;
-			page_info->ref_count = 0;
 		}
+		pmm_set_free_pages_range(start, count);
 	}
 	is_stage2 = 1;
 	zero_page = pmm_allocate_page();
@@ -238,13 +238,22 @@ static void pmm_zone_set_free_pages(int zone, uintptr_t start, int order) {
 	used_pages -= ORDER2COUNT(order);
 
 	// can we merge
-	if (order + 1 < ORDERS_COUNT) {
+	while (order + 1 < ORDERS_COUNT) {
 		uintptr_t merging_page = start ^ (ORDER2COUNT(order) * PAGE_SIZE);
 		page_t *merging_page_info = pmm_page_info(merging_page);
-		if (merging_page_info && pmm_is_free(merging_page_info) && merging_page_info->pmm.order == order) {
-			// we can merge
-			// TODO : remove from list and merge
+		if (!merging_page_info || !pmm_is_free(merging_page_info) || merging_page_info->pmm.order != order) {
+			break;
 		}
+		// we can merge
+		// remove from list
+		list_node_t *node = mmu_phys2virt(merging_page);
+		list_remove(&pmm->entries[order], node);
+		
+		if (merging_page < start) {
+			start = merging_page;
+		}
+		order++;
+
 	}
 	list_node_t *node = mmu_phys2virt(start);
 	list_append(&pmm->entries[order], node);
@@ -268,13 +277,13 @@ void pmm_set_free_pages(uintptr_t start, size_t order) {
 	pmm_zone_set_free_pages(zone, start, order);
 }
 
-void pmm_set_free_page_range(uintptr_t start, size_t count) {
+void pmm_set_free_pages_range(uintptr_t start, size_t count) {
 	if (count == 0) return;
 	kassert(start != PAGE_INVALID);
 	kassert(start % PAGE_SIZE == 0);
 	while (count > 0) {
 		for (int order=ORDERS_COUNT-1; order>=0; order--) {
-			if (count < order) continue;
+			if (count < ORDER2COUNT(order)) continue;
 			if (start % (ORDER2COUNT(order) * PAGE_SIZE)) continue;
 			pmm_set_free_pages(start, order);
 			count -= ORDER2COUNT(order);

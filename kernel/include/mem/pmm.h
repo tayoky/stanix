@@ -106,7 +106,7 @@ void pmm_set_free_pages(uintptr_t start, size_t order);
  * @param start the start of the range to mark as free
  * @param count the number of pages from start to mark as free
  */
-void pmm_set_free_page_range(uintptr_t start, size_t count);
+void pmm_set_free_pages_range(uintptr_t start, size_t count);
 
 /**
  * @brief unlike \ref pmm_release_page ignore ref count and direcly mark page as free
