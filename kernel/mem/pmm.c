@@ -8,27 +8,24 @@
 #include <kernel/page.h>
 #include <kernel/pmm.h>
 
-// inspired by linux's struct page
+// inspired by linux's buddy allocator
 
 #define PAGES_PER_SECTION (1UL << 14)
 static page_t **page_info_sections = NULL;
-static pmm_entry_t *stack_head;
-static size_t used_pages;
-static size_t total_pages;
+static size_t used_pages = 0;
+static size_t total_pages = 0;
 static size_t private_pages;
 static size_t shared_pages;
-static spinlock_t pmm_lock;
 static uintptr_t zero_page = PAGE_INVALID;
 static uintptr_t highest_page = 0;
+static pmm_t pmms[ZONES_COUNT];
+static int is_stage2 = 0;
 
 #define PAGES_INFO_MMU_FLAGS MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL
 
 void init_pmm() {
 	kstatusf("init PMM ... ");
 
-	stack_head = NULL;
-	used_pages = 0;
-	total_pages = 0;
 	for (size_t i = 0; i < bootinfo_memmap_get_entries_count(); i++) {
 		bootinfo_memmap_entry_t entry;
 		bootinfo_memmap_get_entry(i, &entry);
@@ -56,7 +53,7 @@ void init_pmm() {
 			continue;
 		}
 
-		pmm_set_free_pages(start, pages_count);
+		pmm1_add_free_pages(start, pages_count);
 	}
 	kok();
 }
@@ -116,14 +113,28 @@ void init_second_stage_pmm(void) {
 				continue;
 			}
 			*current = pmm_allocate_page_section(&map_addr);
-			kdebugf("alloate section for %p at %p\n", addr, *current);
+			kdebugf("allocate section for %p at %p\n", addr, *current);
 		}
 
-		// setup flags
+		// setup flags and ref count
 		for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
-			pmm_page_info(addr)->flags = PAGE_FLAG_USABLE;
+			page_t *page_info = pmm_page_info(addr);
+			page_info->flags = PAGE_FLAG_RESERVED;
+			page_info->ref_count = 1;
 		}
 	}
+
+	// now setup flags and ref count of free pages
+	uintptr_t start;
+	size_t count;
+	while (pmm1_get_free_pages(&start, &count)) {
+		for (size_t i=0; i<count; i++) {
+			page_t *page_info = pmm_page_info(start + i * PAGE_SIZE);
+			page_info->flags = PAGE_FLAG_USABLE;
+			page_info->ref_count = 0;
+		}
+	}
+	is_stage2 = 1;
 	zero_page = pmm_allocate_page();
 	memset(mmu_phys2virt(zero_page), 0, PAGE_SIZE);
 }
@@ -152,51 +163,130 @@ page_t *pmm_page_info(uintptr_t addr) {
 	return &pages_info[page_index % PAGES_PER_SECTION];
 }
 
-uintptr_t pmm_allocate_page(void) {
-	spinlock_acquire(&pmm_lock);
-
-	// first : out of memory check
-	if (!stack_head) {
-		spinlock_release(&pmm_lock);
-		return PAGE_INVALID;
-	}
-
-	// take the head entry and (maybee) pop it
-	uintptr_t page;
-	if (stack_head->size > 1) {
-		page = (uintptr_t)mmu_hhdm2phys(stack_head) + (stack_head->size - 1) * PAGE_SIZE;
-		stack_head->size--;
+int pmm_get_zone(uintptr_t page) {
+	if (page < ZONE_DMA16_END) {
+		return ZONE_DMA16;
+	} else if (page < ZONE_DMA32_END) {
+		return ZONE_DMA32;
 	} else {
-		page = (uintptr_t)mmu_hhdm2phys(stack_head);
-		stack_head = stack_head->next;
+		// TODO : ZONE_EMERGENCY
+		return ZONE_NORMAL;
 	}
-	used_pages++;
-	private_pages++;
-
-	page_t *page_info = pmm_page_info(page);
-	if (page_info) {
-		atomic_store(&page_info->ref_count, 1);
-	}
-	spinlock_release(&pmm_lock);
-	return page;
 }
 
-void pmm_set_free_pages(uintptr_t start, size_t count) {
+static int pmm_is_free(page_t *page_info) {
+	return atomic_load(&page_info->ref_count) == 0;
+}
+
+static uintptr_t pmm_raw_helper_allocate_pages(pmm_t *pmm, int order) {
+	if (order >= ORDERS_COUNT) return PAGE_INVALID;
+	list_node_t *node = pmm->entries[order];
+	if (node) {
+		uintptr_t pages = mmu_hhdm2phys(node);
+		list_remove(&pmm->entries[order], &node);
+		return pages;
+	} else {
+		// get pages from next order and split
+		uintptr_t pages = pmm_raw_helper_allocate_pages(pmm, order + 1);
+		if (pages == PAGE_INVALID) return PAGE_INVALID;
+		// put back unused pages
+		uintptr_t unused = pages + ORDER2COUNT(order) * PAGE_SIZE;
+		page_t *unused_info = pmm_page_info(unused);
+		kassert(unused_info);
+		unused_info->pmm.order = order;
+		node = mmu_phys2virt(unused);
+		list_append(&pmm->entries[order], &node);
+		return pages;
+	}
+}
+
+static uintptr_t pmm_helper_allocate_pages(pmm_t *pmm, int order) {
+	spinlock_acquire(&pmm->lock);
+	uintptr_t pages = pmm_raw_helper_allocate_pages(pmm, order);
+	if (pages != PAGE_INVALID) {
+		used_pages += ORDER2COUNT(order);
+		private_pages += ORDER2COUNT(order);
+		for (size_t i=0; i<ORDER2COUNT(order); i++) {
+			page_t *page_info = pmm_page_info(pages + i * PAGE_SIZE);
+			kassert(page_info);
+			atomic_store(&page_info->ref_count, 1);
+		}
+	}
+	spinlock_release(&pmm->lock);
+	return pages;
+}
+
+uintptr_t pmm_zone_allocate_pages(int zone, int order) {
+	if (zone == ZONE_DEFAULT) zone = ZONE_NORMAL;
+	if (!is_stage2) {
+		// we can only allocate individual pages
+		if (order != ORDER_SIZE1) return PAGE_INVALID;
+		return pmm1_allocate_page();
+	}
+
+	while (zone >= 0){
+		uintptr_t page = pmm_helper_allocate_pages(&pmms[zone], order);
+		if (page != PAGE_INVALID) return page;
+		zone--;
+	}
+	return PAGE_INVALID;
+}
+
+static void pmm_zone_set_free_pages(int zone, uintptr_t start, int order) {
+	pmm_t *pmm = &pmms[zone];
+	spinlock_acquire(&pmm->lock);
+	used_pages -= ORDER2COUNT(order);
+
+	// can we merge
+	if (order + 1 < ORDERS_COUNT) {
+		uintptr_t merging_page = start ^ (ORDER2COUNT(order) * PAGE_SIZE);
+		page_t *merging_page_info = pmm_page_info(merging_page);
+		if (merging_page_info && pmm_is_free(merging_page_info) && merging_page_info->pmm.order == order) {
+			// we can merge
+			// TODO : remove from list and merge
+		}
+	}
+	list_node_t *node = mmu_phys2virt(start);
+	list_append(&pmm->entries[order], node);
+
+	page_t *page_info = pmm_page_info(start);
+	page_info->pmm.order = order;
+
+	spinlock_release(&pmm->lock);
+}
+
+void pmm_set_free_pages(uintptr_t start, size_t order) {
+	kassert(start != PAGE_INVALID);
+	kassert(start % (ORDER2COUNT(order) * PAGE_SIZE) == 0);
+
+	// mark as free
+	for (uintptr_t page=start; page<start+ORDER2COUNT(order)*PAGE_SIZE; page += PAGE_SIZE) {
+		page_t *page_info = pmm_page_info(page);
+		if (page_info) atomic_store(&page_info->ref_count, 0);
+	}
+	int zone = pmm_get_zone(start);
+	pmm_zone_set_free_pages(zone, start, order);
+}
+
+void pmm_set_free_page_range(uintptr_t start, size_t count) {
 	if (count == 0) return;
 	kassert(start != PAGE_INVALID);
-	spinlock_acquire(&pmm_lock);
-
-	used_pages -= count;
-	pmm_entry_t *entry = mmu_phys2virt(start);
-	entry->size = count;
-	entry->next = stack_head;
-	stack_head = entry;
-
-	spinlock_release(&pmm_lock);
+	kassert(start % PAGE_SIZE == 0);
+	while (count > 0) {
+		for (int order=ORDERS_COUNT-1; order>=0; order--) {
+			if (count < order) continue;
+			if (start % (ORDER2COUNT(order) * PAGE_SIZE)) continue;
+			pmm_set_free_pages(start, order);
+			count -= ORDER2COUNT(order);
+			start += PAGE_SIZE * ORDER2COUNT(order);
+			break;
+		}
+	}
 }
 
 void pmm_release_page(uintptr_t page) {
 	kassert(page != PAGE_INVALID);
+	kassert(page % PAGE_SIZE == 0);
 	page_t *page_info = pmm_page_info(page);
 	if (page_info) {
 		size_t ref = atomic_fetch_sub(&page_info->ref_count, 1);
@@ -215,24 +305,28 @@ void pmm_release_page(uintptr_t page) {
 }
 
 int pmm_retain(uintptr_t page) {
+	kassert(page != PAGE_INVALID);
+	kassert(page % PAGE_SIZE == 0);
 	page_t *page_info = pmm_page_info(page);
+	kassert(page_info);
 	unsigned int old = atomic_load(&page_info->ref_count);
-    while (old != 0) {
-        if (atomic_compare_exchange_weak(&page_info->ref_count, &old, old + 1)) {
+	while (old != 0) {
+		if (atomic_compare_exchange_weak(&page_info->ref_count, &old, old + 1)) {
 			if (old == 1) {
 				// we got from private to shared
 				private_pages--;
 				shared_pages++;
 			}
-            return 1;
+			return 1;
 		}
-        // we raced and need to retry
-    }
-    return 0;
+		// we raced and need to retry
+	}
+	return 0;
 }
 
 uintptr_t pmm_dup_page(uintptr_t page) {
 	kassert(page != PAGE_INVALID);
+	kassert(page % PAGE_SIZE == 0);
 	uintptr_t new_page = pmm_allocate_page();
 	if (new_page == PAGE_INVALID) return PAGE_INVALID;
 	memcpy(mmu_phys2virt(new_page), mmu_phys2virt(page), PAGE_SIZE);

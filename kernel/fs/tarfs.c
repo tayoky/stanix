@@ -81,7 +81,7 @@ void mount_initrd(void) {
 
 	// now free the tar archive
 	// since the initrd is physcally continuous
-	pmm_set_free_pages(mmu_virt2phys((void *)start), (end - start) / PAGE_SIZE);
+	pmm_set_free_pages_range(mmu_virt2phys((void *)start), (end - start) / PAGE_SIZE);
 
 	kok();
 }
