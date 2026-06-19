@@ -2,6 +2,7 @@
 #define KERNEL_BOOTINFO_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 typedef struct bootinfo_memmap_entry {
 	uintptr_t start;
