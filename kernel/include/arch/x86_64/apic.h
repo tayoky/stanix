@@ -2,6 +2,7 @@
 #define KERNEL_APIC_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 typedef struct ioapic {
 	uintptr_t address;
