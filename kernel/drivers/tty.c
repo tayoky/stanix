@@ -31,10 +31,9 @@ static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t 
 	(void)offset;
 	tty_t *tty = (tty_t *)fd->private;
 
-	while (count > 0) {
+	for (size_t i=0; i < count; i++) {
 		tty_output(tty, *(char *)buffer);
 		(char *)buffer++;
-		count--;
 	}
 	return count;
 }
