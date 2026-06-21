@@ -97,24 +97,32 @@ if test -z "$AUTOCONF_VERSION" ; then
 	echo "invalid autoconf version"
 	exit 1
 fi
+AUTOMAKE_VERSION=$(automake --version | grep -E -o "1\.((16)|(15))\.[0-9]+")
+if test -z "$AUTOMAKE_VERSION" ; then
+	echo "invalid automake version"
+	exit 1
+fi
 echo "found autoconf $AUTOCONF_VERSION"
+echo "found automake $AUTOMAKE_VERSION"
 
 # now apply the patch and run automake if not aready done
 if ! test -e binutils-$BINUTILS_VERSION/ld/emulparams/elf_x86_64_stanix.sh ; then
 	patch -ruN -p1 -d binutils-$BINUTILS_VERSION -i $TOP/binutils.patch
 	sed -i -e "s/2.69/$AUTOCONF_VERSION/g" binutils-$BINUTILS_VERSION/config/override.m4
-	cd binutils-$BINUTILS_VERSION/ld
-	autoreconf
-	automake
-	cd ../..
+	sed -i -e "s/1.15.1/$AUTOMAKE_VERSION/g" binutils-$BINUTILS_VERSION/ld/aclocal.m4
+	cd binutils-$BINUTILS_VERSION/
+	autoreconf -fiv
+	(cd ld && automake)
+	cd ..
 fi
 if ! test -e gcc-$GCC_VERSION/gcc/config/stanix.h ; then
 	patch -ruN -p1 -d gcc-$GCC_VERSION -i $TOP/gcc.patch
 	sed -i -e "s/2.69/$AUTOCONF_VERSION/g" gcc-$GCC_VERSION/config/override.m4
-	cd gcc-$GCC_VERSION/libstdc++-v3
-	autoreconf
-	automake
-	cd ../..
+	sed -i -e "s/1.15.1/$AUTOMAKE_VERSION/g" gcc-$GCC_VERSION/libstdc++-v3/aclocal.m4
+	cd gcc-$GCC_VERSION/
+	autoreconf -fiv
+	(cd libstdc++-v3 && automake)
+	cd ..
 fi
 
 # we are going to need the header
@@ -183,7 +191,7 @@ if ! test -e bin/$TARGET-gcc ; then
 	if ! test -f build/Makefile ; then
 		mkdir -p build && cd build
 		echo "configure gcc..."
-		../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-multilib --enable-shared --enable-threads=posix
+		../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-multilib --enable-shared --with-pic --enable-threads=posix
 	else
 		cd build
 	fi
