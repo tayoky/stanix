@@ -122,6 +122,7 @@ if ! test -e gcc-$GCC_VERSION/gcc/config/stanix.h ; then
 	cd gcc-$GCC_VERSION/
 	autoreconf -fiv
 	(cd libstdc++-v3 && automake)
+	cp "config.sub~" config.sub
 	cd ..
 fi
 
