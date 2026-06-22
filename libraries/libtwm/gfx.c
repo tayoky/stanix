@@ -52,13 +52,13 @@ gfx_t *twm_get_window_gfx(twm_window_t window) {
 	};
 
 	// mmap the framebuffer
-	void *framebuffrer = mmap(NULL, fb_info.pitch * fb_info.height, PROT_WRITE, MAP_SHARED, fd, 0);
+	void *framebuffer = mmap(NULL, fb_info.pitch * fb_info.height, PROT_WRITE, MAP_SHARED, fd, 0);
 	close(fd);
-	if (framebuffrer == MAP_FAILED) {
+	if (framebuffer == MAP_FAILED) {
 		return NULL;
 	}
 
 	// and pass everything to libgfx
-	gfx_t *gfx = _gfx_create(framebuffrer, &fb_info);
+	gfx_t *gfx = _gfx_create(framebuffer, &fb_info);
 	return gfx;
 }

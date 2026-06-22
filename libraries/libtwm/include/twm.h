@@ -238,6 +238,12 @@ typedef struct twm_event_desktop {
 typedef void (*twm_handler_t)(twm_event_t *event, void *arg);
 #define TWM_HANDLER(handler) ((twm_handler_t)(void*)(handler))
 
+typedef struct twm_opengl {
+	void *private;
+	void *framebuffer;
+	size_t fb_size;
+} twm_opengl_t;
+
 int twm_init(const char *path);
 void twm_fini(void);
 int twm_get_fd(void);
@@ -254,6 +260,9 @@ int twm_redraw_window(twm_window_t window, long x, long y, long width, long heig
 int twm_start_dragging(twm_window_t window, long offset_x, long offset_y);
 int twm_grab_desktop_hook(void);
 struct gfx_context *twm_get_window_gfx(twm_window_t window);
+twm_opengl_t *twm_get_window_opengl(twm_window_t window);
+void twm_opengl_destroy(twm_opengl_t *opengl);
+void *twm_opengl_get_proc_addr(const char *name);
 twm_event_t *twm_poll_event(void);
 twm_event_t *twm_peek_event(void);
 void twm_handle_event(twm_event_t *event);

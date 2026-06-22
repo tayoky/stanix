@@ -5,7 +5,7 @@ OBJ = $(SRC:.c=.o)
 
 #cc flags
 CFLAGS += -Wall -Wextra -std=c99 -fpic
-CFLAGS += -Iinclude
+CFLAGS += -Iinclude -I./
 
 all : libtwm.so
 
