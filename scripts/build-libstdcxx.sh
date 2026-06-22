@@ -2,8 +2,10 @@
 
 # build the libstdc++ library
 
+: ${NPROC:=$(nproc)}
+
 # we need to make sure tlibc is built, as libstdc++ depends on libc
-make build-tlibc || exit 1
+make build-tlibc -j $NPROC || exit 1
 
 GCC_VERSION=12.2.0
 

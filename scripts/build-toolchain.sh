@@ -121,7 +121,8 @@ if ! test -e gcc-$GCC_VERSION/gcc/config/stanix.h ; then
 	sed -i -e "s/1.15.1/$AUTOMAKE_VERSION/g" gcc-$GCC_VERSION/libstdc++-v3/aclocal.m4
 	cd gcc-$GCC_VERSION/
 	autoreconf -fiv
-	(cd libstdc++-v3 && automake)
+	cp "config.sub~" config.sub
+	(cd libstdc++-v3 && autoreconf -fiv && automake)
 	cp "config.sub~" config.sub
 	cd ..
 fi
