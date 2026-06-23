@@ -1,6 +1,7 @@
 #ifndef TWM_OSMESA_H
 #define TWM_OSMESA_H
 
+#include <stdint.h>
 #include <gl.h>
 
 /* Context Creation Formats (OSMESA_FORMAT) */
@@ -35,15 +36,15 @@ typedef struct osmesa_context *OSMesaContext;
 
 /* Essential Function Signatures */
 
-typedef OSMesaContext (OSMesaCreateContext_t*)(GLenum format, OSMesaContext sharelist);
+typedef OSMesaContext (*OSMesaCreateContext_t)(GLenum format, OSMesaContext sharelist);
 
-typedef OSMesaContext (OSMesaCreateContextAttribs_t*)(const int *attribList, OSMesaContext sharelist);
+typedef OSMesaContext (*OSMesaCreateContextAttribs_t)(const int *attribList, OSMesaContext sharelist);
 
 typedef void (*OSMesaDestroyContext_t)(OSMesaContext ctx);
 
-typedef GLboolean (OSMesaMakeCurrent_t*)(OSMesaContext ctx, void *buffer, GLenum type, GLsizei width, GLsizei height);
+typedef GLboolean (*OSMesaMakeCurrent_t)(OSMesaContext ctx, void *buffer, GLenum type, GLsizei width, GLsizei height);
 
-typedef void (OSMesaPixelStore_t*)(GLint param, GLint value);
+typedef void (*OSMesaPixelStore_t)(GLint param, GLint value);
 
 /* Function pointer type for extension loading */
 typedef void (*OSMESAproc)(void);

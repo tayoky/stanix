@@ -1,5 +1,6 @@
 #include <sys/mman.h>
 #include <osmesa.h>
+#include <stdlib.h>
 #include <twm.h>
 
 static OSMesaCreateContext_t _OSMesaCreateContext;
