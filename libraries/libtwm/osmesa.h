@@ -2,6 +2,7 @@
 #define TWM_OSMESA_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include <gl.h>
 
 /* Context Creation Formats (OSMESA_FORMAT) */
@@ -48,6 +49,6 @@ typedef void (*OSMesaPixelStore_t)(GLint param, GLint value);
 
 /* Function pointer type for extension loading */
 typedef void (*OSMESAproc)(void);
-typedef OSMESAproc (OSMesaGetProcAddress_t)(const char *funcName);
+typedef OSMESAproc (*OSMesaGetProcAddress_t)(const char *funcName);
 
 #endif
