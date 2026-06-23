@@ -111,8 +111,7 @@ if ! test -e binutils-$BINUTILS_VERSION/ld/emulparams/elf_x86_64_stanix.sh ; the
 	sed -i -e "s/2.69/$AUTOCONF_VERSION/g" binutils-$BINUTILS_VERSION/config/override.m4
 	sed -i -e "s/1.15.1/$AUTOMAKE_VERSION/g" binutils-$BINUTILS_VERSION/ld/aclocal.m4
 	cd binutils-$BINUTILS_VERSION/
-	
-	autoreconf -fiv
+	(cd ld && automake)
 	cp "$TOP/scripts/config.sub" config.sub
 	cd ..
 fi
@@ -121,7 +120,7 @@ if ! test -e gcc-$GCC_VERSION/gcc/config/stanix.h ; then
 	sed -i -e "s/2.69/$AUTOCONF_VERSION/g" gcc-$GCC_VERSION/config/override.m4
 	sed -i -e "s/1.15.1/$AUTOMAKE_VERSION/g" gcc-$GCC_VERSION/libstdc++-v3/aclocal.m4
 	cd gcc-$GCC_VERSION/
-	autoreconf -fiv
+	(cd libstdc++-v3 && autoreconf -fiv)
 	cp "$TOP/scripts/config.sub" config.sub
 	cd ..
 fi
