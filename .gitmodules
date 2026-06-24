@@ -20,3 +20,6 @@
 [submodule "userspace/tash"]
 	path = userspace/tash
 	url = https://github.com/tayoky/tash
+[submodule "userspace/tvi"]
+	path = userspace/tvi
+	url = https://github.com/tayoky/tvi

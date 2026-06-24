@@ -97,7 +97,7 @@ test-qemu-kvm-nvme : image-hdd
 
 test-qemu-ata : image-hdd
 	qemu-system-$(ARCH) \
-	-hda $(HDD_IMAGE) -serial stdio 
+	-hda $(HDD_IMAGE) -serial stdio  -m 512
 #--trace "ide_*"
 
 test-qemu-cdrom : image-iso
