@@ -59,7 +59,7 @@ static int futex_wake(long *addr, long val) {
 
 static int futex_wait(long *addr, long val) {
 	block_prepare_interruptible();
-	if (*addr == val) {
+	if (*addr != val) {
 		block_cancel();
 		return 0;
 	}
@@ -74,6 +74,12 @@ static int futex_wait(long *addr, long val) {
 	}
 
 	sleep_add_to_queue(queue);
+	if (*addr != val) {
+		spinlock_release(&futexes_lock);
+		sleep_remove_from_queue(queue);
+		block_cancel();
+		return 0;
+	}
 	spinlock_release(&futexes_lock);
 	return block_task();
 	// TODO : remove from queue if interrupted
