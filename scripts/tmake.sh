@@ -1,6 +1,6 @@
 # source this in your tmakegen
 
-TMAKE_VERSION="v0.1.8"
+TMAKE_VERSION="v0.2.1"
 
 tmake_init () {
 	MAKEFILE="$(realpath ./Makefile)"
@@ -25,7 +25,7 @@ PREFIX ?= /usr/local
 STATIC ?= yes
 SHARED ?= no
 CFLAGS ?= -Wall -Wextra
-CFLAGS += -DVERSION='\"\$(VERSION)\"'
+CFLAGS += -DVERSION='\"\$(VERSION)\"' -DHOST='\"\$(HOST)\"' -DPREFIX='\"\$(PREFIX)\"'
 
 ifeq (\$(HAVE_MMD) \$(HAVE_MP),yes yes)
 	CFLAGS += -MMD -MP
@@ -132,6 +132,9 @@ tmake_apply_flags () {
 			;;
 		DDEPENDENCIES=*)
 			TARGET_DDEPENDENCIES="$TARGET_DEPENDENCIES ${1#*=}"
+			;;
+		INCLUDEDIR=*)
+			TARGET_CFLAGS="$TARGET_CFLAGS -I${1#*=}"
 			;;
 		HAVE_C=*)
 			HAVE_C="${1#*=}"
@@ -261,12 +264,12 @@ uninstall : uninstall-$TARGET_TARGET
 uninstall-$TARGET_TARGET :
 	@echo \"UNINSTALL$(TO_REMOVE=""
 	for FILE in $FILES ; do
-		TO_REMOVE="$TO_REMOVE \$(DESTDIR)\$(PREFIX)/$PREF/${FILE#"\$(BUILDDIR)/$TARGET_TARGET/"}"
+		TO_REMOVE="$TO_REMOVE \$(DESTDIR)\$(PREFIX)/$PREF/$(basename "$FILE")"
 	done
 	echo "$TO_REMOVE")\"
 	\$(Q)rm -f$(TO_REMOVE=""
 	for FILE in $FILES ; do
-		TO_REMOVE="$TO_REMOVE \"\$(DESTDIR)\$(PREFIX)/$PREF/${FILE#"\$(BUILDDIR)/$TARGET_TARGET/"}\""
+		TO_REMOVE="$TO_REMOVE \"\$(DESTDIR)\$(PREFIX)/$PREF/$(basename "$FILE")\""
 	done
 	echo "$TO_REMOVE")
 
@@ -313,7 +316,7 @@ LINK_$LIB_TARG = $LIB
 ALL_$TARG += $LIB
 LINK_$TARG = $LIB"
 	shift
-	tmake_add_target "$LIB_TARG" "$LIB" "lib" "$@"
+	tmake_add_target "$LIB_TARG" "$LIB" "$(dirname "lib/$TARG")" "$@"
 	echo "
 $LIB : $ALL_DEPENDENCIES
 	@mkdir -p \"\$(@D)\"
@@ -348,12 +351,12 @@ LINK_$LIB_TARG = $LIB
 ALL_$TARG += $LIB
 LINK_$TARG = $LIB"
 	shift
-	tmake_add_target "$LIB_TARG" "$LIB" "lib" "CFLAGS=-fPIC" "$@"
+	tmake_add_target "$LIB_TARG" "$LIB" "$(dirname "lib/$TARG")" "CFLAGS=-fPIC" "$@"
 	echo "
 $LIB : $ALL_DEPENDENCIES
 	@mkdir -p \"\$(@D)\"
 	@echo \"CCLD $TARG.so\"
-	\$(Q)\$(CC) -shared $TARGET_CFLAGS $TARGET_LDFLAGS -o \$@ \$^
+	\$(Q)\$(CC) -shared $TARGET_CFLAGS -Wl,-soname,$(basename "$TARG.so") $TARGET_LDFLAGS -o \$@ \$^
 
 .PHONY : all-$TARG
 all-$TARG : all-$LIB_TARG
