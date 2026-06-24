@@ -386,15 +386,15 @@ static void do_proc_deletion(void) {
 
 void kill_task(void) {
 	disable_interrupt();
-	spinlock_acquire(&get_current_task()->state_lock);
-
+	
 	if (get_current_task() == get_current_proc()->main_thread) {
 		// we are the main thread, we need to kill the whole proc
 		// TODO : send SIGKILL to all threads and wait for it to be handled
 		do_proc_deletion();
 		alert_parent(get_current_proc());
 	}
-
+	
+	spinlock_acquire(&get_current_task()->state_lock);
 	get_current_task()->status = TASK_STATUS_ZOMBIE;
 
 	// if a task is waiting on us alert
