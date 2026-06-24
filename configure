@@ -62,6 +62,7 @@ tconf_add_subdir tlibc --enable-shared
 tconf_add_subdir ports
 tconf_add_subdir libraries/libtgui
 tconf_add_subdir userspace/tutils
+tconf_add_subdir userspace/tvi
 
 # always disable debug for tash
 tconf_add_subdir userspace/tash --disable-debug
