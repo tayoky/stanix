@@ -158,7 +158,7 @@ if ! test -e bootstrap/bin/$TARGET-gcc ; then
 	if ! test -f build-bootstrap/Makefile ; then
 		mkdir -p build-bootstrap && cd build-bootstrap
 		echo "configure bootstrap gcc..."
-		../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --disable-shared --disable-multilib \
+		../configure --target=$TARGET --prefix="$PREFIX/bootstrap" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c --without-headers --enable-initfini-array --disable-shared --disable-multilib \
 			--disable-libgomp --disable-libssp --disable-libquadmath --disable-libsanitizer \
 			--disable-decimal-float --disable-bootstrap
 	else
@@ -191,7 +191,7 @@ if ! test -e bin/$TARGET-gcc ; then
 	if ! test -f build/Makefile ; then
 		mkdir -p build && cd build
 		echo "configure gcc..."
-		../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --disable-multilib --enable-shared --with-pic --enable-threads=posix
+		../configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --enable-languages=c,c++ --enable-initfini-array --disable-multilib --enable-shared --with-pic --enable-threads=posix
 	else
 		cd build
 	fi
