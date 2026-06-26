@@ -619,6 +619,9 @@ handle_event(twm_window_t win, twm_event_t *event)
 	 if (input_event->type != TWM_INPUT_KEY) {
              return NOP;
 	 }
+    if (!(input_event->key.flags & TWM_INPUT_PRESS)) {
+      return NOP;
+    }
 	 int code = input_event->key.key;
          if (code == INPUT_KEY_ARROW_LEFT) {
             view_roty += 5.0;
@@ -733,6 +736,10 @@ main(int argc, char *argv[])
    }
 
    make_window("glxgears", x, y, winWidth, winHeight, &win, &ctx);
+   if (win == TWM_NULL || !ctx) {
+      printf("Error: counldn't create opengl context\n");
+      return 1;
+   }
    //setup_vsync(dpy, win);
 
    if (printInfo) {

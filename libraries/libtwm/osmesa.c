@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <twm.h>
 
 static OSMesaCreateContext_t _OSMesaCreateContext;
@@ -10,6 +11,7 @@ static OSMesaCreateContextAttribs_t _OSMesaCreateContextAttribs;
 static OSMesaDestroyContext_t _OSMesaDestroyContext;
 static OSMesaMakeCurrent_t _OSMesaMakeCurrent;
 static OSMesaPixelStore_t _OSMesaPixelStore; 
+static OSMesaGetIntegerv_t _OSMesaGetIntegerv;
 static OSMesaGetProcAddress_t _OSMesaGetProcAddress;
 static void *libOSMesa;
 
@@ -17,7 +19,7 @@ static int twm_load_libOSMesa(void) {
 	if (libOSMesa) {
 		return 0;
 	}
-	libOSMesa = dlopen("libOSMesa.so", RTLD_NOW);
+	libOSMesa = dlopen("libOSMesa.so.8", RTLD_NOW);
 	if (!libOSMesa) return -1;
 
 	_OSMesaCreateContext = dlsym(libOSMesa, "OSMesaCreateContext");
@@ -25,7 +27,9 @@ static int twm_load_libOSMesa(void) {
 	_OSMesaDestroyContext = dlsym(libOSMesa, "OSMesaDestroyContext");
 	_OSMesaMakeCurrent = dlsym(libOSMesa, "OSMesaMakeCurrent");
 	_OSMesaPixelStore = dlsym(libOSMesa, "OSMesaPixelStore");
+	_OSMesaGetIntegerv = dlsym(libOSMesa, "OSMesaGetIntegerv");
 	_OSMesaGetProcAddress = dlsym(libOSMesa, "OSMesaGetProcAddress");
+
 	return 0;
 }
 
@@ -49,26 +53,23 @@ twm_opengl_t *twm_get_window_opengl(twm_window_t window) {
 		return NULL;
 	}
 
-	OSMesaContext ctx = _OSMesaCreateContext(OSMESA_RGBA, NULL);
+	OSMesaContext ctx = _OSMesaCreateContext(OSMESA_BGRA, NULL);
 	if (!ctx) {
 unmap:
 		munmap(framebuffer, fb_size);
 		return NULL;
 	}
 
-	// inverse Y axis
-	_OSMesaPixelStore(OSMESA_ROW_LENGTH, fb_info.width);
-	_OSMesaPixelStore(OSMESA_Y_UP, 0);
-
-	if (!_OSMesaMakeCurrent(ctx, framebuffer, GL_UNSIGNED_BYTE, fb_info.width, fb_info.height)) {
-		_OSMesaDestroyContext(ctx);
-		goto unmap;
-	}
-
 	twm_opengl_t *opengl = malloc(sizeof(twm_opengl_t));
 	opengl->private = ctx;
 	opengl->framebuffer = framebuffer;
 	opengl->fb_size = fb_size;
+	opengl->fb_info = fb_info;
+
+	if (twm_opengl_make_current(opengl) < 0) {
+		twm_opengl_destroy(opengl);
+		return NULL;
+	}
 
 	return opengl;
 }
@@ -78,6 +79,17 @@ void *twm_opengl_get_proc_addr(const char *name) {
 		return NULL;
 	}
 	return _OSMesaGetProcAddress(name);
+}
+
+int twm_opengl_make_current(twm_opengl_t *opengl) {
+	if (!_OSMesaMakeCurrent(opengl->private, opengl->framebuffer, GL_UNSIGNED_BYTE, opengl->fb_info.width, opengl->fb_info.height)) {
+		return -1;
+	}
+
+	// inverse Y axis
+	_OSMesaPixelStore(OSMESA_ROW_LENGTH, opengl->fb_info.pitch / 4);
+	_OSMesaPixelStore(OSMESA_Y_UP, 0);
+	return 0;
 }
 
 void twm_opengl_destroy(twm_opengl_t *opengl) {

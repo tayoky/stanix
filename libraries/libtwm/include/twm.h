@@ -242,6 +242,7 @@ typedef struct twm_opengl {
 	void *private;
 	void *framebuffer;
 	size_t fb_size;
+	twm_fb_info_t fb_info;
 } twm_opengl_t;
 
 int twm_init(const char *path);
@@ -262,6 +263,7 @@ int twm_grab_desktop_hook(void);
 struct gfx_context *twm_get_window_gfx(twm_window_t window);
 twm_opengl_t *twm_get_window_opengl(twm_window_t window);
 void twm_opengl_destroy(twm_opengl_t *opengl);
+int twm_opengl_make_current(twm_opengl_t *opengl);
 void *twm_opengl_get_proc_addr(const char *name);
 twm_event_t *twm_poll_event(void);
 twm_event_t *twm_peek_event(void);
