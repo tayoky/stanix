@@ -23,7 +23,7 @@ static int close_client_window(client_t *client) {
 }
 
 void kick_client(client_t *client) {
-	if (desktop_hook == client) desktop_hook = NULL;
+	if (desktop_hook == client->id) desktop_hook = 0;
 	
 	// close all windows of this client
 	while (close_client_window(client));
