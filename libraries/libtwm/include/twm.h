@@ -2,6 +2,7 @@
 #define TWM_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include <limits.h>
 
 struct gfx_context;

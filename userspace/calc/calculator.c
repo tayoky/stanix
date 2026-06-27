@@ -98,7 +98,6 @@ void equal_click(void) {
 	
 tgui_button_t *new_button(const char *text) {
 	tgui_button_t *button = tgui_button_new();
-	tgui_widget_set_margin(TGUI_WIDGET_CAST(button), 1);
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(button), TGUI_TRUE);
 	tgui_widget_set_vexpand(TGUI_WIDGET_CAST(button), TGUI_TRUE);
 	tgui_button_set_text(button, text);
@@ -116,7 +115,6 @@ int main() {
 
 	label = tgui_text_new();
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(label), TGUI_TRUE);
-	tgui_widget_set_margin(TGUI_WIDGET_CAST(label), 1);
 
 	// create the grid with all the buttons
 	tgui_grid_t *grid = tgui_grid_new(4, 4);

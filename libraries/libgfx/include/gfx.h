@@ -3,6 +3,7 @@
 
 #include <sys/fb.h>
 #include <stdint.h>
+#include <stddef.h>
 
 typedef uint32_t color_t;
 
