@@ -139,6 +139,23 @@ void init_task() {
 	kok();
 }
 
+static void wakeup_sleepers(void) {
+	// see if we can wakeup anything
+	struct timespec time;
+	gettime(CLOCK_MONOTONIC, &time);
+	spinlock_acquire(&sleep_lock);
+	foreach (node, &sleeping_tasks) {
+		task_t *task = container_of(node, task_t, waiter_list_node);
+		if (timespec_cmp(&task->wakeup_time, &time) > 0) {
+			break;
+		}
+		atomic_fetch_and(&task->flags, ~TASK_FLAG_SLEEP);
+		list_remove(&sleeping_tasks, &task->waiter_list_node);
+		unblock_task(task);
+	}
+	spinlock_release(&sleep_lock);
+}
+
 static task_t *schedule() {
 	// pop the next task from the queue
 	task_t *picked = run_queue_pop_task(get_run_queue());
@@ -147,21 +164,6 @@ static task_t *schedule() {
 	if (!picked) {
 		picked = idle;
 	}
-
-	// see if we can wakeup anything
-	struct timespec time;
-	gettime(CLOCK_MONOTONIC, &time);
-	spinlock_acquire(&sleep_lock);
-	foreach (node, &sleeping_tasks) {
-		task_t *task = container_of(node, task_t, waiter_list_node);
-		if (timespec_cmp(&task->wakeup_time, &time) <= 0) {
-			break;
-		}
-		atomic_fetch_and(&task->flags, ~TASK_FLAG_SLEEP);
-		list_remove(&sleeping_tasks, &task->waiter_list_node);
-		unblock_task(task);
-	}
-	spinlock_release(&sleep_lock);
 
 	// kdebugf("switch to %p\n",get_current_proc());
 	return picked;
@@ -277,6 +279,8 @@ void finish_yield(void) {
 void yield(int preempt) {
 	if (!can_task_switch && preempt) return;
 	if (get_current_task()->preempt_disable && preempt) return;
+
+	wakeup_sleepers();
 
 	int prev_int = have_interrupt();
 	disable_interrupt();
