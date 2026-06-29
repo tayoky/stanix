@@ -69,8 +69,8 @@ int nano_sleep(long nano_seconds) {
 		new_timespec.tv_nsec = 0;
 
 		//now we need to cut the remaing micro second in second and micro second
-		new_timespec.tv_sec += nano_seconds / 1000000;
-		new_timespec.tv_nsec = nano_seconds % 1000000;
+		new_timespec.tv_sec += nano_seconds / 1000000000;
+		new_timespec.tv_nsec = nano_seconds % 1000000000;
 	}
 
 	return sleep_until(&new_timespec);
