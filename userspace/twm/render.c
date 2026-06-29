@@ -20,8 +20,8 @@ static void render_window_content(window_t *window) {
 	if (!gfx_bound_check(gfx, &x, &y, &width, &height)) return;
 
 	uintptr_t dest_ptr = gfx_pixel_addr(gfx, x, y);
-	uintptr_t src_ptr = (uintptr_t)window->framebuffer + (x - win_x) * (gfx->bpp/8);
 	size_t win_pitch = window->width * (gfx->bpp/8);
+	uintptr_t src_ptr = (uintptr_t)window->framebuffer + (x - win_x) * (gfx->bpp/8) + (y - win_y) * win_pitch;
 	size_t copy_width = width * (gfx->bpp/8);
 	
 	for (long i=0; i<height; i++) {
