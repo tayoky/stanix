@@ -1,9 +1,9 @@
 #include <sys/mman.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdio.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
 #include <twm.h>
+#include <unistd.h>
 #include "twm-internal.h"
 
 utils_hashmap_t windows;
@@ -11,11 +11,32 @@ window_t *window_stack_top;
 window_t *window_stack_bottom;
 window_t *focus_window;
 
+void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height) {
+	*x      = 0;
+	*y      = 0;
+	*width  = window->width;
+	*height = window->height;
+	while (window) {
+		*x += window->x;
+		*y += window->y;
+		window = window->parent;
+	}
+}
+
+void window_get_bounds(window_t *window, long *x, long *y, long *width, long *height) {
+	window_get_inner_bounds(window, x, y, width, height);
+	if (window->attribute & TWM_ATTR_DECORED) {
+		*x -= theme.border_width;
+		*y -= theme.border_width + theme.titlebar_height + theme.border_width;
+		*width += 2 * theme.border_width;
+		*height += theme.border_width + theme.titlebar_height + 2 * theme.border_width;
+	}
+}
+
 static void invalidate_window(window_t *window) {
-	long x;
-	long y;
-	real_window_coord(window, &x, &y);
-	invalidate_rect(x, y, window->width, window->height);
+	long x, y, width, height;
+	window_get_bounds(window, &x, &y, &width, &height);
+	invalidate_rect(x, y, width, height);
 }
 
 void push_window_at_top(window_t *window) {
@@ -60,35 +81,39 @@ static void remove_window_from_stack(window_t *window) {
 }
 
 void set_window_attr(window_t *window, long attr) {
-	// if going from show to hide or from hide to show we need to invalidate
-	if ((window->attribute ^ attr) & TWM_ATTR_SHOW) {
+	// if going from show to hide or from hide to show or changing decoring status we need to invalidate
+	if ((window->attribute ^ attr) & (TWM_ATTR_SHOW | TWM_ATTR_DECORED)) {
 		invalidate_window(window);
 	}
+	long old_attr = window->attribute;
 	window->attribute = attr;
+	if ((old_attr ^ attr) & (TWM_ATTR_SHOW | TWM_ATTR_DECORED)) {
+		invalidate_window(window);
+	}
 }
 
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title) {
 	puts("create window");
 	static twm_window_t id_count = 1;
-	window_t *window = malloc(sizeof(window_t));
+	window_t *window             = malloc(sizeof(window_t));
 	memset(window, 0, sizeof(window_t));
 
-	window->id     = id_count++;
-	window->client = client->id;
-	window->width  = width;
-	window->height = height;
-	window->parent = parent;
+	window->id        = id_count++;
+	window->client    = client->id;
+	window->width     = width;
+	window->height    = height;
+	window->parent    = parent;
 	window->attribute = TWM_ATTR_DECORED | TWM_ATTR_SHOW;
-	window->title  = strdup(title);
-	window->x = (rand() % 100) + 10;	
-	window->y = (rand() % 100) + 10;
+	window->title     = strdup(title);
+	window->x         = (rand() % 100) + 10;
+	window->y         = (rand() % 100) + 10;
 
 	// setup a new framebuffer
 	char framebuffer_name[64];
 	sprintf(framebuffer_name, "/window-%d", window->id);
 	window->framebuffer_path = strdup(framebuffer_name);
-	int framebuffer_fd = shm_open(framebuffer_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
-	size_t framebuffer_size = width * height * (gfx->bpp / 8);
+	int framebuffer_fd       = shm_open(framebuffer_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
+	size_t framebuffer_size  = width * height * (gfx->bpp / 8);
 	ftruncate(framebuffer_fd, framebuffer_size);
 
 	// mmap the newly created framebuffer
@@ -106,13 +131,13 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	if (client->id != desktop_hook) {
 		twm_event_desktop_t window_event = {
 			.base = {
-				.type = TWM_EVENT_DESKTOP,
-				.size = sizeof(window_event),
-			},
+					 .type = TWM_EVENT_DESKTOP,
+					 .size = sizeof(window_event),
+					 },
 			.type = TWM_WINDOW_CREATED,
-			.id = window->id,
+			.id   = window->id,
 		};
-		send_event(get_client(desktop_hook), (twm_event_t*)&window_event);
+		send_event(get_client(desktop_hook), (twm_event_t *)&window_event);
 	}
 
 	return window;
@@ -132,17 +157,17 @@ void destroy_window(window_t *window) {
 	shm_unlink(window->framebuffer_path);
 	free(window->framebuffer_path);
 
-	
+
 	// tell the desktop hook we destroyed a window
 	twm_event_desktop_t window_event = {
 		.base = {
-			.type = TWM_EVENT_DESKTOP,
-			.size = sizeof(window_event),
-		},
+				 .type = TWM_EVENT_DESKTOP,
+				 .size = sizeof(window_event),
+				 },
 		.type = TWM_WINDOW_DESTROYED,
-		.id = window->id,
+		.id   = window->id,
 	};
-	send_event(get_client(desktop_hook), (twm_event_t*)&window_event);
+	send_event(get_client(desktop_hook), (twm_event_t *)&window_event);
 	free(window);
 }
 
@@ -158,11 +183,10 @@ window_t *get_window(twm_window_t id) {
 }
 
 int is_inside_window(window_t *window, long x, long y, long width, long height) {
-	long win_x;
-	long win_y;
-	real_window_coord(window, &win_x, &win_y);
+	long win_x, win_y, win_width, win_height;
+	window_get_bounds(window, &win_x, &win_y, &win_width, &win_height);
 	if (x + width >= win_x && y + height >= win_y
-	&& x < win_x + window->width && y < win_y + window->height) {
+		&& x < win_x + win_width && y < win_y + win_height) {
 		return 1;
 	}
 	return 0;
@@ -184,14 +208,4 @@ int update_focus(window_t *window) {
 	focus_window = window;
 	push_window_at_top(window);
 	return 1;
-}
-
-void real_window_coord(window_t *window, long *x, long *y) {
-	*x = 0;
-	*y = 0;
-	while (window) {
-		*x += window->x;
-		*y += window->y;
-		window = window->parent;
-	}
 }

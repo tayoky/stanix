@@ -133,9 +133,9 @@ typedef struct twm_request_grab_input {
 #define TWM_SET_ATTR    0
 #define TWM_ADD_ATTR    1
 #define TWM_REMOVE_ATTR 2
-#define TWM_ATTR_RESIZABLE 0
+#define TWM_ATTR_RESIZABLE 1
 #define TWM_ATTR_SHOW      2
-#define TWM_ATTR_DECORED   3
+#define TWM_ATTR_DECORED   4
 
 typedef struct twm_request_get_window_attr {
 	twm_request_t base;

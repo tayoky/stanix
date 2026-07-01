@@ -1,15 +1,15 @@
-#include <twm-internal.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <twm.h>
+#include <fcntl.h>
+#include <gfx.h>
 #include <libinput.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
-#include <gfx.h>
-#include <poll.h>
+#include <twm-internal.h>
+#include <twm.h>
+#include <unistd.h>
 
 gfx_t *gfx;
 font_t *font;
@@ -30,11 +30,13 @@ void error(const char *fmt, ...) {
 
 void load_theme(void) {
 	// TODO : load this from conf file
-	theme.titlebar_height = 16;
-	theme.border_width = 1;
-	theme.font_color = gfx_color(gfx, 0xC0, 0xC0, 0xC0);
-	theme.primary = gfx_color(gfx, 0x10, 0x10, 0x10);
-	theme.secondary = gfx_color(gfx, 0x10, 0x50, 0x10);
+	theme.border_width    = 2;
+	theme.padding         = 2;
+	theme.button_width    = 16 + theme.padding * 2;
+	theme.titlebar_height = theme.button_width + theme.padding * 2;
+	theme.font_color      = gfx_color(gfx, 0xC0, 0xC0, 0xC0);
+	theme.primary         = gfx_color(gfx, 0x10, 0x10, 0x10);
+	theme.secondary       = gfx_color(gfx, 0x10, 0x50, 0x10);
 }
 
 int main() {
@@ -68,7 +70,7 @@ int main() {
 		.sun_family = AF_UNIX,
 	};
 	strncpy(unix_path.sun_path, path, sizeof(unix_path.sun_path));
-	if (bind(server_socket, (struct sockaddr*)&unix_path, sizeof(unix_path)) < 0) {
+	if (bind(server_socket, (struct sockaddr *)&unix_path, sizeof(unix_path)) < 0) {
 		error("failed to bind socket");
 		return 1;
 	}
@@ -118,18 +120,18 @@ int main() {
 
 	for (;;) {
 		struct pollfd fds[clients.count + 3];
-		for (size_t i=0; i<clients.count; i++) {
+		for (size_t i = 0; i < clients.count; i++) {
 			client_t *client = utils_vector_at(&clients, i);
-			fds[i].events = POLLIN | POLLHUP;
-			fds[i].fd     = client->fd;
+			fds[i].events    = POLLIN | POLLHUP;
+			fds[i].fd        = client->fd;
 		}
-		fds[clients.count].events = POLLIN;
-		fds[clients.count].fd = server_socket;
+		fds[clients.count].events     = POLLIN;
+		fds[clients.count].fd         = server_socket;
 		fds[clients.count + 1].events = POLLIN;
-		fds[clients.count + 1].fd = kb->fd;
+		fds[clients.count + 1].fd     = kb->fd;
 		fds[clients.count + 2].events = POLLIN;
-		fds[clients.count + 2].fd = mouse;
-		poll(fds, clients.count+3, -1);
+		fds[clients.count + 2].fd     = mouse;
+		poll(fds, clients.count + 3, -1);
 		if (fds[clients.count].revents & POLLIN) {
 			accept_client();
 		}
@@ -139,7 +141,7 @@ int main() {
 		if (fds[clients.count + 2].revents & POLLIN) {
 			handle_mouse();
 		}
-		for (size_t i=0; i<clients.count; i++) {
+		for (size_t i = 0; i < clients.count; i++) {
 			client_t *client = utils_vector_at(&clients, i);
 			if (fds[i].revents & POLLIN) {
 				handle_request(client);
@@ -148,7 +150,7 @@ int main() {
 				goto restart_loop;
 			}
 		}
-		restart_loop:
+restart_loop:
 		render();
 	}
 

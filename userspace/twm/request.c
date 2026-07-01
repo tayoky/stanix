@@ -135,8 +135,9 @@ static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *
 	if (request->y >= window->height) return;
 
 	//TODO : even more checking
-
-	invalidate_rect(window->x + request->x, window->y + request->y, request->width, request->height);
+	long win_x, win_y, win_width, win_height;
+	window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
+	invalidate_rect(win_x + request->x, win_y + request->y, request->width, request->height);
 }
 
 static void handle_get_screen_fb(client_t *client, twm_request_get_screen_fb_t *request) {

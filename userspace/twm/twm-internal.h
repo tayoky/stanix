@@ -32,8 +32,10 @@ typedef struct theme {
 	color_t secondary;
 	color_t font_color;
 	texture_t *cursor_texture;
-	long titlebar_height;
+	long padding;
 	long border_width;
+	long button_width;
+	long titlebar_height;
 } theme_t;
 
 typedef struct cursor {
@@ -70,7 +72,8 @@ void handle_keyboard(void);
 void push_window_at_top(window_t *window);
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title);
 void move_window(window_t *window, long new_x, long new_y);
-void real_window_coord(window_t *window, long *x, long *y);
+void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height);
+void window_get_bounds(window_t *window, long *x, long *y, long *width, long *height);
 void destroy_window(window_t *window);
 window_t *get_window(twm_window_t id);
 window_t *get_window_at(long x, long y);

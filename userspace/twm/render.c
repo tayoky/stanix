@@ -8,15 +8,25 @@ static long invalidate_start_y = LONG_MAX;
 static long invalidate_end_x = 0;
 static long invalidate_end_y = 0;
 
+static void render_window_decor(window_t *window) {
+	long win_x, win_y, win_width, win_height;
+	window_get_bounds(window, &win_x, &win_y, &win_width, &win_height);
+	long titlebar_x = win_x + theme.border_width;
+	long titlebar_y = win_y + theme.border_width;
+	gfx_draw_rect(gfx, gfx_color(gfx, 60, 141, 63), win_x, titlebar_y, win_width, theme.titlebar_height);
+	gfx_draw_wire_rect(gfx, gfx_color(gfx, 44, 105, 47), win_x, win_y, win_width - theme.border_width, win_height- theme.border_width, theme.border_width);
+	gfx_draw_rect(gfx, gfx_color(gfx, 44, 105, 47), win_x, win_y + theme.border_width + theme.titlebar_height, win_width, theme.border_width);
+	gfx_draw_string(gfx, font, gfx_color(gfx, 0, 0, 0), titlebar_x + 2 * theme.padding, titlebar_y + 2 * theme.padding, window->title);
+}
+
 static void render_window_content(window_t *window) {
 	if (!(window->attribute & TWM_ATTR_SHOW)) return;
-	long win_x;
-	long win_y;
-	real_window_coord(window, &win_x, &win_y);
+	long win_x, win_y, win_width, win_height;
+	window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
 	long y = win_y;
 	long x = win_x;
-	long width  = window->width;
-	long height = window->height;
+	long width = win_width;
+	long height = win_height;
 	if (!gfx_bound_check(gfx, &x, &y, &width, &height)) return;
 
 	uintptr_t dest_ptr = gfx_pixel_addr(gfx, x, y);
@@ -74,6 +84,9 @@ void render(void) {
 	for (window_t *current=window_stack_bottom; current; current = current->next) {
 		if (is_inside_window(current, invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height)) {
 			render_window_content(current);
+			if (current->attribute & TWM_ATTR_DECORED) {
+				render_window_decor(current);
+			}
 		}
 	}
 
