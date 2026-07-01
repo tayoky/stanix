@@ -32,6 +32,8 @@ static void flush_mouse_move(long rel_x, long rel_y) {
 			window = get_window_at(cursor.x, cursor.y);
 		}
 		if (!window) return;
+		long win_x, win_y, win_width, win_height;
+		window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
 		twm_event_input_t twm_event = {
 			.base = {
 				.size = sizeof(twm_event),
@@ -40,8 +42,8 @@ static void flush_mouse_move(long rel_x, long rel_y) {
 			.window = window->id,
 			.type = TWM_INPUT_MOVE,
 			.move = {
-				.abs_x = cursor.x - window->x,
-				.abs_y = cursor.y - window->y,
+				.abs_x = cursor.x - win_x,
+				.abs_y = cursor.y - win_y,
 				.rex_x = rel_x,
 				.rel_y = rel_y,
 			},
@@ -72,9 +74,18 @@ void handle_mouse(void) {
 				window_t *window = get_window_at(cursor.x, cursor.y);
 				if (!window) continue;
 				update_focus(window);
+				if ((window->attribute & TWM_ATTR_DECORED) && event.ie_key.scancode == INPUT_KEY_MOUSE_LEFT) {
+					// titlebar can interact with clicks
+					long win_x, win_y, win_width, win_height;
+					window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
+					if (cursor.y < win_y) {
+						set_grab(window, win_x- cursor.x, win_y - cursor.y);
+						continue;
+					}
+				}
 			}
-
 			if (!focus_window) continue;
+
 			// forward event to the focus window
 			twm_event_input_t twm_event = {
 				.base = {
