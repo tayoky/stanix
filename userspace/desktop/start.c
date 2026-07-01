@@ -8,7 +8,7 @@ static void app_click(tgui_list_item_t *list_item) {
 	if (app->command) {
 		pid_t pid = fork();
 		if (!pid) {
-			execl(getenv("SHELL"), getenv("SHELL"), "-c", app->command);
+			execl(getenv("SHELL"), getenv("SHELL"), "-c", app->command, NULL);
 			exit(1);
 		}
 		// TODO : wait or something
