@@ -178,6 +178,13 @@ void move_window(window_t *window, long new_x, long new_y) {
 	invalidate_window(window);
 }
 
+void window_set_title(window_t *window, const char *title) {
+	free(window->title);
+	window->title = strdup(title);
+	// TODO : maybee don't invalidate the whole window
+	invalidate_window(window);
+}
+
 window_t *get_window(twm_window_t id) {
 	return utils_hashmap_get(&windows, id);
 }

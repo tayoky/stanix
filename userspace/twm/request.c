@@ -123,6 +123,16 @@ static void handle_set_window_pos(client_t *client, twm_request_set_window_pos_t
 	move_window(window, request->x, request->y);
 }
 
+static void handle_set_window_title(client_t *client, twm_request_set_window_title_t *request) {
+	const char *title = strnlen(request->title, sizeof(request->title)) < sizeof(request->title) ? request->title : "window";
+	window_t *window = get_window(request->id);
+
+	if (!window) return;
+	if (window->client != client->id) return;
+
+	window_set_title(window, title);
+}
+
 static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *request) {
 	window_t *window = get_window(request->id);
 	if (!window) return;
@@ -222,6 +232,9 @@ int handle_request(client_t *client) {
 		break;
 	case TWM_REQUEST_SET_WINDOW_POS:
 		handle_set_window_pos(client, (twm_request_set_window_pos_t *)request);
+		break;
+	case TWM_REQUEST_SET_WINDOW_TITLE:
+		handle_set_window_title(client, (twm_request_set_window_title_t *)request);
 		break;
 	case TWM_REQUEST_REDRAW_WINDOW:
 		handle_redraw_window(client, (twm_request_redraw_window_t *)request);

@@ -72,6 +72,7 @@ void handle_keyboard(void);
 void push_window_at_top(window_t *window);
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title);
 void move_window(window_t *window, long new_x, long new_y);
+void window_set_title(window_t *window, const char *title);
 void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height);
 void window_get_bounds(window_t *window, long *x, long *y, long *width, long *height);
 void destroy_window(window_t *window);

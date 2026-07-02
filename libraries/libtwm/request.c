@@ -121,7 +121,7 @@ int twm_get_window_attr(twm_window_t window, twm_window_attr_t *attr) {
 	return 0;
 }
 
-int twm_set_window_pos(twm_window_t window, long x, long y) {
+int twm_window_move(twm_window_t window, long x, long y) {
 	twm_request_set_window_pos_t request = {
 		.base = {
 			.type = TWM_REQUEST_SET_WINDOW_POS,
@@ -132,6 +132,34 @@ int twm_set_window_pos(twm_window_t window, long x, long y) {
 		.y = y,
 	};
 
+	return twm_send_request((twm_request_t*)&request);
+}
+
+int twm_set_window_title(twm_window_t window, const char *title) {
+	twm_request_set_window_title_t request = {
+		.base = {
+			.type = TWM_REQUEST_SET_WINDOW_TITLE,
+			.size = sizeof(request),
+		},
+		.id = window,
+	};
+
+	strncpy(request.title, title, sizeof(request.title) - 1);
+
+	return twm_send_request((twm_request_t*)&request);
+}
+
+int twm_window_resize(twm_window_t window, long width, long height) {
+	twm_request_set_window_size_t request = {
+		.base = {
+			.type = TWM_REQUEST_SET_WINDOW_SIZE,
+			.size = sizeof(request),
+		},
+		.id = window,
+		.width = width,
+		.height = height,
+	};
+	
 	return twm_send_request((twm_request_t*)&request);
 }
 
