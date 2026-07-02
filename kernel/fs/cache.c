@@ -97,7 +97,7 @@ static void cached_page_add_lru(uintptr_t page, page_t *page_info) {
 
 static void cached_page_mark_dirty(uintptr_t page, page_t *page_info) {
 	spinlock_acquire(&lru_lock);
-	if (!(atomic_fetch_or(&page_info->flags, PAGE_FLAG_DIRTY) & MMU_FLAG_DIRTY)) {
+	if (!(atomic_fetch_or(&page_info->flags, PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY)) {
 		cached_page_remove_lru(page_info);
 		cached_page_add_lru(page, page_info);
 	}
