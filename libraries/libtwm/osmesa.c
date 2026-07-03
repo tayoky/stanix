@@ -15,7 +15,7 @@ static OSMesaGetIntegerv_t _OSMesaGetIntegerv;
 static OSMesaGetProcAddress_t _OSMesaGetProcAddress;
 static void *libOSMesa;
 
-static int twm_load_libOSMesa(void) {
+int twm_opengl_init(void) {
 	if (libOSMesa) {
 		return 0;
 	}
@@ -34,7 +34,7 @@ static int twm_load_libOSMesa(void) {
 }
 
 twm_opengl_t *twm_get_window_opengl(twm_window_t window) {
-	if (twm_load_libOSMesa() < 0) {
+	if (twm_opengl_init() < 0) {
 		return NULL;
 	}
 
@@ -55,7 +55,6 @@ twm_opengl_t *twm_get_window_opengl(twm_window_t window) {
 
 	OSMesaContext ctx = _OSMesaCreateContext(OSMESA_BGRA, NULL);
 	if (!ctx) {
-unmap:
 		munmap(framebuffer, fb_size);
 		return NULL;
 	}
@@ -75,7 +74,7 @@ unmap:
 }
 
 void *twm_opengl_get_proc_addr(const char *name) {
-	if (twm_load_libOSMesa() < 0) {
+	if (twm_opengl_init() < 0) {
 		return NULL;
 	}
 	return _OSMesaGetProcAddress(name);

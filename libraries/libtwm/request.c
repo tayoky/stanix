@@ -8,19 +8,16 @@
 extern twm_ctx_t ctx;
 
 static void *wait_for_response(uint64_t id) {
-	twm_event_t *event;
 	for (;;) {
-		event = twm_poll_event();
+		twm_event_t *event;
+		event = twm_raw_poll_event();
 		if (!event) return NULL;
-		if (event->request_id != id) {
-			twm_handle_event((twm_event_t*)event);
-			free(event);
-			continue;
+		if (event->request_id == id) {
+			// we got the event !
+			return event;
 		}
-		break;
+		twm_putback_event(event);
 	}
-	// we got the event !
-	return event;
 }
 
 int twm_send_request(twm_request_t *request) {
