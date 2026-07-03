@@ -14,8 +14,9 @@ tgui_popover_button_t *start_button;
 tgui_vector_t *app_list;
 utils_hashmap_t buttons;
 
-void desktop_hook(twm_event_t *event, void *arg) {
+int desktop_hook(twm_event_t *event, void *arg) {
 	(void)arg;
+	if (event->type != TWM_EVENT_DESKTOP) return TGUI_FALSE;
 	puts("recive event");
 	twm_event_desktop_t *desktop_event = (twm_event_desktop_t *)event;
 	switch (desktop_event->type) {
@@ -38,6 +39,7 @@ void desktop_hook(twm_event_t *event, void *arg) {
 		utils_hashmap_remove(&buttons, desktop_event->id);
 		break;
 	}
+	return TGUI_TRUE;
 }
 
 int main() {
@@ -91,7 +93,7 @@ int main() {
 	tgui_box_append_widget(main_box, TGUI_WIDGET_CAST(start_button));
 
 	// setup desktop hook
-	//twm_set_handler(TWM_EVENT_DESKTOP, desktop_hook, NULL);
+	tgui_register_platform_handler(desktop_hook, NULL);
 	twm_grab_desktop_hook();
 
 	tgui_main();
