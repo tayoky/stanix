@@ -93,7 +93,7 @@ int main() {
 	tgui_box_append_widget(main_box, TGUI_WIDGET_CAST(start_button));
 
 	// setup desktop hook
-	tgui_register_platform_handler(desktop_hook, NULL);
+	tgui_register_platform_handler((int(*)(void*,void*))desktop_hook, NULL);
 	twm_grab_desktop_hook();
 
 	tgui_main();
