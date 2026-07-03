@@ -14,7 +14,7 @@
 #define PIT_COMMAND  0x43
 #define TPS          100
 
-static struct timespec time;
+static volatile struct timespec time;
 
 int gettime(clockid_t clock, struct timespec *ts) {
 	(void)clock;
