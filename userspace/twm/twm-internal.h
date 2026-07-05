@@ -67,6 +67,7 @@ int accept_client(void);
 void kick_client(client_t *client);
 client_t *get_client(int id);
 int send_event(client_t *client, twm_event_t *event);
+int send_event_id(int id, twm_event_t *event);
 void handle_mouse(void);
 void handle_keyboard(void);
 void push_window_at_top(window_t *window);

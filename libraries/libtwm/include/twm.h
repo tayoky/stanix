@@ -63,7 +63,8 @@ typedef struct twm_event {
 #define TWM_EVENT_WINDOW_FOCUS   6
 #define TWM_EVENT_INPUT          7
 #define TWM_EVENT_DESKTOP        8
-#define TWM_EVENT_COUNT          9
+#define TWM_EVENT_WINDOW_UNFOCUS 9
+#define TWM_EVENT_COUNT          10
 
 typedef struct twm_ctx {
 	uint64_t id_count;
@@ -222,6 +223,11 @@ typedef struct twm_event_input {
 		} move;
 	};
 } twm_event_input_t;
+
+typedef struct twm_event_window {
+	twm_event_t base;
+	twm_window_t window;
+} twm_event_window_t;
 
 typedef struct twm_event_screen_fb {
 	twm_event_t base;

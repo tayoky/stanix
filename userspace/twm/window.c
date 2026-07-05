@@ -137,7 +137,7 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 			.type = TWM_WINDOW_CREATED,
 			.id   = window->id,
 		};
-		send_event(get_client(desktop_hook), (twm_event_t *)&window_event);
+		send_event_id(desktop_hook, (twm_event_t *)&window_event);
 	}
 
 	return window;
@@ -167,7 +167,7 @@ void destroy_window(window_t *window) {
 		.type = TWM_WINDOW_DESTROYED,
 		.id   = window->id,
 	};
-	send_event(get_client(desktop_hook), (twm_event_t *)&window_event);
+	send_event_id(desktop_hook, (twm_event_t *)&window_event);
 	free(window);
 }
 
@@ -212,7 +212,28 @@ window_t *get_window_at(long x, long y) {
 
 int update_focus(window_t *window) {
 	if (window == focus_window) return 0;
+	if (focus_window) {
+		twm_event_window_t unfocus_event = {
+			.base = {
+				.type = TWM_EVENT_WINDOW_UNFOCUS,
+				.size = sizeof(unfocus_event),
+			},
+			.window = focus_window->id,
+		};
+		send_event_id(focus_window->client, (twm_event_t*)&unfocus_event);
+	}
 	focus_window = window;
-	push_window_at_top(window);
+
+	if (window) {
+		push_window_at_top(window);
+		twm_event_window_t focus_event = {
+			.base = {
+				.type = TWM_EVENT_WINDOW_FOCUS,
+				.size = sizeof(focus_event),
+			},
+			.window = window->id,
+		};
+		send_event_id(window->client, (twm_event_t*)&focus_event);
+	}
 	return 1;
 }

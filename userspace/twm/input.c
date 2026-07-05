@@ -49,7 +49,7 @@ static void flush_mouse_move(long rel_x, long rel_y) {
 			},
 		};
 
-		send_event(get_client(window->client), (twm_event_t *)&twm_event);
+		send_event_id(window->client, (twm_event_t *)&twm_event);
 	}
 }
 
@@ -106,7 +106,7 @@ void handle_mouse(void) {
 			} else if (event.ie_key.flags & IE_KEY_HOLD) {
 				twm_event.key.flags |= TWM_INPUT_HOLD;
 			}
-			send_event(get_client(focus_window->client), (twm_event_t *)&twm_event);
+			send_event_id(focus_window->client, (twm_event_t *)&twm_event);
 		}
 	}
 	flush_mouse_move(rel_x, rel_y);
@@ -142,6 +142,6 @@ void handle_keyboard(void) {
 			event.key.flags |= TWM_INPUT_HOLD;
 		}
 
-		send_event(get_client(focus_window->client), (twm_event_t *)&event);
+		send_event_id(focus_window->client, (twm_event_t *)&event);
 	}
 }

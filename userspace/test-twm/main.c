@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <input.h>
 #include <gfx.h>
 #include <twm.h>
 
@@ -9,12 +10,19 @@ int main() {
 	printf("created window with id %d\n", window);
 	gfx_t *gfx = twm_get_window_gfx(window);
 	printf("got window framebuffer at %p\n", gfx->framebuffer);
-	gfx_clear(gfx, gfx_color(gfx, 0, 0,0 ));
-	gfx_draw_rect(gfx, gfx_color(gfx, 255, 0, 0), 0, 0, 50, 50);
-	twm_redraw_window(window, 0, 0, TWM_WHOLE_WIDTH, TWM_WHOLE_HEIGHT);
+	font_t *font = gfx_load_font(NULL);
+	int focused = 1;
 	for (;;) {
+		gfx_clear(gfx, gfx_color(gfx, 0, 0,0 ));
+		gfx_draw_rect(gfx, gfx_color(gfx, 255, 0, 0), 0, 0, 50, 50);
+		gfx_draw_string(gfx, font, gfx_color(gfx, 0, 255, 255), 0, 0, focused ? "focused" : "unfocused");
+		gfx_push_buffer(gfx);
+		twm_redraw_window(window, 0, 0, TWM_WHOLE_WIDTH, TWM_WHOLE_HEIGHT);
+
 		twm_event_input_t *event = (twm_event_input_t*)twm_poll_event();
-		if (event->base.type == TWM_EVENT_INPUT && event->type == TWM_INPUT_KEY) break;
+		if (event->base.type == TWM_EVENT_INPUT && event->type == TWM_INPUT_KEY && event->key.key == INPUT_KEY_ESC) break;
+		if (event->base.type == TWM_EVENT_WINDOW_UNFOCUS) focused = 0;
+		if (event->base.type == TWM_EVENT_WINDOW_FOCUS) focused = 1;
 		free(event);
 	}
 	gfx_free(gfx);

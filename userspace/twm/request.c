@@ -10,6 +10,10 @@ int send_event(client_t *client, twm_event_t *event) {
 	return send(client->fd, event, event->size, 0);
 }
 
+int send_event_id(int id, twm_event_t *event) {
+	return send_event(get_client(id), event);
+}
+
 static void handle_init(client_t *client, twm_request_init_t *request) {
 	if (request->major != TWM_CURRENT_MAJOR || request->minor != TWM_CURRENT_MINOR) {
 		kick_client(client);
