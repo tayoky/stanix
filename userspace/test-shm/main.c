@@ -23,9 +23,10 @@ int main(int argc,char **argv){
 	} else {
 		//send
 		int fd = shm_open(argv[1],O_WRONLY | O_TRUNC | O_CREAT,0777);
-		ftruncate(fd,strlen(argv[2])+1);
-		void *mapping = mmap(NULL,strlen(argv[2])+1,PROT_READ | PROT_WRITE,MAP_SHARED,fd,0);
-		strcpy(mapping,argv[2]);
+		size_t len = strlen(argv[2])+1;
+		ftruncate(fd,len);
+		void *mapping = mmap(NULL,len,PROT_READ | PROT_WRITE,MAP_SHARED,fd,0);
+		memcpy(mapping,argv[2],len);
 		close(fd);
 	}
 	return 0;
