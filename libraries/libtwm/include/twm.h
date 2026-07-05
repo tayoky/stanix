@@ -250,6 +250,7 @@ typedef struct twm_event_desktop {
 
 #define TWM_WINDOW_CREATED   1
 #define TWM_WINDOW_DESTROYED 2
+#define TWM_WINDOW_UPDATED   3
 
 #define TWM_CURRENT_MAJOR 0
 #define TWM_CURRENT_MINOR 2

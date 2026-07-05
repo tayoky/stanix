@@ -171,6 +171,19 @@ void destroy_window(window_t *window) {
 	free(window);
 }
 
+static void send_update_event(window_t *window) {
+	// tell the desktop hook we updated a window
+	twm_event_desktop_t window_event = {
+		.base = {
+				 .type = TWM_EVENT_DESKTOP,
+				 .size = sizeof(window_event),
+				 },
+		.type = TWM_WINDOW_UPDATED,
+		.id   = window->id,
+	};
+	send_event_id(desktop_hook, (twm_event_t *)&window_event);
+}
+
 void move_window(window_t *window, long new_x, long new_y) {
 	invalidate_window(window);
 	window->x = new_x;
@@ -183,6 +196,7 @@ void window_set_title(window_t *window, const char *title) {
 	window->title = strdup(title);
 	// TODO : maybee don't invalidate the whole window
 	invalidate_window(window);
+	send_update_event(window);
 }
 
 window_t *get_window(twm_window_t id) {

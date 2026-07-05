@@ -38,6 +38,13 @@ int desktop_hook(twm_event_t *event, void *arg) {
 		tgui_widget_destroy(TGUI_WIDGET_CAST(button));
 		utils_hashmap_remove(&buttons, desktop_event->id);
 		break;
+	case TWM_WINDOW_UPDATED:
+		button = utils_hashmap_get(&buttons, desktop_event->id);
+		if (!button) break;
+
+		twm_get_window_attr(desktop_event->id, &attr);
+		tgui_button_set_text(button, attr.title);
+		break;
 	}
 	return TGUI_TRUE;
 }
