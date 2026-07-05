@@ -39,6 +39,9 @@ set-layout /dev/kb0 azerty
 #uncomment this line to get a shell on the serial port
 #login --setup-stdin-from-stdout > /dev/ttyS0
 
+# we don't have an audio driver so setup sdl to use dummy audio
+export SDL_AUDIODRIVER="dummy"
+
 if kcmdline --gui --twm ; then
     twm
 else
