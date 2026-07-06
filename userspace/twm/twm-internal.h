@@ -14,6 +14,7 @@ typedef struct client {
 typedef struct window {
 	struct window *next;
 	struct window *prev;
+	struct window *parent;
 	long width;
 	long height;
 	long x;
@@ -22,9 +23,11 @@ typedef struct window {
 	twm_window_t id;
 	char *title;
 	int client;
+	int framebuffer_is_old; // the framebuffer is old and new to be updated
+	int framebuffer_fd;
+	twm_fb_info_t fb_info;
 	char *framebuffer_path;
 	void *framebuffer;
-	struct window *parent;
 } window_t;
 
 typedef struct theme {
@@ -77,6 +80,8 @@ void window_set_title(window_t *window, const char *title);
 void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height);
 void window_get_bounds(window_t *window, long *x, long *y, long *width, long *height);
 void destroy_window(window_t *window);
+void window_get_fb(window_t *window, twm_fb_info_t *info, const char **framebuffer_path);
+void window_mark_framebuffer_old(window_t *window);
 window_t *get_window(twm_window_t id);
 window_t *get_window_at(long x, long y);
 void set_window_attr(window_t *window, long attr);

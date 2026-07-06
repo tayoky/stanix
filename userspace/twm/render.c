@@ -23,21 +23,25 @@ static void render_window_content(window_t *window) {
 	if (!(window->attribute & TWM_ATTR_SHOW)) return;
 	long win_x, win_y, win_width, win_height;
 	window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
-	long y = win_y;
-	long x = win_x;
-	long width = win_width;
-	long height = win_height;
-	if (!gfx_bound_check(gfx, &x, &y, &width, &height)) return;
+	if (window->framebuffer) {
+		long y = win_y;
+		long x = win_x;
+		long width = win_width;
+		long height = win_height;
+		if (!gfx_bound_check(gfx, &x, &y, &width, &height)) return;
 
-	uintptr_t dest_ptr = gfx_pixel_addr(gfx, x, y);
-	size_t win_pitch = window->width * (gfx->bpp/8);
-	uintptr_t src_ptr = (uintptr_t)window->framebuffer + (x - win_x) * (gfx->bpp/8) + (y - win_y) * win_pitch;
-	size_t copy_width = width * (gfx->bpp/8);
-	
-	for (long i=0; i<height; i++) {
-		memcpy((void*)dest_ptr, (void*)src_ptr, copy_width);
-		src_ptr += win_pitch;
-		dest_ptr += gfx->pitch;
+		uintptr_t dest_ptr = gfx_pixel_addr(gfx, x, y);
+		size_t win_pitch = window->width * (gfx->bpp/8);
+		uintptr_t src_ptr = (uintptr_t)window->framebuffer + (x - win_x) * (gfx->bpp/8) + (y - win_y) * win_pitch;
+		size_t copy_width = width * (gfx->bpp/8);
+		
+		for (long i=0; i<height; i++) {
+			memcpy((void*)dest_ptr, (void*)src_ptr, copy_width);
+			src_ptr += win_pitch;
+			dest_ptr += gfx->pitch;
+		}
+	} else {
+		gfx_draw_rect(gfx, gfx_color(gfx, 0, 0, 0), win_x, win_y, win_width, win_height);
 	}
 }
 

@@ -54,17 +54,21 @@ typedef struct twm_event {
 	int type;
 } twm_event_t;
 
-#define TWM_EVENT_INIT           0
-#define TWM_EVENT_WINDOW_CREATED 1
-#define TWM_EVENT_WINDOW_FB      2
-#define TWM_EVENT_WINDOW_ATTR    3
-#define TWM_EVENT_WINDOW_RESIZED 4
-#define TWM_EVENT_WINDOW_CLOSED  5
-#define TWM_EVENT_WINDOW_FOCUS   6
-#define TWM_EVENT_INPUT          7
-#define TWM_EVENT_DESKTOP        8
-#define TWM_EVENT_WINDOW_UNFOCUS 9
-#define TWM_EVENT_COUNT          10
+#define TWM_EVENT_INIT                  0
+#define TWM_EVENT_WINDOW_CREATED        1
+#define TWM_EVENT_WINDOW_FB             2
+#define TWM_EVENT_WINDOW_ATTR           3
+#define TWM_EVENT_WINDOW_RESIZED        4
+#define TWM_EVENT_WINDOW_CLOSED         5
+#define TWM_EVENT_WINDOW_FOCUS          6
+#define TWM_EVENT_INPUT                 7
+#define TWM_EVENT_DESKTOP               8
+#define TWM_EVENT_WINDOW_UNFOCUS        9
+#define TWM_EVENT_WINDOW_RESTORED      10
+#define TWM_EVENT_WINDOW_MAXIMIZED     12
+#define TWM_EVENT_WINDOW_MINIMIZED     13
+#define TWM_EVENT_WINDOW_BUFFER_UPDATE 14
+#define TWM_EVENT_COUNT                15
 
 typedef struct twm_ctx {
 	uint64_t id_count;

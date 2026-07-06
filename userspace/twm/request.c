@@ -51,26 +51,20 @@ static void handle_get_window_fb(client_t *client, twm_request_get_window_fb_t *
 	if (!window) return;
 	if (window->client != client->id) return;
 
+	twm_fb_info_t fb_info;
+	const char *framebuffer_path;
+	window_get_fb(window, &fb_info, &framebuffer_path);
+
 	twm_event_window_fb_t event = {
 		.base = {
 			.request_id = request->base.id,
 			.size       = sizeof(event),
 			.type = TWM_EVENT_WINDOW_FB,
 		},
-		.fb_info = {
-			.bpp = gfx->bpp,
-			.red_mask_shift   = gfx->red_mask_shift,
-			.red_mask_size    = gfx->red_mask_size,
-			.green_mask_shift = gfx->green_mask_shift,
-			.green_mask_size  = gfx->green_mask_size,
-			.blue_mask_shift  = gfx->blue_mask_shift,
-			.blue_mask_size   = gfx->blue_mask_size,
-			.width = window->width,
-			.height = window->height,
-			.pitch = window->width * (gfx->bpp / 8),
-		}
+		.fb_info = fb_info,
 	};
-	strcpy(event.path, window->framebuffer_path);
+	printf("got path %s\n", framebuffer_path);
+	strcpy(event.path, framebuffer_path);
 	send_event(client, (twm_event_t *)&event);
 }
 

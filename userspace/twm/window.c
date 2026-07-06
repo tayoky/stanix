@@ -112,13 +112,8 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	char framebuffer_name[64];
 	sprintf(framebuffer_name, "/window-%d", window->id);
 	window->framebuffer_path = strdup(framebuffer_name);
-	int framebuffer_fd       = shm_open(framebuffer_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
-	size_t framebuffer_size  = width * height * (gfx->bpp / 8);
-	ftruncate(framebuffer_fd, framebuffer_size);
-
-	// mmap the newly created framebuffer
-	window->framebuffer = mmap(NULL, framebuffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, framebuffer_fd, 0);
-	close(framebuffer_fd);
+	window->framebuffer_fd   = shm_open(framebuffer_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
+	window->framebuffer_is_old = 1;
 
 	push_window_at_top(window);
 
@@ -131,9 +126,9 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	if (client->id != desktop_hook) {
 		twm_event_desktop_t window_event = {
 			.base = {
-					 .type = TWM_EVENT_DESKTOP,
-					 .size = sizeof(window_event),
-					 },
+				.type = TWM_EVENT_DESKTOP,
+				.size = sizeof(window_event),
+			},
 			.type = TWM_WINDOW_CREATED,
 			.id   = window->id,
 		};
@@ -150,20 +145,24 @@ void destroy_window(window_t *window) {
 	utils_hashmap_remove(&windows, window->id);
 	remove_window_from_stack(window);
 	invalidate_window(window);
-
-	size_t framebuffer_size = window->width * window->height * (gfx->bpp / 8);
-	munmap(window->framebuffer, framebuffer_size);
-	free(window->title);
+	
+	// unmap if the framebuffer was mapped
+	if (window->framebuffer) {
+		size_t framebuffer_size = window->fb_info.pitch * window->fb_info.height;
+		munmap(window->framebuffer, framebuffer_size);
+	}
+	close(window->framebuffer_fd);
 	shm_unlink(window->framebuffer_path);
 	free(window->framebuffer_path);
+	free(window->title);
 
 
 	// tell the desktop hook we destroyed a window
 	twm_event_desktop_t window_event = {
 		.base = {
-				 .type = TWM_EVENT_DESKTOP,
-				 .size = sizeof(window_event),
-				 },
+			.type = TWM_EVENT_DESKTOP,
+			.size = sizeof(window_event),
+		},
 		.type = TWM_WINDOW_DESTROYED,
 		.id   = window->id,
 	};
@@ -175,9 +174,9 @@ static void send_update_event(window_t *window) {
 	// tell the desktop hook we updated a window
 	twm_event_desktop_t window_event = {
 		.base = {
-				 .type = TWM_EVENT_DESKTOP,
-				 .size = sizeof(window_event),
-				 },
+			.type = TWM_EVENT_DESKTOP,
+			.size = sizeof(window_event),
+		},
 		.type = TWM_WINDOW_UPDATED,
 		.id   = window->id,
 	};
@@ -234,7 +233,7 @@ int update_focus(window_t *window) {
 			},
 			.window = focus_window->id,
 		};
-		send_event_id(focus_window->client, (twm_event_t*)&unfocus_event);
+		send_event_id(focus_window->client, (twm_event_t *)&unfocus_event);
 	}
 	focus_window = window;
 
@@ -247,7 +246,54 @@ int update_focus(window_t *window) {
 			},
 			.window = window->id,
 		};
-		send_event_id(window->client, (twm_event_t*)&focus_event);
+		send_event_id(window->client, (twm_event_t *)&focus_event);
 	}
 	return 1;
+}
+
+void window_get_fb(window_t *window, twm_fb_info_t *info, const char **framebuffer_path) {
+	if (window->framebuffer_is_old) {
+		// we need to update the framebuffer, it's out of date
+
+		// unmap if it was already mapped
+		if (window->framebuffer) {
+			size_t old_framebuffer_size = window->fb_info.pitch * window->fb_info.height;
+			munmap(window->framebuffer, old_framebuffer_size);
+		}
+
+		window->framebuffer_is_old = 0;
+
+		long win_x, win_y, win_width, win_height;
+		window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
+		size_t framebuffer_size  = win_width * win_height * (gfx->bpp / 8);
+		ftruncate(window->framebuffer_fd, framebuffer_size);
+
+		window->fb_info.bpp              = gfx->bpp;
+		window->fb_info.red_mask_shift   = gfx->red_mask_shift;
+		window->fb_info.red_mask_size    = gfx->red_mask_size;
+		window->fb_info.green_mask_shift = gfx->green_mask_shift;
+		window->fb_info.green_mask_size  = gfx->green_mask_size;
+		window->fb_info.blue_mask_shift  = gfx->blue_mask_shift;
+		window->fb_info.blue_mask_size   = gfx->blue_mask_size;
+		window->fb_info.width            = win_width;
+		window->fb_info.height           = win_height;
+		window->fb_info.pitch            = win_width * (gfx->bpp / 8);
+
+		// map the newly created fb
+		window->framebuffer = mmap(NULL, framebuffer_size, PROT_READ, MAP_SHARED, window->framebuffer_fd, 0);
+	}
+	*info = window->fb_info;
+	*framebuffer_path = window->framebuffer_path;
+}
+
+void window_mark_framebuffer_old(window_t *window) {
+	window->framebuffer_is_old = 1;
+	twm_event_window_t buffer_update_event = {
+		.base = {
+			.type = TWM_EVENT_WINDOW_BUFFER_UPDATE,
+			.size = sizeof(buffer_update_event),
+		},
+		.window = window->id,
+	};
+	send_event_id(window->client, (twm_event_t *)&buffer_update_event);
 }
