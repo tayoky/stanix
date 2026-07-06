@@ -82,6 +82,7 @@ void window_get_bounds(window_t *window, long *x, long *y, long *width, long *he
 void destroy_window(window_t *window);
 void window_get_fb(window_t *window, twm_fb_info_t *info, const char **framebuffer_path);
 void window_mark_framebuffer_old(window_t *window);
+void window_set_size(window_t *window, long width, long height);
 window_t *get_window(twm_window_t id);
 window_t *get_window_at(long x, long y);
 void set_window_attr(window_t *window, long attr);

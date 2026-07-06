@@ -12,6 +12,13 @@ window_t *window_stack_bottom;
 window_t *focus_window;
 
 void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height) {
+	if (window->attribute & TWM_ATTR_MAXIMIZED) {
+		*x = 0;
+		*y = 0;
+		*width  = gfx->width;
+		*height = gfx->height;
+		return;
+	}
 	*x      = 0;
 	*y      = 0;
 	*width  = window->width;
@@ -34,6 +41,9 @@ void window_get_bounds(window_t *window, long *x, long *y, long *width, long *he
 }
 
 static void invalidate_window(window_t *window) {
+	if (!(window->attribute & TWM_ATTR_SHOW) || (window->attribute & TWM_ATTR_MINIMIZED)) {
+		return;
+	}
 	long x, y, width, height;
 	window_get_bounds(window, &x, &y, &width, &height);
 	invalidate_rect(x, y, width, height);
@@ -82,13 +92,41 @@ static void remove_window_from_stack(window_t *window) {
 
 void set_window_attr(window_t *window, long attr) {
 	// if going from show to hide or from hide to show or changing decoring status we need to invalidate
-	if ((window->attribute ^ attr) & (TWM_ATTR_SHOW | TWM_ATTR_DECORED)) {
+	// switching maxmized/minmized also change it
+	if ((window->attribute ^ attr) & (TWM_ATTR_SHOW | TWM_ATTR_DECORED | TWM_ATTR_MAXIMIZED |TWM_ATTR_MINIMIZED)) {
 		invalidate_window(window);
 	}
 	long old_attr = window->attribute;
 	window->attribute = attr;
-	if ((old_attr ^ attr) & (TWM_ATTR_SHOW | TWM_ATTR_DECORED)) {
+	if ((old_attr ^ attr) & (TWM_ATTR_SHOW | TWM_ATTR_DECORED | TWM_ATTR_MAXIMIZED |TWM_ATTR_MINIMIZED)) {
 		invalidate_window(window);
+	}
+
+	if ((old_attr ^ attr) & TWM_ATTR_MAXIMIZED) {
+		// switch from or to maximized change the size of the framebuffer
+		window_mark_framebuffer_old(window);
+	}
+
+	if ((old_attr ^ attr) & TWM_ATTR_MAXIMIZED) {
+		twm_event_window_t update_event = {
+			.base = {
+				.type = attr & TWM_ATTR_MAXIMIZED ? TWM_EVENT_WINDOW_MAXIMIZED : TWM_EVENT_WINDOW_UNMAXIMIZED,
+				.size = sizeof(update_event),
+			},
+			.window = window->id,
+		};
+		send_event_id(window->client, (twm_event_t *)&update_event);
+	}
+
+	if ((old_attr ^ attr) & TWM_ATTR_MINIMIZED) {
+		twm_event_window_t update_event = {
+			.base = {
+				.type = attr & TWM_ATTR_MINIMIZED ? TWM_EVENT_WINDOW_MINIMIZED : TWM_EVENT_WINDOW_RESTORED,
+				.size = sizeof(update_event),
+			},
+			.window = window->id,
+		};
+		send_event_id(window->client, (twm_event_t *)&update_event);
 	}
 }
 
@@ -203,6 +241,9 @@ window_t *get_window(twm_window_t id) {
 }
 
 int is_inside_window(window_t *window, long x, long y, long width, long height) {
+	if (!(window->attribute & TWM_ATTR_SHOW) || (window->attribute & TWM_ATTR_MINIMIZED)) {
+		return 0;
+	}
 	long win_x, win_y, win_width, win_height;
 	window_get_bounds(window, &win_x, &win_y, &win_width, &win_height);
 	if (x + width >= win_x && y + height >= win_y
@@ -296,4 +337,27 @@ void window_mark_framebuffer_old(window_t *window) {
 		.window = window->id,
 	};
 	send_event_id(window->client, (twm_event_t *)&buffer_update_event);
+}
+
+void window_set_size(window_t *window, long width, long height) {
+	if (!(window->attribute & TWM_ATTR_MAXIMIZED)) {
+		invalidate_window(window);
+	}
+	window->width = width;
+	window->height = height;
+	
+	twm_event_window_t resized_update_event = {
+		.base = {
+			.type = TWM_EVENT_WINDOW_RESIZED,
+			.size = sizeof(resized_update_event),
+		},
+		.window = window->id,
+	};
+	send_event_id(window->client, (twm_event_t *)&resized_update_event);
+
+	if (!(window->attribute & TWM_ATTR_MAXIMIZED)) {
+		// resizing of course, change the framebuffer size
+		window_mark_framebuffer_old(window);
+		invalidate_window(window);
+	}
 }

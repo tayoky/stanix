@@ -160,6 +160,22 @@ int twm_window_resize(twm_window_t window, long width, long height) {
 	return twm_send_request((twm_request_t*)&request);
 }
 
+int twm_window_maximize(twm_window_t window) {
+	return twm_set_window_attr(window, TWM_ADD_ATTR, TWM_ATTR_MAXIMIZED);
+}
+
+int twm_window_unmaximize(twm_window_t window) {
+	return twm_set_window_attr(window, TWM_REMOVE_ATTR, TWM_ATTR_MAXIMIZED);
+}
+
+int twm_window_minimize(twm_window_t window) {
+	return twm_set_window_attr(window, TWM_ADD_ATTR, TWM_ATTR_MINIMIZED);
+}
+
+int twm_window_restore(twm_window_t window) {
+	return twm_set_window_attr(window, TWM_REMOVE_ATTR, TWM_ATTR_MINIMIZED);
+}
+
 int twm_grab_input(twm_window_t window, int confine_cursor) {
 	twm_request_grab_input_t request = {
 		.base = {

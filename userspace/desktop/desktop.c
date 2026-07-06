@@ -14,6 +14,20 @@ tgui_popover_button_t *start_button;
 tgui_vector_t *app_list;
 utils_hashmap_t buttons;
 
+void taskbar_button_click(tgui_button_t *button, int stub, void *arg) {
+	(void)button;
+	(void)stub;
+	twm_window_t window = (twm_window_t)(uintptr_t)arg;
+	twm_window_attr_t attr;
+	twm_get_window_attr(window, &attr);
+
+	if (attr.attr & TWM_ATTR_MINIMIZED) {
+		twm_window_restore(window);
+	} else {
+		twm_window_minimize(window);
+	}
+}
+
 int desktop_hook(twm_event_t *event, void *arg) {
 	(void)arg;
 	if (event->type != TWM_EVENT_DESKTOP) return TGUI_FALSE;
@@ -29,6 +43,7 @@ int desktop_hook(twm_event_t *event, void *arg) {
 
 		tgui_button_t *button = tgui_button_new();
 		tgui_button_set_text(button, attr.title);
+		tgui_widget_connect_signal(TGUI_WIDGET_CAST(button), "click", TCALLBACK_CAST(taskbar_button_click), (void*)(uintptr_t)desktop_event->id);
 		tgui_box_append_widget(main_box, TGUI_WIDGET_CAST(button));
 		utils_hashmap_add(&buttons, desktop_event->id, button);
 		break;

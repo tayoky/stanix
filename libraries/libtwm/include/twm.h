@@ -64,9 +64,10 @@ typedef struct twm_event {
 #define TWM_EVENT_INPUT                 7
 #define TWM_EVENT_DESKTOP               8
 #define TWM_EVENT_WINDOW_UNFOCUS        9
-#define TWM_EVENT_WINDOW_RESTORED      10
-#define TWM_EVENT_WINDOW_MAXIMIZED     12
-#define TWM_EVENT_WINDOW_MINIMIZED     13
+#define TWM_EVENT_WINDOW_MAXIMIZED     10
+#define TWM_EVENT_WINDOW_UNMAXIMIZED   11
+#define TWM_EVENT_WINDOW_MINIMIZED     12
+#define TWM_EVENT_WINDOW_RESTORED      13
 #define TWM_EVENT_WINDOW_BUFFER_UPDATE 14
 #define TWM_EVENT_COUNT                15
 
@@ -156,6 +157,8 @@ typedef struct twm_request_grab_input {
 #define TWM_ATTR_RESIZABLE 1
 #define TWM_ATTR_SHOW      2
 #define TWM_ATTR_DECORED   4
+#define TWM_ATTR_MAXIMIZED 8
+#define TWM_ATTR_MINIMIZED 16
 
 typedef struct twm_request_get_window_attr {
 	twm_request_t base;
@@ -285,6 +288,10 @@ int twm_get_window_attr(twm_window_t window, twm_window_attr_t *attr);
 int twm_window_move(twm_window_t window, long x, long y);
 int twm_set_window_title(twm_window_t window, const char *title);
 int twm_window_resize(twm_window_t window, long width, long height);
+int twm_window_maximize(twm_window_t window);
+int twm_window_unmaximize(twm_window_t window);
+int twm_window_minimize(twm_window_t window);
+int twm_window_restore(twm_window_t window);
 int twm_grab_input(twm_window_t window, int confine_cursor);
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);
 int twm_start_dragging(twm_window_t window, long offset_x, long offset_y);

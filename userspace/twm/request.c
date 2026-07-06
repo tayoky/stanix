@@ -81,10 +81,10 @@ static void handle_get_window_attr(client_t *client, twm_request_get_window_attr
 			.type = TWM_EVENT_WINDOW_ATTR,
 		},
 		.attr = {
-			.attr = window->attribute,
-			.x    = window->x,
-			.y    = window->y,
-			.id   = window->id,
+			.attr  = window->attribute,
+			.x     = window->x,
+			.y     = window->y,
+			.id    = window->id,
 			.parent = window->parent ? window->parent->id : TWM_NULL,
 		},
 	};
@@ -129,6 +129,15 @@ static void handle_set_window_title(client_t *client, twm_request_set_window_tit
 	if (window->client != client->id) return;
 
 	window_set_title(window, title);
+}
+
+static void handle_set_window_size(client_t *client, twm_request_set_window_size_t *request) {
+	window_t *window = get_window(request->id);
+
+	if (!window) return;
+	if (window->client != client->id && desktop_hook != client->id) return;
+
+	window_set_size(window, request->width, request->height);
 }
 
 static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *request) {
@@ -233,6 +242,9 @@ int handle_request(client_t *client) {
 		break;
 	case TWM_REQUEST_SET_WINDOW_TITLE:
 		handle_set_window_title(client, (twm_request_set_window_title_t *)request);
+		break;
+	case TWM_REQUEST_SET_WINDOW_SIZE:
+		handle_set_window_size(client, (twm_request_set_window_size_t *)request);
 		break;
 	case TWM_REQUEST_REDRAW_WINDOW:
 		handle_redraw_window(client, (twm_request_redraw_window_t *)request);

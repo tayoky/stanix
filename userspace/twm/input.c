@@ -7,6 +7,10 @@ static long grab_offset_y;
 int grab_input;
 
 void set_grab(window_t *window, long offset_x, long offset_y) {
+	// we cannot drag the window in some conditions
+	if (!(window->attribute & TWM_ATTR_SHOW) || (window->attribute & (TWM_ATTR_MAXIMIZED | TWM_ATTR_MINIMIZED))) {
+		return;
+	}
 	grab = window;
 	grab_offset_x = offset_x;
 	grab_offset_y = offset_y;

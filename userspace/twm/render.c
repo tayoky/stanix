@@ -3,6 +3,8 @@
 #include <gfx.h>
 #include <string.h>
 
+#define min(a, b) (a < b) ? (a) : (b)
+
 static long invalidate_start_x = LONG_MAX;
 static long invalidate_start_y = LONG_MAX;
 static long invalidate_end_x = 0;
@@ -20,18 +22,19 @@ static void render_window_decor(window_t *window) {
 }
 
 static void render_window_content(window_t *window) {
-	if (!(window->attribute & TWM_ATTR_SHOW)) return;
 	long win_x, win_y, win_width, win_height;
 	window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
+	gfx_draw_rect(gfx, gfx_color(gfx, 0, 0, 0), win_x, win_y, win_width, win_height);
+
 	if (window->framebuffer) {
 		long y = win_y;
 		long x = win_x;
-		long width = win_width;
-		long height = win_height;
+		long width  = min(win_width , window->fb_info.width);
+		long height = min(win_height, window->fb_info.height);
 		if (!gfx_bound_check(gfx, &x, &y, &width, &height)) return;
 
 		uintptr_t dest_ptr = gfx_pixel_addr(gfx, x, y);
-		size_t win_pitch = window->width * (gfx->bpp/8);
+		size_t win_pitch = window->fb_info.pitch;
 		uintptr_t src_ptr = (uintptr_t)window->framebuffer + (x - win_x) * (gfx->bpp/8) + (y - win_y) * win_pitch;
 		size_t copy_width = width * (gfx->bpp/8);
 		
@@ -40,15 +43,12 @@ static void render_window_content(window_t *window) {
 			src_ptr += win_pitch;
 			dest_ptr += gfx->pitch;
 		}
-	} else {
-		gfx_draw_rect(gfx, gfx_color(gfx, 0, 0, 0), win_x, win_y, win_width, win_height);
 	}
 }
 
 static void render_cursor(cursor_t *cursor) {
 	gfx_draw_texture_alpha(gfx, theme.cursor_texture, cursor->x, cursor->y);
 }
-
 
 void move_cursor(cursor_t *cursor, long new_x, long new_y) {
 	invalidate_rect(cursor->x, cursor->y, theme.cursor_texture->width, theme.cursor_texture->height);
