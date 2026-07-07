@@ -1,17 +1,14 @@
 ![](https://tokei.rs/b1/github/tayoky/stanix) ![GitHub top language](https://img.shields.io/github/languages/top/tayoky/stanix)
 
 # stanix
-Stanix is a 64bit made from scratch operating system for the x86\_64 architecture with its own kernel, libc, terminal emulator, shell and userspace capable of running programs such as binutils, tash (homemade shell), tcc or doom.  
+Stanix is a 64bit made from scratch operating system for the x86\_64 architecture with its own kernel, libc, terminal emulator, shell and userspace capable of running programs such as binutils, tash (homemade shell), tcc, MESA(OpenGL), SDL, or doom.  
 More informations on [the webiste](https://tayoky.github.io/stanix).
 
 ## screenshots
 ![a stanix screenshot with ls runnning](https://tayoky.github.io/stanix/assets/screenshot2.png)
 
-Doom running under stanix !
-![doom running under stanix](https://tayoky.github.io/stanix/assets/doom.png)  
-
 Stanix's gui
-![a screenshot of stanix's gui with a few apps](https://tayoky.github.io/stanix/assets/gui-screenshot2.png)  
+![a screenshot of stanix's gui with a few apps](https://tayoky.github.io/stanix/assets/gui-screenshot3.png)  
 
 ## building
 see the [build docs](https://tayoky.github.io/stanix/miscellaneous/build)
@@ -28,8 +25,8 @@ While this repo contain most of Stanix's code, Stanix is made of multiples subpr
 
 ## contributing
 Before doing any pull request ask in an issue  
-as i do this mostly as a learning project i mostly do everything myself  
-all commit name must be in the style `part : change` eg
+as i do this mostly as a learning project i mostly do everything myself.  
+Every commit name must be in the style `part : change` eg
 - `vfs : fix vfs_mount memory leak`
 - `login : ask for password before launching shell`
 
