@@ -1368,6 +1368,23 @@ int sys_fdname(int fd, char *buf, size_t size) {
 	return 0;
 }
 
+int sys_fchdir(int fd) {
+	file_descriptor_t file;
+	int ret = get_fd(fd, &file);
+	if (ret < 0) return ret;
+	
+	if (!S_ISDIR(file.fd->inode->mode)) {
+		return -ENOTDIR;
+	}
+
+	// free old cwd
+	vfs_dentry_release(get_current_proc()->cwd);
+
+	// set new cwd
+	get_current_proc()->cwd = vfs_dentry_ref(file.fd->dentry);
+	return 0;
+}
+
 int sys_stub(void) {
 	return -ENOSYS;
 }
@@ -1464,6 +1481,12 @@ void *syscall_table[] = {
 	(void *)sys_stub, // sys_shutdown
 	(void *)sys_futex,
 	(void *)sys_fdname,
+	(void *)sys_stub, // sys_fexecve
+	(void *)sys_fchdir,
+	(void *)sys_stub, // sys_openat
+	(void *)sys_stub, // sys_fstatat
+	(void *)sys_stub, // sys_fchownat
+	(void *)sys_stub, // sys_fchmodat
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
