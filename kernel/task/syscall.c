@@ -1385,6 +1385,35 @@ int sys_fchdir(int fd) {
 	return 0;
 }
 
+int sys_fstatat(int fd, const char *path, struct stat *st, int flags) {
+	if (!CHECK_STR(path)) {
+		return -EFAULT;
+	}
+	if (!CHECK_STRUCT(st)) {
+		return -EFAULT;
+	}
+
+	vfs_dentry_t *at;
+	if (fd == AT_FDCWD) {
+		at = get_current_proc()->cwd;
+	} else {	
+		file_descriptor_t file;
+		int ret = get_fd(fd, &file);
+		if (ret < 0) return ret;
+		at = file.fd->dentry;
+	}
+
+	// FIXME : maybee we need to create a ref to at idk
+	
+	vfs_node_t *node = vfs_get_node_at(at, path, O_RDONLY, flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0);
+	if (IS_ERR(node)) return PTR2ERR(node);
+
+	int ret = vfs_getattr(node, st);
+
+	vfs_node_release(node);
+	return ret;
+}
+
 int sys_stub(void) {
 	return -ENOSYS;
 }
@@ -1484,7 +1513,7 @@ void *syscall_table[] = {
 	(void *)sys_stub, // sys_fexecve
 	(void *)sys_fchdir,
 	(void *)sys_stub, // sys_openat
-	(void *)sys_stub, // sys_fstatat
+	(void *)sys_fstatat,
 	(void *)sys_stub, // sys_fchownat
 	(void *)sys_stub, // sys_fchmodat
 };
