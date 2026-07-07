@@ -1,10 +1,10 @@
 ---
 title : todo
 ---
-- MESA port
-- SDL3/2 port
+- ~~MESA port~~
+- ~~SDL3/2 port~~
 - half life port
-- GUI
+- GUI (in progress)
 - kernel subsystem manager
 - ~~new kernel buses api (with hotplug support)~~
 - ~~dynamic module loading~~
