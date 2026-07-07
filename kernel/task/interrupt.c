@@ -48,6 +48,9 @@ int fault_handler(registers_t *frame) {
 		break;
 	}
 
+	// TODO : remove this
+	arch_registers_stacktrace(frame);
+
 	//TODO : send appropriate signal
 	send_sig_task(get_current_task(), SIGSEGV);
 
