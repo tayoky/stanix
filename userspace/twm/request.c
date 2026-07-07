@@ -145,15 +145,16 @@ static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *
 	if (!window) return;
 	if (window->client != client->id) return;
 
-	if (request->width == TWM_WHOLE_WIDTH)  request->width = window->width;
-	if (request->height == TWM_WHOLE_HEIGHT) request->height = window->height;
-
-	if (request->x >= window->width) return;
-	if (request->y >= window->height) return;
-
-	//TODO : even more checking
 	long win_x, win_y, win_width, win_height;
 	window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
+
+	if (request->width == TWM_WHOLE_WIDTH)   request->width  = win_width;
+	if (request->height == TWM_WHOLE_HEIGHT) request->height = win_height;
+
+	if (request->x >= win_width) return;
+	if (request->y >= win_height) return;
+
+	//TODO : even more checking
 	invalidate_rect(win_x + request->x, win_y + request->y, request->width, request->height);
 }
 
