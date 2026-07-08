@@ -11,6 +11,9 @@ void jump_userspace(void *address,void *stack,uintptr_t arg1,uintptr_t arg2,uint
 int safe_copy_to(void *dest, const void *src, size_t count);
 int safe_copy_from(void *dest, const void *src, size_t count);
 
+#define safe_copy_auto_from(dest, src) safe_copy_from(dest, src, sizeof(*dest))
+#define safe_copy_auto_to(dest, src)   safe_copy_to(dest, src, sizeof(*src))
+
 //some macro to check ptr
 #define CHECK_PTR(ptr) ((uintptr_t)ptr <= MEM_USERSPACE_END)
 

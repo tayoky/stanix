@@ -2,6 +2,7 @@
 #include <kernel/kheap.h>
 #include <kernel/print.h>
 #include <kernel/scheduler.h>
+#include <kernel/userspace.h>
 #include <kernel/signal.h>
 #include <kernel/string.h>
 #include <kernel/tty.h>
@@ -92,27 +93,25 @@ static void tty_destroy(device_t *device) {
 int tty_do_ioctl(tty_t *tty, long request, void *arg) {
 	switch (request) {
 	case TIOCGETA:
-		*(struct termios *)arg = tty->termios;
-		return 0;
+		return safe_copy_auto_to(arg, &tty->termios);
 	case TIOCSETA:
 	case TIOCSETAF:
 	case TIOCSETAW:
-		tty->termios = *(struct termios *)arg;
-		return 0;
+		return safe_copy_auto_from(&tty->termios, arg);
 	case TIOCGPGRP:
-		*(pid_t *)arg = tty->fg_pgrp;
-		return 0;
+		return safe_copy_auto_to(arg, &tty->fg_pgrp);
 	case TIOCSPGRP:
 		// TODO : check if group exist
 		kdebugf("set fgpgrp to %ld\n", *(pid_t *)arg);
-		tty->fg_pgrp = *(pid_t *)arg;
-		return 0;
+		return safe_copy_auto_from(&tty->fg_pgrp, arg);
 	case TIOCSWINSZ:
-		tty->size = *(struct winsize *)arg;
+		if (safe_copy_auto_from(&tty->size, arg) < 0) return -EFAULT;
+		if (tty->fg_pgrp) {
+			send_sig_pgrp(tty->fg_pgrp, SIGWINCH);
+		}
 		return 0;
 	case TIOCGWINSZ:
-		*(struct winsize *)arg = tty->size;
-		return 0;
+		return safe_copy_auto_to(arg, &tty->size);
 	default:
 		if (tty->ops->ioctl) {
 			return tty->ops->ioctl(tty, request, arg);
@@ -125,7 +124,6 @@ static int tty_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	tty_t *tty = (tty_t *)fd->private;
 	return tty_do_ioctl(tty, request, arg);
 }
-
 
 static vfs_fd_ops_t tty_ops = {
 	.read        = tty_read,
