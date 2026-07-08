@@ -43,6 +43,12 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 	return (ssize_t)count;
 }
 
+static int pty_master_ioctl(vfs_fd_t *fd, long request, void *arg) {
+	pty_t *pty = (pty_t *)fd->private;
+	tty_t *tty = pty->slave;
+	return tty_do_ioctl(tty, request, arg);
+}
+
 static int pty_is_disconnected(pty_t *pty) {
 	return atomic_load(&pty->slave->device.ref_count) == 1;
 }
@@ -99,6 +105,7 @@ void pty_master_close(vfs_fd_t *fd) {
 static vfs_fd_ops_t pty_master_ops = {
 	.read        = pty_master_read,
 	.write       = pty_master_write,
+	.ioctl       = pty_master_ioctl,
 	.poll_add    = pty_master_poll_add,
 	.poll_remove = pty_master_poll_remove,
 	.poll_get    = pty_master_poll_get,

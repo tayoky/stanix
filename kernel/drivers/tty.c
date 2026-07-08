@@ -89,8 +89,7 @@ static void tty_destroy(device_t *device) {
 	kfree(tty->canon_buf);
 }
 
-static int tty_ioctl(vfs_fd_t *fd, long request, void *arg) {
-	tty_t *tty = (tty_t *)fd->private;
+int tty_do_ioctl(tty_t *tty, long request, void *arg) {
 	switch (request) {
 	case TIOCGETA:
 		*(struct termios *)arg = tty->termios;
@@ -121,6 +120,12 @@ static int tty_ioctl(vfs_fd_t *fd, long request, void *arg) {
 		return -EINVAL;
 	}
 }
+
+static int tty_ioctl(vfs_fd_t *fd, long request, void *arg) {
+	tty_t *tty = (tty_t *)fd->private;
+	return tty_do_ioctl(tty, request, arg);
+}
+
 
 static vfs_fd_ops_t tty_ops = {
 	.read        = tty_read,

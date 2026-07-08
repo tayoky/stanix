@@ -36,13 +36,18 @@ typedef struct pty {
 	tty_t *slave;
 } pty_t;
 
-/// @brief give a char to the input of a tty
-/// @param tty 
-/// @param c 
-/// @return 
+/**
+ * @brief give a char to the input of a tty
+ * @param tty 
+ * @param c 
+ * @return
+ */
 int tty_input(tty_t *tty,char c);
 
 int tty_output(tty_t *tty,char c);
+
+int tty_do_ioctl(tty_t *fd, long request, void *arg);
+
 
 /**
  * @brief create a new tty
