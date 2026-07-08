@@ -190,11 +190,24 @@ void key_release_callback(tobject_t *tobject, tgui_event_release_t *event) {
 	return;
 }
 
-
 void close_callback(void) {
 	running = 0;
 }
 
+void canva_resize_callback(tgui_canva_t *canva) {
+	(void)canva;
+	term_resize(&term, get_gfx()->width / c_width, get_gfx()->height / c_height);
+	term_force_render(&term);
+
+	// update the tty size
+	struct winsize size = {
+		.ws_xpixel = get_gfx()->width,
+		.ws_ypixel = get_gfx()->height,
+		.ws_col = get_gfx()->width / c_width,
+		.ws_row = get_gfx()->height / c_height,
+	};
+	ioctl(master, TIOCSWINSZ, &size);
+}
 
 int main(int argc, const char **argv) {
 	(void)argc;
@@ -219,6 +232,7 @@ int main(int argc, const char **argv) {
 	tgui_widget_connect_signal(TGUI_WIDGET_CAST(window), "release", TCALLBACK_CAST(key_release_callback), NULL);
 	tgui_widget_connect_signal(TGUI_WIDGET_CAST(window), "destroy", TCALLBACK_CAST(close_callback), NULL);
 	tgui_render();
+	tgui_widget_connect_signal(TGUI_WIDGET_CAST(canva) , "resize", TCALLBACK_CAST(canva_resize_callback), NULL);
 
 	font = gfx_load_font(NULL);
 	if (!font) {
