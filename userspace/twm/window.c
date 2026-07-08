@@ -12,18 +12,18 @@ window_t *window_stack_bottom;
 window_t *focus_window;
 
 void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height) {
-	if (window->attribute & TWM_ATTR_MAXIMIZED) {
-		*x = 0;
-		*y = 0;
-		*width  = gfx->width;
-		*height = gfx->height;
-		return;
-	}
 	*x      = 0;
 	*y      = 0;
 	*width  = window->width;
 	*height = window->height;
+	if (window->attribute & TWM_ATTR_MAXIMIZED) {
+		*width  = gfx->width;
+		*height = gfx->height;
+	}
 	while (window) {
+		if (window->attribute & TWM_ATTR_MAXIMIZED) {
+			break;
+		}
 		*x += window->x;
 		*y += window->y;
 		window = window->parent;
