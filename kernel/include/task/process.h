@@ -44,7 +44,7 @@ typedef struct process {
 	gid_t sgid;
 	mode_t umask;
 	task_t *main_thread;
-	long exit_status;
+	int exit_status;
 } process_t;
 
 static inline process_t *get_current_proc(void) {
