@@ -42,9 +42,7 @@ static int user_copy_struct_from(void *dest, void *src, size_t size) {
 #define COPY_STRUCT_FROM(dest, src) user_copy_struct_from(dest, src, sizeof(*dest))
 
 int sys_open(const char *path, int flags, mode_t mode) {
-	if (!CHECK_STR(path)) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(path)) return -EFAULT;
 
 	// imposible conbinaison of flags
 	if ((flags & O_WRONLY) && (flags & O_RDWR)) {
@@ -94,9 +92,7 @@ int sys_close(int fd) {
 }
 
 ssize_t sys_write(int fd, const void *buffer, size_t count) {
-	if (!CHECK_MEM(buffer, count)) {
-		return -EFAULT;
-	}
+	if (!CHECK_MEM(buffer, count)) return -EFAULT;
 
 	file_descriptor_t file;
 	int ret = get_fd(fd, &file);
@@ -106,9 +102,7 @@ ssize_t sys_write(int fd, const void *buffer, size_t count) {
 }
 
 ssize_t sys_read(int fd, void *buffer, size_t count) {
-	if (!CHECK_MEM(buffer, count)) {
-		return -EFAULT;
-	}
+	if (!CHECK_MEM(buffer, count)) return -EFAULT;
 
 	file_descriptor_t file;
 	int ret = get_fd(fd, &file);
@@ -208,43 +202,37 @@ int sys_ioctl(int fd, uint64_t request, void *arg) {
 }
 
 int sys_nanosleep(const struct timespec *duration, struct timespec *rem) {
-	if (!CHECK_STRUCT(duration)) {
-		return -EFAULT;
-	}
-	if (rem && !CHECK_STRUCT(rem)) {
-		return -EFAULT;
-	}
-	//TODO : set rem
+	if (!CHECK_STRUCT(duration)) return -EFAULT;
+	if (rem && !CHECK_STRUCT(rem)) return -EFAULT;
+
+	struct timespec kduration;
+	if (safe_copy_auto_from(&kduration, duration) < 0) return -EFAULT;
+
+	// TODO : set rem
 	return micro_sleep(duration->tv_nsec / 1000 + duration->tv_sec * 1000000);
 }
 
-int sys_sleepuntil(struct timespec *time) {
-	if (!CHECK_STRUCT(time)) {
-		return -EFAULT;
-	}
-	struct timespec ktime;
-	if (safe_copy_from(&ktime, time, sizeof(struct timespec)) < 0) {
-		return -EFAULT;
-	}
-	sleep_until(&ktime);
-	return 0;
+int sys_sleepuntil(struct timespec *duration) {
+	if (!CHECK_STRUCT(duration)) return -EFAULT;
+
+	struct timespec kduration;
+	if (safe_copy_auto_from(&kduration, duration) < 0) return -EFAULT;
+
+	return sleep_until(&kduration);
 }
 
 int sys_clock_gettime(clockid_t clockid, struct timespec *tp) {
-	if (!CHECK_STRUCT(tp)) {
-		return -EFAULT;
-	}
+	if (!CHECK_STRUCT(tp)) return -EFAULT;
 
 	struct timespec time;
 	int ret = gettime(clockid, &time);
 	if (ret < 0) return ret;
-	return safe_copy_to(tp, &time, sizeof(struct timespec));
+
+	return safe_copy_auto_to(tp, &time);
 }
 
 int sys_pipe(int pipefd[2]) {
-	if (!CHECK_MEM(pipefd, sizeof(int) * 2)) {
-		return -EFAULT;
-	}
+	if (!CHECK_MEM(pipefd, sizeof(int) * 2)) return -EFAULT;
 
 	vfs_fd_t *read_vfs_fd;
 	vfs_fd_t *write_vfs_fd;
@@ -264,46 +252,34 @@ int sys_pipe(int pipefd[2]) {
 		return write_fd;
 	}
 
-	pipefd[0] = read_fd;
-	pipefd[1] = write_fd;
-	return 0;
+	int kpipefd[2] = {
+		read_fd,
+		write_fd,
+	};
+	return safe_copy_auto_to(pipefd, &kpipefd);
 }
 
 int sys_execve(const char *path, const char **argv, const char **envp) {
-	if (!CHECK_STR(path)) {
-		return -EFAULT;
-	}
-	if (!CHECK_MEM(argv, sizeof(char *))) {
-		return -EFAULT;
-	}
-	if (!CHECK_MEM(envp, sizeof(char *))) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(path)) return -EFAULT;
+	if (!CHECK_MEM(argv, sizeof(char *))) return -EFAULT;
+	if (!CHECK_MEM(envp, sizeof(char *))) return -EFAULT;
 
 	//get argc
 	int argc = 0;
 	while (argv[argc]) {
-		if (!CHECK_STR(argv[argc])) {
-			return -EFAULT;
-		}
+		if (!CHECK_PTR(argv[argc])) return -EFAULT;
 		argc++;
 
-		if (!CHECK_MEM(&argv[argc], sizeof(char *))) {
-			return -EFAULT;
-		}
+		if (!CHECK_MEM(&argv[argc], sizeof(char *))) return -EFAULT;
 	}
 
 	//get envc
 	int envc = 0;
 	while (envp[envc]) {
-		if (!CHECK_STR(envp[envc])) {
-			return -EFAULT;
-		}
+		if (!CHECK_PTR(envp[envc])) return -EFAULT;
 		envc++;
 
-		if (!CHECK_MEM(&envp[envc], sizeof(char *))) {
-			return -EFAULT;
-		}
+		if (!CHECK_MEM(&envp[envc], sizeof(char *))) return -EFAULT;
 	}
 	kdebugf("try executing %s\n", path);
 	return exec(path, argc, argv, envc, envp);
@@ -314,11 +290,9 @@ pid_t sys_fork(void) {
 }
 
 int sys_mkdir(const char *path, mode_t mode) {
-	if (!CHECK_STR(path)) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(path)) return -EFAULT;
 
-	//remove slash at the endd, as the vfs don't really like them
+	// remove slash at the end, as the vfs don't really like them
 	char *kpath = strdup(path);
 	for (char *ptr=kpath + strlen(kpath) - 1; ptr > kpath && *ptr == '/'; ptr--)*ptr = '\0';
 
@@ -328,9 +302,7 @@ int sys_mkdir(const char *path, mode_t mode) {
 }
 
 int sys_readdir(int fd, struct dirent *dirent, long int index) {
-	if (!CHECK_STRUCT(dirent)) {
-		return -EFAULT;
-	}
+	if (!CHECK_STRUCT(dirent)) return -EFAULT;
 
 	file_descriptor_t file;
 	int ret = get_fd(fd, &file);
@@ -340,37 +312,35 @@ int sys_readdir(int fd, struct dirent *dirent, long int index) {
 }
 
 int sys_stat(const char *pathname, struct stat *st) {
-	if (!CHECK_STR(pathname)) {
-		return -EFAULT;
-	}
-	if (!CHECK_STRUCT(st)) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+	if (!CHECK_STRUCT(st)) return -EFAULT;
 
 	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
-	int ret = vfs_getattr(node, st);
+	struct stat kst;
+	int ret = vfs_getattr(node, &kst);
 
 	vfs_node_release(node);
-	return ret;
+	if (ret < 0) return ret;
+
+	return safe_copy_auto_to(st, &kst);
 }
 
 int sys_lstat(const char *pathname, struct stat *st) {
-	if (!CHECK_STR(pathname)) {
-		return -EFAULT;
-	}
-	if (!CHECK_STRUCT(st)) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+	if (!CHECK_STRUCT(st)) return -EFAULT;
 
 	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY | O_NOFOLLOW);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
-	int ret = vfs_getattr(node, st);
+	struct stat kst;
+	int ret = vfs_getattr(node, &kst);
 
 	vfs_node_release(node);
-	return ret;
+	if (ret < 0) return ret;
+
+	return safe_copy_auto_to(st, &kst);
 }
 
 int sys_fstat(int fd, struct stat *st) {
@@ -381,16 +351,16 @@ int sys_fstat(int fd, struct stat *st) {
 	file_descriptor_t file;
 	int ret = get_fd(fd, &file);
 	if (ret < 0) return ret;
+	
+	struct stat kst;
+	ret = vfs_getattr(file.fd->inode, st);
+	if (ret < 0) return ret;
 
-	vfs_getattr(file.fd->inode, st);
-
-	return 0;
+	return safe_copy_auto_to(st, &kst);
 }
 
 int sys_getcwd(char *buf, size_t size) {
-	if (!CHECK_MEM(buf, size)) {
-		return -EFAULT;
-	}
+	if (!CHECK_MEM(buf, size)) return -EFAULT;
 
 	char *cwd = vfs_dentry_path(get_current_proc()->cwd);
 
@@ -398,15 +368,14 @@ int sys_getcwd(char *buf, size_t size) {
 		kfree(cwd);
 		return -ERANGE;
 	}
-	strcpy(buf, cwd);
 
-	return 0;
+	int ret = safe_copy_to(buf, cwd, strlen(cwd) + 1);
+	kfree(cwd);
+	return ret;
 }
 
 int sys_chdir(const char *path) {
-	if (!CHECK_STR(path)) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(path)) return -EFAULT;
 
 	// check if exist
 	vfs_dentry_t *entry = vfs_get_dentry(path, 0);
@@ -426,9 +395,7 @@ int sys_chdir(const char *path) {
 }
 
 int sys_waitpid(pid_t pid, int *status, int options) {
-	if (status && !CHECK_MEM(status, sizeof(status))) {
-		return -EFAULT;
-	}
+	if (status && !CHECK_MEM(status, sizeof(status))) return -EFAULT;
 
 	if (pid == 0) pid = -get_current_proc()->group;
 
@@ -480,7 +447,7 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 
 	// get the exit status
 	if (status) {
-		*status = proc->exit_status;
+		safe_copy_auto_to(status, &proc->exit_status);
 	}
 
 	ret = proc->pid;
@@ -490,28 +457,20 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 }
 
 int sys_unlink(const char *pathname) {
-	if (!CHECK_STR(pathname)) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(pathname)) return -EFAULT;
 
 	return vfs_unlink(pathname);
 }
 
 int sys_rmdir(const char *pathname) {
-	if (!CHECK_STR(pathname)) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(pathname)) return -EFAULT;
 
 	return vfs_rmdir(pathname);
 }
 
 int sys_insmod(const char *pathname, const char **arg) {
-	if (!CHECK_STR(pathname)) {
-		return -EFAULT;
-	}
-	if (!CHECK_MEM(arg, sizeof(char *))) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+	if (!CHECK_MEM(arg, sizeof(char *))) return -EFAULT;
 
 	if (get_current_proc()->euid != EUID_ROOT) {
 		return -EPERM;
@@ -520,22 +479,16 @@ int sys_insmod(const char *pathname, const char **arg) {
 	//check arg
 	int argc = 0;
 	while (arg[argc]) {
-		if (!CHECK_STR(arg[argc])) {
-			return -EFAULT;
-		}
+		if (!CHECK_PTR(arg[argc])) return -EFAULT;
 		argc++;
-		if (!CHECK_MEM(&arg[argc], sizeof(char *))) {
-			return -EFAULT;
-		}
+		if (!CHECK_MEM(&arg[argc], sizeof(char *))) return -EFAULT;
 	}
 
 	return insmod(pathname, arg, NULL);
 }
 
 int sys_rmmod(const char *name) {
-	if (!CHECK_STR(name)) {
-		return -EFAULT;
-	}
+	if (!CHECK_PTR(name)) return -EFAULT;
 
 	if (get_current_proc()->euid != EUID_ROOT) {
 		return -EPERM;
@@ -556,6 +509,8 @@ int sys_isatty(int fd) {
 		return -ENOTTY;
 	}
 }
+
+// NOTE : checked until here
 
 int sys_openpty(int *amaster, int *aslave, char *name, const struct termios *termp, const struct winsize *winp) {
 	if ((termp && !CHECK_STRUCT(termp)) || (winp && !CHECK_STRUCT(winp)) || (name && !CHECK_MEM(name, PATH_MAX))) {
@@ -789,7 +744,7 @@ pid_t sys_getpid() {
 }
 
 int sys_mount(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data) {
-	if ((!CHECK_STR(source)) || (!CHECK_STR(target)) || (!CHECK_STR(filesystemtype))) {
+	if ((!CHECK_PTR(source)) || (!CHECK_PTR(target)) || (!CHECK_PTR(filesystemtype))) {
 		return -EFAULT;
 	}
 	if (data && !CHECK_PTR(data)) {
@@ -804,7 +759,7 @@ int sys_mount(const char *source, const char *target, const char *filesystemtype
 }
 
 int sys_umount(const char *target) {
-	if (!CHECK_STR(target)) {
+	if (!CHECK_PTR(target)) {
 		return -EFAULT;
 	}
 
@@ -1109,7 +1064,7 @@ int sys_ftruncate(int fd, off_t length) {
 }
 
 int sys_link(const char *oldpath, const char *newpath) {
-	if (!CHECK_STR(oldpath) || !CHECK_STR(newpath)) {
+	if (!CHECK_PTR(oldpath) || !CHECK_PTR(newpath)) {
 		return -EFAULT;
 	}
 
@@ -1117,21 +1072,21 @@ int sys_link(const char *oldpath, const char *newpath) {
 }
 
 int sys_rename(const char *oldpath, const char *newpath) {
-	if (!CHECK_STR(oldpath) || !CHECK_STR(newpath)) {
+	if (!CHECK_PTR(oldpath) || !CHECK_PTR(newpath)) {
 		return -EFAULT;
 	}
 	return vfs_rename(oldpath, newpath, 0);
 }
 
 int sys_symlink(const char *target, const char *linkpath) {
-	if (!CHECK_STR(target) || !CHECK_STR(linkpath)) {
+	if (!CHECK_PTR(target) || !CHECK_PTR(linkpath)) {
 		return -EFAULT;
 	}
 	return vfs_symlink(target, linkpath);
 }
 
 ssize_t sys_readlink(const char *path, char *buf, size_t bufsize) {
-	if (!CHECK_STR(path)) {
+	if (!CHECK_PTR(path)) {
 		return -EFAULT;
 	}
 	if (!CHECK_MEM(buf, bufsize)) {
@@ -1386,7 +1341,7 @@ int sys_fchdir(int fd) {
 }
 
 int sys_fstatat(int fd, const char *path, struct stat *st, int flags) {
-	if (!CHECK_STR(path)) {
+	if (!CHECK_PTR(path)) {
 		return -EFAULT;
 	}
 	if (!CHECK_STRUCT(st)) {
