@@ -40,7 +40,8 @@ typedef struct twm_request {
 #define TWM_REQUEST_GRAB_INPUT        12
 #define TWM_REQUEST_SET_WINDOW_TITLE  13
 #define TWM_REQUEST_SET_WINDOW_SIZE   14
-#define TWM_REQUEST_COUNT             15
+#define TWM_REQUEST_SET_WINDOW_ZINDEX 15
+#define TWM_REQUEST_COUNT             16
 
 #define TWM_WINDOW_SHOW   1
 #define TWM_WINDOW_WIDTH  2
@@ -145,6 +146,12 @@ typedef struct twm_request_set_window_size {
 	long width;
 	long height;
 } twm_request_set_window_size_t;
+
+typedef struct twm_request_set_window_zindex {
+	twm_request_t base;
+	twm_window_t window;
+	int zindex;
+} twm_request_set_window_zindex_t;
 
 #define TWM_ZINDEX_MIN    0
 #define TWM_ZINDEX_MIDDLE 4
@@ -299,6 +306,7 @@ int twm_window_maximize(twm_window_t window);
 int twm_window_unmaximize(twm_window_t window);
 int twm_window_minimize(twm_window_t window);
 int twm_window_restore(twm_window_t window);
+int twm_window_set_zindex(twm_window_t window, int zindex);
 int twm_grab_input(twm_window_t window, int confine_cursor);
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);
 int twm_start_dragging(twm_window_t window, long offset_x, long offset_y);

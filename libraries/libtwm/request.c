@@ -176,6 +176,19 @@ int twm_window_restore(twm_window_t window) {
 	return twm_set_window_attr(window, TWM_REMOVE_ATTR, TWM_ATTR_MINIMIZED);
 }
 
+int twm_window_set_zindex(twm_window_t window, int zindex) {
+	twm_request_set_window_zindex_t request = {
+		.base = {
+			.type = TWM_REQUEST_SET_WINDOW_ZINDEX,
+			.size = sizeof(request),
+		},
+		.window = window,
+		.zindex = zindex,
+	};
+	
+	return twm_send_request((twm_request_t*)&request);
+}
+
 int twm_grab_input(twm_window_t window, int confine_cursor) {
 	twm_request_grab_input_t request = {
 		.base = {

@@ -121,7 +121,7 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	window->height    = height;
 	window->parent    = parent;
 	window->attribute = TWM_ATTR_DECORED | TWM_ATTR_SHOW;
-	window->zindex    = TWM_ZINDEX_MIDDLE;
+	window->zindex    = parent ? parent->zindex : TWM_ZINDEX_MIDDLE;
 	window->title     = strdup(title);
 	window->x         = (rand() % 100) + 10;
 	window->y         = (rand() % 100) + 10;

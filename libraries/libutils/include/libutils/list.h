@@ -62,16 +62,16 @@ static inline void utils_list_add_after(utils_list_t *list, utils_list_node_t *n
 static inline void utils_list_remove(utils_list_t *list, utils_list_node_t *node) {
 	if (node->prev) {
 		node->prev->next = node->next;
-		node->prev = NULL;
 	} else {
 		list->first = node->next;
 	}
 	if (node->next) {
 		node->next->prev = node->prev;
-		node->next = NULL;
 	} else {
 		list->last = node->prev;
 	}
+	node->prev = NULL;
+	node->next = NULL;
 }
 
 static inline int utils_list_is_in(utils_list_t *list, utils_list_node_t *node) {
