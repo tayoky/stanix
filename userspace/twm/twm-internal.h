@@ -2,6 +2,7 @@
 #define TWM_INTERNAL_H
 
 #include <libutils/hashmap.h>
+#include <libutils/list.h>
 #include <libinput.h>
 #include <gfx.h>
 #include <twm.h>
@@ -12,8 +13,7 @@ typedef struct client {
 } client_t;
 
 typedef struct window {
-	struct window *next;
-	struct window *prev;
+	utils_list_node_t node;
 	struct window *parent;
 	long width;
 	long height;
@@ -23,12 +23,15 @@ typedef struct window {
 	twm_window_t id;
 	char *title;
 	int client;
+	int zindex;
 	int framebuffer_is_old; // the framebuffer is old and new to be updated
 	int framebuffer_fd;
 	twm_fb_info_t fb_info;
 	char *framebuffer_path;
 	void *framebuffer;
 } window_t;
+
+#define WINDOW_FROM_NODE(node) ((window_t*)(node))
 
 typedef struct theme {
 	color_t primary;
@@ -50,8 +53,7 @@ extern gfx_t *gfx;
 extern theme_t theme;
 extern font_t *font;
 extern utils_hashmap_t windows;
-extern window_t *window_stack_top;
-extern window_t *window_stack_bottom;
+extern utils_list_t window_stacks[TWM_ZINDEX_COUNT];
 extern window_t *focus_window;
 extern int grab_input;
 extern cursor_t cursor;
@@ -77,6 +79,7 @@ void push_window_at_top(window_t *window);
 window_t *create_window(client_t *client, window_t *parent, long width, long height, const char *title);
 void move_window(window_t *window, long new_x, long new_y);
 void window_set_title(window_t *window, const char *title);
+void window_set_zindex(window_t *window, int zindex);
 void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height);
 void window_get_bounds(window_t *window, long *x, long *y, long *width, long *height);
 void destroy_window(window_t *window);

@@ -7,8 +7,7 @@
 #include "twm-internal.h"
 
 utils_hashmap_t windows;
-window_t *window_stack_top;
-window_t *window_stack_bottom;
+utils_list_t window_stacks[TWM_ZINDEX_COUNT];
 window_t *focus_window;
 
 void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height) {
@@ -50,44 +49,24 @@ static void invalidate_window(window_t *window) {
 }
 
 void push_window_at_top(window_t *window) {
-	if (window->prev || window->next || window_stack_bottom == window) {
+	utils_list_t *stack = &window_stacks[window->zindex];
+	if (&window->node == stack->last) {
+		// the window is already on top
+		return;
+	}
+	if (utils_list_is_in(stack, &window->node)) {
 		// the window is already in the list we need to remove it first
-		if (window->next) {
-			window->next->prev = window->prev;
-		} else {
-			// the window is already on top
-			return;
-		}
-		if (window->prev) {
-			window->prev->next = window->next;
-		} else {
-			window_stack_bottom = window->next;
-		}
+		utils_list_remove(stack, &window->node);
 	}
 
 	// we need to push the window at the end/top of the list
-	window->next = NULL;
-	window->prev = window_stack_top;
-	if (window_stack_top) {
-		window_stack_top->next = window;
-	} else {
-		window_stack_bottom = window;
-	}
-	window_stack_top = window;
+	utils_list_append(stack, &window->node);
 	invalidate_window(window);
 }
 
 static void remove_window_from_stack(window_t *window) {
-	if (window->prev) {
-		window->prev->next = window->next;
-	} else {
-		window_stack_bottom = window->next;
-	}
-	if (window->next) {
-		window->next->prev = window->prev;
-	} else {
-		window_stack_top = window->prev;
-	}
+	utils_list_t *stack = &window_stacks[window->zindex];
+	utils_list_remove(stack, &window->node);
 }
 
 void set_window_attr(window_t *window, long attr) {
@@ -142,6 +121,7 @@ window_t *create_window(client_t *client, window_t *parent, long width, long hei
 	window->height    = height;
 	window->parent    = parent;
 	window->attribute = TWM_ATTR_DECORED | TWM_ATTR_SHOW;
+	window->zindex    = TWM_ZINDEX_MIDDLE;
 	window->title     = strdup(title);
 	window->x         = (rand() % 100) + 10;
 	window->y         = (rand() % 100) + 10;
@@ -254,12 +234,13 @@ int is_inside_window(window_t *window, long x, long y, long width, long height) 
 }
 
 window_t *get_window_at(long x, long y) {
-	window_t *current = window_stack_top;
-	while (current) {
-		if (is_inside_window(current, x, y, 0, 0)) {
-			return current;
+	for (int zindex = TWM_ZINDEX_MIN; zindex <= TWM_ZINDEX_MAX; zindex++) {
+		utils_list_reverse_foreach(&window_stacks[zindex], node) {
+			window_t *current = WINDOW_FROM_NODE(node);
+			if (is_inside_window(current, x, y, 0, 0)) {
+				return current;
+			}
 		}
-		current = current->prev;
 	}
 	return NULL;
 }
@@ -360,4 +341,13 @@ void window_set_size(window_t *window, long width, long height) {
 		window_mark_framebuffer_old(window);
 		invalidate_window(window);
 	}
+}
+
+void window_set_zindex(window_t *window, int zindex) {
+	if (window->zindex == zindex) {
+		return;
+	}
+	remove_window_from_stack(window);
+	window->zindex = zindex;
+	push_window_at_top(window);
 }

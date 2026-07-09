@@ -88,6 +88,7 @@ typedef struct twm_window_attr {
 	long y;
 	twm_window_t id;
 	twm_window_t parent;
+	int zindex;
 	char title[256];
 } twm_window_attr_t;
 
@@ -144,6 +145,12 @@ typedef struct twm_request_set_window_size {
 	long width;
 	long height;
 } twm_request_set_window_size_t;
+
+#define TWM_ZINDEX_MIN    0
+#define TWM_ZINDEX_MIDDLE 4
+#define TWM_ZINDEX_TOP    6
+#define TWM_ZINDEX_MAX    7
+#define TWM_ZINDEX_COUNT  8
 
 typedef struct twm_request_grab_input {
 	twm_request_t base;

@@ -85,8 +85,11 @@ void render(void) {
 	// what an amazing background
 	gfx_draw_rect(gfx, gfx_color(gfx, 0, 0, 0), invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height);
 
-	for (window_t *current=window_stack_bottom; current; current = current->next) {
-		if (is_inside_window(current, invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height)) {
+
+	for (int zindex = TWM_ZINDEX_MIN; zindex <= TWM_ZINDEX_MAX; zindex++) {
+		utils_list_foreach(&window_stacks[zindex], node) {
+			window_t *current = WINDOW_FROM_NODE(node);
+			if (!is_inside_window(current, invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height)) continue;
 			render_window_content(current);
 			if (current->attribute & TWM_ATTR_DECORED) {
 				render_window_decor(current);

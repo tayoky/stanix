@@ -81,11 +81,12 @@ static void handle_get_window_attr(client_t *client, twm_request_get_window_attr
 			.type = TWM_EVENT_WINDOW_ATTR,
 		},
 		.attr = {
-			.attr  = window->attribute,
-			.x     = window->x,
-			.y     = window->y,
-			.id    = window->id,
+			.attr   = window->attribute,
+			.x      = window->x,
+			.y      = window->y,
+			.id     = window->id,
 			.parent = window->parent ? window->parent->id : TWM_NULL,
+			.zindex = window->zindex,
 		},
 	};
 	strcpy(event.attr.title, window->title);
