@@ -18,6 +18,8 @@ static void handle_init(client_t *client, twm_request_init_t *request) {
 	if (request->major != TWM_CURRENT_MAJOR || request->minor != TWM_CURRENT_MINOR) {
 		kick_client(client);
 	}
+	// send a list of currently connected screens
+	send_screens(client);
 }
 
 static void handle_create_window(client_t *client, twm_request_create_window_t *request) {
@@ -163,6 +165,10 @@ static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *
 }
 
 static void handle_get_screen_fb(client_t *client, twm_request_get_screen_fb_t *request) {
+	screen_t *screen = get_screen(request->id);
+	if (!screen) return;
+
+	gfx_t *gfx = screen->gfx;
 	twm_event_screen_fb_t event = {
 		.base = {
 			.request_id = request->base.id,

@@ -5,25 +5,26 @@
 
 #define min(a, b) (a < b) ? (a) : (b)
 
-static long invalidate_start_x = LONG_MAX;
-static long invalidate_start_y = LONG_MAX;
-static long invalidate_end_x = 0;
-static long invalidate_end_y = 0;
-
-static void render_window_decor(window_t *window) {
+static void render_window_decor(screen_t *screen, window_t *window) {
 	long win_x, win_y, win_width, win_height;
 	window_get_bounds(window, &win_x, &win_y, &win_width, &win_height);
+	win_x -= screen->x;
+	win_y -= screen->y;
 	long titlebar_x = win_x + theme.border_width;
 	long titlebar_y = win_y + theme.border_width;
+	gfx_t *gfx = screen->gfx;
 	gfx_draw_rect(gfx, gfx_color(gfx, 60, 141, 63), win_x, titlebar_y, win_width, theme.titlebar_height);
 	gfx_draw_wire_rect(gfx, gfx_color(gfx, 44, 105, 47), win_x, win_y, win_width - theme.border_width, win_height- theme.border_width, theme.border_width);
 	gfx_draw_rect(gfx, gfx_color(gfx, 44, 105, 47), win_x, win_y + theme.border_width + theme.titlebar_height, win_width, theme.border_width);
 	gfx_draw_string(gfx, font, gfx_color(gfx, 0, 0, 0), titlebar_x + 2 * theme.padding, titlebar_y + 2 * theme.padding, window->title);
 }
 
-static void render_window_content(window_t *window) {
+static void render_window_content(screen_t *screen, window_t *window) {
 	long win_x, win_y, win_width, win_height;
 	window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
+	win_x -= screen->x;
+	win_y -= screen->y;
+	gfx_t *gfx = screen->gfx;
 	gfx_draw_rect(gfx, gfx_color(gfx, 0, 0, 0), win_x, win_y, win_width, win_height);
 
 	if (window->framebuffer) {
@@ -46,8 +47,8 @@ static void render_window_content(window_t *window) {
 	}
 }
 
-static void render_cursor(cursor_t *cursor) {
-	gfx_draw_texture_alpha(gfx, theme.cursor_texture, cursor->x, cursor->y);
+static void render_cursor(screen_t *screen, cursor_t *cursor) {
+	gfx_draw_texture_alpha(screen->gfx, theme.cursor_texture, cursor->x, cursor->y);
 }
 
 void move_cursor(cursor_t *cursor, long new_x, long new_y) {
@@ -57,25 +58,37 @@ void move_cursor(cursor_t *cursor, long new_x, long new_y) {
 	invalidate_rect(cursor->x, cursor->y, theme.cursor_texture->width, theme.cursor_texture->height);
 }
 
-void invalidate_rect(long x, long y, long width, long height) {
+static void invalidate_screen_rect(long x, long y, long width, long height) {
 	long end_x = x + width;
 	long end_y = y + height;
 
-	if (x < invalidate_start_x) invalidate_start_x = x;
-	if (y < invalidate_start_y) invalidate_start_y = y;
-	if (end_x > invalidate_end_x) invalidate_end_x = end_x;
-	if (end_y > invalidate_end_y) invalidate_end_y = end_y;
+	if (x < screen->invalidate_start_x) screen->invalidate_start_x = x;
+	if (y < screen->invalidate_start_y) screen->invalidate_start_y = y;
+	if (end_x > screen->invalidate_end_x) screen->invalidate_end_x = end_x;
+	if (end_y > screen->invalidate_end_y) screen->invalidate_end_y = end_y;
 }
 
-void render(void) {
-	if (invalidate_end_x == 0 && invalidate_end_y == 0) return;
-	if (invalidate_start_x < 0) invalidate_start_x = 0;
-	if (invalidate_start_y < 0) invalidate_start_y = 0;
-	if (invalidate_end_x > gfx->width) invalidate_end_x = gfx->width;
-	if (invalidate_end_y > gfx->height) invalidate_end_y = gfx->height;
+void invalidate_rect(long x, long y, long width, long height) {
+	screen_t *screen1 = get_screen(x, y);
+	screen_t *screen2 = get_screen(x + width, y + height);
+	if (screen1) {
+		invalidate_screen_rect(screen1, x, y, width, height);
+	}
+	if (screen1 != screen2 && screen2) {
+		invalidate_screen_rect(screen2, x, y, width, height);
+	}
+}
+
+static void render_screen(screen_t *screen) {
+	gfx_t *gfx = screen->gfx;
+	if (screen->invalidate_end_x == 0 && screen->invalidate_end_y == 0) return;
+	if (screen->invalidate_start_x < screen->x) screen->invalidate_start_x = screen->x;
+	if (screen->invalidate_start_y < screen->y) screen->invalidate_start_y = screen->y;
+	if (screen->invalidate_end_x > screen->x + gfx->width) screen->invalidate_end_x = screen->x + gfx->width;
+	if (screen->invalidate_end_y > screen->y + gfx->height) screen->invalidate_end_y = screen->y + gfx->height;
 	
-	long invalidate_width = invalidate_end_x - invalidate_start_x;
-	long invalidate_height = invalidate_end_y - invalidate_start_y;
+	long invalidate_width = screen->invalidate_end_x - screen->invalidate_start_x;
+	long invalidate_height = screen->invalidate_end_y - screen->invalidate_start_y;
 
 	// we need to render in this order
 	// - background
@@ -83,31 +96,38 @@ void render(void) {
 	// - cursor
 
 	// what an amazing background
-	gfx_draw_rect(gfx, gfx_color(gfx, 0, 0, 0), invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height);
+	gfx_draw_rect(gfx, gfx_color(gfx, 0, 0, 0), screen->invalidate_start_x - screen->x, screen->invalidate_start_y - screen->y, invalidate_width, invalidate_height);
 
 
 	for (int zindex = TWM_ZINDEX_MIN; zindex <= TWM_ZINDEX_MAX; zindex++) {
 		utils_list_foreach(&window_stacks[zindex], node) {
 			window_t *current = WINDOW_FROM_NODE(node);
 			if (!is_inside_window(current, invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height)) continue;
-			render_window_content(current);
+			render_window_content(screen, current);
 			if (current->attribute & TWM_ATTR_DECORED) {
-				render_window_decor(current);
+				render_window_decor(screen, current);
 			}
 		}
 	}
 
-	if (invalidate_start_x < cursor.x + (long)theme.cursor_texture->width 
-		&& invalidate_start_y < cursor.y + (long)theme.cursor_texture->height
-		&& invalidate_end_x > cursor.x
-		&& invalidate_end_y > cursor.y) {
-		render_cursor(&cursor);
+	if (screen->invalidate_start_x < cursor.x + (long)theme.cursor_texture->width 
+		&& screen->invalidate_start_y < cursor.y + (long)theme.cursor_texture->height
+		&& screen->invalidate_end_x > cursor.x
+		&& screen->invalidate_end_y > cursor.y) {
+		render_cursor(screen, &cursor);
 	}
 
-	gfx_push_rect(gfx, invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height);
+	gfx_push_rect(gfx, invalidate_start_x - screen->x, invalidate_start_y - screen->y, invalidate_width, invalidate_height);
 
-	invalidate_start_x = LONG_MAX;
-	invalidate_start_y = LONG_MAX;
-	invalidate_end_x = 0;
-	invalidate_end_y = 0;
+	screen->invalidate_start_x = LONG_MAX;
+	screen->invalidate_start_y = LONG_MAX;
+	screen->invalidate_end_x = 0;
+	screen->invalidate_end_y = 0;
+}
+
+void render(void) {
+	utils_hashmap_foreach(key, screen, &screens) {
+		(void)id;
+		render_screen(screen);
+	}
 }

@@ -12,6 +12,18 @@ typedef struct client {
 	int id;
 } client_t;
 
+typedef struct screen {
+	utils_list_node_t node;
+	twm_screen_t id;
+	gfx_t *gfx;
+	long invalidate_start_x;
+	long invalidate_start_y;
+	long invalidate_end_x;
+	long invalidate_end_y;
+	long x;
+	long y;
+} screen_t;
+
 typedef struct window {
 	utils_list_node_t node;
 	struct window *parent;
@@ -49,11 +61,12 @@ typedef struct cursor {
 	long y;
 } cursor_t;
 
-extern gfx_t *gfx;
 extern theme_t theme;
 extern font_t *font;
 extern utils_hashmap_t windows;
 extern utils_list_t window_stacks[TWM_ZINDEX_COUNT];
+extern size_t screens_count;
+extern utils_hashmap_t screens;
 extern window_t *focus_window;
 extern int grab_input;
 extern cursor_t cursor;
@@ -92,5 +105,12 @@ void set_window_attr(window_t *window, long attr);
 int update_focus(window_t *window);
 void set_grab(window_t *window, long offset_x, long offset_y);
 int is_inside_window(window_t *window, long x, long y, long width, long height);
+void screen_add(screen_t *screen);
+void screen_remove(screen_t *screen);
+void screen_init(void);
+void send_screens(void);
+screen_t *get_screen(twm_screen_t id);
+void send_screens(client_t *client);
+screen_t *get_screen_at(long x, long y);
 
 #endif

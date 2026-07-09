@@ -287,6 +287,8 @@ void window_get_fb(window_t *window, twm_fb_info_t *info, const char **framebuff
 
 		long win_x, win_y, win_width, win_height;
 		window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
+
+		gfx_t *gfx = window->screen->gfx;
 		size_t framebuffer_size  = win_width * win_height * (gfx->bpp / 8);
 		ftruncate(window->framebuffer_fd, framebuffer_size);
 

@@ -92,9 +92,11 @@ int main() {
 		exit(0);
 	}
 
-	gfx = gfx_open_framebuffer(NULL);
-	if (!gfx) {
-		error("no framebuffer");
+	utils_init_hashmap(&windows, 512);
+	utils_init_vector(&clients, sizeof(client_t));
+	screen_init()
+	if (screens_count == 0) {
+		error("no screen found");
 		return 1;
 	}
 
@@ -112,9 +114,6 @@ int main() {
 		error("no cursor image");
 		return 1;
 	}
-
-	utils_init_hashmap(&windows, 512);
-	utils_init_vector(&clients, sizeof(client_t));
 
 	move_cursor(&cursor, 0, 0);
 
