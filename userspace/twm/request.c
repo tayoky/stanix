@@ -200,7 +200,7 @@ static void handle_set_screen_max_bounds(client_t *client, twm_request_set_scree
 	if (!screen) return;
 
 	// only desktop hook can chaneg this
-	if (client != desktop_hook) return;
+	if (client->id != desktop_hook) return;
 
 	screen_set_max_bounds(screen, request->x, request->y, request->width, request->height);
 }

@@ -37,6 +37,11 @@ int main() {
 	app_list = tgui_vector_new();
 
 	init_taskbar();
+
+	// setup desktop hook
+	tgui_register_platform_handler((int(*)(void*,void*))desktop_hook, NULL);
+	twm_grab_desktop_hook();
+	
 	// TODO : multi screen support
 	create_taskbar(1);
 
@@ -60,10 +65,6 @@ int main() {
 		}
 		closedir(dir);
 	}
-
-	// setup desktop hook
-	tgui_register_platform_handler((int(*)(void*,void*))desktop_hook, NULL);
-	twm_grab_desktop_hook();
 
 	tgui_main();
 	tgui_fini();
