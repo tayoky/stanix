@@ -198,10 +198,10 @@ typedef struct twm_request_redraw_window {
 	long height;
 } twm_request_redraw_window_t;
 
-typedef struct twm_request_get_screen_fb {
+typedef struct twm_request_get_screen_attr {
 	twm_request_t base;
 	twm_screen_t id;
-} twm_request_get_screen_fb_t;
+} twm_request_get_screen_attr_t;
 
 typedef struct twm_request_start_dragging_fb {
 	twm_request_t base;

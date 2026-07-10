@@ -1,4 +1,6 @@
-#include <tgui.h>
+#include <tgui/tgui.h>
+#include <desktop.h>
+#include <twm.h>
 
 static tgui_vector_t *taskbutton_list;
 
@@ -7,8 +9,6 @@ static twm_window_t window_from_button(tgui_list_item_t *list_item) {
 }
 
 static void taskbutton_click(tgui_list_item_t *list_item) {
-	(void)button;
-	(void)stub;
 	twm_window_t window = window_from_button(list_item);
 	twm_window_attr_t attr;
 	twm_get_window_attr(window, &attr);
@@ -34,7 +34,7 @@ static int taskbutton_factory_bind(tgui_factory_t *factory, tgui_list_item_t *li
 	twm_window_t window = window_from_button(list_item);
 	twm_window_attr_t attr;
 	twm_get_window_attr(window, &attr);
-	tgui_button_set_text(button, attr->title);
+	tgui_button_set_text(button, attr.title);
 	return 0;
 }
 
@@ -51,8 +51,8 @@ void create_taskbar(twm_screen_t screen) {
 	twm_screen_attr_t screen_attr;
 	twm_get_screen_attr(screen, &screen_attr);
 
-	tgui_window_t *taskbar = tgui_window_new("taskbar", screen.fb_info.width, 50);
-	tgui_surface_set_position(TGUI_SURFACE_CAST(taskbar), 0, screen.fb_info.height - 50);
+	tgui_window_t *taskbar = tgui_window_new("taskbar", screen_attr.fb_info.width, 50);
+	tgui_surface_set_position(TGUI_SURFACE_CAST(taskbar), 0, screen_attr.fb_info.height - 50);
 	tgui_window_set_title_bar(taskbar, TGUI_FALSE);
 	twm_window_t twm_window = tgui_surface_get_twm_window(TGUI_SURFACE_CAST(taskbar));
 	twm_window_set_zindex(twm_window, TWM_ZINDEX_MAX);
@@ -78,7 +78,7 @@ void create_taskbar(twm_screen_t screen) {
 }
 
 static size_t find_index(twm_window_t window) {
-	for (size_t i=0; i<tgui_list_model_count(TGUI_LIST_MODEL_CAST(taskbutton_list)); i++) {
+	for (size_t i=0; i < tgui_list_model_get_count(TGUI_LIST_MODEL_CAST(taskbutton_list)); i++) {
 		void *data = tgui_list_model_get_item(TGUI_LIST_MODEL_CAST(taskbutton_list), i);
 		twm_window_t current = (twm_window_t)(uintptr_t)data;
 		if (current == window) {
@@ -89,7 +89,7 @@ static size_t find_index(twm_window_t window) {
 }
 
 void taskbar_add_window(twm_window_t window) {
-	tgui_vector_append(taskbutton_list, (void*)(uintptr_t)window);
+	tgui_vector_append(taskbutton_list, (void *)(uintptr_t)window);
 }
 
 void taskbar_remove_window(twm_window_t window) {

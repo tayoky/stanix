@@ -3,6 +3,7 @@
 
 #include <tgui/tgui.h>
 #include <sys/types.h>
+#include <twm.h>
 
 typedef struct app {
     char *icon;

@@ -11,7 +11,6 @@
 #include <twm.h>
 #include <unistd.h>
 
-gfx_t *gfx;
 font_t *font;
 theme_t theme;
 int server_socket;
@@ -34,9 +33,9 @@ void load_theme(void) {
 	theme.padding         = 2;
 	theme.button_width    = 16 + theme.padding * 2;
 	theme.titlebar_height = theme.button_width + theme.padding * 2;
-	theme.font_color      = gfx_color(gfx, 0xC0, 0xC0, 0xC0);
-	theme.primary         = gfx_color(gfx, 0x10, 0x10, 0x10);
-	theme.secondary       = gfx_color(gfx, 0x10, 0x50, 0x10);
+	theme.font_color      = gfx_color(get_screen(1)->gfx, 0xC0, 0xC0, 0xC0);
+	theme.primary         = gfx_color(get_screen(1)->gfx, 0x10, 0x10, 0x10);
+	theme.secondary       = gfx_color(get_screen(1)->gfx, 0x10, 0x50, 0x10);
 }
 
 int main() {
@@ -94,7 +93,7 @@ int main() {
 
 	utils_init_hashmap(&windows, 512);
 	utils_init_vector(&clients, sizeof(client_t));
-	screen_init()
+	screen_init();
 	if (screens_count == 0) {
 		error("no screen found");
 		return 1;
@@ -108,8 +107,7 @@ int main() {
 
 	load_theme();
 
-
-	theme.cursor_texture = gfx_load_texture(gfx, "/usr/share/twm/cursor.qoi");
+	theme.cursor_texture = gfx_load_texture(get_screen(1)->gfx, "/usr/share/twm/cursor.qoi");
 	if (!font) {
 		error("no cursor image");
 		return 1;
@@ -157,7 +155,7 @@ restart_loop:
 	utils_free_vector(&clients);
 
 	gfx_free_font(font);
-	gfx_free(gfx);
+	screen_fini();
 	close(server_socket);
 	libinput_close(mouse);
 	libinput_close_keyboard(kb);

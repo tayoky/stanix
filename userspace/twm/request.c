@@ -268,7 +268,7 @@ int handle_request(client_t *client) {
 		handle_redraw_window(client, (twm_request_redraw_window_t *)request);
 		break;
 	case TWM_REQUEST_GET_SCREEN_ATTR:
-		handle_get_screen_attr(client, (twm_request_get_screen_fb_t *)attr);
+		handle_get_screen_attr(client, (twm_request_get_screen_attr_t *)request);
 		break;
 	case TWM_REQUEST_START_DRAGGING:
 		handle_start_dragging(client, (twm_request_start_dragging_t *)request);

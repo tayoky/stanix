@@ -109,7 +109,7 @@ int is_inside_window(window_t *window, long x, long y, long width, long height);
 void screen_add(screen_t *screen);
 void screen_remove(screen_t *screen);
 void screen_init(void);
-void send_screens(void);
+void screen_fini(void);
 int is_inside_screen(screen_t *screen, long x, long y, long width, long height);
 screen_t *get_screen(twm_screen_t id);
 screen_t *get_screen_at(long x, long y);

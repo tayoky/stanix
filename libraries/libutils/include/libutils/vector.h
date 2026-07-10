@@ -50,6 +50,6 @@ static inline int utils_vector_pop_back(utils_vector_t *vector, void *element){
 
 #define utils_vector_foreach(vector, element) for (void *element = (vector)->data; \
 	(char*)element - (char*) (vector)->data < (vector)->count * (vector)->element_size; \
-	element = (char*)element + vector->element_size)
+	element = (char*)element + (vector)->element_size)
 
 #endif

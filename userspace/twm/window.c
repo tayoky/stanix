@@ -39,7 +39,7 @@ void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, lo
 
 	// now find size
 	// maximized windows inherit size of parent
-	while (window && (window->attribute & TWM_ATTR_MAXIMIZE)) {
+	while (window && (window->attribute & TWM_ATTR_MAXIMIZED)) {
 		window = window->parent;
 	}
 
@@ -49,8 +49,8 @@ void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, lo
 	} else {
 		screen_t *screen = get_screen_at(*x, *y);
 		if (screen) {
-			*width  = screen->gfx.width;
-			*height = screen->gfx.height;
+			*width  = screen->gfx->width;
+			*height = screen->gfx->height;
 		} else {
 			*width = 0;
 			*height = 0;
@@ -317,7 +317,8 @@ void window_get_fb(window_t *window, twm_fb_info_t *info, const char **framebuff
 		long win_x, win_y, win_width, win_height;
 		window_get_inner_bounds(window, &win_x, &win_y, &win_width, &win_height);
 
-		gfx_t *gfx = window->screen->gfx;
+		screen_t *screen = get_screen_at(0, 0);
+		gfx_t *gfx = screen->gfx;
 		size_t framebuffer_size  = win_width * win_height * (gfx->bpp / 8);
 		ftruncate(window->framebuffer_fd, framebuffer_size);
 

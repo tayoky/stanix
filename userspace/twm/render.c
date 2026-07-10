@@ -58,7 +58,7 @@ void move_cursor(cursor_t *cursor, long new_x, long new_y) {
 	invalidate_rect(cursor->x, cursor->y, theme.cursor_texture->width, theme.cursor_texture->height);
 }
 
-static void invalidate_screen_rect(long x, long y, long width, long height) {
+static void invalidate_screen_rect(screen_t *screen, long x, long y, long width, long height) {
 	long end_x = x + width;
 	long end_y = y + height;
 
@@ -69,7 +69,7 @@ static void invalidate_screen_rect(long x, long y, long width, long height) {
 }
 
 void invalidate_rect(long x, long y, long width, long height) {
-	utils_hashmap_foreach(key, screen, &screens) {
+	utils_hashmap_foreach(id, screen, &screens) {
 		(void)id;
 		if (is_inside_screen(screen, x, y, width, height)) {
 			invalidate_screen_rect(screen, x, y, width, height);
@@ -100,7 +100,7 @@ static void render_screen(screen_t *screen) {
 	for (int zindex = TWM_ZINDEX_MIN; zindex <= TWM_ZINDEX_MAX; zindex++) {
 		utils_list_foreach(&window_stacks[zindex], node) {
 			window_t *current = WINDOW_FROM_NODE(node);
-			if (!is_inside_window(current, invalidate_start_x, invalidate_start_y, invalidate_width, invalidate_height)) continue;
+			if (!is_inside_window(current, screen->invalidate_start_x, screen->invalidate_start_y, invalidate_width, invalidate_height)) continue;
 			render_window_content(screen, current);
 			if (current->attribute & TWM_ATTR_DECORED) {
 				render_window_decor(screen, current);
@@ -115,7 +115,7 @@ static void render_screen(screen_t *screen) {
 		render_cursor(screen, &cursor);
 	}
 
-	gfx_push_rect(gfx, invalidate_start_x - screen->x, invalidate_start_y - screen->y, invalidate_width, invalidate_height);
+	gfx_push_rect(gfx, screen->invalidate_start_x - screen->x, screen->invalidate_start_y - screen->y, invalidate_width, invalidate_height);
 
 	screen->invalidate_start_x = LONG_MAX;
 	screen->invalidate_start_y = LONG_MAX;
@@ -124,7 +124,7 @@ static void render_screen(screen_t *screen) {
 }
 
 void render(void) {
-	utils_hashmap_foreach(key, screen, &screens) {
+	utils_hashmap_foreach(id, screen, &screens) {
 		(void)id;
 		render_screen(screen);
 	}

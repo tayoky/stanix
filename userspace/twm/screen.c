@@ -1,6 +1,7 @@
 #include <twm-internal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 size_t screens_count;
 utils_hashmap_t screens;
@@ -34,7 +35,7 @@ void screen_add(screen_t *screen) {
 	screen->invalidate_start_y = LONG_MAX;
 	utils_hashmap_add(&screens, screen->id, screen);
 	screens_count++;
-	utils_vector_foreach(&screens, client) {
+	utils_vector_foreach(&clients, client) {
 		send_screen_add_event(client, screen);
 	}
 }
@@ -42,7 +43,7 @@ void screen_add(screen_t *screen) {
 void screen_remove(screen_t *screen) {
 	utils_hashmap_remove(&screens,screen->id);
 	screens_count--;
-	utils_vector_foreach(&screens, client) {
+	utils_vector_foreach(&clients, client) {
 		send_screen_remove_event(client, screen);
 	}
 	free(screen->name);
@@ -62,7 +63,7 @@ void screen_add_fb(const char *path) {
 }
 
 void screen_init(void) {
-	utils_init_hashmap(&screens);
+	utils_init_hashmap(&screens, 16);
 	for (int i=0; i<10; i++) {
 		char path[32];
 		sprintf(path, "/dev/fb%d", i);
@@ -70,11 +71,18 @@ void screen_init(void) {
 	}
 }
 
+void screen_fini(void) {
+	utils_hashmap_foreach(id, screen, &screens) {
+		(void)id;
+		screen_remove(screen);
+	}
+}
+
 int is_inside_screen(screen_t *screen, long x, long y, long width, long height) {
 	if (x + width <= screen->x) return 0;
 	if (y + height <= screen->y) return 0;
-	if (x >= screen->x + screen->width) return 0;
-	if (y >= screen->y + screen->height) return 0;
+	if (x >= screen->x + screen->gfx->width) return 0;
+	if (y >= screen->y + screen->gfx->height) return 0;
 	return 1;
 }
 
@@ -83,7 +91,7 @@ screen_t *get_screen(twm_screen_t id) {
 }
 
 screen_t *get_screen_at(long x, long y) {
-	utils_hashmap_foreach(key, element, &screens) {
+	utils_hashmap_foreach(id, element, &screens) {
 		(void)id;
 		screen_t *screen = element;
 		if (x < screen->x) continue;
@@ -96,7 +104,7 @@ screen_t *get_screen_at(long x, long y) {
 }
 
 void send_screens(client_t *client) {
-	utils_hashmap_foreach(key, screen, &screens) {
+	utils_hashmap_foreach(id, screen, &screens) {
 		(void)id;
 		send_screen_add_event(client, screen);
 	}
