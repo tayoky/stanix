@@ -102,6 +102,7 @@ void window_mark_framebuffer_old(window_t *window);
 void window_set_size(window_t *window, long width, long height);
 window_t *get_window(twm_window_t id);
 window_t *get_window_at(long x, long y);
+screen_t *window_get_screen(window_t *window);
 void set_window_attr(window_t *window, long attr);
 int update_focus(window_t *window);
 void set_grab(window_t *window, long offset_x, long offset_y);

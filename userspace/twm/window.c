@@ -10,22 +10,51 @@ utils_hashmap_t windows;
 utils_list_t window_stacks[TWM_ZINDEX_COUNT];
 window_t *focus_window;
 
-void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height) {
-	*x      = 0;
-	*y      = 0;
-	*width  = window->width;
-	*height = window->height;
-	if (window->attribute & TWM_ATTR_MAXIMIZED) {
-		*width  = gfx->width;
-		*height = gfx->height;
-	}
+static void window_get_coords(window_t *window, long *x, long *y) {
+	*x = 0;
+	*y = 0;
 	while (window) {
 		if (window->attribute & TWM_ATTR_MAXIMIZED) {
-			break;
+			if (window->parent) {
+				// same coords as parent
+				window = window->parent;
+				continue;
+			} else {
+				// no parent, same coords as screen
+				screen_t *screen = get_screen_at(window->x, window->y);
+				if (!screen) break;
+				*x += screen->x;
+				*y += screen->y;
+				break;
+			}
 		}
 		*x += window->x;
 		*y += window->y;
 		window = window->parent;
+	}
+}
+
+void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, long *height) {
+	window_get_coords(window, x, y);
+
+	// now find size
+	// maximized windows inherit size of parent
+	while (window && (window->attribute & TWM_ATTR_MAXIMIZE)) {
+		window = window->parent;
+	}
+
+	if (window) {
+		*width  = window->width;
+		*height = window->height;
+	} else {
+		screen_t *screen = get_screen_at(*x, *y);
+		if (screen) {
+			*width  = screen->gfx.width;
+			*height = screen->gfx.height;
+		} else {
+			*width = 0;
+			*height = 0;
+		}
 	}
 }
 
@@ -352,4 +381,10 @@ void window_set_zindex(window_t *window, int zindex) {
 	remove_window_from_stack(window);
 	window->zindex = zindex;
 	push_window_at_top(window);
+}
+
+screen_t *window_get_screen(window_t *window) {
+	long x, y, width, height;
+	window_get_bounds(window, &x, &y, &width, &height);
+	return get_screen_at(x, y);
 }
