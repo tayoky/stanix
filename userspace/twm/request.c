@@ -164,30 +164,34 @@ static void handle_redraw_window(client_t *client, twm_request_redraw_window_t *
 	invalidate_rect(win_x + request->x, win_y + request->y, request->width, request->height);
 }
 
-static void handle_get_screen_fb(client_t *client, twm_request_get_screen_fb_t *request) {
+static void handle_get_screen_attr(client_t *client, twm_request_get_screen_attr_t *request) {
 	screen_t *screen = get_screen(request->id);
 	if (!screen) return;
 
 	gfx_t *gfx = screen->gfx;
-	twm_event_screen_fb_t event = {
+	twm_event_screen_attr_t event = {
 		.base = {
 			.request_id = request->base.id,
 			.size       = sizeof(event),
 		},
-		.fb_info = {
-			.bpp = gfx->bpp,
-			.red_mask_shift   = gfx->red_mask_shift,
-			.red_mask_size    = gfx->red_mask_size,
-			.green_mask_shift = gfx->green_mask_shift,
-			.green_mask_size  = gfx->green_mask_size,
-			.blue_mask_shift  = gfx->blue_mask_shift,
-			.blue_mask_size   = gfx->blue_mask_size,
-			.width = gfx->width,
-			.height = gfx->height,
-			.pitch = gfx->pitch,
+		.attr = {
+			.fb_info = {
+				.bpp = gfx->bpp,
+				.red_mask_shift   = gfx->red_mask_shift,
+				.red_mask_size    = gfx->red_mask_size,
+				.green_mask_shift = gfx->green_mask_shift,
+				.green_mask_size  = gfx->green_mask_size,
+				.blue_mask_shift  = gfx->blue_mask_shift,
+				.blue_mask_size   = gfx->blue_mask_size,
+				.width = gfx->width,
+				.height = gfx->height,
+				.pitch = gfx->pitch,
+			},
+			.x = screen->x,
+			.y = screen->y,
 		}
 	};
-	strcpy(event.path, getenv("FB"));
+	strcpy(event.attr.name, screen->name);
 	send_event(client, (twm_event_t *)&event);
 }
 
@@ -263,8 +267,8 @@ int handle_request(client_t *client) {
 	case TWM_REQUEST_REDRAW_WINDOW:
 		handle_redraw_window(client, (twm_request_redraw_window_t *)request);
 		break;
-	case TWM_REQUEST_GET_SCREEN_FB:
-		handle_get_screen_fb(client, (twm_request_get_screen_fb_t *)request);
+	case TWM_REQUEST_GET_SCREEN_ATTR:
+		handle_get_screen_attr(client, (twm_request_get_screen_fb_t *)attr);
 		break;
 	case TWM_REQUEST_START_DRAGGING:
 		handle_start_dragging(client, (twm_request_start_dragging_t *)request);

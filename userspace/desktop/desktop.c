@@ -72,11 +72,12 @@ int main() {
 
 	utils_init_hashmap(&buttons, 128);
 
-	twm_fb_info_t screen;
-	twm_get_screen_fb(0, &screen);
+	// TODO : multi screen support
+	twm_screen_attr_t screen;
+	twm_get_screen_attr(0, &screen);
 
-	window = tgui_window_new("taskbar", screen.width, 50);
-	tgui_surface_set_position(TGUI_SURFACE_CAST(window), 0, screen.height - 50);
+	window = tgui_window_new("taskbar", screen.fb_info.width, 50);
+	tgui_surface_set_position(TGUI_SURFACE_CAST(window), 0, screen.fb_info.height - 50);
 	tgui_window_set_title_bar(window, TGUI_FALSE);
 	twm_window_t twm_window = tgui_surface_get_twm_window(TGUI_SURFACE_CAST(window));
 	twm_window_set_zindex(twm_window, TWM_ZINDEX_MAX);

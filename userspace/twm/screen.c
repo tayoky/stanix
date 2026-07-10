@@ -6,11 +6,25 @@ size_t screens_count;
 utils_hashmap_t screens;
 
 static void send_screen_add_event(client_t *client, screen_t *screen) {
-	// TODO
+	twm_event_screen_t screen_event = {
+		.base = {
+			.type = TWM_EVENT_SCREEN_ADDED,
+			.size = sizeof(screen_event),
+		},
+		.screen = screen->id,
+	};
+	send_event(client, (twm_event_t *)&screen_event);
 }
 
 static void send_screen_remove_event(client_t *client, screen_t *screen) {
-	// TODO
+	twm_event_screen_t screen_event = {
+		.base = {
+			.type = TWM_EVENT_SCREEN_REMOVED,
+			.size = sizeof(screen_event),
+		},
+		.screen = screen->id,
+	};
+	send_event(client, (twm_event_t *)&screen_event);
 }
 
 void screen_add(screen_t *screen) {
@@ -31,6 +45,7 @@ void screen_remove(screen_t *screen) {
 	utils_vector_foreach(&screens, client) {
 		send_screen_remove_event(client, screen);
 	}
+	free(screen->name);
 	gfx_free(screen->gfx);
 	free(screen);
 }
@@ -42,6 +57,7 @@ void screen_add_fb(const char *path) {
 	screen_t *screen = malloc(sizeof(screen_t));
 	memset(screen, 0, sizeof(screen_t));
 	screen->gfx = gfx;
+	screen->name = strdup(path);
 	screen_add(screen);
 }
 
@@ -52,6 +68,14 @@ void screen_init(void) {
 		sprintf(path, "/dev/fb%d", i);
 		screen_add_fb(path);
 	}
+}
+
+int is_inside_screen(screen_t *screen, long x, long y, long width, long height) {
+	if (x + width <= screen->x) return 0;
+	if (y + height <= screen->y) return 0;
+	if (x >= screen->x + screen->width) return 0;
+	if (y >= screen->y + screen->height) return 0;
+	return 1;
 }
 
 screen_t *get_screen(twm_screen_t id) {

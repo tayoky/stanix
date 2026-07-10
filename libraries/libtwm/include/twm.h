@@ -33,7 +33,7 @@ typedef struct twm_request {
 #define TWM_REQUEST_GET_WINDOW_ATTR   5
 #define TWM_REQUEST_SET_WINDOW_ATTR   6
 #define TWM_REQUEST_REDRAW_WINDOW     7
-#define TWM_REQUEST_GET_SCREEN_FB     8
+#define TWM_REQUEST_GET_SCREEN_ATTR   8
 #define TWM_REQUEST_START_DRAGGING    9
 #define TWM_REQUEST_GRAB_DESKTOP_HOOK 10
 #define TWM_REQUEST_SET_WINDOW_POS    11
@@ -70,7 +70,10 @@ typedef struct twm_event {
 #define TWM_EVENT_WINDOW_MINIMIZED     12
 #define TWM_EVENT_WINDOW_RESTORED      13
 #define TWM_EVENT_WINDOW_BUFFER_UPDATE 14
-#define TWM_EVENT_COUNT                15
+#define TWM_EVENT_SCREEN_ADDED         15
+#define TWM_EVENT_SCREEN_REMOVED       16
+#define TWM_EVENT_SCREEN_UPDATED       17
+#define TWM_EVENT_COUNT                18
 
 typedef struct twm_ctx {
 	uint64_t id_count;
@@ -92,6 +95,13 @@ typedef struct twm_window_attr {
 	int zindex;
 	char title[256];
 } twm_window_attr_t;
+
+typedef struct twm_screen_attr {
+	twm_fb_info_t fb_info;
+	long x;
+	long y;
+	char name[64];
+} twm_screen_attr_t;
 
 // requests
 
@@ -250,12 +260,16 @@ typedef struct twm_event_window {
 	twm_window_t window;
 } twm_event_window_t;
 
-typedef struct twm_event_screen_fb {
+typedef struct twm_event_screen_attr {
 	twm_event_t base;
 	twm_screen_t screen;
-	twm_fb_info_t fb_info;
-	char path[256];
-} twm_event_screen_fb_t;
+	twm_screen_attr_t attr;
+} twm_event_screen_attr_t;
+
+typedef struct twm_event_screen {
+	twm_event_t base;
+	twm_screen_t screen;
+} twm_event_screen_t;
 
 #define TWM_INPUT_KEY  0
 #define TWM_INPUT_MOVE 1
@@ -296,7 +310,7 @@ int twm_send_request(twm_request_t *request);
 twm_window_t twm_create_window(const char *title, long width, long height, twm_window_t parent);
 int twm_destroy_window(twm_window_t window);
 int twm_get_window_fb(twm_window_t window, int *fd, twm_fb_info_t *fb_info);
-int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info);
+int twm_get_screen_attr(twm_screen_t screen, twm_screen_attr_t *attr);
 int twm_set_window_attr(twm_window_t window, int how, long attr);
 int twm_get_window_attr(twm_window_t window, twm_window_attr_t *attr);
 int twm_window_move(twm_window_t window, long x, long y);

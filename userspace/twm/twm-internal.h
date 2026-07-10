@@ -16,6 +16,7 @@ typedef struct screen {
 	utils_list_node_t node;
 	twm_screen_t id;
 	gfx_t *gfx;
+	char *name;
 	long invalidate_start_x;
 	long invalidate_start_y;
 	long invalidate_end_x;
@@ -109,8 +110,9 @@ void screen_add(screen_t *screen);
 void screen_remove(screen_t *screen);
 void screen_init(void);
 void send_screens(void);
+int is_inside_screen(screen_t *screen, long x, long y, long width, long height);
 screen_t *get_screen(twm_screen_t id);
-void send_screens(client_t *client);
 screen_t *get_screen_at(long x, long y);
+void send_screens(client_t *client);
 
 #endif

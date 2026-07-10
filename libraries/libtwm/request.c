@@ -231,7 +231,7 @@ int twm_start_dragging(twm_window_t window, long offset_x, long offset_y) {
 	return twm_send_request((twm_request_t*)&request);
 }
 
-int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info) {
+int twm_get_screen_attr(twm_screen_t screen, twm_screen_attr_t *attr) {
 	twm_request_get_screen_fb_t request = {
 		.base = {
 			.type = TWM_REQUEST_GET_SCREEN_FB,
@@ -243,8 +243,8 @@ int twm_get_screen_fb(twm_screen_t screen, twm_fb_info_t *fb_info) {
 	int ret = twm_send_request((twm_request_t*)&request);
 	if (ret < 0) return ret;
 
-	twm_event_screen_fb_t *event = wait_for_response(request.base.id);
-	*fb_info = event->fb_info;
+	twm_event_screen_screen_t *event = wait_for_response(request.base.id);
+	*attr = event->attr;
 	free(event);
 	return 0;
 }

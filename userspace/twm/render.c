@@ -69,13 +69,11 @@ static void invalidate_screen_rect(long x, long y, long width, long height) {
 }
 
 void invalidate_rect(long x, long y, long width, long height) {
-	screen_t *screen1 = get_screen(x, y);
-	screen_t *screen2 = get_screen(x + width, y + height);
-	if (screen1) {
-		invalidate_screen_rect(screen1, x, y, width, height);
-	}
-	if (screen1 != screen2 && screen2) {
-		invalidate_screen_rect(screen2, x, y, width, height);
+	utils_hashmap_foreach(key, screen, &screens) {
+		(void)id;
+		if (is_inside_screen(screen, x, y, width, height)) {
+			invalidate_screen_rect(screen, x, y, width, height);
+		}
 	}
 }
 
