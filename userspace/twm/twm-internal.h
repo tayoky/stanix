@@ -13,7 +13,6 @@ typedef struct client {
 } client_t;
 
 typedef struct screen {
-	utils_list_node_t node;
 	twm_screen_t id;
 	gfx_t *gfx;
 	char *name;

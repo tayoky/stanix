@@ -32,7 +32,7 @@ void screen_add(screen_t *screen) {
 	screen->id = id_count++;
 	screen->invalidate_start_x = LONG_MAX;
 	screen->invalidate_start_y = LONG_MAX;
-	utils_list_append(&screens, &screen->node);
+	utils_hashmap_add(&screens, screen->id, screen);
 	screens_count++;
 	utils_vector_foreach(&screens, client) {
 		send_screen_add_event(client, screen);
@@ -40,7 +40,7 @@ void screen_add(screen_t *screen) {
 }
 
 void screen_remove(screen_t *screen) {
-	utils_list_remove(&screens, &screen->node);
+	utils_hashmap_remove(&screens,screen->id);
 	screens_count--;
 	utils_vector_foreach(&screens, client) {
 		send_screen_remove_event(client, screen);
