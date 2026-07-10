@@ -7,26 +7,7 @@
 #include <libini.h>
 #include <desktop.h>
 
-tgui_window_t *window;
-tgui_box_t *main_box;
-tgui_popover_t *start_menu;
-tgui_popover_button_t *start_button;
 tgui_vector_t *app_list;
-utils_hashmap_t buttons;
-
-void taskbar_button_click(tgui_button_t *button, int stub, void *arg) {
-	(void)button;
-	(void)stub;
-	twm_window_t window = (twm_window_t)(uintptr_t)arg;
-	twm_window_attr_t attr;
-	twm_get_window_attr(window, &attr);
-
-	if (attr.attr & TWM_ATTR_MINIMIZED) {
-		twm_window_restore(window);
-	} else {
-		twm_window_minimize(window);
-	}
-}
 
 int desktop_hook(twm_event_t *event, void *arg) {
 	(void)arg;
@@ -34,31 +15,14 @@ int desktop_hook(twm_event_t *event, void *arg) {
 	puts("recive event");
 	twm_event_desktop_t *desktop_event = (twm_event_desktop_t *)event;
 	switch (desktop_event->type) {
-	case TWM_WINDOW_CREATED:;
-		twm_window_attr_t attr;
-		twm_get_window_attr(desktop_event->id, &attr);
-		
-		// only show top domain window
-		if (attr.parent != TWM_NULL) break;
-
-		tgui_button_t *button = tgui_button_new();
-		tgui_button_set_text(button, attr.title);
-		tgui_widget_connect_signal(TGUI_WIDGET_CAST(button), "click", TCALLBACK_CAST(taskbar_button_click), (void*)(uintptr_t)desktop_event->id);
-		tgui_box_append_widget(main_box, TGUI_WIDGET_CAST(button));
-		utils_hashmap_add(&buttons, desktop_event->id, button);
+	case TWM_WINDOW_CREATED:
+		taskbar_add_window(desktop_event->id);
 		break;
-	case TWM_WINDOW_DESTROYED:;
-		button = utils_hashmap_get(&buttons, desktop_event->id);
-		if (!button) break;
-		tgui_widget_destroy(TGUI_WIDGET_CAST(button));
-		utils_hashmap_remove(&buttons, desktop_event->id);
+	case TWM_WINDOW_DESTROYED:
+		taskbar_remove_window(desktop_event->id);
 		break;
 	case TWM_WINDOW_UPDATED:
-		button = utils_hashmap_get(&buttons, desktop_event->id);
-		if (!button) break;
-
-		twm_get_window_attr(desktop_event->id, &attr);
-		tgui_button_set_text(button, attr.title);
+		taskbar_update_window(desktop_event->id);
 		break;
 	}
 	return TGUI_TRUE;
@@ -70,26 +34,10 @@ int main() {
 		return 1;
 	}
 
-	utils_init_hashmap(&buttons, 128);
 
+	init_taskbar();
 	// TODO : multi screen support
-	twm_screen_attr_t screen;
-	twm_get_screen_attr(1, &screen);
-
-	window = tgui_window_new("taskbar", screen.fb_info.width, 50);
-	tgui_surface_set_position(TGUI_SURFACE_CAST(window), 0, screen.fb_info.height - 50);
-	tgui_window_set_title_bar(window, TGUI_FALSE);
-	twm_window_t twm_window = tgui_surface_get_twm_window(TGUI_SURFACE_CAST(window));
-	twm_window_set_zindex(twm_window, TWM_ZINDEX_MAX);
-	main_box = tgui_box_new();
-	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(main_box), TGUI_TRUE);
-	tgui_widget_set_orientation(TGUI_WIDGET_CAST(main_box), TGUI_ORIENTATION_HORIZONTAL);
-	tgui_window_set_child(window, TGUI_WIDGET_CAST(main_box));
-
-	start_menu = tgui_popover_new();
-	app_list = tgui_vector_new();
-	tgui_list_view_t *start_menu_list = tgui_list_view_new(&app_factory, TGUI_LIST_MODEL_CAST(app_list));
-	tgui_popover_set_child(start_menu, TGUI_WIDGET_CAST(start_menu_list));
+	create_taskbar(1);
 
 	// TODO : cleanup
 	DIR *dir = opendir("/etc/desktop.d");
@@ -111,11 +59,6 @@ int main() {
 		}
 		closedir(dir);
 	}
-
-	start_button = tgui_popover_button_new(start_menu, "");
-	tgui_popover_button_set_direction(start_button, TGUI_DIRECTION_TOP);
-	tgui_button_set_icon(TGUI_BUTTON_CAST(start_button), "stanix24");
-	tgui_box_append_widget(main_box, TGUI_WIDGET_CAST(start_button));
 
 	// setup desktop hook
 	tgui_register_platform_handler((int(*)(void*,void*))desktop_hook, NULL);
