@@ -74,7 +74,7 @@ int main() {
 
 	// TODO : multi screen support
 	twm_screen_attr_t screen;
-	twm_get_screen_attr(0, &screen);
+	twm_get_screen_attr(1, &screen);
 
 	window = tgui_window_new("taskbar", screen.fb_info.width, 50);
 	tgui_surface_set_position(TGUI_SURFACE_CAST(window), 0, screen.fb_info.height - 50);
