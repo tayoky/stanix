@@ -34,6 +34,7 @@ int main() {
 		return 1;
 	}
 
+	app_list = tgui_vector_new();
 
 	init_taskbar();
 	// TODO : multi screen support
