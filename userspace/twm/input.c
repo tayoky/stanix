@@ -22,6 +22,7 @@ static void flush_mouse_move(long rel_x, long rel_y) {
 	long new_y = cursor.y + rel_y;
 	if (new_x < 0) new_x = 0;
 	if (new_y < 0) new_y = 0;
+	// TODO : cap at bottom right
 	//if (new_x + theme.cursor_texture->width > (size_t)gfx->width)  new_x = gfx->width - theme.cursor_texture->width;
 	//if (new_y + theme.cursor_texture->height > (size_t)gfx->height) new_y = gfx->height - theme.cursor_texture->height;
 	move_cursor(&cursor, new_x, new_y);

@@ -33,6 +33,10 @@ void screen_add(screen_t *screen) {
 	screen->id = id_count++;
 	screen->invalidate_start_x = LONG_MAX;
 	screen->invalidate_start_y = LONG_MAX;
+	screen->max_bounds_x = screen->x;
+	screen->max_bounds_y = screen->y;
+	screen->max_bounds_width  = screen->gfx->width;
+	screen->max_bounds_height = screen->gfx->height;
 	utils_hashmap_add(&screens, screen->id, screen);
 	screens_count++;
 	utils_vector_foreach(&clients, client) {
@@ -108,4 +112,12 @@ void send_screens(client_t *client) {
 		(void)id;
 		send_screen_add_event(client, screen);
 	}
+}
+
+void screen_set_max_bounds(screen_t *screen, long x, long y, long width, long height) {
+	screen->max_bounds_x = x;
+	screen->max_bounds_y = y;
+	screen->max_bounds_width  = width;
+	screen->max_bounds_height = height;
+	// TODO : mark any maximized window on the screen as dirty
 }

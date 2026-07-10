@@ -248,6 +248,21 @@ int twm_get_screen_attr(twm_screen_t screen, twm_screen_attr_t *attr) {
 	free(event);
 	return 0;
 }
+int twm_set_screen_max_bounds(twm_screen_t screen, long x, long y, long width, long height) {
+	twm_request_set_screen_max_bounds_t request = {
+		.base = {
+			.type = TWM_REQUEST_SET_SCREEN_MAX_BOUNDS,
+			.size = sizeof(request),
+		},
+		.screen = screen,
+		.x      = x,
+		.y      = y,
+		.width  = width,
+		.height = height,
+	};
+	
+	return twm_send_request((twm_request_t*)&request);
+}
 
 int twm_grab_desktop_hook(void) {
 	twm_request_grab_desktop_hook_t request = {

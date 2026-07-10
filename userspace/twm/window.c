@@ -23,8 +23,8 @@ static void window_get_coords(window_t *window, long *x, long *y) {
 				// no parent, same coords as screen
 				screen_t *screen = get_screen_at(window->x, window->y);
 				if (!screen) break;
-				*x += screen->x;
-				*y += screen->y;
+				*x += screen->max_bounds_x;
+				*y += screen->max_bounds_y;
 				break;
 			}
 		}
@@ -49,8 +49,8 @@ void window_get_inner_bounds(window_t *window, long *x, long *y, long *width, lo
 	} else {
 		screen_t *screen = get_screen_at(*x, *y);
 		if (screen) {
-			*width  = screen->gfx->width;
-			*height = screen->gfx->height;
+			*width  = screen->max_bounds_width;
+			*height = screen->max_bounds_height;
 		} else {
 			*width = 0;
 			*height = 0;

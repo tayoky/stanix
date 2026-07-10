@@ -51,8 +51,11 @@ void create_taskbar(twm_screen_t screen) {
 	twm_screen_attr_t screen_attr;
 	twm_get_screen_attr(screen, &screen_attr);
 
+	// modify max bounds so maximized windows do not overlap on taskbar
+	twm_set_screen_max_bounds(screen, screen_attr.x, screen_attr.y, screen_attr.fb_info.width, screen_attr.fb_info.height - 50);
+
 	tgui_window_t *taskbar = tgui_window_new("taskbar", screen_attr.fb_info.width, 50);
-	tgui_surface_set_position(TGUI_SURFACE_CAST(taskbar), 0, screen_attr.fb_info.height - 50);
+	tgui_surface_set_position(TGUI_SURFACE_CAST(taskbar), screen_attr.x, screen_attr.y + screen_attr.fb_info.height - 50);
 	tgui_window_set_title_bar(taskbar, TGUI_FALSE);
 	twm_window_t twm_window = tgui_surface_get_twm_window(TGUI_SURFACE_CAST(taskbar));
 	twm_window_set_zindex(twm_window, TWM_ZINDEX_MAX);

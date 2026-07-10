@@ -195,6 +195,16 @@ static void handle_get_screen_attr(client_t *client, twm_request_get_screen_attr
 	send_event(client, (twm_event_t *)&event);
 }
 
+static void handle_set_screen_max_bounds(client_t *client, twm_request_set_screen_max_bounds_t *request) {
+	screen_t *screen = get_screen(request->screen);
+	if (!screen) return;
+
+	// only desktop hook can chaneg this
+	if (client != desktop_hook) return;
+
+	screen_set_max_bounds(screen, request->x, request->y, request->width, request->height);
+}
+
 static void handle_start_dragging(client_t *client, twm_request_start_dragging_t *request) {
 	window_t *window = get_window(request->id);
 	if (!window) return;
@@ -269,6 +279,9 @@ int handle_request(client_t *client) {
 		break;
 	case TWM_REQUEST_GET_SCREEN_ATTR:
 		handle_get_screen_attr(client, (twm_request_get_screen_attr_t *)request);
+		break;
+	case TWM_REQUEST_SET_SCREEN_MAX_BOUNDS:
+		handle_set_screen_max_bounds(client, (twm_request_set_screen_max_bounds_t *)request);
 		break;
 	case TWM_REQUEST_START_DRAGGING:
 		handle_start_dragging(client, (twm_request_start_dragging_t *)request);

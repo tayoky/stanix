@@ -26,22 +26,23 @@ typedef struct twm_request {
 	int type;
 } twm_request_t;
 
-#define TWM_REQUEST_INIT              1
-#define TWM_REQUEST_CREATE_WINDOW     2
-#define TWM_REQUEST_DESTROY_WINDOW    3
-#define TWM_REQUEST_GET_WINDOW_FB     4
-#define TWM_REQUEST_GET_WINDOW_ATTR   5
-#define TWM_REQUEST_SET_WINDOW_ATTR   6
-#define TWM_REQUEST_REDRAW_WINDOW     7
-#define TWM_REQUEST_GET_SCREEN_ATTR   8
-#define TWM_REQUEST_START_DRAGGING    9
-#define TWM_REQUEST_GRAB_DESKTOP_HOOK 10
-#define TWM_REQUEST_SET_WINDOW_POS    11
-#define TWM_REQUEST_GRAB_INPUT        12
-#define TWM_REQUEST_SET_WINDOW_TITLE  13
-#define TWM_REQUEST_SET_WINDOW_SIZE   14
-#define TWM_REQUEST_SET_WINDOW_ZINDEX 15
-#define TWM_REQUEST_COUNT             16
+#define TWM_REQUEST_INIT                  1
+#define TWM_REQUEST_CREATE_WINDOW         2
+#define TWM_REQUEST_DESTROY_WINDOW        3
+#define TWM_REQUEST_GET_WINDOW_FB         4
+#define TWM_REQUEST_GET_WINDOW_ATTR       5
+#define TWM_REQUEST_SET_WINDOW_ATTR       6
+#define TWM_REQUEST_REDRAW_WINDOW         7
+#define TWM_REQUEST_GET_SCREEN_ATTR       8
+#define TWM_REQUEST_START_DRAGGING        9
+#define TWM_REQUEST_GRAB_DESKTOP_HOOK     10
+#define TWM_REQUEST_SET_WINDOW_POS        11
+#define TWM_REQUEST_GRAB_INPUT            12
+#define TWM_REQUEST_SET_WINDOW_TITLE      13
+#define TWM_REQUEST_SET_WINDOW_SIZE       14
+#define TWM_REQUEST_SET_WINDOW_ZINDEX     15
+#define TWM_REQUEST_SET_SCREEN_MAX_BOUNDS 16
+#define TWM_REQUEST_COUNT                 17
 
 #define TWM_WINDOW_SHOW   1
 #define TWM_WINDOW_WIDTH  2
@@ -203,6 +204,15 @@ typedef struct twm_request_get_screen_attr {
 	twm_screen_t id;
 } twm_request_get_screen_attr_t;
 
+typedef struct twm_request_set_screen_max_bounds {
+	twm_request_t base;
+	twm_screen_t screen;
+	long x;
+	long y;
+	long width;
+	long height;
+} twm_request_set_screen_max_bounds_t;
+
 typedef struct twm_request_start_dragging_fb {
 	twm_request_t base;
 	twm_window_t id;
@@ -324,6 +334,7 @@ int twm_window_set_zindex(twm_window_t window, int zindex);
 int twm_grab_input(twm_window_t window, int confine_cursor);
 int twm_redraw_window(twm_window_t window, long x, long y, long width, long height);
 int twm_start_dragging(twm_window_t window, long offset_x, long offset_y);
+int twm_set_screen_max_bounds(twm_screen_t screen, long x, long y, long width, long height);
 int twm_grab_desktop_hook(void);
 struct gfx_context *twm_get_window_gfx(twm_window_t window);
 int twm_opengl_init(void);

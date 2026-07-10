@@ -22,6 +22,10 @@ typedef struct screen {
 	long invalidate_end_y;
 	long x;
 	long y;
+	long max_bounds_x;
+	long max_bounds_y;
+	long max_bounds_width;
+	long max_bounds_height;
 } screen_t;
 
 typedef struct window {
@@ -114,5 +118,6 @@ int is_inside_screen(screen_t *screen, long x, long y, long width, long height);
 screen_t *get_screen(twm_screen_t id);
 screen_t *get_screen_at(long x, long y);
 void send_screens(client_t *client);
+void screen_set_max_bounds(screen_t *screen, long x, long y, long width, long height);
 
 #endif
