@@ -1,20 +1,20 @@
 #ifndef KERNEL_TTY_H
 #define KERNEL_TTY_H
 
-#include <kernel/vfs.h>
-#include <kernel/ringbuf.h>
-#include <kernel/list.h>
-#include <kernel/scheduler.h>
 #include <kernel/device.h>
-#include <termios.h>
-#include <sys/ioctl.h>
+#include <kernel/list.h>
+#include <kernel/ringbuf.h>
+#include <kernel/scheduler.h>
+#include <kernel/vfs.h>
+#include <abi/ioctl.h>
+#include <abi/termios.h>
 
 struct tty;
 
 typedef struct tty_ops {
-	int (* ioctl)(struct tty *, long , void *);
-	ssize_t (* out)(struct tty *, const char *, size_t);
-	void (* cleanup)(struct tty *);
+	int (*ioctl)(struct tty *, long, void *);
+	ssize_t (*out)(struct tty *, const char *, size_t);
+	void (*cleanup)(struct tty *);
 } tty_ops_t;
 
 typedef struct tty {
@@ -38,13 +38,13 @@ typedef struct pty {
 
 /**
  * @brief give a char to the input of a tty
- * @param tty 
- * @param c 
+ * @param tty
+ * @param c
  * @return
  */
-int tty_input(tty_t *tty,char c);
+int tty_input(tty_t *tty, char c);
 
-int tty_output(tty_t *tty,char c);
+int tty_output(tty_t *tty, char c);
 
 int tty_do_ioctl(tty_t *fd, long request, void *arg);
 
@@ -57,7 +57,7 @@ int tty_do_ioctl(tty_t *fd, long request, void *arg);
 tty_t *new_tty(tty_t *tty);
 
 
-int new_pty(vfs_fd_t **master,vfs_fd_t **slave,tty_t **);
+int new_pty(vfs_fd_t **master, vfs_fd_t **slave, tty_t **);
 
 void init_ptys(void);
 
