@@ -46,7 +46,6 @@ typedef struct task {
 	uintptr_t kernel_stack;
 
 	struct registers *syscall_frame;
-	void *exit_arg;
 	struct task *waker;
 	struct task *_Atomic waiter; // task waiting on us
 	spinlock_t state_lock;

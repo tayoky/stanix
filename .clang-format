@@ -39,14 +39,17 @@ IncludeCategories:
   - Regex: '<module/'
     Priority: 2
     CaseSensitive: true
-  - Regex: '<sys/'
+  - Regex: '<abi/'
     Priority: 3
     CaseSensitive: true
-  - Regex: '<.*>'
+  - Regex: '<sys/'
     Priority: 4
     CaseSensitive: true
-  - Regex: '.*'
+  - Regex: '<.*>'
     Priority: 5
+    CaseSensitive: true
+  - Regex: '.*'
+    Priority: 6
     CaseSensitive: true
 IndentGotoLabels: false
 IndentCaseLabels: false

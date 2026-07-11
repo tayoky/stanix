@@ -1132,8 +1132,7 @@ int sys_new_thread(void (*fn)(void *), void *stack, int flags, void *arg, pid_t 
 	return 0;
 }
 
-int sys_thread_exit(void *arg) {
-	get_current_task()->exit_arg = arg;
+int sys_thread_exit(void) {
 	kill_task();
 	return 0;
 }
@@ -1148,10 +1147,7 @@ int sys_settls(void *tls) {
 }
 
 //FIXME : probably full of race condition
-int sys_thread_join(pid_t tid, void **arg) {
-	if (arg && !CHECK_STRUCT(arg)) {
-		return -EFAULT;
-	}
+int sys_thread_join(pid_t tid) {
 	int ret = 0;
 	task_t *thread = tid2task(tid);
 	kdebugf("wait for %ld\n", tid);
@@ -1176,12 +1172,6 @@ int sys_thread_join(pid_t tid, void **arg) {
 
 	// destroy the task
 	task_release(thread);
-
-	if (arg) {
-		if (safe_copy_to(arg, &thread->exit_arg, sizeof(void*) < 0)) {
-			ret = -EFAULT;
-		}
-	}
 
 err:
 	task_release(thread);
