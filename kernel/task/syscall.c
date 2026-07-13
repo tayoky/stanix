@@ -108,7 +108,12 @@ ssize_t sys_read(int fd, void *buffer, size_t count) {
 	int ret = get_fd(fd, &file);
 	if (ret < 0) return ret;
 	
-	return vfs_user_read(file.fd, buffer, count);
+	const char *name = file.fd->dentry ? file.fd->dentry->name : NULL;
+	ssize_t r = vfs_user_read(file.fd, buffer, count);
+	if (name && !strcmp(name, "video.mp4")) {
+		kdebugf("read(\"video.mp4\", %p, %zu) = %ld\n", buffer, count, r);
+	}
+	return r;
 }
 
 void sys_exit(int error_code) {
@@ -167,8 +172,9 @@ off_t sys_seek(int fd, off_t offset, int whence) {
 	file_descriptor_t file;
 	int ret = get_fd(fd, &file);
 	if (ret < 0) return ret;
-
-	return vfs_seek(file.fd, offset, whence);
+	off_t off = vfs_seek(file.fd, offset, whence);
+	kdebugf("did lseek(%s, %ld; %d) = %ld\n", file.fd->dentry ? file.fd->dentry->name : NULL, offset, whence, off);
+	return off;
 }
 
 uint64_t sys_sbrk(intptr_t incr) {
@@ -353,7 +359,7 @@ int sys_fstat(int fd, struct stat *st) {
 	if (ret < 0) return ret;
 	
 	struct stat kst;
-	ret = vfs_getattr(file.fd->inode, st);
+	ret = vfs_getattr(file.fd->inode, &kst);
 	if (ret < 0) return ret;
 
 	return safe_copy_auto_to(st, &kst);
