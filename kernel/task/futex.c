@@ -58,19 +58,16 @@ static int futex_wake(long *addr, long val) {
 }
 
 static int futex_wait(long *addr, long val) {
+	kdebugf("futex wait\n");
 	block_prepare_interruptible();
 	if (*addr != val) {
 		block_cancel();
-		return 0;
+		return -EAGAIN;
 	}
 	spinlock_acquire(&futexes_lock);
 	sleep_queue_t *queue = futex_from_addr(addr);
 	if (!queue) {
 		queue = new_futex_for_addr(addr);
-	}
-	if (queue) {
-		spinlock_release(&futexes_lock);
-		return -EFAULT;
 	}
 
 	sleep_add_to_queue(queue);
@@ -78,11 +75,14 @@ static int futex_wait(long *addr, long val) {
 		spinlock_release(&futexes_lock);
 		sleep_remove_from_queue(queue);
 		block_cancel();
-		return 0;
+		return -EAGAIN;
 	}
 	spinlock_release(&futexes_lock);
-	return block_task();
-	// TODO : remove from queue if interrupted
+	int ret = block_task();
+	if (ret == -EINTR) {
+		sleep_remove_from_queue(queue);
+	}
+	return ret;
 }
 
 int do_futex(long *addr, int op, long val) {
