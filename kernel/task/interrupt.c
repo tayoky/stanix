@@ -15,8 +15,8 @@ void timer_handler(registers_t *frame) {
 	}
 }
 
-// called when a fault/interrupt
-int fault_handler(registers_t *frame) {
+// called on page faults
+int page_fault_handler(registers_t *frame) {
 	if (arch_registers_is_userspace(frame) && arch_fault_get_addr(frame) == MAGIC_SIGRETURN) {
 		restore_signal_handler(frame);
 	}
@@ -51,11 +51,21 @@ int fault_handler(registers_t *frame) {
 	// TODO : remove this
 	arch_registers_stacktrace(frame);
 
-	//TODO : send appropriate signal
 	send_sig_task(get_current_task(), SIGSEGV);
 
 	if (arch_registers_is_userspace(frame)) {
 		handle_signal(frame);
 	}
+	return 1;
+}
+
+int fpu_fault_handler(registers_t *frame) {
+	if (!arch_registers_is_userspace(frame)) {
+		// if it's kernel it's probably a panic
+		return 0;
+	}
+
+	send_sig_task(get_current_task(), SIGFPE);
+	handle_signal(frame);
 	return 1;
 }

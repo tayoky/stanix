@@ -74,8 +74,12 @@ static void page_fault_info(registers_t *fault) {
 
 void isr_handler(registers_t *registers) {
 	if (registers->err_type < 32) {
-		if (fault_handler(registers)) return;
-
+		if (registers->err_type == 14) {
+			if (page_fault_handler(registers)) return;
+		} else if (registers->err_type == 19) {
+			if (fpu_fault_handler(registers)) return;
+		}
+			
 		// special case for safe copy
 		if (registers->err_type == 14 && registers->rip == (uintptr_t)safe_copy_fault) {
 			registers->rip = (uintptr_t)safe_copy_resolve_fault;
