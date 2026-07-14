@@ -109,11 +109,7 @@ ssize_t sys_read(int fd, void *buffer, size_t count) {
 	if (ret < 0) return ret;
 	
 	const char *name = file.fd->dentry ? file.fd->dentry->name : NULL;
-	ssize_t r = vfs_user_read(file.fd, buffer, count);
-	if (name && !strcmp(name, "video.mp4")) {
-		kdebugf("read(\"video.mp4\", %p, %zu) = %ld\n", buffer, count, r);
-	}
-	return r;
+	return vfs_user_read(file.fd, buffer, count);
 }
 
 void sys_exit(int error_code) {
@@ -172,9 +168,7 @@ off_t sys_seek(int fd, off_t offset, int whence) {
 	file_descriptor_t file;
 	int ret = get_fd(fd, &file);
 	if (ret < 0) return ret;
-	off_t off = vfs_seek(file.fd, offset, whence);
-	kdebugf("did lseek(%s, %ld; %d) = %ld\n", file.fd->dentry ? file.fd->dentry->name : NULL, offset, whence, off);
-	return off;
+	return vfs_seek(file.fd, offset, whence);
 }
 
 uint64_t sys_sbrk(intptr_t incr) {

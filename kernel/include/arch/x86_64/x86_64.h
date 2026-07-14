@@ -49,8 +49,26 @@ typedef struct registers {
 	uint64_t ss;
 } registers_t;
 
+typedef uint64_t stmm_t[2];
+typedef uint64_t xmm_t[2];
+
+typedef struct fpu_regs {
+	uint16_t fcw;
+	uint16_t fsw;
+	uint8_t ftw;
+	uint8_t reserved1;
+	uint16_t fop;
+	uint64_t fip;
+	uint64_t fdp;
+	uint32_t mxcsr;
+	uint32_t mxcsr_mask;
+	stmm_t stmms[8];
+	xmm_t xmms[16];
+	uint8_t reserved2[96];
+} __attribute__((packed, aligned(16))) fpu_regs_t;
+
 typedef struct acontext {
-	char sse[512];
+	fpu_regs_t fpu;
 	registers_t frame;
 	uint64_t fs_base;
 } __attribute__((aligned(16))) acontext_t;

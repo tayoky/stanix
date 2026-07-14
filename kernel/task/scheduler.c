@@ -218,6 +218,8 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	task->context.frame.es    = 0x10;
 	task->context.frame.gs    = 0x10;
 	task->context.frame.fs    = 0x10;
+	task->context.fpu.fcw     = 0x037f;
+	task->context.fpu.mxcsr   = 0x1F80;
 #endif
 
 	return task;
