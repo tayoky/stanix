@@ -365,6 +365,8 @@ void window_set_size(window_t *window, long width, long height) {
 			.size = sizeof(resized_update_event),
 		},
 		.window = window->id,
+		.a = width,
+		.b = height,
 	};
 	send_event_id(window->client, (twm_event_t *)&resized_update_event);
 

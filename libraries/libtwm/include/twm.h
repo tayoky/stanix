@@ -268,6 +268,9 @@ typedef struct twm_event_input {
 typedef struct twm_event_window {
 	twm_event_t base;
 	twm_window_t window;
+	// two args whose purpose depends on the event
+	long a;
+	long b;
 } twm_event_window_t;
 
 typedef struct twm_event_screen_attr {
