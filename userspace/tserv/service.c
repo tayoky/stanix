@@ -19,7 +19,7 @@ static service_t *get_service_from_pid(pid_t pid) {
 }
 
 int service_start(service_t *service) {
-	if (service->state != TSERV_SERVICE_STATE_INACTIVE && service->state != TSERV_SERVICE_STATE_CRASHED) {
+	if (service->state != TSERV_SERVICE_STATE_INACTIVE && service->state != TSERV_SERVICE_STATE_CRASHED && service->state != TSERV_SERVICE_STATE_FAILED) {
 		// already started
 		return -TSERV_ERROR_ALREADY_RUNNING;
 	}
@@ -113,6 +113,8 @@ static int handle_service(void) {
 		} else {
 			service_set_state(service, TSERV_SERVICE_STATE_INACTIVE);
 		}
+	} else if (WEXITSTATUS(status)) {
+		service_set_state(service, TSERV_SERVICE_STATE_FAILED);
 	} else {
 		service_set_state(service, TSERV_SERVICE_STATE_INACTIVE);
 	}

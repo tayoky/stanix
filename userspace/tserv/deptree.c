@@ -48,7 +48,6 @@ static int parse_services(dep_tree_t *dep_tree) {
 		}
 		service->action = safe_strdup(utils_shashmap_get(data, "action"));
 		service->after_buf = parse_string_list(&service->after, data, "after");
-		service->before_buf = parse_string_list(&service->before, data, "before");
 		service->require_buf = parse_string_list(&service->require, data, "require");
 		service->conflicts_buf = parse_string_list(&service->conflicts, data, "conflicts");
 

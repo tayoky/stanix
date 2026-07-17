@@ -21,12 +21,10 @@ typedef struct service {
 	struct timespec last_change;
 	char *action;
 	utils_vector_t after;
-	utils_vector_t before;
 	utils_vector_t require;
 	utils_vector_t conflicts;
 	utils_vector_t command;
 	char *after_buf;
-	char *before_buf;
 	char *require_buf;
 	char *conflicts_buf;
 	char *command_buf;

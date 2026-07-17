@@ -27,6 +27,7 @@ typedef int8_t   tserv_service_state_t;
 #define TSERV_SERVICE_STATE_STOPPED  0x4
 #define TSERV_SERVICE_STATE_ENDING   0x5
 #define TSERV_SERVICE_STATE_CRASHED  0x6
+#define TSERV_SERVICE_STATE_FAILED   0x7
 
 typedef struct tserv_string {
 	uint32_t length;
