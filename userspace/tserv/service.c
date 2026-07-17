@@ -56,8 +56,9 @@ int service_start(service_t *service) {
 		// setup environement
 		if (service->gid) setgid(service->gid);
 		if (service->uid) setuid(service->uid);
-		// TODO : execute command
-		return 0;
+		char **argv = service->command.data;
+		execvp(argv[0], argv);
+		abort();
 	}
 
 	service->pid = pid;

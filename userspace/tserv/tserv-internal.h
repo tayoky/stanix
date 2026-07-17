@@ -12,11 +12,6 @@ typedef struct client {
 	int sock;
 } client_t;
 
-typedef struct buf {
-	char *data;
-	size_t len;
-} buf_t;
-
 typedef struct service {
 	char *name;
 	pid_t pid;
@@ -29,10 +24,12 @@ typedef struct service {
 	utils_vector_t before;
 	utils_vector_t require;
 	utils_vector_t conflicts;
-	buf_t after_buf;
-	buf_t before_buf;
-	buf_t require_buf;
-	buf_t conflicts_buf;
+	utils_vector_t command;
+	char *after_buf;
+	char *before_buf;
+	char *require_buf;
+	char *conflicts_buf;
+	char *command_buf;
 } service_t;
 
 typedef struct runlevel {
@@ -40,6 +37,9 @@ typedef struct runlevel {
 	utils_vector_t services;
 	utils_vector_t require;
 	utils_vector_t conflicts;
+	char *services_buf;
+	char *require_buf;
+	char *conflicts_buf;
 	int stop_all;
 } runlevel_t;
 
