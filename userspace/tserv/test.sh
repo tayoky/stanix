@@ -1,0 +1,3 @@
+depend () {
+	after stuff
+}
