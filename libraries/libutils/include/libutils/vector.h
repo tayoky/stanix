@@ -12,8 +12,8 @@ typedef struct utils_vector {
 
 static inline void utils_init_vector(utils_vector_t *vector, size_t element_size){
 	if (vector->data) return;
-	vector->data = malloc(element_size);
-	vector->capacity = 1;
+	vector->data = NULL;
+	vector->capacity = 0;
 	vector->count = 0;
 	vector->element_size = element_size;
 }
@@ -31,7 +31,11 @@ static inline void *utils_vector_at(utils_vector_t *vector, size_t index){
 
 static inline void utils_vector_push_back(utils_vector_t *vector, const void *element){
 	if (vector->count == vector->capacity) {
-		vector->capacity *= 2;
+		if (vector->capacity == 0) {
+			vector->capacity = 1;
+		} else {
+			vector->capacity *= 2;
+		}
 		vector->data = realloc(vector->data, vector->capacity * vector->element_size);
 	}
 
