@@ -1,6 +1,8 @@
 #include <tserv-internal.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <unistd.h>
+#include <errno.h>
 
 // handle clients
 
@@ -13,7 +15,7 @@ void init_clients(void) {
 	
 	struct sockaddr_un addr = {
 		.sun_family = AF_UNIX,
-		.sun_addr = "/tmp/tserv",
+		.sun_path = "/tmp/tserv",
 	};
 	bind(server_socket, (struct sockaddr *)&addr, sizeof(addr));
 	listen(server_socket, 5);
@@ -29,7 +31,7 @@ static void handle_connection(void) {
 		.sock = client_socket,
 	};
 	utils_vector_push_back(&clients, &client);
-	add_poll_fd(client_socket);
+	add_poll_fd(client_socket, POLLIN | POLLHUP);
 }
 
 static void kick_client(client_t *client) {
@@ -43,7 +45,7 @@ static void kick_client(client_t *client) {
 	utils_vector_pop_back(&clients, NULL);
 }
 
-static size_t get_request_size(tserv_request_type_t *request_type) {
+static size_t get_request_size(tserv_request_type_t request_type) {
 	switch (request_type) {
 	case TSERV_REQUEST_SET_RUNLEVEL:
 		return sizeof(tserv_request_set_runlevel_t);
@@ -64,7 +66,7 @@ static size_t get_request_size(tserv_request_type_t *request_type) {
 	case TSERV_REQUEST_RELOAD_CONF:
 		return sizeof(tserv_request_reload_conf_t);
 	default:
-		return sizeof(tserv_request_size);
+		return sizeof(tserv_request_t);
 	}
 }
 
@@ -76,7 +78,7 @@ static void send_success(client_t *client, tserv_request_id_t request_id) {
 	tserv_response_success_t response = {
 		.response_type = TSERV_RESPONSE_SUCCESS,
 		.request_id = request_id,
-	}
+	};
 	send_response(client, &response, sizeof(response));
 }
 
@@ -85,7 +87,7 @@ static void send_error(client_t *client, tserv_request_id_t request_id, int erro
 		.response_type = TSERV_RESPONSE_ERROR,
 		.request_id = request_id,
 		.error = error,
-	}
+	};
 	send_response(client, &response, sizeof(response));
 }
 
@@ -106,14 +108,15 @@ static int handle_client(client_t *client) {
 		return 1;
 	}
 
-	size_t total_size = get_request_size(request->request_size);
+	size_t total_size = get_request_size(request.request_type);
 	size_t remaining = total_size - sizeof(request);
 	char *data = malloc(total_size);
 	memcpy(data, &request, sizeof(request));
 	read(client->sock, data + sizeof(request), remaining);
 
-	handle_request(client, request);
+	handle_request(client, (tserv_request_t*)data);
 	free(data);
+	return 0;
 }
 
 void handle_clients(void) {

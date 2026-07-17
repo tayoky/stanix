@@ -1,5 +1,7 @@
-#include <signal.h>
 #include <tserv-internal.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
 
 int signal_fd;
 static int signal_fd_out;
@@ -8,8 +10,8 @@ static void sig_handler(int signum) {
 	write(signal_fd_out, &signum, sizeof(signum));
 }
 
-static int make_nonblock(int fd) {
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL));
+static void make_nonblock(int fd) {
+	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
 }
 
 void init_signal(void) {
@@ -25,6 +27,9 @@ void init_signal(void) {
 	signal(SIGHUP,  sig_handler);
 	signal(SIGTERM, sig_handler);
 	signal(SIGCHLD, sig_handler);
+	signal(SIGTTIN, SIG_IGN);
+	signal(SIGTTOU, SIG_IGN);
+	signal(SIGTSTP, SIG_IGN);
 
 	add_poll_fd(signal_fd, POLLIN);
 }

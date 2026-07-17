@@ -14,6 +14,7 @@ typedef uint16_t tserv_error_t;
 #define TSERV_ERROR_OUT_OF_MEMORY   0x3
 #define TSERV_ERROR_NOT_RUNNING     0x4
 #define TSERV_ERROR_FORK_FAILED     0x5
+#define TSERV_ERROR_NOT_STOPPED     0x5
 
 typedef int64_t  tserv_pid_t;
 typedef int8_t   tserv_service_state_t;
@@ -22,7 +23,7 @@ typedef int8_t   tserv_service_state_t;
 #define TSERV_SERVICE_STATE_STARTING 0x2
 #define TSERV_SERVICE_STATE_RUNNING  0x3
 #define TSERV_SERVICE_STATE_STOPING  0x4
-#define TSERV_SERVICE_STATE_STOPED   0x4
+#define TSERV_SERVICE_STATE_STOPPED  0x4
 #define TSERV_SERVICE_STATE_ENDING   0x5
 #define TSERV_SERVICE_STATE_CRASHED  0x6
 

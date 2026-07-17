@@ -12,7 +12,7 @@ int add_poll_fd(int fd, int events) {
 	struct pollfd poll_fd = {
 		.fd = fd,
 		.events = events,
-	}
+	};
 	utils_vector_push_back(&poll_fds, &poll_fd);
 	return 0;
 }
@@ -27,7 +27,7 @@ int main() {
 	init_signal();
 	
 	for (;;) {
-		poll(poll_fds.count, poll_fds.data, -1);
+		poll(poll_fds.data, poll_fds.count, -1);
 		handle_clients();
 		handle_signal();
 	}

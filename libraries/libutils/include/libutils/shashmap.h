@@ -7,7 +7,7 @@
 #include <string.h>
 
 typedef struct utils_shashmap_entry {
-	const char *key;
+	char *key;
 	void *element;
 } utils_shashmap_entry_t;
 
