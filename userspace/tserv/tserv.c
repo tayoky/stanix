@@ -25,6 +25,11 @@ int main() {
 	init_pollfd();
 	init_clients();
 	init_signal();
+	dep_tree = generate_dep_tree();
+
+	// TODO : parse cmdline to find run leve
+	runlevel_t *default_runlevel = get_runlevel("default");
+	set_runlevel(default_runlevel);
 	
 	for (;;) {
 		poll(poll_fds.data, poll_fds.count, -1);

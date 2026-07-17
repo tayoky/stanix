@@ -13,7 +13,7 @@ service_t *get_service(const char *name) {
 	return utils_shashmap_get(&dep_tree->services, name);
 }
 
-service_t *get_service_from_pid(pid_t pid) {
+static service_t *get_service_from_pid(pid_t pid) {
 	// TODO
 	return NULL;
 }
@@ -21,7 +21,7 @@ service_t *get_service_from_pid(pid_t pid) {
 int service_start(service_t *service) {
 	if (service->state != TSERV_SERVICE_STATE_INACTIVE && service->state != TSERV_SERVICE_STATE_CRASHED) {
 		// already started
-		return 0;
+		return -TSERV_ERROR_ALREADY_RUNNING;
 	}
 	utils_vector_foreach (&service->conflicts, name) {
 		service_t *service = get_service(name);
@@ -62,6 +62,7 @@ int service_start(service_t *service) {
 
 	service->pid = pid;
 	service_set_state(service, TSERV_SERVICE_STATE_RUNNING);
+	return 0;
 }
 
 int service_end(service_t *service) {

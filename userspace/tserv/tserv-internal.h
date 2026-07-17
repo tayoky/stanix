@@ -39,7 +39,8 @@ typedef struct runlevel {
 	char *name;
 	utils_vector_t services;
 	utils_vector_t require;
-	utils_vector_t conflict;
+	utils_vector_t conflicts;
+	int stop_all;
 } runlevel_t;
 
 typedef struct dep_tree {
@@ -51,12 +52,16 @@ typedef struct dep_tree {
 extern dep_tree_t *dep_tree;
 extern int signal_fd;
 
-dep_tree_t *parse_files(void);
+dep_tree_t *generate_dep_tree(void);
+void free_dep_tree(dep_tree_t *dep_tree);
 void handle_services(void);
+service_t *get_service(const char *name);
 int service_start(service_t *service);
 int service_end(service_t *service);
 int service_stop(service_t *service);
 int service_continue(service_t *service);
+runlevel_t *get_runlevel(const char *name);
+int set_runlevel(runlevel_t *runlevel);
 void init_clients(void);
 void handle_clients(void);
 void init_signal(void);

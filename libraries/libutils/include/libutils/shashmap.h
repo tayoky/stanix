@@ -26,6 +26,10 @@ static inline void utils_init_shashmap(utils_shashmap_t *shashmap, size_t capaci
 static inline void utils_free_shashmap(utils_shashmap_t *shashmap) {
 	if (!shashmap->vectors) return;
 	for (size_t i=0; i<shashmap->capacity; i++) {
+		utils_vector_foreach(&shashmap->vectors[i], element) {
+			utils_shashmap_entry_t *entry = element;
+			free(entry->key);
+		}
 		utils_free_vector(&shashmap->vectors[i]);
 	}
 	free(shashmap->vectors);
@@ -95,7 +99,7 @@ static inline int utils_shashmap_remove(utils_shashmap_t *shashmap, const char *
 // foreach macro from hell
 #define utils_shashmap_foreach(_key, _element, _shashmap) for(size_t i=0; i<(_shashmap)->capacity; i++) \
 for (size_t j=0; j<(_shashmap)->vectors[i].count; j++) \
-for (const char * _key      = ((utils_shashmap_entry_t*)((_shashmap)->vectors[i].data))[j].key    , _1=(void*)1; _1; _1=NULL)\
-for (void *_element = ((utils_shashmap_entry_t*)((_hashmap)->vectors[i].data))[j].element, *_2=(void*)1; _2; _2=NULL)
+for (const char * _key      = ((utils_shashmap_entry_t*)((_shashmap)->vectors[i].data))[j].key    , *_1=(void*)1; _1; _1=NULL)\
+for (void *_element = ((utils_shashmap_entry_t*)((_shashmap)->vectors[i].data))[j].element, *_2=(void*)1; _2; _2=NULL)
 
 #endif

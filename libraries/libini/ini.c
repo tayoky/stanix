@@ -62,3 +62,12 @@ utils_shashmap_t *ini_parse_file(const char *filename) {
 
 	return hashmap;
 }
+
+void ini_free(utils_shashmap_t *hashmap) {
+	utils_shashmap_foreach(key, value, hashmap) {
+		(void)key;
+		free(value);
+	}
+	utils_free_shashmap(hashmap);
+	free(hashmap);
+}
