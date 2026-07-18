@@ -12,6 +12,16 @@ int noissue = 0;
 int noclear = 0;
 int skip_login = 0;
 
+void help(void) {
+	puts("usage : getty [OPTIONS] port [TERM]");
+	puts("setup a tty session");
+	puts("-a --autologin USER : autologin as USER");
+	puts("-c --noreset        : do not reset tty");
+	puts("-i --noissue        : do not show issue");
+	puts("-J --noclear        : do not clear screen");
+	puts("-n --skip-login     : skip login (used in single user mode)");
+}
+
 void reset(void) {
 	struct termios attr;
 	if (tcgetattr(STDOUT_FILENO, &attr) < 0) {
@@ -32,6 +42,7 @@ void reset(void) {
 
 void clear(void) {
 	printf("\033[2J");
+	printf("\033[H");
 }
 
 
@@ -44,10 +55,11 @@ void show_issue(void) {
 
 	char buf[4096];
 	ssize_t r;
-	int prev = '\0';
+	int prev_is_backslash = 0;
 	while ((r = read(fd, buf, sizeof(buf)))) {
 		for (size_t i=0; i<r; i++) {
-			if (prev == '\\') {
+			if (prev_is_backslash) {
+				prev_is_backslash = 0;
 				switch (buf[i]) {
 				// TODO : add more
 				case 's':
@@ -64,11 +76,15 @@ void show_issue(void) {
 					printf("unknown");
 #endif
 					break;
+				case '\\':
+					putchar('\\');
+					break;
 				}
+			} else if (buf[i] == '\\') {
+				prev_is_backslash = 1;
 			} else {
 				putchar(buf[i]);
 			}
-			prev = buf[i];
 		}
 	}
 	close(fd);
@@ -80,6 +96,7 @@ struct option options[] = {
 	{"noissue",    no_argument,       NULL, 'i'},
 	{"noclear",    no_argument,       NULL, 'J'},
 	{"skip-login", no_argument,       NULL, 'n'},
+	{"help",       no_argument,       NULL, 'h'},
 	{0, 0, 0, 0},
 };
 
@@ -87,7 +104,7 @@ int main(int argc, char **argv) {
 	int opt;
 	int opt_index;
 	opterr = 0;
-	while ((opt = getopt_long(argc, argv, "a:ciJn", options, &opt_index)) != -1) {
+	while ((opt = getopt_long(argc, argv, "a:ciJnh", options, &opt_index)) != -1) {
 		switch (opt) {
 		case 'a':
 			autologin = optarg;
@@ -104,6 +121,9 @@ int main(int argc, char **argv) {
 		case 'n':
 			skip_login = 1;
 			break;
+		case 'h':
+			help();
+			return 0;
 		case '?':
 			if (optopt) {
 				fprintf(stderr, "getty : invalid option '-%c'\n", optopt);
@@ -152,12 +172,14 @@ int main(int argc, char **argv) {
 	if (!noreset) reset();
 	if (!noclear) clear();
 	if (!noissue) show_issue();
-
+	
+	fflush(stdout);
 	if (autologin) {
-		execlp("login", "login", "-f", autologin, NULL);
+		execlp("login", "login", "-p", "-f", autologin, NULL);
 	} else {
-		execlp("login", "login", NULL);
+		execlp("login", "login", "-p", NULL);
 	}
+	fprintf(stderr, "getty : failed to exec login\n");
 	syslog(LOG_ERR, "failed to exec login : %m");
 	return 1;
 }
