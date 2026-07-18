@@ -4,6 +4,7 @@
 #include <termios.h>
 #include <getopt.h>
 #include <syslog.h>
+#include <libini.h>
 #include <sys/stat.h>
 
 const char *autologin;
@@ -53,6 +54,8 @@ void show_issue(void) {
 		return;
 	}
 
+	utils_shashmap_t *infos = ini_parse_file("/etc/os-release");
+
 	char buf[4096];
 	ssize_t r;
 	int prev_is_backslash = 0;
@@ -64,6 +67,9 @@ void show_issue(void) {
 				// TODO : add more
 				case 's':
 					printf("Stanix");
+					break;
+				case 'S':
+					printf("%s", (char *)utils_shashmap_get(infos, "PRETTY_NAME"));
 					break;
 				case 'm':
 #ifdef __x86_64__
@@ -79,6 +85,12 @@ void show_issue(void) {
 				case '\\':
 					putchar('\\');
 					break;
+				case 'r':
+					printf("%s", (char *)utils_shashmap_get(infos, "VERSION_ID"));
+					break;
+				case 'v':
+					printf("%s", (char *)utils_shashmap_get(infos, "VERSION"));
+					break;
 				}
 			} else if (buf[i] == '\\') {
 				prev_is_backslash = 1;
@@ -87,6 +99,7 @@ void show_issue(void) {
 			}
 		}
 	}
+	ini_free(infos);
 	close(fd);
 }
 

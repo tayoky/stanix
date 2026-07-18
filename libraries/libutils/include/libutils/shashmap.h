@@ -51,6 +51,7 @@ static inline size_t utils_shashmap_hash(utils_shashmap_t *shashmap, const char 
 }
 
 static inline void *utils_shashmap_get(utils_shashmap_t *shashmap, const char *key) {
+	if (!shashmap) return NULL;
 	utils_vector_t *vector = &shashmap->vectors[utils_shashmap_hash(shashmap, key)];
 	utils_shashmap_entry_t *entries = vector->data;
 	if (!entries) return NULL;

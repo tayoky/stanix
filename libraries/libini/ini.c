@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libutils/shashmap.h>
+#include <limits.h>
 #include <stdio.h>
 #include <ctype.h>
 
@@ -64,6 +65,7 @@ utils_shashmap_t *ini_parse_file(const char *filename) {
 }
 
 void ini_free(utils_shashmap_t *hashmap) {
+	if (!hashmap) return;
 	utils_shashmap_foreach(key, value, hashmap) {
 		(void)key;
 		free(value);
