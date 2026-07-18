@@ -142,7 +142,7 @@ term_ops_t term_ops = {
 	.move = move,
 };
 
-pid_t start_getty(void) {
+pid_t start_getty(const char *autologin) {
 	pid_t child = fork();
 	if (child) return pid;
 	int slave = ioctl(master, TIOCGPTPEER);
@@ -152,38 +152,83 @@ pid_t start_getty(void) {
 	close(master);
 	if (slave > STDERR_FILENO) close(slave);
 
-	static char *arg[] = {
+	char *argv[] = {
 		"/bin/getty",
 		"--noreset",
 		"-",
 		"ansi",
 		NULL
 	};
-	execvp(arg[0], arg);
+
+	char *autologin_argv[] = {
+		"/bin/getty",
+		"--noreset",
+		"--autologin",
+		(char*)autologin,
+		"-",
+		"ansi",
+		NULL
+	};
+
+	char **args = autologin : autologin_argv : argv;
+	execvp(args[0], args);
 	perror("/bin/getty");
 
 	exit(EXIT_FAILURE);
 }
 
+struct option options[] = {
+	{"autologin", required_argument, NULL, 'a'},
+	{"help",      no_argument,       NULL, 'h'},
+	{0, 0, 0, 0},
+};
+
+void help(void) {
+	puts("usage : fbterm [OPTIONS] FB");
+	puts("start a terminal emulator on the specified framebuffer");
+	puts("-a --autologin USER : autologin as USER");
+}
+
 int main(int argc, const char **argv) {
-	(void)argc;
-	(void)argv;
+	int opt_index;
+	int opt;
+	opterr = 0;
+	const char *autologin = NULL;
+	while ((opt = getopt_long(argc, argv, "a:h", options, &opt_index)) != -1) {
+		switch (opt) {
+		case 'a':
+			autologin = optarg;
+			break;
+		case 'h':
+			help();
+			return 0;
+		case '?':
+			if (optopt) {
+				fprintf(stderr, "fbterm : invalid option '-%c'\n", optopt);
+			} else {
+				fprintf(stderr, "fbterm : invalid option '%s'\n", argv[optind-1]);
+			}
+			return 1;
+		}
+	}
+
+	if (optind >= argc) {
+		fprintf(stderr, "fbterm : no framebuffer specified\n");
+		return 1;
+	}
+
 	printf("starting userspace terminal emulator...\n");
 
 	if (!getenv("FONT")) {
-		fprintf(stderr, "no FONT variable\n");
-		return EXIT_FAILURE;
+		fprintf(stderr, "fbterm : no FONT variable\n");
+		return 1;
 	}
 
-	if (!getenv("FB")) {
-		fprintf(stderr, "no FB variable\n");
-		return EXIT_FAILURE;
-	}
-	gfx = gfx_open_framebuffer(NULL);
+	gfx = gfx_open_framebuffer(argv[optind]);
 
 	if (!gfx) {
-		perror("cannot open gfx context");
-		return EXIT_FAILURE;
+		perror("fbterm : cannot open gfx context");
+		return 1;
 	}
 
 	// try to open keyboard
@@ -214,31 +259,9 @@ int main(int argc, const char **argv) {
 		perror("openpty");
 		return EXIT_FAILURE;
 	}
-
-	//fork and launch login with std stream set to the slave
-	// TODO : launch getty ??
-	pid_t child = fork();
-	if (!child) {
-		dup2(slave, STDIN_FILENO);
-		dup2(slave, STDOUT_FILENO);
-		dup2(slave, STDERR_FILENO);
-		close(master);
-		close(slave);
-
-		//skip login with -f
-		static char *arg[] = {
-			"/bin/login",
-			"-f",
-			"root",
-			NULL
-		};
-		execvp(arg[0], arg);
-		perror("/bin/login");
-
-		exit(EXIT_FAILURE);
-	}
-
 	close(slave);
+	
+	pid_t child = start_getty(autologin);
 
 	// init term
 	term.width  = gfx->width / c_width;
@@ -268,7 +291,7 @@ int main(int argc, const char **argv) {
 			}
 		} else if (wait[0].revents & POLLHUP) {
 			waitpid(child, NULL, WNOHANG);
-			child = start_getty();
+			child = start_getty(NULL);
 		}
 
 		if (wait[1].revents & POLLIN) {

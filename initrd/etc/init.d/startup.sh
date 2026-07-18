@@ -45,5 +45,5 @@ export SDL_AUDIODRIVER="dummy"
 if kcmdline --gui --twm ; then
     twm
 else
-    fbterm
+    fbterm --autologin root "$FB"
 fi
