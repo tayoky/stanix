@@ -93,7 +93,7 @@ test-qemu-nvme : image-hdd
 test-qemu-kvm-nvme : image-hdd
 	qemu-system-$(ARCH) \
 	-drive file=$(HDD_IMAGE),if=none,id=nvm -serial stdio \
-	-device nvme,serial=deadbeef,drive=nvm -m 512 -cpu host -enable-kvm -smp 1
+	-device nvme,serial=deadbeef,drive=nvm -m 1024 -cpu host -enable-kvm -smp 1
 
 test-qemu-ata : image-hdd
 	qemu-system-$(ARCH) \
@@ -113,7 +113,7 @@ image-hdd : $(HDD_IMAGE)
 $(HDD_IMAGE) : build-all $(OUT_FILES) 
 	@echo "[creating hdd image]"
 	@rm -f $(HDD_IMAGE)
-	@dd if=/dev/zero bs=5M count=0 seek=64 of=$(HDD_IMAGE)
+	@dd if=/dev/zero bs=9M count=0 seek=64 of=$(HDD_IMAGE)
 	sgdisk $(HDD_IMAGE) -n 1:2048 -t 1:ef00 
 	@make -C limine
 # Format the image as fat32.
