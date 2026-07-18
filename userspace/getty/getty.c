@@ -4,6 +4,7 @@
 #include <termios.h>
 #include <getopt.h>
 #include <syslog.h>
+#include <sys/stat.h>
 
 const char *autologin;
 int noreset = 0;
@@ -24,6 +25,9 @@ void reset(void) {
 	if (tcsetattr(STDOUT_FILENO, TCIOFLUSH, &attr) < 0) {
 		syslog(LOG_WARNING, "could not set termios attributes : %m");
 	}
+	// set group to ttys(gid 4)
+	fchmod(STDOUT_FILENO, 0620);
+	fchown(STDOUT_FILENO, 0, 4);
 }
 
 void clear(void) {

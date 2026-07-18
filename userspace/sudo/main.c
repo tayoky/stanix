@@ -11,10 +11,10 @@ struct option options[] = {
 };
 
 void help(void) {
-	printf("usage : sudo COMMAND or\n");
-	printf("sudo OPTION\n");
-	printf("run a command as root\n");
-	printf("-s --shell : run a shell instead of a command\n");
+	puts("usage : sudo COMMAND or");
+	puts("sudo OPTION");
+	puts("run a command as root");
+	puts("-s --shell : run a shell instead of a command");
 }
 
 int main(int argc, char **argv) {

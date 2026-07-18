@@ -22,7 +22,8 @@ struct option options[] = {
 };
 
 void help(void) {
-	puts("login [OPTIONS] [[-f] username|uid]");
+	puts("usage : login [OPTIONS] [[-f] username|uid]");
+	puts("ask for login and start session");
 	puts("-p --preserve : preserve environ");
 	puts("-f --force    : autologin");
 	puts("-s --shell    : specify a custom shell");
@@ -93,7 +94,10 @@ int main(int argc, char **argv) {
 			preserve = 1;
 			break;
 		case 'f':
-			// TODO : check called as root
+			if (getuid() != 0) {
+				fprintf(stderr, "login : invalid privilege for option '-f'/'--force'\n");
+				return 1;
+			}
 			autologin = 1;
 			break;
 		case 's':
