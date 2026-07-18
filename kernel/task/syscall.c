@@ -108,7 +108,6 @@ ssize_t sys_read(int fd, void *buffer, size_t count) {
 	int ret = get_fd(fd, &file);
 	if (ret < 0) return ret;
 	
-	const char *name = file.fd->dentry ? file.fd->dentry->name : NULL;
 	return vfs_user_read(file.fd, buffer, count);
 }
 
