@@ -78,8 +78,6 @@ struct option options = {
 };
 
 int main(int argc, char **argv) {
-	openlog("getty", LOG_CONS | LOG_PID, LOG_AUTH);
-
 	int opt;
 	int opt_index;
 	opterr = 0;
@@ -103,10 +101,8 @@ int main(int argc, char **argv) {
 		case '?':
 			if (optopt) {
 				fprintf(stderr, "getty : invalid option '-%c'\n", optopt);
-				syslog(LOG_ERR, "invalid option '-%c'\n", optopt);
 			} else {
 				fprintf(stderr, "getty : invalid option '%s'\n", argv[optind-1]);
-				syslog(LOG_ERR, "invalid option '%s'", argv[optind-1]);
 			}
 			return 1;
 		}
@@ -114,9 +110,11 @@ int main(int argc, char **argv) {
 
 	int i = optind;
 	if (i <= argc) {
-		syslog(LOG_ERR, "did not get a port");
+		fprintf(stderr, "getty : no port specified\n");
 		return 1;
 	}
+
+	openlog("getty", LOG_CONS | LOG_PID, LOG_AUTH);
 
 	const char *port = argv[i++];
 	const char *term = "vt100";
@@ -134,6 +132,7 @@ int main(int argc, char **argv) {
 		int tty = open(path, O_RDWR);
 		if (tty < 0) {
 			syslog(LOG_ERR, "failed to open '%s' : %m", path);
+			fprintf(stderr, "getty : failed to open '%s'\n", path);
 			return 1;
 		}
 		dup2(tty, STDIN_FILENO);

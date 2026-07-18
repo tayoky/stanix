@@ -205,6 +205,7 @@ int main(int argc, const char **argv) {
 		static char *arg[] = {
 			"/bin/login",
 			"-f",
+			"root",
 			NULL
 		};
 		execvp(arg[0], arg);
@@ -242,6 +243,7 @@ int main(int argc, const char **argv) {
 				term_output(&term, buf, s);
 			}
 		} else if (wait[0].revents & POLLHUP) {
+			// TODO : restart getty or something
 			break;
 		}
 
