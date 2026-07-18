@@ -142,6 +142,29 @@ term_ops_t term_ops = {
 	.move = move,
 };
 
+pid_t start_getty(void) {
+	pid_t child = fork();
+	if (child) return pid;
+	int slave = ioctl(master, TIOCGPTPEER);
+	dup2(slave, STDIN_FILENO);
+	dup2(slave, STDOUT_FILENO);
+	dup2(slave, STDERR_FILENO);
+	close(master);
+	if (slave > STDERR_FILENO) close(slave);
+
+	static char *arg[] = {
+		"/bin/getty",
+		"--noreset",
+		"-",
+		"ansi",
+		NULL
+	};
+	execvp(arg[0], arg);
+	perror("/bin/getty");
+
+	exit(EXIT_FAILURE);
+}
+
 int main(int argc, const char **argv) {
 	(void)argc;
 	(void)argv;
@@ -193,6 +216,7 @@ int main(int argc, const char **argv) {
 	}
 
 	//fork and launch login with std stream set to the slave
+	// TODO : launch getty ??
 	pid_t child = fork();
 	if (!child) {
 		dup2(slave, STDIN_FILENO);
@@ -243,8 +267,8 @@ int main(int argc, const char **argv) {
 				term_output(&term, buf, s);
 			}
 		} else if (wait[0].revents & POLLHUP) {
-			// TODO : restart getty or something
-			break;
+			waitpid(child, NULL, WNOHANG);
+			child = start_getty();
 		}
 
 		if (wait[1].revents & POLLIN) {

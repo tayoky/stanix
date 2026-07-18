@@ -565,6 +565,9 @@ void proc_release(process_t *proc) {
 }
 
 int add_fd(vfs_fd_t *fd, long flags) {
+	if (IS_ERR(fd)) {
+		return PTR2ERR(fd);
+	}
 	int interrupt_save;
 	rwlock_acquire_write(&get_current_proc()->fd_table.lock, &interrupt_save);
 

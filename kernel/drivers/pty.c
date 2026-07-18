@@ -46,7 +46,13 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 static int pty_master_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	pty_t *pty = (pty_t *)fd->private;
 	tty_t *tty = pty->slave;
-	return tty_do_ioctl(tty, request, arg);
+	switch (request) {
+	case TIOCGPTPEER:;
+		vfs_fd_t *slave_fd = open_device(&tty->device, O_RDWR);
+		return add_fd(slave_fd, 0);
+	default:
+		return tty_do_ioctl(tty, request, arg);
+	};
 }
 
 static int pty_is_disconnected(pty_t *pty) {
