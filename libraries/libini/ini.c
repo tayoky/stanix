@@ -56,7 +56,7 @@ utils_shashmap_t *ini_parse_file(const char *filename) {
 			} else {
 				strcpy(name, ptr);
 			}
-			utils_shashmap_add(hashmap, name, value);
+			utils_shashmap_add(hashmap, name, strdup(value));
 		}
 	}
 
