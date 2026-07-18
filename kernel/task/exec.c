@@ -128,12 +128,10 @@ error:
 	if (vfs_getattr(file->inode, &st) >= 0) {
 		if (st.st_mode & S_ISUID) {
 			get_current_proc()->suid = get_current_proc()->euid;
-			get_current_proc()->uid  = st.st_uid;
 			get_current_proc()->euid = st.st_uid;
 		}
 		if (st.st_mode & S_ISGID) {
 			get_current_proc()->sgid = get_current_proc()->egid;
-			get_current_proc()->gid  = st.st_gid;
 			get_current_proc()->egid = st.st_gid;
 		}
 	}
