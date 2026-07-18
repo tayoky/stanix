@@ -3,6 +3,7 @@
 #include <sys/un.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 struct tserv_ctx {
 	tserv_request_id_t ids_count;
@@ -56,7 +57,7 @@ static size_t get_response_size(tserv_response_type_t type) {
 
 static void *get_response(tserv_ctx_t *ctx, tserv_request_id_t request_id) {
 	tserv_response_t response;
-	if (read(ctx->sock, &response, sizeof(response)) < sizeof(response)) return NULL;
+	if (read(ctx->sock, &response, sizeof(response)) < (ssize_t)sizeof(response)) return NULL;
 
 	if (response.request_id != request_id) {
 		// corrupted
@@ -69,7 +70,7 @@ static void *get_response(tserv_ctx_t *ctx, tserv_request_id_t request_id) {
 
 	size_t remaining_size = total_size - sizeof(response);
 	memcpy(data, &response, sizeof(response));
-	if (read(ctx->sock, data + sizeof(response), remaining_size) < remaining_size) return NULL;
+	if (read(ctx->sock, data + sizeof(response), remaining_size) < (ssize_t)remaining_size) return NULL;
 
 	return data;
 }
@@ -77,9 +78,10 @@ static void *get_response(tserv_ctx_t *ctx, tserv_request_id_t request_id) {
 static void *send_request(tserv_ctx_t *ctx, void *data, size_t size) {
 	tserv_request_t *request = data;
 	request->request_id = ctx->ids_count++;
-	if (send(ctx->sock, data, size, 0) < size) return NULL;
+	if (send(ctx->sock, data, size, 0) < (ssize_t)size) return NULL;
+	tserv_request_id_t request_id = request->request_id;
 	free(request);
-	return get_response(ctx, request->request_id);
+	return get_response(ctx, request_id);
 }
 
 static int send_simple_request(tserv_ctx_t *ctx, void *data, size_t size) {

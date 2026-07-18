@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 	}
 
 	int opt_index;
-	int option;
+	int opt;
 	int do_shell = 0;
 	opterr = 0;
 	while ((opt = getopt_long(argc, argv, "sh", options, &opt_index)) != -1) {

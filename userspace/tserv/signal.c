@@ -35,7 +35,7 @@ void init_signal(void) {
 }
 
 void handle_signal(void) {
-	int signum;
+	int signum = 0;
 	if (read(signal_fd, &signum, sizeof(signum)) < 0) return;
 
 	switch (signum) {

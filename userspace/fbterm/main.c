@@ -18,6 +18,7 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <libterm.h>
+#include <getopt.h>
 
 // most basic terminal emumator
 
@@ -144,7 +145,7 @@ term_ops_t term_ops = {
 
 pid_t start_getty(const char *autologin) {
 	pid_t child = fork();
-	if (child) return pid;
+	if (child) return child;
 	int slave = ioctl(master, TIOCGPTPEER);
 	dup2(slave, STDIN_FILENO);
 	dup2(slave, STDOUT_FILENO);
@@ -170,7 +171,7 @@ pid_t start_getty(const char *autologin) {
 		NULL
 	};
 
-	char **args = autologin : autologin_argv : argv;
+	char **args = autologin ? autologin_argv : argv;
 	execvp(args[0], args);
 	perror("/bin/getty");
 
@@ -189,7 +190,7 @@ void help(void) {
 	puts("-a --autologin USER : autologin as USER");
 }
 
-int main(int argc, const char **argv) {
+int main(int argc, char **argv) {
 	int opt_index;
 	int opt;
 	opterr = 0;

@@ -11,6 +11,8 @@ OUT = $(shell basename $(PWD))
 CFLAGS += -Wall -Wextra -std=c99
 CFLAGS += -I ./
 
+LDFLAGS += -lini
+
 all : $(BUILDDIR)/$(OUT)
 
 $(BUILDDIR)/$(OUT) : $(OBJ)

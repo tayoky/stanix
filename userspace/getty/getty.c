@@ -60,7 +60,7 @@ void show_issue(void) {
 	ssize_t r;
 	int prev_is_backslash = 0;
 	while ((r = read(fd, buf, sizeof(buf)))) {
-		for (size_t i=0; i<r; i++) {
+		for (ssize_t i=0; i<r; i++) {
 			if (prev_is_backslash) {
 				prev_is_backslash = 0;
 				switch (buf[i]) {
