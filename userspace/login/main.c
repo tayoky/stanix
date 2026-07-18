@@ -4,25 +4,35 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <syslog.h>
+#include <getopt.h>
 
 int preserve;
 int autologin;
-const char *shell;
+char *shell;
 const char *user;
 struct passwd *pwd = NULL;
 
-struct option options = {
-	{"preserve",  no_argument,       NULL, 'p'},
-	{"autologin", no_argument,       NULL, 'f'},
-	{"shell",     argument_required, NULL, 's'},
-	{0,		   0,				 0,    0  },
+struct option options[] = {
+	{"preserve", no_argument,       NULL, 'p'},
+	{"force",    no_argument,       NULL, 'f'},
+	{"shell",    required_argument, NULL, 's'},
+	{"help",     no_argument,       NULL, 'h'},
+	{0, 0, 0, 0},
 };
 
-int login_loop(void) {
+void help(void) {
+	puts("login [OPTIONS] [[-f] username|uid]");
+	puts("-p --preserve : preserve environ");
+	puts("-f --force    : autologin");
+	puts("-s --shell    : specify a custom shell");
+}
+
+void login_loop(void) {
+	char username[256];
 	if (!pwd) {
 		fprintf(stderr, "username : ");
 		fflush(stdout);
-		char username[256];
 		fgets(username, sizeof(username), stdin);
 		if (strchr(username, '\n')) *strrchr(username, '\n') = '\0';
 		pwd = getpwnam(username);
@@ -87,13 +97,16 @@ int main(int argc, char **argv) {
 			autologin = 1;
 			break;
 		case 's':
-			// TODO
+			shell = optarg;
 			break;
+		case 'h':
+			help();
+			return 0;
 		case '?':
 			if (optopt) {
-				fprintf(stderr, "getty : invalid option '-%c'\n", optopt);
+				fprintf(stderr, "login : invalid option '-%c'\n", optopt);
 			} else {
-				fprintf(stderr, "getty : invalid option '%s'\n", argv[optind-1]);
+				fprintf(stderr, "login : invalid option '%s'\n", argv[optind-1]);
 			}
 			return 1;
 		}
@@ -109,7 +122,7 @@ int main(int argc, char **argv) {
 		if (!*end) {
 			pwd = getpwuid(uid);
 		} else {
-			pwd = getpwnam(user),
+			pwd = getpwnam(user);
 		}
 		if (!pwd) {
 			fprintf(stderr, "login : invalid user '%s'\n", user);
@@ -138,15 +151,9 @@ int main(int argc, char **argv) {
 	}
 
 	// setup an env
-	char logname[256];
-	char home[256];
-	char shell[256];
-	snprintf(logname, sizeof(logname), "LOGNAME=%s", pwd->pw_name);
-	snprintf(home, sizeof(home), "HOME=%s", pwd->pw_dir);
-	snprintf(shell, sizeof(shell), "SHELL=%s", pwd->pw_shell);
-	putenv(logname);
-	putenv(home);
-	putenv(shell);
+	setenv("LOGNAME", pwd->pw_name,  1);
+	setenv("HOME",    pwd->pw_dir,   1);
+	setenv("SHELL",   pwd->pw_shell, 1);
 	putenv("PATH=/bin:/usr/bin");
 
 	setgid(pwd->pw_gid);
@@ -157,11 +164,14 @@ int main(int argc, char **argv) {
 	// clear screen and print /motd
 	system("cat /etc/motd");
 
+	if (!shell) shell = pwd->pw_shell;
+
 	char *arg[] = {
-		pwd->pw_shell,
-		NULL};
-	execv(pwd->pw_shell, arg);
-	perror(pwd->pw_shell);
+		shell,
+		NULL
+	};
+	execv(shell, arg);
+	perror(shell);
 
 	return 1;
 }

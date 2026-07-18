@@ -1,22 +1,55 @@
 #include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <getopt.h>
 
+struct option options[] = {
+	{"shell", no_argument, NULL, 's'},
+	{"help",  no_argument, NULL, 'h'},
+	{0, 0, 0, 0},
+};
 
-int main(int argc,char **argv){
-	if(geteuid() != 0){
-		printf("setuid bit is not set on sudo\n");
-	}
+void help(void) {
+	printf("usage : sudo COMMAND or\n");
+	printf("sudo OPTION\n");
+	printf("run a command as root\n");
+	printf("-s --shell : run a shell instead of a command\n");
+}
 
-	if(argc < 2){
-		fprintf(stderr,"missing argument\n");
+int main(int argc, char **argv) {
+	if (geteuid() != 0) {
+		printf("sudo : setuid bit is not set on sudo\n");
 		return 1;
 	}
 
-	if(!strcmp(argv[1],"--shell") || !strcmp(argv[1],"-s")){
+	int opt_index;
+	int option;
+	int do_shell = 0;
+	opterr = 0;
+	while ((opt = getopt_long(argc, argv, "sh", options, &opt_index)) != -1) {
+		switch (opt) {
+		case 's':
+			do_shell = 1;
+			break;
+		case 'h':
+			help();
+			return 0;
+		case '?':
+			if (optopt) {
+				fprintf(stderr, "sudo : invalid option '-%c'\n", optopt);
+			} else {
+				fprintf(stderr, "sudo : invalid option '%s'\n", argv[optind-1]);
+			}
+			return 1;
+		}
+	}
+
+	// TODO : check password and perm here
+
+	if (do_shell) {
 		char *shell = getenv("SHELL");
-		if(!shell){
+		if (!shell) {
 			shell = "sh";
 		}
 
@@ -25,20 +58,18 @@ int main(int argc,char **argv){
 			NULL
 		};
 
-		execvp(args[0],args);
+		execvp(args[0], args);
 		perror(args[0]);
 		return 1;
 	}
-	if(!strcmp(argv[1],"--help")){
-		printf("usage : sudo COMMAND or\n");
-		printf("sudo OPTION\n");
-		printf("run a command as root\n");
-		printf("-s --shell : run a shell instead of a command\n");
-		return 0;
+
+	if (optind >= argc) {
+		fprintf(stderr, "sudo : missing argument\n");
+		return 1;
 	}
 
-	execvp(argv[1],&argv[1]);
-	perror(argv[1]);
+	execvp(argv[optind], &argv[optind]);
+	perror(argv[optind]);
 
 	return 0;
 }

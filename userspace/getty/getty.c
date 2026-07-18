@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <termios.h>
 #include <getopt.h>
 #include <syslog.h>
@@ -12,7 +14,7 @@ int skip_login = 0;
 void reset(void) {
 	struct termios attr;
 	if (tcgetattr(STDOUT_FILENO, &attr) < 0) {
-		syslog(LOG_WARN, "could not get termios attributes : %m");
+		syslog(LOG_WARNING, "could not get termios attributes : %m");
 		return;
 	}
 
@@ -20,7 +22,7 @@ void reset(void) {
 	attr.c_lflag |= ISIG | ICANON | ECHO | ECHOE | ECHOK;
 
 	if (tcsetattr(STDOUT_FILENO, TCIOFLUSH, &attr) < 0) {
-		syslog(LOG_WARN, "could not set termios attributes : %m");
+		syslog(LOG_WARNING, "could not set termios attributes : %m");
 	}
 }
 
@@ -30,7 +32,7 @@ void clear(void) {
 
 
 void show_issue(void) {
-	int fd = open("/etc/issue");
+	int fd = open("/etc/issue", O_RDONLY);
 	if (fd < 0) {
 		// no issue
 		return;
@@ -68,7 +70,7 @@ void show_issue(void) {
 	close(fd);
 }
 
-struct option options = {
+struct option options[] = {
 	{"autologin",  required_argument, NULL, 'a'},
 	{"noreset",    no_argument,       NULL, 'c'},
 	{"noissue",    no_argument,       NULL, 'i'},
@@ -84,7 +86,7 @@ int main(int argc, char **argv) {
 	while ((opt = getopt_long(argc, argv, "a:ciJn", options, &opt_index)) != -1) {
 		switch (opt) {
 		case 'a':
-			// TODO
+			autologin = optarg;
 			break;
 		case 'c':
 			noreset = 1;
@@ -109,7 +111,7 @@ int main(int argc, char **argv) {
 	}
 
 	int i = optind;
-	if (i <= argc) {
+	if (i >= argc) {
 		fprintf(stderr, "getty : no port specified\n");
 		return 1;
 	}
