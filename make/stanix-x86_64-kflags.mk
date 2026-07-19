@@ -8,4 +8,4 @@ KFLAGS += \
 	-march=x86-64 \
 	-m64 \
 	-mno-red-zone \
-	-mcmodel=kernel
+	-mcmodel=large
