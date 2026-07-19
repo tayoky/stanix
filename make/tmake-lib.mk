@@ -1,10 +1,4 @@
-# makefile include to build a program
-
-ifeq ($(V),1)
-	Q =
-else
-	Q = @
-endif
+# makefile include to build a library
 
 SRCS ?= $(wildcard *.[cs])
 HEADERS ?= $(wildcard include/*)
@@ -16,7 +10,7 @@ CFLAGS := -std=c99 -I ./ $(CFLAGS)
 
 all :
 
-include stanix-compile.mk
+include $(TMAKE_DIR)/tmake-compile.mk
 
 ifneq ($(strip $(STATIC_OBJS)),)
 all : $(BUILDDIR)/$(STATIC_LIB)

@@ -7,7 +7,8 @@ ISO_IMAGE = stanix.iso
 OUT = out
 BUILDENV_SHELL = $(SHELL)
 
-export TOP = $(PWD)
+export TOP = $(CURDIR)
+export TMAKE_DIR = $(TOP)/make
 
 ifeq ($(findstring clean,$(MAKECMDGOALS))$(findstring header, $(MAKECMDGOALS)),)
 include config.mk

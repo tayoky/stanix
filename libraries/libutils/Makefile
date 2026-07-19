@@ -1,5 +1,7 @@
-MAKEFLAGS += --no-builtin-rules
+TOP ?= $(CURDIR)/../..
+TMAKE_DIR ?= $(TOP)/make
+include $(TMAKE_DIR)/tmake-init.mk
 
 LIB = utils
 
-include stanix-lib.mk
+include $(TMAKE_DIR)/tmake-lib.mk

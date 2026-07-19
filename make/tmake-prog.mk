@@ -1,18 +1,12 @@
 # makefile include to build a program
 
-ifeq ($(V),1)
-	Q =
-else
-	Q = @
-endif
-
 SRCS ?= $(wildcard *.[cs])
 OBJS += $(SRCS:%=$(BUILDDIR)/%.o)
 CFLAGS := -std=c99 -I ./ $(CFLAGS)
 
 all : $(BUILDDIR)/$(PROG)
 
-include stanix-compile.mk
+include $(TMAKE_DIR)/tmake-compile.mk
 
 $(BUILDDIR)/$(PROG) : $(OBJS)
 	@mkdir -p "$(@D)"
