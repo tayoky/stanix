@@ -1,6 +1,6 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = shutdown
 
 include stanix-prog.mk

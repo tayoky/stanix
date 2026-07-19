@@ -1,6 +1,7 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = uname
+LDFLAGS += -lini
 
 include stanix-prog.mk

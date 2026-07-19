@@ -1,6 +1,6 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = umount
 
 include stanix-prog.mk

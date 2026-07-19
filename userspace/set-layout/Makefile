@@ -1,6 +1,7 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = set-layout
+LDFLAGS += -linput
 
 include stanix-prog.mk

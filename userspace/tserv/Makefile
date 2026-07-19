@@ -1,6 +1,7 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = tserv
+LDFLAGS += -lini
 
 include stanix-prog.mk

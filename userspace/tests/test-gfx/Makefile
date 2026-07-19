@@ -1,6 +1,7 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = test-gfx
+LDFLAGS += -lgfx
 
 include stanix-prog.mk

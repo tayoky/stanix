@@ -1,6 +1,6 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = tty
 
 include stanix-prog.mk

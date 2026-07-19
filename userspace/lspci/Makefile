@@ -1,6 +1,6 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = lspci
 
 include stanix-prog.mk

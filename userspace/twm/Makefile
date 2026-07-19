@@ -1,6 +1,7 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = twm
+LDFLAGS += -lgfx -linput
 
 include stanix-prog.mk

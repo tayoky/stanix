@@ -1,6 +1,7 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = term
+LDFLAGS += -lgfx -lterm -ltgui
 
 include stanix-prog.mk

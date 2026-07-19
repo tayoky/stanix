@@ -1,6 +1,7 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = fbterm
+LDFLAGS += -lgfx -lterm -linput
 
 include stanix-prog.mk

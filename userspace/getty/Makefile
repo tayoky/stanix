@@ -1,6 +1,7 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = getty
+LDFLAGS += -lini
 
 include stanix-prog.mk

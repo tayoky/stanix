@@ -1,6 +1,7 @@
 
 MAKEFLAGS += --no-builtin-rules
 
-PROG = program
+PROG = twm-info
+LDFLAGS += -ltwm
 
 include stanix-prog.mk

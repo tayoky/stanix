@@ -1,4 +1,5 @@
 MAKEFLAGS += --no-builtin-rules
+MAKEFLAGS += -I$(CURDIR)/make
 
 # defaults
 HDD_IMAGE = stanix.hdd
