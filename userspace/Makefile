@@ -1,5 +1,4 @@
 MAKEFLAGS += --no-builtin-rules
-PREFIX = /
 
 # first get all sub directories
 SUBDIRS = $(patsubst %/,%,$(dir $(wildcard */Makefile)))
