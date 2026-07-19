@@ -1,7 +1,7 @@
 #ifndef KERNEL_ASM_H
 #define KERNEL_ASM_H
 
-#if defined(__KERNEL__) || defined(MODULE)
+#if defined(__KERNEL__) || defined(__MODULE__)
 
 #include <stdint.h>
 #include <kernel/port.h>

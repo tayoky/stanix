@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#if defined(__KERNEL__) || defined(MODULE)
+#if defined(__KERNEL__) || defined(__MODULE__)
 
 /**
  * @brief read an given port

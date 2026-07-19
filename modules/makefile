@@ -19,7 +19,7 @@ all : $(MOD) header
 
 $(BUILDDIR)/%.ko : %.c
 	@mkdir -p $(dir $@)
-	$(CC) -D$(ARCH) $(CFLAGS) -o $@ -c $^ -DMODULE
+	$(CC) -D$(ARCH) $(CFLAGS) -o $@ -c $^ -D__MODULE__
 
 install : all
 	@mkdir -p "$(DESTDIR)$(PREFIX)/mod"
