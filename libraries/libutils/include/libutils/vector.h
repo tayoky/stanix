@@ -2,6 +2,7 @@
 #define _LIBUTILS_VECTOR_H
 
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct utils_vector {
 	size_t count;
