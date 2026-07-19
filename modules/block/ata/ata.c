@@ -310,7 +310,7 @@ static void ide_init_device(ide_device_t *device){
 	}
 
 	//we want this shit to be aligned
-	ata_ident_t ident;
+	ata_ident_t ident = {0};
 	uint16_t *buf = (uint16_t *)&ident;
 	for (size_t i = 0; i < 256; i++){
 		buf[i] = in_word(device->channel->base + ATA_REG_DATA);

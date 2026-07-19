@@ -284,7 +284,7 @@ static int init_i8042(int argc, char **argv) {
 
 	// try to check for port 2
 	i8042_send_command(I8042_ENABLE_PORT2);
-	uint8_t conf;
+	uint8_t conf = 0;
 	i8042_read_ccb(&conf);
 	if (!(conf & (1 << 5))) {
 		// there is a second port

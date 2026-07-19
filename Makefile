@@ -174,7 +174,7 @@ build-modules : build-tlibc build-libraries header
 	@$(MAKE) -C modules install DESTDIR="$(realpath initrd)" BUILDDIR=$(BUILDDIR)/modules
 
 build-libraries : build-tlibc
-	@$(MAKE) -C libraries install
+	@$(MAKE) -C libraries install BUILDDIR=$(BUILDDIR)/libraries
 
 build-userspace : build-tlibc build-libraries
 	@$(MAKE) -C userspace install BUILDDIR=$(BUILDDIR)/userspace
