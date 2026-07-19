@@ -18,8 +18,12 @@ install : all
 	@echo "INSTALL $(PROG)"
 	$(Q)cp "$(BUILDDIR)/$(PROG)" "$(DESTDIR)$(PREFIX)/bin/"
 
+uninstall :
+	@echo "UNINSTALL $(PROG)"
+	$(Q)rm -f "$(DESTDIR)$(PREFIX)/bin/$(PROG)"
+
 clean :
 	@echo "CLEAN $(BUILDDIR)"
 	$(Q) rm -rf "$(BUILDDIR)"
 
-.PHONY : all install clean
+.PHONY : all install uninstall clean

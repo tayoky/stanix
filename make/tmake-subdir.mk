@@ -1,6 +1,6 @@
 # makefile include to build subdirs
 
-TARGETS = all install clean
+TARGETS = all install uninstall clean
 SUBDIR_TARGETS = $(foreach DIR,$(SUBDIRS),$(addsuffix -$(DIR),$(TARGETS)))
 
 .PHONY : $(TARGETS) $(SUBDIR_TARGETS)

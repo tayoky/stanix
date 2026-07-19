@@ -24,6 +24,11 @@ install-static : $(BUILDDIR)/$(STATIC_LIB)
 	@mkdir -p "$(DESTDIR)$(PREFIX)/lib"
 	@echo "INSTALL $(STATIC_LIB)"
 	$(Q)cp "$(BUILDDIR)/$(STATIC_LIB)" "$(DESTDIR)$(PREFIX)/lib/"
+
+uninstall : uninstall-static
+uninstall-static :
+	@echo "UNINSTALL $(STATIC_LIB)"
+	$(Q)rm -f "$(DESTDIR)$(PREFIX)/lib/$(STATIC_LIB)"
 endif
 
 ifneq ($(strip $(SHARED_OBJS)),)
@@ -31,13 +36,18 @@ all : $(BUILDDIR)/$(SHARED_LIB)
 $(BUILDDIR)/$(SHARED_LIB) : $(SHARED_OBJS)
 	@mkdir -p "$(@D)"
 	@echo "CCLD $(SHARED_LIB)"
-	$(Q)$(CC) -shared $(CFLAGS) -o "$@" $^ $(LDFLAGS)
+	$(Q)$(CC) -shared $(CFLAGS) -Wl,-soname,$(SHARED_LIB) -o "$@" $^ $(LDFLAGS)
 
 install : install-shared
 install-shared : $(BUILDDIR)/$(SHARED_LIB)
 	@mkdir -p "$(DESTDIR)$(PREFIX)/lib"
 	@echo "INSTALL $(SHARED_LIB)"
 	$(Q)cp "$(BUILDDIR)/$(SHARED_LIB)" "$(DESTDIR)$(PREFIX)/lib/"
+
+uninstall : uninstall-shared
+uninstall-shared :
+	@echo "UNINSTALL $(SHARED_LIB)"
+	$(Q)rm -f "$(DESTDIR)$(PREFIX)/lib/$(SHARED_LIB)"
 endif
 
 ifneq ($(strip $(HEADERS)),)
@@ -47,10 +57,14 @@ install-headers :
 	@echo "INSTALL $(HEADERS)"
 	$(Q)cp -r $(HEADERS) "$(DESTDIR)$(PREFIX)/include/"
 
+uninstall : uninstall-headers
+uninstall-headers :
+	@echo "UNINSTALL $(HEADERS)"
+	$(Q)rm -f $(addprefix $(DESTDIR)$(PREFIX)/include/,$(HEADERS))
 endif
 
 clean :
 	@echo "CLEAN $(BUILDDIR)"
 	$(Q) rm -rf "$(BUILDDIR)"
 
-.PHONY : all install-headers install-static install-shared install clean
+.PHONY : all install-headers install-static install-shared install uninstall-headers uninstall-static uninstall-shared clean
