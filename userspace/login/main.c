@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
 	setenv("LOGNAME", pwd->pw_name,  1);
 	setenv("HOME",    pwd->pw_dir,   1);
 	setenv("SHELL",   pwd->pw_shell, 1);
-	putenv("PATH=/bin:/usr/bin");
+	putenv("PATH=/bin:/usr/bin:/usr/local/bin");
 
 	setgid(pwd->pw_gid);
 	setuid(pwd->pw_uid);
