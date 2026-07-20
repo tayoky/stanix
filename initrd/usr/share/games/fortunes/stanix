@@ -1,0 +1,19 @@
+Tips : If you ever get lost do "cd" to get back to your home directory !
+%
+Tips : Use $TMPDIR instead of $TMP, $TMP is non standard and comes from MS-DOS :D
+%
+Tips : Use ": > file" to quickly clear a file !
+%
+Tips : Stanix has an extention of "ttyname" called "fdname".
+It Allow you to get the path to any file descriptor :D
+%
+Tips : In GUI the program stanix-version allow you to see your current version of Stanix!
+%
+Tips : You can mount your own tmpfs anywhere using "mount -t tmpfs -S / -T /my-tmpfs,
+note that this require root permissions.
+%
+The name Stanix comes from the contraction of Stanislas's Unix, Stanislas being my real name!
+%
+The original name of Stanix was FOS25, which stand for Fucked Operating System 2025.
+%
+Stanix's repo and first commit were created on the 27th of December 2024!

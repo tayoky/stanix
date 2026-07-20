@@ -2,7 +2,6 @@ TOP ?= $(CURDIR)/../..
 TMAKE_DIR ?= $(TOP)/make
 include $(TMAKE_DIR)/tmake-init.mk
 
-PROG = info
-LDFLAGS += -ltrm -linput
+PROG = fortune
 
 include $(TMAKE_DIR)/tmake-prog.mk
