@@ -8,6 +8,9 @@
 |       $$   \$$  $$ \$$    $$| $$  | $$| $$|  $$ \$$\
  \$$$$$$$     \$$$$   \$$$$$$$ \$$   \$$ \$$ \$$   \$$
 
-welcome to the stanix operating system
-a free 64 bit operating system made from scratch
-see README.txt and /COPYING.txt for more information
+Welcome to the Stanix operating system !
+A free 64 bit operating system made from scratch.
+See /usr/share/doc/README.txt for more information.
+github repo : https://github.com/tayoky/stanix
+bug report  : https://github.com/tayoky/stanix/issues
+website     : https://tayoky.github.io/stanix

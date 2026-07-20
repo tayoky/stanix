@@ -8,7 +8,7 @@ include $(TMAKE_DIR)/tmake-subdir.mk
 
 # install headers
 FILES = include/module
-FILESDIR = /include
+FILESDIR = $(INCLUDEDIR)
 include $(TMAKE_DIR)/tmake-files.mk
 
 .PHONY : install-headers

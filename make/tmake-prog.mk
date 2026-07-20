@@ -14,13 +14,13 @@ $(BUILDDIR)/$(PROG) : $(OBJS)
 	$(Q)$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 install : all
-	@mkdir -p "$(DESTDIR)$(PREFIX)/bin"
+	@mkdir -p "$(DESTDIR)$(BINDIR)"
 	@echo "INSTALL $(PROG)"
-	$(Q)cp "$(BUILDDIR)/$(PROG)" "$(DESTDIR)$(PREFIX)/bin/"
+	$(Q)cp "$(BUILDDIR)/$(PROG)" "$(DESTDIR)$(BINDIR)/"
 
 uninstall :
 	@echo "UNINSTALL $(PROG)"
-	$(Q)rm -f "$(DESTDIR)$(PREFIX)/bin/$(PROG)"
+	$(Q)rm -f "$(DESTDIR)$(BINDIR)/$(PROG)"
 
 clean :
 	@echo "CLEAN $(BUILDDIR)"
