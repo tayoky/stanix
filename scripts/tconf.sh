@@ -1,6 +1,6 @@
 # source this script in your configure
 
-TCONF_VERSION="v0.1.0"
+TCONF_VERSION="v0.1.1"
 
 tconf_print () {
 	echo "$@" 1>&2
@@ -20,6 +20,10 @@ tconf_to_macro_name () {
 
 tconf_to_file_name () {
 	echo "$@" | tr " " "_"
+}
+
+tconf_to_option_name () {
+	echo "$@" | tr "A-Z_" "a-z-"
 }
 
 tconf_help () {
@@ -45,10 +49,13 @@ generate config.mk from environement
 --prefix=PREFIX set the prefix [$PREFIX]
 --sysroot=SYSROOT, --with-sysroot=SYSROOT set the sysroot [${SYSROOT:-"/"}]
 --builddir=BUILDDIR set the builddir (where to put objects) [$BUILDDIR]
---debug compile with debug options activated [$DEBUG]
---enable-XXX compile with a specific feature enabled
---disable-XXX compile with a specific feature disabled
---help show this help and exit"
+--debug compile with debug options activated [$DEBUG]"
+	for OPTION in $OPTIONS ; do
+		OPTION_NAME=$(tconf_to_option_name $OPTION)
+		echo "--enable-$OPTION_NAME compile with $OPTION_NAME enabled [$(tconf_get_var $OPTION)]
+--disable-$OPTION_NAME compile with $OPTION_NAME disabled"
+	done
+	echo "--help show this help and exit"
 }
 
 tconf_init () {
@@ -203,6 +210,9 @@ tconf_fini () {
 		tconf_echo_conf HOST "$HOST"
 		tconf_echo_conf ARCH "$ARCH"
 		tconf_echo_conf DEBUG "$DEBUG"
+		for OPTION in $OPTIONS ; do
+			tconf_echo_conf $OPTION $(tconf_get_var $OPTION)
+		done
 	} > "$TOP/config.mk"
 	return 0
 }
@@ -218,6 +228,7 @@ tconf_add_subdir () {
 	export ARFLAGS LDFLAGS OPT
 	export HOST BUILD TARGET
 	export PREFIX SYSROOT DEBUG
+	export $OPTIONS
 	SUBDIR="$1"
 	shift
 	tconf_print "entering subdir $SUBDIR"

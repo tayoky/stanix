@@ -7,7 +7,6 @@ SUBDIRS = $(patsubst %/,%,$(dir $(wildcard */Makefile)))
 
 include $(TMAKE_DIR)/tmake-subdir.mk
 
-# some programs want to be installed in /usr
-%-tash   : PREFIX=/usr
-%-tutils : PREFIX=/usr
-%-tvu    : PREFIX=/usr
+# we want to install tutils and tash binaries in /bin
+install-tash   : BINDIR=/bin
+install-tutils : BINDIR=/bin
