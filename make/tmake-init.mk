@@ -10,18 +10,20 @@ LD ?= ld
 AS ?= as
 LN ?= ln
 LN_S ?= ln -s
+INSTALL ?= install
 PREFIX ?= /usr/local
-BINDIR     ?= $(PREFIX)/bin
-SBINDIR    ?= $(PREFIX)/sbin
-LIBDIR     ?= $(PREFIX)/lib
-INCLUDEDIR ?= $(PREFIX)/include
-SHAREDIR   ?= $(PREFIX)/share
-MANDIR     ?= $(SHAREDIR)/man
-DOCDIR     ?= $(SHAREDIR)/doc
-NLSDIR     ?= $(SHAREDIR)/nls
-LOCALEDIR  ?= $(SHAREDIR)/locale
-CONFDIR    ?= $(PREFIX)/etc
+BINDIR    ?= $(PREFIX)/bin
+SBINDIR   ?= $(PREFIX)/sbin
+LIBDIR    ?= $(PREFIX)/lib
+INCSDIR   ?= $(PREFIX)/include
+SHAREDIR  ?= $(PREFIX)/share
+MANDIR    ?= $(SHAREDIR)/man
+DOCDIR    ?= $(SHAREDIR)/doc
+NLSDIR    ?= $(SHAREDIR)/nls
+LOCALEDIR ?= $(SHAREDIR)/locale
+CONFDIR   ?= $(PREFIX)/etc
 TMAKE_DIR ?= $(TOP)/make
+STAMP     ?= $(BUILDDIR)/.stamp
 
 ifeq ($(BUILDDIR),)
 	BUILDDIR  ?= $(TOP)/build$(CURDIR:$(abspath $(TOP))%=%)
@@ -40,5 +42,4 @@ endif
 
 # define mains targets
 all :
-install : all
-.PHONY : all install
+.PHONY : all

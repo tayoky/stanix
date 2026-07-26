@@ -4,12 +4,12 @@ LIB ?= $(PACKAGE)
 SRCS ?= $(wildcard *.[cs])
 STATIC ?= yes
 SHARED ?= yes
-HEADERS ?= $(wildcard include/*)
 STATIC_LIB ?= lib$(LIB).a
 SHARED_LIB ?= lib$(LIB).so
 STATIC_OBJS += $(SRCS:%=$(BUILDDIR)/%.o)
 SHARED_OBJS += $(SRCS:%=$(BUILDDIR)/%.so)
 CFLAGS := -std=c99 -I ./ $(CFLAGS)
+LIBMODE ?= 0744
 
 all :
 
@@ -26,7 +26,7 @@ install : install-static
 install-static : $(BUILDDIR)/$(STATIC_LIB)
 	@mkdir -p "$(DESTDIR)$(LIBDIR)"
 	@echo "INSTALL $(STATIC_LIB)"
-	$(Q)cp "$(BUILDDIR)/$(STATIC_LIB)" "$(DESTDIR)$(LIBDIR)/"
+	$(Q)$(INSTALL) -m $(LIBMODE) "$(BUILDDIR)/$(STATIC_LIB)" "$(DESTDIR)$(LIBDIR)/"
 
 uninstall : uninstall-static
 uninstall-static :
@@ -45,7 +45,7 @@ install : install-shared
 install-shared : $(BUILDDIR)/$(SHARED_LIB)
 	@mkdir -p "$(DESTDIR)$(LIBDIR)"
 	@echo "INSTALL $(SHARED_LIB)"
-	$(Q)cp "$(BUILDDIR)/$(SHARED_LIB)" "$(DESTDIR)$(LIBDIR)/"
+	$(Q)$(INSTALL) -m $(LIBMODE) "$(BUILDDIR)/$(SHARED_LIB)" "$(DESTDIR)$(LIBDIR)/"
 
 uninstall : uninstall-shared
 uninstall-shared :
@@ -53,21 +53,10 @@ uninstall-shared :
 	$(Q)rm -f "$(DESTDIR)$(LIBDIR)/$(SHARED_LIB)"
 endif
 
-ifneq ($(strip $(HEADERS)),)
-install : install-headers
-install-headers :
-	@mkdir -p "$(DESTDIR)$(INCLUDEDIR)"
-	@echo "INSTALL $(HEADERS)"
-	$(Q)cp -r $(HEADERS) "$(DESTDIR)$(INCLUDEDIR)/"
-
-uninstall : uninstall-headers
-uninstall-headers :
-	@echo "UNINSTALL $(HEADERS)"
-	$(Q)rm -f $(addprefix $(DESTDIR)$(INCLUDEDIR)/,$(HEADERS))
-endif
-
 clean :
 	@echo "CLEAN $(BUILDDIR)"
 	$(Q) rm -rf "$(BUILDDIR)"
 
-.PHONY : all install-headers install-static install-shared install uninstall-headers uninstall-static uninstall-shared clean
+include $(TMAKE_DIR)/tmake-incs.mk
+
+.PHONY : install install-static install-shared uninstall uninstall-static uninstall-shared clean

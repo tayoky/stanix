@@ -8,5 +8,5 @@ SUBDIR_TARGETS = $(foreach DIR,$(SUBDIRS),$(addsuffix -$(DIR),$(TARGETS)))
 $(TARGETS): % : $(addprefix %-, $(SUBDIRS))
 
 $(SUBDIR_TARGETS): % :
-	@DIR=$(patsubst $(firstword $(subst -, ,$*))-%,%,$*); \
-	$(MAKE) -C $$DIR $(firstword $(subst -, ,$*)) BUILDDIR=$(BUILDDIR)/$$DIR
+	@DIR=$(patsubst $(firstword $(subst -, ,$*))-%,%,$*) ; \
+	$(MAKE) -C $$DIR $(firstword $(subst -, ,$*)) BUILDDIR=$(BUILDDIR)/$$DIR ;

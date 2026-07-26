@@ -7,11 +7,6 @@ SUBDIRS = $(patsubst %/,%,$(dir $(wildcard */Makefile)))
 include $(TMAKE_DIR)/tmake-subdir.mk
 
 # install headers
-FILES = include/module
-FILESDIR = $(INCLUDEDIR)
-include $(TMAKE_DIR)/tmake-files.mk
-
-.PHONY : install-headers
-install-headers : install-files
-.PHONY : uninstall-headers
-uninstall-headers : uninstall-files
+INCS = $(wildcard include/module/*.h)
+INCSDIR := $(INCSDIR)/module
+include $(TMAKE_DIR)/tmake-incs.mk

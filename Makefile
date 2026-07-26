@@ -184,7 +184,6 @@ $(OUT)/boot/initrd.tar : build-modules build-userspace $(INITRD_SRC)
 	@echo "GEN boot/initrd.tar"
 	@mkdir -p $(@D)
 	@mkdir -p initrd/dev initrd/tmp initrd/mnt initrd/proc initrd/sys
-	@chmod +s  initrd/bin/login initrd/bin/sudo
 # temporary until real sysroot, copy sysroot to initrd
 	@cp -r $(SYSROOT)/* initrd/
 	@cd initrd && tar --create -f ../$(OUT)/boot/initrd.tar **
@@ -203,7 +202,7 @@ build-env :
 
 header : 
 	@$(MAKE) -C kernel install-headers
-	@$(MAKE) -C modules install-headers
+	@$(MAKE) -C modules install-incs
 	@$(MAKE) -C tlibc install-include TARGET=stanix
 	@echo "INSTALL limine.h"
 	@cp ./limine/limine.h $(DESTDIR)$(PREFIX)/include/kernel/
