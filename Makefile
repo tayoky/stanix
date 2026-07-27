@@ -4,8 +4,9 @@ MAKEFLAGS += -I$(CURDIR)/make
 # defaults
 HDD_IMAGE = stanix.hdd
 ISO_IMAGE = stanix.iso
-OUT = out
 BUILDENV_SHELL = $(SHELL)
+
+INITRD = $(CURDIR)/initrd
 
 export TOP = $(CURDIR)
 export TMAKE_DIR = $(TOP)/make
@@ -40,16 +41,16 @@ ifneq ($(wildcard toolchain/bin/.),)
 export PATH := $(realpath toolchain/bin):$(PATH)
 endif
 
-OUT_FILES = $(OUT)/boot/limine/limine-bios.sys \
-$(OUT)/EFI/BOOT/BOOTX64.EFI \
-$(OUT)/EFI/BOOT/BOOTIA32.EFI \
-$(OUT)/EFI/BOOT/BOOTAA64.EFI \
-$(OUT)/boot/limine/limine-bios-cd.bin \
-$(OUT)/boot/limine/limine-uefi-cd.bin \
-$(OUT)/boot/initrd.tar \
-$(OUT)/boot/limine/limine.conf
+ESP_ROOT = $(BUILDDIR)/esp
 
-INITRD_SRC = $(shell find ./initrd)
+ESP_FILES = $(ESP_ROOT)/boot/limine/limine-bios.sys \
+$(ESP_ROOT)/EFI/BOOT/BOOTX64.EFI \
+$(ESP_ROOT)/EFI/BOOT/BOOTIA32.EFI \
+$(ESP_ROOT)/EFI/BOOT/BOOTAA64.EFI \
+$(ESP_ROOT)/boot/limine/limine-bios-cd.bin \
+$(ESP_ROOT)/boot/limine/limine-uefi-cd.bin \
+$(ESP_ROOT)/boot/initrd.tar \
+$(ESP_ROOT)/boot/limine/limine.conf
 
 all : build-all image-all
 
@@ -106,13 +107,13 @@ test-qemu-cdrom : image-iso
 	qemu-system-$(ARCH) -cdrom stanix.iso -serial stdio  --no-shutdown --no-reboot
 
 test-qemu-debug : image-hdd
-	objdump -D $(OUT)/boot/$(KERNEL) > asm.txt
+	objdump -D $(ESP_ROOT)/boot/$(KERNEL) > asm.txt
 	qemu-system-$(ARCH) -drive file=$(HDD_IMAGE)  -serial stdio -s -S
 
 # images target
 
 image-hdd : $(HDD_IMAGE)
-$(HDD_IMAGE) : build-all $(OUT_FILES) 
+$(HDD_IMAGE) : $(ESP_FILES) | build-all
 	@echo "[creating hdd image]"
 	@rm -f $(HDD_IMAGE)
 	@dd if=/dev/zero bs=9M count=0 seek=64 of=$(HDD_IMAGE)
@@ -123,20 +124,20 @@ $(HDD_IMAGE) : build-all $(OUT_FILES)
 	@mformat -i $(HDD_IMAGE)@@1M	
 #copy the files
 	@echo "[copying boot files]"
-	@cd $(OUT) && mcopy -i ../$(HDD_IMAGE)@@1M * -/ ::/
+	@cd $(ESP_ROOT) && mcopy -i ../$(HDD_IMAGE)@@1M * -/ ::/
 # Install the Limine BIOS stages onto the image.
 	@echo "[installing limine]"
 	@./limine/limine bios-install $(HDD_IMAGE)
 
 image-iso : $(ISO_IMAGE)
-$(ISO_IMAGE) : build-all $(OUT_FILES)
+$(ISO_IMAGE) : $(ESP_FILES) | build-all
 	@echo "[creating iso]"
 	@rm -f $(ISO_IMAGE)
 	@xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
         -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
         -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
         -efi-boot-part --efi-boot-image --protective-msdos-label \
-        $(OUT) -o $(ISO_IMAGE)
+        $(ESP_ROOT) -o $(ISO_IMAGE)
 	@make -C limine
 	@echo "[installing limine]"
 	@./limine/limine bios-install $(ISO_IMAGE)
@@ -148,12 +149,12 @@ OVMF-img.bin : OVMF.fd
 	dd if=/dev/zero of=OVMF-img.bin bs=1 count=0 seek=67108864
 
 # limine files to copy
-$(OUT)/EFI/BOOT/% : limine/%
+$(ESP_ROOT)/EFI/BOOT/% : limine/%
 	@mkdir -p $(@D)
 	@echo "INSTALL EFI/BOOT/$(shell basename $@)"
 	@cp  $^ $@
 
-$(OUT)/boot/limine/limine-% : limine/limine-%
+$(ESP_ROOT)/boot/limine/limine-% : limine/limine-%
 	@mkdir -p $(@D)
 	@echo "INSTALL boot/$^"
 	@cp  $^ $@
@@ -164,14 +165,14 @@ build-tlibc : header
 	@$(MAKE) -C tlibc install TARGET=stanix
 
 build-kernel : build-tlibc build-libraries header
-	@mkdir -p $(OUT)/boot
 	@$(MAKE) -C kernel
+	@mkdir -p $(ESP_ROOT)/boot
 	@echo "INSTALL stanix.elf"
-	@cp $(BUILDDIR)/kernel/kernel $(OUT)/boot/stanix.elf
+	@cp $(BUILDDIR)/kernel/kernel $(ESP_ROOT)/boot/stanix.elf
 
 build-modules : build-tlibc build-libraries header
 # we need to install modules in the initrd as they are required to load the sysroot
-	@$(MAKE) -C modules install DESTDIR="$(realpath initrd)" BUILDDIR=$(BUILDDIR)/modules
+	@$(MAKE) -C modules install DESTDIR="$(INITRD)" BUILDDIR=$(BUILDDIR)/modules
 
 build-libraries : build-tlibc
 	@$(MAKE) -C libraries install BUILDDIR=$(BUILDDIR)/libraries
@@ -179,16 +180,16 @@ build-libraries : build-tlibc
 build-userspace : build-tlibc build-libraries
 	@$(MAKE) -C userspace install BUILDDIR=$(BUILDDIR)/userspace
 
-build-initrd : $(OUT)/boot/initrd.tar
-$(OUT)/boot/initrd.tar : build-modules build-userspace $(INITRD_SRC)
+build-initrd : $(ESP_ROOT)/boot/initrd.tar
+$(ESP_ROOT)/boot/initrd.tar : $(shell find $(INITRD)) $(shell find $(SYSROOT)) | build-userspace build-modules
 	@echo "GEN boot/initrd.tar"
 	@mkdir -p $(@D)
-	@mkdir -p initrd/dev initrd/tmp initrd/mnt initrd/proc initrd/sys
+	@mkdir -p $(INITRD)/dev $(INITRD)/tmp $(INITRD)/mnt $(INITRD)/proc $(INITRD)/sys
 # temporary until real sysroot, copy sysroot to initrd
-	@cp -r $(SYSROOT)/* initrd/
-	@cd initrd && tar --create -f ../$(OUT)/boot/initrd.tar **
+	@cp -r $(SYSROOT)/* $(INITRD)/
+	@cd $(INITRD) && tar -cf $(ESP_ROOT)/boot/initrd.tar *
 
-$(OUT)/boot/limine/limine.conf : limine.conf
+$(ESP_ROOT)/boot/limine/limine.conf : limine.conf
 	@echo "INSTALL boot/limine/$^"
 	@mkdir -p $(@D)
 	@cp $^ $@
@@ -214,6 +215,5 @@ clean :
 	@$(MAKE) -C modules clean
 	@$(MAKE) -C libraries clean
 	rm -fr $(BUILDDIR)
-	rm -fr $(OUT)
 
 .PHONY : all targets help clean header build-tlibc build-kernel build-modules build-libraries build-userspace build-initrd build-all build
