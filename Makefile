@@ -1,5 +1,6 @@
-MAKEFLAGS += --no-builtin-rules
-MAKEFLAGS += -I$(CURDIR)/make
+TOP = $(CURDIR)
+TMAKE_DIR = $(TOP)/make
+include $(TMAKE_DIR)/tmake-init.mk
 
 # defaults
 HDD_IMAGE = stanix.hdd
@@ -7,9 +8,6 @@ ISO_IMAGE = stanix.iso
 BUILDENV_SHELL = $(SHELL)
 
 INITRD = $(CURDIR)/initrd
-
-export TOP = $(CURDIR)
-export TMAKE_DIR = $(TOP)/make
 
 ifeq ($(findstring clean,$(MAKECMDGOALS))$(findstring header, $(MAKECMDGOALS)),)
 include config.mk
