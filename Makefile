@@ -165,10 +165,8 @@ build-tlibc : header
 	@$(MAKE) -C tlibc install TARGET=stanix
 
 build-kernel : build-tlibc build-libraries header
-	@$(MAKE) -C kernel
-	@mkdir -p $(ESP_ROOT)/boot
-	@echo "INSTALL stanix.elf"
-	@cp $(BUILDDIR)/kernel/kernel $(ESP_ROOT)/boot/stanix.elf
+# we need to install the kernel into the EFI system partition
+	@$(MAKE) -C kernel install DESTDIR="$(ESP_ROOT)" BUILDDIR=$(BUILDDIR)/kernel
 
 build-modules : build-tlibc build-libraries header
 # we need to install modules in the initrd as they are required to load the sysroot

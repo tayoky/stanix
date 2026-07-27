@@ -2,8 +2,11 @@ TOP ?= $(CURDIR)/..
 TMAKE_DIR ?= $(TOP)/make
 include $(TMAKE_DIR)/tmake-init.mk
 
-PROG = kernel
-KLIBC ?= $(BUILDDIR)/tlibc/static-libk/libk.a
+PROG = stanix.elf
+KLIBC ?= $(SYSROOT)/usr/lib/libk.a
+
+# we need to install in /boot
+BINDIR = /boot
 
 # freestanding flags
 CFLAGS += \
@@ -27,8 +30,18 @@ LDFLAGS += \
 # arch specific flags
 -include arch/$(ARCH)/arch.mk
 
+INCS = $(wildcard include/*.h include/*/*.h include/*/*/*.h) ../limine/limine.h
+INCSDIR := $(INCSDIR)/kernel
+DIRS = drivers fs klib mem task
+SRCS = $(wildcard *.c) $(foreach DIR,$(DIRS), $(wildcard $(DIR)/*.c $(DIR)/*/*.c)) sym.c
+include $(TMAKE_DIR)/tmake-prog.mk
+
+# kernel need to link with klibc
+# we use this instead of -lk so it rebuild if klibc is rebuilt
+$(BUILDDIR)/$(PROG) : $(KLIBC)
+
 # sym.c is an automatically generated table
-$(BUILDDIR)/kernel/sym.c : $(OBJ_kernel) $(KLIBC)
+$(BUILDDIR)/sym.c : $(filter-out $(BUILDDIR)/sym.o, $(OBJS)) $(KLIBC)
 	@echo "GEN sym.c"
 	@echo '#include <kernel/sym.h>' > $@
 	@$(foreach SYM , $(shell $(NM) $^ --defined-only -ngj --quiet ),  echo "extern void $(SYM) ();" >> $@; )
@@ -36,10 +49,3 @@ $(BUILDDIR)/kernel/sym.c : $(OBJ_kernel) $(KLIBC)
 	@$(foreach SYM , $(shell $(NM) $^ --defined-only -ngj --quiet ),  echo "	{ .name = \"$(SYM)\" , .value = (uintptr_t)$(SYM) , .size = sizeof($(SYM))}," >> $@; ) 
 	@echo '};' >> $@
 	@echo 'const size_t symbols_count = sizeof(symbols) / sizeof(sym_t);' >> $@
-
-INCS = $(wildcard include/*.h include/*/*.h include/*/*/*.h) ../limine/limine.h
-INCSDIR := $(INCSDIR)/kernel
-DIRS = drivers fs klib mem task
-SRCS = $(wildcard *.c) $(foreach DIR,$(DIRS), $(wildcard $(DIR)/*.c $(DIR)/*/*.c))
-include $(TMAKE_DIR)/tmake-prog.mk
-

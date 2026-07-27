@@ -5,6 +5,11 @@ ifneq ($(SRCDIRS),)
 	vpath %.s $(SRCDIRS)
 endif
 
+$(BUILDDIR)/%.c.o :$(BUILDDIR)/%.c
+	@mkdir -p "$(@D)"
+	@echo "CC $<"
+	$(Q)$(CC) $(CFLAGS) -o "$@" -c $<
+
 $(BUILDDIR)/%.c.o : %.c
 	@mkdir -p "$(@D)"
 	@echo "CC $<"

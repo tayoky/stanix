@@ -10,7 +10,7 @@ BINCLEANFILES += $(BUILDDIR)/$(PROG) $(OBJS)
 BINMODE ?= 0755
 FILESGROUPS += BIN
 
-include $(TMAKE_DIR)/tmake-files.mk
+include $(TMAKE_DIR)/tmake-incs.mk
 include $(TMAKE_DIR)/tmake-compile.mk
 
 $(BUILDDIR)/$(PROG) : $(OBJS)
