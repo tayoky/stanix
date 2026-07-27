@@ -11,12 +11,6 @@ OVMF-img.bin
 
 # initial ramdisk
 initrd.tar
-initrd/bin/
-initrd/lib/
-initrd/include/
-initrd/usr/
-initrd/share/
-initrd/*-*
 
 # default sysroot
 sysroot

@@ -7,7 +7,8 @@ HDD_IMAGE = stanix.hdd
 ISO_IMAGE = stanix.iso
 BUILDENV_SHELL = $(SHELL)
 
-INITRD = $(CURDIR)/initrd
+INITRD = $(BUILDDIR)/initrd
+BASE_INITRD = $(CURDIR)/initrd
 
 ifeq ($(findstring clean,$(MAKECMDGOALS))$(findstring header, $(MAKECMDGOALS)),)
 include config.mk
@@ -178,12 +179,13 @@ build-userspace : build-tlibc build-libraries
 	@$(MAKE) -C userspace install BUILDDIR=$(BUILDDIR)/userspace
 
 build-initrd : $(ESP_ROOT)/boot/initrd.tar
-$(ESP_ROOT)/boot/initrd.tar : $(shell find $(INITRD)) $(shell find $(SYSROOT)) | build-userspace build-modules
-	@echo "GEN boot/initrd.tar"
+$(ESP_ROOT)/boot/initrd.tar : $(shell find -P $(INITRD) 2>/dev/null || echo) $(shell find -P $(SYSROOT)) | build-userspace build-modules
 	@mkdir -p $(@D)
+	@echo "GEN boot/initrd.tar"
 	@mkdir -p $(INITRD)/dev $(INITRD)/tmp $(INITRD)/mnt $(INITRD)/proc $(INITRD)/sys
+	@cp -P -r $(BASE_INITRD)/* $(INITRD)/
 # temporary until real sysroot, copy sysroot to initrd
-	@cp -r $(SYSROOT)/* $(INITRD)/
+	@cp -P -r $(SYSROOT)/* $(INITRD)/
 	@cd $(INITRD) && tar -cf $(ESP_ROOT)/boot/initrd.tar *
 
 $(ESP_ROOT)/boot/limine/limine.conf : limine.conf
