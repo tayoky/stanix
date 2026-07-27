@@ -202,7 +202,7 @@ build-env :
 	@$(BUILDENV_SHELL)
 
 header : 
-	@$(MAKE) -C kernel install-headers
+	@$(MAKE) -C kernel install-incs
 	@$(MAKE) -C modules install-incs
 	@$(MAKE) -C tlibc install-include TARGET=stanix
 	@echo "INSTALL limine.h"
