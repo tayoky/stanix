@@ -49,8 +49,9 @@ $(ESP_ROOT)/EFI/BOOT/BOOTIA32.EFI \
 $(ESP_ROOT)/EFI/BOOT/BOOTAA64.EFI \
 $(ESP_ROOT)/boot/limine/limine-bios-cd.bin \
 $(ESP_ROOT)/boot/limine/limine-uefi-cd.bin \
+$(ESP_ROOT)/boot/limine/limine.conf \
 $(ESP_ROOT)/boot/initrd.tar \
-$(ESP_ROOT)/boot/limine/limine.conf
+$(ESP_ROOT)/boot/stanix.elf
 
 all : build-all image-all
 
@@ -107,7 +108,7 @@ test-qemu-cdrom : image-iso
 	qemu-system-$(ARCH) -cdrom stanix.iso -serial stdio  --no-shutdown --no-reboot
 
 test-qemu-debug : image-hdd
-	objdump -D $(ESP_ROOT)/boot/$(KERNEL) > asm.txt
+	objdump -D $(ESP_ROOT)/boot/stanix.elf > kernel.dump
 	qemu-system-$(ARCH) -drive file=$(HDD_IMAGE)  -serial stdio -s -S
 
 # images target
