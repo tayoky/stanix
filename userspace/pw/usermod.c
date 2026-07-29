@@ -107,15 +107,11 @@ int usermod(int argc, char **argv) {
 	}
 
 	if (!found) {
-		ret = 1;
 		fprintf(stderr, "usermod : no such user '%s'\n", name);
-		goto error;
+		return 1;
 	}
 
 	finish_pwd();
 
 	return 0;
-
-error:
-	return ret;
 }

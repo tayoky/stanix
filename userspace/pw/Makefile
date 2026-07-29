@@ -5,7 +5,7 @@ include $(TMAKE_DIR)/tmake-init.mk
 PROG = pw
 include $(TMAKE_DIR)/tmake-prog.mk
 
-CMDS = usermod userdel
+CMDS = useradd usermod userdel
 
 .PHONY : install-symlinks
 install : install-symlinks

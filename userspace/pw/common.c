@@ -7,6 +7,7 @@
 int badname;
 const char *comment;
 const char *home;
+mode_t home_mode = 0755;
 const char *expire_date;
 const char *inactive;
 gid_t gid = -1;
@@ -15,24 +16,35 @@ const char *class;
 int create_home;
 int non_unique;
 const char *password;
-const char *root = "/";
-const char *prefix = "/";
+const char *root = "";
+const char *prefix = "";
 const char *shell;
 uid_t uid = -1;
 const char *program_name;
 const char *name;
+uid_t min_uid = 1000;
+uid_t max_uid = 60000;
+
+void error(const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	fprintf(stderr, "%s : ", program_name);
+	vfprintf(stderr, fmt, args);
+	fprintf(stderr, "\n");
+	va_end(args);
+}
 
 void common_setup(void) {
 	name = _argv[optind];
 	if (!name) {
-		fprintf(stderr, "%s : missing login name\n", program_name);
+		error("missing login name");
 		exit(2);
 	}
 	if (!non_unique) {
 		if (uid >= 0) {
 			struct passwd *pwd = getpwuid(uid);
 			if (pwd && strcmp(pwd->pw_name, name)) {
-				fprintf(stderr, "%s : non unique uid %ld\n", program_name, uid);
+				error("non unique uid %ld", uid);
 				exit(1);
 			}
 		}
@@ -43,16 +55,16 @@ void check_name(const char *name) {
 	if (!name) return;
 	if (badname) return;
 	if (strlen(name) > 31) {
-		fprintf(stderr, "%s : login name too long '%s'\n", program_name, name);
+		error("login name too long '%s'", name);
 		exit(1);
 	}
 	if (!isalpha(*name)) {
-		fprintf(stderr, "%s : invalid first character for login name '%s'\n", program_name, name);
+		error("invalid first character for login name '%s'", name);
 		exit(1);
 	}
 	while (name) {
 		if (!isalnum(*name) && *name != '-' && *name != '_') {
-			fprintf(stderr, "%s invalid character for login name '%c'\n", program_name, *name);
+			error("invalid character for login name '%c'", *name);
 		}
 		name++;
 	}
@@ -62,7 +74,7 @@ static long str2id(const char *str, const char *type) {
 	char *end;
 	long id = strtol(str, &end, 10);
 	if (end == str || *end) {
-		fprintf(stderr, "%s : invalid %s : '%s'\n", program_name, type, str);
+		error("invalid %s : '%s'\n", type, str);
 		exit(3);
 	}
 	return id;

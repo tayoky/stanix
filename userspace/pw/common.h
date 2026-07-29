@@ -7,6 +7,7 @@
 
 extern int badname;
 extern const char *comment;
+extern mode_t home_mode;
 extern const char *home;
 extern const char *expire_date;
 extern const char *inactive;
@@ -23,9 +24,19 @@ extern uid_t uid;
 extern const char *program_name;
 extern const char *name;
 extern char **_argv;
+extern uid_t min_uid;
+extern uid_t max_uid;
 
+typedef struct bitmap bitmap_t;
+bitmap_t *bitmap_create(size_t size);
+void bitmap_set(bitmap_t *bitmap, long bit);
+long bitmap_allocate(bitmap_t *bitmap);
+
+int useradd(int argc, char **argv);
 int usermod(int argc, char **argv);
 int userdel(int argc, char **argv);
+void load_conf(void);
+void error(const char *fmt, ...);
 struct passwd *get_pwd(void);
 void put_pwd(struct passwd *pwd);
 void init_pwd(void);

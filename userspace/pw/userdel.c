@@ -42,8 +42,10 @@ int userdel(int argc, char **argv) {
 	init_pwd();
 
 	struct passwd *pwd;
+	int found = 0;
 	while ((pwd = get_pwd())) {
 		if (!strcmp(name, pwd->pw_name)) {
+			found = 1;
 			if (remove_dir) {
 				pid_t child = fork();
 				if (!child) {
@@ -55,6 +57,10 @@ int userdel(int argc, char **argv) {
 			continue;
 		}
 		put_pwd(pwd);
+	}
+	if (!found) {
+		fprintf(stderr, "userdel : no such user '%s'\n", name);
+		return 1;
 	}
 	finish_pwd();
 	return 0;

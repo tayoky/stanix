@@ -68,14 +68,23 @@ void put_pwd(struct passwd *pwd) {
 	passwd_putpwent(pwd, passwd_tmp);
 }
 
+static FILE *open_file(const char *path, const char *mode) {
+	FILE *file = fopen(path, mode);
+	if (!file) {
+		fprintf(stderr, "%s : %s : %m\n", program_name, path);
+		exit(1);
+	}
+	return file;
+}
+
 void init_pwd(void) {
 	snprintf(passwd_path, sizeof(passwd_path), "%s%s/etc/passwd", root, prefix);
 	snprintf(passwd_tmp_path, sizeof(passwd_tmp_path), "%s%s/etc/passwd.tmp", root, prefix);
 	snprintf(master_path, sizeof(master_path), "%s%s/etc/master.passwd", root, prefix);
 	snprintf(master_tmp_path, sizeof(master_tmp_path), "%s%s/etc/master.passwd.tmp", root, prefix);
-	passwd_tmp = fopen(passwd_tmp_path, "w");
-	master     = fopen(master_path,     "r");
-	master_tmp = fopen(master_tmp_path, "w");
+	passwd_tmp = open_file(passwd_tmp_path, "w");
+	master     = open_file(master_path,     "r");
+	master_tmp = open_file(master_tmp_path, "w");
 }
 
 void finish_pwd(void) {
