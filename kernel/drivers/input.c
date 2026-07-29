@@ -29,10 +29,10 @@ static int input_device_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		input_device_drop_control(device);
 		return 0;
 	case I_INPUT_GET_INFO:;
-		struct input_info *info = arg;
-		info->if_class    = device->class;
-		info->if_subclass = device->subclass;
-		return 0;
+		struct input_info info;
+		info.if_class    = device->class;
+		info.if_subclass = device->subclass;
+		return safe_copy_auto_to(arg, &info);
 
 		// allow layout only on keyboards
 	case I_INPUT_SET_LAYOUT:

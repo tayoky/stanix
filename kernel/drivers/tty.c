@@ -32,9 +32,19 @@ static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t 
 	(void)offset;
 	tty_t *tty = (tty_t *)fd->private;
 
-	for (size_t i=0; i < count; i++) {
-		tty_output(tty, *(char *)buffer);
-		(char *)buffer++;
+	const char *buf = buffer;
+	size_t remaining = count;
+	while (remaining > 0) {	
+		char kbuf[128];
+		size_t w = sizeof(kbuf) < remaning ? sizeof(kbuf) : remaining;
+		int ret = safe_copy_from(kbuf, buf, w);
+		if (ret < 0) return ret;
+
+		for (size_t i=0; i<w; i++) {
+			tty_output(tty, kbuf[i]);
+		}
+		remaining -= w;
+		buf += w;
 	}
 	return count;
 }

@@ -2,6 +2,7 @@
 #include <kernel/kernel.h>
 #include <kernel/kheap.h>
 #include <kernel/print.h>
+#include <kernel/userspace.h>
 #include <kernel/process.h>
 #include <kernel/ringbuf.h>
 #include <kernel/string.h>
@@ -24,7 +25,7 @@ static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t 
 	pty_t *pty = (pty_t *)fd->private;
 
 	if (atomic_load(&pty->slave->device.ref_count) == 1 && !ringbuffer_read_available(&pty->output_buffer)) {
-		// nobody as open the slave and there no data
+		// nobody has open the slave and there is no data
 		return -EIO;
 	}
 
@@ -36,9 +37,19 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 	pty_t *pty = (pty_t *)fd->private;
 	tty_t *tty = pty->slave;
 
-	for (size_t i = 0; i < count; i++) {
-		tty_input(tty, *(char *)buffer);
-		(char *)buffer++;
+	const char *buf = buffer;
+	size_t remaining = count;
+	while (remaining > 0) {	
+		char kbuf[128];
+		size_t w = sizeof(kbuf) < remaning ? sizeof(kbuf) : remaining;
+		int ret = safe_copy_from(kbuf, buf, w);
+		if (ret < 0) return ret;
+
+		for (size_t i=0; i<w; i++) {
+			tty_input(tty, kbuf[i]);
+		}
+		remaining -= w;
+		buf += w;
 	}
 	return (ssize_t)count;
 }
