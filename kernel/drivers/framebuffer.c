@@ -37,11 +37,6 @@ static ssize_t framebuffer_write(vfs_fd_t *fd, const void *buffer, off_t offset,
 		}
 		count = framebuffer->size - offset;
 	}
-	if (count == sizeof(uint32_t)) {
-		// special case if we set only one pixel to go faster
-		*(uint32_t *)mmu_phys2virt(framebuffer->base + offset) = *(uint32_t *)buffer;
-		return sizeof(uint32_t);
-	}
 
 	// write to the framebuffer is easy just memcpy
 	if (safe_copy_from(mmu_phys2virt(framebuffer->base + offset), buffer, count) < 0) {
@@ -67,11 +62,14 @@ static int framebuffer_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	framebuffer_t *framebuffer = fd->private;
 	
 	switch (request){
-	case IOCTL_GET_FB_INFO:
-		return framebuffer_get_info(framebuffer, arg);
+	case IOCTL_GET_FB_INFO:;
+		// avoid direct copy
+		struct fb fb_info;
+		int ret = framebuffer_get_info(framebuffer, &fb_info);
+		if (ret < 0) return ret;
+		return safe_copy_auto_to(arg, &fb_info);
 	case IOCTL_FRAMEBUFFER_SCROLL:
 		return framebuffer_scroll(framebuffer, (size_t)arg);
-		break;
 	default:
 		return -EINVAL;
 		break;
@@ -91,6 +89,11 @@ static int framebuffer_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 		return framebuffer->ops->mmap(framebuffer, offset, seg);
 	}
 
+	// bound checking
+	if (offset + VMM_SIZE(seg) > PAGE_ALIGN_UP(framebuffer->size)) {
+		return -EINVAL;
+	}
+		
 	kdebugf("map framebuffer at %p in %p length : %p\n", seg->start, seg, VMM_SIZE(seg));
 	seg->prot |= MMU_FLAG_WRITE_COMBINE;
 	uintptr_t paddr = framebuffer->base + PAGE_ALIGN_DOWN(offset);
