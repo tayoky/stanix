@@ -2,6 +2,7 @@
 #define KERNEL_RESOURCE_H
 
 #include <kernel/interrupt.h>
+#include <kernel/mmio.h>
 #include <kernel/list.h>
 #include <kernel/port.h>
 
@@ -50,40 +51,88 @@ static inline size_t resource_get_size(resource_t *resource) {
 	return resource->size;
 }
 
-static inline uint8_t resource_in_byte(resource_t *resource, uint16_t ìndex) {
-	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_IOPORT);
+static inline uint8_t resource_read8(resource_t *resource, uint16_t ìndex) {
 	kassert(index < resource->size);
-	return in_byte(resource->start + index);
+	switch (resource->flags & RESOURCE_TYPE) {
+	case RESOURCE_IOPORT:
+		return in_byte(resource->start + index);
+	case RESOURCE_MEMORY:
+		return mmio_read8(resource->vaddr, index);
+	default:
+		kassert("non readable resource");
+		break;
+	}
 }
 
-static inline void resource_out_byte(resource_t *resource, uint16_t index, uint8_t data) {
-	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_IOPORT);
+static inline void resource_write8(resource_t *resource, uint16_t index, uint8_t data) {
 	kassert(index < resource->size);
-	out_byte(resource->start + index, data);
+	switch (resource->flags & RESOURCE_TYPE) {
+	case RESOURCE_IOPORT:
+		out_byte(resource->start + index, data);
+		break;
+	case RESOURCE_MEMORY:
+		mmio_write8(resource->vaddr, index, data);
+		break;
+	default:
+		kassert("non writable resource");
+		break;
+	}
 }
 
-static inline uint16_t resource_in_word(resource_t *resource, uint16_t ìndex) {
-	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_IOPORT);
+static inline uint16_t resource_read16(resource_t *resource, uint16_t ìndex) {
 	kassert(index < resource->size);
-	return in_word(resource->start + index);
+	switch (resource->flags & RESOURCE_TYPE) {
+	case RESOURCE_IOPORT:
+		return in_word(resource->start + index);
+	case RESOURCE_MEMORY:
+		return mmio_read16(resource->vaddr, index);
+	default:
+		kassert("non readable resource");
+		break;
+	}
 }
 
-static inline void resource_out_word(resource_t *resource, uint16_t index, uint16_t data) {
-	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_IOPORT);
+static inline void resource_write16(resource_t *resource, uint16_t index, uint16_t data) {
 	kassert(index < resource->size);
-	out_word(resource->start + index, data);
+	switch (resource->flags & RESOURCE_TYPE) {
+	case RESOURCE_IOPORT:
+		out_word(resource->start + index, data);
+		break;
+	case RESOURCE_MEMORY:
+		mmio_write16(resource->vaddr, index, data);
+		break;
+	default:
+		kassert("non writable resource");
+		break;
+	}
 }
 
-static inline uint32_t resource_in_long(resource_t *resource, uint16_t ìndex) {
-	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_IOPORT);
+static inline uint32_t resource_read32(resource_t *resource, uint16_t ìndex) {
 	kassert(index < resource->size);
-	return in_long(resource->start + index);
+	switch (resource->flags & RESOURCE_TYPE) {
+	case RESOURCE_IOPORT:
+		return in_long(resource->start + index);
+	case RESOURCE_MEMORY:
+		return mmio_read32(resource->vaddr, index);
+	default:
+		kassert("non readable resource");
+		break;
+	}
 }
 
-static inline void resource_out_long(resource_t *resource, uint16_t index, uint32_t data) {
-	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_IOPORT);
+static inline void resource_write32(resource_t *resource, uint16_t index, uint32_t data) {
 	kassert(index < resource->size);
-	out_long(resource->start + index, data);
+	switch (resource->flags & RESOURCE_TYPE) {
+	case RESOURCE_IOPORT:
+		out_long(resource->start + index, data);
+		break;
+	case RESOURCE_MEMORY:
+		mmio_write32(resource->vaddr, index, data);
+		break;
+	default:
+		kassert("non writable resource");
+		break;
+	}
 }
 
 #endif
