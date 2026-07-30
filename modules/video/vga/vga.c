@@ -170,17 +170,17 @@ static trm_ops_t vga_ops = {
 	.support_format = vga_support_format,
 };
 
-static int vga_check(bus_addr_t *addr) {
-    pci_addr_t *pci_addr = (pci_addr_t*)addr;
+static int vga_check(devnode_t *devnode) {
+    pci_dev_t *pci_dev = (pci_dev_t*)addr;
     if (addr->type != BUS_PCI) return 0;
-    if (pci_addr->class == 0x03 && pci_addr->subclass == 0x00) {
+    if (pci_dev->class == 0x03 && pci_dev->subclass == 0x00) {
 		kdebugf("found VGA card\n");
         return 1;
     }
     return 0;
 }
 
-static int vga_probe(bus_addr_t *addr) {
+static int vga_probe(devnode_t *devnode) {
     trm_gpu_t *gpu = kmalloc(sizeof(trm_gpu_t));
     memset(gpu, 0, sizeof(trm_gpu_t));
     strcpy(gpu->card.name, "VGA compatible controller");

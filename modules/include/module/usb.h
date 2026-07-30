@@ -12,7 +12,7 @@ typedef struct usb_device_info {
 } usb_device_info_t;
 
 typedef struct usb_addr {
-	bus_addr_t addr;
+	devnode_t devnode;
 	usb_device_info_t info;
 	uint8_t port; // port on the bus of the device
 } usb_addr_t;

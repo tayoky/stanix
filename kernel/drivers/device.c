@@ -10,7 +10,7 @@ xarray_t device_drivers;
 xarray_t devices;
 vfs_dentry_t *devfs_root;
 
-static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_driver) {
+static int init_device_with_driver(devnode_t *devnode, device_driver_t *device_driver) {
 	if (!device_driver->check || !device_driver->probe) return -ENOTSUP;
 	if (!device_driver->check(addr)) return -ENOTSUP;
 
@@ -29,7 +29,7 @@ static int init_device_with_driver(bus_addr_t *addr, device_driver_t *device_dri
 	return device_driver->probe(addr);
 }
 
-static int init_device(bus_addr_t *addr) {
+static int init_device(devnode_t *devnode) {
 	if (addr->device) {
 		// a driver already control this address
 		return -EBUSY;
@@ -64,7 +64,7 @@ int device_driver_register(device_driver_t *device_driver) {
 		bus_t *bus = (bus_t *)device;
 		if (bus->device.type != DEVICE_BUS) continue;
 		foreach (node, &bus->addresses) {
-			bus_addr_t *addr = (bus_addr_t *)node;
+			devnode_t *devnode = (devnode_t *)node;
 			init_device_with_driver(addr, device_driver);
 		}
 	}
@@ -99,7 +99,7 @@ int device_register_fmt(device_t *device, const char *fmt) {
 	if (device->type == DEVICE_BUS) {
 		bus_t *bus = (bus_t *)device;
 		foreach(node, &bus->addresses) {
-			bus_addr_t *addr = (bus_addr_t *)node;
+			devnode_t *devnode = (devnode_t *)node;
 			// just in case the driver forgot
 			addr->bus = bus;
 			init_device(addr);

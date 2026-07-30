@@ -52,9 +52,9 @@ static void ps2_kb_handler(registers_t *registers, void *data) {
 	keyboard->extended = 0;
 }
 
-static int ps2_kb_set_scancode(ps2_addr_t *addr, int scancode) {
-	if (ps2_send(addr->port, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
-	if (ps2_send(addr->port, scancode) != PS2_ACK) goto error;
+static int ps2_kb_set_scancode(ps2_dev_t *ps2_dev, int scancode) {
+	if (ps2_send(ps2_dev->port, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
+	if (ps2_send(ps2_dev->port, scancode) != PS2_ACK) goto error;
 	return 0;
 
 error:
@@ -62,9 +62,9 @@ error:
 	return -EIO;
 }
 
-static int ps2_kb_get_scancode(ps2_addr_t *addr) {
-	if (ps2_send(addr->port, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
-	if (ps2_send(addr->port, 0) != PS2_ACK) goto error;
+static int ps2_kb_get_scancode(ps2_dev_t *ps2_dev) {
+	if (ps2_send(ps2_dev->port, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
+	if (ps2_send(ps2_dev->port, 0) != PS2_ACK) goto error;
 	return ps2_read();
 
 error:
@@ -72,24 +72,24 @@ error:
 	return -EIO;
 }
 
-static int ps2_kb_check(bus_addr_t *addr) {
-	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
-	if (addr->type != BUS_PS2) return 0;
+static int ps2_kb_check(devnode_t *devnode) {
+	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
+	if (devnode->type != BUS_PS2) return 0;
 
-	switch (ps2_addr->device_id[0]) {
+	switch (ps2_dev->device_id[0]) {
 	case 0xAB:
 	case 0xAC:
 	case -1:
-		kdebugf("ps2 keyboard found on port %d\n", ps2_addr->port);
+		kdebugf("ps2 keyboard found on port %d\n", ps2_dev->port);
 		return 1;
 	default:
 		return 0;
 	}
 }
 
-static int ps2_kb_probe(bus_addr_t *addr) {
-	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
-	int port             = ps2_addr->port;
+static int ps2_kb_probe(devnode_t *devnode) {
+	ps2_dev_t *ps2_dev   = container_of(devnode, ps2_dev_t, devnode);
+	int port             = ps2_dev->port;
 
 	// reset the device
 	if (ps2_reset(port) < 0) {
@@ -98,17 +98,17 @@ static int ps2_kb_probe(bus_addr_t *addr) {
 	}
 
 	// set scancode 2 and keep it if translation enabled
-	if (ps2_kb_set_scancode(ps2_addr, 2) < 0) return -EIO;
-	int scancode = ps2_kb_get_scancode(ps2_addr);
+	if (ps2_kb_set_scancode(ps2_dev, 2) < 0) return -EIO;
+	int scancode = ps2_kb_get_scancode(ps2_dev);
 	if (scancode < 0) return -EIO;
 	if (scancode == 0x41) {
 		kdebugf("ps2 : using translation\n");
 	} else {
 		// tranlation not enabled so set scancode 1
-		if (ps2_kb_set_scancode(ps2_addr, 1) < 0) return -EIO;
+		if (ps2_kb_set_scancode(ps2_dev, 1) < 0) return -EIO;
 
 		// check it's actually using scancode 1
-		int scancode = ps2_kb_get_scancode(ps2_addr);
+		int scancode = ps2_kb_get_scancode(ps2_dev);
 		if (scancode < 0) return -EIO;
 		if (scancode != 1) {
 			kdebugf("ps2 : device don't support scancode set 1\n");
@@ -123,14 +123,14 @@ static int ps2_kb_probe(bus_addr_t *addr) {
 
 	ps2_kb_t *keyboard = kmalloc(sizeof(ps2_kb_t));
 	memset(keyboard, 0, sizeof(ps2_kb_t));
-	keyboard->input_device.device.driver = &ps2_kb_driver;
-	keyboard->input_device.device.number = ps2_addr->port;
-	keyboard->input_device.device.name   = strdup("kb0");
-	keyboard->input_device.device.addr   = addr;
-	keyboard->input_device.class         = IE_CLASS_KEYBOARD;
-	keyboard->input_device.subclass      = IE_SUBCLASS_PS2_KBD;
+	keyboard->input_device.device.driver  = &ps2_kb_driver;
+	keyboard->input_device.device.number  = ps2_dev->port;
+	keyboard->input_device.device.name    = strdup("kb0");
+	keyboard->input_device.device.devnode = devnode;
+	keyboard->input_device.class          = IE_CLASS_KEYBOARD;
+	keyboard->input_device.subclass       = IE_SUBCLASS_PS2_KBD;
 	input_device_register(&keyboard->input_device);
-	bus_old_register_handler(addr, ps2_kb_handler, keyboard);
+	bus_old_register_handler(devnode, ps2_kb_handler, keyboard);
 	kdebugf("ps2 keyboard succefuly initialized\n");
 
 	return 0;

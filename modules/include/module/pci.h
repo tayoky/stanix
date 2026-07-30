@@ -4,8 +4,8 @@
 #include <kernel/bus.h>
 #include <stdint.h>
 
-typedef struct pci_addr {
-	bus_addr_t addr;
+typedef struct pci_dev {
+	devnode_t devnode;
 	uint16_t vendor_id;
 	uint16_t device_id;
 	uint8_t class;
@@ -14,7 +14,7 @@ typedef struct pci_addr {
 	uint8_t bus;
 	uint8_t device;
 	uint8_t function;
-} pci_addr_t;
+} pci_dev_t;
 
 #define PCI_RID_BAR(n) (1 + (n))
 #define PCI_RID_BAR0 PCI_RID_BAR(0)
@@ -78,7 +78,7 @@ void pci_write_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8_t 
 void pci_write_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint16_t data);
 void pci_write_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint8_t data);
 
-uintptr_t pci_get_bar(pci_addr_t *addr, int ioport, int BAR);
+uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR);
 
 /// @brief call a function for each pci device
 /// @param func the function called for each pci device

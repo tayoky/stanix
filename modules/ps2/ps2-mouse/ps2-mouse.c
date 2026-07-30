@@ -104,17 +104,17 @@ static void ps2_mouse_handler(registers_t *registers, void *data) {
 	}
 }
 
-static int ps2_mouse_check(bus_addr_t *addr) {
-	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
-	if (addr->type != BUS_PS2) return 0;
-	if (ps2_addr->device_id[0]) return 0;
-	kdebugf("found ps2 mouse on port %d\n", ps2_addr->port);
+static int ps2_mouse_check(devnode_t *devnode) {
+	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
+	if (devnode->type != BUS_PS2) return 0;
+	if (ps2_dev->device_id[0]) return 0;
+	kdebugf("found ps2 mouse on port %d\n", ps2_dev->port);
 	return 1;
 }
 
-static int ps2_mouse_probe(bus_addr_t *addr) {
-	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
-	int port = ps2_addr->port;
+static int ps2_mouse_probe(devnode_t *devnode) {
+	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
+	int port = ps2_dev->port;
 
 	// first do a reset
 	if (ps2_reset(port) < 0) {
@@ -129,14 +129,14 @@ static int ps2_mouse_probe(bus_addr_t *addr) {
 
 	ps2_mouse_t *mouse = kmalloc(sizeof(ps2_mouse_t));
 	memset(mouse, 0, sizeof(ps2_mouse_t));
-	mouse->input_device.device.number = port;
-	mouse->input_device.device.driver = &ps2_mouse_driver;
-	mouse->input_device.device.name = strdup("mouse0");
-	mouse->input_device.device.addr = addr;
-	mouse->input_device.class = IE_CLASS_MOUSE;
+	mouse->input_device.device.number  = port;
+	mouse->input_device.device.driver  = &ps2_mouse_driver;
+	mouse->input_device.device.name    = strdup("mouse0");
+	mouse->input_device.device.devnode = devnode;
+	mouse->input_device.class    = IE_CLASS_MOUSE;
 	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;
 	input_device_register(&mouse->input_device);
-	bus_old_register_handler(addr, ps2_mouse_handler, mouse);
+	bus_old_register_handler(devnode, ps2_mouse_handler, mouse);
 	return 0;
 }
 

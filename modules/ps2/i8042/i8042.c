@@ -32,7 +32,7 @@
 #define I8042_CONTROLLER_TEST_FAILED  0xFC
 
 int have_ports[2] = { 1, 0 };
-static ps2_addr_t ports[2];
+static ps2_dev_t ports[2];
 static bus_ops_t ps2_ops;
 static device_driver_t ps2_driver = {
 	.name = "8042",
@@ -153,8 +153,8 @@ int ps2_reset(uint8_t port) {
 	return 0;
 }
 
-static ssize_t ps2_bus_read(bus_addr_t *addr, void *buf, off_t offset, size_t count) {
-	(void)addr;
+static ssize_t ps2_bus_read(devnode_t *devnode, void *buf, off_t offset, size_t count) {
+	(void)devnode;
 	(void)offset;
 	unsigned char *c = buf;
 	ssize_t total = 0;
@@ -169,9 +169,9 @@ static ssize_t ps2_bus_read(bus_addr_t *addr, void *buf, off_t offset, size_t co
 	return total;
 }
 
-static int ps2_register_handler(bus_addr_t *addr, interrupt_handler_t handler, void *data) {
-	ps2_addr_t *ps2_addr = (ps2_addr_t *)addr;
-	switch (ps2_addr->port) {
+static int ps2_register_handler(devnode_t *devnode, interrupt_handler_t handler, void *data) {
+	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
+	switch (ps2_dev->port) {
 	case 1:
 		irq_register_handler(irq_hirq2irq(1), handler, data);
 		return 0;
@@ -258,19 +258,19 @@ static void print_device_name(int port) {
 
 }
 
-static void setup_addr(int port) {
-	list_append(&ps2_bus.addresses, &ports[port - 1].addr.node);
+static void setup_ps2_dev(int port) {
+	list_append(&ps2_bus.addresses, &ports[port - 1].devnode.node);
 	char name[32];
 	sprintf(name, "port%d", port);
-	ports[port - 1].addr.type = BUS_PS2;
-	ports[port - 1].addr.name = strdup(name);
-	ports[port - 1].addr.bus  = &ps2_bus;
+	ports[port - 1].devnode.type = BUS_PS2;
+	ports[port - 1].devnode.name = strdup(name);
+	ports[port - 1].devnode.bus  = &ps2_bus;
 	ports[port - 1].port = port;
 
 	// allocate irqs
 	irqnum_t irq_num = hirq2irq(port == 1 ? 1 : 12);
 	resource_t *irq_res = resource_allocate(RESOURCE_IRQ, PS2_RID_IRQ, irq_num, 1);
-	bus_attach_resource(&ports[port - 1].addr, irq_res);
+	bus_attach_resource(&ports[port - 1].devnode, irq_res);
 }
 
 static int init_i8042(int argc, char **argv) {
@@ -354,7 +354,7 @@ static int init_i8042(int argc, char **argv) {
 		} else {
 			// identify the device
 			print_device_name(i);
-			setup_addr(i);
+			setup_ps2_dev(i);
 		}
 	}
 

@@ -122,18 +122,18 @@ static trm_ops_t bga_ops = {
 	.support_format = bga_support_format,
 };
 
-static int bga_check(bus_addr_t *addr) {
-	pci_addr_t *pci_addr = (pci_addr_t*)addr;
+static int bga_check(devnode_t *devnode) {
+	pci_dev_t *pci_dev = (pci_dev_t*)addr;
 	if (addr->type != BUS_PCI) return 0;
-	if (pci_addr->class == 0x03 && pci_addr->subclass == 0x00 && pci_addr->vendor_id == 0x1234 && pci_addr->device_id == 0x1111) {
+	if (pci_dev->class == 0x03 && pci_dev->subclass == 0x00 && pci_dev->vendor_id == 0x1234 && pci_dev->device_id == 0x1111) {
 		kdebugf("found BGA card\n");
 		return 1;
 	}
 	return 0;
 }
 
-static int bga_probe(bus_addr_t *addr) {
-	pci_addr_t *pci_addr = (pci_addr_t*)addr;
+static int bga_probe(devnode_t *devnode) {
+	pci_dev_t *pci_dev = (pci_dev_t*)addr;
 
 	// init bga specific stuff
 	bga_t *bga = kmalloc(sizeof(bga_t));
@@ -157,7 +157,7 @@ static int bga_probe(bus_addr_t *addr) {
 	} else {
 		gpu->card.vram_size = 8 * 1024 * 1024;
 	}
-	gpu->vram_mmio = pci_get_bar(pci_addr, 0, 0);
+	gpu->vram_mmio = pci_get_bar(pci_dev, 0, 0);
 	if (gpu->vram_mmio == PCI_INVALID_BAR) {
 		kstatusf("BGA card has an invalid BAR\n");
 		kfree(gpu);

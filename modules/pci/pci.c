@@ -17,12 +17,12 @@
 /// @param function 
 /// @param offset 
 /// @return the configuration address
-static inline uint32_t pci_dev2conf_addr(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset){
+static inline uint32_t addr2conf_addr(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset){
 	return (((uint32_t)bus) << 16) | (((uint32_t)device) << 11) | (((uint32_t)function) << 8) | offset | ((uint32_t)0x80000000);
 }
 
 uint32_t pci_read_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset){
-	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+	uint32_t addr = addr2conf_addr(bus,device,function,offset);
 
 	//write the address with the two last bit alaways 0
 	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
@@ -31,7 +31,7 @@ uint32_t pci_read_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8
 }
 
 void pci_write_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint32_t data){
-	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+	uint32_t addr = addr2conf_addr(bus,device,function,offset);
 
 	//write the address with the two last bit alaways 0
 	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
@@ -40,7 +40,7 @@ void pci_write_config_dword(uint8_t bus,uint8_t device,uint8_t function,uint8_t 
 }
 
 uint16_t pci_read_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset){
-	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+	uint32_t addr = addr2conf_addr(bus,device,function,offset);
 
 	//write the address with the two last bit alaways 0
 	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
@@ -51,7 +51,7 @@ uint16_t pci_read_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_
 
 
 void pci_write_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint16_t data){
-	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+	uint32_t addr = addr2conf_addr(bus,device,function,offset);
 
 	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
 
@@ -65,7 +65,7 @@ void pci_write_config_word(uint8_t bus,uint8_t device,uint8_t function,uint8_t o
 }
 
 uint8_t pci_read_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset){
-	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+	uint32_t addr = addr2conf_addr(bus,device,function,offset);
 
 	//write the address with the two last bit alaways 0
 	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
@@ -75,7 +75,7 @@ uint8_t pci_read_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t
 }
 
 void pci_write_config_byte(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset,uint8_t data){
-	uint32_t addr = pci_dev2conf_addr(bus,device,function,offset);
+	uint32_t addr = addr2conf_addr(bus,device,function,offset);
 
 	out_long(CONFIG_ADDRESS,addr  & (~(uint32_t)0b11));
 
@@ -156,7 +156,7 @@ void pci_foreach(void (*func)(uint8_t,uint8_t,uint8_t,void *),void *arg){
 	}
 }
 
-uintptr_t pci_get_bar(pci_addr_t *addr, int ioport, int BAR) {
+uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR) {
 	uintptr_t BAR_low = pci_read_config_dword(addr->bus, addr->device, addr->function, PCI_CONFIG_BAR0 + BAR * 4);
 	uintptr_t BAR_high = pci_read_config_dword(addr->bus, addr->device, addr->function, PCI_CONFIG_BAR0 + BAR * 4 + 4);
 	if (BAR_low & 1) {
@@ -185,7 +185,7 @@ uintptr_t pci_get_bar(pci_addr_t *addr, int ioport, int BAR) {
 	}
 }
 
-static void create_pci_addr(uint8_t bus,uint8_t device,uint8_t function,void *arg){
+static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	bus_t *pci_bus = arg;
 	uint16_t vendorID = pci_read_config_word(bus,device,function,PCI_CONFIG_VENDOR_ID);
 	uint16_t deviceID = pci_read_config_word(bus,device,function,PCI_CONFIG_DEVICE_ID);
@@ -194,26 +194,26 @@ static void create_pci_addr(uint8_t bus,uint8_t device,uint8_t function,void *ar
 	char name[32];
 	sprintf(name,"%02d:%d:%d",bus,device,function);
 
-	//setup the addr
-	pci_addr_t *addr = kmalloc(sizeof(pci_addr_t));
-	memset(addr, 0, sizeof(pci_addr_t));
-	addr->addr.type = BUS_PCI;
-	addr->addr.name = strdup(name);
-	addr->addr.bus  = pci_bus;
-	addr->device_id = deviceID;
-	addr->vendor_id = vendorID;
-	addr->class     = pci_read_config_byte(bus, device, function, PCI_CONFIG_BASE_CLASS);
-	addr->subclass  = pci_read_config_byte(bus, device, function, PCI_CONFIG_SUB_CLASS);
-	addr->prog_if   = pci_read_config_byte(bus, device, function, PCI_CONFIG_PROG_IF);
-	addr->bus       = bus;
-	addr->device    = device;
-	addr->function  = function;
+	//setup the pci_dev
+	pci_dev_t *pci_dev = kmalloc(sizeof(pci_dev_t));
+	memset(pci_dev, 0, sizeof(pci_dev_t));
+	pci_dev->devnode.type = BUS_PCI;
+	pci_dev->devnode.name = strdup(name);
+	pci_dev->devnode.bus  = pci_bus;
+	pci_dev->device_id = deviceID;
+	pci_dev->vendor_id = vendorID;
+	pci_dev->class     = pci_read_config_byte(bus, device, function, PCI_CONFIG_BASE_CLASS);
+	pci_dev->subclass  = pci_read_config_byte(bus, device, function, PCI_CONFIG_SUB_CLASS);
+	pci_dev->prog_if   = pci_read_config_byte(bus, device, function, PCI_CONFIG_PROG_IF);
+	pci_dev->bus       = bus;
+	pci_dev->device    = device;
+	pci_dev->function  = function;
 
-	list_append(&pci_bus->addresses, &addr->addr.node);
+	list_append(&pci_bus->addresses, &pci_dev->devnode.node);
 }
 
-static ssize_t pci_read(bus_addr_t *addr, void *buf, off_t offset, size_t size) {
-	pci_addr_t *pci_addr = container_of(addr, pci_addr_t, addr);
+static ssize_t pci_read(devnode_t *devnode, void *buf, off_t offset, size_t size) {
+	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
 
 	// only allow word aligned read
 	if (offset % 2 || size %2) return -EINVAL;
@@ -223,7 +223,7 @@ static ssize_t pci_read(bus_addr_t *addr, void *buf, off_t offset, size_t size) 
 
 	uint16_t *buffer = buf;
 	for (size_t i=0; i<(size/2); i++) {
-		*(buffer++) = pci_read_config_word(pci_addr->bus, pci_addr->device, pci_addr->function, offset);
+		*(buffer++) = pci_read_config_word(pci_dev->bus, pci_dev->device, pci_dev->function, offset);
 		offset += 2;
 	}
 
@@ -254,7 +254,7 @@ int init_pci(int argc,char **argv){
 
 	device_driver_register(&pci_driver);
 
-	pci_foreach(create_pci_addr,&pci_bus);
+	pci_foreach(create_pci_dev,&pci_bus);
 	device_register((device_t*)&pci_bus);
 	
 	EXPORT(pci_foreach);

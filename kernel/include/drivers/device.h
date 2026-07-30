@@ -7,13 +7,13 @@
 #include <stdatomic.h>
 
 struct bus;
-struct bus_addr;
+struct devnode;
 struct device;
 
 typedef struct device_driver {
 	const char *name;
-	int (*check)(struct bus_addr *addr);
-	int (*probe)(struct bus_addr *addr);
+	int (*check)(struct devnode *addr);
+	int (*probe)(struct devnode *addr);
 	int major; // all devices that use this driver have this
 	int minor_count;
 	int priority;
@@ -22,7 +22,7 @@ typedef struct device_driver {
 typedef struct device {
 	atomic_size_t ref_count;
 	device_driver_t *driver;
-	struct bus_addr *addr;
+	struct devnode *addr;
 	void (*destroy)(struct device *);
 	void (*cleanup)(struct device *);
 	char *name;

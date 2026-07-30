@@ -340,23 +340,23 @@ static void ide_init_device(ide_device_t *device){
 	device_register((device_t*)device);
 }
 
-static int ide_check_addr(bus_addr_t *addr){
-	pci_addr_t *pci_addr = (pci_addr_t*)(addr);
+static int ide_check_addr(devnode_t *devnode){
+	pci_dev_t *pci_dev = (pci_dev_t*)(addr);
 	if (addr->type != BUS_PCI) return 0;
-	if((pci_addr->class == 1) && ((pci_addr->subclass == 5) || (pci_addr->subclass == 1))){
-		kdebugf("find ata disk on %d:%d:%d\n",pci_addr->bus,pci_addr->device,pci_addr->function);
+	if((pci_dev->class == 1) && ((pci_dev->subclass == 5) || (pci_dev->subclass == 1))){
+		kdebugf("find ata disk on %d:%d:%d\n",pci_dev->bus,pci_dev->device,pci_dev->function);
 		return 1;
 	}
 	return 0;
 }
 
-static int ide_probe(bus_addr_t *addr) {
+static int ide_probe(devnode_t *devnode) {
 	// TODO : register the controller on the addr
-	pci_addr_t *pci_addr = (pci_addr_t*)(addr);
-	uint8_t prog_if = pci_addr->prog_if;
-	uint8_t bus      = pci_addr->bus;
-	uint8_t device   = pci_addr->device;
-	uint8_t function = pci_addr->function;
+	pci_dev_t *pci_dev = (pci_dev_t*)(addr);
+	uint8_t prog_if = pci_dev->prog_if;
+	uint8_t bus      = pci_dev->bus;
+	uint8_t device   = pci_dev->device;
+	uint8_t function = pci_dev->function;
 	if(prog_if & 0x1){
 		//primary channel pci native mode
 		//can we switch ?
@@ -375,7 +375,7 @@ static int ide_probe(bus_addr_t *addr) {
 		}
 		prog_if &= ~0x4;
 	}
-	pci_addr->prog_if = prog_if;
+	pci_dev->prog_if = prog_if;
 	pci_write_config_byte(bus,device,function,PCI_CONFIG_PROG_IF,prog_if);
 
 	uint32_t bar0 = pci_read_config_dword(bus,device,function,PCI_CONFIG_BAR0) & ~0x3;

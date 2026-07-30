@@ -21,11 +21,11 @@
 
 typedef int ps2_device_id_t[2];
 
-typedef struct ps2_addr {
-	bus_addr_t addr;
+typedef struct ps2_dev {
+	devnode_t devnode;
 	uint8_t port;
 	ps2_device_id_t device_id;
-} ps2_addr_t;
+} ps2_dev_t;
 
 int ps2_read(void);
 int ps2_send(uint8_t port, uint8_t data);
