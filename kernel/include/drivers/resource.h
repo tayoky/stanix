@@ -23,11 +23,12 @@ typedef struct resource {
 #define RESOURCE_FIXED   0x100 // allocate at specifed address
 #define RESOURCE_SHARED  0x200 // allow the resource to be shared
 #define RESOURCE_ACTIVE  0x400 // resource is active and usable
-#define RESOURCE_DYNAMIC 0x800 // dynamic resource (not bound)
-#define RID_DYNAMIC 0
+#define RESOURCE_BOUND   0x800 // resource is bound (associed with the device)
+//#define RESOURCE_DYNAMIC 0x800 // dynamic resource (not bound)
 
-// TODO : impl this
-resource_t *resource_allocate(int flags, int rid);
+#define RID_DYNAMIC 0 // the resource does not fill any specific rid
+
+resource_t *resource_allocate(int flags, int rid, size_t start, size_t count);
 
 /**
  * @brief get the virtual address of a resource

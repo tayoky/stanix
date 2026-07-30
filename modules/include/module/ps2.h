@@ -17,6 +17,8 @@
 #define PS2_SELF_TEST_FAILED1 0xFC
 #define PS2_SELF_TEST_FAILED2 0xFD
 
+#define PS2_RID_IRQ 1
+
 typedef int ps2_device_id_t[2];
 
 typedef struct ps2_addr {

@@ -26,6 +26,7 @@
 #include <kernel/xarray.h>
 #include <kernel/unix.h>
 #include <kernel/poll.h>
+#include <kernel/bus.h>
 #include <kernel/vmm.h>
 #include <kernel/acpi.h>
 #include <kernel/bootinfo.h>

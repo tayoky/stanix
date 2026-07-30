@@ -40,6 +40,33 @@ typedef struct bus_ops {
 	void (*unregister_handler)(bus_t *bus, bus_addr_t *bus_addr, resource_t *resource, void *handle);
 } bus_ops_t;
 
+static inline void bus_attach_resource(bus_addr_t *addr, resource_t *resource) {
+	list_append(&addr->resources, &resource->node);
+}
+
+static inline void bus_attach_bound_resource(bus_addr_t *addr, resource_t *resource) {
+	resource->flags |= RESOURCE_BOUND;
+	list_append(&addr->resources, &resource->node);
+}
+
+static inline void bus_detach_resource(bus_addr_t *addr, resource_t *resource) {
+	list_remove(&addr->resources, &resource->node);
+}
+
+static inline resource_t *bus_get_resource(bus_addr_t *addr, int rid) {
+	// cannot lookup dynamic resources by rid
+	if (rid == RID_DYNAMIC) {
+		return NULL;
+	}
+	foreach (node, &addr->resources) {
+		resource_t *resource = container_of(node, resource_t, node);
+		if (resource->rid == rid) {
+			return resource;
+		}
+	}
+	return NULL;
+}
+
 #define BUS_UPWARD_OP(addr, op, ...) \
 	bus_addr_t *current = addr; \
 	while (current) {\
@@ -85,13 +112,16 @@ static inline void bus_release_resource(bus_addr_t *addr, resource_t *resource) 
 	BUS_UPWARD_OP(addr, deactivate_resource, resource);
 }
 
-static inline resource_t *__helper_bus_allocate_resource(bus_addr_t *addr, size_t start, size_t count, int flags) {
-	BUS_UPWARD_OP(addr, allocate_resource, addr, start, count, flags);
+static inline resource_t *__helper_bus_allocate_resource(bus_addr_t *addr, size_t start, size_t count, int flags, int rid) {
+	BUS_UPWARD_OP(addr, allocate_resource, addr, start, count, flags, rid);
 	return ERR2PTR(-EINVAL);
 }
 
-static inline resource_t *bus_allocate_resource(bus_addr_t *addr, size_t start, size_t count, int flags) {
-	resource_t *resource = __helper_bus_allocate_resource(addr, start, count, flags & ~RESOURCE_ACTIVE);
+static inline resource_t *bus_allocate_resource(bus_addr_t *addr, size_t start, size_t count, int flags, int rid) {
+	// maybee we already have a resource for this rid
+	resource_t *resource = bus_get_resource(addr, rid);
+	if (resource) return resource;
+	resource = __helper_bus_allocate_resource(addr, start, count, flags & ~RESOURCE_ACTIVE, rid);
 	if (IS_ERR(resource)) {
 		return resource;
 	}
@@ -105,12 +135,12 @@ static inline resource_t *bus_allocate_resource(bus_addr_t *addr, size_t start, 
 	return resource;
 }
 
-static inline resource_t *bus_allocate_count_resource(bus_addr_t *addr, size_t count, int flags) {
-	return bus_allocate_resource(addr, 0, count, flags);
+static inline resource_t *bus_allocate_count_resource(bus_addr_t *addr, size_t count, int flags, rid) {
+	return bus_allocate_resource(addr, 0, count, flags, rid);
 }
 
-static inline resource_t *bus_allocate_simple_resource(bus_addr_t *addr, int flags) {
-	return bus_allocate_resource(addr, 0, 0, flags);
+static inline resource_t *bus_allocate_simple_resource(bus_addr_t *addr, int flags, int rid) {
+	return bus_allocate_resource(addr, 0, 0, flags, rid);
 }
 
 /**
@@ -139,28 +169,6 @@ static inline void bus_unregister_handler(bus_addr_t *addr, resource_t *resource
 	BUS_UPWARD_OP(addr, unregister_handler, resource, handle);
 }
 
-static inline void bus_attach_resource(bus_addr_t *addr, resource_t *resource) {
-	list_append(&addr->resources, &resource->node);
-}
-
-static inline void bus_detach_resource(bus_addr_t *addr, resource_t *resource) {
-	list_remove(&addr->resources, &resource->node);
-}
-
-static inline resource_t *bus_get_resource(bus_addr_t *addr, int rid) {
-	// cannot lookup dynamic resources by rid
-	if (rid == RID_DYNAMIC) {
-		return NULL;
-	}
-	foreach (node, &addr->resources) {
-		resource_t *resource = container_of(node, resource_t, node);
-		if (resource->rid == rid) {
-			return resource;
-		}
-	}
-	return NULL;
-}
-
 // TODO : remove this shit
 static inline int bus_old_register_handler(bus_addr_t *addr, interrupt_handler_t handler, void *data) {
 	if (!addr->bus->ops || !addr->bus->ops->old_register_handler) return -ENOTSUP;
@@ -179,5 +187,6 @@ static inline ssize_t bus_old_write(bus_addr_t *addr, const void *buf, off_t off
 
 void bus_set_root(bus_t *bus);
 bus_t *bus_get_root(void);
+void init_bus(void);
 
 #endif
