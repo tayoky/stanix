@@ -9,7 +9,11 @@
 #include <errno.h>
 
 struct bus_ops;
+struct driver;
+struct device;
+struct devclass;
 
+// OLD
 typedef struct bus {
 	device_t device;
 	list_t addresses;
@@ -18,12 +22,39 @@ typedef struct bus {
 
 typedef struct devnode {
 	list_node_t node;
+	list_t children;
+	struct devnode *parent;
 	list_t resources;
-	device_t *device;
-	char *name;
-	bus_t *bus;
+	struct device *device;
+	struct driver *driver;
+	bus_t *bus; // old
+	struct devclass *devclass;
+	int unit;
 	int type;
 } devnode_t;
+
+typedef struct driver {
+	list_node_t node;
+	const char *name;
+	const char *device_name;
+	struct devclass *devclass;
+	const char **buses; // suported buses
+	int (*check)(devnode_t *devnode);
+	int (*probe)(devnode_t *devnode);
+	void (*detach)(devnode_t *devnode);
+	ssize_t (*old_read)(devnode_t *devnode, void *buf, off_t offset, size_t size);
+	ssize_t (*old_write)(devnode_t *devnode, const void *buf, off_t offset, size_t size);
+	int (*old_register_handler)(devnode_t *devnode, interrupt_handler_t handler, void *data);
+	resource_t *(*allocate_resource)(bus_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid);
+	void (*release_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
+	int (*activate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
+	void (*deactivate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
+	void *(*register_handler)(bus_t *bus, devnode_t *devnode, resource_t *resource, interrupt_handler_t handler, void *data);
+	void (*unregister_handler)(bus_t *bus, devnode_t *devnode, resource_t *resource, void *handle);
+} bus_ops_t;
+} driver_t;
+
+#define BUSES(...) (const char *[]){__VA_ARGS__, NULL}
 
 #define BUS_PCI 1
 #define BUS_PS2 2
@@ -41,8 +72,25 @@ typedef struct bus_ops {
 	void (*unregister_handler)(bus_t *bus, devnode_t *devnode, resource_t *resource, void *handle);
 } bus_ops_t;
 
+int driver_register(driver_t *driver);
+int driver_unregister(driver_t *driver);
+
+devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, int unit);
+void bus_delete_child(devnode_t *bus, devnode_t *child);
+
+int device_attach_driver(devnode_t *device, driver_t *driver);
+void device_detach_driver(devnode_t *device);
+static inline int device_has_driver_attached(devnode_t *device) {
+	return device->driver != NULL;
+}
+int device_set_name(devnode_t *device, const char *name, int unit);
+
 static inline void bus_attach_resource(devnode_t *devnode, resource_t *resource) {
 	list_append(&devnode->resources, &resource->node);
+}
+
+static inline void bus_detach_resource(devnode_t *devnode, resource_t *resource) {
+	list_remove(&devnode->resources, &resource->node);
 }
 
 static inline void bus_attach_bound_resource(devnode_t *devnode, resource_t *resource) {
@@ -50,7 +98,7 @@ static inline void bus_attach_bound_resource(devnode_t *devnode, resource_t *res
 	list_append(&devnode->resources, &resource->node);
 }
 
-static inline void bus_detach_resource(devnode_t *devnode, resource_t *resource) {
+static inline void bus_detach_bound_resource(devnode_t *devnode, resource_t *resource) {
 	list_remove(&devnode->resources, &resource->node);
 }
 
