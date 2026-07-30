@@ -124,7 +124,7 @@ $(HDD_IMAGE) : $(ESP_FILES) | build-all
 	@mformat -i $(HDD_IMAGE)@@1M	
 #copy the files
 	@echo "[copying boot files]"
-	@cd $(ESP_ROOT) && mcopy -i ../$(HDD_IMAGE)@@1M * -/ ::/
+	@cd $(ESP_ROOT) && mcopy -i $(abspath $(HDD_IMAGE))@@1M * -/ ::/
 # Install the Limine BIOS stages onto the image.
 	@echo "[installing limine]"
 	@./limine/limine bios-install $(HDD_IMAGE)
@@ -186,9 +186,9 @@ $(ESP_ROOT)/boot/initrd.tar : $(shell find -P $(INITRD) 2>/dev/null || echo) $(s
 	@mkdir -p $(@D)
 	@echo "GEN boot/initrd.tar"
 	@mkdir -p $(INITRD)/dev $(INITRD)/tmp $(INITRD)/mnt $(INITRD)/proc $(INITRD)/sys
-	@cp -P -r $(BASE_INITRD)/* $(INITRD)/
+	@cp -Pf -r $(BASE_INITRD)/* $(INITRD)/
 # temporary until real sysroot, copy sysroot to initrd
-	@cp -P -r $(SYSROOT)/* $(INITRD)/
+	@cp -Pf -r $(SYSROOT)/* $(INITRD)/
 	@cd $(INITRD) && tar -cf $(ESP_ROOT)/boot/initrd.tar *
 
 $(ESP_ROOT)/boot/limine/limine.conf : limine.conf
