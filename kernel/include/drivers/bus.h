@@ -53,14 +53,10 @@ static inline void bus_detach_resource(bus_addr_t *addr, resource_t *resource) {
 	list_remove(&addr->resources, &resource->node);
 }
 
-static inline resource_t *bus_get_resource(bus_addr_t *addr, int rid) {
-	// cannot lookup dynamic resources by rid
-	if (rid == RID_DYNAMIC) {
-		return NULL;
-	}
+static inline resource_t *bus_get_resource(bus_addr_t *addr, int flags, int rid) {
 	foreach (node, &addr->resources) {
 		resource_t *resource = container_of(node, resource_t, node);
-		if (resource->rid == rid) {
+		if ((resource->flags & RESOURCE_TYPE) == (flags & RESOURCE_TYPE) && (rid == RID_ANY) || (resource->rid == rid)) {
 			return resource;
 		}
 	}
@@ -119,7 +115,7 @@ static inline resource_t *__helper_bus_allocate_resource(bus_addr_t *addr, size_
 
 static inline resource_t *bus_allocate_resource(bus_addr_t *addr, size_t start, size_t count, int flags, int rid) {
 	// maybee we already have a resource for this rid
-	resource_t *resource = bus_get_resource(addr, rid);
+	resource_t *resource = bus_get_resource(addr, flags, rid);
 	if (resource) return resource;
 	resource = __helper_bus_allocate_resource(addr, start, count, flags & ~RESOURCE_ACTIVE, rid);
 	if (IS_ERR(resource)) {

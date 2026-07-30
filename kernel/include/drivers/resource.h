@@ -27,7 +27,7 @@ typedef struct resource {
 #define RESOURCE_BOUND   0x800 // resource is bound (associed with the device)
 //#define RESOURCE_DYNAMIC 0x800 // dynamic resource (not bound)
 
-#define RID_DYNAMIC 0 // the resource does not fill any specific rid
+#define RID_ANY 0 // special rid to tell that we need any resource of the specified type (and don't care about rid)
 
 resource_t *resource_allocate(int flags, int rid, size_t start, size_t count);
 
