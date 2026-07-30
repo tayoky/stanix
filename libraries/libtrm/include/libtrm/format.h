@@ -1,5 +1,5 @@
-#ifndef _LIBTRM_FORMAT_H
-#define _LIBTRM_FORMAT_H
+#ifndef LIBTRM_FORMAT_H
+#define LIBTRM_FORMAT_H
 
 #include <stdint.h>
 

@@ -268,7 +268,7 @@ static void setup_ps2_dev(int port) {
 	ports[port - 1].port = port;
 
 	// allocate irqs
-	irqnum_t irq_num = hirq2irq(port == 1 ? 1 : 12);
+	irqnum_t irq_num = irq_hirq2irq(port == 1 ? 1 : 12);
 	resource_t *irq_res = resource_allocate(RESOURCE_IRQ, PS2_RID_IRQ, irq_num, 1);
 	bus_attach_resource(&ports[port - 1].devnode, irq_res);
 }

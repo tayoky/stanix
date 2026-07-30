@@ -29,7 +29,7 @@ typedef struct resource {
 
 #define RID_ANY 0 // special rid to tell that we need any resource of the specified type (and don't care about rid)
 
-resource_t *resource_allocate(int flags, int rid, size_t start, size_t count);
+resource_t *resource_allocate(int flags, int rid, size_t start, size_t size);
 
 /**
  * @brief get the virtual address of a resource
@@ -51,7 +51,7 @@ static inline size_t resource_get_size(resource_t *resource) {
 	return resource->size;
 }
 
-static inline uint8_t resource_read8(resource_t *resource, uint16_t ìndex) {
+static inline uint8_t resource_read8(resource_t *resource, uint16_t index) {
 	kassert(index < resource->size);
 	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_IOPORT:
@@ -79,7 +79,7 @@ static inline void resource_write8(resource_t *resource, uint16_t index, uint8_t
 	}
 }
 
-static inline uint16_t resource_read16(resource_t *resource, uint16_t ìndex) {
+static inline uint16_t resource_read16(resource_t *resource, uint16_t index) {
 	kassert(index < resource->size);
 	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_IOPORT:
@@ -107,7 +107,7 @@ static inline void resource_write16(resource_t *resource, uint16_t index, uint16
 	}
 }
 
-static inline uint32_t resource_read32(resource_t *resource, uint16_t ìndex) {
+static inline uint32_t resource_read32(resource_t *resource, uint16_t index) {
 	kassert(index < resource->size);
 	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_IOPORT:

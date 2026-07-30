@@ -1,7 +1,7 @@
 #ifndef KERNEL_TRM_H
 #define KERNEL_TRM_H
 
-#include <libtrm/trm.h>
+#include <libtrm/abi.h>
 #include <kernel/device.h>
 #include <kernel/list.h>
 #include <kernel/hashmap.h>

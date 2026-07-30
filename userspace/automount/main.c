@@ -1,6 +1,7 @@
 #include <module/part.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <limits.h>

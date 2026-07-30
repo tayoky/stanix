@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#include <trm.h>
+#include <libtrm/trm.h>
 
 void help(void){
 	puts("info DEVICE");

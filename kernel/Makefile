@@ -32,8 +32,8 @@ LDFLAGS += \
 
 INCS = $(wildcard include/*.h include/*/*.h include/arch/$(ARCH)/*.h) ../limine/limine.h
 INCSDIR := $(INCSDIR)/kernel
-DIRS = drivers fs klib mem task
-SRCS = $(wildcard *.c) $(foreach DIR,$(DIRS), $(wildcard $(DIR)/*.c $(DIR)/*/*.c)) sym.c
+DIRS = drivers fs klib mem task arch/$(ARCH)
+SRCS = $(wildcard *.c) $(foreach DIR,$(DIRS), $(wildcard $(DIR)/*.[cs] $(DIR)/*/*.[cs])) sym.c
 include $(TMAKE_DIR)/tmake-prog.mk
 
 # kernel need to link with klibc
@@ -41,7 +41,7 @@ include $(TMAKE_DIR)/tmake-prog.mk
 $(BUILDDIR)/$(PROG) : $(KLIBC)
 
 # sym.c is an automatically generated table
-$(BUILDDIR)/sym.c : $(filter-out $(BUILDDIR)/sym.o, $(OBJS)) $(KLIBC)
+$(BUILDDIR)/sym.c : $(filter-out $(BUILDDIR)/sym.c.o, $(OBJS)) $(KLIBC)
 	@echo "GEN sym.c"
 	@echo '#include <kernel/sym.h>' > $@
 	@$(foreach SYM , $(shell $(NM) $^ --defined-only -ngj --quiet ),  echo "extern void $(SYM) ();" >> $@; )

@@ -9,7 +9,8 @@ void timer_handler(registers_t *frame);
 int page_fault_handler(registers_t *frame);
 int fpu_fault_handler(registers_t *frame);
 
-void *interrupt_register_handler(intrnum_t num, interrupt_handler_t handler, void *data);
-void interrupt_unregister_handler(intrnum_t num, void *handle);
+// TODO : see if we implement these
+//void *interrupt_register_handler(intrnum_t num, interrupt_handler_t handler, void *data);
+//void interrupt_unregister_handler(intrnum_t num, void *handle);
 
 #endif

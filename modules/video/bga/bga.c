@@ -62,7 +62,7 @@ static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 
 	if (mode->planes) {
 		trm_framebuffer_t *fb = trm_get_fb(gpu, mode->planes[0].fb_id);
-		uint16_t bpp;
+		uint16_t bpp = 0;
 		switch (fb->fb.format) {
 		case TRM_C8:
 			bpp = VBE_DISPI_BPP_8;
@@ -123,8 +123,8 @@ static trm_ops_t bga_ops = {
 };
 
 static int bga_check(devnode_t *devnode) {
-	pci_dev_t *pci_dev = (pci_dev_t*)addr;
-	if (addr->type != BUS_PCI) return 0;
+	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
+	if (devnode->type != BUS_PCI) return 0;
 	if (pci_dev->class == 0x03 && pci_dev->subclass == 0x00 && pci_dev->vendor_id == 0x1234 && pci_dev->device_id == 0x1111) {
 		kdebugf("found BGA card\n");
 		return 1;
@@ -133,7 +133,7 @@ static int bga_check(devnode_t *devnode) {
 }
 
 static int bga_probe(devnode_t *devnode) {
-	pci_dev_t *pci_dev = (pci_dev_t*)addr;
+	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
 
 	// init bga specific stuff
 	bga_t *bga = kmalloc(sizeof(bga_t));
@@ -165,7 +165,7 @@ static int bga_probe(devnode_t *devnode) {
 	}
 	gpu->ops = &bga_ops;
 	gpu->device.driver = &bga_driver;
-	gpu->device.addr = addr;
+	gpu->device.devnode = devnode;
 
 	// setup one primary plane
 	gpu->card.planes_count = 1;

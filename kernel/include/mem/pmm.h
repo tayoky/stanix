@@ -5,7 +5,7 @@
 #include <kernel/page.h>
 #include <kernel/assert.h>
 #include <kernel/list.h>
-#include <sys/type.h>
+#include <sys/types.h>
 #include <limits.h>
 #include <stdatomic.h>
 #include <stdint.h>

@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <trm.h>
+#include <libtrm/trm.h>
 
 trm_card_t *trm_get_resources(int fd) {
 	trm_card_t *card = malloc(sizeof(trm_card_t));

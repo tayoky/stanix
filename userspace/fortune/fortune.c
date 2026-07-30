@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <string.h>
 #include <time.h>
 
 typedef struct string {

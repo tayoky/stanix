@@ -12,26 +12,26 @@ vfs_dentry_t *devfs_root;
 
 static int init_device_with_driver(devnode_t *devnode, device_driver_t *device_driver) {
 	if (!device_driver->check || !device_driver->probe) return -ENOTSUP;
-	if (!device_driver->check(addr)) return -ENOTSUP;
+	if (!device_driver->check(devnode)) return -ENOTSUP;
 
-	if (addr->device) {
-		// a driver already control this address
-		if (addr->device->driver->priority > device_driver->priority) {
+	if (devnode->device) {
+		// a driver already control this devnode
+		if (devnode->device->driver->priority > device_driver->priority) {
 			// the driver is already better
 			return -EBUSY;
 		} else {
 			// replace the old driver
-			device_destroy(addr->device);
+			device_destroy(devnode->device);
 		}
 	}
 
 	// the driver is compatible with the device
-	return device_driver->probe(addr);
+	return device_driver->probe(devnode);
 }
 
 static int init_device(devnode_t *devnode) {
-	if (addr->device) {
-		// a driver already control this address
+	if (devnode->device) {
+		// a driver already control this devnode
 		return -EBUSY;
 	}
 
@@ -39,7 +39,7 @@ static int init_device(devnode_t *devnode) {
 
 	xarray_foreach (major, driver, &device_drivers) {
 		(void)major;
-		ret = init_device_with_driver(addr, driver);
+		ret = init_device_with_driver(devnode, driver);
 		return ret;
 	}
 
@@ -65,7 +65,7 @@ int device_driver_register(device_driver_t *device_driver) {
 		if (bus->device.type != DEVICE_BUS) continue;
 		foreach (node, &bus->addresses) {
 			devnode_t *devnode = (devnode_t *)node;
-			init_device_with_driver(addr, device_driver);
+			init_device_with_driver(devnode, device_driver);
 		}
 	}
 	return 0;
@@ -77,8 +77,8 @@ int device_driver_unregister(device_driver_t *device_driver) {
 }
 
 int device_register_fmt(device_t *device, const char *fmt) {
-	if (device->addr) {
-		device->addr->device = device;
+	if (device->devnode) {
+		device->devnode->device = device;
 	}
 	device->ref_count = 1;
 	if (!device->number) {
@@ -101,8 +101,8 @@ int device_register_fmt(device_t *device, const char *fmt) {
 		foreach(node, &bus->addresses) {
 			devnode_t *devnode = (devnode_t *)node;
 			// just in case the driver forgot
-			addr->bus = bus;
-			init_device(addr);
+			devnode->bus = bus;
+			init_device(devnode);
 		}
 	}
 	return 0;

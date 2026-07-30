@@ -23,7 +23,7 @@
 #include <kernel/poll.h>
 #include <abi/termios.h>
 #include <abi/dirent.h>
-#include <sys/type.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
 #include <sys/mman.h>

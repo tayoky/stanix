@@ -9,9 +9,7 @@ CFLAGS += \
 	-mcmodel=kernel
 LDFLAGS += -Wl,-m,elf_x86_64
 
-ASMFLAGS += -f elf64
+# we need to use NASM
+AS = $(NASM)
+ASFLAGS = -f elf64
 
-$(BUILDDIR)/kernel/%.s.o : %.s
-	@mkdir -p "$(@D)"
-	@echo "NASM $<"
-	$(Q)$(NASM) $(ASMFLAGS) $< -o $@

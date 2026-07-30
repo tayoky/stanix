@@ -36,7 +36,7 @@ static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t 
 	size_t remaining = count;
 	while (remaining > 0) {	
 		char kbuf[128];
-		size_t w = sizeof(kbuf) < remaning ? sizeof(kbuf) : remaining;
+		size_t w = sizeof(kbuf) < remaining ? sizeof(kbuf) : remaining;
 		int ret = safe_copy_from(kbuf, buf, w);
 		if (ret < 0) return ret;
 

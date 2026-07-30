@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <libtrm/func.h>
 #include <gfx.h>
-#include <trm.h>
+#include <libtrm/trm.h>
 
 int main(int argc,char **argv){
 	if(argc < 2){

@@ -3,7 +3,7 @@
 
 #include <kernel/spinlock.h>
 #include <kernel/macro.h>
-#include <sys/type.h>
+#include <sys/types.h>
 
 typedef struct list_node {
 	struct list_node *next;

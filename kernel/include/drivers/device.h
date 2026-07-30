@@ -22,7 +22,7 @@ typedef struct device_driver {
 typedef struct device {
 	atomic_size_t ref_count;
 	device_driver_t *driver;
-	struct devnode *addr;
+	struct devnode *devnode;
 	void (*destroy)(struct device *);
 	void (*cleanup)(struct device *);
 	char *name;

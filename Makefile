@@ -159,6 +159,9 @@ $(ESP_ROOT)/boot/limine/limine-% : limine/limine-%
 	@echo "INSTALL boot/$^"
 	@cp  $^ $@
 
+# dummy rule for first run
+$(ESP_ROOT)/boot/stanix.elf :
+
 # build targets
 
 build-tlibc : header

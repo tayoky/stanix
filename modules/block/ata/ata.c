@@ -341,8 +341,8 @@ static void ide_init_device(ide_device_t *device){
 }
 
 static int ide_check_addr(devnode_t *devnode){
-	pci_dev_t *pci_dev = (pci_dev_t*)(addr);
-	if (addr->type != BUS_PCI) return 0;
+	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
+	if (devnode->type != BUS_PCI) return 0;
 	if((pci_dev->class == 1) && ((pci_dev->subclass == 5) || (pci_dev->subclass == 1))){
 		kdebugf("find ata disk on %d:%d:%d\n",pci_dev->bus,pci_dev->device,pci_dev->function);
 		return 1;
@@ -352,7 +352,7 @@ static int ide_check_addr(devnode_t *devnode){
 
 static int ide_probe(devnode_t *devnode) {
 	// TODO : register the controller on the addr
-	pci_dev_t *pci_dev = (pci_dev_t*)(addr);
+	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
 	uint8_t prog_if = pci_dev->prog_if;
 	uint8_t bus      = pci_dev->bus;
 	uint8_t device   = pci_dev->device;

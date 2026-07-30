@@ -171,8 +171,8 @@ static trm_ops_t vga_ops = {
 };
 
 static int vga_check(devnode_t *devnode) {
-    pci_dev_t *pci_dev = (pci_dev_t*)addr;
-    if (addr->type != BUS_PCI) return 0;
+    pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
+    if (devnode->type != BUS_PCI) return 0;
     if (pci_dev->class == 0x03 && pci_dev->subclass == 0x00) {
 		kdebugf("found VGA card\n");
         return 1;
@@ -187,7 +187,7 @@ static int vga_probe(devnode_t *devnode) {
     gpu->card.vram_size = 256 * 1024;
     gpu->ops = &vga_ops;
     gpu->device.driver = &vga_driver;
-    gpu->device.addr = addr;
+    gpu->device.devnode = devnode;
 
     // setup one primary plane
     gpu->card.planes_count = 1;

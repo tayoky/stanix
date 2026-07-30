@@ -1,5 +1,5 @@
-#ifndef _LIBTRM_FUNC_H
-#define _LIBTRM_FUNC_H
+#ifndef LIBTRM_FUNC_H
+#define LIBTRM_FUNC_H
 
 #include "trm.h"
 

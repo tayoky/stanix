@@ -23,9 +23,9 @@ $(BUILDDIR)/%.c.so : %.c
 $(BUILDDIR)/%.s.o : %.s
 	@mkdir -p "$(@D)"
 	@echo "AS $<"
-	$(Q)$(AS) $(ASFLAGS) -o "$@" -c $<
+	$(Q)$(AS) $(ASFLAGS) -o "$@" $<
 
 $(BUILDDIR)/%.s.so : %.s
 	@mkdir -p "$(@D)"
 	@echo "AS $<"
-	$(Q)$(AS) $(ASFLAGS) -o "$@" -c $<
+	$(Q)$(AS) $(ASFLAGS) -o "$@" $<
