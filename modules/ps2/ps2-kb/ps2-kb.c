@@ -130,7 +130,7 @@ static int ps2_kb_probe(bus_addr_t *addr) {
 	keyboard->input_device.class         = IE_CLASS_KEYBOARD;
 	keyboard->input_device.subclass      = IE_SUBCLASS_PS2_KBD;
 	input_device_register(&keyboard->input_device);
-	bus_register_handler(addr, ps2_kb_handler, keyboard);
+	bus_old_register_handler(addr, ps2_kb_handler, keyboard);
 	kdebugf("ps2 keyboard succefuly initialized\n");
 
 	return 0;

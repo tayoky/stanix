@@ -136,7 +136,7 @@ static int ps2_mouse_probe(bus_addr_t *addr) {
 	mouse->input_device.class = IE_CLASS_MOUSE;
 	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;
 	input_device_register(&mouse->input_device);
-	bus_register_handler(addr, ps2_mouse_handler, mouse);
+	bus_old_register_handler(addr, ps2_mouse_handler, mouse);
 	return 0;
 }
 

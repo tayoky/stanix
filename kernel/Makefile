@@ -30,7 +30,7 @@ LDFLAGS += \
 # arch specific flags
 -include arch/$(ARCH)/arch.mk
 
-INCS = $(wildcard include/*.h include/*/*.h include/*/*/*.h) ../limine/limine.h
+INCS = $(wildcard include/*.h include/*/*.h include/arch/$(ARCH)/*.h) ../limine/limine.h
 INCSDIR := $(INCSDIR)/kernel
 DIRS = drivers fs klib mem task
 SRCS = $(wildcard *.c) $(foreach DIR,$(DIRS), $(wildcard $(DIR)/*.c $(DIR)/*/*.c)) sym.c

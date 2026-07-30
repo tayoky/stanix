@@ -185,7 +185,7 @@ static int ps2_register_handler(bus_addr_t *addr, interrupt_handler_t handler, v
 
 static bus_ops_t ps2_ops = {
 	.read = ps2_bus_read,
-	.register_handler = ps2_register_handler,
+	.old_register_handler = ps2_register_handler,
 };
 
 static void print_device_name(int port) {
