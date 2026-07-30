@@ -38,6 +38,7 @@ typedef struct driver {
 	const char *name;
 	const char *device_name;
 	struct devclass *devclass;
+	int priority;
 	const char **buses; // suported buses
 	int (*check)(devnode_t *devnode);
 	int (*probe)(devnode_t *devnode);
@@ -78,6 +79,7 @@ int driver_unregister(driver_t *driver);
 devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, int unit);
 void bus_delete_child(devnode_t *bus, devnode_t *child);
 
+int device_check_driver(devnode_t *device, driver_t *driver);
 int device_attach_driver(devnode_t *device, driver_t *driver);
 void device_detach_driver(devnode_t *device);
 static inline int device_has_driver_attached(devnode_t *device) {
@@ -230,8 +232,8 @@ static inline ssize_t bus_old_write(devnode_t *devnode, const void *buf, off_t o
 	return devnode->bus->ops->write(devnode, buf, offset, size);
 }
 
-void bus_set_root(bus_t *bus);
-bus_t *bus_get_root(void);
+void bus_set_root(devnode_t *bus);
+devnode_t *bus_get_root(void);
 void init_bus(void);
 
 #endif

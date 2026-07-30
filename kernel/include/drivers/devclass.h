@@ -25,6 +25,7 @@ int devclass_alloc_unit(devclass_t *devclass, struct devnode *devnode);
 void devclass_free_unit(devclass_t *devclass, struct devnode *devnode);
 void init_devclass(void);
 
+#define UNIT_NOUNIT   -1
 #define UNIT_ALLOCATE -2
 
 #endif

@@ -5,14 +5,14 @@
 
 static slab_cache_t resources_slab;
 static slab_cache_t devnodes_slab;
-static bus_t *root_bus = NULL;
+static devnode_t *root_bus = NULL;
 static list_t drivers;
 
-void bus_set_root(bus_t *bus) {
+void bus_set_root(devnode_t *bus) {
 	root_bus = bus;
 }
 
-bus_t *bus_get_root(void) {
+devnode_t *bus_get_root(void) {
 	return root_bus;
 }
 
@@ -20,6 +20,24 @@ void init_bus(void) {
 	slab_init(&resources_slab, sizeof(resource_t), "resources");
 	slab_init(&devnodes_slab, sizeof(devnode_t), "devnodes");
 	init_devclass();
+
+	// create root dev
+	root_bus = slab_alloc(&devnodes_slab);
+	memset(root_bus, 0, sizeof(devnode_t));
+	device_set_name(root_bus, "root", UNIT_NOUNIT);
+}
+
+static void device_attempt_attatch_with(devnode_t *device, driver_t *driver) {
+	// recurse
+	foreach (node, &device->children) {
+		devnode_t *child = container_of(node, devnode_t, node);
+		device_attempt_attach_with(child, driver);
+	}
+
+	// only try if unattached
+	if (!device_has_driver_attached(device)) {
+		device_attach_driver(device, driver);
+	}
 }
 
 int driver_register(driver_t *driver) {
@@ -28,7 +46,8 @@ int driver_register(driver_t *driver) {
 		return -ENOMEM;
 	}
 	list_append(&drivers, &driver->node);
-	// TODO : try this driver on already existing devnodes
+	// try this driver on already existing devnodes
+	device_attempt_attach_with(root_bus, driver); 
 	return 0;
 }
 
@@ -54,10 +73,16 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 	}
 
 	// can we find a driver for this device ?
+	driver_t *best = NULL;
+	int best_priority = 0;
 	foreach (node, &drivers) {
 		driver_t *driver = container_of(node, driver_t, node);
-		device_attach_driver(child, driver);
+		if (driver->priority >= best_priority && device_check_driver(child, driver) >= 0) {
+			best = driver;
+			best_priority = driver->priority;
+		}
 	}
+	device_attach_driver(device, best);
 	return child;
 }
 
@@ -68,14 +93,20 @@ void bus_delete_child(devnode_t *bus, devnode_t *child) {
 	slab_free(child);
 }
 
-int device_attach_driver(devnode_t *device, driver_t *driver) {
-	// does the driver support the device ?
+int device_check_driver(devnode_t *device, driver_t *driver) {
 	if (!driver->check || !driver->probe) return -ENOTSUP;
 	if (!driver->check(device)) return -ENOTSUP;
+	return 0;
+}
+
+int device_attach_driver(devnode_t *device, driver_t *driver) {
+	if (!driver) return -EINVAL;
+	// does the driver support the device ?
+	if (!device_check_driver(device, driver)) return -ENOTSUP;
 	
 	if (device_has_attached_driver(device)) {
 		// a driver already control this device
-		if (device->driver->priority > device_driver->priority) {
+		if (device->driver->priority >= driver->priority) {
 			// the old driver is already better
 			return -EBUSY;
 		} else {
@@ -88,9 +119,16 @@ int device_attach_driver(devnode_t *device, driver_t *driver) {
 	int ret = driver->probe(device);
 	if (ret >= 0) {
 		device->driver = driver;
-
-		// we might need to change unit/devclass
-		if (device->devclass_free_unit(child->devclass, child);
+		// the driver did not setup name
+		// we need to do it
+		if (device->devclass != driver->devclass) {
+			// remove old devclass
+			devclass_free_unit(device->devclass, device);
+			// set devclass and allocate unit
+			device->devclass = devclass;
+			device->unit = UNIT_ALLOCATE;
+			devclass_alloc_unit(devclass, device);
+		}
 	}
 	return ret;
 }
@@ -108,10 +146,14 @@ void device_detach_driver(devnode_t *device) {
 int device_set_name(devnode_t *device, const char *name, int unit) {
 	devclass_t *devclass = devclass_get_or_create(name);
 	if (!devclass) return -ENOMEM;
-	if (device->devclass == devclass && 1) {
+	if (device->devclass == devclass && device->unit == unit) {
 		return;
 	}
-	// TODO
+	// remove old devclass
+	devclass_free_unit(device->devclass, device);
+	device->devclass = devclass;
+	device->unit = unit;
+	devclass_alloc_unit(devclass, device);
 }
 
 resource_t *resource_allocate(int flags, int rid, size_t start, size_t size) {

@@ -4,20 +4,30 @@
 #include <kernel/irq.h>
 #include <kernel/bus.h>
 
+static int root_check(devnode_t *devnode) {
+	// we can only drive root
+	if (devnode != bus_get_root()) return -ENOTSUP;
+	return 0;
+}
+
+static int root_probe(devnode_t *devnode) {
+	// TODO : add resources, pci bus, isa/acpi, ...
+	return 0;
+}
+
 static void *root_register_handler(bus_t *bus, devnode_t *devnode, resource_t *resource, interrupt_handler_t handler, void *data) {
 }
 
-static bus_ops_t root_ops = {
+static driver_t root_driver = {
+	.name = "root bus",
+	.device_name = "root",
 	.register_handler = root_register_handler,
+	.check = root_check,
+	.probe = root_probe,
 };
 
 void init_root_bus(void) {
 	kstatusf("init root bus...");
-	bus_t *bus = kmalloc(sizeof(bus_t));
-	memset(bus, 0, sizeof(bus_t));
-	bus->device.name = "root";
-	bus->device.type = DEVICE_BUS,
-	bus->ops = &root_ops;
-	bus_set_root(bus);
+	driver_register(&root_driver);
 	kok();
 }
