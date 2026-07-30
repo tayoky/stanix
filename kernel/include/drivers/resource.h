@@ -12,19 +12,22 @@ typedef struct resource {
 	size_t start;
 	size_t size;
 	int flags;
+	int rid;
 } resource_t;
 
-#define RESOURCE_TYPE   0xff
-#define RESOURCE_IRQ    1
-#define RESOURCE_IOPORT 2
-#define RESOURCE_DMA    3
-#define RESOURCE_MEMORY 4
-#define RESOURCE_FIXED  0x100 // allocate at specifed address
-#define RESOURCE_SHARED 0x200 // allow the resource to be shared
-#define RESOURCE_ACTIVE 0x400 // resource is active and usable
+#define RESOURCE_TYPE    0xff
+#define RESOURCE_IRQ     1
+#define RESOURCE_IOPORT  2
+#define RESOURCE_DMA     3
+#define RESOURCE_MEMORY  4
+#define RESOURCE_FIXED   0x100 // allocate at specifed address
+#define RESOURCE_SHARED  0x200 // allow the resource to be shared
+#define RESOURCE_ACTIVE  0x400 // resource is active and usable
+#define RESOURCE_DYNAMIC 0x800 // dynamic resource (not bound)
+#define RID_DYNAMIC 0
 
 // TODO : impl this
-resource_t *resource_allocate(void);
+resource_t *resource_allocate(int flags, int rid);
 
 /**
  * @brief get the virtual address of a resource
@@ -80,29 +83,6 @@ static inline void resource_out_long(resource_t *resource, uint16_t index, uint3
 	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_IOPORT);
 	kassert(index < resource->size);
 	out_long(resource->start + index, data);
-}
-
-/**
- * @brief register an handler for an IRQ resource
- * @param resource the resource to register the handler for
- * @param handler the handle to call on interrupt
- * @param data data pointer to pass to the handler
- * @return an handle to pass to \ref resource_unregister_handler on success or NULL on failure
- * @note all handlers are unregistered automaticaly on \ref bus_release_resource
- */
-static inline void *resource_register_handler(resource_t *resource, interrupt_handler_t handler, void *data) {
-	if (!handler) return NULL;
-	// TODO
-}
-
-/**
- * @brief unregitser an handler previously registered wuth \ref resource_register_handler
- * @param resource the resource to unregister a handler for
- * @param handle the handle of the handler to unregister
- */
-static inline void resource_unregister_handler(resource_t *resource, void *handle) {
-	if (!handle) return;
-	// TODO
 }
 
 #endif

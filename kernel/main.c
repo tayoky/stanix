@@ -120,6 +120,7 @@ void kmain() {
 	init_kout();
 	init_vmm();
 	init_task();
+	init_root_bus();
 	init_timer();
 	init_mod();
 	init_proc();

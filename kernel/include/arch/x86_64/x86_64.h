@@ -89,6 +89,7 @@ long arch_fault_get_prot(registers_t *fault);
  */
 int arch_registers_is_userspace(registers_t *frame);
 
+void init_root_bus(void);
 void init_timer(void);
 void arch_set_tls(void *tls);
 void enable_sse(void);

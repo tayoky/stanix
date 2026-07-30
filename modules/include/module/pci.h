@@ -16,6 +16,14 @@ typedef struct pci_addr {
 	uint8_t function;
 } pci_addr_t;
 
+#define PCI_RID_BAR(n) (1 + (n))
+#define PCI_RID_BAR0 PCI_RID_BAR(0)
+#define PCI_RID_BAR1 PCI_RID_BAR(1)
+#define PCI_RID_BAR2 PCI_RID_BAR(2)
+#define PCI_RID_BAR3 PCI_RID_BAR(3)
+#define PCI_RID_BAR4 PCI_RID_BAR(4)
+#define PCI_RID_BAR5 PCI_RID_BAR(5)
+
 #define PCI_INVALID_BAR ((uintptr_t)-1)
 
 #define PCI_CONFIG_VENDOR_ID   0x00
