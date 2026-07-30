@@ -1,6 +1,6 @@
 # source this script in your configure
 
-TCONF_VERSION="v0.1.1"
+TCONF_VERSION="v0.1.2"
 
 tconf_print () {
 	echo "$@" 1>&2
@@ -228,7 +228,7 @@ tconf_add_subdir () {
 	export ARFLAGS LDFLAGS OPT
 	export HOST BUILD TARGET
 	export PREFIX SYSROOT DEBUG
-	export $OPTIONS
+	test -n "$OPTIONS" && export $OPTIONS
 	SUBDIR="$1"
 	shift
 	tconf_print "entering subdir $SUBDIR"
