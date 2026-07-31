@@ -133,9 +133,7 @@ static tty_ops_t pty_slave_ops = {
 	.out = pty_output,
 };
 
-static device_driver_t pty_driver = {
-	.name = "pty driver",
-};
+static int pty_major = 0;
 
 int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	pty_t *pty = kmalloc(sizeof(pty_t));
@@ -158,7 +156,7 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	(*master_fd)->flags     = O_RDWR;
 
 	// register and save the slave
-	if (device_register_fmt(&slave->device, "pts/%d") < 0) {
+	if (device_register(&slave->device, "pts/%d", makedev(pty_major, 0)) < 0) {
 		// TODO : delete tty
 		return -ENOENT;
 	}
@@ -173,7 +171,7 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 
 void init_ptys(void) {
 	kstatusf("init pty ... ");
-	device_driver_register(&pty_driver);
+	pty_major = device_allocate_major();
 	vfs_mkdir("/dev/pts", 0755);
 	kok();
 }

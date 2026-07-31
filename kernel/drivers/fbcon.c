@@ -240,10 +240,6 @@ static tty_ops_t fbcon_ops = {
 	.out   = fbcon_output,
 };
 
-static device_driver_t fbcon_driver = {
-	.name = "kernel fbcon",
-};
-
 void init_fbcon(void) {
 	kstatusf("init terminal fbcon ...");
 	// not activated by default
@@ -353,7 +349,7 @@ void init_fbcon(void) {
 
 	// create the device
 	fbcon->tty.device.driver = &fbcon_driver;
-	if (device_register_fmt(&fbcon->tty.device, "tty%d") < 0) {
+	if (device_register(&fbcon->tty.device, "tty%d", 0) < 0) {
 		kfail();
 		kinfof("terminal emulator init but can't create device /dev/tty0\n");
 		return;

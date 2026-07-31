@@ -292,5 +292,10 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	list_append(&gpu->alloc_blocks, &main_block->node);
 	hashmap_init(&gpu->fbs, 32);
 
-	return device_register((device_t *)gpu);
+	static int trm_major = 0;
+	if (trm_major == 0) {
+		trm_major = device_allocate_major();
+	}
+
+	return device_register(&gpu->device, "video%d", makedev(trm_major, 0));
 }

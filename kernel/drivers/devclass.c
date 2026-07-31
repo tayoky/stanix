@@ -1,5 +1,6 @@
 #include <kernel/slab.h>
 #include <kernel/string.h>
+#include <kernel/device.h>
 #include <kernel/devclass.h>
 
 static list_t devclasses;
@@ -25,7 +26,8 @@ devclass_t *devclass_get_or_create(const char *name) {
 	devclass = slab_alloc(&devclasses_slab);
 	if (!devclass) return NULL;
 	memset(devclass, 0, sizeof(devclass_t));
-	devclass->name = name;
+	devclass->name  = strdup(name);
+	devclass->major = device_allocate_major();
 }
 
 devnode_t *devclass_get_devnode(devclass_t *devclass, int unit) {

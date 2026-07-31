@@ -116,9 +116,13 @@ static vfs_fd_ops_t framebuffer_ops = {
 	.ioctl = framebuffer_ioctl,
 };
 
+static int fb_major = 0;
 
 int register_framebuffer(framebuffer_t *fb) {
+	if (fb_major == 0) {
+		fb_major = device_allocate_major();
+	}
 	fb->device.ops = &framebuffer_ops;
 	fb->device.type = DEVICE_BLOCK;
-	return device_register_fmt(&fb->device, "fb%d");
+	return device_register(&fb->device, "fb%d", makedev(fb_major, 0));
 }

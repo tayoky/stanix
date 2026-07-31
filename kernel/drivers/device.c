@@ -69,7 +69,7 @@ int device_register(device_t *device, const char *fmt, dev_t number) {
 		number = makedev(major, minor(number));
 	}
 	if (minor(number) == 0) {
-		if (device->devnode) {
+		if (device->devnode && major(number) == device->devnode->devclass->major) {
 			int minor = device->devnode->unit;
 			number = makedev(major(number), minor);
 		} else {
