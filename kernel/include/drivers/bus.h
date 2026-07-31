@@ -8,17 +8,9 @@
 #include <sys/types.h>
 #include <errno.h>
 
-struct bus_ops;
 struct driver;
 struct device;
 struct devclass;
-
-// OLD
-typedef struct bus {
-	device_t device;
-	list_t addresses;
-	struct bus_ops *ops;
-} bus_t;
 
 typedef struct devnode {
 	list_node_t node;
@@ -27,8 +19,8 @@ typedef struct devnode {
 	list_t resources;
 	struct device *device;
 	struct driver *driver;
-	bus_t *bus; // old
 	struct devclass *devclass;
+	char *name; // address name
 	int unit;
 	int type;
 } devnode_t;
@@ -43,9 +35,6 @@ typedef struct driver {
 	int (*check)(devnode_t *devnode);
 	int (*probe)(devnode_t *devnode);
 	void (*detach)(devnode_t *devnode);
-	ssize_t (*old_read)(devnode_t *devnode, void *buf, off_t offset, size_t size);
-	ssize_t (*old_write)(devnode_t *devnode, const void *buf, off_t offset, size_t size);
-	int (*old_register_handler)(devnode_t *devnode, interrupt_handler_t handler, void *data);
 	resource_t *(*allocate_resource)(bus_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid);
 	void (*release_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
 	int (*activate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
@@ -58,16 +47,6 @@ typedef struct driver {
 #define BUS_PCI 1
 #define BUS_PS2 2
 #define BUS_USB 3
-
-typedef struct bus_ops {
-	ssize_t (*read)(devnode_t *devnode, void *buf, off_t offset, size_t size);
-	ssize_t (*write)(devnode_t *devnode, const void *buf, off_t offset, size_t size);
-	int (*old_register_handler)(devnode_t *devnode, interrupt_handler_t handler, void *data);
-	resource_t *(*allocate_resource)(bus_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid);
-	void (*release_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
-	int (*activate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
-	void (*deactivate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
-} bus_ops_t;
 
 int driver_register(driver_t *driver);
 int driver_unregister(driver_t *driver);
@@ -185,22 +164,6 @@ static inline resource_t *bus_allocate_count_resource(devnode_t *devnode, size_t
 
 static inline resource_t *bus_allocate_simple_resource(devnode_t *devnode, int flags, int rid) {
 	return bus_allocate_resource(devnode, 0, 0, flags, rid);
-}
-
-// TODO : remove this shit
-static inline int bus_old_register_handler(devnode_t *devnode, interrupt_handler_t handler, void *data) {
-	if (!devnode->bus->ops || !devnode->bus->ops->old_register_handler) return -ENOTSUP;
-	return devnode->bus->ops->old_register_handler(devnode, handler, data);
-}
-
-static inline ssize_t bus_old_read(devnode_t *devnode, void *buf, off_t offset, size_t size) {
-	if (!devnode->bus->ops || !devnode->bus->ops->read) return -ENOTSUP;
-	return devnode->bus->ops->read(devnode, buf, offset, size);
-}
-
-static inline ssize_t bus_old_write(devnode_t *devnode, const void *buf, off_t offset, size_t size) {
-	if (!devnode->bus->ops || !devnode->bus->ops->write) return -ENOTSUP;
-	return devnode->bus->ops->write(devnode, buf, offset, size);
 }
 
 void bus_set_root(devnode_t *bus);
