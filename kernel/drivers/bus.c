@@ -73,19 +73,11 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 		child->devclass = devclass_create_or_get(name);
 		child->unit = unit;
 		devclass_allocate_unit(child->devclass, child);
+		child->flags |= DEVNODE_FIXEDNAME;
 	}
 
 	// can we find a driver for this device ?
-	driver_t *best = NULL;
-	int best_priority = 0;
-	foreach (node, &drivers) {
-		driver_t *driver = container_of(node, driver_t, node);
-		if (driver->priority >= best_priority && device_check_driver(child, driver) >= 0) {
-			best = driver;
-			best_priority = driver->priority;
-		}
-	}
-	device_attach_driver(device, best);
+	device_attach_driver_auto(child);
 	return child;
 }
 
@@ -98,6 +90,12 @@ void bus_delete_child(devnode_t *bus, devnode_t *child) {
 }
 
 int device_check_driver(devnode_t *device, driver_t *driver) {
+	if (device->flags & DEVNODE_FIXEDNAME) {
+		// the driver must have a matching devclass
+		if (device->devclass != driver->devclass) {
+			return -ENOTSUP;
+		}
+	}
 	if (!driver->check || !driver->probe) return -ENOTSUP;
 	if (!driver->check(device)) return -ENOTSUP;
 	return 0;
@@ -140,6 +138,19 @@ int device_attach_driver(devnode_t *device, driver_t *driver) {
 		device->driver = driver;
 	}
 	return ret;
+}
+
+int device_attach_driver_auto(devnode_t *device) {
+	driver_t *best = NULL;
+	int best_priority = 0;
+	foreach (node, &drivers) {
+		driver_t *driver = container_of(node, driver_t, node);
+		if (driver->priority >= best_priority && device_check_driver(device, driver) >= 0) {
+			best = driver;
+			best_priority = driver->priority;
+		}
+	}
+	device_attach_driver(device, best);
 }
 
 void device_detach_driver(devnode_t *device) {

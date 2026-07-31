@@ -23,8 +23,10 @@ typedef struct devnode {
 	char *name; // address name
 	char cached_name[32];
 	int unit;
-	int type;
+	int flags;
 } devnode_t;
+
+#define DEVNODE_FIXEDNAME 0x01 // name gaved by bus
 
 typedef struct driver {
 	list_node_t node;
@@ -57,6 +59,7 @@ void bus_delete_child(devnode_t *bus, devnode_t *child);
 
 int device_check_driver(devnode_t *device, driver_t *driver);
 int device_attach_driver(devnode_t *device, driver_t *driver);
+int device_attach_driver_auto(devnode_t *device);
 void device_detach_driver(devnode_t *device);
 static inline int device_has_driver_attached(devnode_t *device) {
 	return device->driver != NULL;

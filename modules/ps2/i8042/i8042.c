@@ -334,7 +334,7 @@ static int i8042_probe(devnode_t *devnode) {
 
 static driver_t i8042_driver = {
 	.name = "i8042",
-	.device_name = "ps2",
+	.device_name = "i8042",
 	.check = i8042_check,
 	.probe = i8042_probe,
 	.buses = BUSES("root"),
@@ -344,7 +344,7 @@ static int init_i8042(int argc, char **argv) {
 	driver_register(&i8042_driver);
 
 	// hardly attach a i8042 bus to root
-	i8042_bus = bus_attach_child(bus_get_root(), NULL, "ps2", UNIT_NOUNIT);
+	i8042_bus = bus_attach_child(bus_get_root(), NULL, "i8042", UNIT_NOUNIT);
 	device_attach_driver(i8042_bus, &i8042_driver);
 
 	// export time
