@@ -1,6 +1,7 @@
 #include <kernel/irq.h>
 #include <kernel/print.h>
 #include <kernel/slab.h>
+#include <kernel/string.h>
 
 // irq manager
 
@@ -13,12 +14,14 @@ typedef struct irq_handler {
 } irq_handler_t;
 
 static slab_cache_t irq_handlers_slab;
+static slab_cache_t irqs_slab;
 
 // TODO : make thi table dynamic
 static irq_t *vector2irq[256];
 
 void init_irq(void) {
 	slab_init(&irq_handlers_slab, sizeof(irq_handler_t), "irq-handlers");
+	slab_init(&irqs_slab, sizeof(irq_t), "irqs");
 	init_arch_irq();
 }
 
@@ -100,7 +103,12 @@ void irq_add_to_chip(irq_chip_t *irq_chip, irq_t *irq) {
 }
 
 irq_t *irq_allocate_object(irqnum_t irqnum, hwirq_t hwirq) {
-	// TODO : use a slab
+	irq_t *irq = slab_alloc(&irqs_slab);
+	if (!irq) return NULL;
+	memset(irq, 0, sizeof(irq_t));
+	irq->irqnum = irqnum;
+	irq->hwirq  = hwirq;
+	return irq;
 }
 
 irq_t *irq_from_vector(intrnum_t vector) {

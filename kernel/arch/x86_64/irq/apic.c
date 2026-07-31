@@ -91,7 +91,7 @@ void init_apic(void) {
 			ioapic->redirections_count = (ioapic_read(ioapic, IOAPIC_REG_VER) & IOAPIC_REDIRECTIONS_COUNT) >> IOAPIC_REDIRECTIONS_COUNT_SHIFT;
 
 			xarray_set(&ioapic_list, ioapic->id, ioapic);
-			kdebugf("found io apic at address %p, gsi base %u, redirections count %zu\n", ioapic->address, ioapic->gsi_base, ioapic->redirections_count);
+			kinfof("found io apic at address %p, gsi base %u, redirections count %zu\n", ioapic->address, ioapic->gsi_base, ioapic->redirections_count);
 			break;
 		case ACPI_MADT_ENTRY_LOCAL_APIC_ADDRESS_OVERRIDE:
 			local_apic_address = entry->local_apic_address_override.address;
