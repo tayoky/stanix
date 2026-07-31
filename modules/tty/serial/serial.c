@@ -80,11 +80,13 @@ static tty_ops_t serial_ops = {
 	.out = serial_out,
 };
 
-static device_driver_t serial_driver = {
-	.name = "serial port",
-};
+static int serial_check(devnode_t *devnode) {
+	return 0;
+}
 
-static int init_port(uint16_t port) {
+static int serial_probe(devnode_t *devnode) {
+	// TODO : grab the port through resources
+	
 	out_byte(port + SERIAL_IER, 0x01);
 	out_byte(port + 3, 0x80);
 	out_byte(port + SERIAL_DATA, 0x03);
@@ -102,25 +104,32 @@ static int init_port(uint16_t port) {
 	tty_t *tty = new_tty(NULL);
 	tty->ops = &serial_ops;
 	tty->private_data = (void *)(uintptr_t)port;
-	char name[20];
-	sprintf(name, "ttyS%d",serial_count);
-	tty->device.name   = strdup(name);
-	tty->device.driver = &serial_driver;
 
-	kdebugf("register serial port under %s\n",name);
-	if(device_register((device_t*)tty) < 0){
+	if(device_register(&tty->device, "ttyS%d", 0) < 0){
 		return -EIO;
 	}
 	
-	irq_old_register_handler(4, serial_handler, tty);
+	irq_t *irq = irq_get_from_hwirq(main_irq_chip, 4);
+	irq_register_handler(irq, serial_handler, tty);
 
 	serial_count++;
+}
+
+static driver_t serial_driver = {
+	.name = "serial port",
+	.device_name = "serial%d",
+	.check = serial_check,
+	.probe = serial_probe,
+};
+
+static int init_port(uint16_t port) {
 	return 0;
 }
 
 static int serial_init(int argc,char **argv) {
+	// TODO : use isa bus instead
 	serial_count = 0;
-	device_driver_register(&serial_driver);
+	driver_register(&serial_driver);
 	if(have_opt(argc - 1,argv,"--port")){
 		for (int i = 0; i < argc-1; i++){
 			if(!strcmp("--port",argv[i])){
@@ -129,7 +138,7 @@ static int serial_init(int argc,char **argv) {
 			
 		}
 		if(!serial_count){
-			device_driver_unregister(&serial_driver);
+			driver_unregister(&serial_driver);
 			return -ENODEV;
 		}
 		return 0;
@@ -140,7 +149,7 @@ static int serial_init(int argc,char **argv) {
 }
 
 static int serial_fini() {
-	device_driver_unregister(&serial_driver);
+	driver_unregister(&serial_driver);
 	return 0;
 }
 
