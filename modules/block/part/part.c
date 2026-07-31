@@ -109,9 +109,7 @@ static vfs_fd_ops_t part_ops = {
 	.ioctl = part_ioctl,
 };
 
-static device_driver_t part_driver = {
-	.name = "partitions",
-};
+static int part_major;
 
 static void swap_guid(struct gpt_guid *guid) {
 	guid->e4 = ((guid->e4 & 0xff) << 8) | ((guid->e4 >> 8) & 0xff);
@@ -133,7 +131,7 @@ static int create_part(vfs_fd_t *dev, const char *target, off_t offset, size_t s
 	p->device.driver  = &part_driver;
 	p->device.ops     = &part_ops;
 	p->device.destroy = part_destroy;
-	int ret = device_register((device_t *)p);
+	int ret = device_register(&p->device, path, makedev(part_major, 0));
 	if (ret < 0) {
 		kfree(p->device.name);
 		kfree(p);
@@ -223,14 +221,15 @@ vfs_filesystem_t part_fs = {
 int part_init(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
-	device_driver_register(&part_driver);
+
+	part_major = device_allocate_major();
 	vfs_register_fs(&part_fs);
 	return 0;
 }
 
 int part_fini() {
 	//TODO : unregister
-	return 0;
+	return -ENOSYS;;
 }
 
 kmodule_t module_meta = {
