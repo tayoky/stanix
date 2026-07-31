@@ -152,6 +152,7 @@ int device_attach_driver_auto(devnode_t *device) {
 		}
 	}
 	device_attach_driver(device, best);
+	return 0;
 }
 
 void device_detach_driver(devnode_t *device) {
@@ -175,13 +176,15 @@ int device_set_name(devnode_t *device, const char *name, int unit) {
 	device->devclass = devclass;
 	device->unit = unit;
 	devclass_alloc_unit(devclass, device);
+	kdebugf("devclass=%p device=%p\n", devclass, device);
 	device_generate_cached_name(device);
 	return 0;
 }
 
 char *device_get_dup_name(devnode_t *device) {
-	char *name = kmalloc(strlen(device->name) + 5);
+	char *name = kmalloc(strlen(device->devclass->name) + 5);
 	sprintf(name, device->devclass->name, device->unit);
+	return name;
 }
 
 resource_t *resource_allocate(int flags, int rid, size_t start, size_t size) {

@@ -9,8 +9,6 @@
 #include <kernel/sys.h>
 #include <stdint.h>
 
-static interrupt_handler_t handlers[256];
-static void *handlers_data[256];
 static idt_gate idt[256];
 static IDTR idtr;
 
@@ -96,6 +94,8 @@ void isr_handler(registers_t *registers) {
 		} else {
 			panic("unkown fault", registers);
 		}
+	} else if(registers->err_type == 0x80) {
+		syscall_handler(registers, NULL);
 	} else {
 		irq_dispatch_vector(registers->err_type, registers);
 	}
@@ -114,8 +114,6 @@ void init_idt(void) {
 	IRQS();
 #undef X
 
-	idt_register_handler(0x80, syscall_handler, NULL, -1);
-
 	// create the IDTR
 	idtr.size   = sizeof(idt) - 1;
 	idtr.offset = (uint64_t)&idt;
@@ -124,22 +122,6 @@ void init_idt(void) {
 	kok();
 }
 
-
-void idt_register_handler(int vector, void *handler, void *data, irqnum_t irq_num) {
-	// save the handler
-	handlers[vector]      = handler;
-	handlers_data[vector] = data;
-}
-
 int idt_allocate(void *handler, void *data, irqnum_t irq_num) {
-	int i = 64;
-	while (i < 256 - 32) {
-		if (!handlers[i]) {
-			handlers[i] = handler;
-			idt_register_handler(i, handler, data, irq_num);
-			return i;
-		}
-		i++;
-	}
-	return -1;
+	// TODO : remove this
 }

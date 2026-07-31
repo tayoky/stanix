@@ -20,7 +20,6 @@ typedef struct {
 void init_idt(void);
 void exception_handler();
 
-void idt_register_handler(int vector, void *handler, void *data, int irq_num);
 int idt_allocate(void *handler, void *data, int irq_num);
 
 #endif

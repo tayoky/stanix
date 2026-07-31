@@ -102,7 +102,7 @@ static inline resource_t *bus_get_resource(devnode_t *devnode, int flags, int ri
 #define BUS_UPWARD_OP(devnode, op, ...) \
 	devnode_t *current = devnode; \
 	while (current) {\
-		if (current->driver->op) {\
+		if (current->driver && current->driver->op) {\
 			return current->driver->op(current, devnode, __VA_ARGS__); \
 		} \
 		current = current->parent; \

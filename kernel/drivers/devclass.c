@@ -30,6 +30,7 @@ devclass_t *devclass_get_or_create(const char *name) {
 	memset(devclass, 0, sizeof(devclass_t));
 	devclass->name  = strdup(name);
 	devclass->major = device_allocate_major();
+	return devclass;
 }
 
 devnode_t *devclass_get_devnode(devclass_t *devclass, int unit) {
