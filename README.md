@@ -31,4 +31,7 @@ Every commit name must be in the style `part : change` eg
 - `login : ask for password before launching shell`
 
 ## credits
-special thanks to [sasdallas](https://github.com/sasdallas) who helped me a lot fixing a bunch of big issues and thanks to the limine bootloader for easy higger half kernel loading.
+- To [sasdallas](https://github.com/sasdallas) who helped me a lot fixing a bunch of big issues.
+- To limine for loading higher half kernels easly
+- To FreeBSD for inspiration for the NewBus system
+- To linux for the xarray data struct
