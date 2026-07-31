@@ -42,13 +42,13 @@ static inline resource_t *resource_allocate_data(int flags, int rid, void *data,
  * @note a resource might need to be activated to get a virtual address
  */
 static inline void *resource_get_vaddr(resource_t *resource) {
-	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_MEMORY);
+	kassert((resource->flags & RESOURCE_TYPE) == RESOURCE_MEMORY);
 	if (!resource) return NULL;
 	return resource->data;
 }
 
 static inline irq_t *resource_get_irq(resource_t *resource) {
-	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_IRQ);
+	kassert((resource->flags & RESOURCE_TYPE) == RESOURCE_IRQ);
 	if (!resource) return NULL;
 	return resource->data;
 }
