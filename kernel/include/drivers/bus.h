@@ -37,10 +37,10 @@ typedef struct driver {
 	int (*check)(devnode_t *devnode);
 	int (*probe)(devnode_t *devnode);
 	void (*detach)(devnode_t *devnode);
-	resource_t *(*allocate_resource)(bus_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid);
-	void (*release_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
-	int (*activate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
-	void (*deactivate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
+	resource_t *(*allocate_resource)(devnode_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid);
+	void (*release_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
+	int (*activate_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
+	void (*deactivate_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
 } driver_t;
 
 #define BUSES(...) (const char *[]){__VA_ARGS__, NULL}
@@ -97,12 +97,10 @@ static inline resource_t *bus_get_resource(devnode_t *devnode, int flags, int ri
 #define BUS_UPWARD_OP(devnode, op, ...) \
 	devnode_t *current = devnode; \
 	while (current) {\
-		bus_t *bus = current->bus;\
-		kassert(bus);\
-		if (bus->ops->op) {\
-			return bus->ops->op(bus, devnode, __VA_ARGS__); \
+		if (current->driver->op) {\
+			return current->driver->op(current, devnode, __VA_ARGS__); \
 		} \
-		current = bus->device.devnode; \
+		current = current->parent; \
 	}
 
 static inline int __helper_bus_activate_resource(devnode_t *devnode, resource_t *resource) {
@@ -136,7 +134,11 @@ static inline void bus_release_resource(devnode_t *devnode, resource_t *resource
 	if (resource->flags & RESOURCE_ACTIVE) {
 		bus_deactivate_resource(devnode, resource);
 	}
-	BUS_UPWARD_OP(devnode, deactivate_resource, resource);
+	if (resource->flags & RESOURCE_BOUND) {
+		return;
+	}
+	bus_detach_resource(devnode, resource);
+	BUS_UPWARD_OP(devnode, release_resource, resource);
 }
 
 static inline resource_t *__helper_bus_allocate_resource(devnode_t *devnode, size_t start, size_t count, int flags, int rid) {
@@ -152,6 +154,8 @@ static inline resource_t *bus_allocate_resource(devnode_t *devnode, size_t start
 	if (IS_ERR(resource)) {
 		return resource;
 	}
+	resource->rid = rid;
+	bus_attach_resource(devnode, resource);
 	if (flags & RESOURCE_ACTIVE) {
 		int ret = bus_activate_resource(devnode, resource);
 		if (ret < 0) {

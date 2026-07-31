@@ -15,13 +15,9 @@ static int root_probe(devnode_t *devnode) {
 	return 0;
 }
 
-static void *root_register_handler(bus_t *bus, devnode_t *devnode, resource_t *resource, interrupt_handler_t handler, void *data) {
-}
-
 static driver_t root_driver = {
 	.name = "root bus",
 	.device_name = "root",
-	.register_handler = root_register_handler,
 	.check = root_check,
 	.probe = root_probe,
 };
