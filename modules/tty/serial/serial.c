@@ -112,7 +112,7 @@ static int init_port(uint16_t port) {
 		return -EIO;
 	}
 	
-	irq_register_handler(4, serial_handler, tty);
+	irq_old_register_handler(4, serial_handler, tty);
 
 	serial_count++;
 	return 0;

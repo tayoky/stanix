@@ -1,7 +1,7 @@
 #ifndef KERNEL_RESOURCE_H
 #define KERNEL_RESOURCE_H
 
-#include <kernel/interrupt.h>
+#include <kernel/irq.h>
 #include <kernel/mmio.h>
 #include <kernel/list.h>
 #include <kernel/port.h>
@@ -9,7 +9,7 @@
 typedef struct resource {
 	list_node_t node;
 	void *private;
-	void *vaddr;
+	void *data;
 	size_t start;
 	size_t size;
 	int flags;
@@ -31,6 +31,10 @@ typedef struct resource {
 
 resource_t *resource_allocate(int flags, int rid, size_t start, size_t size);
 
+static inline resource_allocate_data(int flags, int rid, void *data, size_t size) {
+	return resource_allocate(flags, rid, (size_t)data, size);
+}
+
 /**
  * @brief get the virtual address of a resource
  * @param resource the resource to get the virtual address of
@@ -38,8 +42,15 @@ resource_t *resource_allocate(int flags, int rid, size_t start, size_t size);
  * @note a resource might need to be activated to get a virtual address
  */
 static inline void *resource_get_vaddr(resource_t *resource) {
+	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_MEMORY);
 	if (!resource) return NULL;
 	return resource->vaddr;
+}
+
+static inline irq_t *resource_get_irq(resource_t *resource) {
+	kassert(resource->flags & RESOURCE_TYPE == RESOURCE_IRQ);
+	if (!resource) return NULL;
+	return resource->irq;
 }
 
 static inline size_t resource_get_start(resource_t *resource) {
@@ -49,6 +60,14 @@ static inline size_t resource_get_start(resource_t *resource) {
 static inline size_t resource_get_size(resource_t *resource) {
 	if (!resource) return 0;
 	return resource->size;
+}
+
+static inline void *resource_register_handler(resource_t *resource, interrupt_handler_t handler, void *data) {
+	return irq_register_handler(resource_get_irq(resource), handler, data);
+}
+
+static inline void resource_unregister_handler(resource_t *resource, void *handle) {
+	irq_unregister_handler(resource_get_irq(resource), handle);
 }
 
 static inline uint8_t resource_read8(resource_t *resource, uint16_t index) {

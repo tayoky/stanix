@@ -46,7 +46,9 @@ void init_pit(void) {
 
 	// the tick per second is defined here
 	uint16_t divider = 1193181 / TPS;
-	irq_old_register_handler(irq_hirq2irq(0), pit_handler, NULL);
+
+	irq_t *irq = irq_get_from_hwirq(main_irq_chip, 0);
+	irq_register_handler(irq, pit_handler, NULL);
 
 	out_byte(PIT_COMMAND, 0b00110100);
 	out_byte(PIT_CHANNEL0, divider & 0xFF);

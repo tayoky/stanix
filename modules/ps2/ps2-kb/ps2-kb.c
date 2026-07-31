@@ -15,6 +15,8 @@
 
 typedef struct ps2_kb {
 	input_device_t input_device;
+	resource_t *irq_resource;
+	void *handler_handle;
 	int extended;
 } ps2_kb_t;
 
@@ -123,6 +125,7 @@ static int ps2_kb_probe(devnode_t *devnode) {
 
 	ps2_kb_t *keyboard = kmalloc(sizeof(ps2_kb_t));
 	memset(keyboard, 0, sizeof(ps2_kb_t));
+	keyboard->irq_resource = bus_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
 	keyboard->input_device.device.driver  = &ps2_kb_driver;
 	keyboard->input_device.device.number  = ps2_dev->port;
 	keyboard->input_device.device.name    = strdup("kb0");
@@ -130,14 +133,16 @@ static int ps2_kb_probe(devnode_t *devnode) {
 	keyboard->input_device.class          = IE_CLASS_KEYBOARD;
 	keyboard->input_device.subclass       = IE_SUBCLASS_PS2_KBD;
 	input_device_register(&keyboard->input_device);
-	bus_old_register_handler(devnode, ps2_kb_handler, keyboard);
+
+	resource_register_handler(devnode, ps2_kb_handler, keyboard);
 	kdebugf("ps2 keyboard succefuly initialized\n");
 
 	return 0;
 }
 
-static device_driver_t ps2_kb_driver = {
+static driver_t ps2_kb_driver = {
 	.name  = "ps2 keyboard",
+	.device_name = "kb%d",
 	.check = ps2_kb_check,
 	.probe = ps2_kb_probe,
 };
@@ -145,12 +150,12 @@ static device_driver_t ps2_kb_driver = {
 static int init_ps2_kb(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
-	device_driver_register(&ps2_kb_driver);
+	driver_register(&ps2_kb_driver);
 	return 0;
 }
 
 static int fini_ps2_kb() {
-	device_driver_unregister(&ps2_kb_driver);
+	driver_unregister(&ps2_kb_driver);
 	return 0;
 }
 

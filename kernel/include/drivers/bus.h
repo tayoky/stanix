@@ -50,8 +50,6 @@ typedef struct driver {
 	void (*release_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
 	int (*activate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
 	void (*deactivate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
-	void *(*register_handler)(bus_t *bus, devnode_t *devnode, resource_t *resource, interrupt_handler_t handler, void *data);
-	void (*unregister_handler)(bus_t *bus, devnode_t *devnode, resource_t *resource, void *handle);
 } bus_ops_t;
 } driver_t;
 
@@ -69,8 +67,6 @@ typedef struct bus_ops {
 	void (*release_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
 	int (*activate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
 	void (*deactivate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
-	void *(*register_handler)(bus_t *bus, devnode_t *devnode, resource_t *resource, interrupt_handler_t handler, void *data);
-	void (*unregister_handler)(bus_t *bus, devnode_t *devnode, resource_t *resource, void *handle);
 } bus_ops_t;
 
 int driver_register(driver_t *driver);
@@ -86,6 +82,7 @@ static inline int device_has_driver_attached(devnode_t *device) {
 	return device->driver != NULL;
 }
 int device_set_name(devnode_t *device, const char *name, int unit);
+char *device_get_dup_name(device_t *device);
 
 static inline void bus_attach_resource(devnode_t *devnode, resource_t *resource) {
 	list_append(&devnode->resources, &resource->node);
@@ -188,32 +185,6 @@ static inline resource_t *bus_allocate_count_resource(devnode_t *devnode, size_t
 
 static inline resource_t *bus_allocate_simple_resource(devnode_t *devnode, int flags, int rid) {
 	return bus_allocate_resource(devnode, 0, 0, flags, rid);
-}
-
-/**
- * @brief register an handler for an IRQ resource.
- * @param devnode TODO
- * @param resource the resource to register the handler for
- * @param handler the handle to call on interrupt
- * @param data data pointer to pass to the handler
- * @return an handle to pass to \ref resource_unregister_handler on success or NULL on failure
- * @note all handlers are unregistered automaticaly on \ref bus_release_resource
- */
-static inline void *bus_register_handler(devnode_t *devnode, resource_t *resource, interrupt_handler_t handler, void *data) {
-	if (!handler) return NULL;
-	BUS_UPWARD_OP(devnode, register_handler, resource, handler, data);
-	return NULL;
-}
-
-/**
- * @brief unregitser an handler previously registered wuth \ref resource_register_handler
- * @param devnode TODO
- * @param resource the resource to unregister a handler for
- * @param handle the handle of the handler to unregister
- */
-static inline void bus_unregister_handler(devnode_t *devnode, resource_t *resource, void *handle) {
-	if (!handle) return;
-	BUS_UPWARD_OP(devnode, unregister_handler, resource, handle);
 }
 
 // TODO : remove this shit

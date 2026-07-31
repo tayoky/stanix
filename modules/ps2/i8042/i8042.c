@@ -33,18 +33,7 @@
 
 int have_ports[2] = { 1, 0 };
 static ps2_dev_t ports[2];
-static bus_ops_t ps2_ops;
-static device_driver_t ps2_driver = {
-	.name = "8042",
-};
-static bus_t ps2_bus = {
-	.device = {
-		.name = "ps2",
-		.driver = &ps2_driver,
-		.type = DEVICE_BUS,
-	},
-	.ops = &ps2_ops,
-};
+static devnode_t *i8042_bus;
 
 // i8042 specific I/O
 
@@ -153,41 +142,6 @@ int ps2_reset(uint8_t port) {
 	return 0;
 }
 
-static ssize_t ps2_bus_read(devnode_t *devnode, void *buf, off_t offset, size_t count) {
-	(void)devnode;
-	(void)offset;
-	unsigned char *c = buf;
-	ssize_t total = 0;
-	while (count > 0) {
-		int byte = ps2_read();
-		if (byte < 0) break;
-		*c = (unsigned char)byte;
-		count--;
-		total++;
-		c++;
-	}
-	return total;
-}
-
-static int ps2_register_handler(devnode_t *devnode, interrupt_handler_t handler, void *data) {
-	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
-	switch (ps2_dev->port) {
-	case 1:
-		irq_register_handler(irq_hirq2irq(1), handler, data);
-		return 0;
-	case 2:
-		irq_register_handler(irq_hirq2irq(12), handler, data);
-		return 0;
-	default:
-		return -EINVAL;
-	}
-}
-
-static bus_ops_t ps2_ops = {
-	.read = ps2_bus_read,
-	.old_register_handler = ps2_register_handler,
-};
-
 static void print_device_name(int port) {
 	if (port == 1) {
 		kdebugf("ps2 : first port device : ");
@@ -259,21 +213,28 @@ static void print_device_name(int port) {
 }
 
 static void setup_ps2_dev(int port) {
-	list_append(&ps2_bus.addresses, &ports[port - 1].devnode.node);
+	bus_attach_child(i8042_bus, &ports[port - 1].devnode, NULL, UNIT_NOUNIT);
 	char name[32];
-	sprintf(name, "port%d", port);
 	ports[port - 1].devnode.type = BUS_PS2;
-	ports[port - 1].devnode.name = strdup(name);
-	ports[port - 1].devnode.bus  = &ps2_bus;
 	ports[port - 1].port = port;
 
 	// allocate irqs
-	irqnum_t irq_num = irq_hirq2irq(port == 1 ? 1 : 12);
-	resource_t *irq_res = resource_allocate(RESOURCE_IRQ, PS2_RID_IRQ, irq_num, 1);
+	hwirq_t hwirq = port == 1 ? 1 : 12;
+	irq_t *irq = irq_get_from_hwirq(main_irq_chip, hwirq);
+	kassert(irq);
+	resource_t *irq_res = resource_allocate_data(RESOURCE_IRQ, PS2_RID_IRQ, irq, 1);
 	bus_attach_resource(&ports[port - 1].devnode, irq_res);
 }
 
-static int init_i8042(int argc, char **argv) {
+static int i8042_check(devnode_t *devnode) {
+	// we only understand the hardcoded i8042 bus
+	return devnode == i8042_bus ? 0 : -ENOTSUP;
+}
+
+static int i8042_probe(devnode_t *devnode) {
+	(void)devnode;
+	kassert(devnode == i8042_bus);
+
 	// disable everything
 	i8042_send_command(I8042_DISABLE_PORT1);
 	i8042_send_command(I8042_DISABLE_PORT2);
@@ -341,9 +302,6 @@ static int init_i8042(int argc, char **argv) {
 		i8042_send_command(I8042_ENABLE_PORT2);
 	}
 
-	// setup driver and bus
-	device_driver_register(&ps2_driver);
-
 	// now scan the device on each port
 	for (int i=1; i < 3; i++) {
 		if (!have_ports[i - 1]) continue;
@@ -366,24 +324,39 @@ static int init_i8042(int argc, char **argv) {
 	// now write conf
 	i8042_write_ccb(conf);
 
-	device_register((device_t *)&ps2_bus);
-
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");
 
 	// NOTE : at this point scanning is disable
 	// the driver specfic to the device as to enable scanning itself
 
+	return 0;
+}
+
+static driver_t i8042_driver = {
+	.name = "i8042",
+	.device_name = "ps2",
+	.check = i8042_check,
+	.probe = i8042_probe,
+	.buses = BUSES("root"),
+};
+
+static int init_i8042(int argc, char **argv) {
+	driver_register(&i8042_driver);
+
+	// hardly attach a i8042 bus to root
+	i8042_bus = bus_attach_child(bus_get_root(), NULL, "ps2", UNIT_NOUNIT);
+	device_attach_driver(i8042_bus, &i8042_driver);
+
 	// export time
 	EXPORT(ps2_read);
 	EXPORT(ps2_send);
 	EXPORT(ps2_reset);
-
 	return 0;
 }
 
 static int fini_i8042() {
-	device_destroy((device_t *)&ps2_bus);
-	device_driver_unregister(&ps2_driver);
+	bus_delete_child(bus_get_root(), i8042_bus);
+	driver_unregister(&i8042_driver);
 	UNEXPORT(ps2_read);
 	UNEXPORT(ps2_send);
 	UNEXPORT(ps2_reset);

@@ -33,37 +33,27 @@ typedef struct device {
 
 #define DEVICE_CHAR      1
 #define DEVICE_BLOCK     2
-#define DEVICE_BUS       3
-#define DEVICE_UNPLUGGED 4
+#define DEVICE_UNPLUGGED 3
 
-/**
- * @brief register a new device driver
- * @param device_driver the device driver to register
- * @return 0 on success, else error code
- */
+// dynamic major number management
+int device_allocate_major(void);
+void device_set_major(int major);
+void device_free_major(int major);
+
+// OLD
 int device_driver_register(device_driver_t *device_driver);
 
-/**
- * @brief unregister a previously registered device driver
- * @param device_driver the device driver to unregister
- * @return 0 on success, else error code
- */
+// OLD
 int device_driver_unregister(device_driver_t *device_driver);
-
-/**
- * @brief register a new device and set the name
- * @param device the device to register
- * @param fmt the format of the name, %c or %d can be specified to include the minor device number
- * @note if number is 0 a dev number is automaticly allocated
- */
-int device_register_fmt(device_t *device, const char *fmt);
 
 /**
  * @brief register a new device
  * @param device the device to register
- * @note if number is 0 a dev number is automaticly allocated
+ * @param fmt a format for the name of the device
+ * @param number device number
+ * @note if major or minor are 0 they are automatically allocated
  */
-int device_register(device_t *device);
+int device_register(device_t *device, const char *fmt, dev_t number) {
 
 /**
  * @brief destroy a device

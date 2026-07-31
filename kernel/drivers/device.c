@@ -6,110 +6,95 @@
 #include <kernel/bus.h>
 #include <errno.h>
 
-xarray_t device_drivers;
+#define DYNAMIC_MAJOR_MIN 256
+#define DYNAMIC_MAJOR_MAX 512
+#define DYNAMIC_MAJOR_SIZE (DYNAMIC_MAJOR_MAX - DYNAMIC_MAJOR_MIN)
+static uint32_t major_bitmap[DYNAMIC_MAJOR_SIZE / 32];
 xarray_t devices;
 vfs_dentry_t *devfs_root;
 
-static int init_device_with_driver(devnode_t *devnode, device_driver_t *device_driver) {
-	if (!device_driver->check || !device_driver->probe) return -ENOTSUP;
-	if (!device_driver->check(devnode)) return -ENOTSUP;
-
-	if (devnode->device) {
-		// a driver already control this devnode
-		if (devnode->device->driver->priority > device_driver->priority) {
-			// the driver is already better
-			return -EBUSY;
-		} else {
-			// replace the old driver
-			device_destroy(devnode->device);
+int device_allocate_major(void) {
+	for (size_t i=0; i<arraylen(major_bitmap); i++) {
+		if (major_bitmap[i] == 0xffffffffU) {
+			continue;
 		}
+		for (size_t j=0; j<32; j++) {
+			if (!(major_bitmap[i] & (1U << j))) {
+				major_bitmap[i] |= (1U << j);
+				return i * 32 + j;
+			}
+		}
+		i++;
 	}
-
-	// the driver is compatible with the device
-	return device_driver->probe(devnode);
+	return -1;
 }
 
-static int init_device(devnode_t *devnode) {
-	if (devnode->device) {
-		// a driver already control this devnode
-		return -EBUSY;
+void device_set_major(int major) {
+	if (major < DYNAMIC_MAJOR_MIN || major >= DYNAMIC_MAJOR_MAX) {
+		return;
 	}
-
-	int ret = -ENOTSUP;
-
-	xarray_foreach (major, driver, &device_drivers) {
-		(void)major;
-		ret = init_device_with_driver(devnode, driver);
-		return ret;
-	}
-
-	return ret;
+	major -= DYNAMIC_MAJOR_MIN;
+	major_bitmap[major / 32] |= (1U << (major % 32));
 }
 
+void device_free_major(int major) {
+	if (major < DYNAMIC_MAJOR_MIN || major >= DYNAMIC_MAJOR_MAX) {
+		return;
+	}
+	major -= DYNAMIC_MAJOR_MIN;
+	major_bitmap[major / 32] &= ~(1U << (major % 32));
+}
+
+// OLD
 int device_driver_register(device_driver_t *device_driver) {
-	// default priority
-	if (!device_driver->priority) device_driver->priority = 1;
-	if (device_driver->major == 0) {
-		// allocate a major
-		// dynamic majors start at 256
-		device_driver->major = xarray_allocate_from(&device_drivers, 256, device_driver);
-	} else {
-		if (xarray_get(&device_drivers, device_driver->major)) return -EEXIST;
-		xarray_set(&device_drivers, device_driver->major, device_driver);
-	}
-
-	// try to use this new driver on all already existing devices
-	xarray_foreach (number, device, &devices) {
-		(void)number;
-		bus_t *bus = (bus_t *)device;
-		if (bus->device.type != DEVICE_BUS) continue;
-		foreach (node, &bus->addresses) {
-			devnode_t *devnode = (devnode_t *)node;
-			init_device_with_driver(devnode, device_driver);
-		}
-	}
+	// THIS IS A STUB
 	return 0;
 }
 
+// OLD
 int device_driver_unregister(device_driver_t *device_driver) {
-	xarray_clear(&device_drivers, device_driver->major);
+	// THIS IS A STUB
 	return 0;
 }
 
-int device_register_fmt(device_t *device, const char *fmt) {
+int device_register(device_t *device, const char *fmt, dev_t number) {
 	if (device->devnode) {
 		device->devnode->device = device;
 	}
 	device->ref_count = 1;
-	if (!device->number) {
-		device->number = xarray_allocate_from(&devices, makedev(device->driver->major, 0), device);
-	} else {
-		device->number = makedev(device->driver->major, device->number);
-		xarray_set(&devices, device->number, device);
+
+	// allocate numbers if required
+	if (major(number) == 0) {
+		int major = device_allocate_major();
+		number = makedev(major, minor(number));
 	}
-	if (fmt) {
-		char name[256];
-		snprintf(name, sizeof(name), fmt, minor(device->number));
-		device->name = strdup(name);
-	}
-	if (device->type != DEVICE_BUS) {
-		vfs_mknod_at(devfs_root, device->name, 0666 | (device->type == DEVICE_CHAR ? S_IFCHR : S_IFBLK), device->number);
-	}
-	kdebugf("register device %s as %d,%d (%lx)\n", device->name, major(device->number), minor(device->number), device->number);
-	if (device->type == DEVICE_BUS) {
-		bus_t *bus = (bus_t *)device;
-		foreach(node, &bus->addresses) {
-			devnode_t *devnode = (devnode_t *)node;
-			// just in case the driver forgot
-			devnode->bus = bus;
-			init_device(devnode);
+	if (minor(number) == 0) {
+		if (device->devnode) {
+			int minor = device->devnode->unit;
+			number = makedev(major(number), minor);
+		} else {
+			// automatically allocate number
+			number = xarray_allocate_from(&devices, number, device);
 		}
 	}
-	return 0;
-}
 
-int device_register(device_t *device) {
-	return device_register_fmt(device, NULL);
+	if (fmt) {
+		char name[256];
+		snprintf(name, sizeof(name), fmt, minor(number));
+		device->name = strdup(name);
+	} else if (device->devnode) {
+		// take the name direcly from the bus subsystem
+		device->name = device_get_dup_name(device->devnode);
+	}
+
+	device->number = number;
+	xarray_set(&devices, number, device);
+
+	if (device->name) {
+		vfs_mknod_at(devfs_root, device->name, 0666 | (device->type == DEVICE_CHAR ? S_IFCHR : S_IFBLK), number);
+	}
+	kdebugf("register device %s as %d,%d (%lx)\n", device->name, major(device->number), minor(device->number), device->number);
+	return 0;
 }
 
 void device_release(device_t *device) {

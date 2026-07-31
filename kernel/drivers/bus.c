@@ -156,6 +156,11 @@ int device_set_name(devnode_t *device, const char *name, int unit) {
 	devclass_alloc_unit(devclass, device);
 }
 
+char *device_get_dup_name(device_t *device) {
+	char *name = kmalloc(strlen(device->name) + 5);
+	sprintf(name, device->devclass->name, device->unit);
+}
+
 resource_t *resource_allocate(int flags, int rid, size_t start, size_t size) {
 	resource_t *resource = slab_alloc(&resources_slab);
 	if (!resource) return NULL;

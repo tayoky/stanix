@@ -77,7 +77,7 @@ size_t xarray_allocate_from(xarray_t *xarray, size_t start, void *value);
  * @return the allocated index
  */
 static inline size_t xarray_allocate(xarray_t *xarray, void *value) {
-	xarray_allocate_from(xarray, 0, value);
+	return xarray_allocate_from(xarray, 0, value);
 }
 
 /**

@@ -9,6 +9,7 @@ typedef struct devclass {
 	list_node_t node;
 	const char *name;
 	int max_unit;
+	int major;
 	struct devnode **devices;
 } devclass_t;
 

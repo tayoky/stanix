@@ -7,21 +7,22 @@
 
 // memory devices
 
-#define DEV_MEM     1
-#define DEV_NULL    2
-#define DEV_ZERO    5
-#define DEV_FULL    7
-#define DEV_KMSG    11
-#define DEV_TTYBOOT 13
+#define MAJOR_MEM     1
+#define MINOR_MEM     1
+#define MINOR_NULL    2
+#define MINOR_ZERO    5
+#define MINOR_FULL    7
+#define MINOR_KMSG    11
+#define MINOR_TTYBOOT 13
 
 static ssize_t mem_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	(void)offset;
 	device_t *device = fd->private;
 	switch (minor(device->number)) {
-	case DEV_NULL:
+	case MINOR_NULL:
 		return 0;
-	case DEV_FULL:
-	case DEV_ZERO:
+	case MINOR_FULL:
+	case MINOR_ZERO:
 		memset(buf, 0, count);
 		return count;
 	default:
@@ -33,15 +34,15 @@ static ssize_t mem_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t cou
 	(void)offset;
 	device_t *device = fd->private;
 	switch (minor(device->number)) {
-	case DEV_NULL:
-	case DEV_ZERO:
+	case MINOR_NULL:
+	case MINOR_ZERO:
 		return count;
-	case DEV_FULL:
+	case MINOR_FULL:
 		return -ENOSPC;
-	case DEV_KMSG:
+	case MINOR_KMSG:
 		kprint_buf(buf, count);
 		return count;
-	case DEV_TTYBOOT:;
+	case MINOR_TTYBOOT:;
 		const char *c = buf;
 		earlycon_output_all(c, count);
 		return count;
@@ -56,20 +57,12 @@ static vfs_fd_ops_t mem_ops = {
 	.write = mem_write,
 };
 
-static device_driver_t mem_driver = {
-	.name = "memory devices",
-	.major = 1,
-};
-
 static int create_mem_dev(int minor, const char *name) {
 	device_t *dev = kmalloc(sizeof(device_t));
 	memset(dev, 0, sizeof(device_t));
-	dev->number = minor;
-	dev->name   = strdup(name);
-	dev->driver = &mem_driver;
 	dev->type   = DEVICE_CHAR;
 	dev->ops    = &mem_ops;
-	int ret = device_register(dev);
+	int ret = device_register(dev, name, makedev(MAJOR_MEM, minor));
 	if (ret < 0) {
 		kfree(dev->name);
 		kfree(dev);
@@ -80,10 +73,10 @@ static int create_mem_dev(int minor, const char *name) {
 void init_mem_devices(void) {
 	kstatusf("init memory devices ... ");
 	device_driver_register(&mem_driver);
-	create_mem_dev(DEV_NULL   , "null");
-	create_mem_dev(DEV_ZERO   , "zero");
-	create_mem_dev(DEV_FULL   , "full");
-	create_mem_dev(DEV_KMSG   , "kmsg");
-	create_mem_dev(DEV_TTYBOOT, "ttyboot");
+	create_mem_dev(MINOR_NULL   , "null");
+	create_mem_dev(MINOR_ZERO   , "zero");
+	create_mem_dev(MINOR_FULL   , "full");
+	create_mem_dev(MINOR_KMSG   , "kmsg");
+	create_mem_dev(MINOR_TTYBOOT, "ttyboot");
 	kok();
 }
