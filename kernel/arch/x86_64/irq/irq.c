@@ -3,26 +3,7 @@
 #include <kernel/kernel.h>
 #include <kernel/print.h>
 
-extern void irq0();
-extern void irq1();
-extern void irq2();
-extern void irq3();
-extern void irq4();
-extern void irq5();
-extern void irq6();
-extern void irq7();
-extern void irq8();
-extern void irq9();
-extern void irq10();
-extern void irq11();
-extern void irq12();
-extern void irq13();
-extern void irq14();
-extern void irq15();
-
-irq_chip_t *irq_chip;
-
-void init_irq(void) {
+void init_arch_irq(void) {
 	kstatusf("init irq chip... ");
 
 	if (have_apic()) {
@@ -35,60 +16,4 @@ void init_irq(void) {
 
 	kinfof("using irq chip '%s'\n", irq_chip->name);
 	enable_interrupt();
-}
-
-irqnum_t irq_allocate(interrupt_handler_t handler, void *data) {
-	// TODO
-	(void)handler;
-	(void)data;
-	return -1;
-}
-
-void irq_mask(irqnum_t irq_num) {
-	if (irq_chip->mask) {
-		irq_chip->mask(irq_num);
-	} else {
-		kwarningf("unimplemented mask operation for irq chip '%s'\n", irq_chip->name);
-	}
-}
-
-void irq_unmask(irqnum_t irq_num) {
-	if (irq_chip->unmask) {
-		irq_chip->unmask(irq_num);
-	} else {
-		kwarningf("unimplemented unmask operation for irq chip '%s'\n", irq_chip->name);
-	}
-}
-
-void irq_eoi(irqnum_t irq_num) {
-	if (irq_chip->eoi) {
-		irq_chip->eoi(irq_num);
-	} else {
-		kwarningf("unimplemented eoi operation for irq chip '%s'\n", irq_chip->name);
-	}
-}
-
-irqnum_t irq_hirq2irq(int hirq) {
-	if (irq_chip->hirq2irq) {
-		return irq_chip->hirq2irq(hirq);
-	} else {
-		kwarningf("unimplemented hirq operation for irq chip '%s'\n", irq_chip->name);
-		return -1;
-	}
-}
-
-void irq_register_handler(irqnum_t irq_num, interrupt_handler_t handler, void *data) {
-	if (irq_chip->register_handler) {
-		irq_chip->register_handler(irq_num, handler, data);
-	} else {
-		kwarningf("unimplemented register_handler operation for irq chip '%s'\n", irq_chip->name);
-		return;
-	}
-	// mask/unmask the interrupt
-	if (!irq_chip) return;
-	if (handler) {
-		irq_unmask(irq_num);
-	} else {
-		irq_mask(irq_num);
-	}
 }

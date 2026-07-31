@@ -91,6 +91,7 @@ int arch_registers_is_userspace(registers_t *frame);
 
 void init_root_bus(void);
 void init_timer(void);
+void init_arch_irq();
 void arch_set_tls(void *tls);
 void enable_sse(void);
 int arch_shutdown(int flags);
@@ -107,18 +108,6 @@ int arch_shutdown(int flags);
 #define PC_REG(frame)   (frame).rip
 
 typedef int irqnum_t;
-
-typedef struct irq_chip {
-	void (*mask)(irqnum_t irq_num);
-	void (*unmask)(irqnum_t irq_num);
-	void (*eoi)(irqnum_t irq_num);
-	void (*register_handler)(irqnum_t irq_num, void *handler, void *data);
-	irqnum_t (*hirq2irq)(int hirq);
-	const char *name;
-	int type;
-} irq_chip_t;
-
-extern irq_chip_t *irq_chip;
 
 #define IRQ_CHIP_APIC 0x01
 #define IRQ_CHIP_PIC  0x02

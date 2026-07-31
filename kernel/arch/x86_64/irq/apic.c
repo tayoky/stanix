@@ -13,7 +13,6 @@ static irq_chip_t apic_chip;
 static uintptr_t local_apic_address;
 static volatile void *local_apic;
 static xarray_t ioapic_list;
-static xarray_t hirq2gsi;
 
 int have_apic(void) {
 	if (kcmdline_have_opt("--disable-apic")) {
@@ -75,7 +74,6 @@ void init_apic(void) {
 	init_pic();
 
 	xarray_init(&ioapic_list);
-	xarray_init(&hirq2gsi);
 	local_apic_address = madt->local_acpi_address;
 
 	// got trough each entry
@@ -102,15 +100,34 @@ void init_apic(void) {
 		current += entry->length;
 	}
 
+	// setup irq objects
+	xarray_foreach (id, value, &ioapic_list) {
+		(void)id;
+		ioapic_t *ioapic = value;
+		for (size_t i=0; i<ioapic->redirections_count; i++) {
+			irqnum_t gsi = ioapic->gsi_base + i;
+			irq_t *irq = irq_allocate_object(gsi, gsi);
+			// let the irq system allocate a vector for us
+			irq_set_vector(irq, IRQ_VECTOR_ALLOCATE);
+			irq_add_to_chip(&apic_chip, irq);
+
+			uint64_t redirection = ioapic_read_redirection(ioapic, i);
+			redirection &= ~IOAPIC_VECTOR;
+			redirection |= irq->vector;
+			ioapic_write_redirection(ioapic, i, redirection);
+		}
+	}
+
 	// repeat but apply redirections this time
 	current = (uintptr_t)madt + sizeof(acpi_madt_t);
 	while (current < end) {
 		acpi_madt_entry_t *entry = (acpi_madt_entry_t *)current;
 		switch (entry->type) {
 		case ACPI_MADT_ENTRY_IOAPIC_INTERRUPT_OVERRIDE:
-			// we store values in xarray multiplied by 2 since we need them to be 2 aligned
 			kdebugf("redirection from %hhu to gsi %u\n", entry->ioapic_interrupt_override.irq_source, entry->ioapic_interrupt_override.gsi);
-			xarray_set(&hirq2gsi, entry->ioapic_interrupt_override.irq_source, (void *)(uintptr_t)(entry->ioapic_interrupt_override.gsi * 2));
+			irq_t *irq = irq_get_from_irqnum(entry->ioapic_interrupt_override.gsi);
+			if (!irq) break;
+			irq->hwirq = entry->ioapic_interrupt_override.irq_source;
 			ioapic_t *ioapic = get_ioapic_for_gsi(entry->ioapic_interrupt_override.gsi);
 			if (!ioapic) break;
 			uint64_t redirection = ioapic_read_redirection(ioapic, entry->ioapic_interrupt_override.gsi - ioapic->gsi_base);
@@ -138,7 +155,7 @@ void init_apic(void) {
 
 
 	// tell the irq system we use apic
-	irq_chip = &apic_chip;
+	main_irq_chip = &apic_chip;
 
 	kinfof("local apic address is %p\n", local_apic_address);
 	local_apic = mmio_map(local_apic_address, 0x400);
@@ -147,46 +164,28 @@ void init_apic(void) {
 	local_apic_write(LOCAL_APIC_REG_SPURIOUS, local_apic_read(LOCAL_APIC_REG_SPURIOUS) | 0x100);
 }
 
-static void apic_mask(irqnum_t gsi) {
-	ioapic_t *ioapic = get_ioapic_for_gsi(gsi);
+static void apic_mask(irq_chip_t *irq_chip, irq_t *irq) {
+	(void)irq_chip;
+	ioapic_t *ioapic = get_ioapic_for_gsi(irq->irqnum);
 	if (!ioapic) return;
-	uint64_t redirection = ioapic_read_redirection(ioapic, gsi - ioapic->gsi_base);
+	uint64_t redirection = ioapic_read_redirection(ioapic, irq->irqnum - ioapic->gsi_base);
 	redirection |= IOAPIC_MASK;
-	ioapic_write_redirection(ioapic, gsi - ioapic->gsi_base, redirection);
+	ioapic_write_redirection(ioapic, irq->irqnum - ioapic->gsi_base, redirection);
 }
 
-static void apic_unmask(irqnum_t gsi) {
-	ioapic_t *ioapic = get_ioapic_for_gsi(gsi);
+static void apic_unmask(irq_chip_t *irq_chip, irq_t *irq) {
+	(void)irq_chip;
+	ioapic_t *ioapic = get_ioapic_for_gsi(irq->irqnum);
 	if (!ioapic) return;
-	uint64_t redirection = ioapic_read_redirection(ioapic, gsi - ioapic->gsi_base);
+	uint64_t redirection = ioapic_read_redirection(ioapic, irq->irqnum - ioapic->gsi_base);
 	redirection &= ~IOAPIC_MASK;
-	ioapic_write_redirection(ioapic, gsi - ioapic->gsi_base, redirection);
+	ioapic_write_redirection(ioapic, irq->irqnum - ioapic->gsi_base, redirection);
 }
 
-static void apic_eoi(irqnum_t gsi) {
-	(void)gsi;
+static void apic_eoi(irq_chip_t *irq_chip, irq_t *irq) {
+	(void)irq_chip;
+	(void)irq;
 	local_apic_write(LOCAL_APIC_REG_EOI, 0);
-}
-
-static void apic_register_handler(irqnum_t gsi, void *handler, void *data) {
-	ioapic_t *ioapic = get_ioapic_for_gsi(gsi);
-	if (!ioapic) return;
-
-	// allocate vector
-	int vector = idt_allocate(handler, data, gsi);
-	if (vector < 0) return;
-
-	uint64_t redirection = ioapic_read_redirection(ioapic, gsi - ioapic->gsi_base);
-	redirection &= ~IOAPIC_VECTOR;
-	redirection |= vector;
-	ioapic_write_redirection(ioapic, gsi - ioapic->gsi_base, redirection);
-}
-
-static irqnum_t apic_hirq2irq(int hirq) {
-	// we store values in xarray multiplied by 2 since we need them to be 2 aligned
-	uintptr_t val = (uintptr_t)xarray_get(&hirq2gsi, hirq);
-	if (!val) return hirq;
-	return val / 2;
 }
 
 static irq_chip_t apic_chip = {
@@ -195,6 +194,4 @@ static irq_chip_t apic_chip = {
 	.mask             = apic_mask,
 	.unmask           = apic_unmask,
 	.eoi              = apic_eoi,
-	.register_handler = apic_register_handler,
-	.hirq2irq         = apic_hirq2irq,
 };

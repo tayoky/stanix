@@ -5,12 +5,22 @@
 
 static irq_chip_t pic_chip;
 
+static irq_t pic_irqs[16];
+
 static void surpirous_handler(registers_t *frame, void *arg) {
 	(void)frame;
 	(void)arg;
 }
 
 void init_pic() {
+	// setup the irq objects
+	for (size_t i=0; i<arraylen(pic_irqs); i++) {
+		pic_irqs[i].irqnum   = i;
+		pic_irqs[i].hwirq    = i;
+		irq_set_vector(&pic_irqs[i], i + 32);
+		irq_add_to_chip(&pic_irqs[i], &pic_chip);
+	}
+
 	// starts the initialization sequence (in cascade mode)
 	out_byte(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);
 	io_wait();
@@ -42,55 +52,60 @@ void init_pic() {
 	out_byte(PIC2_DATA, 0xff);
 
 	// tell the kernel we use pic
-	irq_chip = &pic_chip;
+	main_irq_chip = &pic_chip;
 
 	// map the surpirous isr
-	irq_register_handler(7, surpirous_handler, NULL);
-	irq_register_handler(15, surpirous_handler, NULL);
+	irq_register_handler(&pic_irqs[7], surpirous_handler, NULL);
+	irq_register_handler(&pic_irqs[15], surpirous_handler, NULL);
 }
 
-static void pic_mask(irqnum_t irq_num) {
+static void pic_mask(irq_chip_t *irq_chip, irq_t *irq) {
+	(void)irq_chip;
 	uint8_t mask;
 	uint16_t port;
-	if (irq_num < 8) {
+	irqnum_t irqnum = irq->irqnum;
+	if (irqnum < 8) {
 		port = PIC1_DATA;
 	} else {
-		irq_num -= 8;
+		irqnum -= 8;
 		port = PIC2_DATA;
 	}
 	mask = in_byte(port);
-	mask |= 1 << irq_num;
+	mask |= 1 << irqnum;
 	out_byte(port, mask);
 }
 
-static void pic_unmask(irqnum_t irq_num) {
+static void pic_unmask(irq_chip_t *irq_chip, irq_t *irq) {
+	(void)irq_chip;
 	uint8_t mask;
 	uint16_t port;
-	if (irq_num < 8) {
+	irqnum_t irqnum = irq->irqnum;
+	if (irqnum < 8) {
 		port = PIC1_DATA;
 	} else {
-		irq_num -= 8;
+		irqnum -= 8;
 		port = PIC2_DATA;
 	}
 	mask = in_byte(port);
-	mask &= ~(1 << irq_num);
+	mask &= ~(1 << irqnum);
 	out_byte(port, mask);
 }
 
-static void pic_eoi(irqnum_t irq_num) {
-	if (irq_num > 16) return;
-	if (irq_num >= 8) {
+static void pic_eoi(irq_chip_t *irq_chip, irq_t *irq) {
+	(void)irq_chip;
+	if (irq->irqnum >= 8) {
 		out_byte(PIC2_COMMAND, 0x20);
 	}
 	out_byte(PIC1_COMMAND, 0x20);
 }
 
-static void pic_register_handler(irqnum_t irq_num, void *handler, void *data) {
-	idt_register_handler(irq_num + 32, handler, data, irq_num);
-}
-
-static irqnum_t pic_hirq2irq(int hirq) {
-	return hirq;
+static irq_t *pic_get_from_hwirq(irq_chip_t *irq_chip, hwirq_t hwirq) {
+	(void)irq_chip;
+	// map direcly hwirq to irqnum
+	if (hwirq < 0 || hwirq >= 16) {
+		return NULL;
+	}
+	return &pic_irqs[hwirq];
 }
 
 static irq_chip_t pic_chip = {
@@ -99,6 +114,5 @@ static irq_chip_t pic_chip = {
 	.mask             = pic_mask,
 	.unmask           = pic_unmask,
 	.eoi              = pic_eoi,
-	.register_handler = pic_register_handler,
-	.hirq2irq         = pic_hirq2irq,
+	.get_from_hwirq   = pic_get_from_hwirq,
 };
