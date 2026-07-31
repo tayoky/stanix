@@ -92,7 +92,7 @@ static inline void bus_detach_bound_resource(devnode_t *devnode, resource_t *res
 static inline resource_t *bus_get_resource(devnode_t *devnode, int flags, int rid) {
 	foreach (node, &devnode->resources) {
 		resource_t *resource = container_of(node, resource_t, node);
-		if ((resource->flags & RESOURCE_TYPE) == (flags & RESOURCE_TYPE) && (rid == RID_ANY) || (resource->rid == rid)) {
+		if ((resource->flags & RESOURCE_TYPE) == (flags & RESOURCE_TYPE) && ((rid == RID_ANY) || (resource->rid == rid))) {
 			return resource;
 		}
 	}

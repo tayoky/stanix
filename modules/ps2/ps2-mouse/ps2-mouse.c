@@ -142,7 +142,7 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 static driver_t ps2_mouse_driver = {
 	.name = "ps2 mouse",
 	.device_name = "mouse%d",
-	.buses = BUSES("ps2"),
+	.buses = BUSES("i8042"),
 	.check = ps2_mouse_check,
 	.probe = ps2_mouse_probe,
 };

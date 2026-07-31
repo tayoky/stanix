@@ -33,7 +33,6 @@
 
 int have_ports[2] = { 1, 0 };
 static ps2_dev_t ports[2];
-static devnode_t *i8042_bus;
 static int no_translation;
 
 // i8042 specific I/O
@@ -213,8 +212,8 @@ static void print_device_name(int port) {
 
 }
 
-static void setup_ps2_dev(int port) {
-	bus_attach_child(i8042_bus, &ports[port - 1].devnode, NULL, UNIT_NOUNIT);
+static void setup_ps2_dev(devnode_t *bus, int port) {
+	bus_attach_child(bus, &ports[port - 1].devnode, NULL, UNIT_NOUNIT);
 	char name[32];
 	ports[port - 1].devnode.type = BUS_PS2;
 	ports[port - 1].port = port;
@@ -224,17 +223,11 @@ static void setup_ps2_dev(int port) {
 	irq_t *irq = irq_get_from_hwirq(main_irq_chip, hwirq);
 	kassert(irq);
 	resource_t *irq_res = resource_allocate_data(RESOURCE_IRQ, PS2_RID_IRQ, irq, 1);
-	bus_attach_resource(&ports[port - 1].devnode, irq_res);
-}
-
-static int i8042_check(devnode_t *devnode) {
-	// we only understand the hardcoded i8042 bus
-	return devnode == i8042_bus ? 0 : -ENOTSUP;
+	bus_attach_bound_resource(&ports[port - 1].devnode, irq_res);
+	kdebugf("get res would return %p\n", bus_get_resource(&ports[port - 1].devnode, RESOURCE_IRQ, RID_ANY));
 }
 
 static int i8042_probe(devnode_t *devnode) {
-	(void)devnode;
-	kassert(devnode == i8042_bus);
 
 	// disable everything
 	i8042_send_command(I8042_DISABLE_PORT1);
@@ -313,7 +306,7 @@ static int i8042_probe(devnode_t *devnode) {
 		} else {
 			// identify the device
 			print_device_name(i);
-			setup_ps2_dev(i);
+			setup_ps2_dev(devnode, i);
 		}
 	}
 
@@ -336,7 +329,6 @@ static int i8042_probe(devnode_t *devnode) {
 static driver_t i8042_driver = {
 	.name = "i8042",
 	.device_name = "i8042",
-	.check = i8042_check,
 	.probe = i8042_probe,
 	.buses = BUSES("root"),
 };
@@ -347,8 +339,7 @@ static int init_i8042(int argc, char **argv) {
 	driver_register(&i8042_driver);
 
 	// hardly attach a i8042 bus to root
-	i8042_bus = bus_attach_child(bus_get_root(), NULL, "i8042", UNIT_NOUNIT);
-	device_attach_driver(i8042_bus, &i8042_driver);
+	bus_attach_child(bus_get_root(), NULL, "i8042", UNIT_NOUNIT);
 
 	// export time
 	EXPORT(ps2_read);
@@ -358,7 +349,6 @@ static int init_i8042(int argc, char **argv) {
 }
 
 static int fini_i8042() {
-	bus_delete_child(bus_get_root(), i8042_bus);
 	driver_unregister(&i8042_driver);
 	UNEXPORT(ps2_read);
 	UNEXPORT(ps2_send);

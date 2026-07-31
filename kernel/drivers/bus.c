@@ -59,6 +59,10 @@ int driver_unregister(driver_t *driver) {
 	return 0;
 }
 
+static void device_generate_cached_name(devnode_t *devnode) {
+	snprintf(devnode->cached_name, sizeof(devnode->cached_name), devnode->devclass->name, devnode->unit);
+}
+
 devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, int unit) {
 	if (!child) {
 		// allocate one ourself
@@ -75,7 +79,10 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 		child->unit = unit;
 		devclass_alloc_unit(child->devclass, child);
 		child->flags |= DEVNODE_FIXEDNAME;
+		device_generate_cached_name(child);
 	}
+
+	kinfof("attached device %p(%s) child of %p(%s)\n", child, device_get_name(child), bus, device_get_name(bus));
 
 	// can we find a driver for this device ?
 	device_attach_driver_auto(child);
@@ -90,6 +97,15 @@ void bus_delete_child(devnode_t *bus, devnode_t *child) {
 	slab_free(child);
 }
 
+static int driver_support_bus(driver_t *driver, devclass_t *bus_type) {
+	for (const char **current = driver->buses; current && *current; current++) {
+		if (!strcmp(*current, bus_type->name)) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 int device_check_driver(devnode_t *device, driver_t *driver) {
 	if (device->flags & DEVNODE_FIXEDNAME) {
 		// the driver must have a matching devclass
@@ -97,19 +113,26 @@ int device_check_driver(devnode_t *device, driver_t *driver) {
 			return -ENOTSUP;
 		}
 	}
-	if (!driver->check || !driver->probe) return -ENOTSUP;
-	if (!driver->check(device)) return -ENOTSUP;
-	return 0;
-}
+	if (device->parent && !driver_support_bus(driver, device->parent->devclass)) {
+		return -ENOTSUP;
+	}
+	if (!driver->probe) {
+		return -ENOTSUP;
+	}
 
-static void device_generate_cached_name(devnode_t *devnode) {
-	snprintf(devnode->cached_name, sizeof(devnode->cached_name), devnode->devclass->name, devnode->unit);
+	if (driver->check) {
+		if (!driver->check(device)) return -ENOTSUP;
+	} else {
+		// the driver uses fixed name
+		if (!(device->flags & DEVNODE_FIXEDNAME)) return -ENOTSUP;
+	}
+	return 0;
 }
 
 int device_attach_driver(devnode_t *device, driver_t *driver) {
 	if (!driver) return -EINVAL;
 	// does the driver support the device ?
-	if (!device_check_driver(device, driver)) return -ENOTSUP;
+	if (device_check_driver(device, driver) < 0) return -ENOTSUP;
 	
 	if (device_has_attached_driver(device)) {
 		// a driver already control this device
@@ -134,9 +157,12 @@ int device_attach_driver(devnode_t *device, driver_t *driver) {
 	}
 
 	// the driver is compatible with the device
+	device->driver = driver;
 	int ret = driver->probe(device);
-	if (ret >= 0) {
-		device->driver = driver;
+	if (ret < 0) {
+		device->driver = NULL;
+	} else {
+		kinfof("attached driver %s to device %p(%s)\n", driver->name, device_get_name(device), device);
 	}
 	return ret;
 }

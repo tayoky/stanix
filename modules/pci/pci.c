@@ -12,8 +12,6 @@
 #define CONFIG_ADDRESS 0xCF8
 #define CONFIG_DATA    0xCFC
 
-static devnode_t *pci_bus;
-
 /// @brief take an device bus function and offset and turn it into an conf addr
 /// @param bus 
 /// @param device 
@@ -189,7 +187,7 @@ uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR) {
 }
 
 static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
-	(void)arg;
+	devnode_t *pci_bus = arg;
 	uint16_t vendorID = pci_read_config_word(bus,device,function,PCI_CONFIG_VENDOR_ID);
 	uint16_t deviceID = pci_read_config_word(bus,device,function,PCI_CONFIG_DEVICE_ID);
 	kdebugf("pci : find bus %d device %d function %d vendorID : %lx deviceID : %lx\n",bus,device,function,vendorID,deviceID);
@@ -233,11 +231,6 @@ static ssize_t pci_read(devnode_t *devnode, void *buf, off_t offset, size_t size
 	return size;
 }
 
-static int pci_check(devnode_t *devnode) {
-	// we only understand the hardcoded pci device
-	return devnode == pci_bus ? 0 : -ENOTSUP;
-}
-
 static int pci_probe(devnode_t *devnode) {
 	pci_foreach(create_pci_dev, devnode);
 	return 0;
@@ -247,7 +240,7 @@ static int pci_probe(devnode_t *devnode) {
 static driver_t pci_driver = {
 	.name = "pci",
 	.device_name = "pci",
-	.check = pci_check,
+	.buses = BUSES("root"),
 	.probe = pci_probe,
 };
 
@@ -258,8 +251,7 @@ int init_pci(int argc,char **argv){
 	driver_register(&pci_driver);
 
 	// hardly add pci as child to root
-	pci_bus = bus_attach_child(bus_get_root(), NULL, "pci", UNIT_NOUNIT);
-	device_attach_driver(pci_bus, &pci_driver);
+	bus_attach_child(bus_get_root(), NULL, "pci", UNIT_NOUNIT);
 	
 	EXPORT(pci_foreach);
 	EXPORT(pci_read_config_dword)

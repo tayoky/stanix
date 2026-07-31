@@ -6,8 +6,8 @@
 
 static int root_check(devnode_t *devnode) {
 	// we can only drive root
-	if (devnode != bus_get_root()) return -ENOTSUP;
-	return 0;
+	if (devnode != bus_get_root()) return 0;
+	return 1;
 }
 
 static int root_probe(devnode_t *devnode) {
