@@ -126,6 +126,9 @@ void *irq_register_handler(irq_t *irq, interrupt_handler_t handler, void *data) 
 	irq_handler->handler = handler;
 	irq_handler->data    = data;
 	list_append(&irq->handlers, &irq_handler->node);
+
+	// now unmask
+	irq_unmask(irq);
 	return irq_handler;
 }
 
@@ -134,6 +137,11 @@ void irq_unregister_handler(irq_t *irq, void *handle) {
 	irq_handler_t *irq_handler = handle;
 	list_remove(&irq->handlers, &irq_handler->node);
 	slab_free(irq_handler);
+
+	if (!irq->handlers.first) {
+		// no more handlers on this irq
+		irq_mask(irq);
+	}
 }
 
 void irq_handle(irq_t *irq, registers_t *registers) {
