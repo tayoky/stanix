@@ -107,7 +107,7 @@ int arch_shutdown(int flags);
 #define SP_REG(frame)   (frame).rsp
 #define PC_REG(frame)   (frame).rip
 
-typedef int irqnum_t;
+typedef int intrnum_t;
 
 #define IRQ_CHIP_APIC 0x01
 #define IRQ_CHIP_PIC  0x02

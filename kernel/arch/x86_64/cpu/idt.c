@@ -11,7 +11,6 @@
 
 static interrupt_handler_t handlers[256];
 static void *handlers_data[256];
-static irqnum_t irqs[256];
 static idt_gate idt[256];
 static IDTR idtr;
 
@@ -98,13 +97,7 @@ void isr_handler(registers_t *registers) {
 			panic("unkown fault", registers);
 		}
 	} else {
-		interrupt_handler_t handler = handlers[registers->err_type];
-		void *data                  = handlers_data[registers->err_type];
-		irqnum_t irq_num            = irqs[registers->err_type];
-		if (irq_num >= 0) {
-			irq_eoi(irq_num);
-		}
-		handler(registers, data);
+		irq_dispatch_vector(registers->err_type, registers);
 	}
 }
 
@@ -136,7 +129,6 @@ void idt_register_handler(int vector, void *handler, void *data, irqnum_t irq_nu
 	// save the handler
 	handlers[vector]      = handler;
 	handlers_data[vector] = data;
-	irqs[vector]          = irq_num;
 }
 
 int idt_allocate(void *handler, void *data, irqnum_t irq_num) {

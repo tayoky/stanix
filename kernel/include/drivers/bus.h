@@ -2,6 +2,7 @@
 #define KERNEL_BUS_H
 
 #include <kernel/device.h>
+#include <kernel/devclass.h>
 #include <kernel/interrupt.h>
 #include <kernel/resource.h>
 #include <kernel/list.h>
@@ -10,20 +11,21 @@
 
 struct driver;
 struct device;
-struct devclass;
 
 typedef struct devnode {
 	list_node_t node;
+	list_node_t list_node;
 	list_t children;
 	struct devnode *parent;
 	list_t resources;
 	struct device *device;
 	struct driver *driver;
-	struct devclass *devclass;
+	devclass_t *devclass;
 	char *name; // address name
 	char cached_name[32];
 	int unit;
 	int flags;
+	int type;
 } devnode_t;
 
 #define DEVNODE_FIXEDNAME 0x01 // name gaved by bus
@@ -33,7 +35,7 @@ typedef struct driver {
 	list_node_t list_node;
 	const char *name;
 	const char *device_name;
-	struct devclass *devclass;
+	devclass_t *devclass;
 	int priority;
 	const char **buses; // suported buses
 	int (*check)(devnode_t *devnode);
@@ -61,12 +63,12 @@ int device_check_driver(devnode_t *device, driver_t *driver);
 int device_attach_driver(devnode_t *device, driver_t *driver);
 int device_attach_driver_auto(devnode_t *device);
 void device_detach_driver(devnode_t *device);
-static inline int device_has_driver_attached(devnode_t *device) {
+static inline int device_has_attached_driver(devnode_t *device) {
 	return device->driver != NULL;
 }
 int device_set_name(devnode_t *device, const char *name, int unit);
-char *device_get_dup_name(device_t *device);
-static inline const char *device_get_name(device_t *device) {
+char *device_get_dup_name(devnode_t *device);
+static inline const char *device_get_name(devnode_t *device) {
 	return device->cached_name;
 }
 

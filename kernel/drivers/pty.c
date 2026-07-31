@@ -144,7 +144,6 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	pty->slave           = slave;
 	*rep                 = slave;
 	slave->private_data  = pty;
-	slave->device.driver = &pty_driver;
 	slave->ops           = &pty_slave_ops;
 
 	// create the master fd

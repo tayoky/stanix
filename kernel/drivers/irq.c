@@ -26,7 +26,7 @@ void init_irq(void) {
 	if (irq_chip->op) { \
 		return irq_chip->op(irq_chip, __VA_ARGS__); \
 	} else { \
-		kwarning("unimplemented operation '%s' for irq chip '%s'\n", #op, irq_chip->name); \
+		kwarningf("unimplemented operation '%s' for irq chip '%s'\n", #op, irq_chip->name); \
 	}
 
 #define IRQ_CHIP_OPTIONAL_OP(irq_chip, op, ...) \
@@ -47,7 +47,7 @@ void irq_eoi(irq_t *irq) {
 }
 
 irq_t *irq_get_from_irqnum(irq_chip_t *irq_chip, irqnum_t irqnum) {
-	IRQ_CHIP_OPTIONAL_OP(irq_chip, get_for_hwirq, hwirq);
+	IRQ_CHIP_OPTIONAL_OP(irq_chip, get_from_irqnum, irqnum);
 	foreach (node, &irq_chip->irqs) {
 		irq_t *irq = container_of(node, irq_t, node);
 		if (irq->irqnum == irqnum) {
@@ -58,7 +58,7 @@ irq_t *irq_get_from_irqnum(irq_chip_t *irq_chip, irqnum_t irqnum) {
 }
 
 irq_t *irq_get_from_hwirq(irq_chip_t *irq_chip, hwirq_t hwirq) {
-	IRQ_CHIP_OPTIONAL_OP(irq_chip, get_for_hwirq, hwirq);
+	IRQ_CHIP_OPTIONAL_OP(irq_chip, get_from_hwirq, hwirq);
 	foreach (node, &irq_chip->irqs) {
 		irq_t *irq = container_of(node, irq_t, node);
 		if (irq->hwirq == hwirq) {
@@ -79,13 +79,13 @@ irq_t *irq_allocate(irq_chip_t *irq_chip) {
 }
 
 void irq_free(irq_t *irq) {
-	IRQ_CHIP_OP(irq_chip, free, irq);
+	IRQ_CHIP_OP(irq->irq_chip, free, irq);
 }
 
 void irq_set_vector(irq_t *irq, intrnum_t vector) {
 	if (vector == IRQ_VECTOR_ALLOCATE) {
 		// TODO : allocate vector
-		kwarning("TODO : allocate vector\n");
+		kwarningf("TODO : allocate vector\n");
 	}
 	irq->vector = vector;
 	if (vector < 0 || vector >= arraylen(vector2irq)) {
@@ -110,18 +110,18 @@ irq_t *irq_from_vector(intrnum_t vector) {
 	return vector2irq[vector];
 }
 
-void irq_dispatch_vector(intrnum_t vector) {
+void irq_dispatch_vector(intrnum_t vector, registers_t *registers) {
 	irq_t *irq = irq_from_vector(vector);
 	if (!irq) {
 		// no irq to dispatch
 		irq_eoi(irq);
-		irq_handle(irq);
+		irq_handle(irq, registers);
 	}
 }
 
 void *irq_register_handler(irq_t *irq, interrupt_handler_t handler, void *data) {
 	if (!irq || !handler) return NULL;
-	irq_hander_t *irq_handler = slab_alloc(&irq_handlers_slab);
+	irq_handler_t *irq_handler = slab_alloc(&irq_handlers_slab);
 	if (!irq_handler) return NULL;
 	irq_handler->handler = handler;
 	irq_handler->data    = data;
@@ -138,7 +138,7 @@ void irq_unregister_handler(irq_t *irq, void *handle) {
 	list_remove(&irq->handlers, &irq_handler->node);
 	slab_free(irq_handler);
 
-	if (!irq->handlers.first) {
+	if (!irq->handlers.first_node) {
 		// no more handlers on this irq
 		irq_mask(irq);
 	}

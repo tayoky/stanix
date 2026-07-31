@@ -130,7 +130,7 @@ static int ps2_kb_probe(devnode_t *devnode) {
 	keyboard->input_device.subclass       = IE_SUBCLASS_PS2_KBD;
 	input_device_register(&keyboard->input_device);
 
-	keyboard->handler_handle = resource_register_handler(devnode, keyboard->irq_resource, ps2_kb_handler, keyboard);
+	keyboard->handler_handle = resource_register_handler(keyboard->irq_resource, ps2_kb_handler, keyboard);
 	kdebugf("ps2 keyboard succefuly initialized\n");
 
 	return 0;

@@ -45,8 +45,8 @@ static static_entry_t root_entries[] = {
 
 static static_entry_t devnode_entries[] = {
 	ENTRY(S_IFDIR, INODE_DEVNODE_CHILDREN, "children"),
-	ENTRY(S_IFREG, INODE_DEVNODE_INFO,  "info");
-}
+	ENTRY(S_IFREG, INODE_DEVNODE_INFO,  "info"),
+};
 
 static static_entry_t kernel_entries[] = {
 	ENTRY(S_IFDIR, INODE_SLAB_DIR, "slab"),
@@ -126,7 +126,7 @@ static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		break;
 	case INODE_DEVNODE_CHILDREN:;
 		devnode_t *devnode = inode->ptr;
-		foreach (node, *devnode->children) {
+		foreach (node, &devnode->children) {
 			devnode_t *child = container_of(node, devnode_t, node);
 			if (!child->name) continue;
 			// TODO
@@ -185,7 +185,7 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 		return sysfs_static_entries_readdir(devnode_entries, arraylen(devnode_entries), index, dirent);
 	case INODE_DEVNODE_CHILDREN:;
 		devnode_t *devnode = inode->ptr;
-		foreach (node, *devnode->children) {
+		foreach (node, &devnode->children) {
 			devnode_t *child = container_of(node, devnode_t, node);
 			if (!child->name) continue;
 			if (index == 0) {

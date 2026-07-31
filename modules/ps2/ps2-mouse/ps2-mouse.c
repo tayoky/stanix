@@ -135,7 +135,7 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 	mouse->input_device.class    = IE_CLASS_MOUSE;
 	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;
 	input_device_register(&mouse->input_device);
-	mouse->handler_handle = bus_register_handler(devnode, mouse->irq_resource, ps2_mouse_handler, mouse);
+	mouse->handler_handle = resource_register_handler(mouse->irq_resource, ps2_mouse_handler, mouse);
 	return 0;
 }
 

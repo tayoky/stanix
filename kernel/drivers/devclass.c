@@ -1,18 +1,20 @@
 #include <kernel/slab.h>
 #include <kernel/string.h>
 #include <kernel/device.h>
+#include <kernel/kheap.h>
+#include <kernel/bus.h>
 #include <kernel/devclass.h>
 
 static list_t devclasses;
 static slab_cache_t devclasses_slab;
 
 void init_devclass(void) {
-	slab_init(&devclasses_slab, sizeof(devclasses_t), "devclasses");
+	slab_init(&devclasses_slab, sizeof(devclass_t), "devclasses");
 }
 
 devclass_t *devclass_get(const char *name) {
-	foreach (node, &devclasses) {
-		devclass_t *devclass = container_of(node, devclass_t node);
+	foreach(node, &devclasses) {
+		devclass_t *devclass = container_of(node, devclass_t, node);
 		if (!strcmp(devclass->name, name)) {
 			return devclass;
 		}
@@ -31,7 +33,7 @@ devclass_t *devclass_get_or_create(const char *name) {
 }
 
 devnode_t *devclass_get_devnode(devclass_t *devclass, int unit) {
-	if (unit < 0 || unit >= declass->max_unit) {
+	if (unit < 0 || unit >= devclass->max_unit) {
 		return NULL;
 	}
 	return devclass->devices[unit];
@@ -39,9 +41,9 @@ devnode_t *devclass_get_devnode(devclass_t *devclass, int unit) {
 
 static int devclass_grow(devclass_t *devclass, int unit) {
 	// double the size until it fit
-	int new_max = devclass->unit == 0 ? 1 : 2 * devclass->unit;
-	while (unit >= max_unit) {
-		max_unit *= 2;
+	int new_max = devclass->max_unit == 0 ? 1 : 2 * devclass->max_unit;
+	while (unit >= new_max) {
+		new_max *= 2;
 	}
 	devnode_t **new_devices = krealloc(devclass->devices, new_max * sizeof(devnode_t *));
 	if (!new_devices) return -ENOMEM;
@@ -53,14 +55,14 @@ static int devclass_grow(devclass_t *devclass, int unit) {
 
 int devclass_alloc_unit(devclass_t *devclass, devnode_t *devnode) {
 	if (devnode->unit == UNIT_ALLOCATE) {
-		for (int i=0; i<devclass->max_unit; i++) {
+		for (int i=0; i < devclass->max_unit; i++) {
 			if (!devclass->devices[i]) {
 				// found
 				devnode->unit = i;
 				break;
 			}
 		}
-		if (devclass->uint == UNIT_ALLOCATE) {
+		if (devnode->unit == UNIT_ALLOCATE) {
 			// the whole array is occupied
 			devnode->unit = devclass->max_unit;
 		}

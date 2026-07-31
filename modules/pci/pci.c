@@ -1,6 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
 #include <kernel/bus.h>
+#include <kernel/devclass.h>
 #include <kernel/port.h>
 #include <kernel/kheap.h>
 #include <kernel/string.h>

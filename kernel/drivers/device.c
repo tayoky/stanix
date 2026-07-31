@@ -3,6 +3,7 @@
 #include <kernel/tmpfs.h>
 #include <kernel/print.h>
 #include <kernel/slab.h>
+#include <kernel/devclass.h>
 #include <kernel/bus.h>
 #include <errno.h>
 
@@ -140,7 +141,6 @@ vfs_fd_t *device_open(device_t *device, long flags) {
 void init_devices(void) {
 	kstatusf("init devices ... ");
 	xarray_init(&devices);
-	xarray_init(&device_drivers);
 
 	vfs_superblock_t *devfs_superblock = new_tmpfs();
 	vfs_mount("/dev", devfs_superblock);

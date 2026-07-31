@@ -72,7 +72,6 @@ static int create_mem_dev(int minor, const char *name) {
 
 void init_mem_devices(void) {
 	kstatusf("init memory devices ... ");
-	device_driver_register(&mem_driver);
 	create_mem_dev(MINOR_NULL   , "null");
 	create_mem_dev(MINOR_ZERO   , "zero");
 	create_mem_dev(MINOR_FULL   , "full");

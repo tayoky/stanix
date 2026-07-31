@@ -18,7 +18,7 @@ void init_pic() {
 		pic_irqs[i].irqnum   = i;
 		pic_irqs[i].hwirq    = i;
 		irq_set_vector(&pic_irqs[i], i + 32);
-		irq_add_to_chip(&pic_irqs[i], &pic_chip);
+		irq_add_to_chip(&pic_chip, &pic_irqs[i]);
 	}
 
 	// starts the initialization sequence (in cascade mode)

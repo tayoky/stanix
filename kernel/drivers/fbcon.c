@@ -258,8 +258,6 @@ void init_fbcon(void) {
 	}
 	kfree(activated_value);
 
-	device_driver_register(&fbcon_driver);
-
 	// now find the framebuffer to use
 	char *framebuffer_path = ini_get_value(kernel->conf_file, "terminal_emulator", "framebuffer");
 	if (!framebuffer_path) {
@@ -348,7 +346,6 @@ void init_fbcon(void) {
 	fbcon->back_color = 0x000000;
 
 	// create the device
-	fbcon->tty.device.driver = &fbcon_driver;
 	if (device_register(&fbcon->tty.device, "tty%d", 0) < 0) {
 		kfail();
 		kinfof("terminal emulator init but can't create device /dev/tty0\n");

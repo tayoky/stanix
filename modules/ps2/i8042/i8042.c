@@ -34,6 +34,7 @@
 int have_ports[2] = { 1, 0 };
 static ps2_dev_t ports[2];
 static devnode_t *i8042_bus;
+static int no_translation;
 
 // i8042 specific I/O
 
@@ -317,7 +318,7 @@ static int i8042_probe(devnode_t *devnode) {
 	}
 
 	// we now want to enable translation
-	if (!have_opt(argc, argv, "--no-translation")) {
+	if (!no_translation) {
 		conf |= 0x40;
 	}
 
@@ -341,6 +342,8 @@ static driver_t i8042_driver = {
 };
 
 static int init_i8042(int argc, char **argv) {
+	no_translation = have_opt(argc, argv, "--no-translation");
+
 	driver_register(&i8042_driver);
 
 	// hardly attach a i8042 bus to root

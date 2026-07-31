@@ -53,7 +53,7 @@ int device_driver_unregister(device_driver_t *device_driver);
  * @param number device number
  * @note if major or minor are 0 they are automatically allocated
  */
-int device_register(device_t *device, const char *fmt, dev_t number) {
+int device_register(device_t *device, const char *fmt, dev_t number);
 
 /**
  * @brief destroy a device
@@ -92,7 +92,7 @@ static inline device_t *device_ref(device_t *device) {
  */
 void device_release(device_t *device);
 
-static inline device_is_unplugged(device_t *device) {
+static inline int device_is_unplugged(device_t *device) {
 	return device->type == DEVICE_UNPLUGGED;
 }
 

@@ -1,5 +1,6 @@
 #include <kernel/bus.h>
 #include <kernel/devclass.h>
+#include <kernel/kheap.h>
 #include <kernel/slab.h>
 #include <errno.h>
 
@@ -29,7 +30,7 @@ void init_bus(void) {
 	list_append(&devnodes, &root_bus->list_node);
 }
 
-static void device_attempt_attatch_with(devnode_t *device, driver_t *driver) {
+static void device_attempt_attach_with(devnode_t *device, driver_t *driver) {
 	// recurse
 	foreach (node, &device->children) {
 		devnode_t *child = container_of(node, devnode_t, node);
@@ -37,7 +38,7 @@ static void device_attempt_attatch_with(devnode_t *device, driver_t *driver) {
 	}
 
 	// only try if unattached
-	if (!device_has_driver_attached(device)) {
+	if (!device_has_attached_driver(device)) {
 		device_attach_driver(device, driver);
 	}
 }
@@ -70,9 +71,9 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 	list_append(&devnodes, &child->list_node);
 	child->parent = bus;
 	if (name) {
-		child->devclass = devclass_create_or_get(name);
+		child->devclass = devclass_get_or_create(name);
 		child->unit = unit;
-		devclass_allocate_unit(child->devclass, child);
+		devclass_alloc_unit(child->devclass, child);
 		child->flags |= DEVNODE_FIXEDNAME;
 	}
 
@@ -101,7 +102,7 @@ int device_check_driver(devnode_t *device, driver_t *driver) {
 	return 0;
 }
 
-static void device_generate_cached_name(devnode_t *devnode, device) {
+static void device_generate_cached_name(devnode_t *devnode) {
 	snprintf(devnode->cached_name, sizeof(devnode->cached_name), devnode->devclass->name, devnode->unit);
 }
 
@@ -126,9 +127,9 @@ int device_attach_driver(devnode_t *device, driver_t *driver) {
 		// remove old devclass
 		devclass_free_unit(device->devclass, device);
 		// set devclass and allocate unit
-		device->devclass = devclass;
+		device->devclass = driver->devclass;
 		device->unit = UNIT_ALLOCATE;
-		devclass_alloc_unit(devclass, device);
+		devclass_alloc_unit(driver->devclass, device);
 		device_generate_cached_name(device);
 	}
 
@@ -154,7 +155,7 @@ int device_attach_driver_auto(devnode_t *device) {
 }
 
 void device_detach_driver(devnode_t *device) {
-	if (!device_has_driver_attached(device)) {
+	if (!device_has_attached_driver(device)) {
 		return;
 	}
 	if (device->driver->detach) {
@@ -167,7 +168,7 @@ int device_set_name(devnode_t *device, const char *name, int unit) {
 	devclass_t *devclass = devclass_get_or_create(name);
 	if (!devclass) return -ENOMEM;
 	if (device->devclass == devclass && device->unit == unit) {
-		return;
+		return 0;
 	}
 	// remove old devclass
 	devclass_free_unit(device->devclass, device);
@@ -175,9 +176,10 @@ int device_set_name(devnode_t *device, const char *name, int unit) {
 	device->unit = unit;
 	devclass_alloc_unit(devclass, device);
 	device_generate_cached_name(device);
+	return 0;
 }
 
-char *device_get_dup_name(device_t *device) {
+char *device_get_dup_name(devnode_t *device) {
 	char *name = kmalloc(strlen(device->name) + 5);
 	sprintf(name, device->devclass->name, device->unit);
 }

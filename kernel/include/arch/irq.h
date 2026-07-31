@@ -2,7 +2,7 @@
 #define KERNEL_IRQ_H
 
 #include <kernel/interrupt.h>
-#include <kernel/uch.h>
+#include <kernel/arch.h>
 #include <kernel/list.h>
 #include <stdint.h>
 
@@ -14,6 +14,7 @@ typedef int irqnum_t;
 #define IRQ_VECTOR_ALLOCATE -1
 
 typedef struct irq {
+	list_node_t node;
 	list_t handlers;
 	struct irq_chip *irq_chip;
 	irqnum_t irqnum; // iternal irq num (gsi for APIC, ...)
@@ -56,7 +57,7 @@ void irq_add_to_chip(irq_chip_t *irq_chip, irq_t *irq);
 irq_t *irq_allocate_object(irqnum_t irqnum, hwirq_t hwirq);
 
 irq_t *irq_from_vector(intrnum_t vector);
-void irq_dispatch_vector(intrnum_t vector);
+void irq_dispatch_vector(intrnum_t vector, registers_t *registers);
 
 // OLD
 irqnum_t irq_hirq2irq(int hirq);
