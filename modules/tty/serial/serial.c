@@ -149,6 +149,7 @@ error:
 static driver_t serial_driver = {
 	.name = "serial port",
 	.device_name = "serial%d",
+	.buses = BUSES("root", "pci", "isa"),
 	.check = serial_check,
 	.probe = serial_probe,
 };

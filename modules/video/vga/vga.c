@@ -4,11 +4,12 @@
 #include <kernel/print.h>
 #include <kernel/port.h>
 #include <kernel/trm.h>
+#include <kernel/bus.h>
 #include <module/pci.h>
 #include <module/vga.h>
 #include <errno.h>
 
-static device_driver_t vga_driver;
+// TODO : use resource instead of hardcoded out_byte
 
 static void vga_seq_out(uint8_t index, uint8_t data) {
 	out_byte(VGA_SEQ_INDEX, index);
@@ -186,7 +187,6 @@ static int vga_probe(devnode_t *devnode) {
     strcpy(gpu->card.name, "VGA compatible controller");
     gpu->card.vram_size = 256 * 1024;
     gpu->ops = &vga_ops;
-    gpu->device.driver = &vga_driver;
     gpu->device.devnode = devnode;
 
     // setup one primary plane
@@ -216,8 +216,10 @@ static int vga_probe(devnode_t *devnode) {
     return 0;
 }
 
-static device_driver_t vga_driver = {
-    .name = "vga driver",
+static driver_t vga_driver = {
+    .name = "VGA driver",
+    .device_name = "vga%d",
+    .buses = BUSES("pci", "isa"),
     .check = vga_check,
     .probe = vga_probe,
 };
@@ -225,12 +227,12 @@ static device_driver_t vga_driver = {
 int vga_init(int argc, char **argv){
 	(void)argc;
 	(void)argv;
-    device_driver_register(&vga_driver);
+	driver_register(&vga_driver);
 	return 0;
 }
 
 int vga_fini(){
-    device_driver_unregister(&vga_driver);
+	driver_unregister(&vga_driver);
 	return 0;
 }
 
@@ -239,7 +241,7 @@ kmodule_t module_meta = {
 	.init = vga_init,
 	.fini = vga_fini,
 	.author = "tayoky",
-	.name = "vga driver",
+	.name = "VGA driver",
 	.description = "TRM vga driver",
 	.license = "GPL 3",
 };

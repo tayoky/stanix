@@ -5,20 +5,20 @@
 #include <kernel/print.h>
 #include <kernel/port.h>
 #include <kernel/trm.h>
+#include <kernel/bus.h>
 #include <module/pci.h>
 #include <module/bga.h>
 #include <errno.h>
 
 // TRM's BGA driver
 
+// TODO : use resource instead of hardcoded out_word
 typedef struct bga {
 	trm_gpu_t gpu;
 	uint16_t version;
 	uint16_t max_x;
 	uint16_t max_y;
 } bga_t;
-
-static device_driver_t bga_driver;
 
 static void bga_write(uint16_t index, uint16_t data) {
 	out_word(VBE_DISPI_IOPORT_INDEX, index);
@@ -164,7 +164,6 @@ static int bga_probe(devnode_t *devnode) {
 		return -EIO;
 	}
 	gpu->ops = &bga_ops;
-	gpu->device.driver = &bga_driver;
 	gpu->device.devnode = devnode;
 
 	// setup one primary plane
@@ -195,8 +194,10 @@ static int bga_probe(devnode_t *devnode) {
 	return 0;
 }
 
-static device_driver_t bga_driver = {
+static driver_t bga_driver = {
 	.name = "BGA driver",
+	.device_name = "bga%d",
+	.buses = BUSES("pci", "isa"),
 	.check = bga_check,
 	.probe = bga_probe,
 	.priority = 2, // use this over VGA driver
@@ -205,12 +206,12 @@ static device_driver_t bga_driver = {
 int bga_init(int argc, char **argv){
 	(void)argc;
 	(void)argv;
-	device_driver_register(&bga_driver);
+	driver_register(&bga_driver);
 	return 0;
 }
 
 int bga_fini(){
-	device_driver_unregister(&bga_driver);
+	driver_unregister(&bga_driver);
 	return 0;
 }
 
