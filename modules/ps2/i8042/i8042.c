@@ -213,7 +213,6 @@ static void print_device_name(int port) {
 }
 
 static void setup_ps2_dev(devnode_t *bus, int port) {
-	bus_attach_child(bus, &ports[port - 1].devnode, NULL, UNIT_NOUNIT);
 	char name[32];
 	ports[port - 1].devnode.type = BUS_PS2;
 	ports[port - 1].port = port;
@@ -224,7 +223,7 @@ static void setup_ps2_dev(devnode_t *bus, int port) {
 	kassert(irq);
 	resource_t *irq_res = resource_allocate_data(RESOURCE_IRQ, PS2_RID_IRQ, irq, 1);
 	bus_attach_bound_resource(&ports[port - 1].devnode, irq_res);
-	kdebugf("get res would return %p\n", bus_get_resource(&ports[port - 1].devnode, RESOURCE_IRQ, RID_ANY));
+	bus_attach_child(bus, &ports[port - 1].devnode, NULL, UNIT_NOUNIT);
 }
 
 static int i8042_probe(devnode_t *devnode) {

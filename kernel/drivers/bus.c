@@ -24,10 +24,17 @@ void init_bus(void) {
 	init_devclass();
 
 	// create root dev
-	root_bus = slab_alloc(&devnodes_slab);
+	root_bus = device_allocate();
 	memset(root_bus, 0, sizeof(devnode_t));
 	device_set_name(root_bus, "root", UNIT_NOUNIT);
 	list_append(&devnodes, &root_bus->list_node);
+}
+
+devnode_t *device_allocate(void) {
+	devnode_t *device = slab_alloc(&devnodes_slab);
+	if (!device) return NULL;
+	memset(device, 0, sizeof(devnode_t));
+	return device;
 }
 
 static void device_attempt_attach_with(devnode_t *device, driver_t *driver) {
@@ -103,9 +110,8 @@ static void device_generate_cached_name(devnode_t *devnode) {
 devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, int unit) {
 	if (!child) {
 		// allocate one ourself
-		child = slab_alloc(&devnodes_slab);
+		child = device_allocate();
 		if (!child) return NULL;
-		memset(child, 0, sizeof(devnode_t));
 	}
 
 	list_append(&bus->children, &child->node);

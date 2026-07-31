@@ -59,6 +59,7 @@ int driver_unregister(driver_t *driver);
 devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, int unit);
 void bus_delete_child(devnode_t *bus, devnode_t *child);
 
+devnode_t *device_allocate(void);
 int device_check_driver(devnode_t *device, driver_t *driver);
 int device_attach_driver(devnode_t *device, driver_t *driver);
 int device_attach_driver_auto(devnode_t *device);
@@ -135,7 +136,7 @@ static inline void bus_deactivate_resource(devnode_t *devnode, resource_t *resou
 }
 
 static inline void bus_release_resource(devnode_t *devnode, resource_t *resource) {
-	if (!resource) return;
+	if (!resource || IS_ERR(resource)) return;
 	if (resource->flags & RESOURCE_ACTIVE) {
 		bus_deactivate_resource(devnode, resource);
 	}

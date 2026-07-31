@@ -43,28 +43,26 @@ struct irq_chip {
 extern irq_chip_t *main_irq_chip;
 
 void init_irq(void);
-void irq_mask(irq_t *irq);
-void irq_unmask(irq_t *irq);
-void irq_eoi(irq_t *irq);
+
+// irq functions
 irq_t *irq_get_from_irqnum(irq_chip_t *irq_chip, irqnum_t irqnum);
 irq_t *irq_get_from_hwirq(irq_chip_t *irq_chip, hwirq_t hwirq);
 irq_t *irq_allocate(irq_chip_t *irq_chip);
 void irq_free(irq_t *irq);
+void *irq_register_handler(irq_t *irq, interrupt_handler_t handler, void *data);
+void irq_unregister_handler(irq_t *irq, void *handle);
 
-// these functions should only be called from irq chip
+// irq chip functions
 void irq_set_vector(irq_t *irq, intrnum_t vector);
 void irq_add_to_chip(irq_chip_t *irq_chip, irq_t *irq);
 irq_t *irq_allocate_object(irqnum_t irqnum, hwirq_t hwirq);
 
+// low level functions
+void irq_mask(irq_t *irq);
+void irq_unmask(irq_t *irq);
+void irq_eoi(irq_t *irq);
 irq_t *irq_from_vector(intrnum_t vector);
 void irq_dispatch_vector(intrnum_t vector, registers_t *registers);
-
-// OLD
-irqnum_t irq_hirq2irq(int hirq);
-void irq_old_register_handler(irqnum_t irq_num, interrupt_handler_t handler, void *data);
-
-void *irq_register_handler(irq_t *irq, interrupt_handler_t handler, void *data);
-void irq_unregister_handler(irq_t *irq, void *handle);
 void irq_handle(irq_t *irq, registers_t *registers);
 
 #endif

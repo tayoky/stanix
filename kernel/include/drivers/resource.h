@@ -67,6 +67,7 @@ static inline void *resource_register_handler(resource_t *resource, interrupt_ha
 }
 
 static inline void resource_unregister_handler(resource_t *resource, void *handle) {
+	if (!resource || IS_ERR(resource)) return;
 	irq_unregister_handler(resource_get_irq(resource), handle);
 }
 
