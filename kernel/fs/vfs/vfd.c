@@ -20,10 +20,7 @@ void init_vfs_fd(void) {
 }
 
 ssize_t vfs_read(vfs_fd_t *fd, void *buffer, uint64_t offset, size_t count) {
-	if (fd->type == S_IFBLK || fd->type == S_IFCHR) {
-		// check if device is unplugged
-		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
-	} else if (fd->type == S_IFDIR) {
+	if (fd->type == S_IFDIR) {
 		return -EISDIR;
 	}
 	if (fd->flags & O_WRONLY) {
@@ -36,10 +33,7 @@ ssize_t vfs_read(vfs_fd_t *fd, void *buffer, uint64_t offset, size_t count) {
 }
 
 ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t count) {
-	if (fd->type == S_IFBLK || fd->type == S_IFCHR) {
-		// check if device is unplugged
-		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
-	} else if (fd->type == S_IFDIR) {
+	if (fd->type == S_IFDIR) {
 		return -EISDIR;
 	}
 	if (!(fd->flags & (O_WRONLY | O_RDWR))) {
@@ -52,10 +46,6 @@ ssize_t vfs_write(vfs_fd_t *fd, const void *buffer, uint64_t offset, size_t coun
 
 int vfs_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	if (!fd) return -EBADF;
-	if (fd->type == S_IFBLK|| fd->type == S_IFCHR) {
-		// check if device is unplugged
-		if (((device_t *)fd->private)->type == DEVICE_UNPLUGGED) return -ENODEV;
-	}
 	if (!fd->ops->ioctl) return -EOPNOTSUPP;
 	return fd->ops->ioctl(fd, request, arg);
 }
