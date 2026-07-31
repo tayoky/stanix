@@ -59,8 +59,45 @@ int driver_unregister(driver_t *driver) {
 	return 0;
 }
 
+static void device_print_name(devnode_t *devnode, char *buf, size_t size) {
+	const char *fmt = devnode->devclass->name;
+	char *ptr = buf;
+	while (*fmt && size > 1) {
+		if (*fmt == '%') {
+			fmt++;
+			switch (*fmt) {
+			case 'd':
+				snprintf(ptr, size, "%d", devnode->unit);
+				size_t written = strlen(ptr);
+				ptr += written;
+				size -= written;
+				break;
+			case 'c':
+				*(ptr++) = 'a' + devnode->unit;
+				size--;
+				break;
+			case 'C':
+				*(ptr++) = 'A' + devnode->unit;
+				size--;
+				break;
+			case '%':
+				*(ptr++) = '%';
+				size--;
+				break;
+			}
+		} else {
+			*(ptr++) = *fmt;
+			size--;
+		}
+		fmt++;
+	}
+	if (size > 0) {
+		*ptr = '\0';
+	}
+}
+
 static void device_generate_cached_name(devnode_t *devnode) {
-	snprintf(devnode->cached_name, sizeof(devnode->cached_name), devnode->devclass->name, devnode->unit);
+	device_print_name(devnode, devnode->cached_name, sizeof(devnode->cached_name));
 }
 
 devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, int unit) {
@@ -162,7 +199,7 @@ int device_attach_driver(devnode_t *device, driver_t *driver) {
 	if (ret < 0) {
 		device->driver = NULL;
 	} else {
-		kinfof("attached driver %s to device %p(%s)\n", driver->name, device_get_name(device), device);
+		kinfof("attached driver %s to device %p(%s)\n", driver->name, device, device_get_name(device));
 	}
 	return ret;
 }
@@ -208,8 +245,10 @@ int device_set_name(devnode_t *device, const char *name, int unit) {
 }
 
 char *device_get_dup_name(devnode_t *device) {
-	char *name = kmalloc(strlen(device->devclass->name) + 5);
-	sprintf(name, device->devclass->name, device->unit);
+	size_t len = strlen(device->devclass->name) + 16;
+	char *name = kmalloc(len);
+	if (!name) return NULL;
+	device_print_name(device, name, len);
 	return name;
 }
 
