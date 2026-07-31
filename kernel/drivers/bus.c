@@ -115,20 +115,20 @@ int device_attach_driver(devnode_t *device, driver_t *driver) {
 		}
 	}
 
+	// setup a default name acording to the name specified on the driver
+	if (device->devclass != driver->devclass) {
+		// remove old devclass
+		devclass_free_unit(device->devclass, device);
+		// set devclass and allocate unit
+		device->devclass = devclass;
+		device->unit = UNIT_ALLOCATE;
+		devclass_alloc_unit(devclass, device);
+	}
+
 	// the driver is compatible with the device
 	int ret = driver->probe(device);
 	if (ret >= 0) {
 		device->driver = driver;
-		// the driver did not setup name
-		// we need to do it
-		if (device->devclass != driver->devclass) {
-			// remove old devclass
-			devclass_free_unit(device->devclass, device);
-			// set devclass and allocate unit
-			device->devclass = devclass;
-			device->unit = UNIT_ALLOCATE;
-			devclass_alloc_unit(devclass, device);
-		}
 	}
 	return ret;
 }

@@ -1,6 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
 #include <kernel/input.h>
+#include <kernel/bus.h>
 #include <kernel/kheap.h>
 #include <kernel/ringbuf.h>
 #include <kernel/arch.h>
@@ -14,14 +15,14 @@
 
 typedef struct ps2_mouse {
 	input_device_t input_device;
+	resource_t *irq_resource;
+	void *handler_handle;
 	int button;
 	int packet;
 	int flags;
 	int y;
 	int x;
 } ps2_mouse_t;
-
-static device_driver_t ps2_mouse_driver;
 
 static int ps2_mouse_set_rate(int port, int rate) {
 	if (ps2_send(port, PS2_MOUSE_SET_RATE) != PS2_ACK) return -EIO;
@@ -129,19 +130,19 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 
 	ps2_mouse_t *mouse = kmalloc(sizeof(ps2_mouse_t));
 	memset(mouse, 0, sizeof(ps2_mouse_t));
-	mouse->input_device.device.number  = port;
-	mouse->input_device.device.driver  = &ps2_mouse_driver;
-	mouse->input_device.device.name    = strdup("mouse0");
+	mouse->irq_resource = bus_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
 	mouse->input_device.device.devnode = devnode;
 	mouse->input_device.class    = IE_CLASS_MOUSE;
 	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;
 	input_device_register(&mouse->input_device);
-	bus_old_register_handler(devnode, ps2_mouse_handler, mouse);
+	mouse->handler_handle = bus_register_handler(devnode, mouse->irq_resource, ps2_mouse_handler, mouse);
 	return 0;
 }
 
-static device_driver_t ps2_mouse_driver = {
+static driver_t ps2_mouse_driver = {
 	.name = "ps2 mouse",
+	.device_name = "mouse%d",
+	.buses = BUSES("ps2"),
 	.check = ps2_mouse_check,
 	.probe = ps2_mouse_probe,
 };
@@ -149,12 +150,12 @@ static device_driver_t ps2_mouse_driver = {
 int init_ps2_mouse(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
-	device_driver_register(&ps2_mouse_driver);
+	driver_register(&ps2_mouse_driver);
 	return 0;
 }
 
 int fini_ps2_mouse() {
-	device_driver_unregister(&ps2_mouse_driver);
+	driver_unregister(&ps2_mouse_driver);
 	return 0;
 }
 

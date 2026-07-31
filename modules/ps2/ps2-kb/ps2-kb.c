@@ -6,6 +6,7 @@
 #include <kernel/ringbuf.h>
 #include <kernel/string.h>
 #include <kernel/time.h>
+#include <kernel/bus.h>
 #include <module/ps2.h>
 #include <errno.h>
 #include <input.h>
@@ -19,8 +20,6 @@ typedef struct ps2_kb {
 	void *handler_handle;
 	int extended;
 } ps2_kb_t;
-
-static device_driver_t ps2_kb_driver;
 
 static void ps2_kb_handler(registers_t *registers, void *data) {
 	(void)registers;
@@ -126,15 +125,12 @@ static int ps2_kb_probe(devnode_t *devnode) {
 	ps2_kb_t *keyboard = kmalloc(sizeof(ps2_kb_t));
 	memset(keyboard, 0, sizeof(ps2_kb_t));
 	keyboard->irq_resource = bus_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
-	keyboard->input_device.device.driver  = &ps2_kb_driver;
-	keyboard->input_device.device.number  = ps2_dev->port;
-	keyboard->input_device.device.name    = strdup("kb0");
 	keyboard->input_device.device.devnode = devnode;
 	keyboard->input_device.class          = IE_CLASS_KEYBOARD;
 	keyboard->input_device.subclass       = IE_SUBCLASS_PS2_KBD;
 	input_device_register(&keyboard->input_device);
 
-	resource_register_handler(devnode, ps2_kb_handler, keyboard);
+	keyboard->handler_handle = resource_register_handler(devnode, keyboard->irq_resource, ps2_kb_handler, keyboard);
 	kdebugf("ps2 keyboard succefuly initialized\n");
 
 	return 0;
@@ -143,6 +139,7 @@ static int ps2_kb_probe(devnode_t *devnode) {
 static driver_t ps2_kb_driver = {
 	.name  = "ps2 keyboard",
 	.device_name = "kb%d",
+	.buses = BUSES("ps2"),
 	.check = ps2_kb_check,
 	.probe = ps2_kb_probe,
 };
