@@ -54,6 +54,9 @@ static int devclass_grow(devclass_t *devclass, int unit) {
 }
 
 int devclass_alloc_unit(devclass_t *devclass, devnode_t *devnode) {
+	if (devnode->unit == UNIT_NOUNIT) {
+		return 0;
+	}
 	if (devnode->unit == UNIT_ALLOCATE) {
 		for (int i=0; i < devclass->max_unit; i++) {
 			if (!devclass->devices[i]) {

@@ -22,7 +22,7 @@ int device_allocate_major(void) {
 		for (size_t j=0; j<32; j++) {
 			if (!(major_bitmap[i] & (1U << j))) {
 				major_bitmap[i] |= (1U << j);
-				return i * 32 + j;
+				return DYNAMIC_MAJOR_MIN + i * 32 + j;
 			}
 		}
 		i++;
