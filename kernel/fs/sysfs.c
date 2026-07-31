@@ -14,17 +14,18 @@ static slab_cache_t sysfs_inodes_cache;
 static vfs_inode_ops_t sysfs_inode_ops;
 static vfs_fd_ops_t sysfs_fd_ops;
 
-#define INODE_ROOT       1
-#define INODE_BLOCK_DIR  2
-#define INODE_CHAR_DIR   3
-#define INODE_BUS_DIR    4
-#define INODE_BUS        5
-#define INODE_DEVNODE    6
-#define INODE_KERNEL_DIR 7
-#define INODE_SLAB_DIR   8
-#define INODE_SLAB       9
-#define INODE_KCMDLINE   10
-#define INODE_MEM        11
+#define INODE_ROOT             1
+#define INODE_BLOCK_DIR        2
+#define INODE_CHAR_DIR         3
+#define INODE_DEVTREE          4
+#define INODE_DEVNODE          5
+#define INODE_DEVNODE_CHILDREN 6
+#define INODE_DEVNODE_INFO     7
+#define INODE_KERNEL_DIR       8
+#define INODE_SLAB_DIR         9
+#define INODE_SLAB             10
+#define INODE_KCMDLINE         11
+#define INODE_MEM              12
 
 typedef struct static_entry {
 	int type;
@@ -37,10 +38,15 @@ typedef struct static_entry {
 static static_entry_t root_entries[] = {
 	ENTRY(S_IFDIR, INODE_BLOCK_DIR, "block"),
 	ENTRY(S_IFDIR, INODE_CHAR_DIR, "char"),
-	ENTRY(S_IFDIR, INODE_BUS_DIR, "bus"),
+	ENTRY(S_IFDIR, INODE_DEVTREE, "devtree"),
 	ENTRY(S_IFDIR, INODE_KERNEL_DIR, "kernel"),
 	ENTRY(S_IFREG, INODE_MEM, "mem"),
 };
+
+static static_entry_t devnode_entries[] = {
+	ENTRY(S_IFDIR, INODE_DEVNODE_CHILDREN, "children"),
+	ENTRY(S_IFREG, INODE_DEVNODE_INFO,  "info");
+}
 
 static static_entry_t kernel_entries[] = {
 	ENTRY(S_IFDIR, INODE_SLAB_DIR, "slab"),
@@ -57,9 +63,11 @@ static sysfs_inode_t *sysfs_new_inode(int type, void *ptr, mode_t mode) {
 	inode->type            = type;
 	inode->ptr             = ptr;
 
-	// allow execute perm only on directories
+	// allow execute perm only on directories/links
 	if (S_ISDIR(inode->vnode.mode)) {
 		inode->vnode.mode |= 0555;
+	} else if (S_ISLNK(inode->vnode.mode)) {
+		inode->vnode.mode |= 0777;
 	} else {
 		inode->vnode.mode |= 0444;
 	}
@@ -88,10 +96,10 @@ static int sysfs_static_entries_readdir(static_entry_t *entries, size_t entries_
 	return 0;
 }
 
-static sysfs_inode_t *sysfs_static_entries_lookup(static_entry_t *entries, size_t entries_count, const char *name) {
+static sysfs_inode_t *sysfs_static_entries_lookup(static_entry_t *entries, size_t entries_count, const char *name, void *ptr) {
 	for (size_t i = 0; i < entries_count; i++) {
 		if (!strcmp(entries[i].name, name)) {
-			return sysfs_new_inode(entries[i].inode, NULL, entries[i].type);
+			return sysfs_new_inode(entries[i].inode, ptr, entries[i].type);
 		}
 	}
 	return NULL;
@@ -102,31 +110,30 @@ static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	sysfs_inode_t *child_inode = NULL;
 	switch (inode->type) {
 	case INODE_ROOT:
-		child_inode = sysfs_static_entries_lookup(root_entries, arraylen(root_entries), dentry->name);
+		child_inode = sysfs_static_entries_lookup(root_entries, arraylen(root_entries), dentry->name, NULL);
 		break;
-	case INODE_BUS_DIR:
-		xarray_foreach (number, value, &devices) {
-			(void)number;
-			bus_t *bus = value;
-			if (bus->device.type != DEVICE_BUS) continue;
-			if (!strcmp(bus->device.name, dentry->name)) {
-				child_inode = sysfs_new_inode(INODE_BUS, bus, S_IFDIR);
+	case INODE_DEVTREE:
+		foreach (node, &devnodes) {
+			devnode_t *devnode = container_of(node, devnode_t, list_node);
+			if (!strcmp(dentry->name, device_get_name(devnode))) {
+				child_inode = sysfs_new_inode(INODE_DEVNODE, devnode, S_IFDIR);
 				break;
 			}
 		}
 		break;
-	case INODE_BUS:;
-		bus_t *bus = inode->ptr;
-		foreach (node, &bus->addresses) {
-			devnode_t *devnode = container_of(node, devnode_t, node);
-			if (!strcmp(devnode->name, dentry->name)) {
-				child_inode = sysfs_new_inode(INODE_DEVNODE, devnode, S_IFREG);
-				break;
-			}
+	case INODE_DEVNODE:
+		child_inode = sysfs_static_entries_lookup(devnode_entries, arraylen(devnode_entries), dentry->name, inode->ptr);
+		break;
+	case INODE_DEVNODE_CHILDREN:;
+		devnode_t *devnode = inode->ptr;
+		foreach (node, *devnode->children) {
+			devnode_t *child = container_of(node, devnode_t, node);
+			if (!child->name) continue;
+			// TODO
 		}
 		break;
 	case INODE_KERNEL_DIR:
-		child_inode = sysfs_static_entries_lookup(kernel_entries, arraylen(kernel_entries), dentry->name);
+		child_inode = sysfs_static_entries_lookup(kernel_entries, arraylen(kernel_entries), dentry->name, inode->ptr);
 		break;
 	case INODE_SLAB_DIR:
 		foreach (node, slab_get_list()) {
@@ -163,32 +170,32 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 	switch (inode->type) {
 	case INODE_ROOT:
 		return sysfs_static_entries_readdir(root_entries, arraylen(root_entries), index, dirent);
-	case INODE_BUS_DIR:
-		xarray_foreach (number, value, &devices) {
-			(void)number;
-			bus_t *bus = value;
-			if (bus->device.type != DEVICE_BUS) continue;
+	case INODE_DEVTREE:
+		foreach (node, &devnodes) {
+			devnode_t *devnode = container_of(node, devnode_t, list_node);
 			if (index == 0) {
-				strcpy(dirent->d_name, bus->device.name);
+				strcpy(dirent->d_name, device_get_name(devnode));
 				dirent->d_type = DT_DIR;
 				return 0;
 			}
 			index--;
 		}
 		return -ENOENT;
-	case INODE_BUS:
-		bus_t *bus = inode->ptr;
-		foreach (node, &bus->addresses) {
-			if (index != 0) {
-				index--;
-				continue;
+	case INODE_DEVNODE:
+		return sysfs_static_entries_readdir(devnode_entries, arraylen(devnode_entries), index, dirent);
+	case INODE_DEVNODE_CHILDREN:;
+		devnode_t *devnode = inode->ptr;
+		foreach (node, *devnode->children) {
+			devnode_t *child = container_of(node, devnode_t, node);
+			if (!child->name) continue;
+			if (index == 0) {
+				strcpy(dirent->d_name, child->name);
+				dirent->d_type = DT_LNK;
+				return 0;
 			}
-			devnode_t *devnode = container_of(node, devnode_t, node);
-			strcpy(dirent->d_name, devnode->name);
-			dirent->d_type = DT_REG;
-			return 0;
+			index--;
 		}
-		return -ENOENT;
+		break;
 	case INODE_KERNEL_DIR:
 		return sysfs_static_entries_readdir(kernel_entries, arraylen(kernel_entries), index, dirent);
 	case INODE_SLAB_DIR:
@@ -222,9 +229,6 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	sysfs_inode_t *inode = container_of(fd->inode, sysfs_inode_t, vnode);
 	char str[4096];
 	switch (inode->type) {
-	case INODE_DEVNODE:;
-		devnode_t *devnode = inode->ptr;
-		return bus_old_read(devnode, buf, offset, count);
 	case INODE_SLAB:;
 		slab_cache_t *slab = inode->ptr;
 		sprintf(str, "object size : %ld\n"

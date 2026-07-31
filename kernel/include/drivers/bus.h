@@ -21,12 +21,14 @@ typedef struct devnode {
 	struct driver *driver;
 	struct devclass *devclass;
 	char *name; // address name
+	char cached_name[32];
 	int unit;
 	int type;
 } devnode_t;
 
 typedef struct driver {
 	list_node_t node;
+	list_node_t list_node;
 	const char *name;
 	const char *device_name;
 	struct devclass *devclass;
@@ -39,7 +41,6 @@ typedef struct driver {
 	void (*release_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
 	int (*activate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
 	void (*deactivate_resource)(bus_t *bus, devnode_t *devnode, resource_t *resource);
-} bus_ops_t;
 } driver_t;
 
 #define BUSES(...) (const char *[]){__VA_ARGS__, NULL}
@@ -62,6 +63,9 @@ static inline int device_has_driver_attached(devnode_t *device) {
 }
 int device_set_name(devnode_t *device, const char *name, int unit);
 char *device_get_dup_name(device_t *device);
+static inline const char *device_get_name(device_t *device) {
+	return device->cached_name;
+}
 
 static inline void bus_attach_resource(devnode_t *devnode, resource_t *resource) {
 	list_append(&devnode->resources, &resource->node);
@@ -169,5 +173,6 @@ static inline resource_t *bus_allocate_simple_resource(devnode_t *devnode, int f
 void bus_set_root(devnode_t *bus);
 devnode_t *bus_get_root(void);
 void init_bus(void);
+extern list_t devnodes;
 
 #endif

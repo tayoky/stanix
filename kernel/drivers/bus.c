@@ -7,6 +7,7 @@ static slab_cache_t resources_slab;
 static slab_cache_t devnodes_slab;
 static devnode_t *root_bus = NULL;
 static list_t drivers;
+list_t devnodes;
 
 void bus_set_root(devnode_t *bus) {
 	root_bus = bus;
@@ -25,6 +26,7 @@ void init_bus(void) {
 	root_bus = slab_alloc(&devnodes_slab);
 	memset(root_bus, 0, sizeof(devnode_t));
 	device_set_name(root_bus, "root", UNIT_NOUNIT);
+	list_append(&devnodes, &root_bus->list_node);
 }
 
 static void device_attempt_attatch_with(devnode_t *device, driver_t *driver) {
@@ -65,6 +67,7 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 	}
 
 	list_append(&bus->children, &child->node);
+	list_append(&devnodes, &child->list_node);
 	child->parent = bus;
 	if (name) {
 		child->devclass = devclass_create_or_get(name);
@@ -89,6 +92,7 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 void bus_delete_child(devnode_t *bus, devnode_t *child) {
 	device_detach_driver(child);
 	devclass_free_unit(child->devclass, child);
+	list_remove(&devnodes, &child->list_node);
 	list_remove(&bus->children, &child->node);
 	slab_free(child);
 }
@@ -97,6 +101,10 @@ int device_check_driver(devnode_t *device, driver_t *driver) {
 	if (!driver->check || !driver->probe) return -ENOTSUP;
 	if (!driver->check(device)) return -ENOTSUP;
 	return 0;
+}
+
+static void device_generate_cached_name(devnode_t *devnode, device) {
+	snprintf(devnode->cached_name, sizeof(devnode->cached_name), devnode->devclass->name, devnode->unit);
 }
 
 int device_attach_driver(devnode_t *device, driver_t *driver) {
@@ -123,6 +131,7 @@ int device_attach_driver(devnode_t *device, driver_t *driver) {
 		device->devclass = devclass;
 		device->unit = UNIT_ALLOCATE;
 		devclass_alloc_unit(devclass, device);
+		device_generate_cached_name(device);
 	}
 
 	// the driver is compatible with the device
@@ -154,6 +163,7 @@ int device_set_name(devnode_t *device, const char *name, int unit) {
 	device->devclass = devclass;
 	device->unit = unit;
 	devclass_alloc_unit(devclass, device);
+	device_generate_cached_name(device);
 }
 
 char *device_get_dup_name(device_t *device) {
