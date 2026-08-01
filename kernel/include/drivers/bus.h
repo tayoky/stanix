@@ -18,6 +18,7 @@ typedef struct devnode {
 	list_t children;
 	struct devnode *parent;
 	list_t resources;
+	list_t resource_descs;
 	struct device *device;
 	struct driver *driver;
 	devclass_t *devclass;
@@ -81,13 +82,34 @@ static inline void bus_detach_resource(devnode_t *devnode, resource_t *resource)
 	list_remove(&devnode->resources, &resource->node);
 }
 
-static inline void bus_attach_bound_resource(devnode_t *devnode, resource_t *resource) {
-	resource->flags |= RESOURCE_BOUND;
-	list_append(&devnode->resources, &resource->node);
+static inline void bus_attach_resource_desc(devnode_t *devnode, resource_desc_t *resource_desc) {
+	list_append(&devnode->resource_descs, &resource->node);
 }
 
-static inline void bus_detach_bound_resource(devnode_t *devnode, resource_t *resource) {
-	list_remove(&devnode->resources, &resource->node);
+static inline int bus_add_resource_desc(devnode_t *devnode, int flags, int rid, size_t start, size_t count) {
+	resource_desc_t *desc = resource_desc_allocate(flags, rid, start, count);
+	if (!desc) {
+		return -ENOMEM;
+	}
+	bus_attach_resource_desc(devnode, desc);
+}
+
+static inline int bus_add_resource_desc_data(devnode_t *devnode, int flags, int rid, void *data, size_t size) {
+	return bus_add_resource_desc(devnode, flags, rid, (size_t)data, size);
+}
+
+static inline void bus_detach_resource_desc(devnode_t *devnode, resource_desc_t *resource_desc) {
+	list_remove(&devnode->resource_descs, &resource->node);
+}
+
+static inline resource_desc_t *device_get_resource_desc(devnode_t *devnode, int flags, int rid) {
+	foreach (node, &devnode->resource_descs) {
+		resource_desc_t *desc = container_of(node, resource_desc_t, node);
+		if ((desc->flags & RESOURCE_TYPE) == (flags & RESOURCE_TYPE) && ((rid == RID_ANY) || (desc->rid == rid))) {
+			return desc;
+		}
+	}
+	return NULL;
 }
 
 static inline resource_t *device_get_resource(devnode_t *devnode, int flags, int rid) {
@@ -156,6 +178,17 @@ static inline resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devno
 	// maybee we already have a resource for this rid
 	resource_t *resource = device_get_resource(devnode, flags, rid);
 	if (resource) return resource;
+
+	// maybee we have a desc for this rid
+	resource_desc_t *desc = device_get_resource_desc(devnode, flags, rid);
+	if (desc) {
+		if (start == RESOURCE_ANY_START) {
+			start = desc->start;
+		}
+		if (count == RESOURCE_ANY_COUNT) {
+			count = desc->count;
+		}
+	}
 	resource = __helper_bus_allocate_resource(bus, devnode, start, count, flags & ~RESOURCE_ACTIVE, rid);
 	if (IS_ERR(resource)) {
 		return resource;

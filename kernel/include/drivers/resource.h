@@ -9,6 +9,14 @@
 
 struct devnode;
 
+typedef struct resource_dsec {
+	list_node_t node;
+	size_t start;
+	size_t count;
+	int flags;
+	int rid;
+} resource_dsec_t;
+
 typedef struct resource {
 	list_node_t node;
 	void *private;
@@ -27,7 +35,7 @@ typedef struct resource {
 //#define RESOURCE_FIXED   0x100 // allocate at specifed address
 #define RESOURCE_SHARED  0x200 // allow the resource to be shared
 #define RESOURCE_ACTIVE  0x400 // resource is active and usable
-#define RESOURCE_BOUND   0x800 // resource is bound (associed with the device)
+//#define RESOURCE_BOUND   0x800 // resource is bound (associed with the device)
 //#define RESOURCE_DYNAMIC 0x800 // dynamic resource (not bound)
 
 #define RID_ANY 0 // special rid to tell that we need any resource of the specified type (and don't care about rid)
@@ -60,8 +68,14 @@ void rman_free(rman_t *rman, resource_t *resource);
 
 resource_t *resource_allocate(int flags, int rid, size_t start, size_t count);
 
-static inline resource_t *resource_allocate_data(int flags, int rid, void *data) {
+static inline resource_t *resource_allocate_data(int flags, int rid, void *data, size_t size) {
 	return resource_allocate(flags, rid, (size_t)data, size);
+}
+
+resource_desc_t *resource_desc_allocate(int flags, int rid, size_t start, size_t count);
+
+static inline resource_desc_t *resource_desc_allocate_data(int flags, int rid, void *data, size_t size) {
+	return resource_desc_allocate(flags, rid, (size_t)data, size);
 }
 
 /**
@@ -79,7 +93,7 @@ static inline void *resource_get_vaddr(resource_t *resource) {
 static inline irq_t *resource_get_irq(resource_t *resource) {
 	kassert((resource->flags & RESOURCE_TYPE) == RESOURCE_IRQ);
 	if (!resource) return NULL;
-	return resource->data;
+	return (irq_t*)resource->start;
 }
 
 static inline size_t resource_get_start(resource_t *resource) {

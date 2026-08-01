@@ -24,8 +24,13 @@ static resource_t *root_allocate_resource(devnode_t *bus, devnode_t *devnode, si
 	(void)bus;
 	(void)rid;
 	switch (flags & RESOURCE_TYPE) {
+	case RESOURCE_IRQ:
+		kassert(count == 1);
+		return resource_allocate(flags, rid, start, count);
 	case RESOURCE_IOPORT:
 		return rman_allocate(&io_rman, devnode, start, count, flags);
+	case RESOURCE_MEMORY:
+		return resource_allocate(flags, rid, start, count);
 	default:
 		return ERR2PTR(-ENOTSUP);
 	}

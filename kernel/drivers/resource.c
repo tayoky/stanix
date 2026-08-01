@@ -5,10 +5,12 @@
 #include <kernel/string.h>
 
 static slab_cache_t resources_slab;
+static slab_cache_t resource_descs_slab;
 static slab_cache_t rman_segs_slab;
 
 void init_resource(void) {
 	slab_init(&resources_slab, sizeof(resource_t), "resources");
+	slab_init(&resource_descs_slab, sizeof(resource_desc_t), "resource-descs");
 	slab_init(&rman_segs_slab, sizeof(rman_seg_t), "rman-segs");
 }
 
@@ -21,6 +23,17 @@ resource_t *resource_allocate(int flags, int rid, size_t start, size_t size) {
 	resource->start = start;
 	resource->size  = size;
 	return resource;
+}
+
+resource_desc_t *resource_desc_allocate(int flags, int rid, size_t start, size_t count) {
+	resource_desc_t *resource_desc = slab_alloc(&resource_descs_slab);
+	if (!resource_desc) return NULL;
+	memset(resource_desc, 0, sizeof(resource_desc_t));
+	resource_desc->flags = flags;
+	resource_desc->rid   = rid;
+	resource_desc->start = start;
+	resource_desc->size  = size;
+	return resource_desc;
 }
 
 static rman_seg_t *rman_allocate_seg(rman_t *rman, size_t start, size_t count) {
