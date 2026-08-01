@@ -23,6 +23,7 @@ static inline arch_pause(void) {
 }
 
 #define IA32_PAT_MSR 0x277
+#define IA32_APIC_BASE 0x1B
 
 static inline void rdmsr(uint32_t msr, uint32_t *low, uint32_t *high) {
    asm volatile("rdmsr" : "=a"(*low), "=d"(*high) : "c"(msr));

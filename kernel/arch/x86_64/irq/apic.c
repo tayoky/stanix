@@ -70,8 +70,11 @@ void init_apic(void) {
 	}
 
 	// fun fact : to init the APIC you need to init the ... PIC
-	// this mask all interruptions of the PIC
 	init_pic();
+	
+	// then we mask all interruptions of the PIC
+	out_byte(0x21, 0xff);
+	out_byte(0xa1, 0xff);
 
 	xarray_init(&ioapic_list);
 	local_apic_address = madt->local_acpi_address;
@@ -88,7 +91,7 @@ void init_apic(void) {
 			ioapic->id                 = entry->ioapic.ioapic_id;
 			ioapic->address            = entry->ioapic.address;
 			ioapic->mmio               = mmio_map(ioapic->address, PAGE_SIZE);
-			ioapic->redirections_count = (ioapic_read(ioapic, IOAPIC_REG_VER) & IOAPIC_REDIRECTIONS_COUNT) >> IOAPIC_REDIRECTIONS_COUNT_SHIFT;
+			ioapic->redirections_count = ((ioapic_read(ioapic, IOAPIC_REG_VER) & IOAPIC_REDIRECTIONS_COUNT) >> IOAPIC_REDIRECTIONS_COUNT_SHIFT) + 1;
 
 			xarray_set(&ioapic_list, ioapic->id, ioapic);
 			kinfof("found io apic at address %p, gsi base %u, redirections count %zu\n", ioapic->address, ioapic->gsi_base, ioapic->redirections_count);
@@ -110,10 +113,11 @@ void init_apic(void) {
 			// let the irq system allocate a vector for us
 			irq_set_vector(irq, IRQ_VECTOR_ALLOCATE);
 			irq_add_to_chip(&apic_chip, irq);
+			kdebugf("gsi=%d vector=%d hwirq=%d\n", gsi, irq->vector, irq->hwirq);
 
 			uint64_t redirection = ioapic_read_redirection(ioapic, i);
 			redirection &= ~IOAPIC_VECTOR;
-			redirection |= irq->vector;
+			redirection |= irq->vector | IOAPIC_MASK;
 			ioapic_write_redirection(ioapic, i, redirection);
 		}
 	}
@@ -157,6 +161,13 @@ void init_apic(void) {
 	// tell the irq system we use apic
 	main_irq_chip = &apic_chip;
 
+	// enable local apic
+	uint32_t apic_base_low;
+	uint32_t apic_base_high;
+	rdmsr(IA32_APIC_BASE, &apic_base_low, &apic_base_high);
+	apic_base_low |= (1 << 11);
+	wrmsr(IA32_APIC_BASE, apic_base_high, apic_base_low);
+
 	kinfof("local apic address is %p\n", local_apic_address);
 	local_apic = mmio_map(local_apic_address, 0x400);
 
@@ -178,7 +189,8 @@ static void apic_unmask(irq_chip_t *irq_chip, irq_t *irq) {
 	ioapic_t *ioapic = get_ioapic_for_gsi(irq->irqnum);
 	if (!ioapic) return;
 	uint64_t redirection = ioapic_read_redirection(ioapic, irq->irqnum - ioapic->gsi_base);
-	redirection &= ~IOAPIC_MASK;
+	redirection &= ~(IOAPIC_MASK | IOAPIC_VECTOR);
+	redirection |= irq->vector;
 	ioapic_write_redirection(ioapic, irq->irqnum - ioapic->gsi_base, redirection);
 }
 
