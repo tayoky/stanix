@@ -121,7 +121,3 @@ void init_idt(void) {
 	asm("lidt %0" : : "m"(idtr));
 	kok();
 }
-
-int idt_allocate(void *handler, void *data, irqnum_t irq_num) {
-	// TODO : remove this
-}

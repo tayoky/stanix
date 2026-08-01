@@ -87,8 +87,13 @@ void irq_free(irq_t *irq) {
 
 void irq_set_vector(irq_t *irq, intrnum_t vector) {
 	if (vector == IRQ_VECTOR_ALLOCATE) {
-		// TODO : allocate vector
-		kwarningf("TODO : allocate vector\n");
+		// allocate vector
+		for (intrnum_t i=64; i<arraylen(vector2irq); i++) {
+			if (!vector2irq[i]) {
+				vector = i;
+				break;
+			}
+		}
 	}
 	irq->vector = vector;
 	if (vector < 0 || vector >= arraylen(vector2irq)) {
