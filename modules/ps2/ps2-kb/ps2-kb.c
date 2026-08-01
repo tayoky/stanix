@@ -124,7 +124,7 @@ static int ps2_kb_probe(devnode_t *devnode) {
 
 	ps2_kb_t *keyboard = kmalloc(sizeof(ps2_kb_t));
 	memset(keyboard, 0, sizeof(ps2_kb_t));
-	keyboard->irq_resource = bus_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
+	keyboard->irq_resource = device_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
 	keyboard->input_device.device.devnode = devnode;
 	keyboard->input_device.class          = IE_CLASS_KEYBOARD;
 	keyboard->input_device.subclass       = IE_SUBCLASS_PS2_KBD;

@@ -130,7 +130,7 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 
 	ps2_mouse_t *mouse = kmalloc(sizeof(ps2_mouse_t));
 	memset(mouse, 0, sizeof(ps2_mouse_t));
-	mouse->irq_resource = bus_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
+	mouse->irq_resource = device_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
 	mouse->input_device.device.devnode = devnode;
 	mouse->input_device.class    = IE_CLASS_MOUSE;
 	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;

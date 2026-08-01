@@ -60,7 +60,7 @@ static tty_ops_t serial_ops = {
 
 static int serial_check(devnode_t *devnode) {
 	// we need resource for our test
-	resource_t *io_res = bus_allocate_resource(devnode, RESOURCE_IOPORT, RID_ANY);
+	resource_t *io_res = device_allocate_resource(devnode, RESOURCE_IOPORT, RID_ANY);
 	if (!io_res) return 0;
 
 	int ret = 1;
@@ -87,7 +87,7 @@ finish:
 	// restore saved value
 	resource_write8(io_res, SERIAL_SCR, orig);
 
-	bus_release_resource(devnode, io_res);
+	device_release_resource(devnode, io_res);
 	return ret;
 }
 
@@ -98,12 +98,12 @@ static int serial_probe(devnode_t *devnode) {
 	memset(serial, 0, sizeof(serial_t));
 
 	// get resources
-	serial->io_res  = bus_allocate_resource(devnode, RESOURCE_IOPORT, RID_ANY);
+	serial->io_res  = device_allocate_resource(devnode, RESOURCE_IOPORT, RID_ANY);
 	if (IS_ERR(serial->io_res)) {
 		ret = PTR2ERR(serial->io_res);
 		goto error;
 	}
-	serial->irq_res = bus_allocate_resource(devnode, RESOURCE_IRQ, RID_ANY);
+	serial->irq_res = device_allocate_resource(devnode, RESOURCE_IRQ, RID_ANY);
 	if (IS_ERR(serial->irq_res)) {
 		ret = PTR2ERR(serial->irq_res);
 		goto error;
@@ -140,8 +140,8 @@ static int serial_probe(devnode_t *devnode) {
 
 error:
 	resource_unregister_handler(serial->io_res, serial->handler_handle);
-	bus_release_resource(devnode, serial->irq_res);
-	bus_release_resource(devnode, serial->io_res);
+	device_release_resource(devnode, serial->irq_res);
+	device_release_resource(devnode, serial->io_res);
 	kfree(serial);
 	return ret;
 }
