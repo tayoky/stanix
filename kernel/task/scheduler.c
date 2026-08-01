@@ -36,7 +36,7 @@ static run_queue_t *get_run_queue(void) {
 }
 
 static int run_queue_is_empty(run_queue_t *run_queue) {
-	return !run_queue->tasks.first_node;
+	return list_is_empty(&run_queue->tasks);
 }
 
 static void run_queue_push_task(run_queue_t *run_queue, task_t *task) {
@@ -45,7 +45,7 @@ static void run_queue_push_task(run_queue_t *run_queue, task_t *task) {
 }
 
 static task_t *run_queue_pop_task(run_queue_t *run_queue) {
-	if (!run_queue->tasks.first_node) return NULL;
+	if (run_queue_is_empty(run_queue)) return NULL;
 	task_t *task = container_of(run_queue->tasks.first_node, task_t, run_list_node);
 	list_remove(&run_queue->tasks, &task->run_list_node);
 	return task;

@@ -157,7 +157,7 @@ void irq_unregister_handler(irq_t *irq, void *handle) {
 	list_remove(&irq->handlers, &irq_handler->node);
 	slab_free(irq_handler);
 
-	if (!irq->handlers.first_node) {
+	if (list_is_empty(&irq->handlers)) {
 		// no more handlers on this irq
 		irq_mask(irq);
 	}

@@ -19,9 +19,14 @@ typedef struct list {
 
 void list_init(list_t *list);
 void list_destroy(list_t *list);
+void list_prepend(list_t *list, list_node_t *node);
 void list_append(list_t *list, list_node_t *node);
 void list_remove(list_t *list, list_node_t *node);
 void list_add_after(list_t *list, list_node_t *ref, list_node_t *node);
+void list_add_before(list_t *list, list_node_t *ref, list_node_t *node);
+static inline list_is_empty(list_t *list) {
+	return list->first_node == 1;
+}
 
 #define foreach(var,l) for(list_node_t * var = (l)->first_node ; var ; var = var ->next)
 

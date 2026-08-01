@@ -49,7 +49,7 @@ static int futex_wake(long *addr, long val) {
 		return 0;
 	}
 	wakeup_queue(queue, val);
-	if (!queue->waiters.first_node) {
+	if (list_is_empty(&queue->waiters)) {
 		// the futex is empty
 		destroy_futex_for_addr(addr);
 	}

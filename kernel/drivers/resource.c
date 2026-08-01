@@ -73,7 +73,7 @@ void rman_destroy(rman_t *rman) {
 int rman_add_region(rman_t *rman, size_t start, size_t count) {
 	rman_seg_t *before = rman_get_seg_before(rman, start);
 
-	if (rman->segs.first_node) {
+	if (!list_is_empty(&rman->segs)) {
 		// check if we would overlap
 		list_node_t *after_node = before ? before->next : rman->segs.first_node;
 		rman_seg_t *after = container_of(after_node, rman_seg_t, node);

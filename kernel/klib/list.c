@@ -11,6 +11,23 @@ void list_destroy(list_t *list) {
 	(void)list;
 }
 
+void list_prepend(list_t *list, list_node_t *node) {
+	spinlock_acquire(&list->lock);
+
+	// link
+	node->prev = NULL;
+	node->next = list->first_node;
+	if (list->first_node) {
+		list->first_node->prev = node;
+	} else {
+		list->last_node = node;
+	}
+	list->first_node = node;
+
+	list->node_count++;
+	spinlock_release(&list->lock);
+}
+
 void list_append(list_t *list, list_node_t *node) {
 	spinlock_acquire(&list->lock);
 
@@ -29,29 +46,31 @@ void list_append(list_t *list, list_node_t *node) {
 }
 
 void list_add_after(list_t *list, list_node_t *ref, list_node_t *node) {
-	spinlock_acquire(&list->lock);
-	// link
-	if (ref) {
-		node->prev = ref;
-		node->next = ref->next;
-		if (ref->next) {
-			ref->next->prev = node;
-		} else {
-			list->last_node = node;
-		}
-		ref->next = node;
-	} else {
-		node->prev = NULL;
-		node->next = list->first_node;
-		if (list->first_node) {
-			list->first_node->prev = node;
-		} else {
-			list->last_node = node;
-		}
-		list->first_node = node;
+	if (!ref) {
+		list_prepend(list, node);
+		return;
 	}
+
+	// link
+	spinlock_acquire(&list->lock);
+	node->prev = ref;
+	node->next = ref->next;
+	if (ref->next) {
+		ref->next->prev = node;
+	} else {
+		list->last_node = node;
+	}
+	ref->next = node;
 	list->node_count++;
 	spinlock_release(&list->lock);
+}
+
+void list_add_before(list_t *list, list_node_t *ref, list_node_t *node) {
+	if (ref) {
+		list_add_after(list, ref->prev, node);
+	} else {
+		list_append(list, node);
+	}
 }
 
 void list_remove(list_t *list, list_node_t *node) {
