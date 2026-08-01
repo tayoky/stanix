@@ -16,6 +16,7 @@ static int root_probe(devnode_t *devnode) {
 	// TODO : add  pci bus, isa/acpi, ...
 	rman_init(&io_rman, RESOURCE_IOPORT, "IO ports");
 	rman_add_region(&io_rman, 0, 0xffff);
+	rman_set_dynamic_start(&io_rman, 0x1000);
 	return 0;
 }
 

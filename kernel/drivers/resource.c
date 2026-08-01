@@ -88,6 +88,10 @@ int rman_add_region(rman_t *rman, size_t start, size_t count) {
 	return 0;
 }
 
+void rman_set_dynamic_start(rman_t *rman, size_t start) {
+	rman->dynamic_start = start;
+}
+
 resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, struct size_t start, size_t count, int flags) {
 	// TODO : implement RESOURCE_SHARED
 	if (count == RESOURCE_ANY_COUNT) {
@@ -98,8 +102,22 @@ resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, struct size_t start,
 	if (start == RESOURCE_ANY_START) {
 		foreach(node, &rman->segs) {
 			rman_seg_t *cur_seg = container_of(node, rman_seg_t, node);
-			if (!rman_seg_is_allocated(cur_seg) && cur_seg->count >= count) {
+			if (cur_seg->start + cur_seg->count <= rman->dynamic_start) {
+				// below dynamic start
+				continue;
+			}
+			size_t seg_count = cur_seg->count;
+			if (cur_seg->start < rman->dynamic_start) {
+				// not the whole seg can be allocated
+				seg_count -= rman->dynamic_start - cur_seg->start;
+			}
+			if (!rman_seg_is_allocated(cur_seg) && seg_count >= count) {
 				seg = cur_seg;
+				if (seg->start < rman->dynamic_start) {
+					start = rman->dynamic_start;
+				} else {
+					start = seg->start;
+				}
 			}
 		}
 	} else {

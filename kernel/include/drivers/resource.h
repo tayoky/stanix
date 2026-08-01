@@ -44,6 +44,7 @@ typedef struct rman_seg {
 // rman is heavely inspired by freebsd
 typedef struct rman {
 	list_t segs;
+	size_t dynamic_start;
 	const char *name;
 	int type;
 } rman_t;
@@ -53,6 +54,7 @@ void init_resource(void);
 void rman_init(rman_t *rman, int type, const char *name);
 void rman_destroy(rman_t *rman);
 int rman_add_region(rman_t *rman, size_t start, size_t count);
+void rman_set_dynamic_start(rman_t *rman, size_t start);
 resource_t *rman_allocate(rman_t *rman, struct devnode *devnode, size_t start, size_t count, int flags);
 void rman_free(rman_t *rman, resource_t *resource);
 
