@@ -169,6 +169,7 @@ static int serial_init(int argc,char **argv) {
 	irq_t *irq = irq_get_from_hwirq(main_irq_chip, 4);
 	bus_add_resource_desc_data(device, RESOURCE_IRQ, RID_ANY, irq, 1);
 	bus_attach_child(bus_get_root(), device, "serial%d", 0);
+	return 0;
 }
 
 static int serial_fini() {

@@ -144,9 +144,12 @@ term_ops_t term_ops = {
 };
 
 pid_t start_getty(const char *autologin) {
-	pid_t child = fork();
-	if (child) return child;
 	int slave = ioctl(master, TIOCGPTPEER);
+	pid_t child = fork();
+	if (child) {
+		close(slave);
+		return child;
+	}
 	dup2(slave, STDIN_FILENO);
 	dup2(slave, STDOUT_FILENO);
 	dup2(slave, STDERR_FILENO);
