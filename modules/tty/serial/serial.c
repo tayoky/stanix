@@ -160,11 +160,9 @@ static int serial_init(int argc,char **argv) {
 	// TODO : use isa bus instead
 	// this is used as a proof of concept
 	devnode_t *device = device_allocate();
-	resource_t *io_res = resource_allocate(RESOURCE_IOPORT, RID_ANY, 0x3f8, 8);
+	device_add_resource_desc(RESOURCE_IOPORT, RID_ANY, 0x3f8, 8);
 	irq_t *irq = irq_get_from_hwirq(main_irq_chip, 4);
-	resource_t *irq_res = resource_allocate_data(RESOURCE_IRQ, RID_ANY, irq, 1);
-	bus_attach_bound_resource(device, io_res);
-	bus_attach_bound_resource(device, irq_res);
+	device_add_resource_desc_data(RESOURCE_IRQ, RID_ANY, irq, 1);
 	bus_attach_child(bus_get_root(), device, "serial%d", 0);
 }
 
