@@ -194,6 +194,11 @@ static size_t setup_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar) {
 	if (!is_ioport && (bar_value & 0x6) == 0x4) {
 		is_64bits = 1;
 
+		if (bar == 5) {
+			// bar 5 is last and cannot bd 64 bits
+			return 1;
+		}
+
 		// we need to read the higger part
 		uint64_t bar_high = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4);
 		bar_value |= bar_high << 32;
@@ -207,7 +212,7 @@ static size_t setup_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar) {
 	}
 
 	if (base == 0 || (is_64bits ? (bar_value == UINT64_MAX) : (bar_value == UINT32_MAX))) {
-		return is_64bits ? 2 : 1;
+		base = RESOURCE_START_ANY;
 	}
 
 	pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, 0xffffffff);
@@ -235,6 +240,11 @@ static size_t setup_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar) {
 		readback &= ~0x3ULL;
 	} else {
 		readback &= ~0xfULL;
+	}
+
+	if (readback == 0) {
+		// unimplemented BAR
+		return is_64bits ? 2 : 1;
 	}
 
 	size_t bar_size = (~readback) + 1;
