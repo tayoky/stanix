@@ -186,6 +186,74 @@ uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR) {
 	}
 }
 
+static size_t setup_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar) {
+	uint64_t bar_value = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
+	int is_ioport = bar_value & 0x1;
+
+	int is_64bits = 0;
+	if (!is_ioport && (bar_value & 0x6) == 0x4) {
+		is_64bits = 1;
+
+		// we need to read the higger part
+		uint64_t bar_high = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4);
+		bar_value |= bar_high << 32;
+	}
+
+	uint64_t base;
+	if (is_ioport) {
+		base = bar_value & ~0x3ULL;
+	} else {
+		base = bar_value & ~0xfULL;
+	}
+
+	if (base == 0 || (is_64bits ? (bar_value == UINT64_MAX) : (bar_value == UINT32_MAX))) {
+		return is_64bits ? 2 : 1;
+	}
+
+	pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, 0xffffffff);
+	if (is_64bits) {	
+		pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4, 0xffffffff);
+	}
+
+	uint64_t readback;
+	if (is_64bits) {
+		uint32_t readback_low = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
+		uint32_t readback_high = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4);
+		readback = ((uint64_t)readback_high << 32) | readback_low;
+	} else {
+		readback = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
+	}
+
+	// restore
+	pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, bar_value);
+	if (is_64bits) {
+		pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4, bar_value >> 32);
+	}
+
+	// mask the control bits
+	if (is_ioport) {
+		readback &= ~0x3ULL;
+	} else {
+		readback &= ~0xfULL;
+	}
+
+	size_t bar_size = (~readback) + 1;
+	
+	if (is_ioport) {
+		// io port
+		resource_t *io_res = bus_resource_allocate(pci_bus, &pci_dev->devnode, base, bar_size, RESOURCE_IOPORT, PCI_RID_BAR(bar));
+		if (IS_ERR(io_res)) {
+			goto finish;
+		}
+		io_res->flags |= RESOURCE_BOUND;
+	} else {
+		resource_t *mem_res = resource_allocate(RESOURCE_MEMORY, PCI_RID_BAR(bar), base, bar_size);
+		bus_attach_bound_resource(&pci_dev->devnode, mem_res);
+	}
+finish:
+	return is_64bits ? 2 : 1;
+}
+
 static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	devnode_t *pci_bus = arg;
 	uint16_t vendorID = pci_read_config_word(bus,device,function,PCI_CONFIG_VENDOR_ID);
@@ -208,6 +276,11 @@ static void create_pci_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg
 	pci_dev->bus       = bus;
 	pci_dev->device    = device;
 	pci_dev->function  = function;
+
+	// resource discovery time
+	for (int i=0; i<6;) {
+		i += setup_bar(pci_bus, pci_dev, i);
+	}
 
 	bus_attach_child(pci_bus, &pci_dev->devnode, NULL, UNIT_NOUNIT);
 }
