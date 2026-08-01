@@ -33,15 +33,21 @@ static int ps2_mouse_set_rate(int port, int rate) {
 static void ps2_mouse_handler(registers_t *registers, void *data) {
 	(void)registers;
 	ps2_mouse_t *mouse = data;
+	
+	uint8_t b = ps2_read();
 	switch (mouse->packet++) {
 	case 0:
-		mouse->flags = ps2_read();
+		if (!(b & 0x08)) {
+			mouse->packet = 0;
+    		return;
+		}
+		mouse->flags = b;
 		return;
 	case 1:
-		mouse->x = ps2_read();
+		mouse->x = b;
 		return;
 	case 2:
-		mouse->y = ps2_read();
+		mouse->y = b;
 		mouse->packet = 0;
 		break;
 	}
