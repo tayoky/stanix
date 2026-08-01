@@ -7,7 +7,7 @@ static irq_chip_t pic_chip;
 
 static irq_t pic_irqs[16];
 
-static void surpirous_handler(registers_t *frame, void *arg) {
+static void empty_handler(registers_t *frame, void *arg) {
 	(void)frame;
 	(void)arg;
 }
@@ -54,9 +54,12 @@ void init_pic() {
 	// tell the kernel we use pic
 	main_irq_chip = &pic_chip;
 
+	// unmask slave irq
+	irq_register_handler(&pic_irqs[2], empty_handler, NULL);
+
 	// map the surpirous isr
-	irq_register_handler(&pic_irqs[7], surpirous_handler, NULL);
-	irq_register_handler(&pic_irqs[15], surpirous_handler, NULL);
+	irq_register_handler(&pic_irqs[7], empty_handler, NULL);
+	irq_register_handler(&pic_irqs[15], empty_handler, NULL);
 }
 
 static void pic_mask(irq_chip_t *irq_chip, irq_t *irq) {
