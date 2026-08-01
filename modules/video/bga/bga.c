@@ -12,22 +12,23 @@
 
 // TRM's BGA driver
 
-// TODO : use resource instead of hardcoded out_word
 typedef struct bga {
 	trm_gpu_t gpu;
+	resource_t *vram_res;
+	resource_t *io_res
 	uint16_t version;
 	uint16_t max_x;
 	uint16_t max_y;
 } bga_t;
 
-static void bga_write(uint16_t index, uint16_t data) {
-	out_word(VBE_DISPI_IOPORT_INDEX, index);
-	out_word(VBE_DISPI_IOPORT_DATA, data);
+static void bga_write(bga_t *bga, uint16_t index, uint16_t data) {
+	resource_write16(bga->io_res, 0, index);
+	resource_write16(bga->io_res, 1, data);
 }
 
-static uint16_t bga_read(uint16_t index) {
-	out_word(VBE_DISPI_IOPORT_INDEX, index);
-	return in_word(VBE_DISPI_IOPORT_DATA);
+static uint16_t bga_read(bga_t *bga, uint16_t index) {
+	resource_write16(bga->io_res, 0, index);
+	return resource_read16(bga->io_res, 1);
 }
 
 static int bga_test_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
@@ -49,14 +50,14 @@ static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	kdebugf("bga commit mode\n");
 	bga_t *bga = (bga_t*)gpu;
 
-	bga_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
+	bga_write(bga, VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
 
 	if (mode->crtcs) {
 		trm_timings_t *timings = timings = mode->crtcs[0].timings;
 		if (timings) {
-			bga_write(VBE_DISPI_INDEX_XRES, timings->hdisplay);
+			bga_write(bga, VBE_DISPI_INDEX_XRES, timings->hdisplay);
 
-			bga_write(VBE_DISPI_INDEX_YRES, timings->vdisplay);
+			bga_write(bga, VBE_DISPI_INDEX_YRES, timings->vdisplay);
 		}
 	}
 
@@ -80,13 +81,13 @@ static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 			bpp = VBE_DISPI_BPP_32;
 			break;
 		}
-		bga_write(VBE_DISPI_INDEX_BPP, bpp);
+		bga_write(bga, VBE_DISPI_INDEX_BPP, bpp);
 		if (bga->version >= VBE_DISPI_ID1) {
 			// FIXME : not sure this is correct
-			bga_write(VBE_DISPI_INDEX_VIRT_WIDTH, fb->fb.width);
-			bga_write(VBE_DISPI_INDEX_VIRT_HEIGHT, gpu->card.vram_size / fb->fb.pitch);
-			bga_write(VBE_DISPI_INDEX_X_OFFSET, ((fb->base / trm_bpp(fb->fb.format)) % fb->fb.width) + mode->planes->src_x);
-			bga_write(VBE_DISPI_INDEX_Y_OFFSET, fb->base / fb->fb.pitch + mode->planes->src_y);
+			bga_write(bga, VBE_DISPI_INDEX_VIRT_WIDTH, fb->fb.width);
+			bga_write(bga, VBE_DISPI_INDEX_VIRT_HEIGHT, gpu->card.vram_size / fb->fb.pitch);
+			bga_write(bga, VBE_DISPI_INDEX_X_OFFSET, ((fb->base / trm_bpp(fb->fb.format)) % fb->fb.width) + mode->planes->src_x);
+			bga_write(bga, VBE_DISPI_INDEX_Y_OFFSET, fb->base / fb->fb.pitch + mode->planes->src_y);
 		}
 	}
 
@@ -94,7 +95,7 @@ static int bga_commit_mode(trm_gpu_t *gpu, trm_mode_t *mode) {
 	if (bga->version >= VBE_DISPI_ID2) {
 		enable |= VBE_DISPI_LFB_ENABLED | VBE_DISPI_NOCLEARMEM;
 	}
-	bga_write(VBE_DISPI_INDEX_ENABLE, enable);
+	bga_write(bga, VBE_DISPI_INDEX_ENABLE, enable);
 
 	return 0;
 }
@@ -138,13 +139,17 @@ static int bga_probe(devnode_t *devnode) {
 	// init bga specific stuff
 	bga_t *bga = kmalloc(sizeof(bga_t));
 	memset(bga, 0, sizeof(bga_t));
-	bga->version = bga_read(VBE_DISPI_INDEX_ID);
+
+	// get resources
+	bga->vram_res = device_allocate_simple_resource(devnode, RESOURCE_MEMORY | RESOURCE_ACTIVATE, PCI_RID_BAR0);
+	bga->io_res   = device_allocate_resource(devnode, VBE_DISPI_IOPORT_INDEX, 3, RESOURCE_IOPORT, RID_ANY);
+	bga->version = bga_read(bga, VBE_DISPI_INDEX_ID);
 	if (bga->version >= VBE_DISPI_ID3) {
-		uint16_t data = bga_read(VBE_DISPI_INDEX_ENABLE);
-		bga_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_GETCAPS | VBE_DISPI_NOCLEARMEM);
-		bga->max_x = bga_read(VBE_DISPI_INDEX_XRES);
-		bga->max_y = bga_read(VBE_DISPI_INDEX_YRES);
-		bga_write(VBE_DISPI_INDEX_ENABLE, data | VBE_DISPI_NOCLEARMEM);
+		uint16_t data = bga_read(bga, VBE_DISPI_INDEX_ENABLE);
+		bga_write(bga, VBE_DISPI_INDEX_ENABLE, VBE_DISPI_GETCAPS | VBE_DISPI_NOCLEARMEM);
+		bga->max_x = bga_read(bga, VBE_DISPI_INDEX_XRES);
+		bga->max_y = bga_read(bga, VBE_DISPI_INDEX_YRES);
+		bga_write(bga, VBE_DISPI_INDEX_ENABLE, data | VBE_DISPI_NOCLEARMEM);
 	} else {
 		bga->max_x = VBE_DISPI_MAX_XRES;
 		bga->max_y = VBE_DISPI_MAX_YRES;
@@ -153,10 +158,12 @@ static int bga_probe(devnode_t *devnode) {
 	trm_gpu_t *gpu = (trm_gpu_t*)bga;
 	strcpy(gpu->card.name, "BGA adaptor");
 	if (bga->version >= VBE_DISPI_ID2) {
-		gpu->card.vram_size = bga_read(VBE_DISPI_INDEX_VIDEO_MEMORY_64K) * 64 * 1024;
+		gpu->card.vram_size = bga_read(bga, VBE_DISPI_INDEX_VIDEO_MEMORY_64K) * 64 * 1024;
 	} else {
 		gpu->card.vram_size = 8 * 1024 * 1024;
 	}
+
+	// TODO : use resource and better error handling
 	gpu->vram_mmio = pci_get_bar(pci_dev, 0, 0);
 	if (gpu->vram_mmio == PCI_INVALID_BAR) {
 		kstatusf("BGA card has an invalid BAR\n");
