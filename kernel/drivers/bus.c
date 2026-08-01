@@ -140,6 +140,43 @@ void bus_delete_child(devnode_t *bus, devnode_t *child) {
 	slab_free(child);
 }
 
+static resource_t *__helper_bus_allocate_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
+	BUS_UPWARD_OP(bus, allocate_resource, devnode, start, size, flags, rid);
+	return ERR2PTR(-EINVAL);
+}
+
+resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
+	// maybee we already have a resource for this rid
+	resource_t *resource = device_get_resource(devnode, flags, rid);
+	if (resource) return resource;
+
+	// maybee we have a desc for this rid
+	resource_desc_t *desc = device_get_resource_desc(devnode, flags, rid);
+	if (desc) {
+		kdebugf("got resource desc start=%zx size=%zu\n", desc->start, desc->size);
+		if (start == RESOURCE_ANY_START) {
+			start = desc->start;
+		}
+		if (size == RESOURCE_ANY_SIZE) {
+			size = desc->size;
+		}
+	}
+	resource = __helper_bus_allocate_resource(bus, devnode, start, size, flags & ~RESOURCE_ACTIVE, rid);
+	if (IS_ERR(resource)) {
+		return resource;
+	}
+	resource->rid = rid;
+	bus_attach_resource(devnode, resource);
+	if (flags & RESOURCE_ACTIVE) {
+		int ret = bus_activate_resource(bus, devnode, resource);
+		if (ret < 0) {
+			bus_release_resource(bus, devnode, resource);
+			return ERR2PTR(ret);
+		}
+	}
+	return resource;
+}
+
 static int driver_support_bus(driver_t *driver, devclass_t *bus_type) {
 	for (const char **current = driver->buses; current && *current; current++) {
 		if (!strcmp(*current, bus_type->name)) {

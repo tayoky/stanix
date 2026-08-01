@@ -60,9 +60,13 @@ static tty_ops_t serial_ops = {
 };
 
 static int serial_check(devnode_t *devnode) {
+	if (devnode->type == BUS_PCI) {
+		// TODO
+		return 0;
+	}
 	// we need resource for our test
 	resource_t *io_res = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, RID_ANY);
-	if (!io_res) return 0;
+	if (IS_ERR(io_res)) return 0;
 
 	int ret = 1;
 
