@@ -5,6 +5,9 @@
 #include <kernel/mmio.h>
 #include <kernel/list.h>
 #include <kernel/port.h>
+#include <kernel/assert.h>
+
+struct devnode;
 
 typedef struct resource {
 	list_node_t node;
@@ -21,17 +24,41 @@ typedef struct resource {
 #define RESOURCE_IOPORT  2
 #define RESOURCE_DMA     3
 #define RESOURCE_MEMORY  4
-#define RESOURCE_FIXED   0x100 // allocate at specifed address
+//#define RESOURCE_FIXED   0x100 // allocate at specifed address
 #define RESOURCE_SHARED  0x200 // allow the resource to be shared
 #define RESOURCE_ACTIVE  0x400 // resource is active and usable
 #define RESOURCE_BOUND   0x800 // resource is bound (associed with the device)
 //#define RESOURCE_DYNAMIC 0x800 // dynamic resource (not bound)
 
 #define RID_ANY 0 // special rid to tell that we need any resource of the specified type (and don't care about rid)
+#define RESOURCE_ANY_START ((size_t)-1)
+#define RESOURCE_ANY_SIZE ((size_t)-1)
 
-resource_t *resource_allocate(int flags, int rid, size_t start, size_t size);
+typedef struct rman_seg {
+	list_node_t node;
+	struct devnode *devnode;
+	size_t start;
+	size_t count;
+} rman_seg_t;
 
-static inline resource_t *resource_allocate_data(int flags, int rid, void *data, size_t size) {
+// rman is heavely inspired by freebsd
+typedef struct rman {
+	list_t segs;
+	const char *name;
+	int type;
+} rman_t;
+
+void init_resource(void);
+
+void rman_init(rman_t *rman, int type, const char *name);
+void rman_destroy(rman_t *rman);
+int rman_add_region(rman_t *rman, size_t start, size_t count);
+resource_t *rman_allocate(rman_t *rman, struct devnode *devnode, size_t start, size_t count, int flags);
+void rman_free(rman_t *rman, resource_t *resource);
+
+resource_t *resource_allocate(int flags, int rid, size_t start, size_t count);
+
+static inline resource_t *resource_allocate_data(int flags, int rid, void *data) {
 	return resource_allocate(flags, rid, (size_t)data, size);
 }
 

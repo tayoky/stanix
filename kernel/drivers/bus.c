@@ -257,14 +257,3 @@ char *device_get_dup_name(devnode_t *device) {
 	device_print_name(device, name, len);
 	return name;
 }
-
-resource_t *resource_allocate(int flags, int rid, size_t start, size_t size) {
-	resource_t *resource = slab_alloc(&resources_slab);
-	if (!resource) return NULL;
-	memset(resource, 0, sizeof(resource_t));
-	resource->flags = flags;
-	resource->rid   = rid;
-	resource->start = start;
-	resource->size  = size;
-	return resource;
-}

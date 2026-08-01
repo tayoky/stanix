@@ -42,9 +42,9 @@ typedef struct driver {
 	int (*probe)(devnode_t *devnode);
 	void (*detach)(devnode_t *devnode);
 	resource_t *(*allocate_resource)(devnode_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid);
-	void (*release_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
+	int (*release_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
 	int (*activate_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
-	void (*deactivate_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
+	int (*deactivate_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
 } driver_t;
 
 #define BUSES(...) (const char *[]){__VA_ARGS__, NULL}
@@ -173,11 +173,11 @@ static inline resource_t *bus_allocate_resource(devnode_t *devnode, size_t start
 }
 
 static inline resource_t *bus_allocate_count_resource(devnode_t *devnode, size_t count, int flags, int rid) {
-	return bus_allocate_resource(devnode, 0, count, flags, rid);
+	return bus_allocate_resource(devnode, RESOURCE_ANY_START, count, flags, rid);
 }
 
 static inline resource_t *bus_allocate_simple_resource(devnode_t *devnode, int flags, int rid) {
-	return bus_allocate_resource(devnode, 0, 0, flags, rid);
+	return bus_allocate_resource(devnode, RESOURCE_ANY_DTART, RESOURCE_ANY_SIZE, flags, rid);
 }
 
 void bus_set_root(devnode_t *bus);

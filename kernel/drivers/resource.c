@@ -1,0 +1,142 @@
+#include <kernel/list.h>
+#include <kernel/slab.h>
+#include <kernel/bus.h>
+#include <kernel/resource.h>
+#include <kernel/string.h>
+
+static slab_cache_t resources_slab;
+static slab_cache_t rman_segs_slab;
+
+void init_resource(void) {
+	slab_init(&resources_slab, sizeof(resource_t), "resources");
+	slab_init(&rman_segs_slab, sizeof(rman_seg_t), "rman-segs");
+}
+
+resource_t *resource_allocate(int flags, int rid, size_t start, size_t size) {
+	resource_t *resource = slab_alloc(&resources_slab);
+	if (!resource) return NULL;
+	memset(resource, 0, sizeof(resource_t));
+	resource->flags = flags;
+	resource->rid   = rid;
+	resource->start = start;
+	resource->size  = size;
+	return resource;
+}
+
+static rman_seg_t *rman_allocate_seg(rman_t *rman, size_t start, size_t count) {
+	rman_seg_t *seg = slab_alloc(&rman_segs_slab);
+	if (!seg) return NULL;
+	memset(seg, 0, sizeof(rman_seg_t));
+	seg->start = start;
+	seg->count = count;
+	return seg;
+}
+
+static rman_seg_t *rman_get_seg_before(rman_t *rman, size_t addr) {
+	rman_seg_t *prev = NULL;
+	foreach(node, &rman->segs) {
+		rman_seg_t *seg = container_of(node, rman_seg_t, node);
+		if (seg->start >= addr) {
+			// we are beyond
+			break;
+		}
+	}
+	return prev;
+}
+
+static rman_seg_t *rman_get_seg_at(rman_t *rman, size_t addr) {
+	rman_seg_t *prev = NULL;
+	foreach(node, &rman->segs) {
+		rman_seg_t *seg = container_of(node, rman_seg_t, node);
+		if (seg->start > addr) {
+			// we are beyond
+			break;
+		}
+	}
+	return prev;
+}
+
+static int rman_seg_is_allocated(rman_seg_t *seg) {
+	return seg->devnode != NULL;
+}
+
+void rman_init(rman_t *rman, int type, const char *name) {
+	memset(rman, 0, sizeof(rman_t));
+	rman->type = type;
+	rman->name = name;
+}
+
+void rman_destroy(rman_t *rman) {
+	kwarning("TODO : rman_destroy\n");
+}
+
+int rman_add_region(rman_t *rman, size_t start, size_t count) {
+	rman_seg_t *before = rman_get_seg_before(rman, start);
+
+	if (rman->segs.first_node) {
+		// check if we would overlap
+		list_node_t *after_node = before ? before->next : rman->segs.first_node;
+		rman_seg_t *after = container_of(after_node, rman_seg_t, node);
+		if (after->start < start + count) {
+			// we would overlap
+			return -EINVAL;
+		}
+	}
+	rman_seg_t *seg = rman_allocate_seg(start, count);
+	if (!seg) return -ENOMEM;
+	list_add_after(&rman->segs, before ? &before->node : NULL, &seg->node);
+	return 0;
+}
+
+resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, struct size_t start, size_t count, int flags) {
+	// TODO : implement RESOURCE_SHARED
+	if (count == RESOURCE_ANY_COUNT) {
+		count = 1;
+	}
+
+	rman_seg_t *seg = NULL;
+	if (start == RESOURCE_ANY_START) {
+		foreach(node, &rman->segs) {
+			rman_seg_t *cur_seg = container_of(node, rman_seg_t, node);
+			if (!rman_seg_is_allocated(cur_seg) && cur_seg->count >= count) {
+				seg = cur_seg;
+			}
+		}
+	} else {
+		seg = rman_get_seg_at(rman, start);
+		if (!seg || rman_seg_is_allocated(seg) || seg->start + seg->count < start + count) {
+			return ERR2PTR(-ENOMEM)Q;
+		}
+	}
+
+	// we found a seg
+	// we might need to split
+	
+	if (seg->start < start) {
+		// split before
+		rman_seg_t *new_seg = rman_allocate_seg(seg->start, start - seg->start);
+		if (!seg) return ERR2PTR(-ENOMEM);
+		seg->count -= new_seg->count;
+		seg->start += new_seg->count;
+		list_add_before(&seg->node, &new_seg->node);
+	}
+
+	if (seg->count > count) {
+		// split after
+		rman_seg_t *new_seg = rman_allocate_seg(start + count, seg->count - count);
+		if (!seg) return ERR2PTR(-ENOMEM);
+		seg->count -= new_seg->count;
+		list_add_after(&seg->node, &new_seg->node);
+	}
+
+
+	resource_t *resource = resource_allocate(RID_ANY, flags | rman->type, seg->start, seg->count);
+	if (!resource) return ERR2PTR(-ENOMEM);
+
+	seg->devnode = devnode;
+	return resource;
+}
+
+void rman_free(rman_t *rman, resource_t *resource) {
+	kwarning("TODO : rman_free\n");
+}
