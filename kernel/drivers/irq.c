@@ -1,6 +1,7 @@
 #include <kernel/irq.h>
 #include <kernel/print.h>
 #include <kernel/slab.h>
+#include <kernel/panic.h>
 #include <kernel/string.h>
 
 // irq manager
@@ -25,6 +26,20 @@ void init_irq(void) {
 	init_arch_irq();
 }
 
+static void irq_lazy_allocate_vector(irq_t *irq) {
+	if (irq->vector == IRQ_VECTOR_ALLOCATE) {
+		// allocate vector
+		for (intrnum_t i=64; i<arraylen(vector2irq); i++) {
+			if (!vector2irq[i]) {
+				irq->vector = i;
+				vector2irq[i] = irq;
+				return;
+			}
+		}
+		panic("out of cpu vector", NULL);
+	}
+}
+
 #define IRQ_CHIP_OP(irq_chip, op, ...) \
 	if (irq_chip->op) { \
 		return irq_chip->op(irq_chip, __VA_ARGS__); \
@@ -42,6 +57,7 @@ void irq_mask(irq_t *irq) {
 }
 
 void irq_unmask(irq_t *irq) {
+	irq_lazy_allocate_vector(irq);
 	IRQ_CHIP_OP(irq->irq_chip, unmask, irq);
 }
 
@@ -86,17 +102,8 @@ void irq_free(irq_t *irq) {
 }
 
 void irq_set_vector(irq_t *irq, intrnum_t vector) {
-	if (vector == IRQ_VECTOR_ALLOCATE) {
-		// allocate vector
-		for (intrnum_t i=64; i<arraylen(vector2irq); i++) {
-			if (!vector2irq[i]) {
-				vector = i;
-				break;
-			}
-		}
-	}
 	irq->vector = vector;
-	if (vector < 0 || vector >= arraylen(vector2irq)) {
+	if (vector < 0 || vector >= arraylen(vector2irq) || vector == IRQ_VECTOR_ALLOCATE) {
 		return;
 	}
 	vector2irq[vector] = irq;
@@ -125,8 +132,7 @@ irq_t *irq_from_vector(intrnum_t vector) {
 
 void irq_dispatch_vector(intrnum_t vector, registers_t *registers) {
 	irq_t *irq = irq_from_vector(vector);
-	if (!irq) {
-		// no irq to dispatch
+	if (irq) {
 		irq_eoi(irq);
 		irq_handle(irq, registers);
 	}
