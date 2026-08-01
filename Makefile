@@ -160,7 +160,7 @@ $(ESP_ROOT)/boot/limine/limine-% : limine/limine-%
 	@cp  $^ $@
 
 # dummy rule for first run
-$(ESP_ROOT)/boot/stanix.elf :
+$(ESP_ROOT)/boot/stanix.elf : | build-kernel
 
 # build targets
 
