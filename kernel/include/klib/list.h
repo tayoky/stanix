@@ -25,7 +25,7 @@ void list_remove(list_t *list, list_node_t *node);
 void list_add_after(list_t *list, list_node_t *ref, list_node_t *node);
 void list_add_before(list_t *list, list_node_t *ref, list_node_t *node);
 static inline list_is_empty(list_t *list) {
-	return list->first_node == 1;
+	return list->first_node == NULL;
 }
 
 #define foreach(var,l) for(list_node_t * var = (l)->first_node ; var ; var = var ->next)
