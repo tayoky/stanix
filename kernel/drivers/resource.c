@@ -53,20 +53,23 @@ static rman_seg_t *rman_get_seg_before(rman_t *rman, size_t addr) {
 			// we are beyond
 			break;
 		}
+		prev = seg;
 	}
 	return prev;
 }
 
 static rman_seg_t *rman_get_seg_at(rman_t *rman, size_t addr) {
-	rman_seg_t *prev = NULL;
 	foreach(node, &rman->segs) {
 		rman_seg_t *seg = container_of(node, rman_seg_t, node);
+		if (seg->start <= addr && seg->start + seg->size > addr) {
+			return seg;
+		}
 		if (seg->start > addr) {
 			// we are beyond
 			break;
 		}
 	}
-	return prev;
+	return NULL;
 }
 
 static int rman_seg_is_allocated(rman_seg_t *seg) {
@@ -80,11 +83,25 @@ void rman_init(rman_t *rman, int type, const char *name) {
 }
 
 void rman_destroy(rman_t *rman) {
-	kwarningf("TODO : rman_destroy\n");
+	list_node_t *node = rman->segs.first_node;
+	while (node) {
+		rman_seg_t *seg = container_of(node, rman_seg_t, node);
+		node = node->next;
+		
+		// ensure the seg is not in use
+		kassert(!rman_seg_is_allocated(seg));
+
+		list_remove(&rman->segs, &seg->node);
+		slab_free(seg);
+	}
 }
 
 int rman_add_region(rman_t *rman, size_t start, size_t size) {
 	rman_seg_t *before = rman_get_seg_before(rman, start);
+	if (before && (before->start + before->size > start)) {
+		// we would overlap
+		return -EINVAL;
+	}
 
 	if (!list_is_empty(&rman->segs)) {
 		// check if we would overlap
@@ -133,6 +150,7 @@ resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, size_t start, size_t
 				} else {
 					start = seg->start;
 				}
+				break;
 			}
 		}
 	} else {
@@ -148,7 +166,7 @@ resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, size_t start, size_t
 	if (seg->start < start) {
 		// split before
 		rman_seg_t *new_seg = rman_allocate_seg(seg->start, start - seg->start);
-		if (!seg) return ERR2PTR(-ENOMEM);
+		if (!new_seg) return ERR2PTR(-ENOMEM);
 		seg->size -= new_seg->size;
 		seg->start += new_seg->size;
 		list_add_before(&rman->segs, &seg->node, &new_seg->node);
@@ -157,19 +175,47 @@ resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, size_t start, size_t
 	if (seg->size > size) {
 		// split after
 		rman_seg_t *new_seg = rman_allocate_seg(start + size, seg->size - size);
-		if (!seg) return ERR2PTR(-ENOMEM);
+		if (!new_seg) return ERR2PTR(-ENOMEM);
 		seg->size -= new_seg->size;
 		list_add_after(&rman->segs, &seg->node, &new_seg->node);
 	}
 
 
-	resource_t *resource = resource_allocate(RID_ANY, flags | rman->type, seg->start, seg->size);
+	resource_t *resource = resource_allocate(flags | rman->type, RID_ANY, seg->start, seg->size);
 	if (!resource) return ERR2PTR(-ENOMEM);
+	resource->private = seg;
 
 	seg->devnode = devnode;
 	return resource;
 }
 
 void rman_free(rman_t *rman, resource_t *resource) {
-	kwarningf("TODO : rman_free\n");
+	if (!resource) return;
+	rman_seg_t *seg = resource->private;
+	
+	// mark seg as free
+	seg->devnode = NULL;
+
+	// merge with prev
+	if (seg->node.prev) {
+		rman_seg_t *prev_seg = container_of(seg->node.prev, rman_seg_t, node);
+		if (prev_seg->start + prev_seg->size == seg->start && !rman_seg_is_allocated(prev_seg)) {
+			list_remove(&rman->segs, &prev_seg->node);
+			seg->start = prev_seg->start;
+			seg->size += prev_seg->size;
+			slab_free(prev_seg);
+		}
+	}
+
+	// merge with next
+	if (seg->node.next) {
+		rman_seg_t *next_seg = container_of(seg->node.next, rman_seg_t, node);
+		if (seg->start + seg->size == next_seg->start && !rman_seg_is_allocated(next_seg)) {
+			list_remove(&rman->segs, &next_seg->node);
+			seg->size += next_seg->size;
+			slab_free(next_seg);
+		}
+	}
+
+	slab_free(resource);
 }
