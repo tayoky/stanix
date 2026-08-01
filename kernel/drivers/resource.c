@@ -78,6 +78,7 @@ static int rman_seg_is_allocated(rman_seg_t *seg) {
 
 void rman_init(rman_t *rman, int type, const char *name) {
 	memset(rman, 0, sizeof(rman_t));
+	mutex_init(&rman->mutex);
 	rman->type = type;
 	rman->name = name;
 }
@@ -96,7 +97,7 @@ void rman_destroy(rman_t *rman) {
 	}
 }
 
-int rman_add_region(rman_t *rman, size_t start, size_t size) {
+static int rman_raw_add_region(rman_t *rman, size_t start, size_t size) {
 	rman_seg_t *before = rman_get_seg_before(rman, start);
 	if (before && (before->start + before->size > start)) {
 		// we would overlap
@@ -120,11 +121,24 @@ int rman_add_region(rman_t *rman, size_t start, size_t size) {
 	return 0;
 }
 
-void rman_set_dynamic_start(rman_t *rman, size_t start) {
+int rman_add_region(rman_t *rman, size_t start, size_t size) {
+	mutex_acquire(&rman->mutex);
+	int ret = rman_raw_add_region(rman, start, size);
+	mutex_release(&rman->mutex);
+	return ret;
+}
+
+static void rman_raw_set_dynamic_start(rman_t *rman, size_t start) {
 	rman->dynamic_start = start;
 }
 
-resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, size_t start, size_t size, int flags) {
+void rman_set_dynamic_start(rman_t *rman, size_t start) {
+	mutex_acquire(&rman->mutex);
+	rman_raw_set_dynamic_start(rman, start);
+	mutex_release(&rman->mutex);
+}
+
+static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, size_t start, size_t size, int flags) {
 	// TODO : implement RESOURCE_SHARED
 	if (size == RESOURCE_ANY_SIZE) {
 		size = 1;
@@ -189,7 +203,14 @@ resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, size_t start, size_t
 	return resource;
 }
 
-void rman_free(rman_t *rman, resource_t *resource) {
+resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, size_t start, size_t size, int flags) {
+	mutex_acquire(&rman->mutex);
+	resource_t *ret = rman_raw_allocate(rman, devnode, start, size, flags);
+	mutex_release(&rman->mutex);
+	return ret;
+}
+
+static void rman_raw_free(rman_t *rman, resource_t *resource) {
 	if (!resource) return;
 	rman_seg_t *seg = resource->private;
 	
@@ -218,4 +239,10 @@ void rman_free(rman_t *rman, resource_t *resource) {
 	}
 
 	slab_free(resource);
+}
+
+void rman_free(rman_t *rman, resource_t *resource) {
+	mutex_acquire(&rman->mutex);
+	rman_raw_free(rman, resource);
+	mutex_release(&rman->mutex);
 }

@@ -5,6 +5,7 @@
 #include <kernel/mmio.h>
 #include <kernel/list.h>
 #include <kernel/port.h>
+#include <kernel/mutex.h>
 #include <kernel/assert.h>
 
 struct devnode;
@@ -51,6 +52,7 @@ typedef struct rman_seg {
 
 // rman is heavely inspired by freebsd
 typedef struct rman {
+	mutex_t mutex;
 	list_t segs;
 	size_t dynamic_start;
 	const char *name;
