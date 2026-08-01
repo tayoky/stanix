@@ -42,8 +42,11 @@ typedef struct serial {
 static void serial_handler(registers_t *frame, void *data) {
 	(void)frame;
 	serial_t *serial = data;
-	
-	tty_input(&serial->tty, resource_read8(serial->io_res, SERIAL_DATA));
+
+	uint8_t lsr = resource_read8(serial->io_res, SERIAL_LSR);
+	if (lsr & SERIAL_LSR_DR) {
+		tty_input(&serial->tty, resource_read8(serial->io_res, SERIAL_DATA));
+	}
 }
 
 static ssize_t serial_out(tty_t *tty, const char *buf, size_t size) {
@@ -61,10 +64,15 @@ static tty_ops_t serial_ops = {
 
 static int serial_check(devnode_t *devnode) {
 	if (devnode->type == BUS_PCI) {
-		// TODO
-		return 0;
+		pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
+		if (pci_dev->class != 0x7 || pci_dev->subclass != 0x00 || 
+				(pci_dev->prog_if != 0x2 && pci_dev->prog_if != 0x1)) {
+			// wrong pci device
+			return 0;
+		}
 	}
 	// we need resource for our test
+	// TODO : MMIO support
 	resource_t *io_res = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, RID_ANY);
 	if (IS_ERR(io_res)) return 0;
 
@@ -144,7 +152,7 @@ static int serial_probe(devnode_t *devnode) {
 	return 0;
 
 error:
-	resource_unregister_handler(serial->io_res, serial->handler_handle);
+	resource_unregister_handler(serial->irq_res, serial->handler_handle);
 	device_release_resource(devnode, serial->irq_res);
 	device_release_resource(devnode, serial->io_res);
 	kfree(serial);
@@ -154,21 +162,13 @@ error:
 static driver_t serial_driver = {
 	.name = "serial port",
 	.device_name = "serial%d",
-	.buses = BUSES("root", "pci", "isa"),
+	.buses = BUSES("pci", "isa"),
 	.check = serial_check,
 	.probe = serial_probe,
 };
 
 static int serial_init(int argc,char **argv) {
 	driver_register(&serial_driver);
-
-	// TODO : use isa bus instead
-	// this is used as a proof of concept
-	devnode_t *device = device_allocate();
-	bus_add_resource_desc(device, RESOURCE_IOPORT, RID_ANY, 0x3f8, 8);
-	irq_t *irq = irq_get_from_hwirq(main_irq_chip, 4);
-	bus_add_resource_desc_data(device, RESOURCE_IRQ, RID_ANY, irq, 1);
-	bus_attach_child(bus_get_root(), device, "serial%d", 0);
 	return 0;
 }
 
