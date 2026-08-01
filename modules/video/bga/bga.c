@@ -8,6 +8,7 @@
 #include <kernel/bus.h>
 #include <module/pci.h>
 #include <module/bga.h>
+#include <stdint.h>
 #include <errno.h>
 
 // TRM's BGA driver
@@ -15,7 +16,7 @@
 typedef struct bga {
 	trm_gpu_t gpu;
 	resource_t *vram_res;
-	resource_t *io_res
+	resource_t *io_res;
 	uint16_t version;
 	uint16_t max_x;
 	uint16_t max_y;
@@ -141,7 +142,7 @@ static int bga_probe(devnode_t *devnode) {
 	memset(bga, 0, sizeof(bga_t));
 
 	// get resources
-	bga->vram_res = device_allocate_simple_resource(devnode, RESOURCE_MEMORY | RESOURCE_ACTIVATE, PCI_RID_BAR0);
+	bga->vram_res = device_allocate_simple_resource(devnode, RESOURCE_MEMORY | RESOURCE_ACTIVE, PCI_RID_BAR0);
 	bga->io_res   = device_allocate_resource(devnode, VBE_DISPI_IOPORT_INDEX, 3, RESOURCE_IOPORT, RID_ANY);
 	bga->version = bga_read(bga, VBE_DISPI_INDEX_ID);
 	if (bga->version >= VBE_DISPI_ID3) {

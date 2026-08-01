@@ -9,6 +9,7 @@ BUILDENV_SHELL = $(SHELL)
 
 INITRD = $(BUILDDIR)/initrd
 BASE_INITRD = $(CURDIR)/initrd
+BASE_INITRD_SRC = $(find $(BASE_INITRD) -type f)
 
 ifeq ($(findstring clean,$(MAKECMDGOALS))$(findstring header, $(MAKECMDGOALS)),)
 include config.mk
@@ -182,7 +183,7 @@ build-userspace : build-tlibc build-libraries
 	@$(MAKE) -C userspace install BUILDDIR=$(BUILDDIR)/userspace
 
 build-initrd : $(ESP_ROOT)/boot/initrd.tar
-$(ESP_ROOT)/boot/initrd.tar : $(shell find -P $(INITRD) 2>/dev/null || echo) $(shell find -P $(SYSROOT)) | build-userspace build-modules
+$(ESP_ROOT)/boot/initrd.tar : $(BASE_INITRD_SRC)  $(shell find -P $(INITRD) 2>/dev/null || echo) $(shell find -P $(SYSROOT)) | build-userspace build-modules
 	@mkdir -p $(@D)
 	@echo "GEN boot/initrd.tar"
 	@mkdir -p $(INITRD)/dev $(INITRD)/tmp $(INITRD)/mnt $(INITRD)/proc $(INITRD)/sys

@@ -367,7 +367,7 @@ void vmm_space_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 
 static int vmm_space_raw_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end) {
 	if (list_is_empty(&space->segs)) {
-		return;
+		return 0;
 	}
 
 	vmm_seg_t *seg = container_of(space->segs.first_node, vmm_seg_t, node);

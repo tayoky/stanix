@@ -4,6 +4,7 @@
 #include <kernel/vfs.h>
 #include <kernel/device.h>
 #include <kernel/kheap.h>
+#include <kernel/bus.h>
 #include <kernel/irq.h>
 #include <kernel/arch.h>
 #include <kernel/port.h>
@@ -60,7 +61,7 @@ static tty_ops_t serial_ops = {
 
 static int serial_check(devnode_t *devnode) {
 	// we need resource for our test
-	resource_t *io_res = device_allocate_resource(devnode, RESOURCE_IOPORT, RID_ANY);
+	resource_t *io_res = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, RID_ANY);
 	if (!io_res) return 0;
 
 	int ret = 1;
@@ -98,12 +99,12 @@ static int serial_probe(devnode_t *devnode) {
 	memset(serial, 0, sizeof(serial_t));
 
 	// get resources
-	serial->io_res  = device_allocate_resource(devnode, RESOURCE_IOPORT, RID_ANY);
+	serial->io_res  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, RID_ANY);
 	if (IS_ERR(serial->io_res)) {
 		ret = PTR2ERR(serial->io_res);
 		goto error;
 	}
-	serial->irq_res = device_allocate_resource(devnode, RESOURCE_IRQ, RID_ANY);
+	serial->irq_res = device_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
 	if (IS_ERR(serial->irq_res)) {
 		ret = PTR2ERR(serial->irq_res);
 		goto error;
@@ -133,7 +134,7 @@ static int serial_probe(devnode_t *devnode) {
 		goto error;
 	}
 
-	ret = device_register(&tty->device, "ttyS%d", 0);
+	ret = device_register(&serial->tty.device, "ttyS%d", 0);
 	if (ret < 0) goto error;
 
 	return 0;
@@ -160,9 +161,9 @@ static int serial_init(int argc,char **argv) {
 	// TODO : use isa bus instead
 	// this is used as a proof of concept
 	devnode_t *device = device_allocate();
-	device_add_resource_desc(RESOURCE_IOPORT, RID_ANY, 0x3f8, 8);
+	bus_add_resource_desc(device, RESOURCE_IOPORT, RID_ANY, 0x3f8, 8);
 	irq_t *irq = irq_get_from_hwirq(main_irq_chip, 4);
-	device_add_resource_desc_data(RESOURCE_IRQ, RID_ANY, irq, 1);
+	bus_add_resource_desc_data(device, RESOURCE_IRQ, RID_ANY, irq, 1);
 	bus_attach_child(bus_get_root(), device, "serial%d", 0);
 }
 

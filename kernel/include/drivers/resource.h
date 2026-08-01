@@ -9,13 +9,13 @@
 
 struct devnode;
 
-typedef struct resource_dsec {
+typedef struct resource_desc {
 	list_node_t node;
 	size_t start;
-	size_t count;
+	size_t size;
 	int flags;
 	int rid;
-} resource_dsec_t;
+} resource_desc_t;
 
 typedef struct resource {
 	list_node_t node;
@@ -46,7 +46,7 @@ typedef struct rman_seg {
 	list_node_t node;
 	struct devnode *devnode;
 	size_t start;
-	size_t count;
+	size_t size;
 } rman_seg_t;
 
 // rman is heavely inspired by freebsd
@@ -61,18 +61,18 @@ void init_resource(void);
 
 void rman_init(rman_t *rman, int type, const char *name);
 void rman_destroy(rman_t *rman);
-int rman_add_region(rman_t *rman, size_t start, size_t count);
+int rman_add_region(rman_t *rman, size_t start, size_t size);
 void rman_set_dynamic_start(rman_t *rman, size_t start);
-resource_t *rman_allocate(rman_t *rman, struct devnode *devnode, size_t start, size_t count, int flags);
+resource_t *rman_allocate(rman_t *rman, struct devnode *devnode, size_t start, size_t size, int flags);
 void rman_free(rman_t *rman, resource_t *resource);
 
-resource_t *resource_allocate(int flags, int rid, size_t start, size_t count);
+resource_t *resource_allocate(int flags, int rid, size_t start, size_t size);
 
 static inline resource_t *resource_allocate_data(int flags, int rid, void *data, size_t size) {
 	return resource_allocate(flags, rid, (size_t)data, size);
 }
 
-resource_desc_t *resource_desc_allocate(int flags, int rid, size_t start, size_t count);
+resource_desc_t *resource_desc_allocate(int flags, int rid, size_t start, size_t size);
 
 static inline resource_desc_t *resource_desc_allocate_data(int flags, int rid, void *data, size_t size) {
 	return resource_desc_allocate(flags, rid, (size_t)data, size);

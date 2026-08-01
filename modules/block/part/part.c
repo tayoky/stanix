@@ -128,7 +128,6 @@ static int create_part(vfs_fd_t *dev, const char *target, off_t offset, size_t s
 	p->info   = *info;
 	p->device.type    = DEVICE_BLOCK;
 	p->device.name    = strdup(path);
-	p->device.driver  = &part_driver;
 	p->device.ops     = &part_ops;
 	p->device.destroy = part_destroy;
 	int ret = device_register(&p->device, path, makedev(part_major, 0));

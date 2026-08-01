@@ -241,14 +241,9 @@ static size_t setup_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar) {
 	
 	if (is_ioport) {
 		// io port
-		resource_t *io_res = bus_resource_allocate(pci_bus, &pci_dev->devnode, base, bar_size, RESOURCE_IOPORT, PCI_RID_BAR(bar));
-		if (IS_ERR(io_res)) {
-			goto finish;
-		}
-		io_res->flags |= RESOURCE_BOUND;
+		bus_add_resource_desc(&pci_dev->devnode, RESOURCE_IOPORT, PCI_RID_BAR(bar), base, bar_size);
 	} else {
-		resource_t *mem_res = resource_allocate(RESOURCE_MEMORY, PCI_RID_BAR(bar), base, bar_size);
-		bus_attach_bound_resource(&pci_dev->devnode, mem_res);
+		bus_add_resource_desc(&pci_dev->devnode, RESOURCE_MEMORY, PCI_RID_BAR(bar), base, bar_size);
 	}
 finish:
 	return is_64bits ? 2 : 1;

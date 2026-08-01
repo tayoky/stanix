@@ -42,7 +42,7 @@ typedef struct driver {
 	int (*check)(devnode_t *devnode);
 	int (*probe)(devnode_t *devnode);
 	void (*detach)(devnode_t *devnode);
-	resource_t *(*allocate_resource)(devnode_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid);
+	resource_t *(*allocate_resource)(devnode_t *bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid);
 	int (*release_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
 	int (*activate_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
 	int (*deactivate_resource)(devnode_t *bus, devnode_t *devnode, resource_t *resource);
@@ -83,11 +83,11 @@ static inline void bus_detach_resource(devnode_t *devnode, resource_t *resource)
 }
 
 static inline void bus_attach_resource_desc(devnode_t *devnode, resource_desc_t *resource_desc) {
-	list_append(&devnode->resource_descs, &resource->node);
+	list_append(&devnode->resource_descs, &resource_desc->node);
 }
 
-static inline int bus_add_resource_desc(devnode_t *devnode, int flags, int rid, size_t start, size_t count) {
-	resource_desc_t *desc = resource_desc_allocate(flags, rid, start, count);
+static inline int bus_add_resource_desc(devnode_t *devnode, int flags, int rid, size_t start, size_t size) {
+	resource_desc_t *desc = resource_desc_allocate(flags, rid, start, size);
 	if (!desc) {
 		return -ENOMEM;
 	}
@@ -99,7 +99,7 @@ static inline int bus_add_resource_desc_data(devnode_t *devnode, int flags, int 
 }
 
 static inline void bus_detach_resource_desc(devnode_t *devnode, resource_desc_t *resource_desc) {
-	list_remove(&devnode->resource_descs, &resource->node);
+	list_remove(&devnode->resource_descs, &resource_desc->node);
 }
 
 static inline resource_desc_t *device_get_resource_desc(devnode_t *devnode, int flags, int rid) {
@@ -162,19 +162,16 @@ static inline void bus_release_resource(devnode_t *bus, devnode_t *devnode, reso
 	if (resource->flags & RESOURCE_ACTIVE) {
 		bus_deactivate_resource(bus, devnode, resource);
 	}
-	if (resource->flags & RESOURCE_BOUND) {
-		return;
-	}
 	bus_detach_resource(devnode, resource);
 	BUS_UPWARD_OP(bus, release_resource, devnode, resource);
 }
 
-static inline resource_t *__helper_bus_allocate_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid) {
-	BUS_UPWARD_OP(bus, allocate_resource, devnode, start, count, flags, rid);
+static inline resource_t *__helper_bus_allocate_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
+	BUS_UPWARD_OP(bus, allocate_resource, devnode, start, size, flags, rid);
 	return ERR2PTR(-EINVAL);
 }
 
-static inline resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid) {
+static inline resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
 	// maybee we already have a resource for this rid
 	resource_t *resource = device_get_resource(devnode, flags, rid);
 	if (resource) return resource;
@@ -185,11 +182,11 @@ static inline resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devno
 		if (start == RESOURCE_ANY_START) {
 			start = desc->start;
 		}
-		if (count == RESOURCE_ANY_COUNT) {
-			count = desc->count;
+		if (size == RESOURCE_ANY_SIZE) {
+			size = desc->size;
 		}
 	}
-	resource = __helper_bus_allocate_resource(bus, devnode, start, count, flags & ~RESOURCE_ACTIVE, rid);
+	resource = __helper_bus_allocate_resource(bus, devnode, start, size, flags & ~RESOURCE_ACTIVE, rid);
 	if (IS_ERR(resource)) {
 		return resource;
 	}
@@ -205,24 +202,24 @@ static inline resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devno
 	return resource;
 }
 
-static inline resource_t *bus_allocate_count_resource(devnode_t *bus, devnode_t *devnode, size_t count, int flags, int rid) {
-	return bus_allocate_resource(bus, devnode, RESOURCE_ANY_START, count, flags, rid);
+static inline resource_t *bus_allocate_count_resource(devnode_t *bus, devnode_t *devnode, size_t size, int flags, int rid) {
+	return bus_allocate_resource(bus, devnode, RESOURCE_ANY_START, size, flags, rid);
 }
 
 static inline resource_t *bus_allocate_simple_resource(devnode_t *bus, devnode_t *devnode, int flags, int rid) {
-	return bus_allocate_resource(bus, devnode, RESOURCE_ANY_DTART, RESOURCE_ANY_SIZE, flags, rid);
+	return bus_allocate_resource(bus, devnode, RESOURCE_ANY_START, RESOURCE_ANY_SIZE, flags, rid);
 }
 
-static inline resource_t *device_allocate_resource(devnode_t *devnode, size_t start, size_t count, int flags, int rid) {
-	return bus_allocate_resource(devnode->parent, devnode, start, count, flags, rid);
+static inline resource_t *device_allocate_resource(devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
+	return bus_allocate_resource(devnode->parent, devnode, start, size, flags, rid);
 }
 
-static inline resource_t *device_allocate_count_resource(devnode_t *devnode, size_t count, int flags, int rid) {
-	return device_allocate_resource(devnode, RESOURCE_ANY_START, count, flags, rid);
+static inline resource_t *device_allocate_count_resource(devnode_t *devnode, size_t size, int flags, int rid) {
+	return device_allocate_resource(devnode, RESOURCE_ANY_START, size, flags, rid);
 }
 
 static inline resource_t *device_allocate_simple_resource(devnode_t *devnode, int flags, int rid) {
-	return bus_allocate_resource(devnode, RESOURCE_ANY_DTART, RESOURCE_ANY_SIZE, flags, rid);
+	return device_allocate_resource(devnode, RESOURCE_ANY_START, RESOURCE_ANY_SIZE, flags, rid);
 }
 
 static inline void device_release_resource(devnode_t *devnode, resource_t *resource) {
