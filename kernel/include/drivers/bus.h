@@ -115,7 +115,7 @@ static inline void bus_detach_resource_desc(devnode_t *devnode, resource_desc_t 
 static inline resource_desc_t *device_get_resource_desc(devnode_t *devnode, int flags, int rid) {
 	foreach (node, &devnode->resource_descs) {
 		resource_desc_t *desc = container_of(node, resource_desc_t, node);
-		if ((desc->flags & RESOURCE_TYPE) == (flags & RESOURCE_TYPE) && ((rid == RID_ANY) || (desc->rid == rid))) {
+		if ((desc->request.flags & RESOURCE_TYPE) == (flags & RESOURCE_TYPE) && ((rid == RID_ANY) || (desc->rid == rid))) {
 			return desc;
 		}
 	}

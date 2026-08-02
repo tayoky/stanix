@@ -140,8 +140,8 @@ void bus_delete_child(devnode_t *bus, devnode_t *child) {
 	slab_free(child);
 }
 
-static resource_t *__helper_bus_allocate_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
-	BUS_UPWARD_OP(bus, allocate_resource, devnode, start, size, flags, rid);
+static resource_t *__helper_bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_request_t *request, int rid) {
+	BUS_UPWARD_OP(bus, allocate_resource, devnode, request, rid);
 	return ERR2PTR(-EINVAL);
 }
 
@@ -167,7 +167,7 @@ resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_r
 		if (request->bound == RESOURCE_ANY_BOUND) {
 			request->bound = desc->request.bound;
 		}
-		request->flags |= desc->flags & ~RESOURCE_TYPE;
+		request->flags |= desc->request.flags & ~RESOURCE_TYPE;
 	}
 	request->flags &= ~RESOURCE_ACTIVE;
 	resource = __helper_bus_allocate_resource(bus, devnode, request, rid);
