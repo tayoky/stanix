@@ -261,14 +261,22 @@ int device_attach_driver_auto(devnode_t *device) {
 	return 0;
 }
 
-void device_detach_driver(devnode_t *device) {
+int device_detach_driver(devnode_t *device) {
 	if (!device_has_attached_driver(device)) {
-		return;
+		return 0;
 	}
-	if (device->driver->detach) {
-		device->driver->detach(device);
+	if (!device->driver->detach) {
+		kwarningf("driver %s cannot be detached\n", device->driver->name);
+		return -ENOTSUP;
+	}
+	device->driver->detach(device);
+	// detach device
+	if (device->device) {
+		device->device->devnode = NULL;
+		device->device = NULL;
 	}
 	device->driver = NULL;
+	return 0;
 }
 
 int device_set_name(devnode_t *device, const char *name, int unit) {

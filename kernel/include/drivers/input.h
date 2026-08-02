@@ -10,7 +10,8 @@ struct input_device;
 
 typedef struct input_ops {
 	int (*ioctl)(struct input_device *device, long req, void *arg);
-	int (*destroy)(struct input_device *device);
+	void (*destroy)(struct input_device *device);
+	void (*cleanup)(struct input_device *cleanup);
 } input_ops_t;
 
 typedef struct input_device {
@@ -18,8 +19,8 @@ typedef struct input_device {
 	vfs_fd_t *controlling_fd;
 	input_ops_t *ops;
 	ringbuffer_t events;
-    unsigned long class;
-    unsigned long subclass;
+	unsigned long class;
+	unsigned long subclass;
 	char layout[INPUT_LAYOUT_SIZE];
 } input_device_t;
 

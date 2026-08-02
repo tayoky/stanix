@@ -20,6 +20,9 @@ static void input_device_drop_control(input_device_t *device) {
 static int input_device_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	int ret = -EINVAL;
 	input_device_t *device = fd->private;
+	if (device_is_unplugged(&device->device)) {
+		return -ENXIO;
+	}
 	switch (req) {
 	case I_INPUT_GET_CONTROL:
 		kdebugf("process %d take control\n", get_current_proc()->pid);
@@ -50,6 +53,9 @@ static int input_device_ioctl(vfs_fd_t *fd, long req, void *arg) {
 static ssize_t input_device_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	(void)offset;
 	input_device_t *device = fd->private;
+	if (device_is_unplugged(&device->device)) {
+		return -ENXIO;
+	}
 	check_control(0);
 
 	// can only read full events
@@ -101,11 +107,19 @@ static int input_device_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 }
 
 static void input_device_destroy(device_t *device) {
-	input_device_t *input_device = (input_device_t *)device;
+	input_device_t *input_device = container_of(device, input_device_t, device);
+	ringbuffer_wakeup_all(&device->events);
 	if (input_device->ops && input_device->ops->destroy) {
 		input_device->ops->destroy(input_device);
 	}
 	ringbuffer_destroy(&input_device->events);
+}
+
+static void input_device_cleanup(device_t *device) {
+	input_device_t *input_device = container_of(device, input_device_t, device);
+	if (input_device->ops && input_device->ops->cleanup) {
+		input_device->ops->cleanup(input_device);
+	}
 }
 
 static vfs_fd_ops_t input_ops = {
@@ -118,6 +132,9 @@ static vfs_fd_ops_t input_ops = {
 };
 
 int input_device_send_event(input_device_t *device, struct input_event *event) {
+	if (device_is_unplugged(&device->device)) {
+		return -ENXIO;
+	}
 	event->ie_class    = device->class;
 	event->ie_subclass = device->subclass;
 	ringbuffer_write(&device->events, event, sizeof(struct input_event), O_NONBLOCK);
@@ -128,6 +145,7 @@ int input_device_register(input_device_t *device) {
 	device->device.type    = DEVICE_CHAR;
 	device->device.ops     = &input_ops;
 	device->device.destroy = input_device_destroy;
+	device->device.cleanup = input_device_cleanup;
 	ringbuffer_init(&device->events, sizeof(struct input_event) * 25);
 	return device_register(&device->device, NULL, 0);
 }

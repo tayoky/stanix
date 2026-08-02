@@ -111,6 +111,15 @@ static void ps2_mouse_handler(registers_t *registers, void *data) {
 	}
 }
 
+static void ps2_mouse_cleanup(input_device_t *input_device) {
+	ps2_mouse_t *mouse = container_of(input_device, ps2_mouse_t, input_device);
+	kfree(mouse);
+}
+
+static input_ops_t ps2_mouse_ops = {
+	.cleanup = ps2_mouse_cleanup,
+};
+
 static int ps2_mouse_check(devnode_t *devnode) {
 	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
 	if (devnode->type != BUS_PS2) return 0;
@@ -140,9 +149,20 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 	mouse->input_device.device.devnode = devnode;
 	mouse->input_device.class    = IE_CLASS_MOUSE;
 	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;
+	mouse->input_device.ops      = ps2_mouse_ops;
 	input_device_register(&mouse->input_device);
 	mouse->handler_handle = resource_register_handler(mouse->irq_resource, ps2_mouse_handler, mouse);
 	return 0;
+}
+
+static void ps2_mouse_detach(devnode_t *devnode) {
+	// retrieve ps2_mouse_t
+	kassert(devnode->device);
+	ps2_mouse_t *mouse = container_or(devnode->device, ps2_mouse, input_device.device);
+	input_device_destroy(&mouse->input_device);
+
+	resource_unregister_handler(mouse->irq_resource, mouse->handler_handle);
+	device_release_resource(devnode, mouse->irq_resource);
 }
 
 static driver_t ps2_mouse_driver = {
@@ -151,18 +171,17 @@ static driver_t ps2_mouse_driver = {
 	.buses = BUSES("i8042"),
 	.check = ps2_mouse_check,
 	.probe = ps2_mouse_probe,
+	.detach = ps2_mouse_detach,
 };
 
 int init_ps2_mouse(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
-	driver_register(&ps2_mouse_driver);
-	return 0;
+	return driver_register(&ps2_mouse_driver);
 }
 
-int fini_ps2_mouse() {
-	driver_unregister(&ps2_mouse_driver);
-	return 0;
+int fini_ps2_mouse(void) {
+	return driver_unregister(&ps2_mouse_driver);
 }
 
 

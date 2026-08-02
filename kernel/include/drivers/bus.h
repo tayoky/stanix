@@ -64,7 +64,7 @@ devnode_t *device_allocate(void);
 int device_check_driver(devnode_t *device, driver_t *driver);
 int device_attach_driver(devnode_t *device, driver_t *driver);
 int device_attach_driver_auto(devnode_t *device);
-void device_detach_driver(devnode_t *device);
+int device_detach_driver(devnode_t *device);
 static inline int device_has_attached_driver(devnode_t *device) {
 	return device->driver != NULL;
 }
