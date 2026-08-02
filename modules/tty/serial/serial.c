@@ -58,8 +58,14 @@ static ssize_t serial_out(tty_t *tty, const char *buf, size_t size) {
 	return size;
 }
 
+static void serial_cleanup(tty_t *tty) {
+	serial_t *serial = container_of(tty, serial_t, tty);
+	kfree(serial);
+}
+
 static tty_ops_t serial_ops = {
-	.out = serial_out,
+	.out     = serial_out,
+	.cleanup = serial_cleanup,
 };
 
 static int serial_check(devnode_t *devnode) {
@@ -159,22 +165,29 @@ error:
 	return ret;
 }
 
+static void serial_detach(devnode_t *devnode) {
+	serial_t *serial = container_of(devnode->device, serial_t, tty.device);
+	device_destroy(&serial->tty.device);
+	resource_unregister_handler(serial->irq_res, serial->handler_handle);
+	device_release_resource(devnode, serial->irq_res);
+	device_release_resource(devnode, serial->io_res);
+}
+
 static driver_t serial_driver = {
 	.name = "serial port",
 	.device_name = "serial%d",
 	.buses = BUSES("pci", "isa"),
 	.check = serial_check,
 	.probe = serial_probe,
+	.detach = serial_detach,
 };
 
 static int serial_init(int argc,char **argv) {
-	driver_register(&serial_driver);
-	return 0;
+	return driver_register(&serial_driver);
 }
 
-static int serial_fini() {
-	driver_unregister(&serial_driver);
-	return 0;
+static int serial_fini(void) {
+	return driver_unregister(&serial_driver);
 }
 
 kmodule_t module_meta = {
