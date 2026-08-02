@@ -143,7 +143,7 @@ static int bga_probe(devnode_t *devnode) {
 
 	// get resources
 	bga->vram_res = device_allocate_simple_resource(devnode, RESOURCE_MEMORY | RESOURCE_ACTIVE, PCI_RID_BAR0);
-	bga->io_res   = device_allocate_resource(devnode, VBE_DISPI_IOPORT_INDEX, 3, RESOURCE_IOPORT, RID_ANY);
+	bga->io_res   = device_allocate_start_resource(devnode, VBE_DISPI_IOPORT_INDEX, 3, RESOURCE_IOPORT, RID_ANY);
 	bga->version = bga_read(bga, VBE_DISPI_INDEX_ID);
 	if (bga->version >= VBE_DISPI_ID3) {
 		uint16_t data = bga_read(bga, VBE_DISPI_INDEX_ENABLE);

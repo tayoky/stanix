@@ -77,7 +77,7 @@ static int isa_probe(devnode_t *isa_bus) {
 		// add ioports
 		for (size_t j=0; j<ISA_MAX_IOPORT; j++) {
 			if (!probe->ioports[j].valid) continue;
-			bus_add_resource_desc(child, RESOURCE_IOPORT, ISA_RID_IOPORT(j), probe->ioports[j].start, probe->ioports[j].size);
+			bus_add_resource_desc(child, probe->ioports[j].start, probe->ioports[j].size, RESOURCE_IOPORT, ISA_RID_IOPORT(j));
 		}
 
 		// add irqs
@@ -85,7 +85,7 @@ static int isa_probe(devnode_t *isa_bus) {
 			if (!probe->irqs[j]) continue;
 			irq_t *irq = irq_get_from_hwirq(main_irq_chip, probe->irqs[j]);
 			if (!irq) continue;
-			bus_add_resource_desc_data(child, RESOURCE_IRQ, ISA_RID_IRQ(j), irq, 1);
+			bus_add_resource_desc_data(irq, 1, child, RESOURCE_IRQ, ISA_RID_IRQ(j));
 		}
 		bus_attach_child(isa_bus, child, probe->name, UNIT_ALLOCATE);
 	}

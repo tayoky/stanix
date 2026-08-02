@@ -221,7 +221,7 @@ static void setup_ps2_dev(devnode_t *bus, int port) {
 	hwirq_t hwirq = port == 1 ? 1 : 12;
 	irq_t *irq = irq_get_from_hwirq(main_irq_chip, hwirq);
 	kassert(irq);
-	bus_add_resource_desc_data(&ports[port - 1].devnode, RESOURCE_IRQ, PS2_RID_IRQ, irq, 1);
+	bus_add_resource_desc_data(&ports[port - 1].devnode, irq, 1, RESOURCE_IRQ, PS2_RID_IRQ);
 	bus_attach_child(bus, &ports[port - 1].devnode, NULL, UNIT_NOUNIT);
 }
 
