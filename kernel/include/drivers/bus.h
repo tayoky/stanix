@@ -60,7 +60,7 @@ int driver_register(driver_t *driver);
 int driver_unregister(driver_t *driver);
 
 devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, int unit);
-void bus_delete_child(devnode_t *bus, devnode_t *child);
+int bus_delete_child(devnode_t *bus, devnode_t *child);
 
 devnode_t *device_allocate(void);
 int device_check_driver(devnode_t *device, driver_t *driver);

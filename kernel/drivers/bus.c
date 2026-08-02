@@ -131,12 +131,38 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 	return child;
 }
 
-void bus_delete_child(devnode_t *bus, devnode_t *child) {
-	device_detach_driver(child);
+static void device_free_resource_descs(device_t *device) {
+	list_node_t *node = device->resource_descs.first_node;
+	while (node) {
+		resource_desc_t *desc = container_of(node, resource_desc_t, node);
+		node = node->next;
+		bus_detach_resource_desc(device, desc);
+		slab_free(desc);
+	}
+}
+
+int bus_delete_child(devnode_t *bus, devnode_t *child) {
+	kassert(child->parent == bus);
+
+	// make sure all children are deleted
+	list_node_t *node = device->children.first_node;
+	while (node) {
+		devnode_t *subchild = container_of(node, devnode_t, node);
+		node = node->next;
+		int ret = bus_delete_child(child, subchild);
+		if (ret < 0) return;
+	}
+	
+	
+	int ret = device_detach_driver(child);
+	if (ret < 0) return ret;
+
+	device_free_resource_descs(child);
 	devclass_free_unit(child->devclass, child);
 	list_remove(&devnodes, &child->list_node);
 	list_remove(&bus->children, &child->node);
 	slab_free(child);
+	return 0;
 }
 
 static resource_t *__helper_bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_request_t *request, int rid) {
@@ -278,6 +304,33 @@ int device_attach_driver_auto(devnode_t *device) {
 	return 0;
 }
 
+static const char *resource2str(resource_t *resource) {
+	switch (resource->flags & RESOURCE_TYPE) {
+	case RESOURCE_IOPORT:
+		return "IRQ";
+	case RESOURCE_IOPORT:
+		return "IOPORT";
+	case RESOURCE_DMA:
+		return "DMA";
+	case RESOURCE_MEMORY:
+		return "MEMORY";
+	default:
+		return "UNKNOW";
+	}
+}
+
+static void device_release_resources(devnode_t *device) {
+	list_node_t *node = device->resources.first_node;
+	while (node) {
+		resource_t *resource = container_of(node, resource_t, node);
+		node = node->next;
+		if (driver) {
+			kwarningf("driver %s leaked resource %s rid=%d on device %p(%s)\n", device->driver->name, resource2str(resource), resource->rid, device, device_get_name(device));
+		}
+		device_release_resource(device, resource);
+	}
+}
+
 int device_detach_driver(devnode_t *device) {
 	if (!device_has_attached_driver(device)) {
 		return 0;
@@ -287,11 +340,16 @@ int device_detach_driver(devnode_t *device) {
 		return -ENOTSUP;
 	}
 	device->driver->detach(device);
+	kinfof("detached driver %s from device %p(%s)\n", device->driver->name, device, device_get_name(device));
+
 	// detach device
 	if (device->device) {
 		device->device->devnode = NULL;
 		device->device = NULL;
 	}
+
+	// cleanup resources the driver forgot
+	device_release_resources(device);
 	device->driver = NULL;
 	return 0;
 }
