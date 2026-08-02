@@ -159,7 +159,7 @@ static void ps2_mouse_detach(devnode_t *devnode) {
 	// retrieve ps2_mouse_t
 	kassert(devnode->device);
 	ps2_mouse_t *mouse = container_or(devnode->device, ps2_mouse, input_device.device);
-	input_device_destroy(&mouse->input_device);
+	device_destroy(&mouse->input_device);
 
 	resource_unregister_handler(mouse->irq_resource, mouse->handler_handle);
 	device_release_resource(devnode, mouse->irq_resource);
