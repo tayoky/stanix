@@ -105,20 +105,20 @@ static int ps2_kb_probe(devnode_t *devnode) {
 	if (scancode == 0x41) {
 		kdebugf("ps2 : using translation\n");
 	} else {
-		// tranlation not enabled so set scancode 1
+		// translation not enabled so set scancode 1
 		if (ps2_kb_set_scancode(ps2_dev, 1) < 0) return -EIO;
 
 		// check it's actually using scancode 1
 		int scancode = ps2_kb_get_scancode(ps2_dev);
 		if (scancode < 0) return -EIO;
 		if (scancode != 1) {
-			kdebugf("ps2 : device don't support scancode set 1\n");
+			kdebugf("ps2 : device do not support scancode set 1\n");
 			return -ENOTSUP;
 		}
 	}
 
 	if (ps2_send(port, PS2_ENABLE_SCANNING) != PS2_ACK) {
-		kdebugf("ps2 : error while enabling scaning\n");
+		kdebugf("ps2 : error while enabling scanning\n");
 		return -EIO;
 	}
 
@@ -131,7 +131,7 @@ static int ps2_kb_probe(devnode_t *devnode) {
 	input_device_register(&keyboard->input_device);
 
 	keyboard->handler_handle = resource_register_handler(keyboard->irq_resource, ps2_kb_handler, keyboard);
-	kdebugf("ps2 keyboard succefuly initialized\n");
+	kdebugf("ps2 keyboard successfully initialized\n");
 
 	return 0;
 }

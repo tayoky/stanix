@@ -115,7 +115,7 @@ kmodule_t module_meta = {
 	.init        = isa_init,
 	.fini        = isa_fini,
 	.author      = "tayoky",
-	.name        = "ISA bus driver",
+	.name        = "isa",
 	.description = "legacy ISA driver",
 	.license     = "GPL 3",
 };

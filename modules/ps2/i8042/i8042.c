@@ -319,7 +319,7 @@ static int i8042_probe(devnode_t *devnode) {
 	kdebugf("ps2 : 8042 ps2 controller initialized\n");
 
 	// NOTE : at this point scanning is disable
-	// the driver specfic to the device as to enable scanning itself
+	// the driver specific to the device as to enable scanning itself
 
 	return 0;
 }

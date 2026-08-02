@@ -58,7 +58,7 @@ static uint32_t fat_get_next_cluster(fat_superblock_t *fat_superblock, uint32_t 
 static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
 	fat_inode_t *inode               = container_of(cache, fat_inode_t, cache);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
-	// cluster size is always divier or multiple of page size
+	// cluster size is always driver or multiple of page size
 
 	// start by going to the first cluster
 	uint32_t start_cluster = offset / fat_superblock->cluster_size;
@@ -161,7 +161,7 @@ static int fat_getattr(vfs_node_t *vnode, struct stat *st) {
 	st->st_size  = inode->entry.file_size;
 	st->st_atime = fat_date2time(inode->entry.access_date);
 	st->st_mtime = fat_date2time(inode->entry.write_date);
-	// technicly the ctime is not creation but change, but fat does not have ctime
+	// technically the ctime is not creation but change, but fat does not have ctime
 	st->st_ctime = fat_date2time(inode->entry.creation_date);
 	return 0;
 }
@@ -189,7 +189,7 @@ static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, 
 }
 
 /**
- * @brief parse fat entries and make a dirent from it
+ * @brief parse fat entries and make a directory entry from it
  */
 static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t cluster, size_t offset, struct dirent *dirent) {
 	fat_entry_t entry;
@@ -234,7 +234,7 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 			if (ret < 0) return ret;
 		}
 
-		// convert name to utf8
+		// convert name to UTF-8
 		ssize_t len = utf16_to_utf8(name, name_len, (uint8_t *)dirent->d_name);
 		if (len < 0) return len;
 		dirent->d_name[len] = '\0';
@@ -249,7 +249,7 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 				dirent->d_name[j++] = toupper(entry.name[i]);
 			}
 		}
-		// don't add . for directories/files without extention
+		// don't add "." for directories/files without extension
 		if (entry.name[8] != ' ') {
 			dirent->d_name[j++] = '.';
 		}
@@ -381,7 +381,7 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 			}
 			memcpy(&entry, &long_entry, sizeof(fat_entry_t));
 
-			// convert name to utf8
+			// convert name to UTF-8
 			char utf8_name[512];
 			ssize_t len = utf16_to_utf8(name, name_len, (uint8_t *)utf8_name);
 			if (len < 0) return len;
@@ -431,7 +431,7 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 		return -EFTYPE;
 	}
 
-	kdebugf("oem is '%s'\n", bpb.oem_name);
+	kdebugf("OEM is '%s'\n", bpb.oem_name);
 
 	if (bpb.byte_per_sector < 512 || bpb.sector_per_cluster == 0) {
 		kdebugf("invalid byte per sectors / sectors per cluster\n");
