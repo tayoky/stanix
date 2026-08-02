@@ -86,18 +86,22 @@ static inline void bus_attach_resource_desc(devnode_t *devnode, resource_desc_t 
 	list_append(&devnode->resource_descs, &resource_desc->node);
 }
 
+static inline int bus_add_resource_desc_request(devnode_t *devnode, resource_request_t *request, int rid) {
+	resource_desc_t *desc = resource_desc_allocate(request, rid);
+	if (!desc) {
+		return -ENOMEM;
+	}
+	bus_attach_resource_desc(devnode, desc);
+	return 0;
+}
+
 static inline int bus_add_resource_desc(devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
 	resource_request_t request = {
 		.start = start,
 		.size  = size,
 		.flags = flags,
 	};
-	resource_desc_t *desc = resource_desc_allocate(&request, rid);
-	if (!desc) {
-		return -ENOMEM;
-	}
-	bus_attach_resource_desc(devnode, desc);
-	return 0;
+	return bus_add_resource_desc_request(devnode, &request, rid);
 }
 
 static inline int bus_add_resource_desc_data(devnode_t *devnode, void *data, size_t size, int flags, int rid) {

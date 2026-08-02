@@ -246,18 +246,33 @@ static size_t setup_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar) {
 
 	if (readback == 0) {
 		// unimplemented BAR
-		return is_64bits ? 2 : 1;
+		goto finish;
 	}
 
 	size_t bar_size = (~readback) + 1;
 
-	// TODO : send alignement
+	resource_request_t request = {
+		.start = base,
+		.size  = bar_size,
+		.align = bar_size,
+	};
+
 	if (is_ioport) {
 		// io port
-		bus_add_resource_desc(&pci_dev->devnode, bar, bar_size, RESOURCE_IOPORT, PCI_RID_BAR(bar));
+		request.flags = RESOURCE_IOPORT;
+		if (request.align < 4) {
+			// minimum align : 4
+			request.align = 4;
+		}
 	} else {
-		bus_add_resource_desc(&pci_dev->devnode, bar, bar_size, RESOURCE_MEMORY, PCI_RID_BAR(bar));
+		// memory
+		request.flags = RESOURCE_MEMORY;
+		if (request.align < 16) {
+			// minimum align : 16
+			request.align = 16;
+		}
 	}
+	bus_add_resource_desc_request(&pci_dev->devnode, &request, PCI_RID_BAR(bar));
 finish:
 	return is_64bits ? 2 : 1;
 }
@@ -274,9 +289,8 @@ static int write_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar, resource_t
 		if ((resource->flags & RESOURCE_TYPE) != RESOURCE_IOPORT) {
 			return -EINVAL;
 		}
-
-		// alignement 
 	}
+	// TODO : write bars
 }
 
 static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *arg) {
@@ -310,18 +324,22 @@ static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *
 	bus_attach_child(pci_bus, &pci_dev->devnode, NULL, UNIT_NOUNIT);
 }
 
-// TODO : use this
-static resource_t *pci_allocate_resource(devnode_t *pci_bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
+static resource_t *pci_allocate_resource(devnode_t *pci_bus, devnode_t *devnode, resource_request_t *request, int rid) {
 	// ask our parent for the resource
-	resource_t *resource = bus_allocate_resource(pci_bus->parent, devnode, start, size, flags, rid);
+	resource_t *resource = bus_allocate_resource(pci_bus->parent, request, rid);
+	if (IS_ERR(resource)) {
+		return resource;
+	}
 	if (devnode->parent != pci_bus) {
 		// not a child of us just passthough
 		return resource;
 	}
-	switch (flags & RESOURCE_TYPE) {
+	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_IOPORT:
 	case RESOURCE_MEMORY:
-		// TODO : write BAR
+		if (rid >= PCI_RID_BAR0 && rid <= PCI_RID_BAR5) {
+			write_bar(pci_bus, devnode, rid - PCI_RID_BAR0, resource);
+		}
 		break;
 	}
 	return resource;
@@ -357,6 +375,7 @@ static driver_t pci_driver = {
 	.device_name = "pci",
 	.buses       = BUSES("root"),
 	.probe       = pci_probe,
+	.allocate_resource = pci_allocate_resource,
 };
 
 int init_pci(int argc, char **argv) {
