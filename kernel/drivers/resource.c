@@ -4,6 +4,8 @@
 #include <kernel/resource.h>
 #include <kernel/string.h>
 
+// the original idea of rman comes from FreeBSD
+
 static slab_cache_t resources_slab;
 static slab_cache_t resource_descs_slab;
 static slab_cache_t rman_segs_slab;
@@ -140,11 +142,15 @@ void rman_set_dynamic_start(rman_t *rman, size_t start) {
 
 static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, resource_request_t *request) {
 	// TODO : implement RESOURCE_SHARED
-	// TODO : guarantee alignement and bound
+	// TODO : guarantee bound
 	size_t start = request->start;
 	size_t size  = request->size;
+	size_t align = request->align;
 	if (size == RESOURCE_ANY_SIZE) {
 		size = 1;
+	}
+	if (align == RESOURCE_ANY_ALIGN) {
+		align = 1;
 	}
 
 	rman_seg_t *seg = NULL;
@@ -152,25 +158,46 @@ static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, resource_
 		foreach(node, &rman->segs) {
 			rman_seg_t *cur_seg = container_of(node, rman_seg_t, node);
 			if (cur_seg->start + cur_seg->size <= rman->dynamic_start) {
-				// below dynamic start
+				// segement is entirely below dynamic start
 				continue;
 			}
+			if (rman_seg_is_allocated(cur_seg)) {
+				continue;
+			}
+			size_t seg_start = cur_seg->start;
 			size_t seg_count = cur_seg->size;
-			if (cur_seg->start < rman->dynamic_start) {
+
+			if (seg->start < rman->dynamic_start) {
 				// not the whole seg can be allocated
-				seg_count -= rman->dynamic_start - cur_seg->start;
+				seg_count -= rman->dynamic_start - seg_start;
+				seg_start = rman->dynamic_start;
 			}
-			if (!rman_seg_is_allocated(cur_seg) && seg_count >= size) {
-				seg = cur_seg;
-				if (seg->start < rman->dynamic_start) {
-					start = rman->dynamic_start;
-				} else {
-					start = seg->start;
-				}
-				break;
+			if (seg_start % align != 0) {
+				// we need to align
+				size_t to_add = align - (seg_start % align);
+				if (seg_count < to_add) continue;
+				seg_count -= to_add;
+				seg_start += to_add;
 			}
+			if (seg_count < size) {
+				// too small
+				continue;
+			}
+
+			seg = cur_seg;
+			start = seg_start;
+			break;
+		}
+
+		if (!seg) {
+			return ERR2PTR(-ENOMEM);
 		}
 	} else {
+		// check align
+		if (start % align != 0) {
+			// unaligned
+			return ERR2PTR(-EINVAL);
+		}
 		seg = rman_get_seg_at(rman, start);
 		if (!seg || rman_seg_is_allocated(seg) || seg->start + seg->size < start + size) {
 			return ERR2PTR(-ENOMEM);
@@ -180,6 +207,7 @@ static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, resource_
 	// we found a seg
 	// we might need to split
 	
+	// TODO : rollback if any allocation fails
 	if (seg->start < start) {
 		// split before
 		rman_seg_t *new_seg = rman_allocate_seg(seg->start, start - seg->start);
@@ -198,7 +226,7 @@ static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, resource_
 	}
 
 
-	resource_t *resource = resource_allocate(request->flags | rman->type, RID_ANY, seg->start, seg->size);
+	resource_t *resource = resource_allocate(seg->start, seg->size, request->flags | rman->type, RID_ANY);
 	if (!resource) return ERR2PTR(-ENOMEM);
 	resource->private = seg;
 

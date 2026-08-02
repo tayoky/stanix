@@ -83,8 +83,8 @@ static inline resource_t *resource_allocate_request(resource_request_t *request,
 	return resource_allocate(request->start, request->size, request->flags, rid);
 }
 
-static inline resource_t *resource_allocate_data(int flags, int rid, void *data, size_t size) {
-	return resource_allocate(flags, rid, (size_t)data, size);
+static inline resource_t *resource_allocate_data(void *data, size_t size, int flags, int rid) {
+	return resource_allocate((size_t)data, size, flags, rid);
 }
 
 resource_desc_t *resource_desc_allocate(resource_request_t *request, int rid);
