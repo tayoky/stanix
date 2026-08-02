@@ -46,6 +46,7 @@ typedef struct resource {
 //#define RESOURCE_DYNAMIC 0x800 // dynamic resource (not bound)
 
 #define RID_ANY 0 // special rid to tell that we need any resource of the specified type (and don't care about rid)
+#define RID_NONE -1
 #define RESOURCE_ANY_START ((size_t)-1)
 #define RESOURCE_ANY_SIZE  0
 #define RESOURCE_ANY_ALIGN 0

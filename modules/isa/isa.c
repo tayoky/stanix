@@ -73,6 +73,7 @@ static int isa_probe(devnode_t *isa_bus) {
 		isa_probe_t *probe = &isa_probes[i];
 
 		devnode_t *child = device_allocate();
+		child->type = BUS_ISA;
 		
 		// add ioports
 		for (size_t j=0; j<ISA_MAX_IOPORT; j++) {

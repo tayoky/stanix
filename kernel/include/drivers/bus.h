@@ -15,12 +15,13 @@ struct device;
 typedef struct devnode {
 	list_node_t node;
 	list_node_t list_node;
-	list_t children;
-	struct devnode *parent;
 	list_t resources;
 	list_t resource_descs;
+	list_t children;
+	struct devnode *parent;
 	struct device *device;
 	struct driver *driver;
+	void *private;
 	devclass_t *devclass;
 	char *name; // address name
 	char cached_name[32];
@@ -53,6 +54,7 @@ typedef struct driver {
 #define BUS_PCI 1
 #define BUS_PS2 2
 #define BUS_USB 3
+#define BUS_ISA 4
 
 int driver_register(driver_t *driver);
 int driver_unregister(driver_t *driver);
@@ -113,6 +115,7 @@ static inline void bus_detach_resource_desc(devnode_t *devnode, resource_desc_t 
 }
 
 static inline resource_desc_t *device_get_resource_desc(devnode_t *devnode, int flags, int rid) {
+	if (rid == RID_NONE) return NULL;
 	foreach (node, &devnode->resource_descs) {
 		resource_desc_t *desc = container_of(node, resource_desc_t, node);
 		if ((desc->request.flags & RESOURCE_TYPE) == (flags & RESOURCE_TYPE) && ((rid == RID_ANY) || (desc->rid == rid))) {
@@ -123,6 +126,7 @@ static inline resource_desc_t *device_get_resource_desc(devnode_t *devnode, int 
 }
 
 static inline resource_t *device_get_resource(devnode_t *devnode, int flags, int rid) {
+	if (rid == RID_NONE) return NULL;
 	foreach (node, &devnode->resources) {
 		resource_t *resource = container_of(node, resource_t, node);
 		if ((resource->flags & RESOURCE_TYPE) == (flags & RESOURCE_TYPE) && ((rid == RID_ANY) || (resource->rid == rid))) {

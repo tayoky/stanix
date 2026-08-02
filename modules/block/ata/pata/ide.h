@@ -25,8 +25,14 @@ typedef struct ide_channel {
 } ide_channel_t;
 
 typedef struct ide_controller {
-	resource_t *ctrl;
-	resource_t *bmide;
+	ide_resource_t *base1;
+	ide_resource_t *base2;
+	ide_resource_t *ctrl1;
+	ide_resource_t *ctrl2;
+	ide_resource_t *bmide;
 } ide_controller_t;
+
+int ide_controller_pci_check(devnode_t *devnode);
+int ide_controller_pci_probe(devnode_t *devnode);
 
 #endif
