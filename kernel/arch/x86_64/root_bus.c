@@ -20,17 +20,17 @@ static int root_probe(devnode_t *devnode) {
 	return 0;
 }
 
-static resource_t *root_allocate_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t count, int flags, int rid) {
+static resource_t *root_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_request_t *request, int rid) {
 	(void)bus;
 	(void)rid;
-	switch (flags & RESOURCE_TYPE) {
+	switch (request->flags & RESOURCE_TYPE) {
 	case RESOURCE_IRQ:
-		kassert(count == 1);
-		return resource_allocate(flags, rid, start, count);
+		kassert(request->count == 1);
+		return resource_allocate_request(request, rid);
 	case RESOURCE_IOPORT:
-		return rman_allocate(&io_rman, devnode, start, count, flags);
+		return rman_allocate(&io_rman, devnode, request);
 	case RESOURCE_MEMORY:
-		return resource_allocate(flags, rid, start, count);
+		return resource_allocate_request(request, rid);
 	default:
 		return ERR2PTR(-ENOTSUP);
 	}

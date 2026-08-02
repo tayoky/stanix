@@ -145,23 +145,32 @@ static resource_t *__helper_bus_allocate_resource(devnode_t *bus, devnode_t *dev
 	return ERR2PTR(-EINVAL);
 }
 
-resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
+resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_request_t *request, int rid) {
 	// maybee we already have a resource for this rid
-	resource_t *resource = device_get_resource(devnode, flags, rid);
+	resource_t *resource = device_get_resource(devnode, request->flags, rid);
 	if (resource) return resource;
 
 	// maybee we have a desc for this rid
-	resource_desc_t *desc = device_get_resource_desc(devnode, flags, rid);
+	resource_desc_t *desc = device_get_resource_desc(devnode, request->flags, rid);
+	int flags = request->flags;
 	if (desc) {
-		kdebugf("got resource desc start=%zx size=%zu\n", desc->start, desc->size);
-		if (start == RESOURCE_ANY_START) {
-			start = desc->start;
+		kdebugf("got resource desc start=%zx size=%zu\n", desc->request.start, desc->request.size);
+		if (request->start == RESOURCE_ANY_START) {
+			request->start = desc->request.start;
 		}
-		if (size == RESOURCE_ANY_SIZE) {
-			size = desc->size;
+		if (request->size == RESOURCE_ANY_SIZE) {
+			request->size = desc->request.size;
 		}
+		if (request->align == RESOURCE_ANY_ALIGN) {
+			request->align = desc->request.align;
+		}
+		if (request->bound == RESOURCE_ANY_BOUND) {
+			request->bound = desc->request.bound;
+		}
+		request->flags |= desc->flags & ~RESOURCE_TYPE;
 	}
-	resource = __helper_bus_allocate_resource(bus, devnode, start, size, flags & ~RESOURCE_ACTIVE, rid);
+	request->flags &= ~RESOURCE_ACTIVE;
+	resource = __helper_bus_allocate_resource(bus, devnode, request, rid);
 	if (IS_ERR(resource)) {
 		return resource;
 	}

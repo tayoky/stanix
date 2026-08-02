@@ -14,7 +14,7 @@ void init_resource(void) {
 	slab_init(&rman_segs_slab, sizeof(rman_seg_t), "rman-segs");
 }
 
-resource_t *resource_allocate(int flags, int rid, size_t start, size_t size) {
+resource_t *resource_allocate(size_t start, size_t size, int flags, int rid) {
 	resource_t *resource = slab_alloc(&resources_slab);
 	if (!resource) return NULL;
 	memset(resource, 0, sizeof(resource_t));
@@ -25,14 +25,14 @@ resource_t *resource_allocate(int flags, int rid, size_t start, size_t size) {
 	return resource;
 }
 
-resource_desc_t *resource_desc_allocate(int flags, int rid, size_t start, size_t size) {
+resource_desc_t *resource_desc_allocate(resource_request_t *request, int rid) {
 	resource_desc_t *resource_desc = slab_alloc(&resource_descs_slab);
 	if (!resource_desc) return NULL;
 	memset(resource_desc, 0, sizeof(resource_desc_t));
-	resource_desc->flags = flags;
+	if (request) {
+		resource_desc->request = *request;
+	}
 	resource_desc->rid   = rid;
-	resource_desc->start = start;
-	resource_desc->size  = size;
 	return resource_desc;
 }
 
@@ -138,8 +138,11 @@ void rman_set_dynamic_start(rman_t *rman, size_t start) {
 	mutex_release(&rman->mutex);
 }
 
-static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, size_t start, size_t size, int flags) {
+static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, resource_request_t *request) {
 	// TODO : implement RESOURCE_SHARED
+	// TODO : guarantee alignement and bound
+	size_t start = request->start;
+	size_t size  = request->size;
 	if (size == RESOURCE_ANY_SIZE) {
 		size = 1;
 	}
@@ -195,7 +198,7 @@ static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, size_t st
 	}
 
 
-	resource_t *resource = resource_allocate(flags | rman->type, RID_ANY, seg->start, seg->size);
+	resource_t *resource = resource_allocate(request->flags | rman->type, RID_ANY, seg->start, seg->size);
 	if (!resource) return ERR2PTR(-ENOMEM);
 	resource->private = seg;
 
@@ -203,9 +206,9 @@ static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, size_t st
 	return resource;
 }
 
-resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, size_t start, size_t size, int flags) {
+resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, resource_request_t *request) {
 	mutex_acquire(&rman->mutex);
-	resource_t *ret = rman_raw_allocate(rman, devnode, start, size, flags);
+	resource_t *ret = rman_raw_allocate(rman, devnode, request);
 	mutex_release(&rman->mutex);
 	return ret;
 }

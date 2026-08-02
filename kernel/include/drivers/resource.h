@@ -10,11 +10,17 @@
 
 struct devnode;
 
-typedef struct resource_desc {
-	list_node_t node;
+typedef struct resource_request {
 	size_t start;
 	size_t size;
+	size_t align;
+	size_t bound;
 	int flags;
+} resource_request_t;
+
+typedef struct resource_desc {
+	list_node_t node;
+	resource_request_t request;
 	int rid;
 } resource_desc_t;
 
@@ -41,7 +47,9 @@ typedef struct resource {
 
 #define RID_ANY 0 // special rid to tell that we need any resource of the specified type (and don't care about rid)
 #define RESOURCE_ANY_START ((size_t)-1)
-#define RESOURCE_ANY_SIZE ((size_t)-1)
+#define RESOURCE_ANY_SIZE  0
+#define RESOURCE_ANY_ALIGN 0
+#define RESOURCE_ANY_BOUND 0
 
 typedef struct rman_seg {
 	list_node_t node;
@@ -65,20 +73,21 @@ void rman_init(rman_t *rman, int type, const char *name);
 void rman_destroy(rman_t *rman);
 int rman_add_region(rman_t *rman, size_t start, size_t size);
 void rman_set_dynamic_start(rman_t *rman, size_t start);
-resource_t *rman_allocate(rman_t *rman, struct devnode *devnode, size_t start, size_t size, int flags);
+resource_t *rman_allocate(rman_t *rman, struct devnode *devnode, resource_request_t *request);
 void rman_free(rman_t *rman, resource_t *resource);
 
-resource_t *resource_allocate(int flags, int rid, size_t start, size_t size);
+resource_t *resource_allocate(size_t start, size_t size, int flags, int rid);
+
+static inline resource_t *resource_allocate_request(resource_request_t *request, int rid) {
+	kassert(request);
+	return resource_allocate(request->start, request->size, request->flags, rid);
+}
 
 static inline resource_t *resource_allocate_data(int flags, int rid, void *data, size_t size) {
 	return resource_allocate(flags, rid, (size_t)data, size);
 }
 
-resource_desc_t *resource_desc_allocate(int flags, int rid, size_t start, size_t size);
-
-static inline resource_desc_t *resource_desc_allocate_data(int flags, int rid, void *data, size_t size) {
-	return resource_desc_allocate(flags, rid, (size_t)data, size);
-}
+resource_desc_t *resource_desc_allocate(resource_request_t *request, int rid);
 
 /**
  * @brief get the virtual address of a resource
