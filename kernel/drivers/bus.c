@@ -25,7 +25,6 @@ void init_bus(void) {
 
 	// create root dev
 	root_bus = device_allocate();
-	memset(root_bus, 0, sizeof(devnode_t));
 	device_set_name(root_bus, "root", UNIT_NOUNIT);
 	list_append(&devnodes, &root_bus->list_node);
 }
@@ -147,11 +146,16 @@ static resource_t *__helper_bus_allocate_resource(devnode_t *bus, devnode_t *dev
 
 resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_request_t *request, int rid) {
 	// maybee we already have a resource for this rid
+	kdebugf("alloc request on %p\n", devnode);
 	resource_t *resource = device_get_resource(devnode, request->flags, rid);
-	if (resource) return resource;
+	if (resource) {
+		kdebugf("resource cache hit %p\n", resource);
+		return resource;
+	}
 
 	// maybee we have a desc for this rid
 	resource_desc_t *desc = device_get_resource_desc(devnode, request->flags, rid);
+	kdebugf("do request flags=%d start=%zx size=%zu rid=%d\n", request->flags, request->start, request->size, rid);
 	int flags = request->flags;
 	if (desc) {
 		kdebugf("got resource desc start=%zx size=%zu\n", desc->request.start, desc->request.size);
@@ -184,6 +188,23 @@ resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_r
 		}
 	}
 	return resource;
+}
+
+int bus_release_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
+	if (!resource || IS_ERR(resource)) return -EINVAL;
+	kdebugf("release and detach resource %p flags=%d\n", resource, resource->flags);
+	if (resource->flags & RESOURCE_ACTIVE) {
+		bus_deactivate_resource(bus, devnode, resource);
+	}
+	 kdebugf("before detach devnode=%p first=%p last=%p\n", devnode,
+        devnode->resources.first_node,
+        devnode->resources.last_node);
+	bus_detach_resource(devnode, resource);
+	 kdebugf("after detach devnode=%p first=%p last=%p\n", devnode,
+        devnode->resources.first_node,
+        devnode->resources.last_node);
+	BUS_UPWARD_OP(bus, release_resource, devnode, resource);
+	return 0;
 }
 
 static int driver_support_bus(driver_t *driver, devclass_t *bus_type) {

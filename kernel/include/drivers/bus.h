@@ -190,14 +190,7 @@ static inline void bus_deactivate_resource(devnode_t *bus, devnode_t *devnode, r
 	BUS_UPWARD_OP(bus, deactivate_resource, devnode, resource);
 }
 
-static inline void bus_release_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
-	if (!resource || IS_ERR(resource)) return;
-	if (resource->flags & RESOURCE_ACTIVE) {
-		bus_deactivate_resource(bus, devnode, resource);
-	}
-	bus_detach_resource(devnode, resource);
-	BUS_UPWARD_OP(bus, release_resource, devnode, resource);
-}
+int bus_release_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource);
 
 static inline resource_t *device_allocate_resource(devnode_t *devnode, resource_request_t *request, int rid) {
 	return bus_allocate_resource(devnode->parent, devnode, request, rid);

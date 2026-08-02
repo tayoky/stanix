@@ -33,6 +33,7 @@ resource_desc_t *resource_desc_allocate(resource_request_t *request, int rid) {
 	memset(resource_desc, 0, sizeof(resource_desc_t));
 	if (request) {
 		resource_desc->request = *request;
+		kdebugf("allocate resource desc start=%zx size=%zu\n", request->start, request->size);
 	}
 	resource_desc->rid   = rid;
 	return resource_desc;
@@ -167,7 +168,7 @@ static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, resource_
 			size_t seg_start = cur_seg->start;
 			size_t seg_count = cur_seg->size;
 
-			if (seg->start < rman->dynamic_start) {
+			if (seg_start < rman->dynamic_start) {
 				// not the whole seg can be allocated
 				seg_count -= rman->dynamic_start - seg_start;
 				seg_start = rman->dynamic_start;
