@@ -191,7 +191,6 @@ uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR) {
 static size_t setup_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar) {
 	uint64_t bar_value = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
 	int is_ioport      = bar_value & 0x1;
-
 	int is_64bits = 0;
 	if (!is_ioport && (bar_value & 0x6) == 0x4) {
 		is_64bits = 1;
@@ -279,18 +278,39 @@ finish:
 
 static int write_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar, resource_t *resource) {
 	// check alignement
-	if (resource->start % resource->size != 0) {
+	if (resource->start % resource->align != 0) {
 		return -EINVAL;
 	}
 
+	int is_64bits = 0;
+	int is_ioport = bar_value & 0x1;
 	uint32_t bar_value = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
-	if (bar_value & 0x1) {
+	uint32_t mask;
+	if (is_ioport) {
 		// ioport
 		if ((resource->flags & RESOURCE_TYPE) != RESOURCE_IOPORT) {
 			return -EINVAL;
 		}
+		mask = 0x3;
+	} else {
+		// memory
+		if ((resource->flags & RESOURCE_TYPE) != RESOURCE_MEMORY) {
+			return -EINVAL;
+		}
+
+		if ((bar_value & 0x6) == 0x4) {
+			// 64 bits
+			is_64bits = 1;
+		}
+		mask = 0xf;
 	}
-	// TODO : write bars
+
+	// write the actual BAR
+	pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, resource->start | (bar_value & mask));
+	if (is_64bits) {
+		pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4, (uint32_t)(resource->start >> 32));
+	}
+	return 0;
 }
 
 static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *arg) {
