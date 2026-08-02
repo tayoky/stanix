@@ -46,18 +46,6 @@ void device_free_major(int major) {
 	major_bitmap[major / 32] &= ~(1U << (major % 32));
 }
 
-// OLD
-int device_driver_register(device_driver_t *device_driver) {
-	// THIS IS A STUB
-	return 0;
-}
-
-// OLD
-int device_driver_unregister(device_driver_t *device_driver) {
-	// THIS IS A STUB
-	return 0;
-}
-
 int device_register(device_t *device, const char *fmt, dev_t number) {
 	if (device->devnode) {
 		device->devnode->device = device;
@@ -70,7 +58,7 @@ int device_register(device_t *device, const char *fmt, dev_t number) {
 		number = makedev(major, minor(number));
 	}
 	if (minor(number) == 0) {
-		if (device->devnode && major(number) == device->devnode->devclass->major) {
+		if (device->devnode && (int)major(number) == device->devnode->devclass->major) {
 			int minor = device->devnode->unit;
 			number = makedev(major(number), minor);
 		} else {

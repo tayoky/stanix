@@ -29,7 +29,7 @@ void init_irq(void) {
 static void irq_lazy_allocate_vector(irq_t *irq) {
 	if (irq->vector == IRQ_VECTOR_ALLOCATE) {
 		// allocate vector
-		for (intrnum_t i=64; i<arraylen(vector2irq); i++) {
+		for (intrnum_t i=64; i<(intrnum_t)arraylen(vector2irq); i++) {
 			if (!vector2irq[i]) {
 				irq->vector = i;
 				vector2irq[i] = irq;
@@ -103,7 +103,7 @@ void irq_free(irq_t *irq) {
 
 void irq_set_vector(irq_t *irq, intrnum_t vector) {
 	irq->vector = vector;
-	if (vector < 0 || vector >= arraylen(vector2irq) || vector == IRQ_VECTOR_ALLOCATE) {
+	if (vector < 0 || vector >= (intrnum_t)arraylen(vector2irq) || vector == IRQ_VECTOR_ALLOCATE) {
 		return;
 	}
 	vector2irq[vector] = irq;
@@ -124,7 +124,7 @@ irq_t *irq_allocate_object(irqnum_t irqnum, hwirq_t hwirq) {
 }
 
 irq_t *irq_from_vector(intrnum_t vector) {
-	if (vector < 0 || vector >= arraylen(vector2irq)) {
+	if (vector < 0 || vector >= (intrnum_t)arraylen(vector2irq)) {
 		return NULL;
 	}
 	return vector2irq[vector];

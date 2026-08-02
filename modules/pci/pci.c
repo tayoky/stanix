@@ -188,7 +188,7 @@ uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR) {
 	}
 }
 
-static size_t setup_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar) {
+static size_t setup_bar(pci_dev_t *pci_dev, int bar) {
 	uint64_t bar_value = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
 	int is_ioport      = bar_value & 0x1;
 	int is_64bits = 0;
@@ -213,7 +213,7 @@ static size_t setup_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar) {
 	}
 
 	if (base == 0 || (is_64bits ? (bar_value == UINT64_MAX) : (bar_value == UINT32_MAX))) {
-		base = RESOURCE_START_ANY;
+		base = RESOURCE_ANY_START;
 	}
 
 	pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, 0xffffffff);
@@ -276,15 +276,10 @@ finish:
 	return is_64bits ? 2 : 1;
 }
 
-static int write_bar(devnode_t *pci_bus, pci_dev_t *pci_dev, int bar, resource_t *resource) {
-	// check alignement
-	if (resource->start % resource->align != 0) {
-		return -EINVAL;
-	}
-
+static int write_bar(pci_dev_t *pci_dev, int bar, resource_t *resource) {
+	uint32_t bar_value = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
 	int is_64bits = 0;
 	int is_ioport = bar_value & 0x1;
-	uint32_t bar_value = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
 	uint32_t mask;
 	if (is_ioport) {
 		// ioport
@@ -338,7 +333,7 @@ static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *
 
 	// resource discovery time
 	for (int i = 0; i < 6;) {
-		i += setup_bar(pci_bus, pci_dev, i);
+		i += setup_bar(pci_dev, i);
 	}
 
 	bus_attach_child(pci_bus, &pci_dev->devnode, NULL, UNIT_NOUNIT);
@@ -346,7 +341,7 @@ static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *
 
 static resource_t *pci_allocate_resource(devnode_t *pci_bus, devnode_t *devnode, resource_request_t *request, int rid) {
 	// ask our parent for the resource
-	resource_t *resource = bus_allocate_resource(pci_bus->parent, request, rid);
+	resource_t *resource = bus_allocate_resource(pci_bus->parent, devnode, request, rid);
 	if (IS_ERR(resource)) {
 		return resource;
 	}
@@ -354,11 +349,12 @@ static resource_t *pci_allocate_resource(devnode_t *pci_bus, devnode_t *devnode,
 		// not a child of us just passthough
 		return resource;
 	}
+	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
 	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_IOPORT:
 	case RESOURCE_MEMORY:
 		if (rid >= PCI_RID_BAR0 && rid <= PCI_RID_BAR5) {
-			write_bar(pci_bus, devnode, rid - PCI_RID_BAR0, resource);
+			write_bar(pci_dev, rid - PCI_RID_BAR0, resource);
 		}
 		break;
 	}

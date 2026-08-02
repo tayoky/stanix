@@ -149,7 +149,7 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 	mouse->input_device.device.devnode = devnode;
 	mouse->input_device.class    = IE_CLASS_MOUSE;
 	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;
-	mouse->input_device.ops      = ps2_mouse_ops;
+	mouse->input_device.ops      = &ps2_mouse_ops;
 	input_device_register(&mouse->input_device);
 	mouse->handler_handle = resource_register_handler(mouse->irq_resource, ps2_mouse_handler, mouse);
 	return 0;
@@ -158,8 +158,8 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 static void ps2_mouse_detach(devnode_t *devnode) {
 	// retrieve ps2_mouse_t
 	kassert(devnode->device);
-	ps2_mouse_t *mouse = container_or(devnode->device, ps2_mouse, input_device.device);
-	device_destroy(&mouse->input_device);
+	ps2_mouse_t *mouse = container_of(devnode->device, ps2_mouse_t, input_device.device);
+	device_destroy(&mouse->input_device.device);
 
 	resource_unregister_handler(mouse->irq_resource, mouse->handler_handle);
 	device_release_resource(devnode, mouse->irq_resource);

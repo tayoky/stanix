@@ -1,6 +1,7 @@
 #include <kernel/arch.h>
 #include <kernel/print.h>
 #include <kernel/kheap.h>
+#include <kernel/slab.h>
 #include <kernel/irq.h>
 #include <kernel/bus.h>
 
@@ -13,6 +14,7 @@ static int root_check(devnode_t *devnode) {
 }
 
 static int root_probe(devnode_t *devnode) {
+	(void)devnode;
 	// TODO : add  pci bus, isa/acpi, ...
 	rman_init(&io_rman, RESOURCE_IOPORT, "IO ports");
 	rman_add_region(&io_rman, 0, 0xffff);
@@ -25,7 +27,7 @@ static resource_t *root_allocate_resource(devnode_t *bus, devnode_t *devnode, re
 	(void)rid;
 	switch (request->flags & RESOURCE_TYPE) {
 	case RESOURCE_IRQ:
-		kassert(request->count == 1);
+		kassert(request->size == 1);
 		return resource_allocate_request(request, rid);
 	case RESOURCE_IOPORT:
 		return rman_allocate(&io_rman, devnode, request);
@@ -36,30 +38,30 @@ static resource_t *root_allocate_resource(devnode_t *bus, devnode_t *devnode, re
 	}
 }
 
-static void root_release_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
+static int root_release_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
 	(void)bus;
 	(void)devnode;
-	switch (flags & RESOURCE_TYPE) {
+	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_IRQ:
 		slab_free(resource);
-		return;
+		return 0;
 	case RESOURCE_IOPORT:
 		rman_free(&io_rman, resource);
-		return;
+		return 0;
 	case RESOURCE_MEMORY:
 		slab_free(resource);
-		return;
+		return 0;
 	default:
-		return;
+		return 0;
 	}
 }
 
 static int root_activate_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
 	(void)bus;
 	(void)devnode;
-	switch (flags & RESOURCE_TYPE) {
+	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_MEMORY:
-		resource->data = mmio_map(resource->start, resource->size);
+		resource->data = (void*)mmio_map(resource->start, resource->size);
 		if (!resource->data) {
 			return -EIO;
 		}
@@ -69,16 +71,16 @@ static int root_activate_resource(devnode_t *bus, devnode_t *devnode, resource_t
 	}
 }
 
-static void root_deactivate_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
+static int root_deactivate_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
 	(void)bus;
 	(void)devnode;
-	switch (flags & RESOURCE_TYPE) {
+	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_MEMORY:
 		mmio_unmap(resource->data, resource->size);
 		resource->data = NULL;
-		return;
+		return 0;
 	default:
-		return;
+		return 0;
 	}
 }
 

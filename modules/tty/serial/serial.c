@@ -9,6 +9,8 @@
 #include <kernel/arch.h>
 #include <kernel/port.h>
 #include <kernel/tty.h>
+#include <module/isa.h>
+#include <module/pci.h>
 #include <errno.h>
 
 //this is the real serial port driver
@@ -183,6 +185,8 @@ static driver_t serial_driver = {
 };
 
 static int serial_init(int argc,char **argv) {
+	(void)argc;
+	(void)argv;
 	return driver_register(&serial_driver);
 }
 
