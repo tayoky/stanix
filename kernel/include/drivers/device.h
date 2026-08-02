@@ -10,18 +10,8 @@ struct bus;
 struct devnode;
 struct device;
 
-typedef struct device_driver {
-	const char *name;
-	int (*check)(struct devnode *addr);
-	int (*probe)(struct devnode *addr);
-	int major; // all devices that use this driver have this
-	int minor_count;
-	int priority;
-} device_driver_t;
-
 typedef struct device {
 	atomic_size_t ref_count;
-	device_driver_t *driver;
 	struct devnode *devnode;
 	void (*destroy)(struct device *);
 	void (*cleanup)(struct device *);
@@ -39,12 +29,6 @@ typedef struct device {
 int device_allocate_major(void);
 void device_set_major(int major);
 void device_free_major(int major);
-
-// OLD
-int device_driver_register(device_driver_t *device_driver);
-
-// OLD
-int device_driver_unregister(device_driver_t *device_driver);
 
 /**
  * @brief register a new device

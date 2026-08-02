@@ -51,17 +51,13 @@ static framebuffer_ops_t liminefb_ops = {
 	.get_edid = liminefb_get_edid,
 };
 
-static device_driver_t liminefb_driver = {
-	.name = "limine framebuffer driver",
-};
-
 void init_liminefb(void) {
 	kstatusf("init liminefb ...");
-	device_driver_register(&liminefb_driver);
 
 	if (!framebuffer_request.response) {
 		kfail();
-		kinfof("the boot loader did not respond the framebuffer request\n");
+		kinfof("the boot loader did not respond to the framebuffer request\n");
+		return;
 	}
 
 	for (size_t i = 0; i < framebuffer_request.response->framebuffer_count; i++) {
@@ -70,14 +66,13 @@ void init_liminefb(void) {
 		limine_fb_t *framebuffer_dev = kmalloc(sizeof(limine_fb_t));
 		memset(framebuffer_dev, 0, sizeof(limine_fb_t));
 
-		framebuffer_dev->framebuffer.device.driver = &liminefb_driver;
 		framebuffer_dev->framebuffer.ops  = &liminefb_ops;
 		framebuffer_dev->framebuffer.base = mmu_hhdm2phys(limine_data->address);
 		framebuffer_dev->framebuffer.size = limine_data->height * limine_data->pitch;
 		framebuffer_dev->limine_data = limine_data;
 
 		// create the device
-		if (register_framebuffer((framebuffer_t *)framebuffer_dev)) {
+		if (framebuffer_register(&framebuffer_dev->framebuffer) < 0) {
 			kfail();
 			kinfof("fail to create device /dev/%s\n", framebuffer_dev->framebuffer.device.name);
 			return;

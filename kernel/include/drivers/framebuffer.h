@@ -26,12 +26,12 @@ typedef struct framebuffer {
 } framebuffer_t;
 
 void init_liminefb(void);
-int register_framebuffer(framebuffer_t *fb);
+int framebuffer_register(framebuffer_t *fb);
 int framebuffer_get_info(framebuffer_t *framebuffer, struct fb *info);
 int framebuffer_get_edid(framebuffer_t *framebuffer, edid_t **edid);
 
-// this is HACKy as hell PLEASE NEVER USE THIS
-// it's keeped for compatibilty with the old kernel terminal emulator
+// this is HACKY as hell PLEASE NEVER USE THIS
+// it's kept for compatibilty with the old kernel terminal emulator
 void draw_pixel(vfs_fd_t *fd, size_t x, size_t y, uint32_t color, struct fb *info);
 
 #define IOCTL_FRAMEBUFFER_SCROLL 0x0B

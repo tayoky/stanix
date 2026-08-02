@@ -118,7 +118,7 @@ static vfs_fd_ops_t framebuffer_ops = {
 
 static int fb_major = 0;
 
-int register_framebuffer(framebuffer_t *fb) {
+int framebuffer_register(framebuffer_t *fb) {
 	if (fb_major == 0) {
 		fb_major = device_allocate_major();
 	}
