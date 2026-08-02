@@ -400,8 +400,8 @@ static int ide_probe(devnode_t *devnode) {
 	controller->channel[1].bmide = bar4 + 8;
 	controller->channel[0].nIEN  = 0x2;
 	controller->channel[1].nIEN  = 0x2;
-	init_mutex(&controller->channel[0].lock);
-	init_mutex(&controller->channel[1].lock);
+	mutex_init(&controller->channel[0].lock);
+	mutex_init(&controller->channel[1].lock);
 	kdebugf("           base  crtl bmide\n");
 	kdebugf("channel 0  %-4x  %-4x  %-4x\n", controller->channel[0].base, controller->channel[0].ctrl, controller->channel[0].bmide);
 	kdebugf("channel 1  %-4x  %-4x  %-4x\n", controller->channel[1].base, controller->channel[1].ctrl, controller->channel[1].bmide);

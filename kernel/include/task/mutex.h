@@ -12,7 +12,7 @@ typedef struct mutex {
 	size_t depth;
 } mutex_t;
 
-void init_mutex(mutex_t *mutex);
+void mutex_init(mutex_t *mutex);
 int mutex_acquire(mutex_t *mutex);
 int mutex_try_acquire(mutex_t *mutex);
 void mutex_release(mutex_t *mutex);

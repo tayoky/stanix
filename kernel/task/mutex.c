@@ -7,7 +7,7 @@
 
 // FIXME : should we disable interrupt on mutex
 
-void init_mutex(mutex_t *mutex) {
+void mutex_init(mutex_t *mutex) {
 	memset(mutex, 0, sizeof(mutex_t));
 }
 
