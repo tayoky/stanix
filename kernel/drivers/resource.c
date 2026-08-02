@@ -16,7 +16,7 @@ void init_resource(void) {
 	slab_init(&rman_segs_slab, sizeof(rman_seg_t), "rman-segs");
 }
 
-resource_t *resource_allocate(size_t start, size_t size, int flags, int rid) {
+resource_t *resource_allocate(devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
 	resource_t *resource = slab_alloc(&resources_slab);
 	if (!resource) return NULL;
 	memset(resource, 0, sizeof(resource_t));
@@ -24,7 +24,13 @@ resource_t *resource_allocate(size_t start, size_t size, int flags, int rid) {
 	resource->rid   = rid;
 	resource->start = start;
 	resource->size  = size;
+	bus_attach_resource(devnode, resource);
 	return resource;
+}
+
+void resource_free(devnode_t *devnode, resource_t *resource) {
+	bus_detach_resource(devnode, resource);
+	slab_free(resource);
 }
 
 resource_desc_t *resource_desc_allocate(resource_request_t *request, int rid) {
@@ -227,7 +233,7 @@ static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, resource_
 	}
 
 
-	resource_t *resource = resource_allocate(seg->start, seg->size, request->flags | rman->type, RID_ANY);
+	resource_t *resource = resource_allocate(seg->start, seg->size, request->flags | rman->type, RID_NONE);
 	if (!resource) return ERR2PTR(-ENOMEM);
 	resource->private = seg;
 
@@ -242,11 +248,12 @@ resource_t *rman_allocate(rman_t *rman, devnode_t *devnode, resource_request_t *
 	return ret;
 }
 
-static void rman_raw_free(rman_t *rman, resource_t *resource) {
+static void rman_raw_free(rman_t *rman, devnode_t *devnode, resource_t *resource) {
 	if (!resource) return;
 	rman_seg_t *seg = resource->private;
 	
 	// mark seg as free
+	kassert(devnode == seg->devnode);
 	seg->devnode = NULL;
 
 	// merge with prev
@@ -270,11 +277,11 @@ static void rman_raw_free(rman_t *rman, resource_t *resource) {
 		}
 	}
 
-	slab_free(resource);
+	resource_free(devnode, resource);
 }
 
-void rman_free(rman_t *rman, resource_t *resource) {
+void rman_free(rman_t *rman, devnode_t *devnode, resource_t *resource) {
 	mutex_acquire(&rman->mutex);
-	rman_raw_free(rman, resource);
+	rman_raw_free(rman, devnode, resource);
 	mutex_release(&rman->mutex);
 }

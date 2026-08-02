@@ -75,17 +75,18 @@ void rman_destroy(rman_t *rman);
 int rman_add_region(rman_t *rman, size_t start, size_t size);
 void rman_set_dynamic_start(rman_t *rman, size_t start);
 resource_t *rman_allocate(rman_t *rman, struct devnode *devnode, resource_request_t *request);
-void rman_free(rman_t *rman, resource_t *resource);
+void rman_free(rman_t *rman, struct devnode *devnode, resource_t *resource);
 
-resource_t *resource_allocate(size_t start, size_t size, int flags, int rid);
+resource_t *resource_allocate(struct devnode *devnode, size_t start, size_t size, int flags, int rid);
+void resource_free(struct devnode *devnode, resource_t *resource);
 
-static inline resource_t *resource_allocate_request(resource_request_t *request, int rid) {
+static inline resource_t *resource_allocate_request(struct devnode *devnode, resource_request_t *request, int rid) {
 	kassert(request);
-	return resource_allocate(request->start, request->size, request->flags, rid);
+	return resource_allocate(devnode, request->start, request->size, request->flags, rid);
 }
 
-static inline resource_t *resource_allocate_data(void *data, size_t size, int flags, int rid) {
-	return resource_allocate((size_t)data, size, flags, rid);
+static inline resource_t *resource_allocate_data(struct devnode *devnode, void *data, size_t size, int flags, int rid) {
+	return resource_allocate(devnode, (size_t)data, size, flags, rid);
 }
 
 resource_desc_t *resource_desc_allocate(resource_request_t *request, int rid);

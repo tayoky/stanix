@@ -28,11 +28,11 @@ static resource_t *root_allocate_resource(devnode_t *bus, devnode_t *devnode, re
 	switch (request->flags & RESOURCE_TYPE) {
 	case RESOURCE_IRQ:
 		kassert(request->size == 1);
-		return resource_allocate_request(request, rid);
+		return resource_allocate_request(devnode, request, rid);
 	case RESOURCE_IOPORT:
 		return rman_allocate(&io_rman, devnode, request);
 	case RESOURCE_MEMORY:
-		return resource_allocate_request(request, rid);
+		return resource_allocate_request(devnode, request, rid);
 	default:
 		return ERR2PTR(-ENOTSUP);
 	}
@@ -43,13 +43,13 @@ static int root_release_resource(devnode_t *bus, devnode_t *devnode, resource_t 
 	(void)devnode;
 	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_IRQ:
-		slab_free(resource);
+		resource_free(devnode, resource);
 		return 0;
 	case RESOURCE_IOPORT:
-		rman_free(&io_rman, resource);
+		rman_free(&io_rman, devnode, resource);
 		return 0;
 	case RESOURCE_MEMORY:
-		slab_free(resource);
+		resource_free(devnode, resource);
 		return 0;
 	default:
 		return 0;

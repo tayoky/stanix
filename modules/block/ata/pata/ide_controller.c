@@ -130,7 +130,7 @@ static int ide_controller_probe(devnode_t *devnode) {
 		if (controller->bmide && !IS_ERR(controller->bmide)) {
 			bus_add_resource_spec(channel1, controller->bmide->start, 8, RESOURCE_IOPORT, IDE_RID_BMIDE);
 		}
-		bus_attach_children(devnose, channel1, "channel%d", 1);
+		bus_attach_children(devnode, channel1, "channel%d", 1);
 	}
 	if (!IS_ERR(controller->base2) && !IS_ERR(controller->ctrl2)) {
 		devnode_t *channel2 = devnode_allocate();
@@ -139,7 +139,7 @@ static int ide_controller_probe(devnode_t *devnode) {
 		if (controller->bmide && !IS_ERR(controller->bmide)) {
 			bus_add_resource_spec(channel2, controller->bmide->start + 8, 8, RESOURCE_IOPORT, IDE_RID_BMIDE);
 		}
-		bus_attach_children(devnose, channel2, "channel%d", 2);
+		bus_attach_children(devnode, channel2, "channel%d", 2);
 	}
 	return 0;
 }
@@ -148,7 +148,7 @@ static resource_t *ide_controller_allocate_resource(devnode_t *bus, devnode_t *d
 	if ((request->flags & RESOURCE_TYPE) == RESOURCE_IOPORT && rid >= IDE_RID_BASE && rid <= IDE_RID_BMIDE) {
 		// the controller init already verified and allocated the resources
 		// no need to redo ir
-		return resource_allocate_request(request, rid);
+		return resource_allocate_request(devnode, request, rid);
 	}
 	// passthrough
 	return bus_allocate_resource(bus->parent, devnode, request, rid);
@@ -158,7 +158,7 @@ static void ide_controller_release_resource(devnode_t *bus, devnode_t *devnode, 
 	if ((resource->flags & RESOURCE_TYPE) == RESOURCE_IOPORT && rid >= IDE_RID_BASE && rid <= IDE_RID_BMIDE) {
 		// we bypassed parent allocation for this
 		// we need to bypass parent release too
-		return slab_free(resource);
+		return resource_free(devnode, resource);
 	}
 
 	// passthrough
