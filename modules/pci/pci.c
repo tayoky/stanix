@@ -341,12 +341,12 @@ static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *
 
 static resource_t *pci_allocate_resource(devnode_t *pci_bus, devnode_t *devnode, resource_request_t *request, int rid) {
 	// ask our parent for the resource
-	resource_t *resource = bus_allocate_resource(pci_bus->parent, devnode, request, rid);
-	if (IS_ERR(resource)) {
-		return resource;
-	}
 	if (devnode->parent != pci_bus) {
 		// not a child of us just passthough
+		return bus_allocate_resource(pci_bus->parent, devnode, request, RID_NONE);
+	}
+	resource_t *resource = bus_allocate_resource(pci_bus->parent, devnode, request, rid);
+	if (IS_ERR(resource)) {
 		return resource;
 	}
 	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);

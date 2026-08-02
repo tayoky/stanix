@@ -6,13 +6,14 @@
 
 typedef struct isa_ioport {
 	size_t start;
-	size_t count;
+	size_t size;
 	int valid;
 } isa_ioport_t;
 
-#define ISA_IOPORT(start, count) {start, count, 1}
+#define ISA_IOPORT(start, size) {start, size, 1}
 
 typedef hwirq_t isa_irq_t;
+#define ISA_IRQ(x) x
 
 typedef struct isa_probe {
 	const char *name;
@@ -86,14 +87,14 @@ static int isa_probe(devnode_t *isa_bus) {
 			if (!probe->irqs[j]) continue;
 			irq_t *irq = irq_get_from_hwirq(main_irq_chip, probe->irqs[j]);
 			if (!irq) continue;
-			bus_add_resource_desc_data(irq, 1, child, RESOURCE_IRQ, ISA_RID_IRQ(j));
+			bus_add_resource_desc_data(child, irq, 1, RESOURCE_IRQ, ISA_RID_IRQ(j));
 		}
 		bus_attach_child(isa_bus, child, probe->name, UNIT_ALLOCATE);
 	}
 	return 0;
 }
 
-static driver_t *isa_driver {
+static driver_t isa_driver = {
 	.name = "ISA bus driver",
 	.device_name = "isa",
 	.buses = BUSES("root", "pci"),
@@ -102,13 +103,13 @@ static driver_t *isa_driver {
 };
 
 int isa_init(int argc, char **argv) {
-	driver_register(&isa_driver);
-	return 0;
+	(void)argc;
+	(void)argv;
+	return driver_register(&isa_driver);
 }
 
 int isa_fini(void) {
-	driver_unregister(&isa_driver);
-	return 0;
+	return driver_unregister(&isa_driver);
 }
 
 kmodule_t module_meta = {

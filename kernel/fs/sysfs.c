@@ -195,7 +195,7 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 			}
 			index--;
 		}
-		break;
+		return -ENOENT;
 	case INODE_KERNEL_DIR:
 		return sysfs_static_entries_readdir(kernel_entries, arraylen(kernel_entries), index, dirent);
 	case INODE_SLAB_DIR:
