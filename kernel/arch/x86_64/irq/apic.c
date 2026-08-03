@@ -116,8 +116,9 @@ void init_apic(void) {
 			kdebugf("gsi=%d vector=%d hwirq=%d\n", gsi, irq->vector, irq->hwirq);
 
 			uint64_t redirection = ioapic_read_redirection(ioapic, i);
-			redirection &= ~IOAPIC_VECTOR;
-			redirection |= irq->vector | IOAPIC_MASK;
+			// TODO : assign a cpu when we get SMP
+			redirection &= ~(IOAPIC_VECTOR | IOAPIC_DESTINATION);
+			redirection |= (irq->vector & IOAPIC_VECTOR) | IOAPIC_MASK;
 			ioapic_write_redirection(ioapic, i, redirection);
 		}
 	}
