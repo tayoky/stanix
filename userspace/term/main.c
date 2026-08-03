@@ -279,12 +279,12 @@ int main(int argc, const char **argv) {
 
 		//skip login with -f
 		static char *arg[] = {
-			"/bin/login",
+			"/usr/bin/login",
 			"-f",
 			NULL
 		};
 		execvp(arg[0], arg);
-		perror("/bin/login");
+		perror("/usr/bin/login");
 
 		exit(EXIT_FAILURE);
 	}
