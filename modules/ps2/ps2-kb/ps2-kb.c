@@ -139,7 +139,7 @@ static int ps2_kb_probe(devnode_t *devnode) {
 static driver_t ps2_kb_driver = {
 	.name  = "ps2 keyboard",
 	.device_name = "kb%d",
-	.buses = BUSES("i8042"),
+	.buses = BUSES("ps2"),
 	.check = ps2_kb_check,
 	.probe = ps2_kb_probe,
 };
