@@ -21,7 +21,7 @@ kmodule_t module_meta = {
 	.init        = ide_init,
 	.fini        = ide_fini,
 	.author      = "tayoky",
-	.name        = "IDE controller",
+	.name        = "ide",
 	.description = "IDE controller driver",
 	.license     = "GPL 3",
 };
