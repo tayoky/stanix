@@ -233,7 +233,7 @@ static resource_t *rman_raw_allocate(rman_t *rman, devnode_t *devnode, resource_
 	}
 
 
-	resource_t *resource = resource_allocate(seg->start, seg->size, request->flags | rman->type, RID_NONE);
+	resource_t *resource = resource_allocate(devnode, seg->start, seg->size, request->flags | rman->type, RID_NONE);
 	if (!resource) return ERR2PTR(-ENOMEM);
 	resource->private = seg;
 

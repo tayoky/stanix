@@ -131,7 +131,7 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 	return child;
 }
 
-static void device_free_resource_descs(device_t *device) {
+static void device_free_resource_descs(devnode_t *device) {
 	list_node_t *node = device->resource_descs.first_node;
 	while (node) {
 		resource_desc_t *desc = container_of(node, resource_desc_t, node);
@@ -145,12 +145,12 @@ int bus_delete_child(devnode_t *bus, devnode_t *child) {
 	kassert(child->parent == bus);
 
 	// make sure all children are deleted
-	list_node_t *node = device->children.first_node;
+	list_node_t *node = child->children.first_node;
 	while (node) {
 		devnode_t *subchild = container_of(node, devnode_t, node);
 		node = node->next;
 		int ret = bus_delete_child(child, subchild);
-		if (ret < 0) return;
+		if (ret < 0) return ret;
 	}
 	
 	
@@ -306,7 +306,7 @@ int device_attach_driver_auto(devnode_t *device) {
 
 static const char *resource2str(resource_t *resource) {
 	switch (resource->flags & RESOURCE_TYPE) {
-	case RESOURCE_IOPORT:
+	case RESOURCE_IRQ:
 		return "IRQ";
 	case RESOURCE_IOPORT:
 		return "IOPORT";
@@ -324,7 +324,7 @@ static void device_release_resources(devnode_t *device) {
 	while (node) {
 		resource_t *resource = container_of(node, resource_t, node);
 		node = node->next;
-		if (driver) {
+		if (device->driver) {
 			kwarningf("driver %s leaked resource %s rid=%d on device %p(%s)\n", device->driver->name, resource2str(resource), resource->rid, device, device_get_name(device));
 		}
 		device_release_resource(device, resource);
