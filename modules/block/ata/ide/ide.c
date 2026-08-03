@@ -6,13 +6,13 @@ int ide_init(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
 	driver_register(&ide_controller_driver);
-	driver_register(&ide_channel_driver);
+	driver_register(&ide_channel_driver.driver);
 	return 0;
 }
 
 int ide_fini(void) {
 	driver_unregister(&ide_controller_driver);
-	driver_unregister(&ide_channel_driver);
+	driver_unregister(&ide_channel_driver.driver);
 	return 0;
 }
 

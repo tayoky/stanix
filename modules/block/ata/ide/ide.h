@@ -6,6 +6,7 @@
 #include <kernel/bus.h>
 #include <kernel/mutex.h>
 #include <kernel/resource.h>
+#include <module/ata.h>
 
 #define IDE_RID_BASE  1
 #define IDE_RID_CTRL  2
@@ -21,6 +22,8 @@ typedef struct ide_channel {
 	resource_t *base;
 	resource_t *ctrl;
 	resource_t *bmide;
+	devnode_t *master;
+	devnode_t *slave;
 	uint8_t nIEN;
 } ide_channel_t;
 
@@ -33,6 +36,6 @@ typedef struct ide_controller {
 } ide_controller_t;
 
 extern driver_t ide_controller_driver;
-extern driver_t ide_channel_driver;
+extern ata_driver_t ide_channel_driver;
 
 #endif

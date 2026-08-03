@@ -1,19 +1,23 @@
-#ifndef _ATA_H
-#define _ATA_H
+#ifndef MODULE_ATA_H
+#define MODULE_ATA_H
 
-//thanks osdev wiki for this constants
+#include <kernel/bus.h>
+#include <stdint.h>
+#include <errno.h>
 
-//ata status
-#define ATA_SR_BSY  0x80 //busy
-#define ATA_SR_DRDY 0x40 //drive ready
-#define ATA_SR_DF   0x20 //drive write fault
-#define ATA_SR_DSC  0x10 //drive seek complete
-#define ATA_SR_DRQ  0x08 //data request ready
-#define ATA_SR_CORR 0x04 //corrected data
-#define ATA_SR_IDX  0x02 //index
-#define ATA_SR_ERR  0x01 //error
+// thanks osdev wiki for this constants
 
-//ata command
+// ata status
+#define ATA_SR_BSY  0x80 // busy
+#define ATA_SR_DRDY 0x40 // drive ready
+#define ATA_SR_DF   0x20 // drive write fault
+#define ATA_SR_DSC  0x10 // drive seek complete
+#define ATA_SR_DRQ  0x08 // data request ready
+#define ATA_SR_CORR 0x04 // corrected data
+#define ATA_SR_IDX  0x02 // index
+#define ATA_SR_ERR  0x01 // error
+
+// ata commands
 #define ATA_CMD_READ_PIO        0x20
 #define ATA_CMD_READ_PIO_EXT    0x24
 #define ATA_CMD_READ_DMA        0xC8
@@ -28,25 +32,6 @@
 #define ATA_CMD_IDENTIFY_PACKET 0xA1
 #define ATA_CMD_IDENTIFY        0xEC
 
-//ata registers
-#define ATA_REG_DATA       0x00
-#define ATA_REG_ERROR      0x01
-#define ATA_REG_FEATURES   0x01
-#define ATA_REG_SECCOUNT0  0x02
-#define ATA_REG_LBA0       0x03
-#define ATA_REG_LBA1       0x04
-#define ATA_REG_LBA2       0x05
-#define ATA_REG_DRV_SELECT 0x06
-#define ATA_REG_COMMAND    0x07
-#define ATA_REG_STATUS     0x07
-#define ATA_REG_SECCOUNT1  0x08
-#define ATA_REG_LBA3       0x09
-#define ATA_REG_LBA4       0x0A
-#define ATA_REG_LBA5       0x0B
-#define ATA_REG_CONTROL    0x0C
-#define ATA_REG_ALTSTATUS  0x0C
-#define ATA_REG_DEVADDRESS 0x0D
-
 #define ATA_IDENT_DEVICETYPE   0
 #define ATA_IDENT_CYLINDERS    2
 #define ATA_IDENT_HEADS        6
@@ -59,5 +44,32 @@
 #define ATA_IDENT_COMMANDSETS  164
 #define ATA_IDENT_MAX_LBA_EXT  200
 
+typedef struct ata_command {
+	uint8_t opcode;
+	uint8_t flags;
+	uint64_t lba;
+	size_t sectors_count;
+	void *buf;
+} ata_command_t;
+
+#define ATA_CMD_SEND_LBA28     0x01
+#define ATA_CMD_SEND_LBA48     0x02
+#define ATA_CMD_READ_BUF       0x04
+#define ATA_CMD_WRITE_BUF      0x08
+
+typedef struct ata_driver {
+	driver_t driver;
+	int (*send_ata_command)(devnode_t *bus, devnode_t *devnode, ata_command_t *command);
+} ata_driver_t;
+
+static inline int ata_send_command(devnode_t *devnode, ata_command_t *command, void *buf) {
+	devnode_t *bus = devnode->parent;
+	kassert(bus);
+	ata_driver_t *ata_driver = container_of(bus->driver, ata_driver_t, driver);
+	if (ata_driver->send_ata_command) {
+		return ata_driver->send_ata_command(bus, devnode, command);
+	}
+	return -ENOTSUP;
+}
 
 #endif
