@@ -32,7 +32,7 @@ typedef struct ide_controller {
 	ide_resource_t *bmide;
 } ide_controller_t;
 
-int ide_controller_pci_check(devnode_t *devnode);
-int ide_controller_pci_probe(devnode_t *devnode);
+extern driver_t ide_controller_driver;
+extern driver_t ide_channel_driver;
 
 #endif

@@ -21,6 +21,7 @@ static int ide_controller_pci_check(devnode_t *devnode) {
 }
 
 static int ide_controller_pci_probe(devnode_t *devnode) {
+	ide_controller_t *controller = devnode->private;
 	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
 	uint8_t prog_if    = pci_dev->prog_if;
 	uint8_t bus        = pci_dev->bus;
@@ -81,6 +82,7 @@ static int ide_controller_isa_check(devnode_t *devnode) {
 static int ide_controller_isa_probe(devnode_t *devnode) {
 	// since the ISA bus is hardcoded, resources are always here
 	// no need to check anything
+	ide_controller_t *controller = devnode->private;
 	controller->base1 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT0);
 	controller->ctrl1 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT1);
 	controller->base2 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT2);
@@ -130,7 +132,7 @@ static int ide_controller_probe(devnode_t *devnode) {
 		if (controller->bmide && !IS_ERR(controller->bmide)) {
 			bus_add_resource_spec(channel1, controller->bmide->start, 8, RESOURCE_IOPORT, IDE_RID_BMIDE);
 		}
-		bus_attach_children(devnode, channel1, "channel%d", 1);
+		bus_attach_children(devnode, channel1, "ide_channel%d", 1);
 	}
 	if (!IS_ERR(controller->base2) && !IS_ERR(controller->ctrl2)) {
 		devnode_t *channel2 = devnode_allocate();
@@ -139,8 +141,18 @@ static int ide_controller_probe(devnode_t *devnode) {
 		if (controller->bmide && !IS_ERR(controller->bmide)) {
 			bus_add_resource_spec(channel2, controller->bmide->start + 8, 8, RESOURCE_IOPORT, IDE_RID_BMIDE);
 		}
-		bus_attach_children(devnode, channel2, "channel%d", 2);
+		bus_attach_children(devnode, channel2, "ide_channel%d", 2);
 	}
+	return 0;
+}
+
+static int ide_controller_detach(devnode_t *devnode) {
+	ide_controller_t *controller = devnode->private;
+	device_release_resource(devnode, controller->base1);
+	device_release_resource(devnode, controller->base2);
+	device_release_resource(devnode, controller->ctrl1);
+	device_release_resource(devnode, controller->ctrl2);
+	device_release_resource(devnode, controller->bmide);
 	return 0;
 }
 
@@ -165,34 +177,13 @@ static void ide_controller_release_resource(devnode_t *bus, devnode_t *devnode, 
 	return bus_release_resource(bus->parent, devnode, resource);
 }
 
-static driver_t ide_driver = {
+driver_t ide_controller_driver = {
 	.name        = "IDE",
 	.device_name = "ide%d",
 	.buses       = BUSES("isa", "pci"),
 	.check       = ide_controller_check,
 	.probe       = ide_controller_probe,
+	.detach      = ide_controller_detach,
 	.allocate_resource = ide_controller_allocate_resource,
 	.release_resource  = ide_controller_release_resource,
-};
-
-int ide_init(int argc, char **argv) {
-	(void)argc;
-	(void)argv;
-	driver_register(&ide_controller_driver);
-	return 0;
-}
-
-int ide_fini() {
-	driver_unregister(&ide_controller_driver);
-	return 0;
-}
-
-kmodule_t module_meta = {
-	.magic       = MODULE_MAGIC,
-	.init        = ide_controller_init,
-	.fini        = ide_controller_fini,
-	.author      = "tayoky",
-	.name        = "IDE controller",
-	.description = "IDE controller driver",
-	.license     = "GPL 3",
 };
