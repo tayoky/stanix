@@ -66,39 +66,10 @@ int driver_unregister(driver_t *driver) {
 }
 
 static void device_print_name(devnode_t *devnode, char *buf, size_t size) {
-	const char *fmt = devnode->devclass->name;
-	char *ptr = buf;
-	while (*fmt && size > 1) {
-		if (*fmt == '%') {
-			fmt++;
-			switch (*fmt) {
-			case 'd':
-				snprintf(ptr, size, "%d", devnode->unit);
-				size_t written = strlen(ptr);
-				ptr += written;
-				size -= written;
-				break;
-			case 'c':
-				*(ptr++) = 'a' + devnode->unit;
-				size--;
-				break;
-			case 'C':
-				*(ptr++) = 'A' + devnode->unit;
-				size--;
-				break;
-			case '%':
-				*(ptr++) = '%';
-				size--;
-				break;
-			}
-		} else {
-			*(ptr++) = *fmt;
-			size--;
-		}
-		fmt++;
-	}
-	if (size > 0) {
-		*ptr = '\0';
+	if (devnode->unit == UNIT_NOUNIT) {
+		snprintf(buf, size, "%s", devnode->devclass->name);
+	} else {
+		snprintf(buf, size, "%s%d", devnode->devclass->name, devnode->unit);
 	}
 }
 

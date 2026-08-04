@@ -167,7 +167,7 @@ static void ps2_mouse_detach(devnode_t *devnode) {
 
 static driver_t ps2_mouse_driver = {
 	.name = "ps2 mouse",
-	.device_name = "mouse%d",
+	.device_name = "mouse",
 	.buses = BUSES("ps2"),
 	.check = ps2_mouse_check,
 	.probe = ps2_mouse_probe,

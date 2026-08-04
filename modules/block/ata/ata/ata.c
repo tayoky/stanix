@@ -166,8 +166,8 @@ static int ata_probe(devnode_t *devnode) {
 
 static driver_t ata_driver = {
 	.name = "ATA disk",
-	.device_name = "hd%c",
-	.buses = BUSES("ide_channel%d"),
+	.device_name = "hd",
+	.buses = BUSES("ide_channel"),
 	.check = ata_check,
 	.probe = ata_probe,
 };

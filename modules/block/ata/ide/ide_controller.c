@@ -132,7 +132,7 @@ static int ide_controller_probe(devnode_t *devnode) {
 		if (controller->bmide && !IS_ERR(controller->bmide)) {
 			bus_add_resource_spec(channel1, controller->bmide->start, 8, RESOURCE_IOPORT, IDE_RID_BMIDE);
 		}
-		bus_attach_children(devnode, channel1, "ide_channel%d", 1);
+		bus_attach_children(devnode, channel1, "ide_channel", devnode->unit * 2 + 0);
 	}
 	if (!IS_ERR(controller->base2) && !IS_ERR(controller->ctrl2)) {
 		devnode_t *channel2 = devnode_allocate();
@@ -141,7 +141,7 @@ static int ide_controller_probe(devnode_t *devnode) {
 		if (controller->bmide && !IS_ERR(controller->bmide)) {
 			bus_add_resource_spec(channel2, controller->bmide->start + 8, 8, RESOURCE_IOPORT, IDE_RID_BMIDE);
 		}
-		bus_attach_children(devnode, channel2, "ide_channel%d", 2);
+		bus_attach_children(devnode, channel2, "ide_channel", devnode->unit * 2 + 1);
 	}
 	return 0;
 }
@@ -178,8 +178,8 @@ static void ide_controller_release_resource(devnode_t *bus, devnode_t *devnode, 
 }
 
 driver_t ide_controller_driver = {
-	.name        = "IDE",
-	.device_name = "ide%d",
+	.name        = "IDE controller",
+	.device_name = "ide",
 	.buses       = BUSES("isa", "pci"),
 	.check       = ide_controller_check,
 	.probe       = ide_controller_probe,

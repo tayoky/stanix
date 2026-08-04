@@ -177,7 +177,7 @@ static void serial_detach(devnode_t *devnode) {
 
 static driver_t serial_driver = {
 	.name = "serial port",
-	.device_name = "serial%d",
+	.device_name = "serial",
 	.buses = BUSES("pci", "isa"),
 	.check = serial_check,
 	.probe = serial_probe,

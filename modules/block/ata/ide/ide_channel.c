@@ -110,6 +110,7 @@ static int ide_channel_probe(devnode_t *devnode) {
 	ide_channel_reset(channel);
 
 	// create children devices
+	// TODO : create atachannel
 	channel->master = bus_attach_children(devnode, NULL, NULL, UNIT_NOUNIT);
 	channel->slave  = bus_attach_children(devnode, NULL, NULL, UNIT_NOUNIT);
 	return 0;
@@ -187,7 +188,7 @@ static int ide_channel_send_ata_command(devnode_t *bus, devnode_t *devnode, ata_
 ata_driver_t ide_channel_driver = {
 	.driver = {
 		.name = "IDE channel",
-		.device_name = "ide_channel%d",
+		.device_name = "ide_channel",
 		.probe = ide_channel_probe,
 		.detach = ide_channel_detach,
 	},
