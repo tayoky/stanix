@@ -30,6 +30,7 @@
 #include <kernel/vmm.h>
 #include <kernel/acpi.h>
 #include <kernel/bootinfo.h>
+#include <kernel/block.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -130,6 +131,7 @@ void kmain() {
 	init_sysfs();
 	init_sockets();
 	init_unix_socket();
+	init_block();
 	init_futexes();
 
 	kstatusf("finish init kernel\n");

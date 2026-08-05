@@ -1,10 +1,20 @@
 #include <kernel/userspace.h>
 #include <kernel/kheap.h>
+#include <kernel/slab.h>
+#include <kernel/cond.h>
 #include <kernel/device.h>
 #include <kernel/block.h>
 #include <sys/block.h>
 #include <errno.h>
 
+static slab_cache_t block_requests_slab;
+static list_t pending_requests;
+
+void init_block(void) {
+	slab_init(&block_requests_slab, sizeof(block_request_t), "block-requests");
+}
+
+// TODO : expose an async API (when the vfs support one)
 static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset, size_t count, int type) {
 	if (device_is_unplugged(&block_device->device)) {
 		return -ENXIO;
@@ -38,23 +48,19 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 			// fill first and last sector
 			int ret = 0;
 			if (start % block_device->sector_size != 0) {
-				block_request_t request = {
-					.start_sector = start_sector,
-					.sectors_count = 1,
-					.buf = kbuf,
-					.type = BLOCK_REQUEST_READ,
-				};
-				ret = block_device_request(block_device, &request);
+				block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
+				request->start_sector = start_sector;
+				request->sectors_count = 1;
+				request->buf = kbuf;
+				ret = block_device_sumbit_sync(request);
 				if (ret < 0) goto error;
 			}
 			if (end % block_device->sector_size != 0 && (start % block_device->sector_size == 0 || start_sector != end_sector)) {
-				block_request_t request = {
-					.start_sector = end_sector - 1,
-					.sectors_count = 1,
-					.buf = kbuf + (sectors_count - 1) * block_device->sector_size,
-					.type = BLOCK_REQUEST_READ,
-				};
-				ret = block_device_request(block_device, &request);
+				block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
+				request->start_sector = end_sector - 1;
+				request->sectors_count = 1;
+				request->buf = kbuf + (sectors_count - 1) * block_device->sector_size;
+				ret = block_submit_request_sync(request);
 				if (ret < 0) goto error;
 			}
 			ret = safe_copy_from((char*)kbuf + start % block_device->sector_size, buf, end - start);
@@ -66,13 +72,11 @@ error:
 		}
 	}
 
-	block_request_t request = {
-		.start_sector = start_sector,
-		.sectors_count = sectors_count,
-		.buf = kbuf ? kbuf : buf,
-		.type = type,
-	};
-	int ret = block_device_request(block_device, &request);
+	block_request_t *request = block_create_request(block_device, type);
+	request->start_sector = start_sector;
+	request->sectors_count = sectors_count;
+	request->buf = kbuf ? kbuf : buf;
+	int ret = block_submit_request_sync(request);
 	if (ret >= 0 && type == BLOCK_REQUEST_READ && kbuf) {
 		ret = safe_copy_to(buf, (char*)kbuf + start % block_device->sector_size, end - start);
 	}
@@ -110,6 +114,65 @@ static vfs_fd_ops_t block_ops = {
 	.write = block_write,
 	.ioctl = block_ioctl,
 };
+
+block_request *block_create_request(block_device_t *block_device, int type) {
+	kassert(block_device);
+	// TODO
+	return NULL;
+}
+
+int block_submit_request(block_request_t *request) {
+	kassert(request->block_device);
+	kassert(request->block_device->ops);
+	if (!request->block_device->ops->request) {
+		return -EIO;
+	}
+	int ret = request->block_device->ops->submit(request->block_device, request);
+	if (ret < 0 && ret == -EAGAIN)  {
+		ret = 0;
+		// TODO : push to pending queue
+	} else if (ret < 0) {
+		slab_free(request);
+	}
+	return ret;
+}
+
+typedef struct block_wait_data {
+	cond_t cond;
+	int ret;
+} block_wait_data_t;
+
+static void block_wait_callback(block_request_t *request, void *data) {
+	block_wait_data_t *wait_data = data;
+	wait_data->ret = request->ret;
+	cond_set(&wait_data->cond);
+}
+
+int block_submit_request_sync(block_request_t *request) {
+	block_wait_data_t wait_data;
+	init_cond(&wait_data.cond);
+
+	block_request_set_callback(request, block_wait_callback, &wait_data);
+	int ret = block_device_sumbit(request);
+	if (ret < 0) return ret;
+
+	int ret = cond_wait(&wait_data.cond);
+	if (ret < 0) return ret;
+	return wait_data.ret;
+}
+
+void block_cancel_request(block_request_t *request) {
+	slab_free(request);
+}
+
+void block_finish_request(block_request_t *request, int ret) {
+	request->ret = ret;
+	if (request->callback) {
+		request->callback(request, request->data);
+	}
+	slab_free(request);
+	// TODO : resubmit from pending queue
+}
 
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number) {
 	block_device->device.type = DEVICE_BLOCK;

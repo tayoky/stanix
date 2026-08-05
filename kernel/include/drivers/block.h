@@ -9,7 +9,7 @@ typedef struct block_device block_device_t;
 typedef struct block_request block_request_t;
 
 struct block_ops {
-	int (*request)(block_device_t *block_device, block_request_t *request);
+	int (*submit)(block_device_t *block_device, block_request_t *request);
 	int (*ioctl)(block_device_t *block_device, long request, void *arg);
 };
 
@@ -21,22 +21,29 @@ struct block_device {
 };
 
 struct block_request {
+	list_node_t node;
+	block_device_t *block_device;
 	size_t start_sector;
 	size_t sectors_count;
 	void *buf;
+	void (*callback)(block_request_t *request, void *data);
+	void *data;
 	int type;
+	int ret;
 };
 
 #define BLOCK_REQUEST_READ  1
 #define BLOCK_REQUEST_WRITE 2
 
-static inline int block_device_request(block_device_t *block_device, block_request_t *request) {
-	kassert(block_device->ops);
-	if (block_device->ops->request) {
-		return block_device->ops->request(block_device, request);
-	}
-	return -EIO;
+void init_block(void);
+block_request *block_create_request(block_device_t *block_device, int type);
+static inline void block_request_set_callback(block_request_t *block_request, void (*callback)(block_request_t*,void*), void *data) {
+	block_request->callback = callback;
+	block_request->data     = data;
 }
-
+int block_submit_request(block_request_t *request);
+int block_submit_request_sync(block_request_t *request);
+void block_cancel_request(block_request_t *request);
+void block_finish_request(block_request_t *request, int ret);
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number);
 #endif

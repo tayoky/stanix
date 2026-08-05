@@ -6,6 +6,7 @@
 #include <sys/block.h>
 #include <sys/ioctl.h>
 
+// TODO : real async api when the rest of the ata system suport one
 static int ata_request(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
 
@@ -50,6 +51,8 @@ static int ata_request(block_device_t *block_device, block_request_t *request) {
 		};
 		ata_send_command(&device->devnode, &flush_command);
 	}
+
+	block_finish_request(request);
 
 	return 0;
 }

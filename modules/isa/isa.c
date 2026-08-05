@@ -24,30 +24,30 @@ typedef struct isa_probe {
 static isa_probe_t isa_probes[] = {
 	// IDE controller
 	{"ide", {
-			  ISA_IOPORT(0x1f0, 8),
-			  ISA_IOPORT(0x3f4, 4),
-			  ISA_IOPORT(0x170, 8),
-			  ISA_IOPORT(0x374, 4),
-		  }, {
-			  ISA_IRQ(14),
-			  ISA_IRQ(15),
-		  }
+			ISA_IOPORT(0x1f0, 8),
+			ISA_IOPORT(0x3f4, 4),
+			ISA_IOPORT(0x170, 8),
+			ISA_IOPORT(0x374, 4),
+		}, {
+			ISA_IRQ(14),
+			ISA_IRQ(15),
+		}
 	},
 
 	// COM1
 	{"serial",  {
-			      ISA_IOPORT(0x3f8, 8),
-		      }, {
-			      ISA_IRQ(4),
-		      }
+			ISA_IOPORT(0x3f8, 8),
+		}, {
+			ISA_IRQ(4),
+		}
 	},
 
 	// COM2
 	{"serial",  {
-			      ISA_IOPORT(0x2f8, 8),
-		      }, {
-			      ISA_IRQ(3),
-		      }
+			ISA_IOPORT(0x2f8, 8),
+		}, {
+			ISA_IRQ(3),
+		}
 	},
 
 };
