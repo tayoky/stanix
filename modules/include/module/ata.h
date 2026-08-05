@@ -44,6 +44,18 @@
 #define ATA_IDENT_COMMANDSETS  164
 #define ATA_IDENT_MAX_LBA_EXT  200
 
+struct ata_driver;
+
+typedef struct {
+	devnode_t devnode;
+	devnode_t *channel;
+	size_t sectors_count;
+	uint32_t command_sets;
+	int drive;
+	int class;
+	char model[40];
+} ata_device_t;
+
 typedef struct ata_command {
 	uint8_t opcode;
 	uint8_t flags;
@@ -59,17 +71,19 @@ typedef struct ata_command {
 
 typedef struct ata_driver {
 	driver_t driver;
-	int (*send_ata_command)(devnode_t *bus, devnode_t *devnode, ata_command_t *command);
+	int (*send_ata_command)(devnode_t *channel, devnode_t *devnode, ata_command_t *command);
 } ata_driver_t;
 
-static inline int ata_send_command(devnode_t *devnode, ata_command_t *command, void *buf) {
-	devnode_t *bus = devnode->parent;
-	kassert(bus);
-	ata_driver_t *ata_driver = container_of(bus->driver, ata_driver_t, driver);
+static inline int ata_channel_send_command(devnode_t *channel, devnode_t *devnode, ata_command_t *command) {
+	ata_driver_t *ata_driver = container_of(channel->driver, ata_driver_t, driver);
 	if (ata_driver->send_ata_command) {
-		return ata_driver->send_ata_command(bus, devnode, command);
+		return ata_driver->send_ata_command(channel, devnode, command);
 	}
 	return -ENOTSUP;
+}
+
+static inline int ata_send_command(devnode_t *devnode, ata_command_t *command) {
+	return ata_channel_send_command(devnode->parent, devnode, command);
 }
 
 #endif
