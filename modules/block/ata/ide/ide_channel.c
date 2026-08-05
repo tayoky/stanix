@@ -109,10 +109,9 @@ static int ide_channel_probe(devnode_t *devnode) {
 	
 	ide_channel_reset(channel);
 
-	// create children devices
-	// TODO : create atachannel
-	channel->master = bus_attach_children(devnode, NULL, NULL, UNIT_NOUNIT);
-	channel->slave  = bus_attach_children(devnode, NULL, NULL, UNIT_NOUNIT);
+	// create children ata channels
+	channel->master = bus_attach_children(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
+	channel->slave  = bus_attach_children(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
 	return 0;
 }
 
