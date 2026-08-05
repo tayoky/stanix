@@ -28,11 +28,11 @@ typedef struct ide_channel {
 } ide_channel_t;
 
 typedef struct ide_controller {
-	ide_resource_t *base1;
-	ide_resource_t *base2;
-	ide_resource_t *ctrl1;
-	ide_resource_t *ctrl2;
-	ide_resource_t *bmide;
+	resource_t *base1;
+	resource_t *base2;
+	resource_t *ctrl1;
+	resource_t *ctrl2;
+	resource_t *bmide;
 } ide_controller_t;
 
 extern driver_t ide_controller_driver;

@@ -1,4 +1,5 @@
 #include <kernel/module.h>
+#include <kernel/kheap.h>
 #include <kernel/bus.h>
 #include <module/ata.h>
 
@@ -29,7 +30,7 @@ typedef struct ata_ident {
 } __attribute__((packed)) __attribute__((aligned(16))) ata_ident_t;
 
 static int ata_channel_probe(devnode_t *devnode) {
-	ata_ident_t ident,
+	ata_ident_t ident;
 	ata_command_t identify = {
 		.opcode = ATA_CMD_IDENTIFY,
 		.lba = 0,
@@ -63,10 +64,9 @@ static int ata_channel_probe(devnode_t *devnode) {
 	return 0;
 }
 
-static int ata_channel_detach(devnode_t *devnode) {
+static void ata_channel_detach(devnode_t *devnode) {
 	(void)devnode;
 	// nothing to do
-	return 0;
 }
 
 static int ata_channel_send_ata_command(devnode_t *channel, devnode_t *device, ata_command_t *command) {
@@ -86,6 +86,8 @@ static ata_driver_t ata_channel_driver = {
 };
 
 int ata_channel_init(int argc, char **argv) {
+	(void)argc;
+	(void)argv;
 	return driver_register(&ata_channel_driver.driver);
 }
 

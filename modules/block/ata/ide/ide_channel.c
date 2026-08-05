@@ -1,8 +1,8 @@
 #include <kernel/print.h>
 #include <kernel/kheap.h>
 #include <kernel/bus.h>
-#include <module/atah>
-#include <error.h>
+#include <module/ata.h>
+#include <errno.h>
 #include <ide.h>
 
 // ide registers
@@ -110,17 +110,16 @@ static int ide_channel_probe(devnode_t *devnode) {
 	ide_channel_reset(channel);
 
 	// create children ata channels
-	channel->master = bus_attach_children(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
-	channel->slave  = bus_attach_children(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
+	channel->master = bus_attach_child(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
+	channel->slave  = bus_attach_child(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
 	return 0;
 }
 
-static int ide_channel_detach(devnode_t *devnode) {
+static void ide_channel_detach(devnode_t *devnode) {
 	ide_channel_t *channel = devnode->private;
 	device_release_resource(devnode, channel->base);
 	device_release_resource(devnode, channel->ctrl);
 	device_release_resource(devnode, channel->bmide);
-	return 0;
 }
 
 static int ide_channel_raw_send_ata_command(ide_channel_t *channel, devnode_t *devnode, ata_command_t *command) {
@@ -177,7 +176,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, devnode_t *d
 }
 
 static int ide_channel_send_ata_command(devnode_t *bus, devnode_t *devnode, ata_command_t *command) {
-	ide_channel_t *channel = devnode->private;
+	ide_channel_t *channel = bus->private;
 	mutex_acquire(&channel->mutex);
 	int ret = ide_channel_raw_send_ata_command(channel, devnode, command);
 	mutex_release(&channel->mutex);
