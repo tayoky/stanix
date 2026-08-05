@@ -13,15 +13,18 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 	size_t end   = offset + count;
 	size_t start_sector = start / block_device->sector_size;
 	size_t end_sector   = (end + block_device->sector_size - 1) / block_device->sector_size;
+	size_t sectors_count = end_sector - start_sector;
 
 	// bound checks
+	if (start == end) {
+		return 0;
+	}
 	if (start_sector >= block_device->sectors_count) {
 		return 0;
 	}
 	if (end_sector = block_device->sectors_count) {
 		end_sector = block_device->sectors_count;
 		end = end_sector * block_device->sector_size;
-		return 0;
 	}
 
 	void *kbuf = NULL;
@@ -31,15 +34,40 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 		kbuf = kmalloc((end_sector - start_sector) * block_device->sector_size);
 		if (!kbuf) return -ENOMEM;
 		if (type == BLOCK_REQUEST_WRITE) {
-			// TODO : fill first and last sector
+			// fill first and last sector
+			int ret = 0;
+			if (start % block_device->sector_size != 0) {
+				block_request_t request = {
+					.start_sector = start_sector,
+					.sectors_count = 1,
+					.buf = kbuf,
+					.type = BLOCK_REQUEST_READ,
+				};
+				ret = block_device_request(&request);
+				if (ret < 0) goto error;
+			}
+			if (end % block_device->sector_size != 0 && (start % block_device->sector_size == 0 || start_sector != end_sector)) {
+				block_request_t request = {
+					.start_sector = end_sector - 1,
+					.sectors_count = 1,
+					.buf = kbuf + (sectors_count - 1) * block_device->sector_size,
+					.type = BLOCK_REQUEST_READ,
+				};
+				ret = block_device_request(&request);
+				if (ret < 0) goto error;
+			}
 			int ret = safe_copy_from((char*)kbuf + start % block_device->sector_size, buf, end - start);
-			if (ret < 0) return ret;
+			if (ret < 0) {
+error:
+				kfree(kbuf);
+				return ret;
+			}
 		}
 	}
 
 	block_request_t request = {
 		.start_sector = start_sector,
-		.sectors_count = end_sector - start_sector,
+		.sectors_count = sectors_count,
 		.buf = kbuf ? kbuf : buf,
 		.type = type,
 	};
