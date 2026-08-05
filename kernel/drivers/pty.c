@@ -156,14 +156,11 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 
 	// register and save the slave
 	if (device_register(&slave->device, "pts/%d", makedev(pty_major, 0)) < 0) {
-		// TODO : delete tty
+		vfs_close(*master_fd);
 		return -ENOENT;
 	}
 
-	// FIXME : maybee there is a better way to do this
-	char path[32];
-	sprintf(path, "/dev/%s", slave->device.name);
-	(*slave_fd) = vfs_open(path, O_RDWR);
+	*slave_fd = device_open(&slave->device, O_RDWR);
 
 	return minor(slave->device.number);
 }
