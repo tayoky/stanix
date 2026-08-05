@@ -1,9 +1,12 @@
 #include <kernel/module.h>
 #include <kernel/block.h>
+#include <kernel/kheap.h>
 #include <kernel/bus.h>
 #include <module/ata.h>
+#include <sys/block.h>
+#include <sys/ioctl.h>
 
-static ssize_t ata_request(block_device_t *block_device, block_request_t *request) }
+static int ata_request(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
 
 	// LBA28 has a lower limit
@@ -15,19 +18,19 @@ static ssize_t ata_request(block_device_t *block_device, block_request_t *reques
 	uint8_t opcode;
 	int flags;
 	if (device->command_sets & (1 << 26)) {
-		if (write) {
+		if (request->type == BLOCK_REQUEST_WRITE) {
 			opcode = ATA_CMD_WRITE_PIO_EXT;
 		} else {
 			opcode = ATA_CMD_READ_PIO_EXT;
 		}
-		flags = ATA_SEND_LBA48;
+		flags = ATA_CMD_SEND_LBA48;
 	} else {
-		if (write) {
+		if (request->type == BLOCK_REQUEST_WRITE) {
 			opcode = ATA_CMD_WRITE_PIO;
 		} else {
 			opcode = ATA_CMD_READ_PIO;
 		}
-		flags = ATA_SEND_LBA28;
+		flags = ATA_CMD_SEND_LBA28;
 	}
 
 	ata_command_t command = {
@@ -36,14 +39,14 @@ static ssize_t ata_request(block_device_t *block_device, block_request_t *reques
 		.lba = request->start_sector,
 		.flags = flags,
 		.buf   = request->buf,
-	}
+	};
 	int ret = ata_send_command(&device->devnode, &command);
 	if (ret < 0) return ret;
 
 	// we need to send cache flush on write
 	if (request->type == BLOCK_REQUEST_WRITE) {
 		ata_command_t flush_command = {
-			.opcode = (device->command_sets & (1 << 26)) ? ATA_CMD_FLUSH : ATA_CMD_FLUSH_EXT,
+			.opcode = (device->command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT,
 		};
 		ata_send_command(&device->devnode, &flush_command);
 	}
@@ -72,6 +75,7 @@ static block_ops_t ata_ops = {
 };
 
 static int ata_check(devnode_t *devnode) {
+	(void)devnode;
 	// TODO : check here, but what ?
 	return 1;
 }
@@ -91,9 +95,8 @@ static int ata_probe(devnode_t *devnode) {
 	return 0;
 }
 
-static int ata_detach(devnode_t *devnode) {
+static void ata_detach(devnode_t *devnode) {
 	device_destroy(devnode->device);
-	return 0;
 }
 
 static driver_t ata_driver = {
