@@ -2,8 +2,13 @@
 #include <kernel/device.h>
 #include <kernel/block.h>
 #include <sys/block.h>
+#include <errno.h>
 
 static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset, size_t count, int type) {
+	if (device_is_unplugged(&block_device->device)) {
+		return -ENXIO;
+	}
+
 	size_t start = offset;
 	size_t end   = offset + count;
 	size_t start_sector = start / block_device->sector_size;
