@@ -99,7 +99,7 @@ static int ata_detach(devnode_t *devnode) {
 static driver_t ata_driver = {
 	.name = "ATA disk",
 	.device_name = "hd",
-	.buses  = BUSES("ide_channel"),
+	.buses  = BUSES("ata_channel"),
 	.check  = ata_check,
 	.probe  = ata_probe,
 	.detach = ata_detach,
