@@ -52,6 +52,9 @@ static ssize_t ata_request(block_device_t *block_device, block_request_t *reques
 }
 
 static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
+	if (device_is_unplugged(&block_device->device)) {
+		return -ENXIO;
+	}
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
 	switch (req) {
 	case I_MODEL:
@@ -88,12 +91,18 @@ static int ata_probe(devnode_t *devnode) {
 	return 0;
 }
 
+static int ata_detach(devnode_t *devnode) {
+	device_destroy(devnode->device);
+	return 0;
+}
+
 static driver_t ata_driver = {
 	.name = "ATA disk",
 	.device_name = "hd",
-	.buses = BUSES("ide_channel"),
-	.check = ata_check,
-	.probe = ata_probe,
+	.buses  = BUSES("ide_channel"),
+	.check  = ata_check,
+	.probe  = ata_probe,
+	.detach = ata_detach,
 };
 
 static int ata_init(int argc, char **argv) {
