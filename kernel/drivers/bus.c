@@ -206,8 +206,7 @@ int device_check_driver(devnode_t *device, driver_t *driver) {
 		if (device->devclass != driver->devclass) {
 			return -ENOTSUP;
 		}
-	}
-	if (device->parent && !driver_support_bus(driver, device->parent->devclass)) {
+	} else if (device->parent && !driver_support_bus(driver, device->parent->devclass)) {
 		return -ENOTSUP;
 	}
 	if (!driver->probe) {
