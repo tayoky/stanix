@@ -24,6 +24,16 @@
 #define IDE_REG_ALTSTATUS  0x0C
 #define IDE_REG_DEVADDRESS 0x0D
 
+// ata status
+#define IDE_SR_BSY  0x80 // busy
+#define IDE_SR_DRDY 0x40 // drive ready
+#define IDE_SR_DF   0x20 // drive write fault
+#define IDE_SR_DSC  0x10 // drive seek complete
+#define IDE_SR_DRQ  0x08 // data request ready
+#define IDE_SR_CORR 0x04 // corrected data
+#define IDE_SR_IDX  0x02 // index
+#define IDE_SR_ERR  0x01 // error
+
 #define IDE_DRV_SELECT_LEGACY 0xa0
 #define IDE_DRV_SELECT_LBA    0x40
 #define IDE_DRV_SELECT_SLAVE  0x10
@@ -135,7 +145,12 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, devnode_t *d
 	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select);
 
 	ide_channel_io_wait(channel);
-	if (ide_channel_poll(channel, ATA_SR_BSY, 0) < 0) {
+	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
+	if (status == 0 || status == 0xff) {
+		// no drive
+		return -ENODEV;
+	}
+	if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
 		return -ETIMEDOUT;
 	}
 
@@ -160,7 +175,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, devnode_t *d
 	if (command->flags & (ATA_CMD_READ_BUF | ATA_CMD_WRITE_BUF)) {
 		for (size_t i = 0; i < command->sectors_count; i++) {
 			ide_channel_io_wait(channel);
-			if (ide_channel_poll(channel, ATA_SR_BSY | ATA_SR_DRQ, ATA_SR_DRQ) < 0) {
+			if (ide_channel_poll(channel, IDE_SR_BSY | IDE_SR_DRQ, IDE_SR_DRQ) < 0) {
 				return -EIO;
 			}
 			for (size_t j = 0; j < 256; j++) {
@@ -171,6 +186,13 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, devnode_t *d
 				}
 			}
 		}
+	} else {
+			if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
+				return -EIO;
+			}
+	}
+	if (ide_channel_read(channel, IDE_REG_STATUS) & IDE_SR_ERR) {
+		return -EIO;
 	}
 	return 0;
 }
