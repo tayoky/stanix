@@ -34,15 +34,46 @@
 #define ATA_IDENT_COMMANDSETS  164
 #define ATA_IDENT_MAX_LBA_EXT  200
 
+// thanks Sasdallas for this
+typedef struct ata_ident {
+	uint16_t flags;           // If bit 15 is cleared, valid drive. If bit 7 is set to one, this is removable.
+	uint16_t obsolete;        // Obsolete
+	uint16_t specifics;       // 7.17.7.3 in specification
+	uint16_t obsolete2[6];    // Obsolete
+	uint16_t obsolete3;       // Obsolete
+	char serial[20];          // Serial number
+	uint16_t obsolete4[3];    // Obsolete
+	char firmware[8];         // Firmware revision
+	char model[40];           // Model number
+	uint16_t rw_multiple;     // R/W multiple support (<=16 is SATA)
+	uint16_t obsolete5;       // Obsolete
+	uint32_t capabilities;    // Capabilities of the IDE device
+	uint16_t obsolete6[2];    // Obsolete
+	uint16_t field_validity;  // If 1, the values reported in _ - _ are valid
+	uint16_t obsolete7[5];    // Obsolete
+	uint16_t multi_sector;    // Multiple sector setting
+	uint32_t sectors;         // Total addressable sectors
+	uint16_t obsolete8[20];   // Technically these aren't obsolete, but they contain nothing really useful
+	uint32_t command_sets;    // Command/feature sets
+	uint16_t obsolete9[16];   // Contain nothing really useful
+	uint64_t sectors_lba48;   // LBA48 maximum sectors, AND by 0000FFFFFFFFFFFF for validity
+	uint16_t obsolete10[152]; // Contain nothing really useful
+} __attribute__((packed)) __attribute__((aligned(16))) ata_ident_t;
+
+typedef struct ata_common_ident {
+	size_t sectors_count;
+	uint32_t command_sets;
+	char model[41];
+	char firmware[9];
+	char serial[21];
+} ata_common_ident_t;
+
 struct ata_driver;
 
 typedef struct {
 	devnode_t devnode;
 	devnode_t *channel;
-	size_t sectors_count;
-	uint32_t command_sets;
 	uint32_t signature;
-	char model[40];
 } ata_device_t;
 
 typedef struct ata_command {
@@ -61,8 +92,9 @@ typedef struct ata_command {
 typedef struct ata_driver {
 	driver_t driver;
 	int (*send_ata_command)(devnode_t *channel, devnode_t *devnode, ata_command_t *command);
-	uint32_t (*get_signature)(devnode_t *channel, devnode_t *devnode);
 } ata_driver_t;
+
+#define ATA_BUSES BUSES("ide_channel")
 
 static inline int ata_channel_send_command(devnode_t *channel, devnode_t *devnode, ata_command_t *command) {
 	ata_driver_t *ata_driver = container_of(channel->driver, ata_driver_t, driver);
@@ -72,20 +104,9 @@ static inline int ata_channel_send_command(devnode_t *channel, devnode_t *devnod
 	return -ENOTSUP;
 }
 
-static inline uint32_t ata_channel_get_signature(devnode_t *channel, devnode_t *devnode) {
-	ata_driver_t *ata_driver = container_of(channel->driver, ata_driver_t, driver);
-	if (ata_driver->get_signature) {
-		return ata_driver->get_signature(channel, devnode);
-	}
-	return 0xffffffff;
-}
-
 static inline int ata_send_command(devnode_t *devnode, ata_command_t *command) {
 	return ata_channel_send_command(devnode->parent, devnode, command);
 }
 
-static inline uint32_t ata_get_signature(devnode_t *devnode) {
-	return ata_channel_get_signature(devnode->parent, devnode);
-}
-
+void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident);
 #endif

@@ -108,7 +108,7 @@ static void ide_channel_reset(ide_channel_t *channel) {
 	mutex_release(&channel->mutex);
 }
 
-static devnode_t *ide_channel_create_child(ide_channel_t *channel, uint8_t drive, uint32_t *_signature) {
+static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t *bus, uint8_t drive) {
 	// select the drive
 	uint8_t drv_select = IDE_DRV_SELECT_LEGACY | IDE_DRV_SELECT_LBA | drive;
 	ide_channel_write(channel, IDE_REG_DEVSELECT, drv_select | drive);
@@ -124,9 +124,15 @@ static devnode_t *ide_channel_create_child(ide_channel_t *channel, uint8_t drive
 		// no device
 		return NULL;
 	}
-	if (_signature) *_signature = signature;
+	kdebugf("got signature %032x\n", signature);
 
-	return bus_attach_child(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
+	ata_device_t *device = kmalloc(sizeof(ata_device_t));
+	if (!device) return NULL;
+	memset(device, 0, sizeof(ata_device_t));
+	device->signature = signature;
+
+	bus_attach_child(bus, &device->devnode, NULL, UNIT_NOUNIT);
+	return device;
 }
 
 static int ide_channel_probe(devnode_t *devnode) {
@@ -147,8 +153,8 @@ static int ide_channel_probe(devnode_t *devnode) {
 	mutex_release(&channel->mutex);
 
 	// create children ata channels
-	channel->master = ide_channel_create_child(channel, 0, &channel->master_signature);
-	channel->slave = ide_channel_create_child(channel, IDE_DRV_SELECT_SLAVE, &channel->slave_signature);
+	channel->master = ide_channel_create_child(channel, devnode, 0, &channel->master_signature);
+	channel->slave = ide_channel_create_child(channel, devnode, IDE_DRV_SELECT_SLAVE, &channel->slave_signature);
 	return 0;
 }
 
@@ -230,11 +236,6 @@ static int ide_channel_send_ata_command(devnode_t *bus, devnode_t *devnode, ata_
 	int ret = ide_channel_raw_send_ata_command(channel, devnode, command);
 	mutex_release(&channel->mutex);
 	return ret;
-}
-
-static uint32_t ide_channel_get_signature(devnode_t *bus, devnode_t *devnode) {
-	ide_channel_t *channel = bus->private;
-	return channel->master == devnode ? channel->master_signature : channel->slave_signature;
 }
 
 ata_driver_t ide_channel_driver = {

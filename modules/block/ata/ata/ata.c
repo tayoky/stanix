@@ -8,6 +8,11 @@
 
 #define ATA_SIG 0x00000101
 
+typedef struct ata_disk {
+	block_device_t block_device;
+	ata_common_ident_t common_ident; 
+} ata_disk_t;
+
 // TODO : real async api when the rest of the ata system suport one
 static int ata_request(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
@@ -63,11 +68,11 @@ static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
 	if (device_is_unplugged(&block_device->device)) {
 		return -ENXIO;
 	}
-	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
+	ata_disk_t *disk = container_of(block_device, ata_disk_t, block_device);
 	switch (req) {
 	case I_MODEL:
 		// UNSAFE
-		strcpy(arg, device->model);
+		strcpy(arg, disk->common_ident.model);
 		return 0;
 	default:
 		return -EINVAL;
@@ -77,6 +82,7 @@ static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
 static block_ops_t ata_ops = {
 	.request = ata_request,
 	.ioctl   = ata_ioctl,
+	// TODO : cleanup
 };
 
 static int ata_check(devnode_t *devnode) {
@@ -87,15 +93,27 @@ static int ata_check(devnode_t *devnode) {
 static int ata_probe(devnode_t *devnode) {
 	ata_device_t *device = container_of(devnode, ata_device_t, devnode);
 
-	block_device_t *block_device = kmalloc(sizeof(block_device_t));
-	if (!block_device) return -ENOMEM;
-	memset(block_device, 0, sizeof(block_device_t));
-	block_device->ops = &ata_ops;
-	block_device->sector_size = 512;
-	block_device->sectors_count = device->sectors_count;
-	block_device->device.devnode = devnode;
+	ata_ident_t ident;
+	ata_command_t identify = {
+		.opcode = ATA_CMD_IDENTIFY,
+		.lba = 0,
+		.sectors_count = 0,
+		.flags = ATA_CMD_SEND_LBA28,
+		.buf = &ident,
+	};
+	int ret = ata_send_command(devnode, &identify);
+	if (ret < 0) return ret;
 
-	block_device_register(block_device, NULL, 0);
+	ata_dusk_t *disk = kmalloc(sizeof(ata_disk_t));
+	if (!disk) return -ENOMEM;
+	memset(disk, 0, sizeof(ata_disk_t));
+	ata_parse_common_ident(&disk->common_ident, &ident);
+	disk->block_device.ops = &ata_ops;
+	disk->block_device.sector_size = 512;
+	disk->block_device.sectors_count = device->sectors_count;
+	disk->block_device.device.devnode = devnode;
+
+	block_device_register(&disk->block_device, NULL, 0);
 	return 0;
 }
 
@@ -106,7 +124,7 @@ static void ata_detach(devnode_t *devnode) {
 static driver_t ata_driver = {
 	.name = "ATA disk",
 	.device_name = "hd",
-	.buses  = BUSES("ata_channel"),
+	.buses = ATA_BUSES,
 	.check  = ata_check,
 	.probe  = ata_probe,
 	.detach = ata_detach,
