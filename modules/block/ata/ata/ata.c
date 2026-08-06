@@ -18,14 +18,14 @@ static int ata_request(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
 
 	// LBA28 has a lower limit
-	if (request->start_sector >= 0x10000000 && !(device->command_sets & (1 << 26))) {
+	if (request->start_sector >= 0x10000000 && !(device->common_ident.command_sets & (1 << 26))) {
 		// high LBA but no LBA28 support... uh ?
 		return -EIO;
 	}
 
 	uint8_t opcode;
 	int flags;
-	if (device->command_sets & (1 << 26)) {
+	if (device->common_ident.command_sets & (1 << 26)) {
 		if (request->type == BLOCK_REQUEST_WRITE) {
 			opcode = ATA_CMD_WRITE_PIO_EXT;
 		} else {
@@ -54,7 +54,7 @@ static int ata_request(block_device_t *block_device, block_request_t *request) {
 	// we need to send cache flush on write
 	if (request->type == BLOCK_REQUEST_WRITE) {
 		ata_command_t flush_command = {
-			.opcode = (device->command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT,
+			.opcode = (device->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT,
 		};
 		ata_send_command(&device->devnode, &flush_command);
 	}
@@ -79,10 +79,15 @@ static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
 	}
 }
 
+static void ata_cleanup(block_device_t *block_device) {
+	ata_disk_t *disk = container_of(block_device, ata_disk_t, block_device);
+	kfree(disk);
+}
+
 static block_ops_t ata_ops = {
 	.request = ata_request,
 	.ioctl   = ata_ioctl,
-	// TODO : cleanup
+	.cleanup = ata_cleanup,
 };
 
 static int ata_check(devnode_t *devnode) {
@@ -110,7 +115,7 @@ static int ata_probe(devnode_t *devnode) {
 	ata_parse_common_ident(&disk->common_ident, &ident);
 	disk->block_device.ops = &ata_ops;
 	disk->block_device.sector_size = 512;
-	disk->block_device.sectors_count = device->sectors_count;
+	disk->block_device.sectors_count = device->common_ident.sectors_count;
 	disk->block_device.device.devnode = devnode;
 
 	block_device_register(&disk->block_device, NULL, 0);
