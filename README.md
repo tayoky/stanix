@@ -33,5 +33,6 @@ Every commit name must be in the style `part : change` eg
 ## credits
 - To [sasdallas](https://github.com/sasdallas) who helped me a lot fixing a bunch of big issues.
 - To limine for loading higher half kernels easly
-- To FreeBSD for inspiration for the NewBus system
+- To FreeBSD for inspiration for the NewBus system and rman
 - To linux for the xarray data struct
+- OSdev Wiki for miscellaneous info
