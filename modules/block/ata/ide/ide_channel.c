@@ -101,7 +101,32 @@ static void ide_channel_reset(ide_channel_t *channel) {
 	ide_channel_write(channel, IDE_REG_CONTROL, 0x4 | channel->nIEN);
 	ide_channel_io_wait(channel);
 	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
+
+	if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
+		return -ETIMEDOUT;
+	}
 	mutex_release(&channel->mutex);
+}
+
+static devnode_t *ide_channel_create_child(ide_channel_t *channel, uint8_t drive, uint32_t *_signature) {
+	// select the drive
+	uint8_t drv_select = IDE_DRV_SELECT_LEGACY | IDE_DRV_SELECT_LBA | drive;
+	ide_channel_write(channel, IDE_REG_DEVSELECT, drv_select | drive);
+	ide_channel_io_wait(channel);
+
+	uint32_t signature = 
+		(ide_channel_read(channel, IDE_REG_LBA2) << 24) |
+		(ide_channel_read(channel, IDE_REG_LBA1) << 16) |
+		(ide_channel_read(channel, IDE_REG_LBA0) << 8) |
+		(ide_channel_read(channel, IDE_REG_SECCOUNT) << 0);
+
+	if (signature == 0x00000000 || signature == 0xffffffff) {
+		// no device
+		return NULL;
+	}
+	if (_signature) *_signature = signature;
+
+	return bus_attach_child(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
 }
 
 static int ide_channel_probe(devnode_t *devnode) {
@@ -117,11 +142,13 @@ static int ide_channel_probe(devnode_t *devnode) {
 	channel->bmide = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, IDE_RID_BMIDE);
 	channel->nIEN = 0x2;
 	
+	mutex_acquire(&channel->mutex);
 	ide_channel_reset(channel);
+	mutex_release(&channel->mutex);
 
 	// create children ata channels
-	channel->master = bus_attach_child(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
-	channel->slave  = bus_attach_child(devnode, NULL, "ata_channel", UNIT_ALLOCATE);
+	channel->master = ide_channel_create_child(channel, 0, &channel->master_signature);
+	channel->slave = ide_channel_create_child(channel, IDE_DRV_SELECT_SLAVE, &channel->slave_signature);
 	return 0;
 }
 
@@ -203,6 +230,11 @@ static int ide_channel_send_ata_command(devnode_t *bus, devnode_t *devnode, ata_
 	int ret = ide_channel_raw_send_ata_command(channel, devnode, command);
 	mutex_release(&channel->mutex);
 	return ret;
+}
+
+static uint32_t ide_channel_get_signature(devnode_t *bus, devnode_t *devnode) {
+	ide_channel_t *channel = bus->private;
+	return channel->master == devnode ? channel->master_signature : channel->slave_signature;
 }
 
 ata_driver_t ide_channel_driver = {

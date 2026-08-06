@@ -7,16 +7,6 @@
 
 // thanks osdev wiki for this constants
 
-// ata status
-#define ATA_SR_BSY  0x80 // busy
-#define ATA_SR_DRDY 0x40 // drive ready
-#define ATA_SR_DF   0x20 // drive write fault
-#define ATA_SR_DSC  0x10 // drive seek complete
-#define ATA_SR_DRQ  0x08 // data request ready
-#define ATA_SR_CORR 0x04 // corrected data
-#define ATA_SR_IDX  0x02 // index
-#define ATA_SR_ERR  0x01 // error
-
 // ata commands
 #define ATA_CMD_READ_PIO        0x20
 #define ATA_CMD_READ_PIO_EXT    0x24
@@ -51,8 +41,7 @@ typedef struct {
 	devnode_t *channel;
 	size_t sectors_count;
 	uint32_t command_sets;
-	int drive;
-	int class;
+	uint32_t signature;
 	char model[40];
 } ata_device_t;
 
@@ -72,6 +61,7 @@ typedef struct ata_command {
 typedef struct ata_driver {
 	driver_t driver;
 	int (*send_ata_command)(devnode_t *channel, devnode_t *devnode, ata_command_t *command);
+	uint32_t (*get_signature)(devnode_t *channel, devnode_t *devnode);
 } ata_driver_t;
 
 static inline int ata_channel_send_command(devnode_t *channel, devnode_t *devnode, ata_command_t *command) {
@@ -82,8 +72,20 @@ static inline int ata_channel_send_command(devnode_t *channel, devnode_t *devnod
 	return -ENOTSUP;
 }
 
+static inline uint32_t ata_channel_get_signature(devnode_t *channel, devnode_t *devnode) {
+	ata_driver_t *ata_driver = container_of(channel->driver, ata_driver_t, driver);
+	if (ata_driver->get_signature) {
+		return ata_driver->get_signature(channel, devnode);
+	}
+	return 0xffffffff;
+}
+
 static inline int ata_send_command(devnode_t *devnode, ata_command_t *command) {
 	return ata_channel_send_command(devnode->parent, devnode, command);
+}
+
+static inline uint32_t ata_get_signature(devnode_t *devnode) {
+	return ata_channel_get_signature(devnode->parent, devnode);
 }
 
 #endif

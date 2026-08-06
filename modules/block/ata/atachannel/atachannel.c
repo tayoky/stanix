@@ -3,6 +3,8 @@
 #include <kernel/bus.h>
 #include <module/ata.h>
 
+// TODO : maybee wipe out this and merge it into ata driver
+
 // thanks Sasdallas for this
 typedef struct ata_ident {
 	uint16_t flags;           // If bit 15 is cleared, valid drive. If bit 7 is set to one, this is removable.
@@ -45,6 +47,7 @@ static int ata_channel_probe(devnode_t *devnode) {
 	ata_device_t *device = kmalloc(sizeof(ata_device_t));
 	if (!device) return -ENOMEM;
 	memset(device, 0, sizeof(ata_device_t));
+	device->signature = ata_get_signature(devnode);
 
 	device->sectors_count = ident.command_sets & (1 << 26) ? ident.sectors_lba48 : ident.sectors;
 	for (size_t i = 0; i < sizeof(ident.model); i += 2) {
@@ -57,8 +60,6 @@ static int ata_channel_probe(devnode_t *devnode) {
 	device->command_sets = ident.command_sets;
 
 	kdebugf("model : %s command sets : %x support LBA48 : %s max LBA : %ld\n", device->model, device->command_sets, device->command_sets & (1 << 26) ? "true" : "false", device->sectors_count);
-
-	// TODO : detect ata/atapi
 
 	bus_attach_child(devnode, &device->devnode, NULL, UNIT_NOUNIT);
 	return 0;

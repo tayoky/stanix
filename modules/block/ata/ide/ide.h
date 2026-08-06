@@ -24,6 +24,8 @@ typedef struct ide_channel {
 	resource_t *bmide;
 	devnode_t *master;
 	devnode_t *slave;
+	uint32_t master_signature;
+	uint32_t slave_signature;
 	uint8_t nIEN;
 } ide_channel_t;
 

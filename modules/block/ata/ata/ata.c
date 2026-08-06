@@ -6,6 +6,8 @@
 #include <sys/block.h>
 #include <sys/ioctl.h>
 
+#define ATA_SIG 0x00000101
+
 // TODO : real async api when the rest of the ata system suport one
 static int ata_request(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
@@ -78,9 +80,8 @@ static block_ops_t ata_ops = {
 };
 
 static int ata_check(devnode_t *devnode) {
-	(void)devnode;
-	// TODO : check here, but what ?
-	return 1;
+	ata_device_t *device = container_of(devnode, ata_device_t, devnode);
+	return device->signature == ATA_SIG;
 }
 
 static int ata_probe(devnode_t *devnode) {
