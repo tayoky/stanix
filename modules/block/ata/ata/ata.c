@@ -1,3 +1,4 @@
+#include <kernel/userspace.h>
 #include <kernel/module.h>
 #include <kernel/block.h>
 #include <kernel/kheap.h>
@@ -71,9 +72,7 @@ static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
 	ata_disk_t *disk = container_of(block_device, ata_disk_t, block_device);
 	switch (req) {
 	case I_MODEL:
-		// UNSAFE
-		strcpy(arg, disk->common_ident.model);
-		return 0;
+		return safe_copy_auto_to(arg, disk->common_ident.model);
 	default:
 		return -EINVAL;
 	}
