@@ -3,23 +3,29 @@
 #include <kernel/bus.h>
 #include <module/ata.h>
 
+static void ata2str(char *dest, const char *atastr, size_t size) {
+	for (size_t i=0; i<size; i+=2) {
+		dest[i + 1] = atastr[i];
+		dest[i]     = atastr[i + 1];
+	}
+	for (size_t i=size-1; i>0; i--) {
+		if (dest[i] != ' ') {
+			break;
+		}
+		dest[i] = '\0';
+	}
+	// always null terminate just in case
+	dest[size] = '\0';
+}
+
 void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident);
-	ata_device_t *device = kmalloc(sizeof(ata_device_t));
-	if (!device) return -ENOMEM;
-	memset(device, 0, sizeof(ata_device_t));
-	device->signature = ata_get_signature(devnode);
+	common_ident->sectors_count = ident->command_sets & (1 << 26) ? ident->sectors_lba48 : ident->sectors;
+	ata2str(common_ident->model,    ident->model,    sizeof(ident->model));
+	ata2str(common_ident->firmware, ident->firmware, sizeof(ident->firmware));
+	ata2str(common_ident->serial,   ident->serial,   sizeof(ident->serial));
+	common_ident->command_sets = ident->command_sets;
 
-	device->sectors_count = ident.command_sets & (1 << 26) ? ident.sectors_lba48 : ident.sectors;
-	for (size_t i = 0; i < sizeof(ident.model); i += 2) {
-		device->model[i + 1] = ident.model[i];
-		device->model[i]     = ident.model[i + 1];
-	}
-	for (size_t i = sizeof(device->model) - 1; i > 0 && device->model[i] == ' '; i--) {
-		device->model[i] = '\0';
-	}
-	device->command_sets = ident.command_sets;
-
-	kdebugf("model : %s command sets : %x support LBA48 : %s max LBA : %ld\n", device->model, device->command_sets, device->command_sets & (1 << 26) ? "true" : "false", device->sectors_count);
+	kdebugf("model : %s command sets : %x support LBA48 : %s max LBA : %ld\n", common_ident->model, common_ident->command_sets, common_ident->command_sets & (1 << 26) ? "true" : "false", common_ident->sectors_count);
 
 	return 0;
 }
