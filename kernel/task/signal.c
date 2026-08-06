@@ -167,14 +167,20 @@ void handle_signal(registers_t *context) {
 				continue;
 			} else {
 				spinlock_release(&get_current_task()->sig_lock);
+				// TODO : move this to arch specific
 				// this is the tricky part
 				uintptr_t sp = SP_REG(*context);
 				kdebugf("sp : %p\n", sp);
+
+				// jump the red zone
+				sp -= 128;
+
 				// align the stack
 				sp &= ~0xfUL;
 
 				// we need make the ucontext on the userspace stack
 				sp -= sizeof(ucontext_t);
+				// UNSAFE
 				ucontext_t *ucontext = (ucontext_t *)sp;
 				memset(ucontext, 0, sizeof(ucontext_t));
 				ucontext->uc_sigmask = get_current_task()->sig_mask;
