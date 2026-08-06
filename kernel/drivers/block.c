@@ -8,7 +8,6 @@
 #include <errno.h>
 
 static slab_cache_t block_requests_slab;
-static list_t pending_requests;
 
 void init_block(void) {
 	slab_init(&block_requests_slab, sizeof(block_request_t), "block-requests");
@@ -117,8 +116,12 @@ static vfs_fd_ops_t block_ops = {
 
 block_request *block_create_request(block_device_t *block_device, int type) {
 	kassert(block_device);
-	// TODO
-	return NULL;
+	block_request_t *request = slab_alloc(&block_requests_slab);
+	if (!request) return;
+	memset(request, 0, sizeof(block_request_t));
+	request->block_device = block_device;
+	request->type         = type;
+	return request;
 }
 
 int block_submit_request(block_request_t *request) {
@@ -128,9 +131,11 @@ int block_submit_request(block_request_t *request) {
 		return -EIO;
 	}
 	int ret = request->block_device->ops->submit(request->block_device, request);
-	if (ret < 0 && ret == -EAGAIN)  {
+	if (ret == -EAGAIN)  {
+		// the block device cannot handle that many requests
+		// we have to try again later when some requests finish
+		list_append(&request->block_device.pending_requests, &request->node);
 		ret = 0;
-		// TODO : push to pending queue
 	} else if (ret < 0) {
 		slab_free(request);
 	}
@@ -171,7 +176,27 @@ void block_finish_request(block_request_t *request, int ret) {
 		request->callback(request, request->data);
 	}
 	slab_free(request);
-	// TODO : resubmit from pending queue
+
+	// maybee now the block device can handle a pending request
+	block_submit_pending_request();
+}
+
+void block_submit_pending_request(block_device_t *block_device);
+	if (list_is_empty(&block_device->pending_requests)) {
+		return;
+	}
+
+	// TODO : IO scheduler
+	block_request_t *request = container_of(block_device->pending_request.first_node, block_request_t, node);
+	list_remove(&block->device.pending_request, &request->node);
+	int ret = block_device->ops->submit(block_device, request);
+	if (ret == -EAGAIN) {
+		// still not ready
+		list_prepend(&block->device.pending_request, &request->node);
+	} else if (ret < 0) {
+		// UNSAFE : recursion
+		block_finish_request(request);
+	}
 }
 
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number) {

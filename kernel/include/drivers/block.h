@@ -1,6 +1,7 @@
 #ifndef KERNEL_BLOCK_H
 #define KERNEL_BLOCK_H
 
+#include <kernel/list.h>
 #include <kernel/device.h>
 #include <kernel/assert.h>
 
@@ -15,6 +16,7 @@ struct block_ops {
 
 struct block_device {
 	device_t device;
+	list_t pending_requests;
 	block_ops_t *ops;
 	size_t sector_size;
 	size_t sectors_count;
@@ -45,5 +47,6 @@ int block_submit_request(block_request_t *request);
 int block_submit_request_sync(block_request_t *request);
 void block_cancel_request(block_request_t *request);
 void block_finish_request(block_request_t *request, int ret);
+void block_submit_pending_request(block_device_t *block_device);
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number);
 #endif
