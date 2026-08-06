@@ -144,6 +144,21 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 	return 0;
 }
 
+static void vmm_space_unmap_and_release_pages(vmm_space_t *space, uintptr_t start, uintptr_t end) {
+	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+		uintptr_t page = mmu_space_virt2phys(space->addrspace, (void *)addr);
+		if (page == PAGE_INVALID) continue;
+		mmu_unmap_page(space->addrspace, addr);
+		pmm_release_page(page);
+	}
+}
+
+static void vmm_space_unmap_pages(vmm_space_t *space, uintptr_t start, uintptr_t end) {
+	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+		mmu_unmap_page(space->addrspace, addr);
+	}
+}
+
 static vmm_seg_t *vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags) {
 	vmm_seg_t *prev = NULL;
 	if (address) {
@@ -207,10 +222,15 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 	if (flags & VMM_FLAG_ANONYMOUS) {
 		fd = NULL;
 		for (uintptr_t addr = new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
-			// TODO : handle error from pmm_allocate_page
 			uintptr_t page;
 			if (flags & VMM_FLAG_SHARED) {
 				page = pmm_allocate_page();
+				if (page == PAGE_INVALID) {
+					// unmap already mapped pages
+					vmm_space_unmap_and_release_pages(space, new_seg->start, addr);
+					ret = -ENOMEM;
+					goto error;
+				}
 				memset(mmu_phys2virt(page), 0, PAGE_SIZE);
 				mmu_map_page(space->addrspace, page, addr, prot);
 			} else {
@@ -225,6 +245,7 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 	}
 
 	if (ret < 0) {
+error:
 		list_remove(&space->segs, &new_seg->node);
 		spinlock_release(&new_seg->lock);
 		slab_free(new_seg);
@@ -344,17 +365,12 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	// IO cannot be allocated/freed using the pmm
 	// so do not free them
 	// it's the driver job to do it
-	if (!(seg->flags & VMM_FLAG_IO)) {
-		for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
-			uintptr_t page = mmu_virt2phys((void *)addr);
-			if (page == PAGE_INVALID) continue;
-			pmm_release_page(page);
-		}
+	if (seg->flags & VMM_FLAG_IO) {
+		vmm_space_unmap_pages(space, seg->start, seg->end);
+	} else {
+		vmm_space_unmap_and_release_pages(space, seg->start, seg->end);
 	}
 
-	for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		mmu_unmap_page(space->addrspace, addr);
-	}
 	slab_free(seg);
 }
 
