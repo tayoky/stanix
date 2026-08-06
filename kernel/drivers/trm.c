@@ -174,6 +174,7 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	trm_gpu_t *gpu = fd->private;
 	switch (req) {
 	case TRM_GET_RESOURCES:;
+		// UNSAFE
 		trm_card_t *card       = arg;
 		card->vram_size        = gpu->card.vram_size;
 		card->planes_count     = gpu->card.planes_count;
@@ -186,6 +187,7 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		memcpy(card->driver, gpu->card.driver, sizeof(gpu->card.name));
 		return 0;
 	case TRM_GET_FRAMEBUFFER:;
+		// UNSAFE
 		trm_fb_t *fb                   = arg;
 		trm_framebuffer_t *framebuffer = trm_get_fb(gpu, fb->id);
 		if (!fb) return -EINVAL;
@@ -193,6 +195,7 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		// TODO : add framebuffer fd to proc fd
 		return 0;
 	case TRM_GET_PLANE:;
+		// UNSAFE
 		trm_plane_t *plane = arg;
 		if (plane->id > gpu->card.planes_count) return -EINVAL;
 		memcpy(plane, &gpu->card.planes[plane->id - 1], sizeof(trm_plane_t));
@@ -203,6 +206,7 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 		if (gpu->master != fd) return -EPERM;
 		return trm_commit_mode(gpu, arg);
 	case TRM_KMS_FIX:
+		// TODO : remove fix API
 		return trm_fix_mode(gpu, arg);
 	case TRM_ALLOC_FRAMEBUFFER:
 		return trm_alloc_fb(fd, gpu, arg);
@@ -259,8 +263,11 @@ int register_trm_gpu(trm_gpu_t *gpu) {
 	gpu->device.ops     = &trm_ops;
 	gpu->device.destroy = trm_destroy;
 	gpu->device.type    = DEVICE_CHAR;
-	// TODO : bring back this somehow
-	strcpy(gpu->card.driver, "TODO : driver name");
+	if (gpu->device.devnode && gpu->device.devnode->driver) {
+		strcpy(gpu->card.driver, gpu->device.devnode->driver->name);
+	} else {
+		strcpy(gpu->card.driver, "unknown driver");
+	}
 
 	// default alignement
 	if (!gpu->align) gpu->align = 4 * 1024;
