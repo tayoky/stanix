@@ -17,7 +17,7 @@ typedef struct irq_handler {
 static slab_cache_t irq_handlers_slab;
 static slab_cache_t irqs_slab;
 
-// TODO : make thi table dynamic
+// TODO : make this table dynamic
 static irq_t *vector2irq[256];
 
 void init_irq(void) {
@@ -91,8 +91,13 @@ irq_t *irq_allocate(irq_chip_t *irq_chip) {
 	if (irq_chip->allocate) {
 		return irq_chip->allocate(irq_chip);
 	} else {
-		// TODO : search in irq list
-		// for unallocated irqs
+		// search for unallocated irqs
+		foreach (node, &irq_chip->irqs) {
+			irq_t *irq = container_of(node, irq_t, node);
+			if (list_is_empty(irqs->handlers)) {
+				return irq;
+			}
+		}
 		return NULL;
 	}
 }
