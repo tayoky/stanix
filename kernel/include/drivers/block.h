@@ -12,6 +12,7 @@ typedef struct block_request block_request_t;
 struct block_ops {
 	int (*submit)(block_device_t *block_device, block_request_t *request);
 	int (*ioctl)(block_device_t *block_device, long request, void *arg);
+	void (*cleanup)(block_device_t *block_device);
 };
 
 struct block_device {

@@ -199,8 +199,22 @@ void block_submit_pending_request(block_device_t *block_device);
 	}
 }
 
+static void block_destroy(device_t *device) {
+	block_device_t *block_device = container_of(device, block_device_t, device);
+	// TODO : cancel every requests
+}
+
+static void block_cleanup(device_t *device) {
+	block_device_t *block_device = container_of(device, block_device_t, device);
+	if (block_device->ops->cleanup) {
+		block_device->ops->cleanup(block_device);
+	}
+}
+
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number) {
-	block_device->device.type = DEVICE_BLOCK;
-	block_device->device.ops  = &block_ops;
+	block_device->device.type    = DEVICE_BLOCK;
+	block_device->device.ops     = &block_ops;
+	block_device->device.destroy = block_destroy;
+	block_device->device.cleanup = block_cleanup;
 	return device_register(&block_device->device, fmt, number);
 }
