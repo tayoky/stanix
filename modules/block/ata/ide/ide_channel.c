@@ -129,6 +129,7 @@ static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t 
 	ata_device_t *device = kmalloc(sizeof(ata_device_t));
 	if (!device) return NULL;
 	memset(device, 0, sizeof(ata_device_t));
+	device->channel = bus;
 	device->signature = signature;
 
 	bus_attach_child(bus, &device->devnode, NULL, UNIT_NOUNIT);
@@ -230,6 +231,18 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, devnode_t *d
 	return 0;
 }
 
+// TODO : true async
+static int ide_channel_submit_ata_command(devnode_t *bus, devnode_t *devnode, ata_command_t *command) {
+	ide_channel_t *channel = bus->private;
+	if (mutex_try_acquire(&channel->mutex) < 0) {
+		return -EAGAIN;
+	}
+	int ret = ide_channel_raw_send_ata_command(channel, devnode, command);
+	mutex_release(&channel->mutex);
+	ioreq_finish(&command->ioreq, ret);
+	return 0;
+}
+
 static int ide_channel_send_ata_command(devnode_t *bus, devnode_t *devnode, ata_command_t *command) {
 	ide_channel_t *channel = bus->private;
 	mutex_acquire(&channel->mutex);
@@ -245,5 +258,6 @@ ata_driver_t ide_channel_driver = {
 		.probe = ide_channel_probe,
 		.detach = ide_channel_detach,
 	},
-	.send_ata_command = ide_channel_send_ata_command,
+	.submit_ata_command = ide_channel_submit_ata_command,
+	.send_ata_command   = ide_channel_send_ata_command,
 };

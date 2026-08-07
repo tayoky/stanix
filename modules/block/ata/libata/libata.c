@@ -1,7 +1,10 @@
 #include <kernel/module.h>
 #include <kernel/kheap.h>
+#include <kernel/slab.h>
 #include <kernel/bus.h>
 #include <module/ata.h>
+
+static slab_cache_t ata_commands_slab;
 
 static void ata2str(char *dest, const char *atastr, size_t size) {
 	for (size_t i=0; i<size; i+=2) {
@@ -30,14 +33,42 @@ void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident
 	return 0;
 }
 
+static int ata_submit_command(ioreq_t *ioreq) {
+	ata_command_t *ata_command = container_of(ioreq, ata_command_t, ioreq);
+	ata_driver_t *ata_driver = container_of(ata_command->device->channel->driver, ata_driver_t, driver);
+	return ata_driver->submit_ata_command(ata_command->device->channel, ata_command->device, ata_command);
+}
+
+static void ata_free_command(ioreq_t *ioreq) {
+	ata_command_t *ata_command = container_of(ioreq, ata_command_t, ioreq);
+	slab_free(ata_command);
+}
+
+static ioreq_ops_t ata_command_ops = {
+	.submit  = ata_submit_command,
+	.cleanup = ata_free_command,
+}
+
+ata_command_t *ata_create_command(ata_device_t *device) {
+	ata_driver_t *ata_driver = container_of(device->channel->driver, ata_driver_t, driver);
+	if (!ata_driver->submit_ata_command) return NULL;
+	ata_command_t *command = slab_alloc(&ata_commands_slab);
+	if (!command) return NULL;
+	memset(command, 0, sizeof(ata_command_t));
+	command->device = device;
+	return command;
+}
+
 int libata_init(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
+	slab_init(&ata_commands_slab, sizeof(ata_command_t), "ata-commands");
 	EXPORT(ata_parse_common_ident);
 	return 0;
 }
 
 int libata_fini(void) {
+	slab_destroy(&ata_commands_slab);
 	UNEXPORT(ata_parse_common_ident);
 	return 0;
 }

@@ -2,6 +2,7 @@
 #define MODULE_ATA_H
 
 #include <kernel/bus.h>
+#include <kernel/ioreq.h>
 #include <stdint.h>
 #include <errno.h>
 
@@ -77,11 +78,13 @@ typedef struct {
 } ata_device_t;
 
 typedef struct ata_command {
-	uint8_t opcode;
-	uint8_t flags;
+	ioreq_t ioreq;
 	uint64_t lba;
 	size_t sectors_count;
 	void *buf;
+	ata_device_t *device;
+	uint8_t opcode;
+	uint8_t flags;
 } ata_command_t;
 
 #define ATA_CMD_SEND_LBA28     0x01
@@ -91,11 +94,13 @@ typedef struct ata_command {
 
 typedef struct ata_driver {
 	driver_t driver;
+	int (*submit_ata_command)(devnode_t *channel, ata_device_t *device, ata_command_t *command);
 	int (*send_ata_command)(devnode_t *channel, devnode_t *devnode, ata_command_t *command);
 } ata_driver_t;
 
 #define ATA_BUSES BUSES("ide_channel")
 
+// OLD
 static inline int ata_channel_send_command(devnode_t *channel, devnode_t *devnode, ata_command_t *command) {
 	ata_driver_t *ata_driver = container_of(channel->driver, ata_driver_t, driver);
 	if (ata_driver->send_ata_command) {
@@ -104,9 +109,12 @@ static inline int ata_channel_send_command(devnode_t *channel, devnode_t *devnod
 	return -ENOTSUP;
 }
 
+// OLD
 static inline int ata_send_command(devnode_t *devnode, ata_command_t *command) {
 	return ata_channel_send_command(devnode->parent, devnode, command);
 }
+
+ata_command_t *ata_create_command(ata_device_t *device);
 
 void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident);
 #endif
