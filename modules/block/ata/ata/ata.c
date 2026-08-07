@@ -17,12 +17,13 @@ typedef struct ata_disk {
 // TODO : real async api when the rest of the ata system suport one
 static int ata_request(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
+	ata_disk_t *disk     = container_of(block_device, ata_disk_t, block_device);
 
 	if (request->type == BLOCK_REQUEST_FLUSH) {
 		ata_command_t command = {
-			.opcode = (device->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT,
+			.opcode = (disk->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT,
 		};
-		int ret = ata_send_command(&device->devnode, &command);
+		int ret = ata_send_command(device, &command);
 		if (ret < 0) return ret;
 
 		block_finish_request(request);
@@ -30,14 +31,14 @@ static int ata_request(block_device_t *block_device, block_request_t *request) {
 	}
 
 	// LBA28 has a lower limit
-	if (request->start_sector >= 0x10000000 && !(device->common_ident.command_sets & (1 << 26))) {
+	if (request->start_sector >= 0x10000000 && !(disk->common_ident.command_sets & (1 << 26))) {
 		// high LBA but no LBA28 support... uh ?
 		return -EIO;
 	}
 
 	uint8_t opcode;
 	int flags;
-	if (device->common_ident.command_sets & (1 << 26)) {
+	if (disk->common_ident.command_sets & (1 << 26)) {
 		if (request->type == BLOCK_REQUEST_WRITE) {
 			opcode = ATA_CMD_WRITE_PIO_EXT;
 		} else {
@@ -60,7 +61,7 @@ static int ata_request(block_device_t *block_device, block_request_t *request) {
 		.flags = flags,
 		.buf   = request->buf,
 	};
-	int ret = ata_send_command(&device->devnode, &command);
+	int ret = ata_send_command(device, &command);
 	if (ret < 0) return ret;
 
 	block_finish_request(request);
@@ -110,7 +111,7 @@ static int ata_probe(devnode_t *devnode) {
 	int ret = ata_send_command(devnode, &identify);
 	if (ret < 0) return ret;
 
-	ata_dusk_t *disk = kmalloc(sizeof(ata_disk_t));
+	ata_disk_t *disk = kmalloc(sizeof(ata_disk_t));
 	if (!disk) return -ENOMEM;
 	memset(disk, 0, sizeof(ata_disk_t));
 	ata_parse_common_ident(&disk->common_ident, &ident);

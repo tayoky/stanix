@@ -166,11 +166,11 @@ static void ide_channel_detach(devnode_t *devnode) {
 	device_release_resource(devnode, channel->bmide);
 }
 
-static int ide_channel_raw_send_ata_command(ide_channel_t *channel, devnode_t *devnode, ata_command_t *command) {
+static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t *device, ata_command_t *command) {
 	// select the drive
 	// TODO : don't reselect if is was already selected
 	uint8_t drv_select = IDE_DRV_SELECT_LEGACY | IDE_DRV_SELECT_LBA;
-	if (devnode == channel->slave) {
+	if (device == channel->slave) {
 		drv_select |= IDE_DRV_SELECT_SLAVE;
 	}
 	if (command->flags & ATA_CMD_SEND_LBA28) {
@@ -232,21 +232,21 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, devnode_t *d
 }
 
 // TODO : true async
-static int ide_channel_submit_ata_command(devnode_t *bus, devnode_t *devnode, ata_command_t *command) {
+static int ide_channel_submit_ata_command(devnode_t *bus, ata_device_t *device, ata_command_t *command) {
 	ide_channel_t *channel = bus->private;
 	if (mutex_try_acquire(&channel->mutex) < 0) {
 		return -EAGAIN;
 	}
-	int ret = ide_channel_raw_send_ata_command(channel, devnode, command);
+	int ret = ide_channel_raw_send_ata_command(channel, device, command);
 	mutex_release(&channel->mutex);
 	ioreq_finish(&command->ioreq, ret);
 	return 0;
 }
 
-static int ide_channel_send_ata_command(devnode_t *bus, devnode_t *devnode, ata_command_t *command) {
+static int ide_channel_send_ata_command(devnode_t *bus, ata_device_t *device, ata_command_t *command) {
 	ide_channel_t *channel = bus->private;
 	mutex_acquire(&channel->mutex);
-	int ret = ide_channel_raw_send_ata_command(channel, devnode, command);
+	int ret = ide_channel_raw_send_ata_command(channel, device, command);
 	mutex_release(&channel->mutex);
 	return ret;
 }

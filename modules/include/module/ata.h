@@ -95,23 +95,22 @@ typedef struct ata_command {
 typedef struct ata_driver {
 	driver_t driver;
 	int (*submit_ata_command)(devnode_t *channel, ata_device_t *device, ata_command_t *command);
-	int (*send_ata_command)(devnode_t *channel, devnode_t *devnode, ata_command_t *command);
+	int (*send_ata_command)(devnode_t *channel, ata_device_t *device, ata_command_t *command);
 } ata_driver_t;
 
 #define ATA_BUSES BUSES("ide_channel")
 
-// OLD
-static inline int ata_channel_send_command(devnode_t *channel, devnode_t *devnode, ata_command_t *command) {
+static inline int ata_channel_send_command(devnode_t *channel, ata_device_t *device, ata_command_t *command) {
 	ata_driver_t *ata_driver = container_of(channel->driver, ata_driver_t, driver);
 	if (ata_driver->send_ata_command) {
-		return ata_driver->send_ata_command(channel, devnode, command);
+		return ata_driver->send_ata_command(channel, device, command);
 	}
 	return -ENOTSUP;
 }
 
-// OLD
-static inline int ata_send_command(devnode_t *devnode, ata_command_t *command) {
-	return ata_channel_send_command(devnode->parent, devnode, command);
+// TODO : maybee remove this idk
+static inline int ata_send_command(ata_device_t *device, ata_command_t *command) {
+	return ata_channel_send_command(device->channel, device, command);
 }
 
 ata_command_t *ata_create_command(ata_device_t *device);
