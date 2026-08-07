@@ -81,6 +81,15 @@ error:
 	}
 
 	kfree(kbuf);
+
+	if (ret >= 0 && type == BLOCK_REQUEST_WRITE) {
+		// we need to flush
+		block_request_t *flush_request = block_create_request(block_device, BLOCK_REQUEST_FLUSH);
+		flush_request->start_sector = start_sector;
+		flush_request->sectors_count = sectors_count;
+		ret = block_submit_request_sync(request);
+	}
+
 	return ret < 0 ? ret : (ssize_t)(end - start);
 }
 

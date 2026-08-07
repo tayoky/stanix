@@ -37,6 +37,7 @@ struct block_request {
 
 #define BLOCK_REQUEST_READ  1
 #define BLOCK_REQUEST_WRITE 2
+#define BLOCK_REQUEST_FLUSH 3
 
 void init_block(void);
 block_request *block_create_request(block_device_t *block_device, int type);

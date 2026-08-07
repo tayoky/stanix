@@ -18,6 +18,17 @@ typedef struct ata_disk {
 static int ata_request(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
 
+	if (request->type == BLOCK_REQUEST_FLUSH) {
+		ata_command_t command = {
+			.opcode = (device->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT,
+		};
+		int ret = ata_send_command(&device->devnode, &command);
+		if (ret < 0) return ret;
+
+		block_finish_request(request);
+		return 0;
+	}
+
 	// LBA28 has a lower limit
 	if (request->start_sector >= 0x10000000 && !(device->common_ident.command_sets & (1 << 26))) {
 		// high LBA but no LBA28 support... uh ?
@@ -52,16 +63,7 @@ static int ata_request(block_device_t *block_device, block_request_t *request) {
 	int ret = ata_send_command(&device->devnode, &command);
 	if (ret < 0) return ret;
 
-	// we need to send cache flush on write
-	if (request->type == BLOCK_REQUEST_WRITE) {
-		ata_command_t flush_command = {
-			.opcode = (device->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT,
-		};
-		ata_send_command(&device->devnode, &flush_command);
-	}
-
 	block_finish_request(request);
-
 	return 0;
 }
 
