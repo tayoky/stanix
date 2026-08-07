@@ -14,20 +14,20 @@ typedef struct ata_disk {
 	ata_common_ident_t common_ident; 
 } ata_disk_t;
 
-// TODO : real async api when the rest of the ata system suport one
+static int ata_finish_callback(ioreq_t *ioreq, void *data) {
+	block_finish_request(data, ioreq->ret);
+}
+
 static int ata_request(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
 	ata_disk_t *disk     = container_of(block_device, ata_disk_t, block_device);
 
 	if (request->type == BLOCK_REQUEST_FLUSH) {
-		ata_command_t command = {
-			.opcode = (disk->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT,
-		};
-		int ret = ata_send_command(device, &command);
-		if (ret < 0) return ret;
+		ata_command_t *command = ata_create_command(device);
+		command->opcode = (disk->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT;
 
-		block_finish_request(request);
-		return 0;
+		ioreq_set_callback(&command->ioreq, ata_finish_callback, request);
+		return ioreq_submit(&command->ioreq);
 	}
 
 	// LBA28 has a lower limit
@@ -37,7 +37,7 @@ static int ata_request(block_device_t *block_device, block_request_t *request) {
 	}
 
 	uint8_t opcode;
-	int flags;
+	int flags = 0;
 	if (disk->common_ident.command_sets & (1 << 26)) {
 		if (request->type == BLOCK_REQUEST_WRITE) {
 			opcode = ATA_CMD_WRITE_PIO_EXT;
@@ -54,18 +54,14 @@ static int ata_request(block_device_t *block_device, block_request_t *request) {
 		flags = ATA_CMD_SEND_LBA28;
 	}
 
-	ata_command_t command = {
-		.opcode = opcode,
-		.sectors_count = request->sectors_count,
-		.lba = request->start_sector,
-		.flags = flags,
-		.buf   = request->buf,
-	};
-	int ret = ata_send_command(device, &command);
-	if (ret < 0) return ret;
-
-	block_finish_request(request);
-	return 0;
+	ata_command_t *command = ata_create_command(device);
+	command->opcode = opcode;
+	command->sectors_count = request->sectors_count;
+	command->lba = request->start_sector;
+	command->flags = flags;
+	command->buf   = request->buf;
+	ioreq_set_callback(&command->ioreq, ata_finish_callback, request);
+	return ioreq_submit(&command->ioreq);
 }
 
 static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
