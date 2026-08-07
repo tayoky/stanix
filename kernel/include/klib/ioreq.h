@@ -1,7 +1,7 @@
 #ifndef KERNEL_IOREQ_H
 #define KERNEL_IOREQ_H
 
-#include <kernel/cond.h>
+#include <kernel/oneshot.h>
 #include <kernel/refcount.h>
 #include <errno.h>
 
@@ -10,7 +10,7 @@ typedef struct ioreq_ops ioreq_ops_t;
 
 struct ioreq {
 	ref_count_t ref_count;
-	cond_t cond;
+	oneshot_t oneshot;
 	ioreq_ops_t *ops;
 	void (*callback)(ioreq_t *ioreq, void *data);
 	void *data;
@@ -51,12 +51,12 @@ static inline void ioreq_cancel(ioreq_t *ioreq) {
 }
 
 static inline int ioreq_wait(ioreq_t *ioreq) {
-	cond_wait(&ioreq->cond, 1);
+	oneshot_wait(&ioreq->oneshot, 1);
 	return ioreq->ret;
 }
 
 static inline int ioreq_wait_interruptible(ioreq_t *ioreq) {
-	if (cond_wait_interruptible(&ioreq->cond, 1) < 0) return -EINTR;
+	if (oneshot_wait_interruptible(&ioreq->oneshot) < 0) return -EINTR;
 	return ioreq->ret;
 }
 

@@ -1,7 +1,7 @@
 #include <kernel/userspace.h>
 #include <kernel/kheap.h>
 #include <kernel/slab.h>
-#include <kernel/cond.h>
+#include <kernel/oneshot.h>
 #include <kernel/device.h>
 #include <kernel/block.h>
 #include <sys/block.h>
@@ -143,25 +143,25 @@ int block_submit_request(block_request_t *request) {
 }
 
 typedef struct block_wait_data {
-	cond_t cond;
+	oneshot_t oneshot;
 	int ret;
 } block_wait_data_t;
 
 static void block_wait_callback(block_request_t *request, void *data) {
 	block_wait_data_t *wait_data = data;
 	wait_data->ret = request->ret;
-	cond_set(&wait_data->cond);
+	oneshot_signal(&wait_data->oneshot);
 }
 
 int block_submit_request_sync(block_request_t *request) {
 	block_wait_data_t wait_data;
-	cond_init(&wait_data.cond);
+	oneshot_init(&wait_data.oneshot);
 
 	block_request_set_callback(request, block_wait_callback, &wait_data);
 	int ret = block_device_sumbit(request);
 	if (ret < 0) return ret;
 
-	int ret = cond_wait(&wait_data.cond);
+	int ret = oneshot_wait(&wait_data.oneshot);
 	if (ret < 0) return ret;
 	return wait_data.ret;
 }

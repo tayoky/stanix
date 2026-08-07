@@ -1,6 +1,6 @@
 #include <kernel/assert.h>
 #include <kernel/cache.h>
-#include <kernel/cond.h>
+#include <kernel/oneshot.h>
 #include <kernel/kernel.h>
 #include <kernel/pmm.h>
 #include <kernel/print.h>
@@ -137,10 +137,10 @@ void free_cache(cache_t *cache) {
 	xarray_destroy(&cache->pages);
 }
 
-static void set_condition(cache_t *cache, void *arg) {
+static void signal_oneshot(cache_t *cache, void *arg) {
 	(void)cache;
-	cond_t *cond = arg;
-	cond_set(cond, 1);
+	oneshot_t *oneshot = arg;
+	oneshot_signal(oneshot);
 }
 
 static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t end) {
@@ -342,13 +342,12 @@ int cache_uncache_async(cache_t *cache, off_t offset, size_t size, cache_callbac
 }
 
 int cache_uncache(cache_t *cache, off_t offset, size_t size) {
-	cond_t condition;
-	cond_init(&condition);
+	oneshot_t oneshot;
+	oneshot_init(&oneshot);
 
-	cond_set(&condition, 0);
-	int ret = cache_uncache_async(cache, offset, size, set_condition, &condition);
+	int ret = cache_uncache_async(cache, offset, size, signal_oneshot, &oneshot);
 	if (ret < 0) return ret;
-	return cond_wait_interruptible(&condition, 1);
+	return oneshot_wait_interruptible(&oneshot);
 }
 
 int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
@@ -389,13 +388,12 @@ end_batch:
 }
 
 int cache_flush(cache_t *cache, off_t offset, size_t size) {
-	cond_t condition;
-	cond_init(&condition);
+	oneshot_t oneshot;
+	oneshot_init(&oneshot);
 
-	cond_set(&condition, 0);
-	int ret = cache_flush_async(cache, offset, size, set_condition, &condition);
+	int ret = cache_flush_async(cache, offset, size, signal_oneshot, &oneshot);
 	if (ret < 0) return ret;
-	return cond_wait_interruptible(&condition, 1);
+	return oneshot_wait_interruptible(&oneshot);
 }
 
 // mapping cache
