@@ -30,8 +30,10 @@ void vfs_register_fs(vfs_filesystem_t *fs) {
 	list_append(&fs_types, &fs->node);
 }
 
-void vfs_unregister_fs(vfs_filesystem_t *fs) {
+int vfs_unregister_fs(vfs_filesystem_t *fs) {
 	list_remove(&fs_types, &fs->node);
+	// TODO : check if in use
+	return 0;
 }
 
 static void vfs_destroy_superblock(vfs_superblock_t *superblock) {

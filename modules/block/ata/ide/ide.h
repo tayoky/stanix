@@ -12,11 +12,6 @@
 #define IDE_RID_CTRL  2
 #define IDE_RID_BMIDE 3
 
-typedef struct ide_device {
-	devnode_t devnode;
-	// TODO : add various fields
-} ide_device_t;
-
 typedef struct ide_channel {
 	mutex_t mutex;
 	resource_t *base;

@@ -532,10 +532,10 @@ int fat_init(int argc, char **argv) {
 	return 0;
 }
 
-int fat_fini() {
-	// TODO : make sure no partition is mounted
+int fat_fini(void) {
+	int ret = vfs_unregister_fs(&fat_fs);
+	if (ret < 0) return ret;
 	slab_destroy(&fat_inodes_slab);
-	vfs_unregister_fs(&fat_fs);
 	return 0;
 }
 

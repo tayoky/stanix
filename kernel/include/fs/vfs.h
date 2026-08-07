@@ -545,7 +545,7 @@ char *vfs_dentry_path(vfs_dentry_t *dentry);
 int vfs_ioctl(vfs_fd_t *fd, long request, void *arg);
 
 void vfs_register_fs(vfs_filesystem_t *fs);
-void vfs_unregister_fs(vfs_filesystem_t *fs);
+int vfs_unregister_fs(vfs_filesystem_t *fs);
 int vfs_auto_mount(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data);
 
 int vfs_perm(vfs_node_t *node);
