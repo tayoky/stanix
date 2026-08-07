@@ -49,6 +49,18 @@ void rculist_remove(rculist_t *rculist, rculist_node_t *node);
 void rculist_add_after(rculist_t *rculist, rculist_node_t *ref, rculist_node_t *node);
 void rculist_add_before(rculist_t *rculist, rculist_node_t *ref, rculist_node_t *node);
 
-#define rculist_foreach(node, rculist) for (rculist_node_t *node = rculist_get_first(rculist); node; node = rculist_get_next(node))
+static inline int rculist_foreach_start(rculist_t *rculist) {
+	rculist_acquire_read(rculist);
+	return 1;
+}
+
+static inline int rculist_foreach_end(rculist_t *rculist) {
+	rculist_release_read(rculist);
+	return 0;
+}
+
+#define rculist_foreach(node, rculist) \
+	for (int _1 = rculist_foreach_start(rculist); _1; _1 = rculist_foreach_end(rculist)) \
+	for (rculist_node_t *node = rculist_get_first(rculist); node; node = rculist_get_next(node))
 
 #endif
