@@ -20,6 +20,7 @@ struct ioreq {
 struct ioreq_ops {
 	int (*submit)(ioreq_t *ioreq);
 	void (*cancel)(ioreq_t *ioreq);
+	void (*finish)(ioreq_t *ioreq);
 	void (*cleanup)(ioreq_t *ioreq);
 };
 

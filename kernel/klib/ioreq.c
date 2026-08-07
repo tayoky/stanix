@@ -46,5 +46,8 @@ void ioreq_finish(ioreq_t *ioreq, int ret) {
 		ioreq->callback(ioreq, ioreq->data);
 	}
 	oneshot_signal(&ioreq->oneshot);
+	if (ioreq->ops && ioreq->ops->finish) {
+		ioreq->ops->finish(ioreq);
+	}
 	ioreq_release(ioreq);
 }
