@@ -10,8 +10,8 @@ typedef struct cond {
 } cond_t;
 
 
-void init_cond(cond_t *cond);
-void free_cond(cond_t *cond);
+void cond_init(cond_t *cond);
+void cond_destroy(cond_t *cond);
 int cond_wait(cond_t *cond, int value);
 int cond_wait_interruptible(cond_t *cond, int value);
 void cond_set(cond_t *cond, int value);

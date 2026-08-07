@@ -51,12 +51,12 @@ static inline void ioreq_cancel(ioreq_t *ioreq) {
 }
 
 static inline int ioreq_wait(ioreq_t *ioreq) {
-	cond_wait(&ioreq->cond);
+	cond_wait(&ioreq->cond, 1);
 	return ioreq->ret;
 }
 
 static inline int ioreq_wait_interruptible(ioreq_t *ioreq) {
-	if (cond_wait_interruptible(&ioreq->cond) < 0) return -EINTR;
+	if (cond_wait_interruptible(&ioreq->cond, 1) < 0) return -EINTR;
 	return ioreq->ret;
 }
 

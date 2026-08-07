@@ -343,7 +343,7 @@ int cache_uncache_async(cache_t *cache, off_t offset, size_t size, cache_callbac
 
 int cache_uncache(cache_t *cache, off_t offset, size_t size) {
 	cond_t condition;
-	init_cond(&condition);
+	cond_init(&condition);
 
 	cond_set(&condition, 0);
 	int ret = cache_uncache_async(cache, offset, size, set_condition, &condition);
@@ -390,7 +390,7 @@ end_batch:
 
 int cache_flush(cache_t *cache, off_t offset, size_t size) {
 	cond_t condition;
-	init_cond(&condition);
+	cond_init(&condition);
 
 	cond_set(&condition, 0);
 	int ret = cache_flush_async(cache, offset, size, set_condition, &condition);

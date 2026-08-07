@@ -155,7 +155,7 @@ static void block_wait_callback(block_request_t *request, void *data) {
 
 int block_submit_request_sync(block_request_t *request) {
 	block_wait_data_t wait_data;
-	init_cond(&wait_data.cond);
+	cond_init(&wait_data.cond);
 
 	block_request_set_callback(request, block_wait_callback, &wait_data);
 	int ret = block_device_sumbit(request);

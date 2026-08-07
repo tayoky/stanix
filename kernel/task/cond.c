@@ -3,11 +3,11 @@
 #include <kernel/string.h>
 #include <errno.h>
 
-void init_cond(cond_t *cond) {
+void cond_init(cond_t *cond) {
 	memset(cond, 0, sizeof(cond_t));
 }
 
-void free_cond(cond_t *cond) {
+void cond_destroy(cond_t *cond) {
 	(void)cond;
 }
 
