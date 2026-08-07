@@ -33,10 +33,37 @@ void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident
 	return 0;
 }
 
+static int ata_submit_or_queue_command(ata_command_t *command) {
+	int ret = ioreq_submit(command->ioreq);
+	if (ret == -EAGAIN) {
+		// request cannot be send for the moment,
+		// queue it
+		list_append(&command->device->pending_commands, &command->node);
+		ret = 0;
+	}
+	return ret;
+}
+
 static int ata_submit_command(ioreq_t *ioreq) {
 	ata_command_t *ata_command = container_of(ioreq, ata_command_t, ioreq);
 	ata_driver_t *ata_driver = container_of(ata_command->device->channel->driver, ata_driver_t, driver);
 	return ata_driver->submit_ata_command(ata_command->device->channel, ata_command->device, ata_command);
+}
+
+static void ata_finish_command(ioreq_t *ioreq) {
+	ata_command_t *ata_command = container_of(ioreq, ata_command_t, ioreq);
+	ata_device_t *device = ata_command->device;
+
+	// resubmit pending requests
+	// NOTE : we do not need to guarantee that if the request 
+	// is once again made pending, it return to the top of the queue
+	// since this queue is only used for configuration commands
+	if (list_is_empty(&device->pending_commands)) {
+		return;
+	}
+	ata_command_t *pending_command = container_of(device->pending_commands.first_node, ata_command_t, node);
+	list_remove(&device->pending_commands, &pending_command->node);
+	ata_submit_or_queue(&pending_command);
 }
 
 static void ata_free_command(ioreq_t *ioreq) {
@@ -46,6 +73,7 @@ static void ata_free_command(ioreq_t *ioreq) {
 
 static ioreq_ops_t ata_command_ops = {
 	.submit  = ata_submit_command,
+	.finish  = ata_finish_command,
 	.cleanup = ata_free_command,
 }
 
@@ -57,6 +85,16 @@ ata_command_t *ata_create_command(ata_device_t *device) {
 	memset(command, 0, sizeof(ata_command_t));
 	command->device = device;
 	return command;
+}
+
+int ata_submit_command_sync(ata_command_t *command) {
+	ioreq_ref(&command->ioreq);
+	int ret = ata_submit_or_queue(&command);
+	if (ret >= 0) {
+		ret = ioreq_wait(&command->ioreq);
+	}
+	ioreq_release(&command->ioreq);
+	return ret;
 }
 
 int libata_init(int argc, char **argv) {

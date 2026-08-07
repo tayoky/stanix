@@ -243,14 +243,6 @@ static int ide_channel_submit_ata_command(devnode_t *bus, ata_device_t *device, 
 	return 0;
 }
 
-static int ide_channel_send_ata_command(devnode_t *bus, ata_device_t *device, ata_command_t *command) {
-	ide_channel_t *channel = bus->private;
-	mutex_acquire(&channel->mutex);
-	int ret = ide_channel_raw_send_ata_command(channel, device, command);
-	mutex_release(&channel->mutex);
-	return ret;
-}
-
 ata_driver_t ide_channel_driver = {
 	.driver = {
 		.name = "IDE channel",
@@ -259,5 +251,4 @@ ata_driver_t ide_channel_driver = {
 		.detach = ide_channel_detach,
 	},
 	.submit_ata_command = ide_channel_submit_ata_command,
-	.send_ata_command   = ide_channel_send_ata_command,
 };

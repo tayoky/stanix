@@ -97,14 +97,14 @@ static int ata_probe(devnode_t *devnode) {
 	ata_device_t *device = container_of(devnode, ata_device_t, devnode);
 
 	ata_ident_t ident;
-	ata_command_t identify = {
-		.opcode = ATA_CMD_IDENTIFY,
-		.lba = 0,
-		.sectors_count = 0,
-		.flags = ATA_CMD_SEND_LBA28,
-		.buf = &ident,
-	};
-	int ret = ata_send_command(devnode, &identify);
+	ata_command_t *identify = ata_create_command(device);
+	identify->opcode = ATA_CMD_IDENTIFY,
+	identify->lba = 0,
+	identify->sectors_count = 0,
+	identify->flags = ATA_CMD_SEND_LBA28,
+	identify->buf = &ident,
+
+	int ret = ata_submit_command_sync(identify);
 	if (ret < 0) return ret;
 
 	ata_disk_t *disk = kmalloc(sizeof(ata_disk_t));
