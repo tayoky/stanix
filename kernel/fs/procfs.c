@@ -236,7 +236,7 @@ static int proc_root_lookup(vfs_node_t *root, vfs_dentry_t *dentry) {
 	char *end;
 	pid_t pid = strtol(dentry->name, &end, 10);
 	if (end == dentry->name) return -ENOENT;
-	process_t *proc = pid2proc(pid);
+	process_t *proc = proc_from_pid(pid);
 	if (!proc) return -ENOENT;
 
 	dentry->inode = proc_new_node(root->superblock, proc, INODE_DIR);

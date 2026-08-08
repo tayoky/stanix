@@ -126,7 +126,7 @@ void kill_proc();
  * @return the process with the specfied pid
  * @note this create a new reference to the process
  */
-process_t *pid2proc(pid_t pid);
+process_t *proc_from_pid(pid_t pid);
 
 /**
  * @brief increment the ref count of a process

@@ -431,7 +431,7 @@ void kill_task(void) {
 	__builtin_unreachable();
 }
 
-process_t *pid2proc(pid_t pid) {
+process_t *proc_from_pid(pid_t pid) {
 	// is it ourself ?
 	if (get_current_proc()->pid == pid) {
 		return proc_ref(get_current_proc());
@@ -444,7 +444,7 @@ process_t *pid2proc(pid_t pid) {
 	return proc;
 }
 
-task_t *tid2task(pid_t tid) {
+task_t *task_from_tid(pid_t tid) {
 	// is it ourself ?
 	if (get_current_task()->tid == tid) {
 		return task_ref(get_current_task());

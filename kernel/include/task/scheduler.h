@@ -96,7 +96,7 @@ void kill_task(void);
  * @return the task with the specfied tid
  * @note this create a new reference to the task
  */
-task_t *tid2task(pid_t tid);
+task_t *task_from_tid(pid_t tid);
 
 /**
  * @brief increment the ref count of a task

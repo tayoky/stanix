@@ -419,7 +419,7 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 		}
 	} else {
 		// wait for pid
-		process_t *proc = pid2proc(pid);
+		process_t *proc = proc_from_pid(pid);
 		// we can immedialty release the ref as the parent proc (the current one)
 		// already hold a ref
 		proc_release(proc);
@@ -698,7 +698,7 @@ int sys_kill(pid_t tid, int sig) {
 		process_group_release(group);
 		return ret;
 	}
-	task_t *thread = tid2task(tid);
+	task_t *thread = task_from_tid(tid);
 	if (!thread) return -ESRCH;
 
 	signal_send_task(thread, sig);
@@ -1004,7 +1004,7 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 		return -EINVAL;
 	}
 	int ret = 0;
-	process_t *proc = pid2proc(pid);
+	process_t *proc = proc_from_pid(pid);
 	process_group_t *group;
 	if (pid == pgid) {
 		group = process_group_get_or_create_from_pgid(pgid);
@@ -1044,7 +1044,7 @@ err:
 }
 
 pid_t sys_getpgid(pid_t pid) {
-	process_t *proc = pid2proc(pid);
+	process_t *proc = proc_from_pid(pid);
 	spinlock_acquire(&proc->proc_lock);
 	int ret;
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
@@ -1215,7 +1215,7 @@ int sys_settls(void *tls) {
 //FIXME : probably full of race condition
 int sys_thread_join(pid_t tid) {
 	int ret = 0;
-	task_t *thread = tid2task(tid);
+	task_t *thread = task_from_tid(tid);
 	kdebugf("wait for %ld\n", tid);
 	if (!thread || thread->process != get_current_proc()) {
 		ret = -ESRCH;
