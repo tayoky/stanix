@@ -48,8 +48,13 @@ void process_group_release(process_group_t *group) {
 void proc_set_group(process_t *proc, process_group_t *group) {
 	if (proc->group) {
 		rculist_remove(&proc->group->processes, &proc->group_node);
+		if (rculist_is_empty(&proc->group->processes)) {
+			xarray_clear(&groups, &proc->group->pgid);
+		}
 		process_group_release(proc->group);
 	}
 	proc->group = process_group_ref(group);
-	rculist_append(&group->processes, &proc->group_node);
+	if (group) {
+		rculist_append(&group->processes, &proc->group_node);
+	}
 }

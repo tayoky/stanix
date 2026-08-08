@@ -385,8 +385,7 @@ static void do_proc_deletion(void) {
 	vfs_dentry_release(get_current_proc()->exe);
 
 	// release session / group
-	rculist_remove(&get_current_proc()->group->processes, &get_current_proc()->group_node);
-	process_group_release(get_current_proc()->group);;
+	proc_set_group(get_current_proc(), NULL);
 
 	kfree(get_current_proc()->cmdline);
 
