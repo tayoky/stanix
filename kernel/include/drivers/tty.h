@@ -4,7 +4,7 @@
 #include <kernel/device.h>
 #include <kernel/list.h>
 #include <kernel/ringbuf.h>
-#include <kernel/scheduler.h>
+#include <kernel/process.h>
 #include <kernel/vfs.h>
 #include <abi/ioctl.h>
 #include <abi/termios.h>
@@ -24,11 +24,10 @@ typedef struct tty {
 	tty_ops_t *ops;
 	struct termios termios;
 	struct winsize size;
-	list_t *waiter;
 	size_t column;
 	char *canon_buf;
 	size_t canon_index;
-	pid_t fg_pgrp;
+	process_group_t *fg_group;
 } tty_t;
 
 typedef struct pty {

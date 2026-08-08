@@ -99,19 +99,13 @@ static void handle_default(int signum) {
 	}
 }
 
-int send_sig_pgrp(pid_t pgrp, int signum) {
-	int ret = -1;
-	rcu_acquire_read(&get_procs_list()->rcu);
-	xarray_foreach (index, value, get_procs_list()) {
-		(void)index;
-		process_t *proc = value;
-		if (proc->group == pgrp) {
-			send_sig(proc, signum);
-			ret = 0;
-		}
+int send_sig_group(process_group_t *group, int signum) {
+	if (!group) return -ESRCH;
+	rculist_foreach (node, group) {
+		process_t *proc = container_of(node, process_t, group_node);
+		send_sig(proc, signum);
 	}
-	rcu_release_read(&get_procs_list()->rcu);
-	return ret;
+	return 0;
 }
 
 int send_sig(process_t *proc, int signum) {

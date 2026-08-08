@@ -688,19 +688,18 @@ int sys_sigpending(sigset_t *set) {
 	return 0;
 }
 
+//TODO : permission checks
 int sys_kill(pid_t tid, int sig) {
 	if (tid < 0) {
-		if (send_sig_pgrp(-tid, sig) < 0) {
-			return -ESRCH;
-		}
-		return 0;
+		process_group_t *group = process_group_get_from_pgid(-tid);
+		if (!group) return -ESRCH;
+		int ret = 0;
+		if (send_sig_group(group, sig) < 0) ret = -ESRCH;
+		process_group_release(group);
+		return ret;
 	}
 	task_t *thread = tid2task(tid);
-	if (!thread) {
-		return -ESRCH;
-	}
-
-	//TODO : permission checks
+	if (!thread) return -ESRCH;
 
 	send_sig_task(thread, sig);
 	task_release(thread);
@@ -954,7 +953,6 @@ int sys_fchown(int fd, uid_t owner, gid_t group) {
 	return vfs_chown(file.fd->inode, owner, group);
 }
 
-//TODO : check if group exist
 int sys_setpgid(pid_t pid, pid_t pgid) {
 	kdebugf("setpgid %ld %ld\n", pid, pgid);
 	if (pid == 0) pid = get_current_proc()->pid;
@@ -964,17 +962,33 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	}
 	int ret = 0;
 	process_t *proc = pid2proc(pid);
+	process_group_t *group;
+	if (pid == pgid) {
+		group = process_group_get_or_create_from_pgid(pgid);
+		if (!group) {
+			ret = -ENOMEM;
+			goto err;
+		}
+	} else {
+		group = process_group_get_from_pgid(pgid);
+	}
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
 		ret = -ESRCH;
 		goto err;
 	}
-	if (proc->sgid != get_current_proc()->sid) {
+	if (!group) {
 		ret = -EPERM;
 		goto err;
 	}
+	if (proc->sid != get_current_proc()->sid) {
+		ret = -EPERM;
+		goto err;
+	}
+	// TODO : check if session leader
 	proc->group = pgid;
 err:
 	proc_release(proc);
+	process_group_release(proc);
 	return ret;
 }
 
@@ -984,7 +998,7 @@ pid_t sys_getpgid(pid_t pid) {
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
 		ret = -ESRCH;
 	} else {
-		ret = proc->group;
+		ret = proc->group->pgid;
 	}
 	proc_release(proc);
 	return ret;

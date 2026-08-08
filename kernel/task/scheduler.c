@@ -104,6 +104,7 @@ void init_task() {
 	memset(boot_task, 0, sizeof(process_t));
 	boot_task->parent = boot_task;
 	boot_task->pid    = 0;
+	boot_task->group  = process_group_get_or_create_from_pgid(0);
 	list_init(&boot_task->child);
 	list_init(&boot_task->threads);
 	boot_task->umask = 022;
@@ -234,7 +235,7 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 	vmm_init_space(&proc->vmm_space);
 	list_init(&proc->child);
 	list_init(&proc->threads);
-	proc->uid         = get_current_proc()->uid;
+	proc_set_group(proc, get_current_proc()->group);
 	proc->uid         = get_current_proc()->uid;
 	proc->euid        = get_current_proc()->euid;
 	proc->suid        = get_current_proc()->suid;
@@ -382,6 +383,10 @@ static void do_proc_deletion(void) {
 	// release locked dentry
 	vfs_dentry_release(get_current_proc()->cwd);
 	vfs_dentry_release(get_current_proc()->exe);
+
+	// release session / group
+	rculist_remove(&get_current_proc()->group->processes, &get_current_proc()->group_node);
+	process_group_release(get_current_proc()->group);;
 
 	kfree(get_current_proc()->cmdline);
 

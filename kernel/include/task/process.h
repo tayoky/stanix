@@ -20,12 +20,19 @@ typedef struct fd_table {
 	rwlock_t lock;
 } fd_table_t;
 
-typedef struct process {
+typedef struct process_group {
+	rculist_t processes;
+	ref_count_t ref_count;
+	pid_t pgid;
+} process_group_t;
+
+struct process {
 	list_node_t child_list_node;
+	rculist_node_t group_node;
 	vmm_space_t vmm_space;
 	ref_count_t ref_count;
-	pid_t pid;
-	struct process *parent;
+	process_t *parent;
+	process_group_t *group;
 	fd_table_t fd_table;
 	vfs_dentry_t *cwd;
 	vfs_dentry_t *exe;
@@ -34,7 +41,7 @@ typedef struct process {
 	uintptr_t heap_end;
 	list_t child;
 	list_t threads;
-	pid_t group;
+	pid_t pid;
 	pid_t sid;
 	uid_t uid;
 	uid_t euid;
@@ -45,7 +52,20 @@ typedef struct process {
 	mode_t umask;
 	task_t *main_thread;
 	int exit_status;
-} process_t;
+};
+
+void init_proc(void);
+
+static inline process_group_t *process_group_ref(process_group_t *group) {
+	if (group) ref_count_inc(&group->ref_count);
+	return group;
+}
+
+void process_group_release(process_group_t *group);
+
+process_group_t *process_group_get_from_pgid(pid_t pgid);
+process_group_t *process_group_get_or_create_from_pgid(pid_t pgid);
+void proc_set_group(process_t *proc, process_group_t *group);
 
 static inline process_t *get_current_proc(void) {
 	task_t *task = get_current_task();
@@ -68,7 +88,6 @@ process_t *new_proc(void (*func)(void *arg), void *arg);
  * @brief kill the current process
  */
 void kill_proc();
-
 
 /**
  * @brief get a process from its pid

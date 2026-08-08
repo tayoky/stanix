@@ -92,6 +92,8 @@ static void tty_destroy(device_t *device) {
 	tty_t *tty = (tty_t *)device;
 
 	// TODO : send SIGHUP
+	
+	process_group_release(tty->fg_group);
 
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
@@ -108,17 +110,21 @@ int tty_do_ioctl(tty_t *tty, long request, void *arg) {
 	case TIOCSETAF:
 	case TIOCSETAW:
 		return safe_copy_auto_from(&tty->termios, arg);
-	case TIOCGPGRP:
-		return safe_copy_auto_to(arg, &tty->fg_pgrp);
+	case TIOCGPGRP:;
+		pid_t pgid = tty->group ? tty->group->pgid : 1;
+		return safe_copy_auto_to(arg, &pgid);
 	case TIOCSPGRP:
-		// TODO : check if group exist
 		kdebugf("set fgpgrp to %ld\n", *(pid_t *)arg);
-		return safe_copy_auto_from(&tty->fg_pgrp, arg);
+		pgid = 0;
+		if (safe_copy_auto_from(&fg_pgid, arg) < 0) return -EFAULT;
+		process_group_t *group = process_group_get_from_pgid(pgid);
+		if (!group) return -ESRCH;
+		process_group_release(tty->fg_group);
+		tty->fg_group = group;
+		return 0;
 	case TIOCSWINSZ:
 		if (safe_copy_auto_from(&tty->size, arg) < 0) return -EFAULT;
-		if (tty->fg_pgrp) {
-			send_sig_pgrp(tty->fg_pgrp, SIGWINCH);
-		}
+		send_sig_group(tty->fg_group, SIGWINCH);
 		return 0;
 	case TIOCGWINSZ:
 		return safe_copy_auto_to(arg, &tty->size);
@@ -237,19 +243,13 @@ int tty_input(tty_t *tty, char c) {
 	// signal support here
 	if (tty->termios.c_lflag & ISIG) {
 		if (c == tty->termios.c_cc[VINTR]) {
-			if (tty->fg_pgrp) {
-				send_sig_pgrp(tty->fg_pgrp, SIGINT);
-			}
+			send_sig_group(tty->fg_group, SIGINT);
 		}
 		if (c == tty->termios.c_cc[VQUIT]) {
-			if (tty->fg_pgrp) {
-				send_sig_pgrp(tty->fg_pgrp, SIGQUIT);
-			}
+			send_sig_group(tty->fg_group, SIGQUIT);
 		}
 		if (c == tty->termios.c_cc[VSUSP]) {
-			if (tty->fg_pgrp) {
-				send_sig_pgrp(tty->fg_pgrp, SIGTSTP);
-			}
+			send_sig_group(tty->fg_group, SIGTSTP);
 		}
 	}
 

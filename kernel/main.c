@@ -30,6 +30,7 @@
 #include <kernel/vmm.h>
 #include <kernel/acpi.h>
 #include <kernel/bootinfo.h>
+#include <kernel/process.h>
 #include <kernel/block.h>
 #include <sys/time.h>
 
@@ -121,6 +122,7 @@ void kmain() {
 	init_ptys();
 	init_kout();
 	init_vmm();
+	init_proc();
 	init_task();
 	init_resource();
 	init_bus();
