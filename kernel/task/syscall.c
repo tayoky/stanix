@@ -980,11 +980,15 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 		ret = -EPERM;
 		goto err;
 	}
+	if (proc->pid == proc->group->pgid) {
+		// process group leader
+		ret -EPERM;
+		goto err;
+	}
 	if (proc->sid != get_current_proc()->sid) {
 		ret = -EPERM;
 		goto err;
 	}
-	// TODO : check if session leader
 	proc->group = pgid;
 err:
 	proc_release(proc);
