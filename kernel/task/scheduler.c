@@ -231,6 +231,9 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 	process_t *proc = kmalloc(sizeof(process_t));
 	memset(proc, 0, sizeof(process_t));
 
+	spinlock_acquire(&proc->proc_lock);
+	spinlock_acquire(&proctree_lock);
+
 	proc->parent = get_current_proc();
 	vmm_init_space(&proc->vmm_space);
 	list_init(&proc->child);
@@ -253,6 +256,9 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 	// note that the parent hold a ref
 	proc_ref(proc);
 	list_append(&proc->parent->child, &proc->child_list_node);
+	
+	spinlock_release(&proc->proc_lock);
+	spinlock_release(&proctree_lock);
 
 	// add it to the global process list
 	// note that the proc list only hold a weak ref

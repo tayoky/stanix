@@ -10,6 +10,7 @@
 #include <kernel/print.h>
 #endif
 #include <kernel/asm.h>
+#include <kernel/assert.h>
 #include <stdatomic.h>
 
 typedef struct spinlock {
@@ -56,5 +57,7 @@ static inline void spinlock_release(spinlock_t *lock) {
 	spinlock_raw_release(lock);
 	if (lock->had_interrupt) enable_interrupt();
 }
+
+#define spinlock_assert_acquired(lock) kassert(atomic_flag_test_and_set(&(lock)->lock) && "spinlock acquired")
 
 #endif

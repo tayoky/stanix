@@ -46,6 +46,8 @@ void process_group_release(process_group_t *group) {
 }
 
 void proc_set_group(process_t *proc, process_group_t *group) {
+	spinlock_assert_acquired(&proc->proc_lock);
+	spinlock_assert_acquired(&proctree_lock);
 	if (proc->group) {
 		rculist_remove(&proc->group->processes, &proc->group_node);
 		if (rculist_is_empty(&proc->group->processes)) {
