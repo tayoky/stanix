@@ -82,8 +82,8 @@ static int proc_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *d
 
 static int proc_getattr(vfs_node_t *vnode, struct stat *st) {
 	proc_inode_t *inode = container_of(vnode, proc_inode_t, vnode);
-	st->st_uid          = inode->proc->euid;
-	st->st_gid          = inode->proc->egid;
+	st->st_uid          = proc_get_euid(inode->proc);
+	st->st_gid          = proc_get_egid(inode->proc);
 	return 0;
 }
 

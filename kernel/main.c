@@ -129,6 +129,7 @@ void kmain() {
 	init_root_bus();
 	init_timer();
 	init_mod();
+	init_cred();
 	init_proc();
 	init_sysfs();
 	init_sockets();

@@ -4,6 +4,7 @@
 #include <kernel/kheap.h>
 #include <kernel/refcount.h>
 #include <kernel/scheduler.h>
+#include <kernel/cred.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
 
@@ -30,6 +31,7 @@ struct process {
 	list_node_t child_list_node; // protected by proctree lo k
 	rculist_node_t group_node;   // write protected by proctree lock
 	vmm_space_t vmm_space;
+	rcu_ptr_t cred;
 	ref_count_t ref_count;
 	process_t *parent;           // write protected by proctree lock and read protected by proc_lock
 	process_group_t *group;      // write protected by proctree lock and read protected by proc_lock
@@ -43,12 +45,6 @@ struct process {
 	list_t threads;
 	pid_t pid;
 	pid_t sid;
-	uid_t uid;
-	uid_t euid;
-	uid_t suid;
-	gid_t gid;
-	gid_t egid;
-	gid_t sgid;
 	mode_t umask;
 	spinlock_t proc_lock; // cannot be acquired if holding proctree
 	task_t *main_thread;
@@ -72,20 +68,50 @@ process_group_t *process_group_get_or_create_from_pgid(pid_t pgid);
  */
 void proc_set_group(process_t *proc, process_group_t *group);
 
+static inline cred_t *proc_get_cred(proc_t *proc) {
+	if (!proc) return NULL;
+	return rcu_ptr_fetch(&proc->cred);
+}
+
+static inline void proc_set_cred(proc_t *proc, cred_t *cred) {
+	spinlock_assert_acquired(&proc->proc_lock);
+	cred_t *old_cred = rcu_ptr_store(&proc->cred, cred_ref(cred));
+	rcu_sync();
+	cred_release(old_cred);
+}
+
 static inline process_t *get_current_proc(void) {
 	task_t *task = get_current_task();
 	return task ? task->process : NULL;
 }
 
-static inline uid_t get_current_euid(void) {
-	process_t *proc = get_current_proc();
-	return proc ? proc->euid : EUID_ROOT;
+static inline cred_t *get_current_cred(void) {
+	cred_t *cred = proc_get_cred(get_current_proc());
+	if (!cred) cred = &default_cred;
+	return cred;
 }
 
-static inline gid_t get_current_egid(void) {
-	process_t *proc = get_current_proc();
-	return proc ? proc->egid : EUID_ROOT;
+static inline void set_current_cred(cred_t *cred) {
+	proc_set_cred(get_current_proc(), cred);
 }
+
+#define CRED_HELPER(type, var) \
+	static inline type proc_get_ ## var(proc_t *proc) {\
+		return proc_get_cred(proc)->var;\
+	}\
+	static inline type get_current_ ## var(void) {\
+		rcu_acquire_read(NULL);\
+		type var = get_current_cred()->var;\
+		rcu_release_read(NULL);\
+		return var\
+	}
+
+CRED_HELPER(uid_t, uid)
+CRED_HELPER(uid_t, euid)
+CRED_HELPER(uid_t, suid)
+CRED_HELPER(gid_t, gid)
+CRED_HELPER(gid_t, egid)
+CRED_HELPER(gid_t, sgid)
 
 process_t *new_proc(void (*func)(void *arg), void *arg);
 

@@ -125,15 +125,19 @@ error:
 
 	// check setuid /setgid bit
 	struct stat st;
-	if (vfs_getattr(file->inode, &st) >= 0) {
+	if (vfs_getattr(file->inode, &st) >= 0 && (st.st_mode & (S_ISUID | S_ISGID))) {
+		spinlock_acquire(&get_current_proc()->proc_lock);
+		cred_t *new_cred = cred_dup(get_current_cred());
 		if (st.st_mode & S_ISUID) {
-			get_current_proc()->suid = get_current_proc()->euid;
-			get_current_proc()->euid = st.st_uid;
+			new_cred->suid = get_current_cred()->euid;
+			new_cred->euid = st.st_uid;
 		}
 		if (st.st_mode & S_ISGID) {
-			get_current_proc()->sgid = get_current_proc()->egid;
-			get_current_proc()->egid = st.st_gid;
+			new_cred->sgid = get_current_cred()->egid;
+			new_cred->egid = st.st_gid;
 		}
+		set_current_cred(new_cred);
+		spinlock_release(&get_current_proc()->proc_lock);
 	}
 
 	if (depth == 0) {

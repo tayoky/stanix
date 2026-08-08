@@ -108,6 +108,7 @@ void init_task() {
 	list_init(&boot_task->child);
 	list_init(&boot_task->threads);
 	boot_task->umask = 022;
+	proc_set_cred(cred_dup(&default_cred));
 
 	// get the address space
 	boot_task->vmm_space.addrspace = mmu_get_addr_space();
@@ -239,12 +240,9 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 	list_init(&proc->child);
 	list_init(&proc->threads);
 	proc_set_group(proc, get_current_proc()->group);
-	proc->uid         = get_current_proc()->uid;
-	proc->euid        = get_current_proc()->euid;
-	proc->suid        = get_current_proc()->suid;
-	proc->gid         = get_current_proc()->gid;
-	proc->egid        = get_current_proc()->egid;
-	proc->sgid        = get_current_proc()->sgid;
+	rcu_acquire_read(NULL);
+	proc_set_cred(proc, get_current_cred());
+	rcu_release_read(NULL);
 	proc->umask       = get_current_proc()->umask;
 	proc->cmdline     = strdup(get_current_proc()->cmdline);
 	proc->cwd         = vfs_dentry_ref(get_current_proc()->cwd);
@@ -256,13 +254,13 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 	// note that the parent hold a ref
 	proc_ref(proc);
 	list_append(&proc->parent->child, &proc->child_list_node);
-	
-	spinlock_release(&proc->proc_lock);
-	spinlock_release(&proctree_lock);
 
 	// add it to the global process list
 	// note that the proc list only hold a weak ref
 	proc_register(proc);
+	
+	spinlock_release(&proctree_lock);
+	spinlock_release(&proc->proc_lock);
 
 	return proc;
 }
@@ -379,8 +377,9 @@ static void do_proc_deletion(void) {
 	}
 	list_destroy(&get_current_proc()->child);
 
-	// release session / group
+	// release session / group / cred
 	proc_set_group(get_current_proc(), NULL);
+	cred_release(get_current_cred());
 
 	spinlock_release_acquire(&proctree_lock);
 	spinlock_release(&get_current_proc()->proc_lock);

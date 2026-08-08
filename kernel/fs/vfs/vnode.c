@@ -477,10 +477,12 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask) {
 	// make sure we can actually setattr
 	if (!node) return -EBADF;
+	spinlock_assert_acquired(&node->lock);
 	if (!node->ops || !node->ops->setattr) {
 		return -EOPNOTSUPP;
 	}
-	if (get_current_euid() != node->uid && get_current_euid() != EUID_ROOT) {
+	uid_t current_euid = get_current_euid();
+	if (current_euid != node->uid && current_euid != EUID_ROOT) {
 		return -EPERM;
 	}
 	int ret = node->ops->setattr(node, st, mask);

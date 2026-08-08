@@ -839,60 +839,103 @@ int sys_msync(void *addr, size_t length, int flags) {
 }
 
 int sys_setuid(uid_t uid) {
-	if (get_current_proc()->euid == EUID_ROOT) {
-		get_current_proc()->uid = uid;
-		get_current_proc()->euid = uid;
-		get_current_proc()->suid = uid;
-		return 0;
-	} else if (uid == get_current_proc()->uid || uid == get_current_proc()->suid) {
-		get_current_proc()->euid = uid;
-		return 0;
-	} else {
-		return -EPERM;
+	cred_t *new_cred = cred_dup(get_current_cred());
+	if (!new_cred) return -ENOMEM;
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	int ret = 0;
+	if (get_current_cred()->euid != EUID_ROOT
+			&& uid != get_current_cred()->uid
+			&& uid != get_current_cred()->suid) {
+		ret = -EPERM;
+		goto error;
 	}
+	new_cred->euid = uid;
+	if (get_current_cred()->euid == EUID_ROOT) {
+		new_cred->uid = uid;
+		new_cred->suid = uid;
+	}
+	set_current_cred(new_cred);
+error:
+	cred_release(new_cred);
+	spinlock_release(&get_current_proc()->proc_lock);
+	return ret;
 }
 
 int sys_seteuid(uid_t uid) {
-	if (get_current_proc()->euid == EUID_ROOT || uid == get_current_proc()->uid || uid == get_current_proc()->suid) {
-		get_current_proc()->euid = uid;
-		return 0;
+	cred_t *new_cred = cred_dup(get_current_cred());
+	if (!new_cred) return -ENOMEM;
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	int ret = 0;
+	if (get_current_cred()->euid != EUID_ROOT
+			&& uid != get_current_cred()->uid
+			&& uid != get_current_cred()->suid) {
+		ret = -EPERM;
+		goto error;
 	}
-	return -EPERM;
+	new_cred->euid = uid;
+	set_current_cred(new_cred);
+error:
+	cred_release(new_cred);
+	spinlock_release(&get_current_proc()->proc_lock);
+	return ret;
 }
 
 uid_t sys_getuid(void) {
-	return get_current_proc()->uid;
+	return get_current_uid();
 }
 
 uid_t sys_geteuid(void) {
-	return get_current_proc()->euid;
+	return get_current_euid();
 }
 
 int sys_setgid(gid_t gid) {
-	if (get_current_proc()->euid == EUID_ROOT) {
-		get_current_proc()->gid = gid;
-		get_current_proc()->egid = gid;
-		get_current_proc()->sgid = gid;
-		return 0;
-	} else if (gid == get_current_proc()->gid || gid == get_current_proc()->sgid) {
-		get_current_proc()->egid = gid;
-		return 0;
-	} else {
-		return -EPERM;
+	cred_t *new_cred = cred_dup(get_current_cred());
+	if (!new_cred) return -ENOMEM;
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	int ret = 0;
+	if (get_current_cred()->euid != EUID_ROOT
+			&& gid != get_current_cred()->gid
+			&& gid != get_current_cred()->sgid) {
+		ret = -EPERM;
+		goto error;
 	}
+	new_cred->egid = gid;
+	if (get_current_cred()->euid == EUID_ROOT) {
+		new_cred->gid = gid;
+		new_cred->sgid = gid;
+	}
+	set_current_cred(new_cred);
+error:
+	cred_release(new_cred);
+	spinlock_release(&get_current_proc()->proc_lock);
+	return ret;
 }
+
 int sys_setegid(gid_t gid) {
-	if (get_current_proc()->euid == EUID_ROOT || gid == get_current_proc()->gid || gid == get_current_proc()->sgid) {
-		get_current_proc()->egid = gid;
-		return 0;
+	cred_t *new_cred = cred_dup(get_current_cred());
+	if (!new_cred) return -ENOMEM;
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	int ret = 0;
+	if (get_current_cred()->euid != EUID_ROOT
+			&& gid != get_current_cred()->gid
+			&& gid != get_current_cred()->sgid) {
+		ret = -EPERM;
+		goto error;
 	}
-	return -EPERM;
+	new_cred->egid = gid;
+	set_current_cred(new_cred);
+error:
+	cred_release(new_cred);
+	spinlock_release(&get_current_proc()->proc_lock);
+	return ret;
 }
+
 uid_t sys_getgid(void) {
-	return get_current_proc()->gid;
+	return get_current_gid();
 }
+
 uid_t sys_getegid(void) {
-	return get_current_proc()->egid;
+	return get_current_egid();
 }
 
 int sys_chmod(const char *pathname, mode_t mode) {
