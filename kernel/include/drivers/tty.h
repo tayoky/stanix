@@ -28,6 +28,7 @@ typedef struct tty {
 	char *canon_buf;
 	size_t canon_index;
 	process_group_t *fg_group;
+	spinlock_t lock;
 } tty_t;
 
 typedef struct pty {

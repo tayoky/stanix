@@ -91,9 +91,12 @@ static int tty_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 static void tty_destroy(device_t *device) {
 	tty_t *tty = (tty_t *)device;
 
+	spinlock_acquire(&tty->lock);
+
 	// TODO : send SIGHUP
 	
 	process_group_release(tty->fg_group);
+	spinlock_release(&tty->lock);
 
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
@@ -102,7 +105,7 @@ static void tty_destroy(device_t *device) {
 	kfree(tty->canon_buf);
 }
 
-int tty_do_ioctl(tty_t *tty, long request, void *arg) {
+static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) {
 	switch (request) {
 	case TIOCGETA:
 		return safe_copy_auto_to(arg, &tty->termios);
@@ -134,6 +137,13 @@ int tty_do_ioctl(tty_t *tty, long request, void *arg) {
 		}
 		return -EINVAL;
 	}
+}
+
+int tty_do_ioctl(tty_t *tty, long request, void *arg) {
+	spinlock_acquire(&tty->lock);
+	int ret = tty_do_raw_ioctl(tty, request, arg);
+	spinlock_release(&tty->lock);
+	return ret;
 }
 
 static int tty_ioctl(vfs_fd_t *fd, long request, void *arg) {
