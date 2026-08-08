@@ -27,12 +27,12 @@ typedef struct process_group {
 } process_group_t;
 
 struct process {
-	list_node_t child_list_node;
-	rculist_node_t group_node;
+	list_node_t child_list_node; // protected by proctree lo k
+	rculist_node_t group_node;   // write protected by proctree lock
 	vmm_space_t vmm_space;
 	ref_count_t ref_count;
-	process_t *parent;
-	process_group_t *group;
+	process_t *parent;           // write protected by proctree lock and read protected by proc_lock
+	process_group_t *group;      // write protected by proctree lock and read protected by proc_lock
 	fd_table_t fd_table;
 	vfs_dentry_t *cwd;
 	vfs_dentry_t *exe;
@@ -50,6 +50,7 @@ struct process {
 	gid_t egid;
 	gid_t sgid;
 	mode_t umask;
+	spinlock_t proc_lock; // cannot be acquired if holding proctree
 	task_t *main_thread;
 	int exit_status;
 };
@@ -65,6 +66,10 @@ void process_group_release(process_group_t *group);
 
 process_group_t *process_group_get_from_pgid(pid_t pgid);
 process_group_t *process_group_get_or_create_from_pgid(pid_t pgid);
+
+/**
+ * @note require proc's proc_lock and the proctree_lock
+ */
 void proc_set_group(process_t *proc, process_group_t *group);
 
 static inline process_t *get_current_proc(void) {
@@ -156,5 +161,6 @@ int close_fd(int fd);
 
 struct xarray;
 struct xarray *get_procs_list(void);
+extern spinlock_t proctree_lock;
 
 #endif

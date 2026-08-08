@@ -972,6 +972,8 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	} else {
 		group = process_group_get_from_pgid(pgid);
 	}
+	spinlock_acquire(&proc->proc_lock);
+	spinlock_acquire(&proctree_lock);
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
 		ret = -ESRCH;
 		goto err;
@@ -991,6 +993,8 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	}
 	proc->group = pgid;
 err:
+	spinlock_release(&proctree_lock);
+	spinlock_release(&proc->proc_lock);
 	proc_release(proc);
 	process_group_release(proc);
 	return ret;
@@ -998,12 +1002,14 @@ err:
 
 pid_t sys_getpgid(pid_t pid) {
 	process_t *proc = pid2proc(pid);
+	spinlock_acquire(&proc->proc_lock);
 	int ret;
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
 		ret = -ESRCH;
 	} else {
 		ret = proc->group->pgid;
 	}
+	spinlock_release(&proc->proc_lock);
 	proc_release(proc);
 	return ret;
 }

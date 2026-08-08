@@ -25,11 +25,11 @@ static atomic_size_t tid_count = 1;
 static char can_task_switch    = 0;
 list_t sleeping_tasks;
 spinlock_t sleep_lock;
+spinlock_t proctree_lock;
 
 static process_t *kernel_proc;
 static process_t *init;
 static task_t *idle;
-static rwlock_t reparenting_lock;
 
 static run_queue_t *get_run_queue(void) {
 	return &main_run_queue;
@@ -358,7 +358,7 @@ void kill_proc() {
 static void do_proc_deletion(void) {
 	// all the childreen become orphelan
 	// the parent of orphelan is init
-	rwlock_acquire_write(&reparenting_lock, NULL);
+	spinlock_acquire(&proctree_lock);
 	foreach (node, &get_current_proc()->child) {
 		process_t *child = container_of(node, process_t, child_list_node);
 
@@ -370,7 +370,7 @@ static void do_proc_deletion(void) {
 		if (child->main_thread->status == TASK_STATUS_ZOMBIE) alert_parent(child);
 		spinlock_release(&child->main_thread->state_lock);
 	}
-	rwlock_release_write(&reparenting_lock, NULL);
+	spinlock_release_acquire(&proctree_lock);
 	list_destroy(&get_current_proc()->child);
 
 	// close every open fd
