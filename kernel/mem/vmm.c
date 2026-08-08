@@ -40,7 +40,7 @@ static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
 		uintptr_t new_page = pmm_dup_page(phys);
 		if (new_page == PAGE_INVALID) {
 			// not looking good
-			send_sig_task(get_current_task(), SIGBUS);
+			signal_send_task(get_current_task(), SIGBUS);
 			return;
 		}
 		pmm_release_page(phys);

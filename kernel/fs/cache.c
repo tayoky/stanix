@@ -439,7 +439,7 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 		// the page is not cached
 		// we are cooked
 		kdebugf("uncached mapped page access\n");
-		send_sig_task(get_current_task(), SIGBUS);
+		signal_send_task(get_current_task(), SIGBUS);
 		return 1;
 	}
 
@@ -454,7 +454,7 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 			page = pmm_dup_page(page);
 			pmm_release_page(page);
 			if (page == PAGE_INVALID) {
-				send_sig_task(get_current_task(), SIGBUS);
+				signal_send_task(get_current_task(), SIGBUS);
 				return 1;
 			}
 		} else {

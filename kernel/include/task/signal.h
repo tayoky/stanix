@@ -5,9 +5,9 @@
 #include <kernel/process.h>
 #include <kernel/scheduler.h>
 
-int send_sig_task(task_t *thread, int signum);
-int send_sig(process_t *proc, int signum);
-int send_sig_group(process_group_t *group, int signum);
+int signal_send_task(task_t *thread, int signum);
+int signal_send(process_t *proc, int signum);
+int signal_send_group(process_group_t *group, int signum);
 void handle_signal(registers_t *context);
 void restore_signal_handler(registers_t *context);
 

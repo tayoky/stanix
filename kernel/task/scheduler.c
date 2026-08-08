@@ -340,7 +340,7 @@ task_t *get_current_task(void) {
 
 static void alert_parent(process_t *proc) {
 	if (!proc->parent) return;
-	if (!proc->main_thread->waiter) send_sig(proc->parent, SIGCHLD);
+	if (!proc->main_thread->waiter) signal_send(proc->parent, SIGCHLD);
 }
 
 void kill_proc() {
@@ -350,7 +350,7 @@ void kill_proc() {
 		kill_task();
 	} else {
 		// we are not the main thread
-		send_sig_task(get_current_proc()->main_thread, SIGKILL);
+		signal_send_task(get_current_proc()->main_thread, SIGKILL);
 		kill_task();
 	}
 }

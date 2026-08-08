@@ -127,7 +127,7 @@ static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) {
 		return 0;
 	case TIOCSWINSZ:
 		if (safe_copy_auto_from(&tty->size, arg) < 0) return -EFAULT;
-		send_sig_group(tty->fg_group, SIGWINCH);
+		signal_send_group(tty->fg_group, SIGWINCH);
 		return 0;
 	case TIOCGWINSZ:
 		return safe_copy_auto_to(arg, &tty->size);
@@ -253,13 +253,13 @@ int tty_input(tty_t *tty, char c) {
 	// signal support here
 	if (tty->termios.c_lflag & ISIG) {
 		if (c == tty->termios.c_cc[VINTR]) {
-			send_sig_group(tty->fg_group, SIGINT);
+			signal_send_group(tty->fg_group, SIGINT);
 		}
 		if (c == tty->termios.c_cc[VQUIT]) {
-			send_sig_group(tty->fg_group, SIGQUIT);
+			signal_send_group(tty->fg_group, SIGQUIT);
 		}
 		if (c == tty->termios.c_cc[VSUSP]) {
-			send_sig_group(tty->fg_group, SIGTSTP);
+			signal_send_group(tty->fg_group, SIGTSTP);
 		}
 	}
 

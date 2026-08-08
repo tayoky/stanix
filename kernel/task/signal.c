@@ -99,20 +99,20 @@ static void handle_default(int signum) {
 	}
 }
 
-int send_sig_group(process_group_t *group, int signum) {
+int signal_send_group(process_group_t *group, int signum) {
 	if (!group) return -ESRCH;
 	rculist_foreach (node, group) {
 		process_t *proc = container_of(node, process_t, group_node);
-		send_sig(proc, signum);
+		signal_send(proc, signum);
 	}
 	return 0;
 }
 
-int send_sig(process_t *proc, int signum) {
-	return send_sig_task(proc->main_thread, signum);
+int signal_send(process_t *proc, int signum) {
+	return signal_send_task(proc->main_thread, signum);
 }
 
-int send_sig_task(task_t *thread, int signum) {
+int signal_send_task(task_t *thread, int signum) {
 	kdebugf("send %d to %ld\n", signum, thread->tid);
 
 	spinlock_acquire(&thread->sig_lock);

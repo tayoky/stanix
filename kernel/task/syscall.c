@@ -694,14 +694,14 @@ int sys_kill(pid_t tid, int sig) {
 		process_group_t *group = process_group_get_from_pgid(-tid);
 		if (!group) return -ESRCH;
 		int ret = 0;
-		if (send_sig_group(group, sig) < 0) ret = -ESRCH;
+		if (signal_send_group(group, sig) < 0) ret = -ESRCH;
 		process_group_release(group);
 		return ret;
 	}
 	task_t *thread = tid2task(tid);
 	if (!thread) return -ESRCH;
 
-	send_sig_task(thread, sig);
+	signal_send_task(thread, sig);
 	task_release(thread);
 	return 0;
 }
