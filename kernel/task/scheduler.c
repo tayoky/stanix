@@ -358,6 +358,7 @@ void kill_proc() {
 static void do_proc_deletion(void) {
 	// all the childreen become orphelan
 	// the parent of orphelan is init
+	spinlock_acquire(&get_current_proc()->proc_lock);
 	spinlock_acquire(&proctree_lock);
 	foreach (node, &get_current_proc()->child) {
 		process_t *child = container_of(node, process_t, child_list_node);
@@ -370,8 +371,13 @@ static void do_proc_deletion(void) {
 		if (child->main_thread->status == TASK_STATUS_ZOMBIE) alert_parent(child);
 		spinlock_release(&child->main_thread->state_lock);
 	}
-	spinlock_release_acquire(&proctree_lock);
 	list_destroy(&get_current_proc()->child);
+
+	// release session / group
+	proc_set_group(get_current_proc(), NULL);
+
+	spinlock_release_acquire(&proctree_lock);
+	spinlock_release(&get_current_proc()->proc_lock);
 
 	// close every open fd
 	for (size_t i = 0; i < MAX_FD; i++) {
@@ -383,11 +389,6 @@ static void do_proc_deletion(void) {
 	// release locked dentry
 	vfs_dentry_release(get_current_proc()->cwd);
 	vfs_dentry_release(get_current_proc()->exe);
-
-	// release session / group
-	proc_set_group(get_current_proc(), NULL);
-
-	kfree(get_current_proc()->cmdline);
 
 	vmm_unmap_all();
 
@@ -554,6 +555,8 @@ static void proc_final_cleanup(process_t *proc) {
 	if (proc->parent) list_remove(&proc->parent->child, &proc->child_list_node);
 
 	task_release(proc->main_thread);
+	
+	kfree(proc->cmdline);
 
 	// now we can free the address space
 	vmm_destroy_space(&proc->vmm_space);

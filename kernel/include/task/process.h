@@ -36,7 +36,7 @@ struct process {
 	fd_table_t fd_table;
 	vfs_dentry_t *cwd;
 	vfs_dentry_t *exe;
-	char *cmdline;
+	char *cmdline;              // protected by proc_lock
 	uintptr_t heap_start;
 	uintptr_t heap_end;
 	list_t child;
@@ -124,8 +124,10 @@ void proc_release(process_t *proc);
  * @param cmdline the new cmdline
  */
 static inline void proc_set_cmdline(process_t *proc, const char *cmdline) {
+	spinlock_acquire(&proc->proc_lock);
 	kfree(proc->cmdline);
 	proc->cmdline = strdup(cmdline);
+	spinlock_release(&proc->proc_lock);
 }
 
 /**
