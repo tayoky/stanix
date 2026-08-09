@@ -144,6 +144,52 @@ void kill_proc(void) {
 	}
 }
 
+static void alert_parent(process_t *proc) {
+	if (!proc->parent) return;
+	if (!proc->main_thread->waiter) signal_send(proc->parent, SIGCHLD);
+}
+
+void do_proc_deletion(void) {
+	// all the childreen become orphelan
+	// the parent of orphelan is init
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	spinlock_acquire(&proctree_lock);
+	list_node_t *node = get_current_proc()->child.first_node;
+	while (node) {
+		process_t *child = container_of(node, process_t, child_list_node);
+		node = node->next;
+
+		child->parent = init;
+		list_append(&init->child, &child->child_list_node);
+		if (proc_get_state(child) == TASK_STATUS_ZOMBIE) alert_parent(child);
+	}
+	list_destroy(&get_current_proc()->child);
+
+	// release session / group / cred
+	proc_set_group(get_current_proc(), NULL);
+	cred_release(get_current_cred());
+
+	proc_set_state(get_current_proc(), PROC_STATE_ZOMBIE);
+
+	spinlock_release_acquire(&proctree_lock);
+	spinlock_release(&get_current_proc()->proc_lock);
+
+	// close every open fd
+	for (size_t i = 0; i < MAX_FD; i++) {
+		if (get_current_proc()->fd_table.fds[i].present) {
+			close_fd(i);
+		}
+	}
+
+	// release locked dentry
+	vfs_dentry_release(get_current_proc()->cwd);
+	vfs_dentry_release(get_current_proc()->exe);
+
+	vmm_unmap_all();
+
+	list_destroy(&get_current_proc()->threads);
+}
+
 void proc_zombie_cleanup(process_t *proc) {
 	spinlock_assert_acquired(&proctree_lock);
 	proc_unregister(proc);

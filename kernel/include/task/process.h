@@ -167,6 +167,11 @@ static inline process_t *proc_ref(process_t *proc) {
 void proc_release(process_t *proc);
 
 /**
+ * @brief do deletion of the current process
+ */
+void do_proc_deletion(void);
+
+/**
  * @brief set cmdline of a process
  * @param proc the process to set the cmdline of
  * @param cmdline the new cmdline

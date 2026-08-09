@@ -291,55 +291,9 @@ task_t *get_current_task(void) {
 	return get_run_queue()->current;
 }
 
-static void alert_parent(process_t *proc) {
-	if (!proc->parent) return;
-	if (!proc->main_thread->waiter) signal_send(proc->parent, SIGCHLD);
-}
-
-static void do_proc_deletion(void) {
-	// all the childreen become orphelan
-	// the parent of orphelan is init
-	spinlock_acquire(&get_current_proc()->proc_lock);
-	spinlock_acquire(&proctree_lock);
-	list_node_t *node = get_current_proc()->child.first_node;
-	while (node) {
-		process_t *child = container_of(node, process_t, child_list_node);
-		node = node->next;
-
-		child->parent = init;
-		list_append(&init->child, &child->child_list_node);
-		if (proc_get_state(child) == TASK_STATUS_ZOMBIE) alert_parent(child);
-	}
-	list_destroy(&get_current_proc()->child);
-
-	// release session / group / cred
-	proc_set_group(get_current_proc(), NULL);
-	cred_release(get_current_cred());
-
-	proc_set_state(get_current_proc(), PROC_STATE_ZOMBIE);
-
-	spinlock_release_acquire(&proctree_lock);
-	spinlock_release(&get_current_proc()->proc_lock);
-
-	// close every open fd
-	for (size_t i = 0; i < MAX_FD; i++) {
-		if (get_current_proc()->fd_table.fds[i].present) {
-			close_fd(i);
-		}
-	}
-
-	// release locked dentry
-	vfs_dentry_release(get_current_proc()->cwd);
-	vfs_dentry_release(get_current_proc()->exe);
-
-	vmm_unmap_all();
-
-	list_destroy(&get_current_proc()->threads);
-}
-
 void kill_task(void) {
-	disable_interrupt();
-	
+	prempt_disable();
+
 	if (get_current_task() == get_current_proc()->main_thread) {
 		// we are the main thread, we need to kill the whole proc
 		// TODO : send SIGKILL to all threads and wait for it to be handled
@@ -362,7 +316,7 @@ void kill_task(void) {
 	spinlock_release(&get_current_task()->state_lock);
 
 	// FIXME : not SMP safe
-	// another task could waitpid on us and free us between spinlock_release and yield
+	// another task could waitpid on us and free our process_t between do_proc_deletion and yield
 	// which is a RACE CONDITION
 	yield(0);
 	__builtin_unreachable();
