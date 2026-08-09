@@ -117,6 +117,7 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 	proc->cmdline     = strdup(get_current_proc()->cmdline);
 	proc->cwd         = vfs_dentry_ref(get_current_proc()->cwd);
 	proc->exe         = vfs_dentry_ref(get_current_proc()->exe);
+	// FIXME : call raw_new_task
 	proc->main_thread = new_task(proc, func, arg);
 	proc->pid         = proc->main_thread->tid;
 
@@ -136,8 +137,16 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 }
 
 void proc_exit(int status) {
+	spinlock_acquire(&get_current_proc()->proc_lock);
 	get_current_proc()->exit_status = status;
-	// TODO : kill the whole group
+	// mark the process as killed
+	atomic_fetch_or(&get_current_proc()->flags, PROC_FLAG_KILLED);
+	// interrupt every thread
+	foreach (node, &get_current_proc()->threads) {
+		task_t *task = container_of(node, task_t, thread_list_node);
+		unblock_task_reason(task, WAKEUP_SIGNAL);
+	}
+	spinlock_release(&get_current_proc()->proc_lock);
 	task_exit();
 }
 

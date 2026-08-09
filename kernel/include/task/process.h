@@ -49,14 +49,17 @@ struct process {
 	pid_t pid;
 	pid_t sid;
 	mode_t umask;
-	spinlock_t proc_lock;        // cannot be acquired if holding proctree
+	spinlock_t proc_lock;        // cannot be acquired if holding proctree lock
 	task_t *main_thread;
-	int exit_status;
-	ATOMIC(int) state;           // write protected by proc lock
+	int exit_status;             // write protected by proc lock
+	ATOMIC(int) state;           // write protected by proc lock and proctree lock
+	ATOMIC(int) flags;
 };
 
 #define PROC_STATUS_RUNNING 1
 #define PROC_STATUS_ZOMBIE  2
+
+#define PROC_FLAG_KILL    0x1 // process is killed
 
 void init_proc(void);
 

@@ -11,7 +11,7 @@ void timer_handler(registers_t *frame) {
 	yield(1);
 
 	if (arch_registers_is_userspace(frame)) {
-		handle_signal(frame);
+		return_to_userspace(frame);
 	}
 }
 
@@ -24,9 +24,9 @@ int page_fault_handler(registers_t *frame) {
 	// maybee the vmm can handle it
 	if (vmm_fault_report(arch_fault_get_addr(frame), arch_fault_get_prot(frame))) {
 		// even if the vmm handlded the fault
-		// it does not handle signals
+		// it does not handle return to userspace
 		if (arch_registers_is_userspace(frame)) {
-			handle_signal(frame);
+			return_to_userspace(frame);
 		}
 		return 1;
 	}
@@ -54,7 +54,7 @@ int page_fault_handler(registers_t *frame) {
 	signal_send_task(get_current_task(), SIGSEGV);
 
 	if (arch_registers_is_userspace(frame)) {
-		handle_signal(frame);
+		return_to_userspace(frame);
 	}
 	return 1;
 }
@@ -66,6 +66,6 @@ int fpu_fault_handler(registers_t *frame) {
 	}
 
 	signal_send_task(get_current_task(), SIGFPE);
-	handle_signal(frame);
+	return_to_userspace(frame);
 	return 1;
 }
