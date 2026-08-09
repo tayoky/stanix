@@ -29,6 +29,9 @@ spinlock_t proctree_lock;
 static process_t *kernel_proc;
 static process_t *init;
 static task_t *idle;
+static task_t *reaper;
+static list_t dead_tasks;
+static spinlock_t dead_tasks_lock;
 
 static run_queue_t *get_run_queue(void) {
 	return &main_run_queue;
@@ -79,6 +82,40 @@ static void idle_task() {
 	}
 }
 
+static void task_final_cleanup(task_t *task) {
+	kfree((void *)task->kernel_stack);
+
+	// the scheduler hold a ref that we need to release
+	task_release(task);
+}
+
+static void reaper_task() {
+	spinlock_acquire(&dead_tasks_lock);
+	list_node_t *node = dead_tasks.first_node;
+	if (node) {
+		list_remove(&dead_tasks, node);
+	}
+	spinlock_release(&dead_tasks_lock);
+	if (!node) {
+		block_prepare();
+		block_task();
+		continue;
+	}
+	runqueue_acquire_lock
+	task_t *task = container_of(node, task_t, dead_list_node);
+	// make sure the task is not on a wait queue
+	// FIXME : is this bad ?
+	while (atomic_load(task->run_queue));
+	final_task_cleanup(task);
+}
+
+static void add_dead_task(task_t *task) {
+	spinlock_acquire(&dead_tasks_lock);
+	list_append(&dead_tasks, &get_current_task()->dead_list_node);
+	spinlock_release(&dead_tasks_lock);
+	unblock_task(reaper);
+}
+
 void init_task() {
 	kstatusf("init kernel task... ");
 	// init the scheduler first
@@ -120,10 +157,11 @@ void init_task() {
 	// activate task switch
 	can_task_switch = 1;
 
-	// setup the kernel proc and the idle task
+	// setup the kernel proc, the idle task and the reaper
 	kernel_proc = new_proc(idle_task, NULL);
 	proc_set_cmdline(kernel_proc, "stanix kernel");
 	idle = kernel_proc->main_thread;
+	reaper = new_kernel_task(reaper, NULL);
 
 	kok();
 }
@@ -186,8 +224,8 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 
 	task->process = proc;
 
-	// the proc hold a ref
-	// but the tasks list only a weak ref
+	// the schedulee hold a ref
+	// but the tasks list and proc only a weak ref
 	task_ref(task);
 	list_append(&proc->threads, &task->thread_list_node);
 	xarray_set(&tasks_list, task->tid, task);
@@ -301,19 +339,9 @@ void kill_task(void) {
 		alert_parent(get_current_proc());
 	}
 	
-	spinlock_acquire(&get_current_task()->state_lock);
-	get_current_task()->status = TASK_STATUS_ZOMBIE;
-
-	// if a task is waiting on us alert
-	if (atomic_load(&get_current_task()->waiter)) {
-		// FIXME : not SMP safe
-		// a task could be waiting on multiples threads and if they all wakeup the waiter at the same time
-		// waker will still indicate only the last
-		// RACE CONDITION
-		unblock_task(get_current_task()->waiter);
-	}
-
-	spinlock_release(&get_current_task()->state_lock);
+	xarray_set(&tasks_list, task->tid, NULL);
+	set_task_status(TASK_STATUS_DEAD);
+	add_dead_task(get_current_task());
 
 	// FIXME : not SMP safe
 	// another task could waitpid on us and free our process_t between do_proc_deletion and yield
@@ -419,18 +447,12 @@ int unblock_task_reason(task_t *task, int reason) {
 	return 1;
 }
 
-static void task_final_cleanup(task_t *task) {
-	xarray_set(&tasks_list, task->tid, NULL);
-	kfree((void *)task->kernel_stack);
-	kfree(task);
-}
-
 void task_release(task_t *task) {
 	if (!task) return;
 	if (ref_count_dec(&task->ref_count) > 1) {
 		return;
 	}
-	task_final_cleanup(task);
+	kfree(task);
 }
 
 int add_fd(vfs_fd_t *fd, long flags) {

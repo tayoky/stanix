@@ -1236,36 +1236,10 @@ int sys_settls(void *tls) {
 	return 0;
 }
 
-//FIXME : probably full of race condition
+//TODO : remove this stub
 int sys_thread_join(pid_t tid) {
-	int ret = 0;
-	task_t *thread = task_from_tid(tid);
-	kdebugf("wait for %ld\n", tid);
-	if (!thread || thread->process != get_current_proc()) {
-		ret = -ESRCH;
-		goto err;
-	}
-	kdebugf("found\n");
-
-	if (thread == get_current_task()) {
-		ret = -EDEADLK;
-		goto err;
-	}
-
-
-	ret = waitfor(&thread, 1, 0, NULL);
-	if (ret < 0) {
-		//return EDEADLK if somebody was already waiting on it
-		if (ret == -ECHILD) ret = -EDEADLK;
-		goto err;
-	}
-
-	// destroy the task
-	task_release(thread);
-
-err:
-	task_release(thread);
-	return ret;
+	(void)tid;
+	return 0;
 }
 
 int sys_sys_shutdown(int flags) {

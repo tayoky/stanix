@@ -7,6 +7,7 @@
 #include <kernel/refcount.h>
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
+#include <kernel/atomic.h>
 #include <sys/signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -27,7 +28,10 @@ typedef struct run_queue {
 
 typedef struct task {
 	list_node_t thread_list_node;
-	list_node_t waiter_list_node;
+	union {
+		list_node_t waiter_list_node;
+		list_node_t dead_list_node;
+	};
 	list_node_t run_list_node;
 	acontext_t context;
 	ref_count_t ref_count;
@@ -47,9 +51,9 @@ typedef struct task {
 
 	struct registers *syscall_frame;
 	struct task *waker;
-	struct task *_Atomic waiter; // task waiting on us
+	ATOMIC(struct task *) waiter; // task waiting on us
 	spinlock_t state_lock;
-	run_queue_t *_Atomic run_queue;
+	ATOMIC(run_queue_t *) run_queue;
 	size_t preempt_disable;
 	atomic_size_t preempt_context_switches;
 	atomic_size_t voluntary_context_switches;
