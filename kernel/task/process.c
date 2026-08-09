@@ -88,7 +88,10 @@ void proc_release(process_t *proc) {
 	if (ref_count_dec(&proc->ref_count) > 1) {
 		return;
 	}
-	task_release(proc->main_thread);
+
+	// now we can free the address space
+	vmm_destroy_space(&proc->vmm_space);
+
 	kfree(proc->cmdline);
 	kfree(proc);
 }
@@ -194,9 +197,6 @@ void proc_zombie_cleanup(process_t *proc) {
 	spinlock_assert_acquired(&proctree_lock);
 	proc_unregister(proc);
 	if (proc->parent) list_remove(&proc->parent->child, &proc->child_list_node);
-
-	// now we can free the address space
-	vmm_destroy_space(&proc->vmm_space);
 
 	// the parent hold a ref that we need to free
 	proc_release(proc);

@@ -85,6 +85,9 @@ static void idle_task() {
 static void task_final_cleanup(task_t *task) {
 	kfree((void *)task->kernel_stack);
 
+	// the task hold a ref to the proc
+	proc_release(task->proc);
+
 	// the scheduler hold a ref that we need to release
 	task_release(task);
 }
@@ -222,9 +225,10 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	// setup a new kernel stack
 	task->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
 
-	task->process = proc;
+	// the task hold a ref to the proc
+	task->process = proc_ref(proc);
 
-	// the schedulee hold a ref
+	// the scheduler hold a ref
 	// but the tasks list and proc only a weak ref
 	task_ref(task);
 	list_append(&proc->threads, &task->thread_list_node);
@@ -343,9 +347,6 @@ void kill_task(void) {
 	set_task_status(TASK_STATUS_DEAD);
 	add_dead_task(get_current_task());
 
-	// FIXME : not SMP safe
-	// another task could waitpid on us and free our process_t between do_proc_deletion and yield
-	// which is a RACE CONDITION
 	yield(0);
 	__builtin_unreachable();
 }
