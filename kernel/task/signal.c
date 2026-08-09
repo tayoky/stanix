@@ -163,8 +163,6 @@ void handle_signal(registers_t *context) {
 				handle_default(signum);
 				continue;
 			} else {
-				spinlock_release(&get_current_proc()->proc_lock);
-				spinlock_release(&get_current_task()->sig_lock);
 				// TODO : move this to arch specific
 				// this is the tricky part
 				uintptr_t sp = SP_REG(*context);
@@ -191,8 +189,20 @@ void handle_signal(registers_t *context) {
 				// push the magic return value
 				sp -= sizeof(uintptr_t);
 				*(uintptr_t *)sp = MAGIC_SIGRETURN;
+
 				// apply the new mask
 				get_current_task()->sig_mask |= get_current_task()->sig_handling[signum].sa_mask;
+				if (!(get_current_proc()->sig_handlers[signum].sa_flags & SA_NODEFER)) {
+					get_current_task()->sig_mask |= sigmask(signum);
+				}
+				
+				if (get_current_proc()->sig_handlers[signum].sa_flags & SA_RESETHAND) {
+					get_current_proc()->sig_handlers[signum].sa_handler = SIG_DFL;
+				}
+
+				spinlock_release(&get_current_proc()->proc_lock);
+				spinlock_release(&get_current_task()->sig_lock);
+
 				// then we can jump to the signal handler
 				jump_userspace((void *)get_current_task()->sig_handling[signum].sa_handler, (void *)sp, signum, 0, (uintptr_t)ucontext, 0);
 			}
