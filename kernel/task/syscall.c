@@ -113,9 +113,8 @@ ssize_t sys_read(int fd, void *buffer, size_t count) {
 
 void sys_exit(int error_code) {
 	// set that we exited normally
-	get_current_proc()->exit_status = (1UL << 16) | error_code;
 	kdebugf("exit with code : %ld\n", error_code);
-	kill_proc();
+	proc_exit((1UL << 16) | error_code);
 }
 
 int sys_dup(int oldfd) {
@@ -1223,7 +1222,7 @@ int sys_new_thread(void (*fn)(void *), void *stack, int flags, void *arg, pid_t 
 }
 
 int sys_thread_exit(void) {
-	kill_task();
+	task_exit();
 	return 0;
 }
 

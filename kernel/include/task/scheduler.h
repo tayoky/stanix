@@ -89,7 +89,7 @@ task_t *new_task(struct process *proc, void (*func)(void *arg), void *arg);
 /**
  * @brief kill the current task
  */
-void kill_task(void);
+void task_exit(void);
 
 /**
  * @brief get a task from its tid

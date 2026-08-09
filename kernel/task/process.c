@@ -135,16 +135,10 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 	return proc;
 }
 
-void kill_proc(void) {
-	// just kill the main thread
-	if (get_current_task() == get_current_proc()->main_thread) {
-		// we are the main thread, diying will kill the proc
-		kill_task();
-	} else {
-		// we are not the main thread
-		signal_send_task(get_current_proc()->main_thread, SIGKILL);
-		kill_task();
-	}
+void proc_exit(int status) {
+	get_current_proc()->exit_status = status;
+	// TODO : kill the whole group
+	task_exit();
 }
 
 static void alert_parent(process_t *proc) {

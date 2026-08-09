@@ -65,10 +65,10 @@ void exception_handler(registers_t *fault){
 		if(fault->err_type == 14){
 			kprintf("segmentation fault (core dumped)\n");
 			page_fault_info(fault);
-			kill_proc(get_current_proc());
+			proc_exit(get_current_proc());
 		}
 		kprintf("fault %lu (core dumped)\n",fault->err_type);
-		kill_proc(get_current_proc());
+		proc_exit(get_current_proc());
 	}
 	kprintf("error : 0x%lx\n",fault->err_type);
 	if(fault->err_type < (sizeof(error_msg) / sizeof(char *))){

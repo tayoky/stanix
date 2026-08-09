@@ -210,7 +210,7 @@ static void new_task_trampoline(void (*func)(void *arg), void *arg) {
 	enable_interrupt();
 
 	func(arg);
-	kill_task();
+	task_exit();
 }
 
 task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
@@ -336,7 +336,7 @@ task_t *get_current_task(void) {
 	return get_run_queue()->current;
 }
 
-void kill_task(void) {
+void task_exit(void) {
 	prempt_disable();
 
 	spinlock_acquire(&get_current_proc()->proc_lock);

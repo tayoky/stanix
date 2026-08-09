@@ -56,15 +56,15 @@ static void handle_default(int signum) {
 	case CORE:
 	case KILL:
 		spinlock_release(&get_current_task()->sig_lock);
-		kdebugf("task killed by signal %d\n", signum);
-		get_current_proc()->exit_status = ((uint64_t)1 << 17) | signum;
-		kill_task();
+		kdebugf("proc killed by signal %d\n", signum);
+		proc_exit((1U << 17) | signum);
 		break;
 	case IGN:
 	case CONT:
 		break;
 	case STOP:
 		// FIXME : full of RACE CONDITION
+		// TODO : stop whole process
 		spinlock_release(&get_current_task()->sig_lock);
 		kdebugf("task stopped\n");
 		int ret = 0;

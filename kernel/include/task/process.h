@@ -140,8 +140,9 @@ process_t *new_proc(void (*func)(void *arg), void *arg);
 
 /**
  * @brief kill the current process
+ * @param status the status to exit with
  */
-void kill_proc();
+void proc_exit(int status);
 
 /**
  * @brief get a process from its pid
