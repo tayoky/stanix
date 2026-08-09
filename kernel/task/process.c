@@ -146,7 +146,7 @@ void kill_proc(void) {
 
 static void alert_parent(process_t *proc) {
 	if (!proc->parent) return;
-	if (!proc->main_thread->waiter) signal_send(proc->parent, SIGCHLD);
+	signal_send(proc->parent, SIGCHLD);
 }
 
 void do_proc_deletion(void) {

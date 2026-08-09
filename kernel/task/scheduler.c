@@ -430,7 +430,6 @@ int unblock_task_reason(task_t *task, int reason) {
 	}
 
 	task->status        = TASK_STATUS_RUNNING;
-	task->waker         = get_current_task();
 	task->wakeup_reason = reason;
 
 	// if the task is already in the queue on another cpu don't push it back

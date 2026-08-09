@@ -1236,12 +1236,6 @@ int sys_settls(void *tls) {
 	return 0;
 }
 
-//TODO : remove this stub
-int sys_thread_join(pid_t tid) {
-	(void)tid;
-	return 0;
-}
-
 int sys_sys_shutdown(int flags) {
 	if (get_current_proc()->euid != EUID_ROOT) {
 		return -EPERM;
@@ -1503,8 +1497,8 @@ void *syscall_table[] = {
 	(void *)sys_thread_exit,
 	(void *)sys_gettid,
 	(void *)sys_settls,
-	(void *)sys_thread_join,
-	(void *)sys_sys_shutdown,
+	(void *)sys_stub, // sys_thread_join (deprecated)
+	(void *)sys_sys_shutdown, // (deprecated)
 	(void *)sys_socket,
 	(void *)sys_sendmsg,
 	(void *)sys_recvmsg,

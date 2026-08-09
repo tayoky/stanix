@@ -43,15 +43,12 @@ typedef struct task {
 	struct sigaction sig_handling[32];
 
 	struct timespec wakeup_time;
-	pid_t waitfor;
 	atomic_int flags;
 	int status;
 	int wakeup_reason;
 	uintptr_t kernel_stack;
 
 	struct registers *syscall_frame;
-	struct task *waker;
-	ATOMIC(struct task *) waiter; // task waiting on us
 	spinlock_t state_lock;
 	ATOMIC(run_queue_t *) run_queue;
 	size_t preempt_disable;
@@ -202,16 +199,6 @@ void yield(int preempt);
 
 
 void finish_yield(void);
-
-/**
- * @brief wait for any thread in a group of threads to die
- * @param threads the threads list
- * @param threads_count the number of threads in the threads list
- * @param flags flags such as WNOHANG
- * @param waker the thread that died
- * @return the tid of the threads that died or negative errno number
- */
-int waitfor(task_t **threads, size_t threads_count, int flags, task_t **waker);
 
 extern list_t sleeping_tasks;
 extern spinlock_t sleep_lock;
