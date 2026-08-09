@@ -4,6 +4,7 @@
 #include <kernel/kheap.h>
 #include <kernel/refcount.h>
 #include <kernel/scheduler.h>
+#include <kernel/sleep.h>
 #include <kernel/cred.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
@@ -31,25 +32,30 @@ struct process {
 	list_node_t child_list_node; // protected by proctree lo k
 	rculist_node_t group_node;   // write protected by proctree lock
 	vmm_space_t vmm_space;
-	rcu_ptr_t cred;
+	sleep_queue_t wait_queue;
+	rcu_ptr_t cred;              // write protected by proc lock
 	ref_count_t ref_count;
-	process_t *parent;           // write protected by proctree lock and read protected by proc_lock
-	process_group_t *group;      // write protected by proctree lock and read protected by proc_lock
+	process_t *parent;           // write protected by proctree lock and read protected by proc lock
+	process_group_t *group;      // write protected by proctree lock and read protected by proc lock
 	fd_table_t fd_table;
 	vfs_dentry_t *cwd;
 	vfs_dentry_t *exe;
-	char *cmdline;              // protected by proc_lock
+	char *cmdline;               // protected by proc lock
 	uintptr_t heap_start;
 	uintptr_t heap_end;
-	list_t child;
+	list_t child;                // protected by proctree lock
 	list_t threads;
 	pid_t pid;
 	pid_t sid;
 	mode_t umask;
-	spinlock_t proc_lock; // cannot be acquired if holding proctree
+	spinlock_t proc_lock;        // cannot be acquired if holding proctree
 	task_t *main_thread;
 	int exit_status;
+	ATOMIC(int) state;           // write protected by proc lock
 };
+
+#define PROC_STATUS_RUNNING 1
+#define PROC_STATUS_ZOMBIE  2
 
 void init_proc(void);
 
@@ -64,7 +70,7 @@ process_group_t *process_group_get_from_pgid(pid_t pgid);
 process_group_t *process_group_get_or_create_from_pgid(pid_t pgid);
 
 /**
- * @note require proc's proc_lock and the proctree_lock
+ * @note require proc's lock and the proctree_lock
  */
 void proc_set_group(process_t *proc, process_group_t *group);
 
@@ -73,11 +79,27 @@ static inline cred_t *proc_get_cred(proc_t *proc) {
 	return rcu_ptr_fetch(&proc->cred);
 }
 
+/**
+ * @note require the proc's lock
+ */
 static inline void proc_set_cred(proc_t *proc, cred_t *cred) {
 	spinlock_assert_acquired(&proc->proc_lock);
 	cred_t *old_cred = rcu_ptr_store(&proc->cred, cred_ref(cred));
 	rcu_sync();
 	cred_release(old_cred);
+}
+
+static inline int proc_get_state(process_t *proc) {
+	return atomic_load(&proc->state);
+}
+
+/**
+ * @note require the proc's lock
+ */
+static inline void proc_set_state(process_t *proc, int state) {
+	spinlock_assert_acquired(&proc->proc_lock);
+	atomic_store(&proc->state, state);
+	if (proc->parent) wakeup_queue(&proc->parent->wait_queue, 0);
 }
 
 static inline process_t *get_current_proc(void) {
@@ -165,6 +187,13 @@ static inline void set_cmdline(const char *cmdline) {
 }
 
 /**
+ * @brief cleanup a zombie process
+ * @param proc the zombie to cleanup
+ * @note require the proctree lock
+ */
+void proc_zombie_cleanup(process_t *proc);
+
+/**
  * @brief add a file descriptor to the current's process fd table
  * @param fd the \ref vfs_fd_t to add
  * @param flags the fd flags to add with (FD_CLOEXEC, ...)
@@ -187,8 +216,7 @@ int get_fd(int fd, file_descriptor_t *file_descriptor);
  */
 int close_fd(int fd);
 
-struct xarray;
-struct xarray *get_procs_list(void);
+extern xarray_t procs;
 extern spinlock_t proctree_lock;
 
 #endif

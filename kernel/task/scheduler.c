@@ -19,7 +19,6 @@
 #include <stdatomic.h>
 
 static run_queue_t main_run_queue;
-static xarray_t procs_list;
 static xarray_t tasks_list;
 static atomic_size_t tid_count = 1;
 static char can_task_switch    = 0;
@@ -78,18 +77,6 @@ static void idle_task() {
 			yield(0);
 		}
 	}
-}
-
-struct xarray *get_procs_list(void) {
-	return &procs_list;
-}
-
-static void proc_register(process_t *proc) {
-	xarray_set(&procs_list, proc->pid, proc);
-}
-
-static void proc_unregister(process_t *proc) {
-	xarray_set(&procs_list, proc->pid, NULL);
 }
 
 void init_task() {
@@ -227,44 +214,6 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	return task;
 }
 
-process_t *new_proc(void (*func)(void *arg), void *arg) {
-	// init the new proc
-	process_t *proc = kmalloc(sizeof(process_t));
-	memset(proc, 0, sizeof(process_t));
-
-	spinlock_acquire(&proc->proc_lock);
-	spinlock_acquire(&proctree_lock);
-
-	proc->parent = get_current_proc();
-	vmm_init_space(&proc->vmm_space);
-	list_init(&proc->child);
-	list_init(&proc->threads);
-	proc_set_group(proc, get_current_proc()->group);
-	rcu_acquire_read(NULL);
-	proc_set_cred(proc, get_current_cred());
-	rcu_release_read(NULL);
-	proc->umask       = get_current_proc()->umask;
-	proc->cmdline     = strdup(get_current_proc()->cmdline);
-	proc->cwd         = vfs_dentry_ref(get_current_proc()->cwd);
-	proc->exe         = vfs_dentry_ref(get_current_proc()->exe);
-	proc->main_thread = new_task(proc, func, arg);
-	proc->pid         = proc->main_thread->tid;
-
-	// add it the the list of the children of the parent
-	// note that the parent hold a ref
-	proc_ref(proc);
-	list_append(&proc->parent->child, &proc->child_list_node);
-
-	// add it to the global process list
-	// note that the proc list only hold a weak ref
-	proc_register(proc);
-	
-	spinlock_release(&proctree_lock);
-	spinlock_release(&proc->proc_lock);
-
-	return proc;
-}
-
 task_t *new_kernel_task(void (*func)(void *arg), void *arg) {
 	task_t *task = new_task(kernel_proc, func, arg);
 
@@ -347,39 +296,27 @@ static void alert_parent(process_t *proc) {
 	if (!proc->main_thread->waiter) signal_send(proc->parent, SIGCHLD);
 }
 
-void kill_proc() {
-	// just kill the main thread
-	if (get_current_task() == get_current_proc()->main_thread) {
-		// we are the main thread, diying will kill the proc
-		kill_task();
-	} else {
-		// we are not the main thread
-		signal_send_task(get_current_proc()->main_thread, SIGKILL);
-		kill_task();
-	}
-}
-
 static void do_proc_deletion(void) {
 	// all the childreen become orphelan
 	// the parent of orphelan is init
 	spinlock_acquire(&get_current_proc()->proc_lock);
 	spinlock_acquire(&proctree_lock);
-	foreach (node, &get_current_proc()->child) {
+	list_node_t *node = get_current_proc()->child.first_node;
+	while (node) {
 		process_t *child = container_of(node, process_t, child_list_node);
+		node = node->next;
 
 		child->parent = init;
 		list_append(&init->child, &child->child_list_node);
-		spinlock_acquire(&child->main_thread->state_lock);
-		// we prevent the child from diying between when we set the parent and when we signal
-		// wich could lead to a race condition
-		if (child->main_thread->status == TASK_STATUS_ZOMBIE) alert_parent(child);
-		spinlock_release(&child->main_thread->state_lock);
+		if (proc_get_state(child) == TASK_STATUS_ZOMBIE) alert_parent(child);
 	}
 	list_destroy(&get_current_proc()->child);
 
 	// release session / group / cred
 	proc_set_group(get_current_proc(), NULL);
 	cred_release(get_current_cred());
+
+	proc_set_state(get_current_proc(), PROC_STATE_ZOMBIE);
 
 	spinlock_release_acquire(&proctree_lock);
 	spinlock_release(&get_current_proc()->proc_lock);
@@ -429,19 +366,6 @@ void kill_task(void) {
 	// which is a RACE CONDITION
 	yield(0);
 	__builtin_unreachable();
-}
-
-process_t *proc_from_pid(pid_t pid) {
-	// is it ourself ?
-	if (get_current_proc()->pid == pid) {
-		return proc_ref(get_current_proc());
-	}
-
-	rcu_acquire_read(&procs_list.rcu);
-	process_t *proc = xarray_get(&procs_list, pid);
-	proc_ref(proc);
-	rcu_release_read(&procs_list.rcu);
-	return proc;
 }
 
 task_t *task_from_tid(pid_t tid) {
@@ -553,27 +477,6 @@ void task_release(task_t *task) {
 		return;
 	}
 	task_final_cleanup(task);
-}
-
-static void proc_final_cleanup(process_t *proc) {
-	proc_unregister(proc);
-	if (proc->parent) list_remove(&proc->parent->child, &proc->child_list_node);
-
-	task_release(proc->main_thread);
-	
-	kfree(proc->cmdline);
-
-	// now we can free the address space
-	vmm_destroy_space(&proc->vmm_space);
-	kfree(proc);
-}
-
-void proc_release(process_t *proc) {
-	if (!proc) return;
-	if (ref_count_dec(&proc->ref_count) > 1) {
-		return;
-	}
-	proc_final_cleanup(proc);
 }
 
 int add_fd(vfs_fd_t *fd, long flags) {

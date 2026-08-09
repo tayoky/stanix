@@ -393,56 +393,80 @@ int sys_chdir(const char *path) {
 	return 0;
 }
 
-int sys_waitpid(pid_t pid, int *status, int options) {
-	if (status && !CHECK_MEM(status, sizeof(status))) return -EFAULT;
-
-	if (pid == 0) pid = -get_current_proc()->group;
-
-	//prevent child state from changing
-	//NOT SMP SAFE
-	preempt_disable();
-
-	kdebugf("wait for %ld\n", pid);
-	int ret = 0;
-
-	// first build up a threads list to wait on
-	size_t threads_count = 0;
-	task_t **threads = NULL;
-
-	if (pid == -1) {
-		// wait for any
-		threads_count = get_current_proc()->child.node_count;
-		threads = kmalloc(sizeof(task_t *) * threads_count);
-		size_t i = 0;
-		foreach(node, &get_current_proc()->child) {
-			threads[i++] = container_of(node, process_t, child_list_node)->main_thread;
-		}
-	} else {
-		// wait for pid
+static int search_wait_proc(pid_t pid, process_t **found_proc) {
+	if (pid == 0) pid = -get_current_proc()->group->pgid;
+	if (pid > 0) {
 		process_t *proc = proc_from_pid(pid);
-		// we can immedialty release the ref as the parent proc (the current one)
-		// already hold a ref
+
+		// the parent already hold a ref
 		proc_release(proc);
 
 		// make sure it exist and is a child
-		if ((!proc) || proc->parent != get_current_proc()) {
-			preempt_enable();
+		if (!proc || proc->parent != get_current_proc()) {
 			return -ECHILD;
 		}
-		threads_count = 1;
-		threads = kmalloc(sizeof(task_t *));
-		threads[0] = proc->main_thread;
+		if (proc_get_state(proc) == PROC_STATE_ZOMBIE) {
+			*found_proc = proc;
+			return 0;
+		}
+	} else {
+		int found = 0;
+		foreach(node, &get_current_proc()->child) {
+			process_t *proc = container_of(node, process_t, child_list_node);
+			if (pid == -1 || proc->group->pgid == -pid) {
+				if (proc_get_state(proc) == PROC_STATE_ZOMBIE) {
+					*found_proc = proc;
+					return 0;
+				}
+				found = 1;
+			}
+		}
+		if (!found) return -ECHILD;
+	}
+	*found_proc = NULL;
+	return 0;
+}
+
+	
+
+int sys_waitpid(pid_t pid, int *status, int options) {
+	if (status && !CHECK_MEM(status, sizeof(*status))) return -EFAULT;
+	kdebugf("wait for %ld\n", pid);
+
+	process_t *proc;
+	int ret = 0;
+	for (;;) {
+		// child list is protected by proctree lock 
+		spinlock_acquire(&get_current_proc()->proc_lock);
+		spinlock_acquire(&proctree_lock);
+		ret = search_wait_proc(pid, &proc);
+		if (ret >= 0 && proc) {
+			// we found a proc
+			proc_ref(proc);
+			proc_cleanup_zombie(proc);
+			break;
+		}
+		if (ret < 0) break;
+		if (options & WNOHANG) {
+			ret = 0;
+			break;
+		}
+		block_prepare_interruptible();
+		sleep_add_to_queue(&get_current_proc()->wait_queue);
+
+		spinlock_release(&proctree_lock);
+		spinlock_release(&get_current_proc()->proc_lock);
+
+		ret = block_task();
+		if (ret < 0) {
+			sleep_remove_from_queue(&get_current_proc()->wait_queue);
+			return ret;
+		}
 	}
 
-	task_t *waker;
-	ret = waitfor(threads, threads_count, options, &waker);
-	preempt_enable();
-	kfree(threads);
-	if (ret < 0) {
-		return ret;
-	}
-
-	process_t *proc = waker->process;
+	spinlock_release(&proctree_lock);
+	spinlock_release(&get_current_proc()->proc_lock);
+	if (ret < 0 || !proc) return ret;
 
 	// get the exit status
 	if (status) {
