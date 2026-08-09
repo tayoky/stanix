@@ -17,13 +17,17 @@ pid_t fork(void) {
 	// setup new context for child
 	// and return 0 to the child
 	acontext_t *new_context = kmalloc(sizeof(acontext_t));
+	if (!new_context) return -ENOMEM;
 	arch_save_context(new_context);
 	new_context->frame = *get_current_task()->syscall_frame;
 	RET_REG(new_context->frame) = 0;
 
 	process_t *parent = get_current_proc();
-	process_t *child = new_proc(fork_trampoline, new_context);
-	child->parent = parent;
+	process_t *child = proc_new(fork_trampoline, new_context);
+	if (!child) {
+		kfree(new_context);
+		return -ENOMEM;
+	}
 
 	kdebugf("forking child : %ld\n", child->pid);
 

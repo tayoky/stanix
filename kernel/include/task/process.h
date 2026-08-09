@@ -139,7 +139,7 @@ CRED_HELPER(gid_t, gid)
 CRED_HELPER(gid_t, egid)
 CRED_HELPER(gid_t, sgid)
 
-process_t *new_proc(void (*func)(void *arg), void *arg);
+process_t *proc_new(void (*func)(void *arg), void *arg);
 
 /**
  * @brief kill the current process

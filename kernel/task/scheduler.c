@@ -140,7 +140,7 @@ void init_task() {
 	// get the address space
 	boot_task->vmm_space.addrspace = mmu_get_addr_space();
 
-	boot_task->main_thread         = new_task(boot_task, NULL, NULL);
+	boot_task->main_thread         = task_new(boot_task, NULL, NULL);
 	boot_task->main_thread->status = TASK_STATUS_RUNNING;
 	arch_set_kernel_stack(KSTACK_TOP(boot_task->main_thread->kernel_stack));
 
@@ -161,7 +161,7 @@ void init_task() {
 	can_task_switch = 1;
 
 	// setup the kernel proc, the idle task and the reaper
-	kernel_proc = new_proc(idle_task, NULL);
+	kernel_proc = proc_new(idle_task, NULL);
 	proc_set_cmdline(kernel_proc, "stanix kernel");
 	idle = kernel_proc->main_thread;
 	reaper = new_kernel_task(reaper, NULL);
@@ -202,7 +202,7 @@ static task_t *schedule() {
 /**
  * @brief called the first time a task is executed
  */
-static void new_task_trampoline(void (*func)(void *arg), void *arg) {
+static void task_new_trampoline(void (*func)(void *arg), void *arg) {
 	finish_yield();
 
 	// the task with interrupt disabled to avoid chaos
@@ -213,7 +213,7 @@ static void new_task_trampoline(void (*func)(void *arg), void *arg) {
 	task_exit();
 }
 
-task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
+task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 	task_t *task = kmalloc(sizeof(task_t));
 	memset(task, 0, sizeof(task_t));
 
@@ -239,7 +239,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 
 	// setup registers
 	SP_REG(task->context.frame)   = KSTACK_TOP(task->kernel_stack) - 8;
-	PC_REG(task->context.frame)   = (uintptr_t)new_task_trampoline;
+	PC_REG(task->context.frame)   = (uintptr_t)task_new_trampoline;
 	ARG1_REG(task->context.frame) = (uintptr_t)func;
 	ARG2_REG(task->context.frame) = (uintptr_t)arg;
 
@@ -260,7 +260,7 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 }
 
 task_t *new_kernel_task(void (*func)(void *arg), void *arg) {
-	task_t *task = new_task(kernel_proc, func, arg);
+	task_t *task = task_new(kernel_proc, func, arg);
 
 	// created task are blocked until with unblock them
 	unblock_task(task);

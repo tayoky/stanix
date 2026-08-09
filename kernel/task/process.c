@@ -3,11 +3,13 @@
 #include <kernel/xarray.h>
 
 static slab_cache_t process_group_slabs;
+static slab_cache_t procs_slab;
 static xarray_t groups;
 xarray_t procs;
 
 void init_proc(void) {
 	slab_init(&process_groups_slab, sizeof(process_group_t), "process-groups");
+	slab_init(&procs_slab, sizeof(process_t), "processes");
 }
 
 process_group_t *process_group_get_from_pgid(pid_t pgid) {
@@ -93,13 +95,20 @@ void proc_release(process_t *proc) {
 	vmm_destroy_space(&proc->vmm_space);
 
 	kfree(proc->cmdline);
-	kfree(proc);
+	slab_free(proc);
 }
 
-process_t *new_proc(void (*func)(void *arg), void *arg) {
+process_t *proc_new(void (*func)(void *arg), void *arg) {
 	// init the new proc
-	process_t *proc = kmalloc(sizeof(process_t));
+	process_t *proc = slab_alloc(&procs_slab);
+	if (!proc) return NULL;
 	memset(proc, 0, sizeof(process_t));
+
+	proc->main_thread = task_new(proc, func, arg);
+	if (!proc->main_thread) {
+		slab_free(proc);
+		return NULL;
+	}
 
 	spinlock_acquire(&proc->proc_lock);
 	spinlock_acquire(&proctree_lock);
@@ -117,8 +126,6 @@ process_t *new_proc(void (*func)(void *arg), void *arg) {
 	proc->cmdline     = strdup(get_current_proc()->cmdline);
 	proc->cwd         = vfs_dentry_ref(get_current_proc()->cwd);
 	proc->exe         = vfs_dentry_ref(get_current_proc()->exe);
-	// FIXME : call raw_new_task
-	proc->main_thread = new_task(proc, func, arg);
 	proc->pid         = proc->main_thread->tid;
 
 	// add it the the list of the children of the parent

@@ -1213,7 +1213,7 @@ int sys_new_thread(void (*fn)(void *), void *stack, int flags, void *arg, pid_t 
 	data->fn    = fn;
 	data->arg   = arg;
 
-	task_t *new_thread = new_task(get_current_proc(), sys_new_thread_trampoline, data);
+	task_t *new_thread = task_new(get_current_proc(), sys_new_thread_trampoline, data);
 
 	if (child_tid)*child_tid = new_thread->tid;
 	unblock_task(new_thread);

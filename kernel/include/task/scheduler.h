@@ -84,7 +84,7 @@ task_t *new_kernel_task(void (*func)(void *arg), void *arg);
  * @param arg the argument to pass to the kernel function
  * @return a pointer to the new task
  */
-task_t *new_task(struct process *proc, void (*func)(void *arg), void *arg);
+task_t *task_new(struct process *proc, void (*func)(void *arg), void *arg);
 
 /**
  * @brief kill the current task
