@@ -36,8 +36,7 @@ pid_t fork(void) {
 	// clone metadata
 	child->heap_end   = parent->heap_end;
 	child->heap_start = parent->heap_start;
-	child->main_thread->sig_mask   = get_current_task()->sig_mask;
-	memcpy(child->main_thread->sig_handling, get_current_task()->sig_handling, sizeof(get_current_task()->sig_handling));
+	memcpy(child->sig_handlers, get_current_proc()->sig_handlers, sizeof(get_current_proc()->sig_handlers));
 
 	// clone fd table
 	for (int i = 0;i < MAX_FD;i++) {

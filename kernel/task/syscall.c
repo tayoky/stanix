@@ -683,18 +683,18 @@ int sys_sigaction(int signum, const struct sigaction *act, struct sigaction *old
 		return -EINVAL;
 	}
 
+	spinlock_acquire(&get_current_proc()->proc_lock);
 	if (oldact) {
-		*oldact = get_current_task()->sig_handling[signum];
-	}
-
-	//can't change handling for SIGKILL and SIGSTOP
-	if (signum == SIGKILL || signum == SIGSTOP) {
-		return 0;
+		*oldact = get_current_proc()->sig_handlers[signum];
 	}
 
 	if (act) {
-		get_current_task()->sig_handling[signum] = *act;
+		// can't change handling for SIGKILL and SIGSTOP
+		if (signum != SIGKILL || signum != SIGSTOP) {
+			get_current_proc()->sig_handlers[signum] = *act;
+		}
 	}
+	spinlock_release(&get_current_proc()->proc_lock);
 
 	return 0;
 }

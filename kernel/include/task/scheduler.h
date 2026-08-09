@@ -8,9 +8,9 @@
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/atomic.h>
-#include <sys/signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/signal.h>
 #include <fcntl.h>
 #include <stdint.h>
 
@@ -40,7 +40,6 @@ typedef struct task {
 	sigset_t sig_mask;
 	spinlock_t sig_lock;
 	sigset_t pending_sig;
-	struct sigaction sig_handling[32];
 
 	struct timespec wakeup_time;
 	atomic_int flags;

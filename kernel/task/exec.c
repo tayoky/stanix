@@ -325,11 +325,13 @@ error:
 	push_long(&sp, argc);
 
 	// reset signal handling of handled signals
-	for (size_t i = 0; i < sizeof(get_current_task()->sig_handling) / sizeof(*get_current_task()->sig_handling); i++) {
-		if (get_current_task()->sig_handling[i].sa_handler != SIG_IGN) {
-			get_current_task()->sig_handling[i].sa_handler = SIG_DFL;
+	spinlock_acquire(&get_currenrt_proc()->proc_lock);
+	for (size_t i = 0; i < arraylen(get_current_proc()->sig_handlers); i++) {
+		if (get_current_proc()->sig_handlers[i].sa_handler != SIG_IGN) {
+			get_current_proc()->sig_handlers[i].sa_handler = SIG_DFL;
 		}
 	}
+	spinlock_release(&get_currenrt_proc()->proc_lock);
 
 	// now jump into the program !!
 	kdebugf("exec entry : %p\n", header.e_entry);

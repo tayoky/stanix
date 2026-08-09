@@ -154,12 +154,16 @@ void handle_signal(registers_t *context) {
 			// clear the pending bit
 			get_current_task()->pending_sig &= ~sigmask(signum);
 
-			if (get_current_task()->sig_handling[signum].sa_handler == SIG_IGN) {
+			spinlock_acquire(&get_current_proc()->proc_lock);
+			if (get_current_proc()->sig_handlers[signum].sa_handler == SIG_IGN) {
+				spinlock_release(&get_current_proc()->proc_lock);
 				continue;
-			} else if (get_current_task()->sig_handling[signum].sa_handler == SIG_DFL) {
+			} else if (get_current_proc()->sig_handlers[signum].sa_handler == SIG_DFL) {
+				spinlock_release(&get_current_proc()->proc_lock);
 				handle_default(signum);
 				continue;
 			} else {
+				spinlock_release(&get_current_proc()->proc_lock);
 				spinlock_release(&get_current_task()->sig_lock);
 				// TODO : move this to arch specific
 				// this is the tricky part

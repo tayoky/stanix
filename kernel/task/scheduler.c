@@ -237,6 +237,11 @@ task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 	spinlock_release(&proc->proc_lock);
 	xarray_set(&tasks_list, task->tid, task);
 
+	// inherit sigmask
+	if (get_current_task()) {
+		task->sig_mask   = get_current_task()->sig_mask;
+	}
+
 	// setup registers
 	SP_REG(task->context.frame)   = KSTACK_TOP(task->kernel_stack) - 8;
 	PC_REG(task->context.frame)   = (uintptr_t)task_new_trampoline;

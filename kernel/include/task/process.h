@@ -8,6 +8,7 @@
 #include <kernel/cred.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
+#include <sys/signal.h>
 
 #define MAX_FD 32
 
@@ -33,6 +34,7 @@ struct process {
 	rculist_node_t group_node;   // write protected by proctree lock
 	vmm_space_t vmm_space;
 	sleep_queue_t wait_queue;
+	struct sigaction sig_handlers[32]; // protected by proc lock
 	rcu_ptr_t cred;              // write protected by proc lock
 	ref_count_t ref_count;
 	process_t *parent;           // write protected by proctree lock and read protected by proc lock
