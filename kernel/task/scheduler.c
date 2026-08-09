@@ -231,7 +231,10 @@ task_t *new_task(process_t *proc, void (*func)(void *arg), void *arg) {
 	// the scheduler hold a ref
 	// but the tasks list and proc only a weak ref
 	task_ref(task);
+	spinlock_acquire(&proc->proc_lock);
+	proc->threads_count++;
 	list_append(&proc->threads, &task->thread_list_node);
+	spinlock_release(&proc->proc_lock);
 	xarray_set(&tasks_list, task->tid, task);
 
 	// setup registers
@@ -336,11 +339,14 @@ task_t *get_current_task(void) {
 void kill_task(void) {
 	prempt_disable();
 
-	if (get_current_task() == get_current_proc()->main_thread) {
-		// we are the main thread, we need to kill the whole proc
-		// TODO : send SIGKILL to all threads and wait for it to be handled
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	get_current_proc()->threads_count--;
+	int is_last = (get_current_proc()->threads_count == 0);
+	spinlock_release(&get_current_proc()->proc_lock);
+
+	if (is_last) {
+		// we are the last thread, we need to kill the whole proc
 		do_proc_deletion();
-		alert_parent(get_current_proc());
 	}
 	
 	xarray_set(&tasks_list, task->tid, NULL);

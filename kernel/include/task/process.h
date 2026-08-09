@@ -44,7 +44,8 @@ struct process {
 	uintptr_t heap_start;
 	uintptr_t heap_end;
 	list_t child;                // protected by proctree lock
-	list_t threads;
+	list_t threads;              // protected by proc lock
+	size_t threads_count;        // protected by proc lock
 	pid_t pid;
 	pid_t sid;
 	mode_t umask;

@@ -191,6 +191,7 @@ void do_proc_deletion(void) {
 	vmm_unmap_all();
 
 	list_destroy(&get_current_proc()->threads);
+	alert_parent(get_current_proc());
 }
 
 void proc_zombie_cleanup(process_t *proc) {
