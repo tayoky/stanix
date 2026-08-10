@@ -30,7 +30,7 @@ void init_vmm(void) {
 	kok();
 }
 
-static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
+static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
 	uintptr_t phys = mmu_virt2phys((void *)vpage);
 	if (atomic_load(&pmm_page_info(phys)->ref_count) <= 1) {
 		// other processes already copied
@@ -40,7 +40,11 @@ static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
 		uintptr_t new_page = pmm_dup_page(phys);
 		if (new_page == PAGE_INVALID) {
 			// not looking good
-			signal_send_task(get_current_task(), SIGBUS);
+			siginfo_t siginfo = {
+				.si_signo = SIGBUS,
+				.si_addr  = (void*)addr,
+			};
+			signal_send_task(get_current_task(), SIGBUS, addr);
 			return;
 		}
 		pmm_release_page(phys);
@@ -63,9 +67,9 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	if ((seg->flags & VMM_FLAG_PRIVATE) && (seg->prot & MMU_FLAG_WRITE) && prot == MMU_FLAG_WRITE) {
 		// we failed a write but we have write perm
 		// it's CoW
-		vmm_cow(seg, vpage);
+		vmm_cow(seg, vpage, addr);
 		if (vpage + PAGE_SIZE < seg->end) {
-			vmm_cow(seg, vpage + PAGE_SIZE);
+			vmm_cow(seg, vpage + PAGE_SIZE, addr);
 		}
 		spinlock_release(&seg->lock);
 		return 1;

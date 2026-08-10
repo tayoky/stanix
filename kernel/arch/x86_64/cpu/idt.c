@@ -76,6 +76,7 @@ static void send_fault_signal(registers_t *registers) {
 	case 0:  // dividd error fault
 	case 7:  // no coprocessor fault
 	case 16: // coprocsessor fault
+		siginfo.si_addr = (void*)registers->rip;
 		siginfo.si_signo = SIGFPE;
 		// TODO : fill si_code
 		break;
@@ -92,11 +93,15 @@ static void send_fault_signal(registers_t *registers) {
 	case 9:  // coprocessor overrun abort
 	case 12: // stack exception fault
 	case 13: // general protection fault
+		siginfo.si_signo = SIGSEGV;
+		break;
 	case 14: // page fault
+		siginfo.si_addr = (void*)registers->cr2;
 		siginfo.si_signo = SIGSEGV;
 		break;
 	case 6:
 	default: // others
+		siginfo.si_addr = (void*)registers->rip;
 		siginfo.si_signo = SIGILL;
 		break;
 	}

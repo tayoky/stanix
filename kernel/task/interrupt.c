@@ -51,12 +51,7 @@ int page_fault_handler(registers_t *frame) {
 	// TODO : remove this
 	arch_registers_stacktrace(frame);
 
-	signal_send_task(get_current_task(), SIGSEGV);
-
-	if (arch_registers_is_userspace(frame)) {
-		return_to_userspace(frame);
-	}
-	return 1;
+	return 0;
 }
 
 int fpu_fault_handler(registers_t *frame) {

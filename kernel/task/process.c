@@ -160,7 +160,12 @@ void proc_exit(int status) {
 
 static void alert_parent(process_t *proc) {
 	if (!proc->parent) return;
-	signal_send_proc(proc->parent, SIGCHLD);
+	siginfo_t siginfo = {
+		.si_signo = SIGCHLD,
+		// TODO : si_code
+		.si_status = proc->exit_status,
+	};
+	signal_send_siginfo_proc(proc->parent, &siginfo);
 }
 
 void do_proc_deletion(void) {
