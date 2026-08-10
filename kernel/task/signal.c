@@ -144,6 +144,16 @@ int signal_send_siginfo_task(task_t *thread, siginfo_t *siginfo) {
 	return 0;
 }
 
+void signal_context_destroy(signal_context_t *signal_context) {
+	spinlock_acquire(&signal_context->lock);
+	list_node_t node = signal_context->pendings.first_node;
+	while (node) {
+		signal_pending_t *signal = container_of(node, signal_pending_t, node);
+		node = node->next;
+		slab_free(signal);
+	}
+}
+
 static void handle_default(int signum) {
 	switch (default_handling[signum]) {
 	case CORE:

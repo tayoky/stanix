@@ -46,6 +46,7 @@ static inline int signal_send_group(struct process_group *group, int signum) {
 	return signal_send_siginfo_group(group, &siginfo);
 }
 
+void signal_context_destroy(signal_context_t *signal_context);
 void signal_handle(registers_t *context);
 void restore_signal_handler(registers_t *context);
 

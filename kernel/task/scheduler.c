@@ -463,6 +463,7 @@ void task_release(task_t *task) {
 	if (ref_count_dec(&task->ref_count) > 1) {
 		return;
 	}
+	signal_context_destroy(&task->signal_context);
 	kfree(task);
 }
 

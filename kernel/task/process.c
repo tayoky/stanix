@@ -94,6 +94,7 @@ void proc_release(process_t *proc) {
 	// now we can free the address space
 	vmm_destroy_space(&proc->vmm_space);
 
+	signal_context_destroy(&proc->signal_context);
 	kfree(proc->cmdline);
 	slab_free(proc);
 }
