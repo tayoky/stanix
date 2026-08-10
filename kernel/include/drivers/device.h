@@ -3,15 +3,15 @@
 
 #include <kernel/vfs.h>
 #include <kernel/xarray.h>
+#include <kernel/refcount.h>
 #include <sys/sysmacros.h>
-#include <stdatomic.h>
 
 struct bus;
 struct devnode;
 struct device;
 
 typedef struct device {
-	atomic_size_t ref_count;
+	ref_count_t ref_count;
 	struct devnode *devnode;
 	void (*destroy)(struct device *);
 	void (*cleanup)(struct device *);
@@ -66,7 +66,7 @@ vfs_fd_t *device_open(device_t *device, long flags);
  * @return the device
  */
 static inline device_t *device_ref(device_t *device) {
-	if (device) atomic_fetch_add(&device->ref_count, 1);
+	if (device) ref_count_inc(&device->ref_count);
 	return device;
 }
 

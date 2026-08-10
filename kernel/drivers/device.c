@@ -87,8 +87,7 @@ int device_register(device_t *device, const char *fmt, dev_t number) {
 }
 
 void device_release(device_t *device) {
-	if (device->ref_count > 1) {
-		device->ref_count--;
+	if (ref_count_dec(&device->ref_count) > 1) {
 		return;
 	}
 	if (device->cleanup) device->cleanup(device);
