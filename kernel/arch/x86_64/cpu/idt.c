@@ -69,6 +69,40 @@ static void page_fault_info(registers_t *fault) {
 	kprintf("present page\n");
 }
 
+// TODO : move this to arch specific signal stuff
+static void send_fault_signal(registers_t *registers) {
+	siginfo_t siginfo = {0};
+	switch (registers->err_type) {
+	case 0:  // dividd error fault
+	case 7:  // no coprocessor fault
+	case 16: // coprocsessor fault
+		siginfo.si_signo = SIGFPE;
+		// TODO : fill si_code
+		break;
+	case 1:  // single step trap
+	case 3:  // breakpoint trap
+		siginfo.si_signo = SIGTRAP;
+		break;
+	case 2:  // non maskable interrupt
+	case 8:  // double fault
+	case 10: // invalid TSS fault
+	case 11: // segment no present fault
+		return;
+	case 4:  // overflow trap
+	case 9:  // coprocessor overrun abort
+	case 12: // stack exception fault
+	case 13: // general protection fault
+	case 14: // page fault
+		siginfo.si_signo = SIGSEGV;
+		break;
+	case 6:
+	default: // others
+		siginfo.si_signo = SIGILL;
+		break;
+	}
+	signal_send_siginfo_task(get_current_task(), &siginfo);
+}
+
 void isr_handler(registers_t *registers) {
 	if (registers->err_type < 32) {
 		if (registers->err_type == 14) {
@@ -81,6 +115,12 @@ void isr_handler(registers_t *registers) {
 		if (registers->err_type == 14 && registers->rip == (uintptr_t)safe_copy_fault) {
 			registers->rip = (uintptr_t)safe_copy_resolve_fault;
 			registers->rax = (uintptr_t)-EFAULT;
+			return;
+		}
+
+		if (arch_registers_is_userspace(registers)) {
+			send_fault_signal(registers);
+			return_to_userspace(registers);
 			return;
 		}
 

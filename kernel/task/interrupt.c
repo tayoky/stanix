@@ -60,12 +60,6 @@ int page_fault_handler(registers_t *frame) {
 }
 
 int fpu_fault_handler(registers_t *frame) {
-	if (!arch_registers_is_userspace(frame)) {
-		// if it's kernel it's probably a panic
-		return 0;
-	}
-
-	signal_send_task(get_current_task(), SIGFPE);
-	return_to_userspace(frame);
-	return 1;
+	// maybee we can handle something here
+	return 0;
 }
