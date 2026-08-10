@@ -20,7 +20,7 @@ static inline void return_to_userspace(register_t *registers) {
 		// the process terminated
 		task_exit();
 	}
-	handle_signal(registers);
+	signal_handle(registers);
 }
 
 #define safe_copy_auto_from(dest, src) safe_copy_from(dest, src, sizeof(*dest))

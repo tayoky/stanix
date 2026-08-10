@@ -57,24 +57,6 @@ void init_signal(void) {
 	slab_init(&signal_pendings_slab, sizeof(signal_pending_t), "signal-pendings");
 }
 
-static void handle_default(int signum) {
-	switch (default_handling[signum]) {
-	case CORE:
-	case KILL:
-		spinlock_release(&get_current_task()->signal_context.lock);
-		kdebugf("proc killed by signal %d\n", signum);
-		proc_exit((1U << 17) | signum);
-		break;
-	case IGN:
-	case CONT:
-		break;
-	case STOP:
-		// TODO
-		kwarningf("TODO : implement process stoping\n");
-		break;
-	}
-}
-
 static signal_pending_t *signal_create_pending(siginfo_t *siginfo) {
 	signal_pending_t *signal_pending = slab_alloc(&signal_pendings_slab);
 	if (!signal_pending) return NULL;
@@ -143,10 +125,87 @@ int signal_send_siginfo_task(task_t *thread, siginfo_t *siginfo) {
 	return 0;
 }
 
-void handle_signal(registers_t *context) {
-	spinlock_acquire(&get_current_task()->signal_context.lock);
+static void handle_default(int signum) {
+	switch (default_handling[signum]) {
+	case CORE:
+	case KILL:
+		kdebugf("proc killed by signal %d\n", signum);
+		proc_exit((1U << 17) | signum);
+		break;
+	case IGN:
+	case CONT:
+		break;
+	case STOP:
+		// TODO
+		kwarningf("TODO : implement process stoping\n");
+		break;
+	}
+}
 
-	list_node_t node = get_current_task()->signal_context.pendings.first_node;
+static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
+	kdebugf("signal %d recived\n", siginfo->si_signo);
+
+	spinlock_acquire(&get_current_task()->signal_context.lock);
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	struct sigaction handler == get_current_proc()->sig_handlers[siginfo->si_signo];
+				
+	if ((handler.sa_flags & SA_RESETHAND) && handler.sa_handler != SIG_IGN) {
+		get_current_proc()->sig_handlers[signum].sa_handler = SIG_DFL;
+	}
+	spinlock_release(&get_current_proc()->proc_lock);
+	spinlock_release(&get_current_task()->signal_context.lock);
+
+	if (handler.sa_handler == SIG_IGN) {
+		return;
+	} else if (handler.sa_handler == SIG_DFL) {
+		handle_default(siginfo->si_signo);
+		return;
+	} else {
+		// TODO : move this to arch specific
+		// this is the tricky part
+		uintptr_t sp = SP_REG(*registers);
+		kdebugf("sp : %p\n", sp);
+		
+		// jump the red zone
+		sp -= 128;
+
+		// align the stack
+		sp &= ~0xfUL;
+
+		// we need make the ucontext on the userspace stack
+		sp -= sizeof(ucontext_t);
+		// UNSAFE
+		ucontext_t *ucontext = (ucontext_t *)sp;
+		memset(ucontext, 0, sizeof(ucontext_t));
+		ucontext->uc_sigmask = get_current_task()->sig_mask;
+
+		// save machine context
+		acontext_t *saved_context = (acontext_t *)&ucontext->uc_mcontext;
+		arch_save_context(saved_context);
+		saved_context->frame = *registers;
+
+		// push the magic return value
+		sp -= sizeof(uintptr_t);
+		*(uintptr_t *)sp = MAGIC_SIGRETURN;
+
+		// apply the new mask
+		spinlock_acquire(&get_current_task()->signal_context.lock);
+		get_current_task()->sig_mask |= handler.sa_mask;
+		if (!(handler.sa_flags & SA_NODEFER)) {
+			get_current_task()->sig_mask |= sigmask(signum);
+		}
+
+		spinlock_release(&get_current_task()->signal_context.lock);
+
+		// then we can jump to the signal handler
+		jump_userspace((void *)handler.sa_handler, (void *)sp, siginfo->si_signo, 0, (uintptr_t)ucontext, 0);
+	}
+}
+
+static void signal_handle_context(signal_context_t *signal_context, registers_t *registers) {
+	spinlock_acquire(&signal_context->lock);
+
+	list_node_t node = signal_context->pendings.first_node;
 	while (node) {
 		signal_pending_t *signal = container_of(node, signal_pending_t, node);
 		node = node->next;
@@ -154,69 +213,24 @@ void handle_signal(registers_t *context) {
 			// signal is blocked
 			continue;
 		}
-		list_remove(&get_current_task()->signal_context.pendings, &signal->node);
+		list_remove(&signal_context->pendings, &signal->node);
+		
+		// clear the pending bit
+		signal_context->pending_mask &= ~sigmask(siginfo.si_signo);
+
+		spinlock_release(&signal_context->lock);
+
 		siginfo_t siginfo = signal->siginfo;
 		slab_free(signal);
+		signal_handle_siginfo(signal_context, &siginfo);
 
-		kdebugf("signal %d recived\n", siginfo->si_signo);
-
-		// clear the pending bit
-		get_current_task()->signal_context.pending_mask &= ~sigmask(siginfo.si_signo);
-
-		spinlock_acquire(&get_current_proc()->proc_lock);
-		if (get_current_proc()->sig_handlers[signum].sa_handler == SIG_IGN) {
-			spinlock_release(&get_current_proc()->proc_lock);
-			continue;
-		} else if (get_current_proc()->sig_handlers[signum].sa_handler == SIG_DFL) {
-			spinlock_release(&get_current_proc()->proc_lock);
-			handle_default(signum);
-			continue;
-		} else {
-			// TODO : move this to arch specific
-			// this is the tricky part
-			uintptr_t sp = SP_REG(*context);
-			kdebugf("sp : %p\n", sp);
-
-			// jump the red zone
-			sp -= 128;
-
-			// align the stack
-			sp &= ~0xfUL;
-
-			// we need make the ucontext on the userspace stack
-			sp -= sizeof(ucontext_t);
-			// UNSAFE
-			ucontext_t *ucontext = (ucontext_t *)sp;
-			memset(ucontext, 0, sizeof(ucontext_t));
-			ucontext->uc_sigmask = get_current_task()->sig_mask;
-
-			// save machine context
-			acontext_t *saved_context = (acontext_t *)&ucontext->uc_mcontext;
-			arch_save_context(saved_context);
-			saved_context->frame = *context;
-
-			// push the magic return value
-			sp -= sizeof(uintptr_t);
-			*(uintptr_t *)sp = MAGIC_SIGRETURN;
-
-			// apply the new mask
-			get_current_task()->sig_mask |= get_current_task()->sig_handling[signum].sa_mask;
-			if (!(get_current_proc()->sig_handlers[signum].sa_flags & SA_NODEFER)) {
-				get_current_task()->sig_mask |= sigmask(signum);
-				}
-				
-			if (get_current_proc()->sig_handlers[signum].sa_flags & SA_RESETHAND) {
-				get_current_proc()->sig_handlers[signum].sa_handler = SIG_DFL;
-			}
-
-			spinlock_release(&get_current_proc()->proc_lock);
-			spinlock_release(&get_current_task()->signal_context.lock);
-
-			// then we can jump to the signal handler
-			jump_userspace((void *)get_current_task()->sig_handling[signum].sa_handler, (void *)sp, signum, 0, (uintptr_t)ucontext, 0);
-		}
+		spinlock_acquire(&signal_context->lock);
 	}
-	spinlock_release(&get_current_task()->signal_context.lock);
+	spinlock_release(&signal_context->lock);
+}
+
+void signal_handle(registers_t *registers) {
+	signal_handle_context(&get_current_task()->signal_context, registers);
 }
 
 void restore_signal_handler(registers_t *context) {
