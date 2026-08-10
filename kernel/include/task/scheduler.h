@@ -8,6 +8,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/atomic.h>
+#include <kernel/signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/signal.h>
@@ -38,8 +39,8 @@ typedef struct task {
 	struct process *process;
 	pid_t tid;
 
-	sigset_t sig_mask;               // protected by signal_context.lock
-	signal_context_t signal_context;
+	sigset_t sig_mask;               // protected by signal_context.lock except for the thread itself
+	signal_context_t signal_context; // cannot acquire if holding process->proc_lock
 
 	struct timespec wakeup_time;
 	atomic_int flags;

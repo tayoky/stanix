@@ -99,12 +99,31 @@ int signal_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
 }
 
 int signal_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
-	// TODO : real process wide signals
-	return signal_send_siginfo_task(proc->main_thread, siginfo);
+	kdebugf("send %d to process %ld\n", siginfo->si_signo, proc->pid);
+
+	signal_pending_t *signal_pending = signal_create_pending(siginfo);
+	if (!signal_pending) return -ENOMEM;
+
+	spinlock_acquire(&proc->signal_context.lock);
+	if (signal_add_pending(&proc->signal_context, proc, signal_pending)) {
+		spinlock_acquire(&proc->proc_lock);
+		// TODO : interrupt a single task instead of every task in the process
+		foreach (node, proc->threads) {
+			task_t *task = container_of(node, task_t, thread_list_node);
+			unblock_task_reason(task, WAKEUP_SIGNAL);
+		}
+		spinlock_release(&proc->proc_lock);
+		spinlock_release(&proc->signal_context.lock);
+	} else {
+		spinlock_release(&proc->signal_context.lock);
+		slab_free(signal_pending);
+	}
+
+	return 0;
 }
 
 int signal_send_siginfo_task(task_t *thread, siginfo_t *siginfo) {
-	kdebugf("send %d to %ld\n", siginfo->si_signo, thread->tid);
+	kdebugf("send %d to task %ld\n", siginfo->si_signo, thread->tid);
 
 	signal_pending_t *signal_pending = signal_create_pending(siginfo);
 	if (!signal_pending) return -ENOMEM;
@@ -230,7 +249,11 @@ static void signal_handle_context(signal_context_t *signal_context, registers_t 
 }
 
 void signal_handle(registers_t *registers) {
+	// handle thread wide signals
 	signal_handle_context(&get_current_task()->signal_context, registers);
+
+	// handle process wide signals
+	signal_handle_context(&get_current_proc()->signal_context, registers);
 }
 
 void restore_signal_handler(registers_t *context) {

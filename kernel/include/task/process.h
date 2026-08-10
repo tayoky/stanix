@@ -34,6 +34,7 @@ struct process {
 	rculist_node_t group_node;   // write protected by proctree lock
 	vmm_space_t vmm_space;
 	sleep_queue_t wait_queue;
+	signal_context_t signal_context;   // cannot acquire if holding proc lock
 	struct sigaction sig_handlers[32]; // protected by proc lock
 	rcu_ptr_t cred;              // write protected by proc lock
 	ref_count_t ref_count;
