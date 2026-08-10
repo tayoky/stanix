@@ -23,6 +23,7 @@
 #include <kernel/sysfs.h>
 #include <kernel/socket.h>
 #include <kernel/futex.h>
+#include <kernel/signal.h>
 #include <kernel/xarray.h>
 #include <kernel/unix.h>
 #include <kernel/poll.h>
@@ -123,6 +124,7 @@ void kmain() {
 	init_kout();
 	init_vmm();
 	init_proc();
+	init_signal();
 	init_task();
 	init_resource();
 	init_bus();

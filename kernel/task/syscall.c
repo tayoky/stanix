@@ -641,7 +641,7 @@ int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *oldset) {
 		return -EFAULT;
 	}
 
-	spinlock_acquire(&get_current_task()->sig_lock);
+	spinlock_acquire(&get_current_task()->signal_context.lock);
 
 	if (oldset) {
 		*oldset = get_current_task()->sig_mask;
@@ -649,7 +649,7 @@ int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *oldset) {
 
 	//if set is null then we have finished our jobs
 	if (!set) {
-		spinlock_release(&get_current_task()->sig_lock);
+		spinlock_release(&get_current_task()->signal_context.lock);
 		return 0;
 	}
 
@@ -664,10 +664,10 @@ int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *oldset) {
 		get_current_task()->sig_mask = *set;
 		break;
 	default:
-		spinlock_release(&get_current_task()->sig_lock);
+		spinlock_release(&get_current_task()->signal_context.lock);
 		return -EINVAL;
 	}
-	spinlock_release(&get_current_task()->sig_lock);
+	spinlock_release(&get_current_task()->signal_context.lock);
 	return 0;
 }
 
@@ -704,9 +704,9 @@ int sys_sigpending(sigset_t *set) {
 		return -EFAULT;
 	}
 
-	spinlock_acquire(&get_current_task()->sig_lock);
-	*set = get_current_task()->pending_sig;
-	spinlock_release(&get_current_task()->sig_lock);
+	spinlock_acquire(&get_current_task()->signal_context.lock);
+	*set = get_current_task()->signal_context.pending_mask;
+	spinlock_release(&get_current_task()->signal_context.lock);
 
 	return 0;
 }
@@ -741,7 +741,7 @@ int sys_sigwait(const sigset_t *set, int *sig) {
 			//what the hell happend
 			return -EIO;
 		}
-		spinlock_acquire(&get_current_task()->sig_lock);
+		spinlock_acquire(&get_current_task()->signal_context.lock);
 		if (get_current_task()->pending_sig & mask) {
 			for (int i=0; i < _NSIG; i++) {
 				if ((get_current_task()->pending_sig & mask) & sigmask(i)) {
@@ -749,14 +749,14 @@ int sys_sigwait(const sigset_t *set, int *sig) {
 					break;
 				}
 			}
-			spinlock_release(&get_current_task()->sig_lock);
+			spinlock_release(&get_current_task()->signal_context.lock);
 			return 0;
 		} else if (get_current_task()->pending_sig & ~get_current_task()->sig_mask) {
 			//we didn't wait for this signal but the signal must be handled
-			spinlock_release(&get_current_task()->sig_lock);
+			spinlock_release(&get_current_task()->signal_context.lock);
 			return -EINTR;
 		}
-		spinlock_release(&get_current_task()->sig_lock);
+		spinlock_release(&get_current_task()->signal_context.lock);
 	}
 }
 

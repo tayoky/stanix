@@ -159,7 +159,7 @@ void proc_exit(int status) {
 
 static void alert_parent(process_t *proc) {
 	if (!proc->parent) return;
-	signal_send(proc->parent, SIGCHLD);
+	signal_send_proc(proc->parent, SIGCHLD);
 }
 
 void do_proc_deletion(void) {

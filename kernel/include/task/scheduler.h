@@ -27,7 +27,7 @@ typedef struct run_queue {
 } run_queue_t;
 
 typedef struct task {
-	list_node_t thread_list_node;
+	list_node_t thread_list_node;   // protected by process->proc_lock
 	union {
 		list_node_t waiter_list_node;
 		list_node_t dead_list_node;
@@ -37,13 +37,13 @@ typedef struct task {
 	ref_count_t ref_count;
 	struct process *process;
 	pid_t tid;
-	sigset_t sig_mask;
-	spinlock_t sig_lock;
-	sigset_t pending_sig;
+
+	sigset_t sig_mask;               // protected by signal_context.lock
+	signal_context_t signal_context;
 
 	struct timespec wakeup_time;
 	atomic_int flags;
-	int status;
+	int status;                      // protected by state_lock
 	int wakeup_reason;
 	uintptr_t kernel_stack;
 
