@@ -154,12 +154,16 @@ void signal_context_destroy(signal_context_t *signal_context) {
 	}
 }
 
+static inline void proc_sigexit(int signum) {
+	kdebugf("proc killed by signal %d\n", signum);
+	proc_exit((1U << 17) | signum);
+}
+
 static void handle_default(int signum) {
 	switch (default_handling[signum]) {
 	case CORE:
 	case KILL:
-		kdebugf("proc killed by signal %d\n", signum);
-		proc_exit((1U << 17) | signum);
+		proc_sigexit(signum);
 		break;
 	case IGN:
 	case CONT:
@@ -170,6 +174,11 @@ static void handle_default(int signum) {
 		break;
 	}
 }
+
+typedef struct signal_frame {
+	ucontext_t ucontext;
+	siginfo_t siginfo;
+} signal_frame_t;
 
 static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 	kdebugf("signal %d recived\n", siginfo->si_signo);
@@ -198,37 +207,35 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 		// jump the red zone
 		sp -= 128;
 
+		// we need make place for the signal frame on the userspace stack
+		sp -= sizeof(signal_frame_t);
+
 		// align the stack
 		sp &= ~0xfUL;
-
-		// we need make place for the ucontext on the userspace stack
-		sp -= sizeof(ucontext_t);
-		// UNSAFE
-		ucontext_t *ucontext = (ucontext_t *)sp;
-		memset(ucontext, 0, sizeof(ucontext_t));
-		ucontext->uc_sigmask = get_current_task()->sig_mask;
-
-		// save machine context
-		acontext_t *saved_context = (acontext_t *)&ucontext->uc_mcontext;
+	
+		// setup frame
+		signal_frame_t frame = {0};
+		frame.ucontext.uc_sigmask = get_current_task()->sig_mask;
+		acontext_t *saved_context = (acontext_t *)&frame.ucontext.uc_mcontext;
 		arch_save_context(saved_context);
 		saved_context->frame = *registers;
-
-		// align the stack (again)
-		sp &= ~0xfUL;
-
-		// we need make place for the siginfo on the userspace stack
-		sp -= sizeof(siginfo_t);
-
-		// UNSAFE
-		siginfo_t *user_siginfo = (siginfo_t*)sp;
-		*user_siginfo = *siginfo;
-
-		// align the stack (again again !) 
-		sp &= ~0xfUL;
+		frame.siginfo = *siginfo;
+	
+		// push to userspace
+		signal_frame_t *user_frame = (signal_frame_t *)sp;
+		if (user_copy_auto_to(user_frame, &frame) < 0) {
+			// avoid infinite recursion shit that could happen if we just send SIGSEGV
+			proc_sigexit(SIGILL);
+		}
+		*user_frame = frame;
 
 		// push the magic return value
 		sp -= sizeof(uintptr_t);
-		*(uintptr_t *)sp = MAGIC_SIGRETURN;
+		uintptr_t magic_return = MAGIC_SIGRETURN;
+		if (user_copy_auto_to((uintptr_t*)sp, &magic_return) < 0) {
+			// avoid infinite recursion shit that could happen if we just send SIGSEGV
+			proc_sigexit(SIGILL);
+		}
 
 		// apply the new mask
 		spinlock_acquire(&get_current_task()->signal_context.lock);
@@ -238,8 +245,12 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 		}
 		spinlock_release(&get_current_task()->signal_context.lock);
 
-		// then we can jump to the signal handler
-		jump_userspace((void *)handler.sa_handler, (void *)sp, siginfo->si_signo, (uintptr_t)user_siginfo, (uintptr_t)ucontext, 0);
+		// then we can setup the args for the signal handler
+		SP_REG(*registers)   = sp;
+		PC_REG(*registers)   = (uintptr_t)handler.sa_handler;
+		ARG1_REG(*registers) = siginfo.si_signo;
+		ARG2_REG(*registers) = (uintptr_t)&user_frame->siginfo;
+		ARG3_REG(*registers) = (uintptr_t)&user_frame->ucontext;
 	}
 }
 

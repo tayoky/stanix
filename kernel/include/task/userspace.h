@@ -31,4 +31,16 @@ static inline void return_to_userspace(register_t *registers) {
 #define CHECK_MEM(ptr, count) CHECK_PTR((uintptr_t)ptr + count)
 #define CHECK_STRUCT(struc)   CHECK_PTR((uintptr_t)struc + sizeof(*struc))
 
+static inline int user_copy_to(void *dest, const void *src, size_t count) {
+	if (!CHECK_MEM(dest, count)) return -EFAULT;
+	return safe_copy_to(dest, src, count);
+}
+
+static inline int user_copy_from(void *dest, const void *src, size_t count) {
+	if (!CHECK_MEM(src, count)) return -EFAULT;
+	return safe_copy_from(dest, src, count);
+}
+#define user_copy_auto_from(dest, src) user_copy_from(dest, src, sizeof(*dest))
+#define user_copy_auto_to(dest, src)   user_copy_to(dest, src, sizeof(*src))
+
 #endif
