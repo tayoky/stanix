@@ -201,7 +201,7 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 		// align the stack
 		sp &= ~0xfUL;
 
-		// we need make the ucontext on the userspace stack
+		// we need make place for the ucontext on the userspace stack
 		sp -= sizeof(ucontext_t);
 		// UNSAFE
 		ucontext_t *ucontext = (ucontext_t *)sp;
@@ -213,6 +213,19 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 		arch_save_context(saved_context);
 		saved_context->frame = *registers;
 
+		// align the stack (again)
+		sp &= ~0xfUL;
+
+		// we need make place for the siginfo on the userspace stack
+		sp -= sizeof(siginfo_t);
+
+		// UNSAFE
+		siginfo_t *user_siginfo = (siginfo_t*)sp;
+		*user_siginfo = *siginfo;
+
+		// align the stack (again again !) 
+		sp &= ~0xfUL;
+
 		// push the magic return value
 		sp -= sizeof(uintptr_t);
 		*(uintptr_t *)sp = MAGIC_SIGRETURN;
@@ -223,11 +236,10 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 		if (!(handler.sa_flags & SA_NODEFER)) {
 			get_current_task()->sig_mask |= sigmask(signum);
 		}
-
 		spinlock_release(&get_current_task()->signal_context.lock);
 
 		// then we can jump to the signal handler
-		jump_userspace((void *)handler.sa_handler, (void *)sp, siginfo->si_signo, 0, (uintptr_t)ucontext, 0);
+		jump_userspace((void *)handler.sa_handler, (void *)sp, siginfo->si_signo, (uintptr_t)user_siginfo, (uintptr_t)ucontext, 0);
 	}
 }
 
