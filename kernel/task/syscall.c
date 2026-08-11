@@ -729,24 +729,58 @@ int sys_kill(pid_t tid, int sig) {
 	return 0;
 }
 
-// TODO : rewrite this shit
-int sys_sigwait(const sigset_t *set, int *sig) {
-	if (!CHECK_STRUCT(sig) || !CHECK_STRUCT(set)) {
-		return -EFAULT;
+static int sigwait_handle_context(signal_context_t *signal_context, sigset_t mask) {
+	spinlock_acquire(&signal_context->lock);
+	
+	int ret = 0;
+	list_node_t *node = signal_context->pendings.first_node;
+	while (node) {
+		signal_pending_t *signal = container_of(node, signal_pending_t, node);
+		node = node->next;
+		if (sigmask(signal->siginfo.si_signo) & get_current_task()->sig_mask) {
+			// signal is blocked
+			continue;
+		}
+		if (!(sigmask(signal->siginfo.si_signo) & mask)) {
+			// a signal not in mask was recived
+			ret = -EINTR;
+			break;
+		}
+		list_remove(&signal_context->pendings, &signal->node);
+		
+		// clear the pending bit
+		signal_context->pending_mask &= ~sigmask(signal->siginfo.si_signo);
+
+		spinlock_release(&signal_context->lock);
+		
+		ret = signal->siginfo.si_signo;
+		slab_free(signal);
+		return ret;
 	}
+	spinlock_release(&signal_context->lock);
+	return ret;
+}
+
+// TODO : replace with sigwaitinfo
+int sys_sigwait(const sigset_t *set, int *sig) {
 	sigset_t mask = *set & ~(SIGKILL | SIGSTOP);
-	return -ENOSYS;
-	// TODO
 
 	for (;;) {
+		int ret = sigwait_handle_context(&get_current_task()->signal_context, mask);
+		if (ret == 0) {
+			// process wide signals
+			ret = sigwait_handle_context(&get_current_proc()->signal_context, mask);
+		}
+		if (ret < 0) return ret;
+		if (ret > 0) {
+			if (user_copy_auto_to(sig, &ret) < 0) return -EFAULT;
+			return 0;
+		}
 		block_prepare_interruptible();
 		if (block_task() != EINTR) {
 			//what the hell happend
 			return -EIO;
 		}
-		spinlock_acquire(&get_current_task()->signal_context.lock);
-		// TODO
-		spinlock_release(&get_current_task()->signal_context.lock);
 	}
 }
 
