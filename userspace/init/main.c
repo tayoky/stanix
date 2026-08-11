@@ -38,7 +38,7 @@ int main(int argc, char **argv){
 	printf("current unix timestamp : %ld\n",time.tv_sec);
 
 	//setup fake env
-	putenv("PATH=/bin:/usr/bin");
+	putenv("PATH=/bin:/usr/bin:/usr/local/bin");
 	putenv("USER=root");
 
 	//env test
@@ -64,6 +64,9 @@ int main(int argc, char **argv){
 		printf("make sure tash is installed then reboot the system\n");
 		return 1;
 	}
+
+	// TODO
+	sleep(500000);
 
 	//just cleanup oprhan process
 	sigset_t sigchld;
