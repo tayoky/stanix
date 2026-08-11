@@ -34,13 +34,6 @@
 #include <poll.h>
 #include <sched.h>
 
-static int user_copy_struct_from(void *dest, void *src, size_t size) {
-	if (!CHECK_MEM(src, size)) return -EFAULT;
-	return safe_copy_from(dest, src, size);
-}
-
-#define COPY_STRUCT_FROM(dest, src) user_copy_struct_from(dest, src, sizeof(*dest))
-
 int sys_open(const char *path, int flags, mode_t mode) {
 	if (!CHECK_PTR(path)) return -EFAULT;
 
@@ -200,38 +193,31 @@ int sys_ioctl(int fd, uint64_t request, void *arg) {
 }
 
 int sys_nanosleep(const struct timespec *duration, struct timespec *rem) {
-	if (!CHECK_STRUCT(duration)) return -EFAULT;
 	if (rem && !CHECK_STRUCT(rem)) return -EFAULT;
 
 	struct timespec kduration;
-	if (safe_copy_auto_from(&kduration, duration) < 0) return -EFAULT;
+	if (user_copy_auto_from(&kduration, duration) < 0) return -EFAULT;
 
 	// TODO : set rem
 	return micro_sleep(duration->tv_nsec / 1000 + duration->tv_sec * 1000000);
 }
 
 int sys_sleepuntil(struct timespec *duration) {
-	if (!CHECK_STRUCT(duration)) return -EFAULT;
-
 	struct timespec kduration;
-	if (safe_copy_auto_from(&kduration, duration) < 0) return -EFAULT;
+	if (user_copy_auto_from(&kduration, duration) < 0) return -EFAULT;
 
 	return sleep_until(&kduration);
 }
 
 int sys_clock_gettime(clockid_t clockid, struct timespec *tp) {
-	if (!CHECK_STRUCT(tp)) return -EFAULT;
-
 	struct timespec time;
 	int ret = gettime(clockid, &time);
 	if (ret < 0) return ret;
 
-	return safe_copy_auto_to(tp, &time);
+	return user_copy_auto_to(tp, &time);
 }
 
 int sys_pipe(int pipefd[2]) {
-	if (!CHECK_MEM(pipefd, sizeof(int) * 2)) return -EFAULT;
-
 	vfs_fd_t *read_vfs_fd;
 	vfs_fd_t *write_vfs_fd;
 	int ret = pipe_create(&read_vfs_fd, &write_vfs_fd);
@@ -254,7 +240,12 @@ int sys_pipe(int pipefd[2]) {
 		read_fd,
 		write_fd,
 	};
-	return safe_copy_auto_to(pipefd, &kpipefd);
+	if (user_copy_auto_to(pipefd, &kpipefd) < 0) {
+		close_fd(kpipefd[0]);
+		close_fd(kpipefd[1]);
+		return -EFAULT;
+	}
+	return 0;
 }
 
 int sys_execve(const char *path, const char **argv, const char **envp) {
@@ -311,7 +302,6 @@ int sys_readdir(int fd, struct dirent *dirent, long int index) {
 
 int sys_stat(const char *pathname, struct stat *st) {
 	if (!CHECK_PTR(pathname)) return -EFAULT;
-	if (!CHECK_STRUCT(st)) return -EFAULT;
 
 	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY);
 	if (IS_ERR(node)) return PTR2ERR(node);
@@ -322,12 +312,11 @@ int sys_stat(const char *pathname, struct stat *st) {
 	vfs_node_release(node);
 	if (ret < 0) return ret;
 
-	return safe_copy_auto_to(st, &kst);
+	return user_copy_auto_to(st, &kst);
 }
 
 int sys_lstat(const char *pathname, struct stat *st) {
 	if (!CHECK_PTR(pathname)) return -EFAULT;
-	if (!CHECK_STRUCT(st)) return -EFAULT;
 
 	vfs_node_t *node = vfs_get_node(pathname, O_RDONLY | O_NOFOLLOW);
 	if (IS_ERR(node)) return PTR2ERR(node);
@@ -338,14 +327,10 @@ int sys_lstat(const char *pathname, struct stat *st) {
 	vfs_node_release(node);
 	if (ret < 0) return ret;
 
-	return safe_copy_auto_to(st, &kst);
+	return user_copy_auto_to(st, &kst);
 }
 
 int sys_fstat(int fd, struct stat *st) {
-	if (!CHECK_STRUCT(st)) {
-		return -EFAULT;
-	}
-
 	file_descriptor_t file;
 	int ret = get_fd(fd, &file);
 	if (ret < 0) return ret;
@@ -354,12 +339,10 @@ int sys_fstat(int fd, struct stat *st) {
 	ret = vfs_getattr(file.fd->inode, &kst);
 	if (ret < 0) return ret;
 
-	return safe_copy_auto_to(st, &kst);
+	return user_copy_auto_to(st, &kst);
 }
 
 int sys_getcwd(char *buf, size_t size) {
-	if (!CHECK_MEM(buf, size)) return -EFAULT;
-
 	char *cwd = vfs_dentry_path(get_current_proc()->cwd);
 
 	if (size < strlen(cwd) + 1) {
@@ -367,7 +350,7 @@ int sys_getcwd(char *buf, size_t size) {
 		return -ERANGE;
 	}
 
-	int ret = safe_copy_to(buf, cwd, strlen(cwd) + 1);
+	int ret = user_copy_to(buf, cwd, strlen(cwd) + 1);
 	kfree(cwd);
 	return ret;
 }
@@ -426,7 +409,6 @@ static int search_wait_proc(pid_t pid, process_t **found_proc) {
 	return 0;
 }
 
-	
 
 int sys_waitpid(pid_t pid, int *status, int options) {
 	if (status && !CHECK_MEM(status, sizeof(*status))) return -EFAULT;
@@ -753,7 +735,7 @@ int sys_sigwait(const sigset_t *set, int *sig) {
 	}
 }
 
-pid_t sys_getpid() {
+pid_t sys_getpid(void) {
 	return get_current_proc()->pid;
 }
 
@@ -955,6 +937,8 @@ uid_t sys_getegid(void) {
 }
 
 int sys_chmod(const char *pathname, mode_t mode) {
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
@@ -965,6 +949,8 @@ int sys_chmod(const char *pathname, mode_t mode) {
 }
 
 int sys_lchmod(const char *pathname, mode_t mode) {
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY | O_NOFOLLOW);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
@@ -984,6 +970,8 @@ int sys_fchmod(int fd, mode_t mode) {
 }
 
 int sys_chown(const char *pathname, uid_t owner, gid_t group) {
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
@@ -994,6 +982,8 @@ int sys_chown(const char *pathname, uid_t owner, gid_t group) {
 }
 
 int sys_lchown(const char *pathname, uid_t owner, gid_t group) {
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+
 	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY | O_NOFOLLOW);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
@@ -1107,6 +1097,8 @@ mode_t sys_umask(mode_t mask) {
 }
 
 int sys_access(const char *pathname, int mode) {
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+
 	vfs_node_t *node = vfs_get_node(pathname, 0);
 	if (IS_ERR(node)) return PTR2ERR(node);
 	if (mode & F_OK) {
@@ -1123,8 +1115,11 @@ int sys_access(const char *pathname, int mode) {
 }
 
 int sys_utimes(const char *path, const struct timeval times[2]) {
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+
 	struct timeval ktimes[2];
-	if (COPY_STRUCT_FROM(&ktimes, &times) < 0) return -EFAULT;
+	if (user_copy_auto_from(&ktimes, &times) < 0) return -EFAULT;
+
 	vfs_node_t *node = vfs_get_node(path, O_NOFOLLOW);
 	if (IS_ERR(node)) return PTR2ERR(node);
 	int ret = vfs_utimes(node, ktimes);
@@ -1133,6 +1128,8 @@ int sys_utimes(const char *path, const struct timeval times[2]) {
 }
 
 int sys_truncate(const char *path, off_t length) {
+	if (!CHECK_PTR(pathname)) return -EFAULT;
+
 	vfs_node_t *node = vfs_get_node(path, O_WRONLY);
 	if (IS_ERR(node)) return PTR2ERR(node);
 	int ret = vfs_truncate(node, (size_t)length);
@@ -1361,6 +1358,7 @@ int sys_fdname(int fd, char *buf, size_t size) {
 		return -ERANGE;
 	}
 
+	// UNSAFE
 	strcpy(buf, path);
 	kfree(path);
 
