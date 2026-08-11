@@ -123,7 +123,7 @@ void kmain() {
 	init_ptys();
 	init_kout();
 	init_vmm();
-	init_proc();
+	init_procfs();
 	init_signal();
 	init_task();
 	init_resource();

@@ -44,8 +44,13 @@ $(BUILDDIR)/$(PROG) : $(KLIBC)
 $(BUILDDIR)/sym.c : $(filter-out $(BUILDDIR)/sym.c.o, $(OBJS)) $(KLIBC)
 	@echo "GEN sym.c"
 	@echo '#include <kernel/sym.h>' > $@
-	@$(foreach SYM , $(shell $(NM) $^ --defined-only -ngj --quiet ),  echo "extern void $(SYM) ();" >> $@; )
-	@echo 'const sym_t symbols[] = {' >> $@
-	@$(foreach SYM , $(shell $(NM) $^ --defined-only -ngj --quiet ),  echo "	{ .name = \"$(SYM)\" , .value = (uintptr_t)$(SYM) , .size = sizeof($(SYM))}," >> $@; ) 
+	@SYMS="$(foreach FILE, $^, $(shell $(NM) $(FILE) --defined-only -ngj --quiet ))"; \
+	for SYM in $$SYMS ; do \
+		echo "extern void $$SYM ();"; \
+	done >> $@; \
+	echo 'const sym_t symbols[] = {' >> $@; \
+	for SYM in $$SYMS ; do \
+		echo "	{ .name = \"$$SYM\" , .value = (uintptr_t)$$SYM , .size = sizeof($$SYM)},"; \
+	done >> $@;
 	@echo '};' >> $@
 	@echo 'const size_t symbols_count = sizeof(symbols) / sizeof(sym_t);' >> $@

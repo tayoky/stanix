@@ -307,7 +307,7 @@ vfs_filesystem_t proc_fs = {
 	.mount = proc_mount,
 };
 
-void init_proc(void) {
+void init_procfs(void) {
 	kdebugf("init proc fs ...");
 	vfs_register_fs(&proc_fs);
 	kok();
