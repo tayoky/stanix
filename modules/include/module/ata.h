@@ -74,7 +74,7 @@ struct ata_driver;
 
 typedef struct {
 	devnode_t devnode;
-	list_node_t pending_requests;
+	list_t pending_commands;
 	devnode_t *channel;
 	uint32_t signature;
 } ata_device_t;

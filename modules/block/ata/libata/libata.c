@@ -21,7 +21,7 @@ static void ata2str(char *dest, const char *atastr, size_t size) {
 	dest[size] = '\0';
 }
 
-void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident);
+void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident) {
 	common_ident->sectors_count = ident->command_sets & (1 << 26) ? ident->sectors_lba48 : ident->sectors;
 	ata2str(common_ident->model,    ident->model,    sizeof(ident->model));
 	ata2str(common_ident->firmware, ident->firmware, sizeof(ident->firmware));
@@ -29,12 +29,10 @@ void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident
 	common_ident->command_sets = ident->command_sets;
 
 	kdebugf("model : %s command sets : %x support LBA48 : %s max LBA : %ld\n", common_ident->model, common_ident->command_sets, common_ident->command_sets & (1 << 26) ? "true" : "false", common_ident->sectors_count);
-
-	return 0;
 }
 
 static int ata_submit_or_queue_command(ata_command_t *command) {
-	int ret = ioreq_submit(command->ioreq);
+	int ret = ioreq_submit(&command->ioreq);
 	if (ret == -EAGAIN) {
 		// request cannot be send for the moment,
 		// queue it
@@ -63,7 +61,10 @@ static void ata_finish_command(ioreq_t *ioreq) {
 	}
 	ata_command_t *pending_command = container_of(device->pending_commands.first_node, ata_command_t, node);
 	list_remove(&device->pending_commands, &pending_command->node);
-	ata_submit_or_queue(&pending_command);
+	int ret = ata_submit_or_queue_command(pending_command);
+	if (ret < 0) {
+		ioreq_finish(&pending_command->ioreq, ret);
+	}
 }
 
 static void ata_free_command(ioreq_t *ioreq) {
@@ -75,7 +76,7 @@ static ioreq_ops_t ata_command_ops = {
 	.submit  = ata_submit_command,
 	.finish  = ata_finish_command,
 	.cleanup = ata_free_command,
-}
+};
 
 ata_command_t *ata_create_command(ata_device_t *device) {
 	ata_driver_t *ata_driver = container_of(device->channel->driver, ata_driver_t, driver);
@@ -84,12 +85,13 @@ ata_command_t *ata_create_command(ata_device_t *device) {
 	if (!command) return NULL;
 	memset(command, 0, sizeof(ata_command_t));
 	command->device = device;
+	command->ioreq.ops = &ata_command_ops;
 	return command;
 }
 
 int ata_submit_command_sync(ata_command_t *command) {
 	ioreq_ref(&command->ioreq);
-	int ret = ata_submit_or_queue(&command);
+	int ret = ata_submit_or_queue_command(command);
 	if (ret >= 0) {
 		ret = ioreq_wait(&command->ioreq);
 	}

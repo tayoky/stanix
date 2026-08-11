@@ -95,7 +95,7 @@ static int ide_channel_poll(ide_channel_t *channel, uint8_t mask, uint8_t value)
 	return 0;
 }
 
-static void ide_channel_reset(ide_channel_t *channel) {
+static int ide_channel_reset(ide_channel_t *channel) {
 	// soft reset
 	mutex_acquire(&channel->mutex);
 	ide_channel_write(channel, IDE_REG_CONTROL, 0x4 | channel->nIEN);
@@ -106,19 +106,20 @@ static void ide_channel_reset(ide_channel_t *channel) {
 		return -ETIMEDOUT;
 	}
 	mutex_release(&channel->mutex);
+	return 0;
 }
 
 static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t *bus, uint8_t drive) {
 	// select the drive
 	uint8_t drv_select = IDE_DRV_SELECT_LEGACY | IDE_DRV_SELECT_LBA | drive;
-	ide_channel_write(channel, IDE_REG_DEVSELECT, drv_select | drive);
+	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select | drive);
 	ide_channel_io_wait(channel);
 
 	uint32_t signature = 
 		(ide_channel_read(channel, IDE_REG_LBA2) << 24) |
 		(ide_channel_read(channel, IDE_REG_LBA1) << 16) |
 		(ide_channel_read(channel, IDE_REG_LBA0) << 8) |
-		(ide_channel_read(channel, IDE_REG_SECCOUNT) << 0);
+		(ide_channel_read(channel, IDE_REG_SECCOUNT0) << 0);
 
 	if (signature == 0x00000000 || signature == 0xffffffff) {
 		// no device
@@ -149,13 +150,12 @@ static int ide_channel_probe(devnode_t *devnode) {
 	channel->bmide = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, IDE_RID_BMIDE);
 	channel->nIEN = 0x2;
 	
-	mutex_acquire(&channel->mutex);
-	ide_channel_reset(channel);
-	mutex_release(&channel->mutex);
+	int ret = ide_channel_reset(channel);
+	if (ret < 0) return ret;
 
 	// create children ata channels
-	channel->master = ide_channel_create_child(channel, devnode, 0, &channel->master_signature);
-	channel->slave = ide_channel_create_child(channel, devnode, IDE_DRV_SELECT_SLAVE, &channel->slave_signature);
+	channel->master = ide_channel_create_child(channel, devnode, 0);
+	channel->slave = ide_channel_create_child(channel, devnode, IDE_DRV_SELECT_SLAVE);
 	return 0;
 }
 

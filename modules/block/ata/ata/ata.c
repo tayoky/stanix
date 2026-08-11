@@ -14,11 +14,11 @@ typedef struct ata_disk {
 	ata_common_ident_t common_ident; 
 } ata_disk_t;
 
-static int ata_finish_callback(ioreq_t *ioreq, void *data) {
+static void ata_finish_callback(ioreq_t *ioreq, void *data) {
 	block_finish_request(data, ioreq->ret);
 }
 
-static int ata_request(block_device_t *block_device, block_request_t *request) {
+static int ata_submit(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
 	ata_disk_t *disk     = container_of(block_device, ata_disk_t, block_device);
 
@@ -83,7 +83,7 @@ static void ata_cleanup(block_device_t *block_device) {
 }
 
 static block_ops_t ata_ops = {
-	.request = ata_request,
+	.submit  = ata_submit,
 	.ioctl   = ata_ioctl,
 	.cleanup = ata_cleanup,
 };
@@ -98,11 +98,11 @@ static int ata_probe(devnode_t *devnode) {
 
 	ata_ident_t ident;
 	ata_command_t *identify = ata_create_command(device);
-	identify->opcode = ATA_CMD_IDENTIFY,
-	identify->lba = 0,
-	identify->sectors_count = 0,
-	identify->flags = ATA_CMD_SEND_LBA28,
-	identify->buf = &ident,
+	identify->opcode = ATA_CMD_IDENTIFY;
+	identify->lba = 0;
+	identify->sectors_count = 0;
+	identify->flags = ATA_CMD_SEND_LBA28;
+	identify->buf = &ident;
 
 	int ret = ata_submit_command_sync(identify);
 	if (ret < 0) return ret;
@@ -113,7 +113,7 @@ static int ata_probe(devnode_t *devnode) {
 	ata_parse_common_ident(&disk->common_ident, &ident);
 	disk->block_device.ops = &ata_ops;
 	disk->block_device.sector_size = 512;
-	disk->block_device.sectors_count = device->common_ident.sectors_count;
+	disk->block_device.sectors_count = disk->common_ident.sectors_count;
 	disk->block_device.device.devnode = devnode;
 
 	block_device_register(&disk->block_device, NULL, 0);
