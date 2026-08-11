@@ -30,7 +30,7 @@ static inline void rculist_release_read(rculist_t *rculist) {
 
 
 static inline rculist_node_t *rculist_get_first(rculist_t *rculist) {
-	return rcu_ptr_fetch(rculist->first);
+	return rcu_ptr_fetch(&rculist->first);
 }
 
 static inline rculist_is_empty(rculist_t *rculist) {
@@ -38,7 +38,7 @@ static inline rculist_is_empty(rculist_t *rculist) {
 }
 
 static inline rculist_node_t *rculist_get_next(rculist_node_t *node) {
-	return rcu_ptr_fetch(node->next);
+	return rcu_ptr_fetch(&node->next);
 }
 
 void rculist_init(rculist_t *rculist);
