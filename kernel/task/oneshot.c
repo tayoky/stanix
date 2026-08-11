@@ -12,11 +12,11 @@ void oneshot_destroy(oneshot_t *oneshot) {
 }
 
 int oneshot_wait(oneshot_t *oneshot) {
-	return sleep_on_queue_oneshotition(&oneshot->queue, atomic_load(&oneshot->signaled);
+	return sleep_on_queue_condition(&oneshot->queue, atomic_load(&oneshot->signaled));
 }
 
-int oneshot_wait_interruptible(oneshot_t *oneshot, int signaled) {
-	return sleep_on_queue_oneshotition(&oneshot->queue, atomic_load(&oneshot->signaled));
+int oneshot_wait_interruptible(oneshot_t *oneshot) {
+	return sleep_on_queue_condition(&oneshot->queue, atomic_load(&oneshot->signaled));
 }
 
 void oneshot_signal(oneshot_t *oneshot) {

@@ -293,10 +293,10 @@ error:
 	// push auxiliary vector
 	push_long(&sp, 0);
 	push_auxv(&sp, AT_BASE, base);
-	push_auxv(&sp, AT_UID, get_current_proc()->uid);
-	push_auxv(&sp, AT_EUID, get_current_proc()->euid);
-	push_auxv(&sp, AT_GID, get_current_proc()->gid);
-	push_auxv(&sp, AT_EGID, get_current_proc()->egid);
+	push_auxv(&sp, AT_UID, get_current_uid());
+	push_auxv(&sp, AT_EUID, get_current_euid());
+	push_auxv(&sp, AT_GID, get_current_gid());
+	push_auxv(&sp, AT_EGID, get_current_egid());
 
 	if (interpret) {
 		int fd = add_fd(interpret, FD_CLOEXEC);
@@ -325,13 +325,13 @@ error:
 	push_long(&sp, argc);
 
 	// reset signal handling of handled signals
-	spinlock_acquire(&get_currenrt_proc()->proc_lock);
+	spinlock_acquire(&get_current_proc()->proc_lock);
 	for (size_t i = 0; i < arraylen(get_current_proc()->sig_handlers); i++) {
 		if (get_current_proc()->sig_handlers[i].sa_handler != SIG_IGN) {
 			get_current_proc()->sig_handlers[i].sa_handler = SIG_DFL;
 		}
 	}
-	spinlock_release(&get_currenrt_proc()->proc_lock);
+	spinlock_release(&get_current_proc()->proc_lock);
 
 	// now jump into the program !!
 	kdebugf("exec entry : %p\n", header.e_entry);

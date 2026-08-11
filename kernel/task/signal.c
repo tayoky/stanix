@@ -60,7 +60,7 @@ void init_signal(void) {
 static signal_pending_t *signal_create_pending(siginfo_t *siginfo) {
 	signal_pending_t *signal_pending = slab_alloc(&signal_pendings_slab);
 	if (!signal_pending) return NULL;
-	signal_pending->siginfo = siginfo;
+	signal_pending->siginfo = *siginfo;
 	signal_pending->siginfo.si_pid = get_current_proc()->pid;
 	signal_pending->siginfo.si_uid = get_current_uid();
 	return signal_pending;
@@ -85,13 +85,13 @@ static int signal_add_pending(signal_context_t *signal_context, process_t *proc,
 	spinlock_release(&proc->proc_lock);
 
 	list_append(&signal_context->pendings, &signal_pending->node);
-	thread->pending_sig |= sigmask(signum);
+	signal_context->pending_mask |= sigmask(signum);
 	return 1;
 }
 
 int signal_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
 	if (!group) return -ESRCH;
-	rculist_foreach (node, group) {
+	rculist_foreach (node, &group->processes) {
 		process_t *proc = container_of(node, process_t, group_node);
 		signal_send_siginfo_proc(proc, siginfo);
 	}
@@ -108,7 +108,7 @@ int signal_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
 	if (signal_add_pending(&proc->signal_context, proc, signal_pending)) {
 		spinlock_acquire(&proc->proc_lock);
 		// TODO : interrupt a single task instead of every task in the process
-		foreach (node, proc->threads) {
+		foreach (node, &proc->threads) {
 			task_t *task = container_of(node, task_t, thread_list_node);
 			unblock_task_reason(task, WAKEUP_SIGNAL);
 		}
@@ -131,7 +131,7 @@ int signal_send_siginfo_task(task_t *thread, siginfo_t *siginfo) {
 	spinlock_acquire(&thread->signal_context.lock);
 	if (signal_add_pending(&thread->signal_context, thread->process, signal_pending)) {
 		// if the sig is unblocked interrupt
-		if (thread->sig_mask & sigmask(signum)) {
+		if (thread->sig_mask & sigmask(siginfo->si_signo)) {
 			unblock_task_reason(thread, WAKEUP_SIGNAL);
 			return 0;
 		}
@@ -146,7 +146,7 @@ int signal_send_siginfo_task(task_t *thread, siginfo_t *siginfo) {
 
 void signal_context_destroy(signal_context_t *signal_context) {
 	spinlock_acquire(&signal_context->lock);
-	list_node_t node = signal_context->pendings.first_node;
+	list_node_t *node = signal_context->pendings.first_node;
 	while (node) {
 		signal_pending_t *signal = container_of(node, signal_pending_t, node);
 		node = node->next;
@@ -185,10 +185,10 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 
 	spinlock_acquire(&get_current_task()->signal_context.lock);
 	spinlock_acquire(&get_current_proc()->proc_lock);
-	struct sigaction handler == get_current_proc()->sig_handlers[siginfo->si_signo];
+	struct sigaction handler = get_current_proc()->sig_handlers[siginfo->si_signo];
 				
 	if ((handler.sa_flags & SA_RESETHAND) && handler.sa_handler != SIG_IGN) {
-		get_current_proc()->sig_handlers[signum].sa_handler = SIG_DFL;
+		get_current_proc()->sig_handlers[siginfo->si_signo].sa_handler = SIG_DFL;
 	}
 	spinlock_release(&get_current_proc()->proc_lock);
 	spinlock_release(&get_current_task()->signal_context.lock);
@@ -241,14 +241,14 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 		spinlock_acquire(&get_current_task()->signal_context.lock);
 		get_current_task()->sig_mask |= handler.sa_mask;
 		if (!(handler.sa_flags & SA_NODEFER)) {
-			get_current_task()->sig_mask |= sigmask(signum);
+			get_current_task()->sig_mask |= sigmask(siginfo->si_signo);
 		}
 		spinlock_release(&get_current_task()->signal_context.lock);
 
 		// then we can setup the args for the signal handler
 		SP_REG(*registers)   = sp;
 		PC_REG(*registers)   = (uintptr_t)handler.sa_handler;
-		ARG1_REG(*registers) = siginfo.si_signo;
+		ARG1_REG(*registers) = siginfo->si_signo;
 		ARG2_REG(*registers) = (uintptr_t)&user_frame->siginfo;
 		ARG3_REG(*registers) = (uintptr_t)&user_frame->ucontext;
 	}
@@ -257,7 +257,7 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 static void signal_handle_context(signal_context_t *signal_context, registers_t *registers) {
 	spinlock_acquire(&signal_context->lock);
 
-	list_node_t node = signal_context->pendings.first_node;
+	list_node_t *node = signal_context->pendings.first_node;
 	while (node) {
 		signal_pending_t *signal = container_of(node, signal_pending_t, node);
 		node = node->next;
@@ -268,13 +268,13 @@ static void signal_handle_context(signal_context_t *signal_context, registers_t 
 		list_remove(&signal_context->pendings, &signal->node);
 		
 		// clear the pending bit
-		signal_context->pending_mask &= ~sigmask(siginfo.si_signo);
+		signal_context->pending_mask &= ~sigmask(signal->siginfo.si_signo);
 
 		spinlock_release(&signal_context->lock);
 
 		siginfo_t siginfo = signal->siginfo;
 		slab_free(signal);
-		signal_handle_siginfo(signal_context, &siginfo);
+		signal_handle_siginfo(&siginfo, registers);
 
 		spinlock_acquire(&signal_context->lock);
 	}

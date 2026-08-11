@@ -57,7 +57,7 @@ typedef struct task {
 } task_t;
 
 #define TASK_STATUS_RUNNING       1 // is the task actually running on a cpu
-#define TASK_STATUS_ZOMBIE        2
+#define TASK_STATUS_DEAD          2
 #define TASK_STATUS_BLOCKED       3 // is the task blocked ?
 #define TASK_STATUS_INTERRUPTIBLE 4 // is the task blocked and interruptible ?
 #define TASK_STATUS_STOPPED       5

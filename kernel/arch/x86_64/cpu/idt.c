@@ -5,6 +5,7 @@
 #include <kernel/panic.h>
 #include <kernel/print.h>
 #include <kernel/scheduler.h>
+#include <kernel/userspace.h>
 #include <kernel/signal.h>
 #include <kernel/sys.h>
 #include <stdint.h>

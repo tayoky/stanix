@@ -3,7 +3,7 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/print.h>
-#include <kernel/scheduler.h>
+#include <kernel/process.h>
 #include <kernel/signal.h>
 #include <kernel/slab.h>
 #include <kernel/string.h>
@@ -44,7 +44,7 @@ static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
 				.si_signo = SIGBUS,
 				.si_addr  = (void*)addr,
 			};
-			signal_send_task(get_current_task(), SIGBUS, addr);
+			signal_send_siginfo_task(get_current_task(), &siginfo);
 			return;
 		}
 		pmm_release_page(phys);

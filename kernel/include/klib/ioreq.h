@@ -52,7 +52,7 @@ static inline void ioreq_cancel(ioreq_t *ioreq) {
 }
 
 static inline int ioreq_wait(ioreq_t *ioreq) {
-	oneshot_wait(&ioreq->oneshot, 1);
+	oneshot_wait(&ioreq->oneshot);
 	return ioreq->ret;
 }
 

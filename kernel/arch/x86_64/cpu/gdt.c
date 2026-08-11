@@ -48,7 +48,7 @@ void init_gdt(void) {
 
 	// tss take two entries
 	gdt[5]                = create_gdt_segment((uint64_t)&tss & 0xFFFFFFFF, sizeof(TSS) - 1, 0x89, 0);
-	uint32_t tss_addressH = ((uint64_t)&tss >> 32) & 0xFFFFFFFFU;
+	uint64_t tss_addressH = ((uint64_t)&tss >> 32) & 0xFFFFFFFFU;
 	gdt[6]                = *(gdt_segment *)&tss_addressH;
 
 	// create the GDTR and load it so the GDT is actually used

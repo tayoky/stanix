@@ -5,13 +5,14 @@
 #include <kernel/print.h>
 #include <kernel/earlycon.h>
 #include <kernel/scheduler.h>
+#include <kernel/atomic.h>
 #include <kernel/sym.h>
 
-static atomic_int panic_count = 0;
+static ATOMIC(int) panic_count = 0;
 
 void panic(const char *error, registers_t *fault) {
 	disable_interrupt();
-	if (atomic_fetch_add(&panic_count) > 0) {
+	if (atomic_fetch_add(&panic_count, 1) > 0) {
 		earlycon_output_str("\nkernel panic panicked\n");
 		halt();
 	}
@@ -25,7 +26,7 @@ void panic(const char *error, registers_t *fault) {
 	kprintf("error : %s\n", error);
 	if (fault) kprintf("code : 0x%lx\n", fault->err_code);
 	kprintf("========================= INFO =========================\n");
-	kprintf("tid : %ld\tstack top : 0x%p\n", pid, stack_top);
+	kprintf("tid : %ld\tstack top : 0x%p\n", tid, stack_top);
 
 	if (fault) {
 		arch_registers_dump(fault);

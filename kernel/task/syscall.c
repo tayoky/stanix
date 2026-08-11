@@ -442,7 +442,7 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 		if (ret >= 0 && proc) {
 			// we found a proc
 			proc_ref(proc);
-			proc_cleanup_zombie(proc);
+			proc_zombie_cleanup(proc);
 			break;
 		}
 		if (ret < 0) break;
@@ -494,7 +494,7 @@ int sys_insmod(const char *pathname, const char **arg) {
 	if (!CHECK_PTR(pathname)) return -EFAULT;
 	if (!CHECK_MEM(arg, sizeof(char *))) return -EFAULT;
 
-	if (get_current_proc()->euid != EUID_ROOT) {
+	if (get_current_euid() != EUID_ROOT) {
 		return -EPERM;
 	}
 
@@ -512,7 +512,7 @@ int sys_insmod(const char *pathname, const char **arg) {
 int sys_rmmod(const char *name) {
 	if (!CHECK_PTR(name)) return -EFAULT;
 
-	if (get_current_proc()->euid != EUID_ROOT) {
+	if (get_current_euid() != EUID_ROOT) {
 		return -EPERM;
 	}
 
@@ -729,11 +729,14 @@ int sys_kill(pid_t tid, int sig) {
 	return 0;
 }
 
+// TODO : rewrite this shit
 int sys_sigwait(const sigset_t *set, int *sig) {
 	if (!CHECK_STRUCT(sig) || !CHECK_STRUCT(set)) {
 		return -EFAULT;
 	}
 	sigset_t mask = *set & ~(SIGKILL | SIGSTOP);
+	return -ENOSYS;
+	// TODO
 
 	for (;;) {
 		block_prepare_interruptible();
@@ -742,20 +745,7 @@ int sys_sigwait(const sigset_t *set, int *sig) {
 			return -EIO;
 		}
 		spinlock_acquire(&get_current_task()->signal_context.lock);
-		if (get_current_task()->pending_sig & mask) {
-			for (int i=0; i < _NSIG; i++) {
-				if ((get_current_task()->pending_sig & mask) & sigmask(i)) {
-					*sig = i;
-					break;
-				}
-			}
-			spinlock_release(&get_current_task()->signal_context.lock);
-			return 0;
-		} else if (get_current_task()->pending_sig & ~get_current_task()->sig_mask) {
-			//we didn't wait for this signal but the signal must be handled
-			spinlock_release(&get_current_task()->signal_context.lock);
-			return -EINTR;
-		}
+		// TODO
 		spinlock_release(&get_current_task()->signal_context.lock);
 	}
 }
@@ -772,7 +762,7 @@ int sys_mount(const char *source, const char *target, const char *filesystemtype
 		return -EFAULT;
 	}
 
-	if (get_current_proc()->euid != EUID_ROOT) {
+	if (get_current_euid() != EUID_ROOT) {
 		return -EPERM;
 	}
 
@@ -784,7 +774,7 @@ int sys_umount(const char *target) {
 		return -EFAULT;
 	}
 
-	if (get_current_proc()->euid != EUID_ROOT) {
+	if (get_current_euid() != EUID_ROOT) {
 		return -EPERM;
 	}
 
@@ -1050,19 +1040,19 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	}
 	if (proc->pid == proc->group->pgid) {
 		// process group leader
-		ret -EPERM;
+		ret = -EPERM;
 		goto err;
 	}
 	if (proc->sid != get_current_proc()->sid) {
 		ret = -EPERM;
 		goto err;
 	}
-	proc->group = pgid;
+	proc_set_group(proc, group);
 err:
 	spinlock_release(&proctree_lock);
 	spinlock_release(&proc->proc_lock);
 	proc_release(proc);
-	process_group_release(proc);
+	process_group_release(group);
 	return ret;
 }
 
@@ -1120,7 +1110,11 @@ int sys_access(const char *pathname, int mode) {
 		vfs_node_release(node);
 		return 0;
 	}
-	int succed = (vfs_user_perm(node, get_current_proc()->uid, get_current_proc()->gid) & mode) == mode;
+	rcu_acquire_read(NULL);
+	uid_t uid = get_current_uid();
+	gid_t gid = get_current_gid();
+	rcu_release_read(NULL);
+	int succed = (vfs_user_perm(node, uid, gid) & mode) == mode;
 	vfs_node_release(node);
 	return succed ? 0 : -EACCES;
 }
@@ -1236,7 +1230,7 @@ int sys_settls(void *tls) {
 }
 
 int sys_sys_shutdown(int flags) {
-	if (get_current_proc()->euid != EUID_ROOT) {
+	if (get_current_euid() != EUID_ROOT) {
 		return -EPERM;
 	}
 

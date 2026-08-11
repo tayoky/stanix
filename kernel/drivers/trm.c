@@ -3,6 +3,7 @@
 #include <kernel/print.h>
 #include <kernel/process.h>
 #include <kernel/string.h>
+#include <kernel/bus.h>
 #include <kernel/trm.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>

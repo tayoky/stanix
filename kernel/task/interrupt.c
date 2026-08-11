@@ -1,5 +1,6 @@
 #include <kernel/interrupt.h>
 #include <kernel/scheduler.h>
+#include <kernel/userspace.h>
 #include <kernel/signal.h>
 #include <kernel/print.h>
 #include <kernel/arch.h>
@@ -55,6 +56,7 @@ int page_fault_handler(registers_t *frame) {
 }
 
 int fpu_fault_handler(registers_t *frame) {
+	(void)frame;
 	// maybee we can handle something here
 	return 0;
 }

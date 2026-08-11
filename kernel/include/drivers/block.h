@@ -40,7 +40,7 @@ struct block_request {
 #define BLOCK_REQUEST_FLUSH 3
 
 void init_block(void);
-block_request *block_create_request(block_device_t *block_device, int type);
+block_request_t *block_create_request(block_device_t *block_device, int type);
 static inline void block_request_set_callback(block_request_t *block_request, void (*callback)(block_request_t*,void*), void *data) {
 	block_request->callback = callback;
 	block_request->data     = data;

@@ -1,7 +1,8 @@
 #include <kernel/cred.h>
 #include <kernel/slab.h>
+#include <kernel/process.h>
 
-static slab_cache_t *creds_slab;
+static slab_cache_t creds_slab;
 
 cred_t default_cred = {0};
 

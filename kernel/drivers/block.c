@@ -51,7 +51,7 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 				request->start_sector = start_sector;
 				request->sectors_count = 1;
 				request->buf = kbuf;
-				ret = block_device_sumbit_sync(request);
+				ret = block_submit_request_sync(request);
 				if (ret < 0) goto error;
 			}
 			if (end % block_device->sector_size != 0 && (start % block_device->sector_size == 0 || start_sector != end_sector)) {
@@ -123,10 +123,10 @@ static vfs_fd_ops_t block_ops = {
 	.ioctl = block_ioctl,
 };
 
-block_request *block_create_request(block_device_t *block_device, int type) {
+block_request_t *block_create_request(block_device_t *block_device, int type) {
 	kassert(block_device);
 	block_request_t *request = slab_alloc(&block_requests_slab);
-	if (!request) return;
+	if (!request) return NULL;
 	memset(request, 0, sizeof(block_request_t));
 	request->block_device = block_device;
 	request->type         = type;
@@ -136,14 +136,14 @@ block_request *block_create_request(block_device_t *block_device, int type) {
 int block_submit_request(block_request_t *request) {
 	kassert(request->block_device);
 	kassert(request->block_device->ops);
-	if (!request->block_device->ops->request) {
+	if (!request->block_device->ops->submit) {
 		return -EIO;
 	}
 	int ret = request->block_device->ops->submit(request->block_device, request);
 	if (ret == -EAGAIN)  {
 		// the block device cannot handle that many requests
 		// we have to try again later when some requests finish
-		list_append(&request->block_device.pending_requests, &request->node);
+		list_append(&request->block_device->pending_requests, &request->node);
 		ret = 0;
 	} else if (ret < 0) {
 		slab_free(request);
@@ -167,10 +167,10 @@ int block_submit_request_sync(block_request_t *request) {
 	oneshot_init(&wait_data.oneshot);
 
 	block_request_set_callback(request, block_wait_callback, &wait_data);
-	int ret = block_device_sumbit(request);
+	int ret = block_submit_request(request);
 	if (ret < 0) return ret;
 
-	int ret = oneshot_wait(&wait_data.oneshot);
+	ret = oneshot_wait(&wait_data.oneshot);
 	if (ret < 0) return ret;
 	return wait_data.ret;
 }
@@ -187,29 +187,30 @@ void block_finish_request(block_request_t *request, int ret) {
 	slab_free(request);
 
 	// maybee now the block device can handle a pending request
-	block_submit_pending_request();
+	block_submit_pending_request(request->block_device);
 }
 
-void block_submit_pending_request(block_device_t *block_device);
+void block_submit_pending_request(block_device_t *block_device) {
 	if (list_is_empty(&block_device->pending_requests)) {
 		return;
 	}
 
 	// TODO : IO scheduler
-	block_request_t *request = container_of(block_device->pending_request.first_node, block_request_t, node);
-	list_remove(&block->device.pending_request, &request->node);
+	block_request_t *request = container_of(block_device->pending_requests.first_node, block_request_t, node);
+	list_remove(&block_device->pending_requests, &request->node);
 	int ret = block_device->ops->submit(block_device, request);
 	if (ret == -EAGAIN) {
 		// still not ready
-		list_prepend(&block->device.pending_request, &request->node);
+		list_prepend(&block_device->pending_requests, &request->node);
 	} else if (ret < 0) {
 		// UNSAFE : recursion
-		block_finish_request(request);
+		block_finish_request(request, ret);
 	}
 }
 
 static void block_destroy(device_t *device) {
 	block_device_t *block_device = container_of(device, block_device_t, device);
+	(void)block_device;
 	// TODO : cancel every requests
 }
 

@@ -27,7 +27,7 @@ spinlock_t sleep_lock;
 spinlock_t proctree_lock;
 
 static process_t *kernel_proc;
-static process_t *init;
+process_t *init;
 static task_t *idle;
 static task_t *reaper;
 static list_t dead_tasks;
@@ -86,35 +86,36 @@ static void task_final_cleanup(task_t *task) {
 	kfree((void *)task->kernel_stack);
 
 	// the task hold a ref to the proc
-	proc_release(task->proc);
+	proc_release(task->process);
 
 	// the scheduler hold a ref that we need to release
 	task_release(task);
 }
 
 static void reaper_task() {
-	spinlock_acquire(&dead_tasks_lock);
-	list_node_t *node = dead_tasks.first_node;
-	if (node) {
-		list_remove(&dead_tasks, node);
+	for (;;) {
+		spinlock_acquire(&dead_tasks_lock);
+		list_node_t *node = dead_tasks.first_node;
+		if (node) {
+			list_remove(&dead_tasks, node);
+		}
+		spinlock_release(&dead_tasks_lock);
+		if (!node) {
+			block_prepare();
+			block_task();
+			continue;
+		}
+		task_t *task = container_of(node, task_t, dead_list_node);
+		// make sure the task is not on a run queue
+		// FIXME : is this bad ?
+		while (atomic_load(&task->run_queue));
+		task_final_cleanup(task);
 	}
-	spinlock_release(&dead_tasks_lock);
-	if (!node) {
-		block_prepare();
-		block_task();
-		continue;
-	}
-	runqueue_acquire_lock
-	task_t *task = container_of(node, task_t, dead_list_node);
-	// make sure the task is not on a wait queue
-	// FIXME : is this bad ?
-	while (atomic_load(task->run_queue));
-	final_task_cleanup(task);
 }
 
 static void add_dead_task(task_t *task) {
 	spinlock_acquire(&dead_tasks_lock);
-	list_append(&dead_tasks, &get_current_task()->dead_list_node);
+	list_append(&dead_tasks, &task->dead_list_node);
 	spinlock_release(&dead_tasks_lock);
 	unblock_task(reaper);
 }
@@ -122,7 +123,6 @@ static void add_dead_task(task_t *task) {
 void init_task() {
 	kstatusf("init kernel task... ");
 	// init the scheduler first
-	xarray_init(&procs_list);
 	xarray_init(&tasks_list);
 	list_init(&sleeping_tasks);
 
@@ -135,7 +135,7 @@ void init_task() {
 	list_init(&boot_task->child);
 	list_init(&boot_task->threads);
 	boot_task->umask = 022;
-	proc_set_cred(cred_dup(&default_cred));
+	proc_set_cred(get_current_proc(), cred_dup(&default_cred));
 
 	// get the address space
 	boot_task->vmm_space.addrspace = mmu_get_addr_space();
@@ -164,7 +164,7 @@ void init_task() {
 	kernel_proc = proc_new(idle_task, NULL);
 	proc_set_cmdline(kernel_proc, "stanix kernel");
 	idle = kernel_proc->main_thread;
-	reaper = new_kernel_task(reaper, NULL);
+	reaper = new_kernel_task(reaper_task, NULL);
 
 	kok();
 }
@@ -342,7 +342,7 @@ task_t *get_current_task(void) {
 }
 
 void task_exit(void) {
-	prempt_disable();
+	preempt_disable();
 
 	spinlock_acquire(&get_current_proc()->proc_lock);
 	get_current_proc()->threads_count--;
@@ -354,7 +354,7 @@ void task_exit(void) {
 		do_proc_deletion();
 	}
 	
-	xarray_set(&tasks_list, task->tid, NULL);
+	xarray_set(&tasks_list, get_current_task()->tid, NULL);
 	set_task_status(TASK_STATUS_DEAD);
 	add_dead_task(get_current_task());
 

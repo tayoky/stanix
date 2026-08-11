@@ -1,7 +1,8 @@
 #ifndef KERNEL_CRED_H
 #define KERNEL_CRED_H
 
-#include <refcount.h>
+#include <kernel/refcount.h>
+#include <abi/types.h>
 
 typedef struct cred {
 	ref_count_t ref_count;

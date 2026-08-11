@@ -12,7 +12,7 @@ struct process_group;
 typedef struct signal_pending {
 	list_node_t node;
 	siginfo_t siginfo;
-} signal_pending;
+} signal_pending_t;
 
 typedef struct signal_context {
 	list_t pendings;       // protected by lock

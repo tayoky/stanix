@@ -3,6 +3,7 @@
 
 #include <kernel/kheap.h>
 #include <kernel/refcount.h>
+#include <kernel/rculist.h>
 #include <kernel/scheduler.h>
 #include <kernel/sleep.h>
 #include <kernel/cred.h>
@@ -28,6 +29,8 @@ typedef struct process_group {
 	ref_count_t ref_count;
 	pid_t pgid;
 } process_group_t;
+
+typedef struct process process_t;
 
 struct process {
 	list_node_t child_list_node; // protected by proctree lo k
@@ -59,10 +62,10 @@ struct process {
 	ATOMIC(int) flags;
 };
 
-#define PROC_STATUS_RUNNING 1
-#define PROC_STATUS_ZOMBIE  2
+#define PROC_STATE_RUNNING 1
+#define PROC_STATE_ZOMBIE  2
 
-#define PROC_FLAG_KILL    0x1 // process is killed
+#define PROC_FLAG_KILLED  0x1 // process is killed
 
 void init_proc(void);
 
@@ -81,7 +84,7 @@ process_group_t *process_group_get_or_create_from_pgid(pid_t pgid);
  */
 void proc_set_group(process_t *proc, process_group_t *group);
 
-static inline cred_t *proc_get_cred(proc_t *proc) {
+static inline cred_t *proc_get_cred(process_t *proc) {
 	if (!proc) return NULL;
 	return rcu_ptr_fetch(&proc->cred);
 }
@@ -89,10 +92,10 @@ static inline cred_t *proc_get_cred(proc_t *proc) {
 /**
  * @note require the proc's lock
  */
-static inline void proc_set_cred(proc_t *proc, cred_t *cred) {
+static inline void proc_set_cred(process_t *proc, cred_t *cred) {
 	spinlock_assert_acquired(&proc->proc_lock);
 	cred_t *old_cred = rcu_ptr_store(&proc->cred, cred_ref(cred));
-	rcu_sync();
+	rcu_sync(NULL);
 	cred_release(old_cred);
 }
 
@@ -125,14 +128,14 @@ static inline void set_current_cred(cred_t *cred) {
 }
 
 #define CRED_HELPER(type, var) \
-	static inline type proc_get_ ## var(proc_t *proc) {\
+	static inline type proc_get_ ## var(process_t *proc) {\
 		return proc_get_cred(proc)->var;\
 	}\
 	static inline type get_current_ ## var(void) {\
 		rcu_acquire_read(NULL);\
 		type var = get_current_cred()->var;\
 		rcu_release_read(NULL);\
-		return var\
+		return var;\
 	}
 
 CRED_HELPER(uid_t, uid)
@@ -200,6 +203,12 @@ static inline void set_cmdline(const char *cmdline) {
 }
 
 /**
+ * @brief register a process into the process list
+ * @param proc the process to register
+ */
+void proc_register(process_t *proc);
+
+/**
  * @brief cleanup a zombie process
  * @param proc the zombie to cleanup
  * @note require the proctree lock
@@ -230,6 +239,7 @@ int get_fd(int fd, file_descriptor_t *file_descriptor);
 int close_fd(int fd);
 
 extern xarray_t procs;
+extern process_t *init;
 extern spinlock_t proctree_lock;
 
 #endif

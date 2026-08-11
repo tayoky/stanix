@@ -5,8 +5,8 @@
 #include <kernel/rcu.h>
 
 typedef struct rculist_node {
-	rcu_ptr_t *prev;
-	rcu_ptr_t *next;
+	rcu_ptr_t prev;
+	rcu_ptr_t next;
 } rculist_node_t;
 
 /**

@@ -262,7 +262,7 @@ static int proc_root_readdir(vfs_node_t *root, unsigned long index, struct diren
 
 	index -= 3;
 
-	xarray_foreach (pid, value, get_procs_list()) {
+	xarray_foreach (pid, value, &procs) {
 		(void)value;
 		if (index == 0) {
 			sprintf(dirent->d_name, "%d", pid);

@@ -2,7 +2,7 @@
 #include <kernel/slab.h>
 #include <kernel/xarray.h>
 
-static slab_cache_t process_group_slabs;
+static slab_cache_t process_groups_slab;
 static slab_cache_t procs_slab;
 static xarray_t groups;
 xarray_t procs;
@@ -10,6 +10,8 @@ xarray_t procs;
 void init_proc(void) {
 	slab_init(&process_groups_slab, sizeof(process_group_t), "process-groups");
 	slab_init(&procs_slab, sizeof(process_t), "processes");
+	xarray_init(&procs);
+	xarray_init(&groups);
 }
 
 process_group_t *process_group_get_from_pgid(pid_t pgid) {
@@ -44,7 +46,7 @@ process_group_t *process_group_get_or_create_from_pgid(pid_t pgid) {
 
 void process_group_release(process_group_t *group) {
 	if (!group) return;
-	if (ref_count_dec(&group->ref) > 1) return;
+	if (ref_count_dec(&group->ref_count) > 1) return;
 	slab_free(group);
 }
 
@@ -54,7 +56,7 @@ void proc_set_group(process_t *proc, process_group_t *group) {
 	if (proc->group) {
 		rculist_remove(&proc->group->processes, &proc->group_node);
 		if (rculist_is_empty(&proc->group->processes)) {
-			xarray_clear(&groups, &proc->group->pgid);
+			xarray_clear(&groups, proc->group->pgid);
 		}
 		process_group_release(proc->group);
 	}
@@ -77,7 +79,7 @@ process_t *proc_from_pid(pid_t pid) {
 	return proc;
 }
 
-static void proc_register(process_t *proc) {
+void proc_register(process_t *proc) {
 	xarray_set(&procs, proc->pid, proc);
 }
 
@@ -180,7 +182,7 @@ void do_proc_deletion(void) {
 
 		child->parent = init;
 		list_append(&init->child, &child->child_list_node);
-		if (proc_get_state(child) == TASK_STATUS_ZOMBIE) alert_parent(child);
+		if (proc_get_state(child) == PROC_STATE_ZOMBIE) alert_parent(child);
 	}
 	list_destroy(&get_current_proc()->child);
 
@@ -190,7 +192,7 @@ void do_proc_deletion(void) {
 
 	proc_set_state(get_current_proc(), PROC_STATE_ZOMBIE);
 
-	spinlock_release_acquire(&proctree_lock);
+	spinlock_release(&proctree_lock);
 	spinlock_release(&get_current_proc()->proc_lock);
 
 	// close every open fd

@@ -94,7 +94,7 @@ irq_t *irq_allocate(irq_chip_t *irq_chip) {
 		// search for unallocated irqs
 		foreach (node, &irq_chip->irqs) {
 			irq_t *irq = container_of(node, irq_t, node);
-			if (list_is_empty(irqs->handlers)) {
+			if (list_is_empty(&irq->handlers)) {
 				return irq;
 			}
 		}

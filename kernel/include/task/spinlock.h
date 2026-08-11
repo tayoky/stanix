@@ -58,6 +58,6 @@ static inline void spinlock_release(spinlock_t *lock) {
 	if (lock->had_interrupt) enable_interrupt();
 }
 
-#define spinlock_assert_acquired(lock) kassert(atomic_flag_test_and_set(&(lock)->lock) && "spinlock acquired")
+#define spinlock_assert_acquired(_lock) kassert(atomic_flag_test_and_set(&(_lock)->lock) && "spinlock acquired")
 
 #endif
