@@ -101,11 +101,17 @@ void proc_release(process_t *proc) {
 	slab_free(proc);
 }
 
-process_t *proc_new(void (*func)(void *arg), void *arg) {
-	// init the new proc
+process_t *proc_allocate(void) {
 	process_t *proc = slab_alloc(&procs_slab);
 	if (!proc) return NULL;
 	memset(proc, 0, sizeof(process_t));
+	return proc;
+}
+
+process_t *proc_new(void (*func)(void *arg), void *arg) {
+	// init the new proc
+	process_t *proc = proc_allocate();
+	if (!proc) return NULL;
 
 	proc->main_thread = task_new(proc, func, arg);
 	if (!proc->main_thread) {

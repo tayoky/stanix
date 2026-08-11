@@ -123,7 +123,8 @@ void kmain() {
 	init_ptys();
 	init_kout();
 	init_vmm();
-	init_procfs();
+	init_cred();
+	init_proc();
 	init_signal();
 	init_task();
 	init_resource();
@@ -131,8 +132,7 @@ void kmain() {
 	init_root_bus();
 	init_timer();
 	init_mod();
-	init_cred();
-	init_proc();
+	init_procfs();
 	init_sysfs();
 	init_sockets();
 	init_unix_socket();

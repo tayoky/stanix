@@ -145,6 +145,12 @@ CRED_HELPER(gid_t, gid)
 CRED_HELPER(gid_t, egid)
 CRED_HELPER(gid_t, sgid)
 
+/**
+ * @brief allocate a process struct
+ * @return the newly allocate process struct
+ */
+process_t *proc_allocate(void);
+
 process_t *proc_new(void (*func)(void *arg), void *arg);
 
 /**

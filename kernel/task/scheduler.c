@@ -131,11 +131,13 @@ void init_task() {
 	memset(boot_task, 0, sizeof(process_t));
 	boot_task->parent = boot_task;
 	boot_task->pid    = 0;
+	spinlock_acquire(&boot_task->proc_lock);
 	boot_task->group  = process_group_get_or_create_from_pgid(0);
 	list_init(&boot_task->child);
 	list_init(&boot_task->threads);
 	boot_task->umask = 022;
-	proc_set_cred(get_current_proc(), cred_dup(&default_cred));
+	proc_set_cred(boot_task, cred_dup(&default_cred));
+	spinlock_release(&boot_task->proc_lock);
 
 	// get the address space
 	boot_task->vmm_space.addrspace = mmu_get_addr_space();
