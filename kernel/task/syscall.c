@@ -672,26 +672,22 @@ int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *oldset) {
 }
 
 int sys_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {
-	if (act && !CHECK_STRUCT(act)) {
-		return -EFAULT;
-	}
-	if (oldact && !CHECK_STRUCT(oldact)) {
-		return -EFAULT;
-	}
+	struct sigaction kact;
+	struct sigaction koldact;
+	if (kact && user_copy_auto_from(&kact, act) < 0) return -EFAULT;
+	if (koldact && user_copy_auto_from(&koldact, act) < 0) return -EFAULT;
 
-	if (signum >= _NSIG || signum <= 0) {
-		return -EINVAL;
-	}
+	if (signum >= _NSIG || signum <= 0) return -EINVAL;
 
 	spinlock_acquire(&get_current_proc()->proc_lock);
 	if (oldact) {
-		*oldact = get_current_proc()->sig_handlers[signum];
+		get_current_proc()->sig_handlers[signum] = koldact;
 	}
 
 	if (act) {
 		// can't change handling for SIGKILL and SIGSTOP
 		if (signum != SIGKILL || signum != SIGSTOP) {
-			get_current_proc()->sig_handlers[signum] = *act;
+			get_current_proc()->sig_handlers[signum] = kact;
 		}
 	}
 	spinlock_release(&get_current_proc()->proc_lock);
@@ -700,15 +696,17 @@ int sys_sigaction(int signum, const struct sigaction *act, struct sigaction *old
 }
 
 int sys_sigpending(sigset_t *set) {
-	if (!CHECK_STRUCT(set)) {
-		return -EFAULT;
-	}
+	sigset_t kset = 0;
 
 	spinlock_acquire(&get_current_task()->signal_context.lock);
-	*set = get_current_task()->signal_context.pending_mask;
+	kset |= get_current_task()->signal_context.pending_mask;
 	spinlock_release(&get_current_task()->signal_context.lock);
 
-	return 0;
+	spinlock_acquire(&get_current_proc()->signal_context.lock);
+	kset |= get_current_proc()->signal_context.pending_mask;
+	spinlock_release(&get_current_proc()->signal_context.lock);
+
+	return user_copy_auto_to(set, &kset);
 }
 
 //TODO : permission checks
@@ -731,7 +729,11 @@ int sys_kill(pid_t tid, int sig) {
 
 // TODO : replace with sigwaitinfo
 int sys_sigwait(const sigset_t *set, int *sig) {
-	sigset_t mask = *set & ~(SIGKILL | SIGSTOP);
+	sigset_t mask;
+	if (user_copy_auto_from(&mask, set) < 0) return -EFAULT;
+
+	// cannot wait on SIGKILL/SIGSTOP
+	mask &= ~(SIGKILL | SIGSTOP);
 
 	for (;;) {
 		int ret = signal_dequeue(mask, NULL);
