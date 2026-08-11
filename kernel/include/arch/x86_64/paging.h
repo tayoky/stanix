@@ -32,6 +32,4 @@ typedef uint64_t *addrspace_t;
 #define PAGING_PAT_WB  0x06
 #define PAGING_PAT_UC2 0x07
 
-#define switch_stack() asm volatile("mov $0, %%rbp\nmov %0, %%rsp" : :)
-
 #endif

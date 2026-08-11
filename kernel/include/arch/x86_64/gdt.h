@@ -27,5 +27,4 @@ typedef struct {
 
 void init_gdt(void);
 
-gdt_segment create_gdt_segement(uint64_t base,uint64_t limit,uint8_t access,uint8_t falgs);
 #endif
