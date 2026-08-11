@@ -9,7 +9,7 @@ BUILDENV_SHELL = $(SHELL)
 
 INITRD = $(BUILDDIR)/initrd
 BASE_INITRD = $(CURDIR)/initrd
-BASE_INITRD_SRC = $(find $(BASE_INITRD) -type f)
+BASE_INITRD_SRC = $(shell find $(BASE_INITRD) -type f)
 
 ifeq ($(findstring clean,$(MAKECMDGOALS))$(findstring header, $(MAKECMDGOALS)),)
 include config.mk
