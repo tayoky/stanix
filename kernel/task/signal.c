@@ -154,6 +154,50 @@ void signal_context_destroy(signal_context_t *signal_context) {
 	}
 }
 
+
+static int signal_dequeue_context(signal_context_t *signal_context, sigset_t mask, siginfo_t *siginfo) {
+	spinlock_acquire(&signal_context->lock);
+	
+	int ret = 0;
+	list_node_t *node = signal_context->pendings.first_node;
+	while (node) {
+		signal_pending_t *signal = container_of(node, signal_pending_t, node);
+		node = node->next;
+		if (sigmask(signal->siginfo.si_signo) & get_current_task()->sig_mask) {
+			// signal is blocked
+			continue;
+		}
+		if (!(sigmask(signal->siginfo.si_signo) & mask)) {
+			// a signal not in mask was recived
+			ret = -EINTR;
+			break;
+		}
+		list_remove(&signal_context->pendings, &signal->node);
+		
+		// clear the pending bit
+		signal_context->pending_mask &= ~sigmask(signal->siginfo.si_signo);
+
+		spinlock_release(&signal_context->lock);
+		
+		if (siginfo) *siginfo = signal->siginfo;
+		ret = signal->siginfo.si_signo;
+		slab_free(signal);
+		return ret;
+	}
+	spinlock_release(&signal_context->lock);
+	return ret;
+}
+
+int signal_dequeue(sigset_t mask, siginfo_t *siginfo) {
+	// handle thread wide signals
+	int ret = signal_dequeue_context(&get_current_task()->signal_context, mask, siginfo);
+	if (ret != 0) {
+		// handle process wide signals
+		ret = signal_dequeue_context(&get_current_proc()->signal_context, mask, siginfo);
+	}
+	return ret;
+}
+
 static inline void proc_sigexit(int signum) {
 	kdebugf("proc killed by signal %d\n", signum);
 	proc_exit((1U << 17) | signum);
@@ -254,42 +298,17 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 	}
 }
 
-static void signal_handle_context(signal_context_t *signal_context, registers_t *registers) {
-	spinlock_acquire(&signal_context->lock);
-
-	list_node_t *node = signal_context->pendings.first_node;
-	while (node) {
-		signal_pending_t *signal = container_of(node, signal_pending_t, node);
-		node = node->next;
-		if (sigmask(signal->siginfo.si_signo) & get_current_task()->sig_mask) {
-			// signal is blocked
-			continue;
-		}
-		list_remove(&signal_context->pendings, &signal->node);
-		
-		// clear the pending bit
-		signal_context->pending_mask &= ~sigmask(signal->siginfo.si_signo);
-
-		spinlock_release(&signal_context->lock);
-
-		siginfo_t siginfo = signal->siginfo;
-		slab_free(signal);
-		signal_handle_siginfo(&siginfo, registers);
-
-		spinlock_acquire(&signal_context->lock);
-	}
-	spinlock_release(&signal_context->lock);
-}
-
 void signal_handle(registers_t *registers) {
-	// handle thread wide signals
-	signal_handle_context(&get_current_task()->signal_context, registers);
-
-	// handle process wide signals
-	signal_handle_context(&get_current_proc()->signal_context, registers);
+	// maximum iteration count
+	// to prevent starving on signal spam
+	int max = 64;
+	siginfo_t siginfo;
+	while (max-- > 0 && signal_dequeue(0xffffffff, &siginfo) > 0) {
+		signal_handle_siginfo(&siginfo, registers);
+	}
 }
 
-void restore_signal_handler(registers_t *context) {
+void signal_restore_handler(registers_t *context) {
 	kdebugf("restore signal handler\n");
 
 	// since the magic return address as been poped,

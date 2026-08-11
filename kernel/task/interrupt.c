@@ -19,7 +19,7 @@ void timer_handler(registers_t *frame) {
 // called on page faults
 int page_fault_handler(registers_t *frame) {
 	if (arch_registers_is_userspace(frame) && arch_fault_get_addr(frame) == MAGIC_SIGRETURN) {
-		restore_signal_handler(frame);
+		signal_restore_handler(frame);
 	}
 
 	// maybee the vmm can handle it

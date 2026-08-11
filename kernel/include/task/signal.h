@@ -48,7 +48,16 @@ static inline int signal_send_group(struct process_group *group, int signum) {
 
 void signal_context_destroy(signal_context_t *signal_context);
 void signal_handle(registers_t *context);
-void restore_signal_handler(registers_t *context);
+
+/**
+ * @brief dequeue a pending signal present in mask
+ * @param mask the mask of possible signals to dequeue
+ * @param siginfo where to store the siginfo of the dequeued signal (optional)
+ * @return the signal number if handled or 0 if no signal are pending or -EINTR if a pending signal is not present in mask
+ */
+int signal_dequeue(sigset_t mask, siginfo_t *siginfo);
+
+void signal_restore_handler(registers_t *context);
 
 #define MAGIC_SIGRETURN 0x4848
 
