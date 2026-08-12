@@ -129,7 +129,6 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 	proc->state  = PROC_STATE_RUNNING;
 	vmm_init_space(&proc->vmm_space);
 	list_init(&proc->child);
-	list_init(&proc->threads);
 	proc_set_group(proc, get_current_proc()->group);
 	rcu_acquire_read(NULL);
 	proc_set_cred(proc, get_current_cred());

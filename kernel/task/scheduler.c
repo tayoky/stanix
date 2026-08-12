@@ -348,6 +348,7 @@ void task_exit(void) {
 
 	spinlock_acquire(&get_current_proc()->proc_lock);
 	get_current_proc()->threads_count--;
+	list_remove(&get_current_proc()->threads, &get_current_task()->thread_list_node);
 	int is_last = (get_current_proc()->threads_count == 0);
 	spinlock_release(&get_current_proc()->proc_lock);
 
