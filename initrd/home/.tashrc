@@ -1,3 +1,7 @@
 PS1='\e[0m\e[01;32m\u@\h\e[0m:\e[01;34m\w\e[0m \$ '
 
 export TERM="xterm-256color"
+
+# show a fortune on shell startup
+echo "fortune :"
+fortune
