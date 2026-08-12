@@ -32,6 +32,7 @@ process_group_t *process_group_get_or_create_from_pgid(pid_t pgid) {
 	if (!group) return NULL;
 	memset(group, 0, sizeof(process_group_t));
 	group->ref_count = 1;
+	group->pgid = pgid;
 
 	rcu_acquire_read(&groups.rcu);
 	process_group_t *race_group = xarray_cmpxchg(&groups, pgid, NULL, group);

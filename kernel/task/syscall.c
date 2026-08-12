@@ -1180,9 +1180,10 @@ err:
 
 pid_t sys_getpgid(pid_t pid) {
 	process_t *proc = proc_from_pid(pid);
+	if (!proc) return -ESRCH;
 	spinlock_acquire(&proc->proc_lock);
 	int ret;
-	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
+	if (proc->parent != get_current_proc() && proc != get_current_proc()) {
 		ret = -ESRCH;
 	} else {
 		ret = proc->group->pgid;

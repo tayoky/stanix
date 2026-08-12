@@ -117,11 +117,11 @@ static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) {
 		pid_t pgid = tty->fg_group ? tty->fg_group->pgid : 1;
 		return safe_copy_auto_to(arg, &pgid);
 	case TIOCSPGRP:
-		kdebugf("set fgpgrp to %ld\n", *(pid_t *)arg);
 		pgid = 0;
 		if (safe_copy_auto_from(&pgid, arg) < 0) return -EFAULT;
 		process_group_t *group = process_group_get_from_pgid(pgid);
 		if (!group) return -ESRCH;
+		kdebugf("set fgpgrp to %ld\n", group->pgid);
 		process_group_release(tty->fg_group);
 		tty->fg_group = group;
 		return 0;
