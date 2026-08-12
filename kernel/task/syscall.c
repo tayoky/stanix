@@ -762,15 +762,43 @@ int sys_tgkill(pid_t pid, pid_t tid, int sig) {
 	};
 	
 	task_t *task = task_from_tid(tid);
-	int ret = 0;
-	if (!task) {
-		ret = -ESRCH;
-		goto error;
-	}
+	if (!task) return -ESRCH;
 
-	ret = user_send_siginfo_task(pid, task, &siginfo);
+	int ret = user_send_siginfo_task(pid, task, &siginfo);
+	task_release(task);
+	return ret;
+}
 
-error:
+int sys_sigqueue(pid_t pid, int sig, const union sigval value) {
+	if (!sig_is_valid(sig)) return -EINVAL;
+	if (pid < 0) return -EINVAL;
+	siginfo_t siginfo = {
+		.si_signo = sig,
+		.si_code  = SI_QUEUE,
+		.si_value = value,
+	};
+
+	process_t *proc = proc_from_pid(pid);
+	if (!proc) return -ESRCH;
+
+	int ret = user_send_siginfo_proc(proc, &siginfo);
+	proc_release(proc);
+	return ret;
+}
+
+int sys_tgsigqueue(pid_t pid, pid_t tid, int sig, const union sigval value) {
+	if (!sig_is_valid(sig)) return -EINVAL;
+	if (pid < 0 || tid < 0) return -EINVAL;
+	siginfo_t siginfo = {
+		.si_signo = sig,
+		.si_code  = SI_QUEUE,
+		.si_value = value,
+	};
+
+	task_t *task = task_from_pid(tid);
+	if (!task) return -ESRCH;
+
+	int ret = user_send_siginfo_task(pid, task, &siginfo);
 	task_release(task);
 	return ret;
 }
@@ -1615,8 +1643,8 @@ void *syscall_table[] = {
 	(void *)sys_stub, // sys_fchownat
 	(void *)sys_stub, // sys_fchmodat
 	(void *)sys_tgkill,
-	(void *)sys_stub, // sys_sigqueue
-	(void *)sys_stub, // sys_tgsigqueue
+	(void *)sys_sigqueue,
+	(void *)sys_tgsigqueue,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
