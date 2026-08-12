@@ -108,6 +108,7 @@ int signal_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
 	if (signal_add_pending(&proc->signal_context, proc, signal_pending)) {
 		spinlock_acquire(&proc->proc_lock);
 		// TODO : interrupt a single task instead of every task in the process
+		// FIXME : this is really bad and causes surpirous -EINTR (wich are unauthorized by posix)
 		foreach (node, &proc->threads) {
 			task_t *task = container_of(node, task_t, thread_list_node);
 			unblock_task_reason(task, WAKEUP_SIGNAL);

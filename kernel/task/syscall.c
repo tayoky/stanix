@@ -700,8 +700,7 @@ int sys_kill(pid_t tid, int sig) {
 	return 0;
 }
 
-// TODO : replace with sigwaitinfo
-int sys_sigwait(const sigset_t *set, int *sig) {
+int sys_sigwaitinfo(const sigset_t *set, int *sig, siginfo_t *siginfo) {
 	sigset_t mask;
 	if (user_copy_auto_from(&mask, set) < 0) return -EFAULT;
 
@@ -709,15 +708,16 @@ int sys_sigwait(const sigset_t *set, int *sig) {
 	mask &= ~(SIGKILL | SIGSTOP);
 
 	for (;;) {
-		int ret = signal_dequeue(mask, NULL);
-		if (ret == 0) {
-			ret = sigwait_handle_context(&get_current_proc()->signal_context, mask);
-		}
+		siginfo_t ksiginfo;
+		int ret = signal_dequeue(mask, &ksiginfo);
+
 		if (ret < 0) return ret;
 		if (ret > 0) {
+			if (siginfo && user_copy_auto_to(siginfo, &ksiginfo) < 0) return -EFAULT;
 			if (user_copy_auto_to(sig, &ret) < 0) return -EFAULT;
 			return 0;
 		}
+
 		block_prepare_interruptible();
 		if (block_task() != EINTR) {
 			// what the hell happend
@@ -1475,7 +1475,7 @@ void *syscall_table[] = {
 	(void *)sys_poll,
 	(void *)sys_sigprocmask,
 	(void *)sys_sigaction,
-	(void *)sys_sigwait,
+	(void *)sys_sigwaitinfo,
 	(void *)sys_sigsuspend,
 	(void *)sys_sigpending,
 	(void *)sys_kill,
