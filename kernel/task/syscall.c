@@ -686,14 +686,22 @@ static int check_sig_perm(process_t *proc) {
 	return ret;
 }
 
-static int user_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
-	int ret;
-	if (check_sig_perm(proc)) {
-		ret = signal_send_siginfo_proc(proc, &siginfo);
+static int user_send_siginfo_task(pid_t pid, task_t *task, siginfo_t *siginfo) {
+	if (task->process->pid != pid) {
+		return -ESRCH;
+	} else if (check_sig_perm(task->process)) {
+		return signal_send_siginfo_task(task, &siginfo);
 	} else {
-		ret = -EPERM;
+		return -EPERM;
 	}
-	return ret;
+}
+
+static int user_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
+	if (check_sig_perm(proc)) {
+		return signal_send_siginfo_proc(proc, &siginfo);
+	} else {
+		return -EPERM;
+	}
 }
 
 static int user_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
@@ -706,7 +714,13 @@ static int user_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
 	return ret;
 }
 
+static int sig_is_valid(int sig) {
+	if (signum >= _NSIG || signum < 0) return 0;
+	return 1;
+}
+
 int sys_kill(pid_t pid, int sig) {
+	if (!sig_is_valid(sig)) return -EINVAL;
 	siginfo_t siginfo = {
 		.si_signo = sig,
 		.si_code  = SI_USER,
@@ -734,8 +748,30 @@ int sys_kill(pid_t pid, int sig) {
 	process_t *proc = proc_from_pid(pid);
 	if (!proc) return -ESRCH;
 
-	int ret = user_send_siginfo_proc(proc &siginfo);
+	int ret = user_send_siginfo_proc(proc, &siginfo);
 	proc_release(proc);
+	return ret;
+}
+
+int sys_tgkill(pid_t pid, pid_t tid, int sig) {
+	if (!sig_is_valid(sig)) return -EINVAL;
+	if (pid < 0 || tid < 0) return -EINVAL;
+	siginfo_t siginfo = {
+		.si_signo = sig,
+		.si_code  = SI_TKILL,
+	};
+	
+	task_t *task = task_from_tid(tid);
+	int ret = 0;
+	if (!task) {
+		ret = -ESRCH;
+		goto error;
+	}
+
+	ret = user_send_siginfo_task(pid, task, &siginfo);
+
+error:
+	task_release(task);
 	return ret;
 }
 
@@ -1578,6 +1614,9 @@ void *syscall_table[] = {
 	(void *)sys_fstatat,
 	(void *)sys_stub, // sys_fchownat
 	(void *)sys_stub, // sys_fchmodat
+	(void *)sys_tgkill,
+	(void *)sys_stub, // sys_sigqueue
+	(void *)sys_stub, // sys_tgsigqueue
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
