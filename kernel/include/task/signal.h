@@ -57,6 +57,9 @@ void signal_handle(registers_t *context);
  */
 int signal_dequeue(sigset_t mask, siginfo_t *siginfo);
 
+sigset_t signal_get_pending_mask(void);
+sigset_t signal_get_unhandled_mask(void);
+
 void signal_restore_handler(registers_t *context);
 
 #define MAGIC_SIGRETURN 0x4848

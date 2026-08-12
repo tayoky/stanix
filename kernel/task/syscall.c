@@ -678,16 +678,7 @@ int sys_sigaction(int signum, const struct sigaction *act, struct sigaction *old
 }
 
 int sys_sigpending(sigset_t *set) {
-	sigset_t kset = 0;
-
-	spinlock_acquire(&get_current_task()->signal_context.lock);
-	kset |= get_current_task()->signal_context.pending_mask;
-	spinlock_release(&get_current_task()->signal_context.lock);
-
-	spinlock_acquire(&get_current_proc()->signal_context.lock);
-	kset |= get_current_proc()->signal_context.pending_mask;
-	spinlock_release(&get_current_proc()->signal_context.lock);
-
+	sigset_t kset = signal_get_pending_mask();
 	return user_copy_auto_to(set, &kset);
 }
 
@@ -729,10 +720,45 @@ int sys_sigwait(const sigset_t *set, int *sig) {
 		}
 		block_prepare_interruptible();
 		if (block_task() != EINTR) {
-			//what the hell happend
+			// what the hell happend
 			return -EIO;
 		}
 	}
+}
+
+int sys_sigsuspend(const sigset_t *mask) {
+	sigset_t new_mask;
+	if (user_copy_auto_from(&new_mask, mask) < 0) return -EFAULT;
+
+	// cannot mask SIGKILL/SIGSTOP
+	new_mask &= ~(SIGKILL | SIGSTOP);
+
+	spinlock_acquire(&get_current_task()->signal_context.lock);
+	sigset_t old_mask = get_current_task()->sig_mask;
+	get_current_task()->sig_mask = new_mask;
+
+	spinlock_release(&get_current_task()->signal_context.lock);
+
+	for (;;) {
+		if (signal_get_unhandled_mask()) {
+			// fast path
+			break;
+		}
+
+		block_prepare_interruptible();
+		if (signal_get_unhandled_mask()) {
+			block_cancel();
+			break;
+		} else {
+			block_task();
+		}
+	}
+
+	spinlock_acquire(&get_current_task()->signal_context.lock);
+	get_current_task()->sig_mask = old_mask;
+
+	spinlock_release(&get_current_task()->signal_context.lock);
+	return -EINTR;
 }
 
 pid_t sys_getpid(void) {
@@ -1450,7 +1476,7 @@ void *syscall_table[] = {
 	(void *)sys_sigprocmask,
 	(void *)sys_sigaction,
 	(void *)sys_sigwait,
-	(void *)sys_stub, //sys_sigsuspend
+	(void *)sys_sigsuspend,
 	(void *)sys_sigpending,
 	(void *)sys_kill,
 	(void *)sys_getpid,

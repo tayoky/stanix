@@ -200,6 +200,23 @@ int signal_dequeue(sigset_t mask, siginfo_t *siginfo) {
 	return ret;
 }
 
+sigset_t signal_get_pending_mask(void) {
+	sigset_t mask = 0;
+
+	spinlock_acquire(&get_current_task()->signal_context.lock);
+	mask |= get_current_task()->signal_context.pending_mask;
+	spinlock_release(&get_current_task()->signal_context.lock);
+
+	spinlock_acquire(&get_current_proc()->signal_context.lock);
+	mask |= get_current_proc()->signal_context.pending_mask;
+	spinlock_release(&get_current_proc()->signal_context.lock);
+	return mask;
+}
+
+sigset_t signal_get_unhandled_mask(void) {
+	return signal_get_pending_mask() & ~get_current_task()->sig_mask;
+}
+
 static inline void proc_sigexit(int signum) {
 	kdebugf("proc killed by signal %d\n", signum);
 	proc_exit((1U << 17) | signum);
