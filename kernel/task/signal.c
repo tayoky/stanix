@@ -163,26 +163,28 @@ static int signal_dequeue_context(signal_context_t *signal_context, sigset_t mas
 	while (node) {
 		signal_pending_t *signal = container_of(node, signal_pending_t, node);
 		node = node->next;
-		if (sigmask(signal->siginfo.si_signo) & get_current_task()->sig_mask) {
-			// signal is blocked
-			continue;
+		
+		if (sigmask(signal->siginfo.si_signo) & mask) {
+			// we found a pending signal we are searching for
+			list_remove(&signal_context->pendings, &signal->node);
+		
+			// clear the pending bit
+			signal_context->pending_mask &= ~sigmask(signal->siginfo.si_signo);
+
+			spinlock_release(&signal_context->lock);
+		
+			if (siginfo) *siginfo = signal->siginfo;
+			ret = signal->siginfo.si_signo;
+			slab_free(signal);
+			return ret;
 		}
-		if (!(sigmask(signal->siginfo.si_signo) & mask)) {
-			// a signal not in mask was recived
+
+		if (!(sigmask(signal->siginfo.si_signo) & get_current_task()->sig_mask)) {
+			
+			// a signal not in mask was recived and is unblocked
 			ret = -EINTR;
 			break;
 		}
-		list_remove(&signal_context->pendings, &signal->node);
-		
-		// clear the pending bit
-		signal_context->pending_mask &= ~sigmask(signal->siginfo.si_signo);
-
-		spinlock_release(&signal_context->lock);
-		
-		if (siginfo) *siginfo = signal->siginfo;
-		ret = signal->siginfo.si_signo;
-		slab_free(signal);
-		return ret;
 	}
 	spinlock_release(&signal_context->lock);
 	return ret;
@@ -303,7 +305,7 @@ void signal_handle(registers_t *registers) {
 	// to prevent starving on signal spam
 	int max = 64;
 	siginfo_t siginfo;
-	while (max-- > 0 && signal_dequeue(0xffffffff, &siginfo) > 0) {
+	while (max-- > 0 && signal_dequeue(~get_current_task()->sig_mask, &siginfo) > 0) {
 		signal_handle_siginfo(&siginfo, registers);
 	}
 }
