@@ -682,7 +682,38 @@ int sys_sigpending(sigset_t *set) {
 	return user_copy_auto_to(set, &kset);
 }
 
-//TODO : permission checks
+static int check_sig_perm(process_t *proc) {
+	rcu_acquire_read(NULL);
+	cred_t *proc_cred = proc_get_cred(proc);
+	cred_t *current_cred = proc_get_cred(proc);
+	int ret = 0
+	if (current_cred->euid == EUID_ROOT || current_cred->uid == proc_cred->uid || current_cred->euid == proc_cred->suid) {
+		ret = 1;
+	}
+	rcu_release_read(NULL);
+	return ret;
+}
+
+static int user_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
+	int ret;
+	if (check_sig_perm(proc)) {
+		ret = signal_send_siginfo_proc(proc, &siginfo);
+	} else {
+		ret = -EPERM;
+	}
+	return ret;
+}
+
+static int user_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
+	int ret = -ESRCH;
+	rculist_foreach (node, &group->processes) {
+		process_t *proc = container_of(node, process_t, group_node);
+		int sub_ret = user_send_siginfo_proc(proc, siginfo);
+		if (ret == -ESRCH || subret == 0) ret = subret;
+	}
+	return ret;
+}
+
 int sys_kill(pid_t pid, int sig) {
 	siginfo_t siginfo = {
 		.si_signo = sig,
@@ -692,7 +723,8 @@ int sys_kill(pid_t pid, int sig) {
 	if (pid < 0) {
 		process_group_t *group = process_group_get_from_pgid(-pid);
 		if (!group) return -ESRCH;
-		int ret = signal_send_siginfo_group(group, &siginfo);
+
+		int ret = user_send_siginfo_group(group, &siginfo);
 		process_group_release(group);
 		return ret;
 	} else if (pid == 0) {
@@ -700,7 +732,7 @@ int sys_kill(pid_t pid, int sig) {
 		process_group_t *group = process_group_ref(get_current_proc()->group);
 		spinlock_release(&get_current_proc()->proc_lock);
 
-		int ret = signal_send_siginfo_group(group, &siginfo);
+		int ret = user_send_siginfo_group(group, &siginfo);
 		process_group_release(group);
 		return ret;
 	} else if (pid == -1) {
@@ -710,7 +742,7 @@ int sys_kill(pid_t pid, int sig) {
 	process_t *proc = proc_from_pid(pid);
 	if (!proc) return -ESRCH;
 
-	int ret = signal_send_siginfo_proc(proc, &siginfo);
+	int ret = user_send_siginfo_proc(proc &siginfo);
 	proc_release(proc);
 	return ret;
 }
