@@ -57,19 +57,19 @@ static void run_queue_acquire_lock(task_t *task) {
 	for (;;) {
 		run_queue_t *queue = atomic_load(&task->run_queue);
 		if (!queue) return;
-		spinlock_acquire(&queue->lock);
+		spinlock_raw_acquire(&queue->lock);
 		if (atomic_load(&task->run_queue) == queue) {
 			// the task didn't switch queue
 			break;
 		}
 
 		// the task switched queue
-		spinlock_release(&queue->lock);
+		spinlock_raw_release(&queue->lock);
 	}
 }
 
 static void run_queue_release_lock(task_t *task) {
-	if (task->run_queue) spinlock_release(&task->run_queue->lock);
+	if (task->run_queue) spinlock_raw_release(&task->run_queue->lock);
 }
 
 static void idle_task() {
@@ -175,7 +175,7 @@ static void wakeup_sleepers(void) {
 	// see if we can wakeup anything
 	struct timespec time;
 	gettime(CLOCK_MONOTONIC, &time);
-	spinlock_acquire(&sleep_lock);
+	int irq_save = spinlock_acquire_irq(&sleep_lock);
 	foreach (node, &sleeping_tasks) {
 		task_t *task = container_of(node, task_t, waiter_list_node);
 		if (timespec_cmp(&task->wakeup_time, &time) > 0) {
@@ -185,7 +185,7 @@ static void wakeup_sleepers(void) {
 		list_remove(&sleeping_tasks, &task->waiter_list_node);
 		unblock_task(task);
 	}
-	spinlock_release(&sleep_lock);
+	spinlock_release_irq(&sleep_lock, irq_save);
 }
 
 static task_t *schedule() {
@@ -293,7 +293,7 @@ void yield(int preempt) {
 	int prev_int = have_interrupt();
 	disable_interrupt();
 
-	spinlock_acquire(&get_run_queue()->lock);
+	spinlock_raw_acquire(&get_run_queue()->lock);
 
 	// we when preempt we continue to run and ignore status
 	if (preempt || get_current_task()->status == TASK_STATUS_RUNNING) {
@@ -429,13 +429,13 @@ int block_task_timeout(struct timespec *timeout) {
 }
 
 int unblock_task_reason(task_t *task, int reason) {
-	spinlock_acquire(&task->state_lock);
+	int irq_save = spinlock_acquire_irq(&task->state_lock);
 	run_queue_acquire_lock(task);
 
 	// aready unblocked ?
 	if (task->status != TASK_STATUS_BLOCKED && task->status != TASK_STATUS_INTERRUPTIBLE) {
 		run_queue_release_lock(task);
-		spinlock_release(&task->state_lock);
+		spinlock_release_irq(&task->state_lock, irq_save);
 		return 0;
 	}
 
@@ -450,14 +450,14 @@ int unblock_task_reason(task_t *task, int reason) {
 	// if the task is already in the queue on another cpu don't push it back
 	if (task->run_queue) {
 		run_queue_release_lock(task);
-		spinlock_release(&task->state_lock);
+		spinlock_release_irq(&task->state_lock, irq_save);
 		return 1;
 	}
 
 	run_queue_push_task(get_run_queue(), task);
 
 	run_queue_release_lock(task);
-	spinlock_release(&task->state_lock);
+	spinlock_release_irq(&task->state_lock, irq_save);
 	return 1;
 }
 

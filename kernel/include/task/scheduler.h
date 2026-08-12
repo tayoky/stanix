@@ -120,9 +120,9 @@ void task_release(task_t *task);
  * @param status the status to set it to
  */
 static inline void set_task_status(int status) {
-	spinlock_acquire(&get_current_task()->state_lock);
+	int irq_save = spinlock_acquire_irq(&get_current_task()->state_lock);
 	get_current_task()->status = status;
-	spinlock_release(&get_current_task()->state_lock);
+	spinlock_release_irq(&get_current_task()->state_lock, irq_save);
 }
 
 /**

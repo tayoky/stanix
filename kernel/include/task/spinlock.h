@@ -15,12 +15,13 @@
 
 typedef struct spinlock {
 	atomic_flag lock;
-	int had_interrupt;
 #ifdef SPINLOCK_DEBUG
 	const char *line;
 #endif
 } spinlock_t;
 
+static inline void preempt_enable(void);
+static inline void preempt_disable(void);
 
 #ifdef SPINLOCK_DEBUG
 static inline void __spinlock_raw_acquire(spinlock_t *lock, const char *line) {
@@ -30,22 +31,37 @@ static inline void __spinlock_raw_acquire(spinlock_t *lock, const char *line) {
 	}
 	lock->line = line;
 }
+
 static inline void __spinlock_acquire(spinlock_t *lock, const char *line) {
-	lock->had_interrupt = have_interrupt();
-	disable_interrupt();
+	preempt_disable();
     __spinlock_raw_acquire(lock, line);
 }
+
+static inline int __spinlock_acquire_irq(spinlock_t *lock, const char *line) {
+	int irq_save = have_interrupt();
+	disable_interrupt();
+    __spinlock_raw_acquire(lock, line);
+	return irq_save;
+}
+
 #define spinlock_raw_acquire(lock) __spinlock_raw_acquire(lock, __FILE__ ":" STRINGIFY(__LINE__))
 #define spinlock_acquire(lock) __spinlock_acquire(lock, __FILE__ ":" STRINGIFY(__LINE__))
+#define spinlock_acquire_irq(lock) __spinlock_acquire_irq(lock, __FILE__ ":" STRINGIFY(__LINE__))
 #else
 static inline void spinlock_raw_acquire(spinlock_t *lock) {
 	while (atomic_flag_test_and_set_explicit(&lock->lock, memory_order_acquire));
 }
 
 static inline void spinlock_acquire(spinlock_t *lock) {
-	lock->had_interrupt = have_interrupt();
+	preempt_disable();
+	spinlock_raw_acquire(lock);
+}
+
+static inline int spinlock_acquire_irq(spinlock_t *lock) {
+	int irq_save = have_interrupt();
 	disable_interrupt();
 	spinlock_raw_acquire(lock);
+	return irq_save;
 }
 #endif
 
@@ -55,9 +71,17 @@ static inline void spinlock_raw_release(spinlock_t *lock) {
 
 static inline void spinlock_release(spinlock_t *lock) {
 	spinlock_raw_release(lock);
-	if (lock->had_interrupt) enable_interrupt();
+	preempt_enable();
+}
+
+static inline void spinlock_release_irq(spinlock_t *lock, int irq_save) {
+	spinlock_raw_release(lock);
+	if (irq_save) enable_interrupt();
 }
 
 #define spinlock_assert_acquired(_lock) kassert(atomic_flag_test_and_set(&(_lock)->lock) && "spinlock acquired")
+
+// need to be inclued last
+#include <kernel/scheduler.h>
 
 #endif

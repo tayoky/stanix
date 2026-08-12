@@ -19,7 +19,7 @@ void sleep_add_timeout(struct timespec *wakeup_time) {
 	
 	// add us to the list
 	// keep the list organised from first awake to last
-	spinlock_acquire(&sleep_lock);
+	int irq_save = spinlock_acquire_irq(&sleep_lock);
 	task_t *prev = NULL;
 	foreach (node, &sleeping_tasks) {
 		task_t *task = container_of(node, task_t, waiter_list_node);
@@ -30,17 +30,17 @@ void sleep_add_timeout(struct timespec *wakeup_time) {
 	}
 
 	list_add_after(&sleeping_tasks, prev ? &prev->waiter_list_node : NULL, &get_current_task()->waiter_list_node);
-	spinlock_release(&sleep_lock);
+	spinlock_release_irq(&sleep_lock, irq_save);
 }
 
 void sleep_remove_timeout(void) {
-	spinlock_acquire(&sleep_lock);
+	int irq_save = spinlock_acquire_irq(&sleep_lock);
 	if (atomic_fetch_and(&get_current_task()->flags, ~TASK_FLAG_SLEEP) & TASK_FLAG_SLEEP) {
 		// we are still in the sleep queue
 		// remove us
 		list_remove(&sleeping_tasks, &get_current_task()->waiter_list_node);
 	}
-	spinlock_release(&sleep_lock);
+	spinlock_release_irq(&sleep_lock, irq_save);
 }
 
 int sleep_until(struct timespec *wakeup_time) {
@@ -84,21 +84,22 @@ void sleep_add_to_queue_unlocked(sleep_queue_t *queue) {
 }
 
 void sleep_add_to_queue(sleep_queue_t *queue) {
-	spinlock_acquire(&queue->lock);
+	int irq_save = spinlock_acquire_irq(&queue->lock);
 	sleep_add_to_queue_unlocked(queue);
-	spinlock_release(&queue->lock);
+	spinlock_release_irq(&queue->lock, irq_save);
 }
 
 void sleep_remove_from_queue(sleep_queue_t *queue) {
-	spinlock_acquire(&queue->lock);
+	int irq_save = spinlock_acquire_irq(&queue->lock);
 	foreach (current, &queue->waiters) {
 		sleep_queue_node_t *node = container_of(current, sleep_queue_node_t, node);
 		if (node->task != get_current_task()) continue;
 		list_remove(&queue->waiters, &node->node);
+		spinlock_release_irqsave(&queue->lock, irq_save);
 		slab_free(node);
-		break;
+		return;
 	}
-	spinlock_release(&queue->lock);
+	spinlock_release_irqsave(&queue->lock, irq_save);
 }
 
 int sleep_on_queue(sleep_queue_t *queue) {
@@ -124,7 +125,7 @@ int sleep_on_queue_interruptible(sleep_queue_t *queue) {
 
 
 void wakeup_queue(sleep_queue_t *queue, size_t count) {
-	spinlock_acquire(&queue->lock);
+	int irq_save = spinlock_acquire_irq(&queue->lock);
 
 	list_node_t *current = queue->waiters.first_node;
 	while (current) {
@@ -139,5 +140,5 @@ void wakeup_queue(sleep_queue_t *queue, size_t count) {
 		}
 	}
 
-	spinlock_release(&queue->lock);
+	spinlock_release_irq(&queue->lock, irq_save);
 }
