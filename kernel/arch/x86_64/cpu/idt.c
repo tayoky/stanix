@@ -74,7 +74,11 @@ static void page_fault_info(registers_t *fault) {
 static void send_fault_signal(registers_t *registers) {
 	siginfo_t siginfo = {0};
 	switch (registers->err_type) {
-	case 0:  // dividd error fault
+	case 0:  // divide error fault
+		siginfo.si_addr = (void*)registers->rip;
+		siginfo.si_signo = SIGFPE;
+		siginfo.si_code  = FPE_INTDIV;
+		break;
 	case 7:  // no coprocessor fault
 	case 16: // coprocsessor fault
 		siginfo.si_addr = (void*)registers->rip;

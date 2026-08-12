@@ -90,6 +90,7 @@ static int signal_add_pending(signal_context_t *signal_context, process_t *proc,
 }
 
 int signal_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
+	if (siginfo->si_signo == 0) return 0;
 	if (!group) return -ESRCH;
 	rculist_foreach (node, &group->processes) {
 		process_t *proc = container_of(node, process_t, group_node);
@@ -100,6 +101,7 @@ int signal_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
 
 int signal_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
 	kdebugf("send %d to process %ld\n", siginfo->si_signo, proc->pid);
+	if (siginfo->si_signo == 0) return 0;
 
 	signal_pending_t *signal_pending = signal_create_pending(siginfo);
 	if (!signal_pending) return -ENOMEM;
@@ -124,6 +126,7 @@ int signal_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
 }
 
 int signal_send_siginfo_task(task_t *thread, siginfo_t *siginfo) {
+	if (siginfo->si_signo == 0) return 0;
 	kdebugf("send %d to task %ld\n", siginfo->si_signo, thread->tid);
 
 	signal_pending_t *signal_pending = signal_create_pending(siginfo);

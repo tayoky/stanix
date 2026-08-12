@@ -683,21 +683,36 @@ int sys_sigpending(sigset_t *set) {
 }
 
 //TODO : permission checks
-int sys_kill(pid_t tid, int sig) {
-	if (tid < 0) {
-		process_group_t *group = process_group_get_from_pgid(-tid);
+int sys_kill(pid_t pid, int sig) {
+	siginfo_t siginfo = {
+		.si_signo = sig,
+		.si_code  = SI_USER,
+	};
+
+	if (pid < 0) {
+		process_group_t *group = process_group_get_from_pgid(-pid);
 		if (!group) return -ESRCH;
-		int ret = 0;
-		if (signal_send_group(group, sig) < 0) ret = -ESRCH;
+		int ret = signal_send_siginfo_group(group, &siginfo);
 		process_group_release(group);
 		return ret;
-	}
-	task_t *thread = task_from_tid(tid);
-	if (!thread) return -ESRCH;
+	} else if (pid == 0) {
+		spinlock_acquire(&get_current_proc()->proc_lock);
+		process_group_t *group = process_group_ref(get_current_proc()->group);
+		spinlock_release(&get_current_proc()->proc_lock);
 
-	signal_send_task(thread, sig);
-	task_release(thread);
-	return 0;
+		int ret = signal_send_siginfo_group(group, &siginfo);
+		process_group_release(group);
+		return ret;
+	} else if (pid == -1) {
+		// TODO : send to everything we can
+		return -ENOSYS;
+	}
+	process_t *proc = proc_from_pid(pid);
+	if (!proc) return -ESRCH;
+
+	int ret = signal_send_siginfo_proc(proc, &siginfo);
+	proc_release(proc);
+	return ret;
 }
 
 int sys_sigwaitinfo(const sigset_t *set, int *sig, siginfo_t *siginfo) {
