@@ -61,8 +61,10 @@ static signal_pending_t *signal_create_pending(siginfo_t *siginfo) {
 	signal_pending_t *signal_pending = slab_alloc(&signal_pendings_slab);
 	if (!signal_pending) return NULL;
 	signal_pending->siginfo = *siginfo;
-	signal_pending->siginfo.si_pid = get_current_proc()->pid;
-	signal_pending->siginfo.si_uid = get_current_uid();
+	if (!signal_pending->siginfo.si_pid) {
+		signal_pending->siginfo.si_pid = get_current_proc()->pid;
+		signal_pending->siginfo.si_uid = get_current_uid();
+	}
 	return signal_pending;
 }
 

@@ -170,9 +170,11 @@ void proc_exit(int status) {
 static void alert_parent(process_t *proc) {
 	if (!proc->parent) return;
 	siginfo_t siginfo = {
-		.si_signo = SIGCHLD,
-		// TODO : si_code
+		.si_signo  = SIGCHLD,
+		.si_code   = WIFEXITED(proc->exit_status) ? CLD_EXITED : CLD_KILLED,
 		.si_status = proc->exit_status,
+		.si_pid    = proc->pid,
+		// TODO : uid ?
 	};
 	signal_send_siginfo_proc(proc->parent, &siginfo);
 }
