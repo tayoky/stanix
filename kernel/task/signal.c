@@ -199,7 +199,7 @@ static int signal_dequeue_context(signal_context_t *signal_context, sigset_t mas
 int signal_dequeue(sigset_t mask, siginfo_t *siginfo) {
 	// handle thread wide signals
 	int ret = signal_dequeue_context(&get_current_task()->signal_context, mask, siginfo);
-	if (ret != 0) {
+	if (ret == 0) {
 		// handle process wide signals
 		ret = signal_dequeue_context(&get_current_proc()->signal_context, mask, siginfo);
 	}
