@@ -130,6 +130,11 @@ void init_apic(void) {
 		switch (entry->type) {
 		case ACPI_MADT_ENTRY_IOAPIC_INTERRUPT_OVERRIDE:
 			kdebugf("redirection from %hhu to gsi %u\n", entry->ioapic_interrupt_override.irq_source, entry->ioapic_interrupt_override.gsi);
+			// remove any irq which already has this hwirq
+			irq_t *old_irq = irq_get_from_hwirq(&apic_chip, entry->ioapic_interrupt_override.irq_source);
+			if (old_irq) {
+				old_irq->hwirq = IRQ_NO_HWIRQ;
+			}
 			irq_t *irq = irq_get_from_irqnum(&apic_chip, entry->ioapic_interrupt_override.gsi);
 			if (!irq) break;
 			irq->hwirq = entry->ioapic_interrupt_override.irq_source;
