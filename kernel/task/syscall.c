@@ -616,40 +616,32 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 }
 
 int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *oldset) {
-	if (set && !CHECK_STRUCT(set)) {
-		return -EFAULT;
-	}
-	if (oldset && !CHECK_STRUCT(oldset)) {
-		return -EFAULT;
-	}
+	sigset_t kset;
+	if (set && user_copy_auto_from(&kset, set) < 0) return -EFAULT;
 
 	spinlock_acquire(&get_current_task()->signal_context.lock);
 
-	if (oldset) {
-		*oldset = get_current_task()->sig_mask;
-	}
+	sigset_t koldset = get_current_task()->sig_mask;
 
-	//if set is null then we have finished our jobs
-	if (!set) {
-		spinlock_release(&get_current_task()->signal_context.lock);
-		return 0;
-	}
-
-	switch (how) {
-	case SIG_BLOCK:
-		get_current_task()->sig_mask |= *set;
-		break;
-	case SIG_UNBLOCK:
-		get_current_task()->sig_mask &= ~*set;
-		break;
-	case SIG_SETMASK:
-		get_current_task()->sig_mask = *set;
-		break;
-	default:
-		spinlock_release(&get_current_task()->signal_context.lock);
-		return -EINVAL;
+	if (set) {
+		switch (how) {
+		case SIG_BLOCK:
+			get_current_task()->sig_mask |= kset;
+			break;
+		case SIG_UNBLOCK:
+			get_current_task()->sig_mask &= ~kset;
+			break;
+		case SIG_SETMASK:
+			get_current_task()->sig_mask = kset;
+			break;
+		default:
+			spinlock_release(&get_current_task()->signal_context.lock);
+			return -EINVAL;
+		}
 	}
 	spinlock_release(&get_current_task()->signal_context.lock);
+
+	if (oldset && user_copy_auto_to(oldset, &koldset) < 0) return -EFAULT;
 	return 0;
 }
 
