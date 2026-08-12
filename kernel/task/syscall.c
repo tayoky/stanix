@@ -648,8 +648,8 @@ int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *oldset) {
 int sys_sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {
 	struct sigaction kact;
 	struct sigaction koldact;
-	if (kact && user_copy_auto_from(&kact, act) < 0) return -EFAULT;
-	if (koldact && user_copy_auto_from(&koldact, act) < 0) return -EFAULT;
+	if (act && user_copy_auto_from(&kact, act) < 0) return -EFAULT;
+	if (oldact && user_copy_auto_from(&koldact, act) < 0) return -EFAULT;
 
 	if (signum >= _NSIG || signum <= 0) return -EINVAL;
 
@@ -678,7 +678,7 @@ static int check_sig_perm(process_t *proc) {
 	rcu_acquire_read(NULL);
 	cred_t *proc_cred = proc_get_cred(proc);
 	cred_t *current_cred = proc_get_cred(proc);
-	int ret = 0
+	int ret = 0;
 	if (current_cred->euid == EUID_ROOT || current_cred->uid == proc_cred->uid || current_cred->euid == proc_cred->suid) {
 		ret = 1;
 	}
@@ -690,7 +690,7 @@ static int user_send_siginfo_task(pid_t pid, task_t *task, siginfo_t *siginfo) {
 	if (task->process->pid != pid) {
 		return -ESRCH;
 	} else if (check_sig_perm(task->process)) {
-		return signal_send_siginfo_task(task, &siginfo);
+		return signal_send_siginfo_task(task, siginfo);
 	} else {
 		return -EPERM;
 	}
@@ -698,7 +698,7 @@ static int user_send_siginfo_task(pid_t pid, task_t *task, siginfo_t *siginfo) {
 
 static int user_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
 	if (check_sig_perm(proc)) {
-		return signal_send_siginfo_proc(proc, &siginfo);
+		return signal_send_siginfo_proc(proc, siginfo);
 	} else {
 		return -EPERM;
 	}
@@ -709,12 +709,12 @@ static int user_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
 	rculist_foreach (node, &group->processes) {
 		process_t *proc = container_of(node, process_t, group_node);
 		int sub_ret = user_send_siginfo_proc(proc, siginfo);
-		if (ret == -ESRCH || subret == 0) ret = subret;
+		if (ret == -ESRCH || sub_ret == 0) ret = sub_ret;
 	}
 	return ret;
 }
 
-static int sig_is_valid(int sig) {
+static int sig_is_valid(int signum) {
 	if (signum >= _NSIG || signum < 0) return 0;
 	return 1;
 }
@@ -795,7 +795,7 @@ int sys_tgsigqueue(pid_t pid, pid_t tid, int sig, const union sigval value) {
 		.si_value = value,
 	};
 
-	task_t *task = task_from_pid(tid);
+	task_t *task = task_from_tid(tid);
 	if (!task) return -ESRCH;
 
 	int ret = user_send_siginfo_task(pid, task, &siginfo);
@@ -1243,23 +1243,23 @@ int sys_access(const char *pathname, int mode) {
 	return succed ? 0 : -EACCES;
 }
 
-int sys_utimes(const char *path, const struct timeval times[2]) {
+int sys_utimes(const char *pathname, const struct timeval times[2]) {
 	if (!CHECK_PTR(pathname)) return -EFAULT;
 
 	struct timeval ktimes[2];
 	if (user_copy_auto_from(&ktimes, &times) < 0) return -EFAULT;
 
-	vfs_node_t *node = vfs_get_node(path, O_NOFOLLOW);
+	vfs_node_t *node = vfs_get_node(pathname, O_NOFOLLOW);
 	if (IS_ERR(node)) return PTR2ERR(node);
 	int ret = vfs_utimes(node, ktimes);
 	vfs_node_release(node);
 	return ret;
 }
 
-int sys_truncate(const char *path, off_t length) {
+int sys_truncate(const char *pathname, off_t length) {
 	if (!CHECK_PTR(pathname)) return -EFAULT;
 
-	vfs_node_t *node = vfs_get_node(path, O_WRONLY);
+	vfs_node_t *node = vfs_get_node(pathname, O_WRONLY);
 	if (IS_ERR(node)) return PTR2ERR(node);
 	int ret = vfs_truncate(node, (size_t)length);
 	vfs_node_release(node);

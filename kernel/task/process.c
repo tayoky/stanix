@@ -1,6 +1,7 @@
 #include <kernel/process.h>
 #include <kernel/slab.h>
 #include <kernel/xarray.h>
+#include <abi/wait.h>
 
 static slab_cache_t process_groups_slab;
 static slab_cache_t procs_slab;
