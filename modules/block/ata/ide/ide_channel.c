@@ -103,6 +103,7 @@ static int ide_channel_reset(ide_channel_t *channel) {
 	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
 
 	if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
+		mutex_release(&channel->mutex);
 		return -ETIMEDOUT;
 	}
 	mutex_release(&channel->mutex);
@@ -112,8 +113,16 @@ static int ide_channel_reset(ide_channel_t *channel) {
 static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t *bus, uint8_t drive) {
 	// select the drive
 	uint8_t drv_select = IDE_DRV_SELECT_LEGACY | IDE_DRV_SELECT_LBA | drive;
-	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select | drive);
+	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select);
+
 	ide_channel_io_wait(channel);
+	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
+	if (status == 0 || status == 0xff) {
+		// no drive
+	}
+	if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
+		return NULL;
+	}
 
 	uint32_t signature = 
 		((uint32_t)ide_channel_read(channel, IDE_REG_LBA2) << 24) |
