@@ -342,6 +342,7 @@ int vmm_space_chprot_range(vmm_space_t *space, uintptr_t start, uintptr_t end, l
 static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	spinlock_acquire(&seg->lock);
 	list_remove(&space->segs, &seg->node);
+	spinlock_release(&seg->lock);
 	space->total_size -= VMM_SIZE(seg);
 	if (seg->fd) {
 		space->file_size -= VMM_SIZE(seg);
@@ -374,7 +375,6 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	} else {
 		vmm_space_unmap_and_release_pages(space, seg->start, seg->end);
 	}
-
 	slab_free(seg);
 }
 
