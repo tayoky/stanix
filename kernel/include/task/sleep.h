@@ -34,6 +34,7 @@ typedef struct sleep_queue {
 \
 		ret = block_task();\
 		if (ret < 0) {\
+			if (l) spinlock_raw_acquire(l);\
 			sleep_remove_from_queue(queue);\
 			break;\
 		}\
@@ -61,6 +62,7 @@ typedef struct sleep_queue {
 \
 		ret = block_task();\
 		if (ret < 0) {\
+			if (l) spinlock_raw_acquire(l);\
 			sleep_remove_from_queue(queue);\
 			break;\
 		}\
