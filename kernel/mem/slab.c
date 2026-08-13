@@ -95,7 +95,7 @@ static void free_slab(slab_t *slab) {
 }
 
 void *slab_alloc(slab_cache_t *slab_cache) {
-	spinlock_acquire(&slab_cache->lock);
+	int irq_save = spinlock_acquire_irq(&slab_cache->lock);
 	slab_t *slab = container_of(slab_cache->partial.first_node, slab_t, node);
 	if (!slab) {
 		// we have no partial slab
@@ -108,7 +108,7 @@ void *slab_alloc(slab_cache_t *slab_cache) {
 			slab = new_slab(slab_cache);
 			if (!slab) {
 				// FIXME : maybee we should release later
-				spinlock_release(&slab_cache->lock);
+				spinlock_release_irq(&slab_cache->lock, irq_save);
 				// mayee we can evict ?
 				void *data = slab_evict(slab_cache);
 				if (!data) return NULL;
@@ -135,7 +135,7 @@ void *slab_alloc(slab_cache_t *slab_cache) {
 		list_append(&slab_cache->full, &slab->node);
 	}
 
-	spinlock_release(&slab_cache->lock);
+	spinlock_release_irq(&slab_cache->lock, irq_save);
 	if (slab_cache->constructor) {
 		slab_cache->constructor(slab_cache, node);
 	}
@@ -151,7 +151,7 @@ void slab_free(void *ptr) {
 		slab_cache->destructor(slab_cache, ptr);
 	}
 
-	spinlock_acquire(&slab_cache->lock);
+	int irq_save = spinlock_acquire_irq(&slab_cache->lock);
 
 	// add the object to the list of free slot
 	slab_free_node_t *node = ptr;
@@ -171,5 +171,5 @@ void slab_free(void *ptr) {
 		list_add_after(&slab_cache->partial, NULL, &slab->node);
 	}
 
-	spinlock_release(&slab_cache->lock);
+	spinlock_release_irq(&slab_cache->lock, irq_save);
 }
