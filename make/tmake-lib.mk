@@ -2,6 +2,7 @@
 
 LIB ?= $(PACKAGE)
 SRCS ?= $(wildcard *.[cs])
+INCS ?= $(wildcard include/*)
 STATIC ?= yes
 SHARED ?= yes
 STATIC_LIB ?= lib$(LIB).a

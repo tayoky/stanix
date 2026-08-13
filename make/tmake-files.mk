@@ -2,8 +2,8 @@
 
 # look into FILES by default
 FILESDIR ?= $(SHAREDIR)
-FILESOWN ?= root
-FILESGRP ?= root
+FILESOWN ?= $(shell id -u -n)
+FILESGRP ?= $(shell id -g -n)
 FILESMODE ?= 0644
 FILESGROUPS ?=
 FILESGROUPS += FILES

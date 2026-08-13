@@ -19,8 +19,8 @@ install-locale : $(LOCALES_MO)
 	@echo "INSTALL $(DOMAIN).mo"
 	$(Q)for I in $(LOCALES_MO) ; do \
 		LOC=$$(basename "$${I%%.mo}") ; \
-		mkdir -p "$(LOCALEDIR)/$$LOC/LC_MESSAGES/" ; \
-		cp "$$I" "$(LOCALEDIR)/$$LOC/LC_MESSAGES/$(DOMAIN).mo" ; \
+		mkdir -p "$(DESTDIR)$(LOCALEDIR)/$$LOC/LC_MESSAGES/" ; \
+		cp "$$I" "$(DESTDIR)$(LOCALEDIR)/$$LOC/LC_MESSAGES/$(DOMAIN).mo" ; \
 	done
 
 .PHONY : uninstall-locale
@@ -29,7 +29,7 @@ uninstall-locale :
 	@echo "UNINSTALL $(DOMAIN).mo"
 	$(Q)for I in $(LOCALES) ; do \
 		LOC=$$(basename "$${I%%.po}") ; \
-		rm -f "$(LOCALEDIR)/$$LOC/LC_MESSAGES/$(DOMAIN).mo" ; \
+		rm -f "$(DESTDIR)$(LOCALEDIR)/$$LOC/LC_MESSAGES/$(DOMAIN).mo" ; \
 	done
 endif
 
