@@ -37,7 +37,7 @@ typedef struct sleep_queue {
 			sleep_remove_from_queue(queue);\
 			break;\
 		}\
-		if (l) spinlock_acquire(l);\
+		if (l) spinlock_raw_acquire(l);\
 	}\
 	ret;\
 })
@@ -64,7 +64,7 @@ typedef struct sleep_queue {
 			sleep_remove_from_queue(queue);\
 			break;\
 		}\
-		if (l) spinlock_acquire(l);\
+		if (l) spinlock_raw_acquire(l);\
 	}\
 	ret;\
 })
