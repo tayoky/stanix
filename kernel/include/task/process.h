@@ -230,12 +230,6 @@ static inline void set_cmdline(const char *cmdline) {
 }
 
 /**
- * @brief register a process into the process list
- * @param proc the process to register
- */
-void proc_register(process_t *proc);
-
-/**
  * @brief cleanup a zombie process
  * @param proc the zombie to cleanup
  * @note require the proctree lock

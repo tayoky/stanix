@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
 	// simple security
-	if (getpid() != 0) {
+	if (getpid() != 1) {
 		fprintf(stderr, "init : not ran as init process\n");
 		fprintf(stderr, "running two init process might crash the system\n");
 		return 1;

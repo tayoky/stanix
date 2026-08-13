@@ -20,7 +20,7 @@
 
 static run_queue_t main_run_queue;
 static xarray_t tasks_list;
-static atomic_size_t tid_count = 1;
+static atomic_size_t tid_count = 0;
 static char can_task_switch    = 0;
 list_t sleeping_tasks;
 spinlock_t sleep_lock;
@@ -126,47 +126,31 @@ void init_task() {
 	xarray_init(&tasks_list);
 	list_init(&sleeping_tasks);
 
+	// setup the kernel proc and the idle task
+	kernel_proc = proc_new(idle_task, NULL);
+	proc_set_cmdline(kernel_proc, "stanix kernel");
+	idle = kernel_proc->main_thread;
+
 	// init the boot task (task running since boot)
-	process_t *boot_task = kmalloc(sizeof(process_t));
-	memset(boot_task, 0, sizeof(process_t));
-	boot_task->parent = boot_task;
-	boot_task->pid    = 0;
-	session_create(boot_task);
-	spinlock_acquire(&boot_task->proc_lock);
-	list_init(&boot_task->child);
-	list_init(&boot_task->threads);
-	boot_task->umask = 022;
-	proc_set_cred(boot_task, cred_dup(&default_cred));
-	spinlock_release(&boot_task->proc_lock);
+	process_t *boot_task = new_proc(NULL, NULL);
 
-	// get the address space
-	boot_task->vmm_space.addrspace = mmu_get_addr_space();
-
-	boot_task->main_thread         = task_new(boot_task, NULL, NULL);
+	// the thread is already running
 	boot_task->main_thread->status = TASK_STATUS_RUNNING;
+	mmu_set_addr_space(boot_task->vmm_space.addrspace);
 	arch_set_kernel_stack(KSTACK_TOP(boot_task->main_thread->kernel_stack));
-
-	// let just the boot kernel task start with a cwd at initrd root
-	boot_task->cwd = vfs_get_dentry("/", 0);
 
 	// the current task is the boot task
 	get_run_queue()->current = boot_task->main_thread;
 	set_cmdline("init");
 
-	proc_ref(boot_task);
-	proc_register(boot_task);
-
 	// the first task will be the init task
 	init = get_current_proc();
+	
+	// init the reaper task
+	reaper = new_kernel_task(reaper_task, NULL);
 
 	// activate task switch
 	can_task_switch = 1;
-
-	// setup the kernel proc, the idle task and the reaper
-	kernel_proc = proc_new(idle_task, NULL);
-	proc_set_cmdline(kernel_proc, "stanix kernel");
-	idle = kernel_proc->main_thread;
-	reaper = new_kernel_task(reaper_task, NULL);
 
 	kok();
 }

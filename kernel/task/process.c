@@ -85,7 +85,10 @@ void process_group_release(process_group_t *group) {
 int proc_set_group(process_t *proc, process_group_t *group) {
 	spinlock_assert_acquired(&proc->proc_lock);
 	spinlock_assert_acquired(&proctree_lock);
-	if (proc->group && proc->group->pgid == proc->pid) return -EPERM;
+	if (proc->group && proc->group->pgid == proc->pid) {
+		// already a process group leader
+		return -EPERM;
+	}
 	if (group == proc->group) return;
 	if (proc->group) {
 		rculist_remove(&proc->group->processes, &proc->group_node);
@@ -114,7 +117,7 @@ process_t *proc_from_pid(pid_t pid) {
 	return proc;
 }
 
-void proc_register(process_t *proc) {
+static void proc_register(process_t *proc) {
 	xarray_set(&procs, proc->pid, proc);
 }
 
@@ -153,28 +156,43 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 		slab_free(proc);
 		return NULL;
 	}
+	
+	vmm_init_space(&proc->vmm_space);
+	list_init(&proc->child);
+	proc->pid    = proc->main_thread->tid;
+	proc->state  = PROC_STATE_RUNNING;
+
+	if (!get_current_proc()) {
+		session_create(proc);
+	}
 
 	spinlock_acquire(&proc->proc_lock);
 	spinlock_acquire(&proctree_lock);
 
-	proc->parent = get_current_proc();
-	proc->state  = PROC_STATE_RUNNING;
-	vmm_init_space(&proc->vmm_space);
-	list_init(&proc->child);
-	proc_set_group(proc, get_current_proc()->group);
-	rcu_acquire_read(NULL);
-	proc_set_cred(proc, get_current_cred());
-	rcu_release_read(NULL);
-	proc->umask       = get_current_proc()->umask;
-	proc->cmdline     = strdup(get_current_proc()->cmdline);
-	proc->cwd         = vfs_dentry_ref(get_current_proc()->cwd);
-	proc->exe         = vfs_dentry_ref(get_current_proc()->exe);
-	proc->pid         = proc->main_thread->tid;
+	if (get_current_proc()) {
+		proc->parent = get_current_proc();
+		proc_set_group(proc, get_current_proc()->group);
+		rcu_acquire_read(NULL);
+		proc_set_cred(proc, get_current_cred());
+		rcu_release_read(NULL);
+		proc->umask       = get_current_proc()->umask;
+		proc->cmdline     = strdup(get_current_proc()->cmdline);
+		proc->cwd         = vfs_dentry_ref(get_current_proc()->cwd);
+		proc->exe         = vfs_dentry_ref(get_current_proc()->exe);
 
-	// add it the the list of the children of the parent
-	// note that the parent hold a ref
-	proc_ref(proc);
-	list_append(&proc->parent->child, &proc->child_list_node);
+		// add it the the list of the children of the parent
+		// note that the parent hold a ref
+		proc_ref(proc);
+		list_append(&proc->parent->child, &proc->child_list_node);
+	} else {
+		// not current process running
+		// init with sane values
+		proc_set_cred(boot_task, &default_cred);
+		proc->umask  = 022;
+		proc->cmdline = strdup("unknown");
+		proc->cwd = vfs_get_dentry("/", 0);
+		proc_ref(proc);
+	}
 
 	// add it to the global process list
 	// note that the proc list only hold a weak ref
