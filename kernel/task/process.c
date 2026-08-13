@@ -64,6 +64,7 @@ process_group_t *process_group_create(pid_t pgid) {
 	memset(group, 0, sizeof(process_group_t));
 	group->ref_count = 1;
 	group->pgid = pgid;
+	xarray_set(&groups, group->pgid, group);
 
 	return group;
 }
@@ -79,6 +80,7 @@ void process_group_release(process_group_t *group) {
 	if (ref_count_dec(&group->ref_count) > 1) return;
 	rculist_remove(&group->session->groups, &group->node);
 	session_release(group->session);
+	xarray_clear(&groups, group->pgid);
 	slab_free(group);
 }
 
