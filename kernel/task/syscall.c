@@ -1150,6 +1150,7 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	} else {
 		group = process_group_from_pgid(pgid);
 	}
+	if (!group) return -EPERM;
 	spinlock_acquire(&proc->proc_lock);
 	spinlock_acquire(&proctree_lock);
 	if (!group->session) {
@@ -1158,10 +1159,6 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	}
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
 		ret = -ESRCH;
-		goto err;
-	}
-	if (!group) {
-		ret = -EPERM;
 		goto err;
 	}
 	if (group->session != proc->group->session) {
