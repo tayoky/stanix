@@ -116,16 +116,16 @@ static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t 
 	ide_channel_io_wait(channel);
 
 	uint32_t signature = 
-		(ide_channel_read(channel, IDE_REG_LBA2) << 24) |
-		(ide_channel_read(channel, IDE_REG_LBA1) << 16) |
-		(ide_channel_read(channel, IDE_REG_LBA0) << 8) |
-		(ide_channel_read(channel, IDE_REG_SECCOUNT0) << 0);
+		((uint32_t)ide_channel_read(channel, IDE_REG_LBA2) << 24) |
+		((uint32_t)ide_channel_read(channel, IDE_REG_LBA1) << 16) |
+		((uint32_t)ide_channel_read(channel, IDE_REG_LBA0) << 8) |
+		((uint32_t)ide_channel_read(channel, IDE_REG_SECCOUNT0) << 0);
 
 	if (signature == 0x00000000 || signature == 0xffffffff) {
 		// no device
 		return NULL;
 	}
-	kdebugf("got signature %032x\n", signature);
+	kdebugf("got signature %08x\n", signature);
 
 	ata_device_t *device = kmalloc(sizeof(ata_device_t));
 	if (!device) return NULL;
