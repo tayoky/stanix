@@ -114,34 +114,30 @@ test-qemu-debug : image-hdd
 # images target
 
 image-hdd : $(HDD_IMAGE)
-$(HDD_IMAGE) : $(ESP_FILES) | build-all
-	@echo "[creating hdd image]"
+$(HDD_IMAGE) : $(ESP_FILES) build-all
+	@echo "GEN $@"
 	@rm -f $(HDD_IMAGE)
-	@dd if=/dev/zero bs=9M count=0 seek=64 of=$(HDD_IMAGE)
-	sgdisk $(HDD_IMAGE) -n 1:2048 -t 1:ef00 
-	@make -C limine
+	$(Q)dd if=/dev/zero bs=9M count=0 seek=64 of=$(HDD_IMAGE)
+	$(Q)sgdisk $(HDD_IMAGE) -n 1:2048 -t 1:ef00 
+	@$(MAKE) -C limine
 # Format the image as fat32.
-	@echo "[format fat32 partition]"
-	@mformat -i $(HDD_IMAGE)@@1M	
+	$(Q)mformat -i $(HDD_IMAGE)@@1M	
 #copy the files
-	@echo "[copying boot files]"
-	@cd $(ESP_ROOT) && mcopy -i $(abspath $(HDD_IMAGE))@@1M * -/ ::/
+	$(Q)cd $(ESP_ROOT) && mcopy -i $(abspath $(HDD_IMAGE))@@1M * -/ ::/
 # Install the Limine BIOS stages onto the image.
-	@echo "[installing limine]"
-	@./limine/limine bios-install $(HDD_IMAGE)
+	$(Q)./limine/limine bios-install $(HDD_IMAGE)
 
 image-iso : $(ISO_IMAGE)
-$(ISO_IMAGE) : $(ESP_FILES) | build-all
-	@echo "[creating iso]"
+$(ISO_IMAGE) : $(ESP_FILES) build-all
+	@echo "GEN $@"
 	@rm -f $(ISO_IMAGE)
-	@xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
+	$(Q)xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
         -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
         -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
         -efi-boot-part --efi-boot-image --protective-msdos-label \
         $(ESP_ROOT) -o $(ISO_IMAGE)
-	@make -C limine
-	@echo "[installing limine]"
-	@./limine/limine bios-install $(ISO_IMAGE)
+	@$(MAKE) -C limine
+	$(Q)./limine/limine bios-install $(ISO_IMAGE)
 
 image-all : image-iso image-hdd
 
@@ -160,14 +156,13 @@ $(ESP_ROOT)/boot/limine/limine-% : limine/limine-%
 	@echo "INSTALL boot/$^"
 	@cp  $^ $@
 
-# dummy rule for first run
-$(ESP_ROOT)/boot/stanix.elf : | build-kernel
 
 # build targets
 
 build-tlibc : header
 	@$(MAKE) -C tlibc install TARGET=stanix
 
+$(ESP_ROOT)/boot/stanix.elf : build-kernel
 build-kernel : build-tlibc build-libraries header
 # we need to install the kernel into the EFI system partition
 	@$(MAKE) -C kernel install DESTDIR="$(ESP_ROOT)" BUILDDIR=$(BUILDDIR)/kernel
@@ -183,7 +178,7 @@ build-userspace : build-tlibc build-libraries
 	@$(MAKE) -C userspace install BUILDDIR=$(BUILDDIR)/userspace
 
 build-initrd : $(ESP_ROOT)/boot/initrd.tar
-$(ESP_ROOT)/boot/initrd.tar : $(BASE_INITRD_SRC)  $(shell find -P $(INITRD) 2>/dev/null || echo) $(shell find -P $(SYSROOT)) | build-userspace build-modules
+$(ESP_ROOT)/boot/initrd.tar : $(BASE_INITRD_SRC) build-userspace build-modules
 	@mkdir -p $(@D)
 	@echo "GEN boot/initrd.tar"
 	@mkdir -p $(INITRD)/dev $(INITRD)/tmp $(INITRD)/mnt $(INITRD)/proc $(INITRD)/sys
