@@ -28,6 +28,7 @@ void poll_fini(poll_t *poll) {
 
 void poll_cancel(poll_t *poll) {
     block_cancel();
+    spinlock_release(&poll->lock);
 
     // remove from each sleep queue
     foreach (current, &poll->events) {
@@ -65,6 +66,7 @@ int poll_wait(poll_t *poll, struct timespec *timeout) {
             if (event->revents) poll->ready = 1;
         }
     }
+    spinlock_release(&poll->lock);
     return ret;
 }
 
