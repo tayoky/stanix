@@ -24,13 +24,25 @@ typedef struct fd_table {
 	rwlock_t lock;
 } fd_table_t;
 
-typedef struct process_group {
-	rculist_t processes;
+typedef struct process process_t;
+struct tty;
+
+typedef struct session {
+	rculist_t groups;
 	ref_count_t ref_count;
+	process_t *leader; // protected by lock
+	struct tty *tty;   // protected by lock
+	spinlock_t lock;
+	pid_t sid;
+} session_t;
+
+typedef struct process_group {
+	rculist_node_t node;
+	rculist_t processes;  // write protected by proctree lock
+	ref_count_t ref_count;
+	session_t *session;
 	pid_t pgid;
 } process_group_t;
-
-typedef struct process process_t;
 
 struct process {
 	list_node_t child_list_node; // protected by proctree lo k
@@ -41,8 +53,8 @@ struct process {
 	struct sigaction sig_handlers[32]; // protected by proc lock
 	rcu_ptr_t cred;              // write protected by proc lock
 	ref_count_t ref_count;
-	process_t *parent;           // write protected by proctree lock and read protected by proc lock
-	process_group_t *group;      // write protected by proctree lock and read protected by proc lock
+	process_t *parent;           // write protected by proctree lock and protected by proc lock
+	process_group_t *group;      // write protected by proctree lock and protected by proc lock
 	fd_table_t fd_table;
 	vfs_dentry_t *cwd;
 	vfs_dentry_t *exe;
@@ -53,7 +65,6 @@ struct process {
 	list_t threads;              // protected by proc lock
 	size_t threads_count;        // protected by proc lock
 	pid_t pid;
-	pid_t sid;
 	mode_t umask;
 	spinlock_t proc_lock;        // cannot be acquired if holding proctree lock
 	task_t *main_thread;
@@ -69,6 +80,14 @@ struct process {
 
 void init_proc(void);
 
+static inline session_t *session_ref(session_t *session) {
+	if (session) ref_count_inc(&session->ref_count);
+	return session;
+}
+
+void session_release(session_t *session);
+int session_create(process_t *leader);
+
 static inline process_group_t *process_group_ref(process_group_t *group) {
 	if (group) ref_count_inc(&group->ref_count);
 	return group;
@@ -76,13 +95,15 @@ static inline process_group_t *process_group_ref(process_group_t *group) {
 
 void process_group_release(process_group_t *group);
 
-process_group_t *process_group_get_from_pgid(pid_t pgid);
-process_group_t *process_group_get_or_create_from_pgid(pid_t pgid);
+process_group_t *process_group_from_pgid(pid_t pgid);
+process_group_t *process_group_create(pid_t *pgid);
+
+void process_group_set_session(process_group_t *group, session_t *session);
 
 /**
  * @note require proc's lock and the proctree_lock
  */
-void proc_set_group(process_t *proc, process_group_t *group);
+int proc_set_group(process_t *proc, process_group_t *group);
 
 static inline cred_t *proc_get_cred(process_t *proc) {
 	if (!proc) return NULL;

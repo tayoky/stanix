@@ -3,19 +3,53 @@
 #include <kernel/xarray.h>
 #include <abi/wait.h>
 
+static slab_cache_t sessions_slab;
 static slab_cache_t process_groups_slab;
 static slab_cache_t procs_slab;
 static xarray_t groups;
 xarray_t procs;
 
 void init_proc(void) {
+	slab_init(&sessions_slab, sizeof(session_t), "sessions");
 	slab_init(&process_groups_slab, sizeof(process_group_t), "process-groups");
 	slab_init(&procs_slab, sizeof(process_t), "processes");
 	xarray_init(&procs);
 	xarray_init(&groups);
 }
 
-process_group_t *process_group_get_from_pgid(pid_t pgid) {
+void session_release(session_t *session) {
+	if (!session) return;
+	if (ref_count_dec(&session->ref_count) > 1) {
+		return;
+	}
+	slab_free(session);
+}
+
+int session_create(process_t *leader) {
+	session_t *session = slab_alloc(&sessions_slab);
+	if (!session) return -ENOMEM;
+	memset(session, 0, sizeof(session_t));
+	session->leader = leader;
+	session->sid    = leader->pid;
+	group_t *group = process_group_create(leader->pid);
+	if (!group) {
+		slab_free(session);
+		return -ENOMEM;
+	}
+	process_group_set_session(group, session);
+	
+	spinlock_acquire(&leader->proc_lock);
+	spinlock_acquire(&proctree_lock);
+
+	int ret = proc_set_group(leader, group);
+
+	spinlock_release(&proctree_lock);
+	spinlock_release(&leader->proc_lock);
+	process_group_release(group);
+	return ret;
+}
+
+process_group_t *process_group_from_pgid(pid_t pgid) {
 	rcu_acquire_read(&groups.rcu);
 	process_group_t *group = xarray_get(&groups, pgid);
 	process_group_ref(group);
@@ -23,10 +57,7 @@ process_group_t *process_group_get_from_pgid(pid_t pgid) {
 	return group;
 }
 
-process_group_t *process_group_get_or_create_from_pgid(pid_t pgid) {
-	process_group_t *group = process_group_get_from_pgid(pgid);
-	if (group) return group;
-
+process_group_t *process_group_create(pid_t *pgid) {
 	// we need to create a group
 	group = slab_alloc(&process_groups_slab);
 	if (!group) return NULL;
@@ -34,27 +65,27 @@ process_group_t *process_group_get_or_create_from_pgid(pid_t pgid) {
 	group->ref_count = 1;
 	group->pgid = pgid;
 
-	rcu_acquire_read(&groups.rcu);
-	process_group_t *race_group = xarray_cmpxchg(&groups, pgid, NULL, group);
-	process_group_ref(race_group);
-	rcu_release_read(&groups.rcu);
-	if (race_group) {
-		// we raced
-		slab_free(group);
-		return race_group;
-	}
 	return group;
+}
+
+void process_group_set_session(process_group_t *group, session_t *session) {
+	kassert(!group->session);
+	group->session = session_ref(session);
+	rculist_append(&session->groups, &group->node);
 }
 
 void process_group_release(process_group_t *group) {
 	if (!group) return;
 	if (ref_count_dec(&group->ref_count) > 1) return;
+	rculist_remove(&session->groups, &group->node);
+	session_release(group->session);
 	slab_free(group);
 }
 
-void proc_set_group(process_t *proc, process_group_t *group) {
+int proc_set_group(process_t *proc, process_group_t *group) {
 	spinlock_assert_acquired(&proc->proc_lock);
 	spinlock_assert_acquired(&proctree_lock);
+	if (proc->group && proc->group->pgid == proc->pid) return -EPERM;
 	if (group == proc->group) return;
 	if (proc->group) {
 		rculist_remove(&proc->group->processes, &proc->group_node);
@@ -67,6 +98,7 @@ void proc_set_group(process_t *proc, process_group_t *group) {
 	if (group) {
 		rculist_append(&group->processes, &proc->group_node);
 	}
+	return 0;
 }
 
 process_t *proc_from_pid(pid_t pid) {

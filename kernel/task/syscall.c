@@ -727,7 +727,7 @@ int sys_kill(pid_t pid, int sig) {
 	};
 
 	if (pid < 0) {
-		process_group_t *group = process_group_get_from_pgid(-pid);
+		process_group_t *group = process_group_from_pgid(-pid);
 		if (!group) return -ESRCH;
 
 		int ret = user_send_siginfo_group(group, &siginfo);
@@ -1142,16 +1142,20 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	process_t *proc = proc_from_pid(pid);
 	process_group_t *group;
 	if (pid == pgid) {
-		group = process_group_get_or_create_from_pgid(pgid);
+		group = process_group_create(pgid, NULL);
 		if (!group) {
 			ret = -ENOMEM;
 			goto err;
 		}
 	} else {
-		group = process_group_get_from_pgid(pgid);
+		group = process_group_from_pgid(pgid);
 	}
 	spinlock_acquire(&proc->proc_lock);
 	spinlock_acquire(&proctree_lock);
+	if (!group->session) {
+		// we need to setup the session of the group
+		process_group_set_session(proc->group->session);
+	}
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
 		ret = -ESRCH;
 		goto err;
@@ -1160,16 +1164,11 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 		ret = -EPERM;
 		goto err;
 	}
-	if (proc->pid == proc->group->pgid) {
-		// process group leader
+	if (group->session != proc->group->session) {
 		ret = -EPERM;
 		goto err;
 	}
-	if (proc->sid != get_current_proc()->sid) {
-		ret = -EPERM;
-		goto err;
-	}
-	proc_set_group(proc, group);
+	ret = proc_set_group(proc, group);
 err:
 	spinlock_release(&proctree_lock);
 	spinlock_release(&proc->proc_lock);

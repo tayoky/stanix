@@ -131,8 +131,8 @@ void init_task() {
 	memset(boot_task, 0, sizeof(process_t));
 	boot_task->parent = boot_task;
 	boot_task->pid    = 0;
+	session_create(boot_task);
 	spinlock_acquire(&boot_task->proc_lock);
-	boot_task->group  = process_group_get_or_create_from_pgid(0);
 	list_init(&boot_task->child);
 	list_init(&boot_task->threads);
 	boot_task->umask = 022;
