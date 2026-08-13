@@ -95,11 +95,11 @@ void sleep_remove_from_queue(sleep_queue_t *queue) {
 		sleep_queue_node_t *node = container_of(current, sleep_queue_node_t, node);
 		if (node->task != get_current_task()) continue;
 		list_remove(&queue->waiters, &node->node);
-		spinlock_release_irqsave(&queue->lock, irq_save);
+		spinlock_release_irq(&queue->lock, irq_save);
 		slab_free(node);
 		return;
 	}
-	spinlock_release_irqsave(&queue->lock, irq_save);
+	spinlock_release_irq(&queue->lock, irq_save);
 }
 
 int sleep_on_queue(sleep_queue_t *queue) {

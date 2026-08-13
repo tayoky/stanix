@@ -132,7 +132,7 @@ void init_task() {
 	idle = kernel_proc->main_thread;
 
 	// init the boot task (task running since boot)
-	process_t *boot_task = new_proc(NULL, NULL);
+	process_t *boot_task = proc_new(NULL, NULL);
 
 	// the thread is already running
 	boot_task->main_thread->status = TASK_STATUS_RUNNING;
@@ -153,6 +153,14 @@ void init_task() {
 	can_task_switch = 1;
 
 	kok();
+}
+
+void preempt_enable(void) {
+	if (get_current_task()) get_current_task()->preempt_disable--;
+}
+
+void preempt_disable(void) {
+	if (get_current_task()) get_current_task()->preempt_disable++;
 }
 
 static void wakeup_sleepers(void) {

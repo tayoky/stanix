@@ -147,18 +147,14 @@ static inline void block_cancel(void) {
 }
 
 /**
- * @brief enable preempt for this core, must be called the number of time \ref preempt_disable was called
+ * @brief enable preempt for this task, must be called the number of time \ref preempt_disable was called
  */
-static inline void preempt_enable(void) {
-	if (get_current_task()) get_current_task()->preempt_disable--;
-}
+void preempt_enable(void);
 
 /**
- * @brief disable preempt for this core
+ * @brief disable preempt for this task
  */
-static inline void preempt_disable(void) {
-	if (get_current_task()) get_current_task()->preempt_disable++;
-}
+void preempt_disable(void);
 
 /**
  * @brief block the current task

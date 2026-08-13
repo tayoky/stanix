@@ -1142,7 +1142,7 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	process_t *proc = proc_from_pid(pid);
 	process_group_t *group;
 	if (pid == pgid) {
-		group = process_group_create(pgid, NULL);
+		group = process_group_create(pgid);
 		if (!group) {
 			ret = -ENOMEM;
 			goto err;
@@ -1154,7 +1154,7 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	spinlock_acquire(&proctree_lock);
 	if (!group->session) {
 		// we need to setup the session of the group
-		process_group_set_session(proc->group->session);
+		process_group_set_session(group, proc->group->session);
 	}
 	if (!proc || (proc->parent != get_current_proc() && proc != get_current_proc())) {
 		ret = -ESRCH;

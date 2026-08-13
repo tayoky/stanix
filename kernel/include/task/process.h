@@ -96,7 +96,7 @@ static inline process_group_t *process_group_ref(process_group_t *group) {
 void process_group_release(process_group_t *group);
 
 process_group_t *process_group_from_pgid(pid_t pgid);
-process_group_t *process_group_create(pid_t *pgid);
+process_group_t *process_group_create(pid_t pgid);
 
 void process_group_set_session(process_group_t *group, session_t *session);
 

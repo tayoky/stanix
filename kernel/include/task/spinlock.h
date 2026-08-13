@@ -20,9 +20,9 @@ typedef struct spinlock {
 #endif
 } spinlock_t;
 
-static inline void preempt_enable(void);
-static inline void preempt_disable(void);
-
+void preempt_enable(void);
+void preempt_disable(void);
+	
 #ifdef SPINLOCK_DEBUG
 static inline void __spinlock_raw_acquire(spinlock_t *lock, const char *line) {
 	while (atomic_flag_test_and_set_explicit(&lock->lock, memory_order_acquire)) {
@@ -80,8 +80,5 @@ static inline void spinlock_release_irq(spinlock_t *lock, int irq_save) {
 }
 
 #define spinlock_assert_acquired(_lock) kassert(atomic_flag_test_and_set(&(_lock)->lock) && "spinlock acquired")
-
-// need to be inclued last
-#include <kernel/scheduler.h>
 
 #endif

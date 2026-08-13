@@ -31,7 +31,7 @@ int session_create(process_t *leader) {
 	memset(session, 0, sizeof(session_t));
 	session->leader = leader;
 	session->sid    = leader->pid;
-	group_t *group = process_group_create(leader->pid);
+	process_group_t *group = process_group_create(leader->pid);
 	if (!group) {
 		slab_free(session);
 		return -ENOMEM;
@@ -57,9 +57,9 @@ process_group_t *process_group_from_pgid(pid_t pgid) {
 	return group;
 }
 
-process_group_t *process_group_create(pid_t *pgid) {
+process_group_t *process_group_create(pid_t pgid) {
 	// we need to create a group
-	group = slab_alloc(&process_groups_slab);
+	process_group_t *group = slab_alloc(&process_groups_slab);
 	if (!group) return NULL;
 	memset(group, 0, sizeof(process_group_t));
 	group->ref_count = 1;
@@ -77,7 +77,7 @@ void process_group_set_session(process_group_t *group, session_t *session) {
 void process_group_release(process_group_t *group) {
 	if (!group) return;
 	if (ref_count_dec(&group->ref_count) > 1) return;
-	rculist_remove(&session->groups, &group->node);
+	rculist_remove(&group->session->groups, &group->node);
 	session_release(group->session);
 	slab_free(group);
 }
@@ -89,7 +89,7 @@ int proc_set_group(process_t *proc, process_group_t *group) {
 		// already a process group leader
 		return -EPERM;
 	}
-	if (group == proc->group) return;
+	if (group == proc->group) return 0;
 	if (proc->group) {
 		rculist_remove(&proc->group->processes, &proc->group_node);
 		if (rculist_is_empty(&proc->group->processes)) {
@@ -187,7 +187,7 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 	} else {
 		// not current process running
 		// init with sane values
-		proc_set_cred(boot_task, &default_cred);
+		proc_set_cred(proc, &default_cred);
 		proc->umask  = 022;
 		proc->cmdline = strdup("unknown");
 		proc->cwd = vfs_get_dentry("/", 0);
