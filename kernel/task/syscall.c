@@ -1540,6 +1540,21 @@ int sys_fstatat(int fd, const char *path, struct stat *st, int flags) {
 	return ret;
 }
 
+pid_t sys_setsid(void) {
+	int ret = session_create(get_current_proc());
+	if (ret < 0) return ret;
+
+	// sid equal pid now
+	return get_current_proc()->pid;
+}
+
+pid_t sys_getsid(void) {
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	pid_t sid = get_current_proc()->group->session->sid;
+	spinlock_release(&get_current_proc()->proc_lock);
+	return sid;
+}
+
 int sys_stub(void) {
 	return -ENOSYS;
 }
@@ -1645,6 +1660,8 @@ void *syscall_table[] = {
 	(void *)sys_tgkill,
 	(void *)sys_sigqueue,
 	(void *)sys_tgsigqueue,
+	(void *)sys_setsid,
+	(void *)sys_getsid,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
