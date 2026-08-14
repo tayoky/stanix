@@ -79,7 +79,8 @@ ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count, long flags)
 ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long flags) {
 	char *buffer = (char *)buf;
 
-	while (count) {
+	size_t remaining = count;
+	while (remainig > 0) {
 		int irq_save = spinlock_acquire_irq(&ring->lock);
 
 		if (ringbuffer_write_available(ring) == 0) {
@@ -94,12 +95,12 @@ ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long
 		}
 
 		// cant write more that what is available
-		size_t rest_count = count;
+		size_t rest_count = remaining;
 		if (rest_count > ringbuffer_write_available(ring)) {
 			rest_count = ringbuffer_write_available(ring);
 		}
 
-		count -= rest_count;
+		remaining -= rest_count;
 		ring->read_available += rest_count;
 
 		// if the write go farther than the end cut in two
