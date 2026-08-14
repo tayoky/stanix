@@ -3,13 +3,16 @@
 #include <kernel/list.h>
 #include <kernel/string.h>
 #include <kernel/poll.h>
+#include <kernel/slab.h>
 #include <kernel/assert.h>
 #include <errno.h>
 
+static slab_cache_t socket_packets_slab;
 static list_t socket_domains;
 
 void init_sockets(void) {
 	list_init(&socket_domains);
+	slab_inkt(&socket_packets_slab, sizeof(socket_packet_t), "socket-packets");
 }
 
 static ssize_t socket_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
@@ -70,10 +73,6 @@ int socket_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	return socket->domain->poll_get(socket, event);
 }
 
-int socket_recive_packet(socket_t *socket, void *data, size_t size, struct sockaddr *addr) {
-	// TODO
-}
-
 static vfs_fd_ops_t socket_ops = {
 	.poll_add    = socket_poll_add,
 	.poll_remove = socket_poll_remove,
@@ -93,6 +92,65 @@ static void socket_init(socket_t *socket) {
 	socket->fd.ref_count = 1;
 	socket->fd.inode = NULL;
 	socket->state = SOCKET_STATE_INIT;
+}
+
+int socket_queue_recived_packet(socket_t *socket, void *data, size_t size) {
+	socket_packet_t *packet = slab_alloc(&socket_packets_slab);
+	int ret = 0;
+	if (!packet) return -ENOMEM;
+	packet->data = kmalloc(size);
+	packet->size = size;
+	if (!packet->data) {
+		ret = -ENOMEM;
+		goto free_packet;
+	}
+
+	if (safe_copy_from(packet->data, data, size) < 0) {
+		ret = -EFAULT;
+free_packet:
+		slab_free(packet);
+		return ret;
+	}
+		
+	list_append(&socket->recived, &packet->node);
+	wakeup_queue(&socket->sleep_queue, 0);
+	return 0;
+}
+
+ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, int keep_bounds) {
+	if (list_is_empty(&socket->recived)) {
+		if (socket->fd.flags & O_NONBLOCK) {
+			return -EAGAIN;
+		} else {
+			if (sleep_on_queue_condition_interruptible(&socket->sleep_queue, !list_is_empty(&socket->recived)) < 0) {
+				return -EINTR;
+			}
+		}
+		return NULL;
+	}
+	ssize_t total = 0;
+	char *buffer = buf;
+	while (size > 0 && !list_is_empty(socket->recived)) {
+		socket_packet_t *packet = container_of(socket->recived, socket_packet_t, node);
+
+		size_t available = packet->size - packet->read;
+		size_t to_read = available < size : available : size;
+
+		if (safe_copy_to(buffer, packet->data + packet->read, to_read) < 0) {
+			return total > 0 ? total : -EFAULT;
+		}
+		
+		packet->read += to_read;
+		total        += to_read;
+		if (packet->read == packet->size) {
+			// whole packet is read
+			list_remove(&socket->recived, &packet->node);
+			kfree(packet->data);
+			slab_free(packet);
+		}
+		if (keep_bounds) break;
+	}
+	return total;
 }
 
 vfs_fd_t *socket_create(int domain, int type, int protocol) {

@@ -3,7 +3,8 @@
 
 #include <kernel/vfs.h>
 #include <kernel/list.h>
-#include <sys/socket.h>
+#include <kernel/sleep.h>
+#include <abi/socket.h>
 
 typedef struct socket socket_t;
 typedef struct socket_packet socket_packet_t;
@@ -13,6 +14,7 @@ struct poll_event;
 struct socket {
 	vfs_fd_t fd;
 	list_t recived;
+	sleep_queue_t sleep_queue;
 	struct socket_domain *domain;
 	int type;
 	int protocol;
@@ -28,7 +30,7 @@ struct socket_packet {
 	list_node_t node;
 	size_t size;
 	void *data;
-	struct sockaddr *addr;
+	size_t read;
 };
 
 struct socket_domain {
@@ -62,6 +64,7 @@ int socket_connect(vfs_fd_t *socket, const struct sockaddr *address, socklen_t a
 int socket_listen(vfs_fd_t *socket, int backlog);
 
 // function for the socket implementation
-int socket_recive_packet(socket_t *socket, void *data, size_t size, struct sockaddr *addr);
+int socket_queue_recived_packet(socket_t *socket, void *data, size_t size);
+ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, int keep_bounds);
 
 #endif

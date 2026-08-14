@@ -21,10 +21,6 @@ static socket_t *unix_create(int type, int protocol);
 static void unix_pair(unix_socket_t *a, unix_socket_t *b) {
 	a->connected = b;
 	b->connected = a;
-
-	// init the recieve buffers
-	ringbuffer_init(&a->queue, QUEUE_SIZE);
-	ringbuffer_init(&b->queue, QUEUE_SIZE);
 }
 
 // TODO : double bind protection
@@ -153,13 +149,13 @@ static ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 		// TODO
 		return -ENOSYS;
 	} else {
-		if (socket->socket.state == SOCKET_STATE_DISCONNECTED && !ringbuffer_read_available(&socket->queue)) {
+		if (socket->socket.state == SOCKET_STATE_DISCONNECTED && list_is_empty(socket->socket.recived)) {
 			// disconnected and nothing to read, we will never use this socket again
 			return -ENOTCONN;
 		}
 
 		for (int i=0; i<message->msg_iovlen; i++) {
-			ssize_t ret = ringbuffer_read(&socket->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, sock->fd.flags);
+			ssize_t ret = socket_dequeue_recived_packet(sock, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, socket->socket.type == SOCK_SEQPACKET);
 			if (ret < 0) return ret;
 			total += ret;
 		}
@@ -180,9 +176,9 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 	} else {
 
 		for (int i=0; i<message->msg_iovlen; i++) {
-			ssize_t ret = ringbuffer_write(&socket->connected->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, sock->fd.flags);
+			int ret = socket_queue_recived_packet(sock, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len);
 			if (ret < 0) return ret;
-			total += ret;
+			total += message->msg_iov[i].iov_len;
 		}
 	}
 	return total;
@@ -196,7 +192,7 @@ static int unix_poll_add(socket_t *sock, poll_event_t *event) {
 		// you can't really wait for a disconnected socket to become ready
 		break;
 	case SOCKET_STATE_CONNECTED:
-		ringbuffer_poll_add(&socket->queue, event);
+		sleep_add_to_queue(&socket->socket.sleep_queue);
 		break;
 	case SOCKET_STATE_LISTEN:
 		ringbuffer_poll_add(&socket->queue, event);
@@ -212,7 +208,7 @@ static int unix_poll_remove(socket_t *sock, poll_event_t *event) {
 	switch (socket->socket.state) {
 	case SOCKET_STATE_DISCONNECTED:
 	case SOCKET_STATE_CONNECTED:
-		ringbuffer_poll_remove(&socket->queue, event);
+		sleep_remove_from_queue(&socket->socket.sleep_queue);
 		break;
 	case SOCKET_STATE_LISTEN:
 		ringbuffer_poll_remove(&socket->queue, event);
@@ -228,9 +224,12 @@ static int unix_poll_get(socket_t *sock, poll_event_t *event) {
 	switch (socket->socket.state) {
 	case SOCKET_STATE_DISCONNECTED:
 		event->revents |= POLLHUP;
-		// fallthrough
+		break;
 	case SOCKET_STATE_CONNECTED:
-		ringbuffer_poll_get(&socket->queue, event);
+		events->revents |= POLLOUT;
+		if (!list_is_empty(&socket->socket.recived)) {
+			event->revents |= POLLIN;
+		}
 		break;
 	case SOCKET_STATE_LISTEN:
 		ringbuffer_poll_get(&socket->queue, event);
@@ -246,12 +245,9 @@ static void unix_close(socket_t *sock) {
 	kdebugf("unix cleanup\n");
 
 	if (socket->connected) {
-		// FIXME : we need some kind of lock
-		// disconnect the peer
 		socket->connected->socket.state = SOCKET_STATE_DISCONNECTED;
-		ringbuffer_wakeup_all(&socket->connected->queue);
-		ringbuffer_destroy(&socket->queue);
 	}
+	ringbuffer_wakeup_all(&socket->connected->queue);
 	ringbuffer_destroy(&socket->queue);
 	if (socket->socket.type == SOCK_STREAM || socket->socket.type == SOCK_STREAM) {
 		wakeup_queue(&socket->sleep, 0);
