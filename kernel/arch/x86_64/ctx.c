@@ -74,10 +74,6 @@ void arch_registers_stacktrace(registers_t *registers) {
 	kprintf("older call\n");
 }
 
-int arch_registers_is_userspace(registers_t *registers) {
-	return registers->cs == 0x1b;
-}
-
 uintptr_t arch_fault_get_addr(registers_t *fault) {
 	return fault->cr2;
 }
@@ -86,4 +82,27 @@ long arch_fault_get_prot(registers_t *fault) {
 	if (fault->err_code & 0x10) return MMU_FLAG_EXEC;
 	if (fault->err_code & 0x02) return MMU_FLAG_WRITE;
 	return MMU_FLAG_READ;
+}
+
+void arch_context_init(acontext_t *context, void *stack_top, void *start, int userspace) {
+	// reset most registers
+	memset(context, 0, sizeof(acontext_t));
+
+	int flags    = userspace ? 0x202 : 0x002;
+	int code_seg = userspace ? 0x1b  : 0x08;
+	int data_seg = userspace ? 0x23  : 0x10;
+
+	context.frame.flags = flags;
+	context.frame.cs    = code_seg;
+	context.frame.ss    = data_seg;
+	context.frame.ds    = data_seg;
+	context.frame.es    = data_seg;
+	context.frame.gs    = data_seg;
+	context.frame.fs    = data_seg;
+	context.fpu.fcw     = 0x037f;
+	context.fpu.mxcsr   = 0x1F80;
+}
+
+int arch_registers_is_userspace(registers_t *registers) {
+	return registers->cs == 0x1b;
 }

@@ -83,11 +83,20 @@ uintptr_t arch_fault_get_addr(registers_t *fault);
 long arch_fault_get_prot(registers_t *fault);
 
 /**
+ * @brief initalize an arch context with sane values
+ * @param context the context to initalize
+ * @param stack_top the top of the stack for this context
+ * @param start the start of execution for this context
+ * @param userspace is this context a userspace one
+ */
+void arch_context_init(acontext_t *context, void *stack_top, void *start, int userspace);
+
+/**
  * @brief check if a specfied context is in userspace
- * @param frame the context to check
+ * @param registers the context to check
  * @return 1 of if userspace 0 if kernel space
  */
-int arch_registers_is_userspace(registers_t *frame);
+int arch_registers_is_userspace(registers_t *registers);
 
 void init_root_bus(void);
 void init_timer(void);
@@ -96,16 +105,16 @@ void arch_set_tls(void *tls);
 void enable_sse(void);
 int arch_shutdown(int flags);
 
-#define ARG0_REG(frame) (frame).rax
-#define ARG1_REG(frame) (frame).rdi
-#define ARG2_REG(frame) (frame).rsi
-#define ARG3_REG(frame) (frame).rdx
-#define ARG4_REG(frame) (frame).rcx
-#define ARG5_REG(frame) (frame).r8
-#define ARG6_REG(frame) (frame).r9
-#define RET_REG(frame)  (frame).rax
-#define SP_REG(frame)   (frame).rsp
-#define PC_REG(frame)   (frame).rip
+#define ARG0_REG(registers) (registers).rax
+#define ARG1_REG(registers) (registers).rdi
+#define ARG2_REG(registers) (registers).rsi
+#define ARG3_REG(registers) (registers).rdx
+#define ARG4_REG(registers) (registers).rcx
+#define ARG5_REG(registers) (registers).r8
+#define ARG6_REG(registers) (registers).r9
+#define RET_REG(registers)  (registers).rax
+#define SP_REG(registers)   (registers).rsp
+#define PC_REG(registers)   (registers).rip
 
 typedef int intrnum_t;
 

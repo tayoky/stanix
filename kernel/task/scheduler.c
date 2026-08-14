@@ -237,23 +237,9 @@ task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 	}
 
 	// setup registers
-	SP_REG(task->context.frame)   = KSTACK_TOP(task->kernel_stack) - 8;
-	PC_REG(task->context.frame)   = (uintptr_t)task_new_trampoline;
+	arch_context_init(&task->context, KSTACK_TOP(task->kernel_stack) - 8, task_new_trampoline, 0);
 	ARG1_REG(task->context.frame) = (uintptr_t)func;
 	ARG2_REG(task->context.frame) = (uintptr_t)arg;
-
-	// TODO : move this to arch specific stuff
-#ifdef __x86_64__
-	task->context.frame.flags = 0x02;
-	task->context.frame.cs    = 0x08;
-	task->context.frame.ss    = 0x10;
-	task->context.frame.ds    = 0x10;
-	task->context.frame.es    = 0x10;
-	task->context.frame.gs    = 0x10;
-	task->context.frame.fs    = 0x10;
-	task->context.fpu.fcw     = 0x037f;
-	task->context.fpu.mxcsr   = 0x1F80;
-#endif
 
 	return task;
 }
