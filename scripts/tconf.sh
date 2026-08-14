@@ -228,7 +228,7 @@ tconf_add_subdir () {
 	export ARFLAGS LDFLAGS OPT
 	export HOST BUILD TARGET
 	export PREFIX SYSROOT DEBUG
-	test -n "$OPTIONS" && export $OPTIONS
+	export $OPTIONS
 	SUBDIR="$1"
 	shift
 	tconf_print "entering subdir $SUBDIR"
@@ -476,7 +476,7 @@ tconf_find_build () {
 		tconf_print "$BUILD"
 		return 0
 	fi
-	tconf_print "unknow"
+	tconf_print "unknown"
 	return 1
 }
 
@@ -490,7 +490,7 @@ tconf_find_host () {
 		tconf_print "$HOST"
 		return 0
 	fi
-	tconf_print "unknow"
+	tconf_print "unknown"
 	return 1
 }
 
