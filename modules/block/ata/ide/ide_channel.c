@@ -119,6 +119,7 @@ static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t 
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
 	if (status == 0 || status == 0xff) {
 		// no drive
+		return NULL;
 	}
 	if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
 		return NULL;
