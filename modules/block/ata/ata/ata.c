@@ -53,6 +53,11 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 		}
 		flags = ATA_CMD_SEND_LBA28;
 	}
+	if (request->type == BLOCK_REQUEST_WRITE) {
+		flags |= ATA_CMD_WRITE_BUF;
+	} else {
+		flags |= ATA_CMD_READ_BUF;
+	}
 
 	ata_command_t *command = ata_create_command(device);
 	command->opcode = opcode;
@@ -101,7 +106,7 @@ static int ata_probe(devnode_t *devnode) {
 	identify->opcode = ATA_CMD_IDENTIFY;
 	identify->lba = 0;
 	identify->sectors_count = 0;
-	identify->flags = ATA_CMD_SEND_LBA28;
+	identify->flags = ATA_CMD_SEND_LBA28 | ATA_CMD_READ_BUF;
 	identify->buf = &ident;
 
 	int ret = ata_submit_command_sync(identify);
