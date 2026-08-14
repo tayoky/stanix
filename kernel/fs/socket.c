@@ -116,21 +116,15 @@ ssize_t socket_sendmsg(vfs_fd_t *fd, const struct msghdr *message, int flags) {
 	socket_t *socket = container_of(fd, socket_t, fd);
 
 	if (!socket->domain->sendmsg) return -EOPNOTSUPP;
-	if ((socket->type == SOCK_STREAM || socket->type ==  SOCK_SEQPACKET) && socket->state != SOCKET_STATE_CONNECTED) return -EINVAL;
 
-	if (socket->type == SOCK_RAW || socket->type == SOCK_DGRAM) {
-		if (socket->state == SOCKET_STAGE_CONNECTED) {
-			if (message->msg_name) return -EISCONN;
-			struct msghdr dflt = *message;
-			dflt.msg_name    = socket->connected;
-			dflt.msg_namelen = socket->connected_len;
-			message = &dflt;
-			return socket->domain->sendmsg(socket, &dflt, flags);
-		} else if (!message->msg_name) {
-			return -EDESTADDRREQ;
+	if (socket->state == SOCKET_STAGE_CONNECTED) {
+		if (message->msg_name) {
+			return -EISCONN;
 		}
-	} else if (message->msg_name) {
-		return -EISCONN;
+	} else if (socket->type == SOCK_STREAM || socket->type == SOCK_SEQPACKET) {
+		return -EINVAL;
+	} else if (!message->msg_name) {
+		return -EDESTADDRREQ;
 	}
 
 	return socket->domain->sendmsg(socket, message, flags);
@@ -199,7 +193,6 @@ int socket_listen(vfs_fd_t *fd, int backlog) {
 	socket_t *socket = container_of(fd, socket_t, fd);
 	
 	if (!socket->domain->listen || socket->type == SOCK_DGRAM || socket->type == SOCK_RAW) return -EOPNOTSUPP;
-	if (!socket->bound) return -EDESTADDRREQ;
 	if (socket->state != SOCKET_STATE_INIT) return -EINVAL;
 
 	int ret = socket->domain->listen(socket, backlog);

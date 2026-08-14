@@ -13,7 +13,6 @@
 
 static socket_domain_t unix_domain;
 static slab_cache_t unix_sockets_slab;
-static slab_cache_t unix_addrs_slab;
 static socket_t *unix_create(int type, int protocol);
 
 /**
@@ -28,6 +27,7 @@ static void unix_pair(unix_socket_t *a, unix_socket_t *b) {
 	ringbuffer_init(&b->queue, QUEUE_SIZE);
 }
 
+// TODO : double bind protection
 static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr, socklen_t addr_len) {
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 
@@ -39,8 +39,9 @@ static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr
 		return ret;
 	}
 
-	socket->socket.bound = slab_alloc(&unix_addrs_slab);
-	memcpy(socket->socket.bound, addr, addr_len);
+	// UNSAFE
+	socket->addr = *(struct sockaddr_un)addr;
+
 	return 0;
 }
 
@@ -97,8 +98,6 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 	if (r < 0) return r;
 
 	if (socket->connected) {
-		socket->socket->connected = slab_alloc(&unix_addrs_slab);
-		memcpy(socket->socket->connected, addr, addr_len);
 		return 0;
 	} else {
 		return -ECONNREFUSED;
@@ -131,17 +130,11 @@ static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_le
 
 	// we can now connect to the socket
 	*new_sock = unix_create(sock->type, sock->protocol);
-	new_sock->socket.connected = slab_alloc(&unix_addrs_skab);
 	unix_pair((unix_socket_t*)*new_sock, connection.socket);
-	if (connection.socket->bound.sun_path[0]) {
-		// the connected socket have an address
-		if (addr_len) *addr_len = sizeof(struct sockaddr_un);
-		if (address) *address = connection.socket->socket.bound;
-		memcpy(new_socket->socket.connected, connection.socket->socket.bound, sizeof(struct sockaddr_un));
-	} else {
-		// the connected socket don't have an bound address
-		if (addr_len) *addr_len = 0;
-	}
+	new_sock->sock.state = SOCK_STATE_CONNECTED;
+	if (addr_len) *addr_len = sizeof(struct sockaddr_un);
+	// UNSAFE
+	if (address) *address = connection.socket->socket.bound;
 
 	// wakeup the client sock
 	wakeup_queue(&socket->sleep, 1);
@@ -263,8 +256,6 @@ static void unix_close(socket_t *sock) {
 	if (socket->socket.type == SOCK_STREAM || socket->socket.type == SOCK_STREAM) {
 		wakeup_queue(&socket->sleep, 0);
 	}
-	slab_free(socket->socket.bound);
-	slab_free(socket->socket.connected);
 }
 
 static socket_t *unix_create(int type, int protocol) {
@@ -276,6 +267,7 @@ static socket_t *unix_create(int type, int protocol) {
 	socket->socket.type     = type;
 	socket->socket.protocol = protocol;
 	socket->socket.domain   = &unix_domain;
+	socket->addr.sun_family = AF_UNIX,
 
 	return &socket->socket;
 }
@@ -298,6 +290,5 @@ static socket_domain_t unix_domain = {
 
 void init_unix_socket(void) {
 	slab_init(&unix_sockets_slab, sizeof(unix_socket_t), "unix-sockets");
-	slab_init(&unix_addrs_slab, sizeof(struct sockaddr_un), "unix-addresses");
 	socket_register_domain(&unix_domain);
 }

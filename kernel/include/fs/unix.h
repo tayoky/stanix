@@ -7,13 +7,16 @@
 #include <kernel/spinlock.h>
 #include <sys/un.h>
 
-typedef struct unix_socket {
+typedef struct unix_socket unix_socket_t;
+
+struct unix_socket {
 	socket_t socket;
 	ringbuffer_t queue;
-	struct unix_socket *connected;
+	unix_socket_ *connected;
 	sleep_queue_t sleep;
 	spinlock_t lock;
-} unix_socket_t;
+	struct sockaddr_un addr;
+};
 
 typedef struct unix_connection {
 	unix_socket_t *socket;

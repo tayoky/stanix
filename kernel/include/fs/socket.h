@@ -14,10 +14,6 @@ struct socket {
 	vfs_fd_t fd;
 	list_t recived;
 	struct socket_domain *domain;
-	struct sockaddr *connected;
-	struct sockaddr *bound;
-	socklen_t connected_len;
-	socklen_t bound_len;
 	int type;
 	int protocol;
 	int state;
