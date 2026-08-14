@@ -115,6 +115,7 @@ free_packet:
 		return ret;
 	}
 
+	kdebugf("queue packet\n");
 	spinlock_acquire(&socket->lock);
 	list_append(&socket->recived, &packet->node);
 	spinlock_release(&socket->lock);
@@ -166,6 +167,7 @@ ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, 
 		packet->read += to_read;
 		total        += to_read;
 		if (packet->read == packet->size) {
+			kdebugf("dequed packet\n");
 			// whole packet is read
 			list_remove(&socket->recived, &packet->node);
 			kfree(packet->data);
@@ -209,9 +211,8 @@ void *socket_dequeue_connection(socket_t *socket) {
 }
 
 void socket_disconnect(socket_t *socket) {
-	spinlock_acquire(&socket->lock);
+	spinlock_assert_acquired(&socket->lock);
 	socket->state = SOCKET_STATE_DISCONNECTED;
-	spinlock_release(&socket->lock);
 	wakeup_queue(&socket->sleep_queue, 0);
 }
 
@@ -271,6 +272,7 @@ int socket_accept(vfs_fd_t *fd, struct sockaddr *address, socklen_t *address_len
 
 	int ret = socket->domain->accept(socket, address, address_len, &new_sock);
 	if (ret >= 0) {
+		kdebugf("accepted connection\n");
 		socket_init(new_sock);
 		*new_sock_fd = &new_sock->fd;
 

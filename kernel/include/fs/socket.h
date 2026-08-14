@@ -70,6 +70,12 @@ int socket_queue_recived_packet(socket_t *socket, void *data, size_t size);
 ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, int keep_bounds);
 int socket_queue_connection(socket_t *socket, void *data);
 void *socket_dequeue_connection(socket_t *socket);
+
+/**
+ * @brief disconnect a socket
+ * @param socket the socket to disconnect
+ * @note require the socket's lock
+ */
 void socket_disconnect(socket_t *socket);
 
 #endif

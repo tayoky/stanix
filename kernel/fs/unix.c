@@ -49,7 +49,6 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
-
 	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) {
 		return -EINVAL;
 	}
@@ -67,7 +66,7 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 		return -ECONNREFUSED;
 	}
 	
-	int ret = socket_queue_connection(server, socket);
+	int ret = socket_queue_connection(&server->socket, socket);
 	if (ret < 0) return ret;
 
 	// FIXME : if we get interrupted here we will still be in the connect queue
@@ -96,7 +95,7 @@ static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_le
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
-	unix_socket_t *peer = socket_dequeue_connection(socket);
+	unix_socket_t *peer = socket_dequeue_connection(&socket->socket);
 	if (IS_ERR(peer)) {
 		return PTR2ERR(peer);
 	}
@@ -146,12 +145,12 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
 	ssize_t total = 0;
+	kdebugf("unix socket sendmsg\n");
 
 	if (sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) {
 		// TODO
 		return -ENOSYS;
 	} else {
-
 		for (int i=0; i<message->msg_iovlen; i++) {
 			int ret = socket_queue_recived_packet(sock, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len);
 			if (ret < 0) return ret;
@@ -209,7 +208,11 @@ static void unix_close(socket_t *sock) {
 	kdebugf("unix cleanup\n");
 
 	if (socket->connected) {
+		unix_socket_t *peer = socket->connected;
+		spinlock_acquire(&peer->socket.lock);
+		socket->connected->connected = NULL;
 		socket_disconnect(&socket->connected->socket);
+		spinlock_release(&peer->socket.lock);
 	}
 	if (socket->addr.sun_path[0]) {
 		xarray_clear(&unix_binding, socket->number);

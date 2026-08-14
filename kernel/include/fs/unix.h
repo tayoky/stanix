@@ -11,9 +11,9 @@ typedef struct unix_socket unix_socket_t;
 
 struct unix_socket {
 	socket_t socket;
-	unix_socket_t *connected;
-	struct sockaddr_un addr;
-	dev_t number;
+	unix_socket_t *connected; // protected by socket.lock
+	struct sockaddr_un addr;  // protected by socket.lock
+	dev_t number;             // protected by socket.lock
 };
 
 void init_unix_socket(void);
