@@ -23,7 +23,6 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 	size_t end   = offset + count;
 	size_t start_sector = start / block_device->sector_size;
 	size_t end_sector   = (end + block_device->sector_size - 1) / block_device->sector_size;
-	size_t sectors_count = end_sector - start_sector;
 
 	// bound checks
 	if (start == end) {
@@ -36,6 +35,7 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 		end_sector = block_device->sectors_count;
 		end = end_sector * block_device->sector_size;
 	}
+	size_t sectors_count = end_sector - start_sector;
 
 	void *kbuf = NULL;
 	if (start % block_device->sector_size != 0
@@ -87,7 +87,7 @@ error:
 		block_request_t *flush_request = block_create_request(block_device, BLOCK_REQUEST_FLUSH);
 		flush_request->start_sector = start_sector;
 		flush_request->sectors_count = sectors_count;
-		ret = block_submit_request_sync(request);
+		ret = block_submit_request_sync(flush_request);
 	}
 
 	return ret < 0 ? ret : (ssize_t)(end - start);
