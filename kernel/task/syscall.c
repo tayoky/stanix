@@ -28,6 +28,7 @@
 #include <sys/signal.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
 #include <limits.h>
 #include <errno.h>
 #include <fcntl.h>

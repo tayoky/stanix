@@ -80,7 +80,7 @@ ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long
 	char *buffer = (char *)buf;
 
 	size_t remaining = count;
-	while (remainig > 0) {
+	while (remaining > 0) {
 		int irq_save = spinlock_acquire_irq(&ring->lock);
 
 		if (ringbuffer_write_available(ring) == 0) {

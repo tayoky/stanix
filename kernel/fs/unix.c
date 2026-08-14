@@ -36,7 +36,7 @@ static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr
 	}
 
 	// UNSAFE
-	socket->addr = *(struct sockaddr_un)addr;
+	socket->addr = *(struct sockaddr_un *)addr;
 
 	return 0;
 }
@@ -70,7 +70,7 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 	unix_socket_t *server = (unix_socket_t*)stat.st_rdev;
 	spinlock_acquire(&server->lock);
 	vfs_node_release(node);
-	if (!S_ISSOCK(stat.st_mode) || (server->state.state != SOCKET_STATE_LISTEN) || 
+	if (!S_ISSOCK(stat.st_mode) || (server->socket.state != SOCKET_STATE_LISTEN) || 
 		server->socket.type != sock->type || server->socket.domain != sock->domain) {
 		spinlock_release(&server->lock);
 		spinlock_release(&socket->lock);
@@ -126,11 +126,11 @@ static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_le
 
 	// we can now connect to the socket
 	*new_sock = unix_create(sock->type, sock->protocol);
-	unix_pair((unix_socket_t*)*new_sock, connection.socket);
-	new_sock->sock.state = SOCK_STATE_CONNECTED;
+	unix_pair(container_of(new_sock, unix_socket_t, socket), connection.socket);
+	(*new_sock)->state = SOCKET_STATE_CONNECTED;
 	if (addr_len) *addr_len = sizeof(struct sockaddr_un);
 	// UNSAFE
-	if (address) *address = connection.socket->socket.bound;
+	if (address) *address = connection.socket->addr;
 
 	// wakeup the client sock
 	wakeup_queue(&socket->sleep, 1);
@@ -149,7 +149,7 @@ static ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 		// TODO
 		return -ENOSYS;
 	} else {
-		if (socket->socket.state == SOCKET_STATE_DISCONNECTED && list_is_empty(socket->socket.recived)) {
+		if (socket->socket.state == SOCKET_STATE_DISCONNECTED && list_is_empty(&socket->socket.recived)) {
 			// disconnected and nothing to read, we will never use this socket again
 			return -ENOTCONN;
 		}
@@ -226,7 +226,7 @@ static int unix_poll_get(socket_t *sock, poll_event_t *event) {
 		event->revents |= POLLHUP;
 		break;
 	case SOCKET_STATE_CONNECTED:
-		events->revents |= POLLOUT;
+		event->revents |= POLLOUT;
 		if (!list_is_empty(&socket->socket.recived)) {
 			event->revents |= POLLIN;
 		}
@@ -258,12 +258,12 @@ static socket_t *unix_create(int type, int protocol) {
 	(void)protocol;
 	if (type > SOCK_SEQPACKET) return NULL;
 
-	unix_socket_t *socket = slab_alloc(&unix_socket_slab);
+	unix_socket_t *socket = slab_alloc(&unix_sockets_slab);
 	memset(socket, 0, sizeof(unix_socket_t));
 	socket->socket.type     = type;
 	socket->socket.protocol = protocol;
 	socket->socket.domain   = &unix_domain;
-	socket->addr.sun_family = AF_UNIX,
+	socket->addr.sun_family = AF_UNIX;
 
 	return &socket->socket;
 }

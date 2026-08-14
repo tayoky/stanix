@@ -12,7 +12,7 @@ typedef struct unix_socket unix_socket_t;
 struct unix_socket {
 	socket_t socket;
 	ringbuffer_t queue;
-	unix_socket_ *connected;
+	unix_socket_t *connected;
 	sleep_queue_t sleep;
 	spinlock_t lock;
 	struct sockaddr_un addr;

@@ -3,6 +3,7 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
 #include <kernel/sym.h>
+#include <kernel/string.h>
 
 extern uint64_t p_kernel_end[];
 
@@ -92,15 +93,17 @@ void arch_context_init(acontext_t *context, void *stack_top, void *start, int us
 	int code_seg = userspace ? 0x1b  : 0x08;
 	int data_seg = userspace ? 0x23  : 0x10;
 
-	context.frame.flags = flags;
-	context.frame.cs    = code_seg;
-	context.frame.ss    = data_seg;
-	context.frame.ds    = data_seg;
-	context.frame.es    = data_seg;
-	context.frame.gs    = data_seg;
-	context.frame.fs    = data_seg;
-	context.fpu.fcw     = 0x037f;
-	context.fpu.mxcsr   = 0x1F80;
+	context->frame.flags = flags;
+	context->frame.rsp   = (uintptr_t)stack_top;
+	context->frame.rip   = (uintptr_t)start;
+	context->frame.cs    = code_seg;
+	context->frame.ss    = data_seg;
+	context->frame.ds    = data_seg;
+	context->frame.es    = data_seg;
+	context->frame.gs    = data_seg;
+	context->frame.fs    = data_seg;
+	context->fpu.fcw     = 0x037f;
+	context->fpu.mxcsr   = 0x1F80;
 }
 
 int arch_registers_is_userspace(registers_t *registers) {

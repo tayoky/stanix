@@ -2,9 +2,11 @@
 #include <kernel/kheap.h>
 #include <kernel/list.h>
 #include <kernel/string.h>
+#include <kernel/userspace.h>
 #include <kernel/poll.h>
 #include <kernel/slab.h>
 #include <kernel/assert.h>
+#include <sys/socket.h>
 #include <errno.h>
 
 static slab_cache_t socket_packets_slab;
@@ -12,7 +14,7 @@ static list_t socket_domains;
 
 void init_sockets(void) {
 	list_init(&socket_domains);
-	slab_inkt(&socket_packets_slab, sizeof(socket_packet_t), "socket-packets");
+	slab_init(&socket_packets_slab, sizeof(socket_packet_t), "socket-packets");
 }
 
 static ssize_t socket_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
@@ -100,6 +102,7 @@ int socket_queue_recived_packet(socket_t *socket, void *data, size_t size) {
 	if (!packet) return -ENOMEM;
 	packet->data = kmalloc(size);
 	packet->size = size;
+	packet->read = 0;
 	if (!packet->data) {
 		ret = -ENOMEM;
 		goto free_packet;
@@ -126,15 +129,14 @@ ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, 
 				return -EINTR;
 			}
 		}
-		return NULL;
 	}
 	ssize_t total = 0;
 	char *buffer = buf;
-	while (size > 0 && !list_is_empty(socket->recived)) {
-		socket_packet_t *packet = container_of(socket->recived, socket_packet_t, node);
+	while (size > 0 && !list_is_empty(&socket->recived)) {
+		socket_packet_t *packet = container_of(socket->recived.first_node, socket_packet_t, node);
 
 		size_t available = packet->size - packet->read;
-		size_t to_read = available < size : available : size;
+		size_t to_read = available < size ? available : size;
 
 		if (safe_copy_to(buffer, packet->data + packet->read, to_read) < 0) {
 			return total > 0 ? total : -EFAULT;
@@ -175,7 +177,7 @@ ssize_t socket_sendmsg(vfs_fd_t *fd, const struct msghdr *message, int flags) {
 
 	if (!socket->domain->sendmsg) return -EOPNOTSUPP;
 
-	if (socket->state == SOCKET_STAGE_CONNECTED) {
+	if (socket->state == SOCKET_STATE_CONNECTED) {
 		if (message->msg_name) {
 			return -EISCONN;
 		}
