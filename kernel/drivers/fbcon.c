@@ -311,7 +311,6 @@ void init_fbcon(void) {
 
 	fbcon_t *fbcon = kmalloc(sizeof(fbcon_t));
 	memset(fbcon, 0, sizeof(fbcon_t));
-	new_tty(&fbcon->tty);
 	fbcon->tty.ops = &fbcon_ops;
 
 	// save the framebuffer context
@@ -346,7 +345,7 @@ void init_fbcon(void) {
 	fbcon->back_color = 0x000000;
 
 	// create the device
-	if (device_register(&fbcon->tty.device, "tty%d", 0) < 0) {
+	if (tty_register(&fbcon->tty, "tty%d", 0) < 0) {
 		kfail();
 		kinfof("terminal emulator init but can't create device /dev/tty0\n");
 		return;

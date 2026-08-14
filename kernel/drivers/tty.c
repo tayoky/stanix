@@ -160,12 +160,7 @@ static vfs_fd_ops_t tty_ops = {
 	.poll_get    = tty_poll_get,
 };
 
-tty_t *new_tty(tty_t *tty) {
-	if (!tty) {
-		tty = kmalloc(sizeof(tty_t));
-		memset(tty, 0, sizeof(tty_t));
-	}
-
+int tty_register(tty_t *tty, const char *fmt, dev_t number);
 	ringbuffer_init(&tty->input_buffer, 4096);
 
 	// reset termios to default value
@@ -189,7 +184,7 @@ tty_t *new_tty(tty_t *tty) {
 	tty->device.ops     = &tty_ops;
 	tty->device.destroy = tty_destroy;
 
-	return tty;
+	return device_register(&tty->device, fmt, number);
 }
 
 // tty_output and tty_input based on TorauOS's tty system

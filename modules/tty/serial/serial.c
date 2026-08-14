@@ -145,7 +145,6 @@ static int serial_probe(devnode_t *devnode) {
 	}
 	resource_write8(serial->io_res, SERIAL_MCR, SERIAL_MCR_DTR | SERIAL_MCR_RTS | SERIAL_MCR_OUT1 | SERIAL_MCR_OUT2);
 
-	new_tty(&serial->tty);
 	serial->tty.ops = &serial_ops;
 
 	serial->handler_handle = resource_register_handler(serial->irq_res, serial_handler, serial);
@@ -154,7 +153,7 @@ static int serial_probe(devnode_t *devnode) {
 		goto error;
 	}
 
-	ret = device_register(&serial->tty.device, "ttyS%d", 0);
+	ret = tty_register(&serial->tty, "ttyS%d", 0);
 	if (ret < 0) goto error;
 
 	return 0;

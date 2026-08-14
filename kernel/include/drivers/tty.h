@@ -49,13 +49,7 @@ int tty_output(tty_t *tty, char c);
 int tty_do_ioctl(tty_t *fd, long request, void *arg);
 
 
-/**
- * @brief create a new tty
- * @param tty the tty to init
- * @return the new tty
- */
-tty_t *new_tty(tty_t *tty);
-
+int tty_register(tty_t *tty, const char *fmt, dev_t number);
 
 int new_pty(vfs_fd_t **master, vfs_fd_t **slave, tty_t **);
 

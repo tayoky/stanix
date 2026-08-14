@@ -140,7 +140,8 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	memset(pty, 0, sizeof(pty_t));
 	ringbuffer_init(&pty->output_buffer, 4096);
 
-	tty_t *slave         = new_tty(NULL);
+	tty_t *slave         = kmalloc(sizeof(tty_t));
+	memset(slave, 0, sizeof(tty_t));
 	pty->slave           = slave;
 	*rep                 = slave;
 	slave->private_data  = pty;
@@ -155,7 +156,7 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	(*master_fd)->flags     = O_RDWR;
 
 	// register and save the slave
-	if (device_register(&slave->device, "pts/%d", makedev(pty_major, 0)) < 0) {
+	if (tty_register(slave, "pts/%d", makedev(pty_major, 0)) < 0) {
 		vfs_close(*master_fd);
 		return -ENOENT;
 	}
