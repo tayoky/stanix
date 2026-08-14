@@ -5,34 +5,52 @@
 #include <kernel/list.h>
 #include <sys/socket.h>
 
-struct socket_domain;
+typedef struct socket socket_t;
+typedef struct socket_packet socket_packet_t;
+typedef struct socket_domain socket_domain_t;
 struct poll_event;
 
-typedef struct socket {
+struct socket {
 	vfs_fd_t fd;
+	list_t recived;
 	struct socket_domain *domain;
+	struct sockaddr *connected;
+	struct sockaddr *bound;
+	socklen_t connected_len;
+	socklen_t bound_len;
 	int type;
 	int protocol;
-	struct sockaddr *connected;
-	socklen_t connected_len;
-} socket_t;
+	int state;
+};
 
-typedef struct socket_domain {
+#define SOCKET_STATE_INIT         0
+#define SOCKET_STATE_LISTEN       1
+#define SOCKET_STATE_CONNECTED    2
+#define SOCKET_STATE_DISCONNECTED 3
+
+struct socket_packet {
+	list_node_t node;
+	size_t size;
+	void *data;
+	struct sockaddr *addr;
+};
+
+struct socket_domain {
 	list_node_t node;
 	const char *name;
 	int domain;
 	socket_t *(*create)(int type, int protocol);
-	ssize_t (*sendmsg)(struct socket *socket, const struct msghdr *message, int flags);
-	ssize_t (*recvmsg)(struct socket *socket, struct msghdr *message, int flags);
-	int (*accept)(struct socket *socket, struct sockaddr *address, socklen_t *address_len, struct socket **new_sock);
-	int (*bind)(struct socket *socket, const struct sockaddr *address, socklen_t address_len);
-	int (*connect)(struct socket *socket, const struct sockaddr *address, socklen_t address_len);
-	int (*listen)(struct socket *socket, int backlog);
-	int (*poll_add)(struct socket *, struct poll_event *);
-	int (*poll_remove)(struct socket *, struct poll_event *);
-	int (*poll_get)(struct socket *, struct poll_event *);
-	void (*close)(struct socket *socket);
-} socket_domain_t;
+	ssize_t (*sendmsg)(socket_t *socket, const struct msghdr *message, int flags);
+	ssize_t (*recvmsg)(socket_t *socket, struct msghdr *message, int flags);
+	int (*accept)(socket_t *socket, struct sockaddr *address, socklen_t *address_len, socket_t **new_sock);
+	int (*bind)(socket_t *socket, const struct sockaddr *address, socklen_t address_len);
+	int (*connect)(socket_t *socket, const struct sockaddr *address, socklen_t address_len);
+	int (*listen)(socket_t *socket, int backlog);
+	int (*poll_add)(socket_t *, struct poll_event *);
+	int (*poll_remove)(socket_t *, struct poll_event *);
+	int (*poll_get)(socket_t *, struct poll_event *);
+	void (*close)(socket_t *socket);
+};
 
 void init_sockets(void);
 vfs_fd_t *socket_create(int domain, int type, int protocol);
@@ -40,12 +58,14 @@ void *socket_new(size_t size);
 void socket_register_domain(socket_domain_t *domain);
 void socket_unregister_domain(socket_domain_t *domain);
 
-
 ssize_t socket_sendmsg(vfs_fd_t *socket, const struct msghdr *message, int flags);
 ssize_t socket_recvmsg(vfs_fd_t *socket, struct msghdr *message, int flags);
 int socket_accept(vfs_fd_t *socket, struct sockaddr *address, socklen_t *address_len, vfs_fd_t **new_sock);
 int socket_bind(vfs_fd_t *socket, const struct sockaddr *address, socklen_t address_len);
 int socket_connect(vfs_fd_t *socket, const struct sockaddr *address, socklen_t address_len);
 int socket_listen(vfs_fd_t *socket, int backlog);
+
+// function for the socket implementation
+int socket_recive_packet(socket_t *socket, void *data, size_t size, struct sockaddr *addr);
 
 #endif

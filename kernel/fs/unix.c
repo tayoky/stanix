@@ -12,15 +12,14 @@
 #define QUEUE_SIZE 4096
 
 static socket_domain_t unix_domain;
-static slab_cache_t unix_socket_slab;
+static slab_cache_t unix_sockets_slab;
+static slab_cache_t unix_addrs_slab;
 static socket_t *unix_create(int type, int protocol);
 
 /**
  * @brief pair two socket
  */
 static void unix_pair(unix_socket_t *a, unix_socket_t *b) {
-	a->status = UNIX_STATUS_CONNECTED;
-	b->status = UNIX_STATUS_CONNECTED;
 	a->connected = b;
 	b->connected = a;
 
@@ -33,7 +32,6 @@ static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 
 	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) return -EINVAL;
-	if (socket->status != UNIX_STATUS_INIT) return -EINVAL;
 
 	int ret = vfs_mknod(address->sun_path, 0777 | S_IFSOCK, (dev_t)socket);
 	if (ret < 0) {
@@ -41,8 +39,8 @@ static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr
 		return ret;
 	}
 
-	socket->bound = *address;
-	socket->status = UNIX_STATUS_BOUND;
+	socket->socket.bound = slab_alloc(&unix_addrs_slab);
+	memcpy(socket->socket.bound, addr, addr_len);
 	return 0;
 }
 
@@ -64,10 +62,6 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 		spinlock_release(&socket->lock);
 		return -EINVAL;
 	}
-	if (socket->status != UNIX_STATUS_INIT) {
-		spinlock_release(&socket->lock);
-		return -EINVAL;
-	}
 
 	vfs_node_t *node = vfs_get_node(address->sun_path, O_RDWR);
 	if (!node) {
@@ -79,7 +73,7 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 	unix_socket_t *server = (unix_socket_t*)stat.st_rdev;
 	spinlock_acquire(&server->lock);
 	vfs_node_release(node);
-	if (!S_ISSOCK(stat.st_mode) || (server->status != UNIX_STATUS_LISTEN) || 
+	if (!S_ISSOCK(stat.st_mode) || (server->state.state != SOCKET_STATE_LISTEN) || 
 		server->socket.type != sock->type || server->socket.domain != sock->domain) {
 		spinlock_release(&server->lock);
 		spinlock_release(&socket->lock);
@@ -102,15 +96,17 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 	int r = sleep_on_queue_interruptible(&server->sleep);
 	if (r < 0) return r;
 
-	return socket->status == UNIX_STATUS_CONNECTED ? 0 : -ECONNREFUSED;
+	if (socket->connected) {
+		socket->socket->connected = slab_alloc(&unix_addrs_slab);
+		memcpy(socket->socket->connected, addr, addr_len);
+		return 0;
+	} else {
+		return -ECONNREFUSED;
+	}
 }
 
 static int unix_listen_unlocked(unix_socket_t *socket, int backlog) {
-	if (socket->status == UNIX_STATUS_INIT) return -EDESTADDRREQ;
-	if (socket->status != UNIX_STATUS_BOUND) return -EINVAL;
-
 	ringbuffer_init(&socket->queue, sizeof(unix_connection_t) * backlog);
-	socket->status = UNIX_STATUS_LISTEN;
 	return 0;
 }
 
@@ -126,8 +122,6 @@ static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_le
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
-	if (socket->status != UNIX_STATUS_LISTEN) return -EINVAL;
-
 	unix_connection_t connection;
 
 	// ringbuf read can fail (syscall interrupted/...)
@@ -137,15 +131,16 @@ static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_le
 
 	// we can now connect to the socket
 	*new_sock = unix_create(sock->type, sock->protocol);
+	new_sock->socket.connected = slab_alloc(&unix_addrs_skab);
 	unix_pair((unix_socket_t*)*new_sock, connection.socket);
 	if (connection.socket->bound.sun_path[0]) {
 		// the connected socket have an address
-		*addr_len = sizeof(struct sockaddr_un);
-		*address = connection.socket->bound;
+		if (addr_len) *addr_len = sizeof(struct sockaddr_un);
+		if (address) *address = connection.socket->socket.bound;
+		memcpy(new_socket->socket.connected, connection.socket->socket.bound, sizeof(struct sockaddr_un));
 	} else {
 		// the connected socket don't have an bound address
-		*addr_len = 0;
-		*address = connection.socket->bound;
+		if (addr_len) *addr_len = 0;
 	}
 
 	// wakeup the client sock
@@ -165,9 +160,7 @@ static ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 		// TODO
 		return -ENOSYS;
 	} else {
-		if (socket->status != UNIX_STATUS_CONNECTED && socket->status != UNIX_STATUS_DISCONNECTED) return -ENOTCONN;
-		if (message->msg_name) return -EISCONN;
-		if (socket->status == UNIX_STATUS_DISCONNECTED && !ringbuffer_read_available(&socket->queue)) {
+		if (socket->socket.state == SOCKET_STATE_DISCONNECTED && !ringbuffer_read_available(&socket->queue)) {
 			// disconnected and nothing to read, we will never use this socket again
 			return -ENOTCONN;
 		}
@@ -192,8 +185,6 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 		// TODO
 		return -ENOSYS;
 	} else {
-		if (socket->status != UNIX_STATUS_CONNECTED) return -ENOTCONN;
-		if (message->msg_name) return -EISCONN;
 
 		for (int i=0; i<message->msg_iovlen; i++) {
 			ssize_t ret = ringbuffer_write(&socket->connected->queue, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, sock->fd.flags);
@@ -207,14 +198,14 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 static int unix_poll_add(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
-	switch (socket->status) {
-	case UNIX_STATUS_DISCONNECTED:
+	switch (socket->socket.state) {
+	case SOCKET_STATE_DISCONNECTED:
 		// you can't really wait for a disconnected socket to become ready
 		break;
-	case UNIX_STATUS_CONNECTED:
+	case SOCKET_STATE_CONNECTED:
 		ringbuffer_poll_add(&socket->queue, event);
 		break;
-	case UNIX_STATUS_LISTEN:
+	case SOCKET_STATE_LISTEN:
 		ringbuffer_poll_add(&socket->queue, event);
 		break;
 	}
@@ -225,12 +216,12 @@ static int unix_poll_add(socket_t *sock, poll_event_t *event) {
 static int unix_poll_remove(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
-	switch (socket->status) {
-	case UNIX_STATUS_DISCONNECTED:
-	case UNIX_STATUS_CONNECTED:
+	switch (socket->socket.state) {
+	case SOCKET_STATE_DISCONNECTED:
+	case SOCKET_STATE_CONNECTED:
 		ringbuffer_poll_remove(&socket->queue, event);
 		break;
-	case UNIX_STATUS_LISTEN:
+	case SOCKET_STATE_LISTEN:
 		ringbuffer_poll_remove(&socket->queue, event);
 		break;
 	}
@@ -241,14 +232,14 @@ static int unix_poll_remove(socket_t *sock, poll_event_t *event) {
 static int unix_poll_get(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
-	switch (socket->status) {
-	case UNIX_STATUS_DISCONNECTED:
+	switch (socket->socket.state) {
+	case SOCKET_STATE_DISCONNECTED:
 		event->revents |= POLLHUP;
 		// fallthrough
-	case UNIX_STATUS_CONNECTED:
+	case SOCKET_STATE_CONNECTED:
 		ringbuffer_poll_get(&socket->queue, event);
 		break;
-	case UNIX_STATUS_LISTEN:
+	case SOCKET_STATE_LISTEN:
 		ringbuffer_poll_get(&socket->queue, event);
 		break;
 	}
@@ -260,27 +251,20 @@ static void unix_close(socket_t *sock) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	spinlock_acquire(&socket->lock);
 	kdebugf("unix cleanup\n");
-	switch (socket->status) {
-	case UNIX_STATUS_DISCONNECTED:
-		ringbuffer_destroy(&socket->queue);
-		break;
-	case UNIX_STATUS_CONNECTED:
+
+	if (socket->connected) {
 		// FIXME : we need some kind of lock
 		// disconnect the peer
-		socket->connected->status = UNIX_STATUS_DISCONNECTED;
+		socket->connected->socket.state = SOCKET_STATE_DISCONNECTED;
 		ringbuffer_wakeup_all(&socket->connected->queue);
 		ringbuffer_destroy(&socket->queue);
-		break;
-	case UNIX_STATUS_LISTEN:
-		ringbuffer_destroy(&socket->queue);
-		if (socket->socket.type == SOCK_STREAM || socket->socket.type == SOCK_STREAM) {
-			wakeup_queue(&socket->sleep, 0);
-		}
-		// fallthrough
-	case UNIX_STATUS_BOUND:
-		vfs_unlink(socket->bound.sun_path);
-		break;
 	}
+	ringbuffer_destroy(&socket->queue);
+	if (socket->socket.type == SOCK_STREAM || socket->socket.type == SOCK_STREAM) {
+		wakeup_queue(&socket->sleep, 0);
+	}
+	slab_free(socket->socket.bound);
+	slab_free(socket->socket.connected);
 }
 
 static socket_t *unix_create(int type, int protocol) {
@@ -292,8 +276,6 @@ static socket_t *unix_create(int type, int protocol) {
 	socket->socket.type     = type;
 	socket->socket.protocol = protocol;
 	socket->socket.domain   = &unix_domain;
-	socket->status = UNIX_STATUS_INIT;
-	socket->bound.sun_family = AF_UNIX;
 
 	return &socket->socket;
 }
@@ -315,6 +297,7 @@ static socket_domain_t unix_domain = {
 };
 
 void init_unix_socket(void) {
-	slab_init(&unix_socket_slab, sizeof(unix_socket_t), "unix-sockets");
+	slab_init(&unix_sockets_slab, sizeof(unix_socket_t), "unix-sockets");
+	slab_init(&unix_addrs_slab, sizeof(struct sockaddr_un), "unix-addresses");
 	socket_register_domain(&unix_domain);
 }

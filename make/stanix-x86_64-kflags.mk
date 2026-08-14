@@ -7,5 +7,4 @@ KFLAGS += \
 	-mno-sse2 \
 	-march=x86-64 \
 	-m64 \
-	-mno-red-zone \
 	-mcmodel=large

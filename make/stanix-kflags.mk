@@ -8,5 +8,6 @@ KFLAGS = \
     -fno-stack-check \
     -fno-PIC \
     -fsanitize=undefined \
+	-mno-red-zone \
 
 -include $(TMAKE_DIR)/stanix-$(ARCH)-kflags.mk

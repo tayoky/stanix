@@ -70,6 +70,10 @@ int socket_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	return socket->domain->poll_get(socket, event);
 }
 
+int socket_recive_packet(socket_t *socket, void *data, size_t size, struct sockaddr *addr) {
+	// TODO
+}
+
 static vfs_fd_ops_t socket_ops = {
 	.poll_add    = socket_poll_add,
 	.poll_remove = socket_poll_remove,
@@ -88,6 +92,7 @@ static void socket_init(socket_t *socket) {
 	socket->fd.flags   = O_RDWR;
 	socket->fd.ref_count = 1;
 	socket->fd.inode = NULL;
+	socket->state = SOCKET_STATE_INIT;
 }
 
 vfs_fd_t *socket_create(int domain, int type, int protocol) {
@@ -109,17 +114,23 @@ vfs_fd_t *socket_create(int domain, int type, int protocol) {
 ssize_t socket_sendmsg(vfs_fd_t *fd, const struct msghdr *message, int flags) {
 	if (fd->type != S_IFSOCK) return -ENOTSOCK;
 	socket_t *socket = container_of(fd, socket_t, fd);
-	if (!socket->domain->sendmsg) return -EOPNOTSUPP;
 
-	if ((socket->type == SOCK_RAW || socket->type == SOCK_DGRAM) && !message->msg_name) {
-		if (!socket->connected) {
+	if (!socket->domain->sendmsg) return -EOPNOTSUPP;
+	if ((socket->type == SOCK_STREAM || socket->type ==  SOCK_SEQPACKET) && socket->state != SOCKET_STATE_CONNECTED) return -EINVAL;
+
+	if (socket->type == SOCK_RAW || socket->type == SOCK_DGRAM) {
+		if (socket->state == SOCKET_STAGE_CONNECTED) {
+			if (message->msg_name) return -EISCONN;
+			struct msghdr dflt = *message;
+			dflt.msg_name    = socket->connected;
+			dflt.msg_namelen = socket->connected_len;
+			message = &dflt;
+			return socket->domain->sendmsg(socket, &dflt, flags);
+		} else if (!message->msg_name) {
 			return -EDESTADDRREQ;
 		}
-		struct msghdr dflt = *message;
-		dflt.msg_name    = socket->connected;
-		dflt.msg_namelen = socket->connected_len;
-		message = &dflt;
-		return socket->domain->sendmsg(socket, &dflt, flags);
+	} else if (message->msg_name) {
+		return -EISCONN;
 	}
 
 	return socket->domain->sendmsg(socket, message, flags);
@@ -128,7 +139,9 @@ ssize_t socket_sendmsg(vfs_fd_t *fd, const struct msghdr *message, int flags) {
 ssize_t socket_recvmsg(vfs_fd_t *fd, struct msghdr *message, int flags) {
 	if (fd->type != S_IFSOCK) return -ENOTSOCK;
 	socket_t *socket = container_of(fd, socket_t, fd);
+
 	if (!socket->domain->recvmsg) return -EOPNOTSUPP;
+	if ((socket->type == SOCK_STREAM || socket->type ==  SOCK_SEQPACKET) && socket->state != SOCKET_STATE_CONNECTED && socket->state != SOCKET_STATE_DISCONNECTED) return -EINVAL;
 
 	return socket->domain->recvmsg(socket, message, flags);
 }
@@ -136,21 +149,18 @@ ssize_t socket_recvmsg(vfs_fd_t *fd, struct msghdr *message, int flags) {
 int socket_accept(vfs_fd_t *fd, struct sockaddr *address, socklen_t *address_len, vfs_fd_t **new_sock_fd) {
 	if (fd->type != S_IFSOCK) return -ENOTSOCK;
 	socket_t *socket = container_of(fd, socket_t, fd);
+	
 	if (!socket->domain->accept || socket->type == SOCK_DGRAM || socket->type == SOCK_RAW) return -EOPNOTSUPP;
+	if (socket->state != SOCKET_STATE_LISTEN) return -EINVAL;
 
 	socket_t *new_sock;
-	uint32_t storage[128];
-	socklen_t len_storage;
-
-	if (!address) address = (struct sockaddr *)&storage;
-	if (!address_len) address_len = &len_storage;
 
 	int ret = socket->domain->accept(socket, address, address_len, &new_sock);
 	if (ret >= 0) {
 		socket_init(new_sock);
 		*new_sock_fd = &new_sock->fd;
 
-		// we propage non blocking socket
+		// we propagate non blocking socket
 		if (socket->fd.flags & O_NONBLOCK) new_sock->fd.flags |= O_NONBLOCK;
 	}
 	return ret;
@@ -159,33 +169,44 @@ int socket_accept(vfs_fd_t *fd, struct sockaddr *address, socklen_t *address_len
 int socket_bind(vfs_fd_t *fd, const struct sockaddr *address, socklen_t address_len) {
 	if (fd->type != S_IFSOCK) return -ENOTSOCK;
 	socket_t *socket = container_of(fd, socket_t, fd);
+	
 	if (!socket->domain->bind) return -EOPNOTSUPP;
+	if ((int)address->sa_family != socket->domain->domain) return -EINVAL;
+	if (socket->state != SOCKET_STATE_INIT) return -EINVAL;
 
-	return socket->domain->bind(socket, address, address_len);
+	int ret = socket->domain->bind(socket, address, address_len);
+	return ret;
 }
 
+// TODO : disconnect support
 int socket_connect(vfs_fd_t *fd, const struct sockaddr *address, socklen_t address_len) {
 	if (fd->type != S_IFSOCK) return -ENOTSOCK;
 	socket_t *socket = container_of(fd, socket_t, fd);
-	if (!socket->domain->connect || socket->type == SOCK_DGRAM || socket->type == SOCK_RAW) {
-		// standard connect that can work for datagram and raw sockets
-		if ((int)address->sa_family != socket->domain->domain) return -EINVAL;
-		kfree(socket->connected);
-		socket->connected = kmalloc(address_len);
-		*socket->connected = *address;
-		socket->connected_len = address_len;
-		return 0;
-	}
 
-	return socket->domain->connect(socket, address, address_len);
+	if (!socket->domain->connect) return -EOPNOTSUPP;
+	if ((int)address->sa_family != socket->domain->domain) return -EINVAL;
+	if (socket->state != SOCKET_STATE_INIT) return -EINVAL;
+
+	int ret = socket->domain->connect(socket, address, address_len);
+	if (ret >= 0) {
+		socket->state = SOCKET_STATE_CONNECTED;
+	}
+	return ret;
 }
 
 int socket_listen(vfs_fd_t *fd, int backlog) {
 	if (fd->type != S_IFSOCK) return -ENOTSOCK;
 	socket_t *socket = container_of(fd, socket_t, fd);
+	
 	if (!socket->domain->listen || socket->type == SOCK_DGRAM || socket->type == SOCK_RAW) return -EOPNOTSUPP;
+	if (!socket->bound) return -EDESTADDRREQ;
+	if (socket->state != SOCKET_STATE_INIT) return -EINVAL;
 
-	return socket->domain->listen(socket, backlog);
+	int ret = socket->domain->listen(socket, backlog);
+	if (ret >= 0) {
+		socket->state = SOCKET_STATE_LISTEN;
+	}
+	return ret;
 }
 
 void socket_register_domain(socket_domain_t *domain) {
