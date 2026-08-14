@@ -4,6 +4,7 @@
 #include <kernel/vfs.h>
 #include <kernel/list.h>
 #include <kernel/sleep.h>
+#include <kernel/spinlock.h>
 #include <abi/socket.h>
 
 typedef struct socket socket_t;
@@ -13,12 +14,13 @@ struct poll_event;
 
 struct socket {
 	vfs_fd_t fd;
-	list_t recived;
+	list_t recived; // protected by lock
 	sleep_queue_t sleep_queue;
 	struct socket_domain *domain;
 	int type;
 	int protocol;
-	int state;
+	int state;     // protected by lock
+	spinlock_t lock;
 };
 
 #define SOCKET_STATE_INIT         0
@@ -66,5 +68,8 @@ int socket_listen(vfs_fd_t *socket, int backlog);
 // function for the socket implementation
 int socket_queue_recived_packet(socket_t *socket, void *data, size_t size);
 ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, int keep_bounds);
+int socket_queue_connection(socket_t *socket, void *data);
+void *socket_dequeue_connection(socket_t *socket);
+void socket_disconnect(socket_t *socket);
 
 #endif

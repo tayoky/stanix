@@ -6,6 +6,7 @@
 #include <kernel/slab.h>
 #include <kernel/scheduler.h>
 #include <kernel/ringbuf.h>
+#include <kernel/xarray.h>
 #include <errno.h>
 #include <poll.h>
 
@@ -13,6 +14,7 @@
 
 static socket_domain_t unix_domain;
 static slab_cache_t unix_sockets_slab;
+static xarray_t unix_binding;
 static socket_t *unix_create(int type, int protocol);
 
 /**
@@ -24,12 +26,14 @@ static void unix_pair(unix_socket_t *a, unix_socket_t *b) {
 }
 
 // TODO : double bind protection
-static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr, socklen_t addr_len) {
+static int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
+	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 
 	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) return -EINVAL;
 
-	int ret = vfs_mknod(address->sun_path, 0777 | S_IFSOCK, (dev_t)socket);
+	socket->number = xarray_allocate(&unix_binding, socket);
+	int ret = vfs_mknod(address->sun_path, 0777 | S_IFSOCK, socket->number);
 	if (ret < 0) {
 		if (ret == -EEXIST) ret = -EADDRINUSE;
 		return ret;
@@ -41,56 +45,33 @@ static int unix_bind_unlocked(unix_socket_t *socket, const struct sockaddr *addr
 	return 0;
 }
 
-static int unix_bind(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
-	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
-	spinlock_acquire(&socket->lock);
-	int ret = unix_bind_unlocked(socket, addr, addr_len);
-	spinlock_release(&socket->lock);
-	return ret;
-}
-
 static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t addr_len) {
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
-	spinlock_acquire(&socket->lock);
 
 	if (addr_len != sizeof(struct sockaddr_un) || address->sun_family != AF_UNIX) {
-		spinlock_release(&socket->lock);
 		return -EINVAL;
 	}
 
 	vfs_node_t *node = vfs_get_node(address->sun_path, O_RDWR);
 	if (!node) {
-		spinlock_release(&socket->lock);
 		return -ECONNREFUSED;
 	}
 	struct stat stat;
 	vfs_getattr(node, &stat);
-	unix_socket_t *server = (unix_socket_t*)stat.st_rdev;
-	spinlock_acquire(&server->lock);
+	unix_socket_t *server = xarray_get(&unix_binding, stat.st_rdev);
 	vfs_node_release(node);
 	if (!S_ISSOCK(stat.st_mode) || (server->socket.state != SOCKET_STATE_LISTEN) || 
 		server->socket.type != sock->type || server->socket.domain != sock->domain) {
-		spinlock_release(&server->lock);
-		spinlock_release(&socket->lock);
 		return -ECONNREFUSED;
 	}
-
-	// send the connection struct
-	unix_connection_t connection = {
-		.socket = socket,
-	};
 	
-	spinlock_release(&server->lock);
-	spinlock_release(&socket->lock);
-
-	// ringbuf write can fail (syscall interrupted/server socket dies before accepting/...)
-	ssize_t ret = ringbuffer_write(&server->queue, &connection,  sizeof(unix_connection_t), 0);
+	int ret = socket_queue_connection(server, socket);
 	if (ret < 0) return ret;
 
 	// FIXME : if we get interrupted here we will still be in the connect queue
-	int r = sleep_on_queue_interruptible(&server->sleep);
+	int r = sleep_on_queue_interruptible(&socket->socket.sleep_queue);
 	if (r < 0) return r;
 
 	if (socket->connected) {
@@ -101,41 +82,37 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 }
 
 static int unix_listen_unlocked(unix_socket_t *socket, int backlog) {
-	ringbuffer_init(&socket->queue, sizeof(unix_connection_t) * backlog);
 	return 0;
 }
 
 static int unix_listen(socket_t *sock, int backlog) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
-	spinlock_acquire(&socket->lock);
-	int ret = unix_listen_unlocked(socket, backlog);
-	spinlock_release(&socket->lock);
-	return ret;
+	(void)socket;
+	(void)backlog;
+	return 0;
 }
 
 static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_len, socket_t **new_sock) {
 	struct sockaddr_un *address = (struct sockaddr_un*)addr;
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
-	unix_connection_t connection;
-
-	// ringbuf read can fail (syscall interrupted/...)
-	ssize_t ret = ringbuffer_read(&socket->queue, &connection, sizeof(unix_connection_t), sock->fd.flags);
-	if (ret < 0) return ret;
-	spinlock_acquire(&socket->lock);
+	unix_socket_t *peer = socket_dequeue_connection(socket);
+	if (IS_ERR(peer)) {
+		return PTR2ERR(peer);
+	}
 
 	// we can now connect to the socket
 	*new_sock = unix_create(sock->type, sock->protocol);
-	unix_pair(container_of(new_sock, unix_socket_t, socket), connection.socket);
+
+	unix_pair(container_of(new_sock, unix_socket_t, socket), peer);
 	(*new_sock)->state = SOCKET_STATE_CONNECTED;
 	if (addr_len) *addr_len = sizeof(struct sockaddr_un);
 	// UNSAFE
-	if (address) *address = connection.socket->addr;
+	if (address) *address = peer->addr;
 
-	// wakeup the client sock
-	wakeup_queue(&socket->sleep, 1);
+	// wakeup the peer sock
+	wakeup_queue(&peer->socket.sleep_queue, 0);
 
-	spinlock_release(&socket->lock);
 	return 0;
 }
 
@@ -186,71 +163,56 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 
 static int unix_poll_add(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
-	spinlock_acquire(&socket->lock);
 	switch (socket->socket.state) {
 	case SOCKET_STATE_DISCONNECTED:
 		// you can't really wait for a disconnected socket to become ready
 		break;
 	case SOCKET_STATE_CONNECTED:
+	case SOCKET_STATE_LISTEN:
 		sleep_add_to_queue(&socket->socket.sleep_queue);
 		break;
-	case SOCKET_STATE_LISTEN:
-		ringbuffer_poll_add(&socket->queue, event);
-		break;
 	}
-	spinlock_release(&socket->lock);
 	return 0;
 }
 
 static int unix_poll_remove(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
-	spinlock_acquire(&socket->lock);
 	switch (socket->socket.state) {
 	case SOCKET_STATE_DISCONNECTED:
 	case SOCKET_STATE_CONNECTED:
+	case SOCKET_STATE_LISTEN:
 		sleep_remove_from_queue(&socket->socket.sleep_queue);
 		break;
-	case SOCKET_STATE_LISTEN:
-		ringbuffer_poll_remove(&socket->queue, event);
-		break;
 	}
-	spinlock_release(&socket->lock);
 	return 0;
 }
 
 static int unix_poll_get(socket_t *sock, poll_event_t *event) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
-	spinlock_acquire(&socket->lock);
 	switch (socket->socket.state) {
 	case SOCKET_STATE_DISCONNECTED:
 		event->revents |= POLLHUP;
 		break;
 	case SOCKET_STATE_CONNECTED:
+	case SOCKET_STATE_LISTEN:
 		event->revents |= POLLOUT;
 		if (!list_is_empty(&socket->socket.recived)) {
 			event->revents |= POLLIN;
 		}
 		break;
-	case SOCKET_STATE_LISTEN:
-		ringbuffer_poll_get(&socket->queue, event);
-		break;
 	}
-	spinlock_release(&socket->lock);
 	return 0;
 }
 
 static void unix_close(socket_t *sock) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
-	spinlock_acquire(&socket->lock);
 	kdebugf("unix cleanup\n");
 
 	if (socket->connected) {
-		socket->connected->socket.state = SOCKET_STATE_DISCONNECTED;
+		socket_disconnect(&socket->connected->socket);
 	}
-	ringbuffer_wakeup_all(&socket->connected->queue);
-	ringbuffer_destroy(&socket->queue);
-	if (socket->socket.type == SOCK_STREAM || socket->socket.type == SOCK_STREAM) {
-		wakeup_queue(&socket->sleep, 0);
+	if (socket->addr.sun_path[0]) {
+		xarray_clear(&unix_binding, socket->number);
 	}
 }
 

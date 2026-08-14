@@ -140,6 +140,7 @@ void init_task() {
 	arch_set_kernel_stack(KSTACK_TOP(boot_task->main_thread->kernel_stack));
 
 	// the current task is the boot task
+	atomic_store(&boot_task->main_thread->run_queue, get_run_queue());
 	get_run_queue()->current = boot_task->main_thread;
 	set_cmdline("init");
 
@@ -237,7 +238,7 @@ task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 	}
 
 	// setup registers
-	arch_context_init(&task->context, KSTACK_TOP(task->kernel_stack) - 8, task_new_trampoline, 0);
+	arch_context_init(&task->context, (void*)(KSTACK_TOP(task->kernel_stack) - 8), task_new_trampoline, 0);
 	ARG1_REG(task->context.frame) = (uintptr_t)func;
 	ARG2_REG(task->context.frame) = (uintptr_t)arg;
 

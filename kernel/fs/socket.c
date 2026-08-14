@@ -114,22 +114,42 @@ free_packet:
 		slab_free(packet);
 		return ret;
 	}
-		
+
+	spinlock_acquire(&socket->lock);
 	list_append(&socket->recived, &packet->node);
+	spinlock_release(&socket->lock);
 	wakeup_queue(&socket->sleep_queue, 0);
 	return 0;
 }
 
-ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, int keep_bounds) {
-	if (list_is_empty(&socket->recived)) {
-		if (socket->fd.flags & O_NONBLOCK) {
-			return -EAGAIN;
-		} else {
-			if (sleep_on_queue_condition_interruptible(&socket->sleep_queue, !list_is_empty(&socket->recived)) < 0) {
-				return -EINTR;
-			}
-		}
+static int socket_wait(socket_t *socket) {
+	spinlock_assert_acquired(&socket->lock);
+	if (!list_is_empty(&socket->recived)) {
+		// we have something
+		return 0;
 	}
+	if (socket->fd.flags & O_NONBLOCK) {
+		// non blocking socket
+		return -EAGAIN;
+	}
+
+	int ret = sleep_on_queue_lock_interruptible(&socket->sleep_queue, !list_is_empty(&socket->recived) || socket->state == SOCKET_STATE_DISCONNECTED, &socket->lock);
+	if (socket->state == SOCKET_STATE_DISCONNECTED) ret = -ENOTCONN;
+	if (ret < 0) {
+		return ret;
+	}
+	
+	return 0;
+}
+
+ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, int keep_bounds) {
+	spinlock_acquire(&socket->lock);
+	int ret = socket_wait(socket);
+	if (ret < 0)  {
+		spinlock_release(&socket->lock);
+		return ret;
+	}
+
 	ssize_t total = 0;
 	char *buffer = buf;
 	while (size > 0 && !list_is_empty(&socket->recived)) {
@@ -139,6 +159,7 @@ ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, 
 		size_t to_read = available < size ? available : size;
 
 		if (safe_copy_to(buffer, packet->data + packet->read, to_read) < 0) {
+			spinlock_release(&socket->lock);
 			return total > 0 ? total : -EFAULT;
 		}
 		
@@ -152,7 +173,46 @@ ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, 
 		}
 		if (keep_bounds) break;
 	}
+	spinlock_release(&socket->lock);
 	return total;
+}
+
+int socket_queue_connection(socket_t *socket, void *data) {
+	socket_packet_t *packet = slab_alloc(&socket_packets_slab);
+	if (!packet) return -ENOMEM;
+	packet->data = data;
+	
+	spinlock_acquire(&socket->lock);
+	list_append(&socket->recived, &packet->node);
+	spinlock_release(&socket->lock);
+	wakeup_queue(&socket->sleep_queue, 0);
+	return 0;
+}
+
+void *socket_dequeue_connection(socket_t *socket) {
+	spinlock_acquire(&socket->lock);
+	kassert(socket->state == SOCKET_STATE_LISTEN || socket->state == SOCKET_STATE_DISCONNECTED);
+	int ret = socket_wait(socket);
+	if (ret < 0)  {
+		spinlock_release(&socket->lock);
+		return ERR2PTR(ret);
+	}
+	
+	socket_packet_t *packet = container_of(socket->recived.first_node, socket_packet_t, node);
+	list_remove(&socket->recived, &packet->node);
+
+	spinlock_release(&socket->lock);
+	
+	void *data = packet->data;
+	slab_free(packet);
+	return data;
+}
+
+void socket_disconnect(socket_t *socket) {
+	spinlock_acquire(&socket->lock);
+	socket->state = SOCKET_STATE_DISCONNECTED;
+	spinlock_release(&socket->lock);
+	wakeup_queue(&socket->sleep_queue, 0);
 }
 
 vfs_fd_t *socket_create(int domain, int type, int protocol) {
