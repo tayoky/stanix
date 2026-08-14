@@ -54,7 +54,7 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 	}
 
 	vfs_node_t *node = vfs_get_node(address->sun_path, O_RDWR);
-	if (!node) {
+	if (IS_ERR(node)) {
 		return -ECONNREFUSED;
 	}
 	struct stat stat;
@@ -70,7 +70,9 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 	if (ret < 0) return ret;
 
 	// FIXME : if we get interrupted here we will still be in the connect queue
+	spinlock_release(&socket->socket.lock);
 	int r = sleep_on_queue_interruptible(&socket->socket.sleep_queue);
+	spinlock_acquire(&socket->socket.lock);
 	if (r < 0) return r;
 
 	if (socket->connected) {
@@ -78,10 +80,6 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 	} else {
 		return -ECONNREFUSED;
 	}
-}
-
-static int unix_listen_unlocked(unix_socket_t *socket, int backlog) {
-	return 0;
 }
 
 static int unix_listen(socket_t *sock, int backlog) {
@@ -104,7 +102,6 @@ static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_le
 	*new_sock = unix_create(sock->type, sock->protocol);
 
 	unix_pair(container_of(new_sock, unix_socket_t, socket), peer);
-	(*new_sock)->state = SOCKET_STATE_CONNECTED;
 	if (addr_len) *addr_len = sizeof(struct sockaddr_un);
 	// UNSAFE
 	if (address) *address = peer->addr;
@@ -207,16 +204,24 @@ static void unix_close(socket_t *sock) {
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	kdebugf("unix cleanup\n");
 
-	if (socket->connected) {
-		unix_socket_t *peer = socket->connected;
-		spinlock_acquire(&peer->socket.lock);
-		socket->connected->connected = NULL;
-		socket_disconnect(&socket->connected->socket);
-		spinlock_release(&peer->socket.lock);
-	}
+	unix_socket_t *peer = socket->connected;
+	socket->connected = NULL;
+
 	if (socket->addr.sun_path[0]) {
 		xarray_clear(&unix_binding, socket->number);
 	}
+
+	if (peer) {
+		// release the socket lock to make sure we cannot deadlock
+		// FIXME : we have a RACE if two threads free the socket at the same time
+		spinlock_release(&socket->socket.lock);
+		spinlock_acquire(&peer->socket.lock);
+		socket_set_state(&peer->socket, SOCKET_STATE_DISCONNECTED);
+		peer->connected = NULL;
+		spinlock_release(&peer->socket.lock);
+		spinlock_acquire(&socket->socket.lock);
+	}
+	spinlock_release(&socket->socket.lock);
 }
 
 static socket_t *unix_create(int type, int protocol) {

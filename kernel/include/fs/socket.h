@@ -40,6 +40,8 @@ struct socket_domain {
 	const char *name;
 	int domain;
 	socket_t *(*create)(int type, int protocol);
+
+	// all of these are called with the socket lock acquired
 	ssize_t (*sendmsg)(socket_t *socket, const struct msghdr *message, int flags);
 	ssize_t (*recvmsg)(socket_t *socket, struct msghdr *message, int flags);
 	int (*accept)(socket_t *socket, struct sockaddr *address, socklen_t *address_len, socket_t **new_sock);
@@ -66,16 +68,27 @@ int socket_connect(vfs_fd_t *socket, const struct sockaddr *address, socklen_t a
 int socket_listen(vfs_fd_t *socket, int backlog);
 
 // function for the socket implementation
+
+/**
+ * @brief queue a recived packet
+ * @param socket the socket to queue the packet on
+ * @param data the content of the packet
+ * @param size the size of the packet
+ * @return 0 on success else error code
+ * @note require the socket's lock
+ */
 int socket_queue_recived_packet(socket_t *socket, void *data, size_t size);
+
 ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, int keep_bounds);
 int socket_queue_connection(socket_t *socket, void *data);
 void *socket_dequeue_connection(socket_t *socket);
 
 /**
- * @brief disconnect a socket
- * @param socket the socket to disconnect
+ * @brief set the state of a socket
+ * @param socket the socket to set the state of
+ * @param state the new state
  * @note require the socket's lock
  */
-void socket_disconnect(socket_t *socket);
+void socket_set_state(socket_t *socket, int state);
 
 #endif
