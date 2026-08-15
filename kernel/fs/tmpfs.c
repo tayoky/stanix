@@ -313,6 +313,11 @@ static int tmpfs_rename(vfs_node_t *old_vnode, vfs_dentry_t *old_dentry, vfs_nod
 	kassert(S_ISDIR(new_parent->vnode.mode));
 	tmpfs_dirent_t *old_entry = tmpfs_get_entry(old_parent, old_dentry);
 
+	tmpfs_dirent_t *already = tmpfs_get_entry(new_parent, new_dentry);
+	if (already) {
+		tmpfs_remove_entry(new_parent, already);
+	}
+
 	tmpfs_add_entry(new_parent, old_entry->inode, new_dentry);
 	tmpfs_remove_entry(old_parent, old_entry);
 
