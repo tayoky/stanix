@@ -10,12 +10,13 @@
 #include <abi/ioctl.h>
 #include <abi/termios.h>
 
-struct tty;
+typedef struct tty tty_t;
 
 typedef struct tty_ops {
-	int (*ioctl)(struct tty *, long, void *);
-	ssize_t (*out)(struct tty *, const char *, size_t);
-	void (*cleanup)(struct tty *);
+	int (*ioctl)(tty_t *, long, void *);
+	int (*update_termios)(tty_t *tty, struct termios *new);
+	ssize_t (*out)(tty_t *, const char *, size_t);
+	void (*cleanup)(tty_t *);
 } tty_ops_t;
 
 typedef struct tty {

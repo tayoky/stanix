@@ -11,7 +11,213 @@
 #include <errno.h>
 #include <poll.h>
 
-static int tty_output(tty_t *tty, char c);
+static int tty_output(tty_t *tty, char c) {
+	spinlock_assert_acquired(&tty->lock);
+	if (tty->termios.c_oflag & OPOST) {
+		// enable output processing
+		if (tty->termios.c_oflag & OLCUC) {
+			// map lowercase to uppercase
+			if (c >= 'a' && c <= 'z') c += 'A' - 'a';
+		}
+
+		if (tty->termios.c_oflag & ONLCR) {
+			// map NL to NL-CR
+			if (c == '\n') tty_output(tty, '\r');
+		}
+
+		if (tty->termios.c_oflag & OCRNL) {
+			// translate CR to NL
+			if (c == '\r') c = '\n';
+		}
+
+		if (tty->termios.c_oflag & ONOCR) {
+			// don't output CR at column 0
+			if (c == '\r' && tty->column == 0) return 0;
+		}
+	}
+
+	// CR (or NL and ONLRET flags) reset the column to 0
+	if (c == '\r' || (c == '\n' && tty->termios.c_oflag & ONLRET)) {
+		tty->column = 0;
+	} else {
+		tty->column++;
+	}
+	tty->ops->out(tty, &c, 1);
+	return 0;
+}
+
+static int tty_max_bell(tty_t *tty) {
+	spinlock_assert_acquired(&tty->lock);
+	if (tty->termios.c_iflag & IMAXBEL) {
+		return tty_output(tty, '\a');
+	}
+	return 0;
+}
+
+static int tty_canon_send_line(tty_t *tty) {
+	spinlock_assert_acquired(&tty->lock);
+	ssize_t ret;
+	if ((ret = ringbuffer_write(&tty->input_buffer, tty->canon_buf, tty->canon_index)) < (ssize_t)tty->canon_index) {
+		tty_max_bell(tty);
+	}
+
+	if (tty->lines_count >= arraylen(tty->lines)) {
+		tty_max_bell(tty);
+	}
+
+	tty->lines[tty->lines_count++] = ret;
+	tty->canon_index = 0;
+	wakeup_queue(&tty->reader_queue, 0);
+	return 0;
+}
+
+static int tty_has_lflag(tty_t *tty, tcflag_t flags) {
+	spinlock_assert_acquired(&tty->lock);
+	return (tty->termios.c_lflag & flags) == flags;
+}
+
+static int tty_erase(tty_t *tty, char c) {
+	spinlock_assert_acquired(&tty->lock);
+	if (iscntl(c)) {
+		// if char is a control char we need to earse both the char and the ^
+		tty_output(tty, '\b');
+		tty_output(tty, ' ');
+		tty_output(tty, '\b');
+	}
+	tty_output(tty, '\b');
+	tty_output(tty, ' ');
+	tty_output(tty, '\b');
+	return 0;
+}
+
+static int tty_echo(tty_t *tty, char c) {
+	if (c == '\n' && tty_has_lflag(tty, ECHONL | ICANON)) {
+		return tty_output(tty, c);
+	} else if (tty_has_lflag(tty, ECHO)) {
+		if (c == '\n' || c == '\t') {
+			return tty_output(tty, c);
+		} else if (c == tty->termios.c_cc[VERASE] && tty_has_lflag(tty, ECHOE | ICANON)) {
+			return tty_erase(tty, tty->canon_buf[tty->canon_index - 1]);
+		} else if (c == tty->termios.c_cc[VKILL] && tty_has_lflag(tty, ECHOK | ICANON)) {
+			for (size_t i = tty->canon_index; i > 0; i--) {
+				return tty_erase(tty, tty->canon_buf[i - 1]);
+			}
+		} else if (iscntrl(c) && tty_has_lflag(tty, ECHOCTL)) {
+			tty_output(tty, '^');
+			return tty_output(tty, c + 'A' - 1);
+		} else {
+			return tty_output(tty, c);
+		}
+	}
+	return 0;
+}
+
+static int tty_input(tty_t *tty, char c) {
+	spinlock_assert_acquired(&tty->lock);
+	if (tty->termios.c_iflag & INLCR) {
+		// translate NL to CR
+		if (c == '\n') c = '\r';
+	}
+	if (tty->termios.c_iflag & IGNCR) {
+		// ignore CR
+		if (c == '\r') return 0;
+	}
+	if (tty->termios.c_iflag & ICRNL) {
+		// translate CR to NL
+		if (c == '\r') c = '\n';
+	}
+	if (tty->termios.c_iflag & IUCLC) {
+		// map uppercase to lowercase
+		if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+	}
+	if (tty->termios.c_iflag & ISTRIP) {
+		// strip off eighth bit
+		c &= 0x7F;
+	}
+
+	// signal support
+	if (tty->termios.c_lflag & ISIG) {
+		if (c == tty->termios.c_cc[VINTR]) {
+			tty_echo(tty, c);
+			signal_send_group(tty->fg_group, SIGINT);
+			return 0;
+		}
+		if (c == tty->termios.c_cc[VQUIT]) {
+			tty_echo(tty, c);
+			signal_send_group(tty->fg_group, SIGQUIT);
+			return 0;
+		}
+		if (c == tty->termios.c_cc[VSUSP]) {
+			tty_echo(tty, c);
+			signal_send_group(tty->fg_group, SIGTSTP);
+			return 0;
+		}
+	}
+
+	// canonical mode
+	if (tty->termios.c_lflag & ICANON) {
+		// line editing stuff
+		if (tty->termios.c_cc[VERASE] == c) {
+			if (tty->canon_index > 0) {
+				tty_echo(tty, c);
+				tty->canon_index--;
+			}
+			return 0;
+		} else if (tty->termios.c_cc[VKILL] == c) {
+			tty_echo(tty, c);
+			tty->canon_index = 0;
+			return 0;
+		} else if (tty->termios.c_cc[VEOF] == c) {
+			tty_canon_send_line(tty);
+			return 0;
+		} else {
+			if (tty->canon_index >= sizeof(tty->canon_buf)) {
+				tty_max_bell(tty);
+				return 0;
+			}
+
+			tty->canon_buf[tty->canon_index++] = c;
+			tty->canon_index++;
+
+			tty_echo(tty, c);
+
+			if (c == '\n' || c == tty->termios.c_cc[VEOL]) {
+				tty_canon_send_line(tty);
+			}
+		}
+		return 0;
+	}
+
+	tty_echo(tty, c);
+
+	// check for full ringbuffer
+	if (ringbuffer_write(&tty->input_buffer, &c, sizeof(c)) == 0) {
+		tty_max_bell(tty);
+		return 0;
+	}
+	wakeup_queue(&tty->reader_queue, 0);
+
+	return 0;
+}
+
+int tty_raw_add_input(tty_t *tty, const char *buffer, size_t count) {
+	spinlock_assert_acquired(&tty->lock);
+	ssize_t total = 0;
+	while (count > 0) {
+		tty_input(tty, *buffer);
+		count--;
+		total++;
+		buffer++;
+	}
+	return total;
+}
+
+int tty_add_input(tty_t *tty, const char *buffer, size_t count) {
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	ssize_t ret = tty_raw_add_input(tty, buffer, count);
+	spinlock_release_irq(&tty->lock, irq_save);
+	return ret;
+}
 
 static int tty_end_read_sleep(tty_t *tty) {
 	if (device_is_unplugged(&tty->device)) {
@@ -165,14 +371,44 @@ static void tty_destroy(device_t *device) {
 	kfree(tty->canon_buf);
 }
 
+static int tty_termios_update(tty_t *tty, struct termios *new) {
+	if (tty->ops->update_termios) {
+		int ret = tty->ops->update_termios(tty, new);
+		if (ret < 0) return ret;
+	}
+	if ((new->c_lflag & ICANON) && !(tty->termios->c_lflag & ICANON)) {
+		// entering canonical mode
+		// throw the whole buffer as a line
+		if (ringbuffer_read_available(&tty->input_buffer) > 0) {
+			tty->lines[0] = ringbuffer_read_available(&tty->input_buffer);
+			tty->lines_count = 1;
+		} else {
+			tty->lines_count = 0;
+		}
+		wakeup_queue(&tty->buffer_input_buffer, 0);
+	}
+	if (!(new->c_lflag & ICANON) && (tty->termios->c_lflag & ICANON)) {
+		// exiting canonical mode
+		// send the on going line
+		if (tty->canon_index > 0) {
+			tty_canon_send_line(tty);
+		}
+	}
+
+	tty->termios = *new;
+	return 0;
+}
+
 static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) {
 	switch (request) {
 	case TIOCGETA:
 		return safe_copy_auto_to(arg, &tty->termios);
 	case TIOCSETA:
 	case TIOCSETAF:
-	case TIOCSETAW:
-		return safe_copy_auto_from(&tty->termios, arg);
+	case TIOCSETAW:;
+		struct termios termios;
+		safe_copy_auto_from(&termios, arg);
+		return tty_termios_update(tty, &termios);
 	case TIOCGPGRP:;
 		pid_t pgid = tty->fg_group ? tty->fg_group->pgid : 1;
 		return safe_copy_auto_to(arg, &pgid);
@@ -245,182 +481,4 @@ int tty_register(tty_t *tty, const char *fmt, dev_t number) {
 	tty->device.destroy = tty_destroy;
 
 	return device_register(&tty->device, fmt, number);
-}
-
-// tty_output and tty_input based on TorauOS's tty system
-
-static int tty_output(tty_t *tty, char c) {
-	spinlock_assert_acquired(&tty->lock);
-	if (tty->termios.c_oflag & OPOST) {
-		// enable output processing
-		if (tty->termios.c_oflag & OLCUC) {
-			// map lowercase to uppercase
-			if (c >= 'a' && c <= 'z') c += 'A' - 'a';
-		}
-
-		if (tty->termios.c_oflag & ONLCR) {
-			// map NL to NL-CR
-			if (c == '\n') tty_output(tty, '\r');
-		}
-
-		if (tty->termios.c_oflag & OCRNL) {
-			// translate CR to NL
-			if (c == '\r') c = '\n';
-		}
-
-		if (tty->termios.c_oflag & ONOCR) {
-			// don't output CR at column 0
-			if (c == '\r' && tty->column == 0) return 0;
-		}
-	}
-
-	// CR (or NL and ONLRET flags) reset the column to 0
-	if (c == '\r' || (c == '\n' && tty->termios.c_oflag & ONLRET)) {
-		tty->column = 0;
-	} else {
-		tty->column++;
-	}
-	tty->ops->out(tty, &c, 1);
-	return 0;
-}
-
-static int tty_input(tty_t *tty, char c) {
-	spinlock_assert_acquired(&tty->lock);
-	if (tty->termios.c_iflag & INLCR) {
-		// translate NL to CR
-		if (c == '\n') c = '\r';
-	}
-	if (tty->termios.c_iflag & IGNCR) {
-		// ignore CR
-		if (c == '\r') return 0;
-	}
-	if (tty->termios.c_iflag & ICRNL) {
-		// translate CR to NL
-		if (c == '\r') c = '\n';
-	}
-	if (tty->termios.c_iflag & IUCLC) {
-		// map uppercase to lowercase
-		if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
-	}
-	if (tty->termios.c_iflag & ISTRIP) {
-		// strip off eighth bit
-		c &= 0x7F;
-	}
-
-	// signal support here
-	if (tty->termios.c_lflag & ISIG) {
-		if (c == tty->termios.c_cc[VINTR]) {
-			if (tty->termios.c_lflag & ECHOCTL) {
-				tty_output(tty, c);
-			}
-			signal_send_group(tty->fg_group, SIGINT);
-			return 0;
-		}
-		if (c == tty->termios.c_cc[VQUIT]) {
-			if (tty->termios.c_lflag & ECHOCTL) {
-				tty_output(tty, c);
-			}
-			signal_send_group(tty->fg_group, SIGQUIT);
-			return 0;
-		}
-		if (c == tty->termios.c_cc[VSUSP]) {
-			if (tty->termios.c_lflag & ECHOCTL) {
-				tty_output(tty, c);
-			}
-			signal_send_group(tty->fg_group, SIGTSTP);
-			return 0;
-		}
-	}
-
-	// canonical mode here
-	if (tty->termios.c_lflag & ICANON) {
-		if (tty->termios.c_lflag & ECHO) {
-			if (c == tty->termios.c_cc[VERASE] && tty->termios.c_lflag & ECHOE) {
-				if (tty->canon_index > 0) {
-					if (tty->canon_buf[tty->canon_index - 1] && tty->canon_buf[tty->canon_index - 1] <= 31 && tty->canon_buf[tty->canon_index - 1] != '\n') {
-						// if last is a control char we need to earse both the char and the ^
-						tty_output(tty, '\b');
-						tty_output(tty, ' ');
-						tty_output(tty, '\b');
-					}
-					tty_output(tty, '\b');
-					tty_output(tty, ' ');
-					tty_output(tty, '\b');
-				}
-			} else if (c && c <= 31 && c != '\n') {
-				tty_output(tty, '^');
-				tty_output(tty, c + 'A' - 1);
-			} else {
-				tty_output(tty, c);
-			}
-		} else if (c == '\n' && (tty->termios.c_lflag & ECHONL)) {
-			tty_output(tty, '\n');
-		}
-
-		// line editing stuff
-		if ((tty->termios.c_lflag & IEXTEN)) {
-			if (tty->termios.c_cc[VERASE] == c) {
-				if (tty->canon_index > 0) {
-					tty->canon_index--;
-				}
-				return 0;
-			}
-			if (tty->termios.c_cc[VKILL] == c) {
-				tty->canon_index = 0;
-				return 0;
-			}
-			if (tty->termios.c_cc[VEOF] == c) {
-				goto flush;
-			}
-		}
-
-		tty->canon_buf[tty->canon_index] = c;
-		tty->canon_index++;
-		if (c == '\n' || c == tty->termios.c_cc[VEOL]) {
-flush:
-			ssize_t ret;
-			if ((ret = ringbuffer_write(&tty->input_buffer, tty->canon_buf, tty->canon_index)) < (ssize_t)tty->canon_index) {
-				if (tty->termios.c_iflag & IMAXBEL) {
-					tty_output(tty, '\a');
-				}
-			}
-			tty->lines[tty->lines_count++] = ret;
-			tty->canon_index = 0;
-			wakeup_queue(&tty->reader_queue, 0);
-		}
-		return 0;
-	}
-
-	if (tty->termios.c_lflag & ECHO) {
-		tty_output(tty, c);
-	}
-
-	// check for full ringbuffer
-	if (ringbuffer_write(&tty->input_buffer, &c, sizeof(c)) == 0) {
-		if (tty->termios.c_iflag & IMAXBEL) {
-			tty_output(tty, '\a');
-		}
-	}
-	wakeup_queue(&tty->reader_queue, 0);
-
-	return 0;
-}
-
-int tty_raw_add_input(tty_t *tty, const char *buffer, size_t count) {
-	spinlock_assert_acquired(&tty->lock);
-	ssize_t total = 0;
-	while (count > 0) {
-		tty_input(tty, *buffer);
-		count--;
-		total++;
-		buffer++;
-	}
-	return total;
-}
-
-int tty_add_input(tty_t *tty, const char *buffer, size_t count) {
-	int irq_save = spinlock_acquire_irq(&tty->lock);
-	ssize_t ret = tty_raw_add_input(tty, buffer, count);
-	spinlock_release_irq(&tty->lock, irq_save);
-	return ret;
 }
