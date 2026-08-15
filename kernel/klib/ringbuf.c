@@ -35,7 +35,6 @@ ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count) {
 	if (count > ringbuffer_read_available(ring)) {
 		count = ringbuffer_read_available(ring);
 	}
-	ring->read_available -= count;
 
 	// if the read go farther than the end cut in two
 	size_t rest_count = count;
@@ -44,6 +43,7 @@ ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count) {
 			return -EFAULT;
 		}
 		rest_count -= ring->buffer_size - ring->read_offset;
+		ring->read_available -= ring->buffer_size - ring->read_offset;
 		buffer += ring->buffer_size - ring->read_offset;
 		ring->read_offset = 0;
 	}
@@ -53,6 +53,7 @@ ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count) {
 		return -EFAULT;
 	}
 	ring->read_offset += rest_count;
+	ring->read_available -= rest_count;
 
 	return count;
 }
@@ -64,8 +65,6 @@ ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count) {
 	if (count > ringbuffer_write_available(ring)) {
 		count = ringbuffer_write_available(ring);
 	}
-
-	ring->read_available += count;
 	
 	// if the write go farther than the end cut in two
 	size_t rest_count = count;
@@ -73,16 +72,18 @@ ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count) {
 		if (safe_copy_from(ring->buffer + ring->write_offset, buffer, ring->buffer_size - ring->write_offset) < 0) {
 			return -EFAULT;
 		}
+		ring->read_available += ring->buffer_size - ring->write_offset;
 		rest_count -= ring->buffer_size - ring->write_offset;
 		buffer += ring->buffer_size - ring->write_offset;
 		ring->write_offset = 0;
 	}
 
 	// now write the rest
-	if (safe_copy_from(ring->buffer + ring->write_offset, buffer, rest_count)) {
+	if (safe_copy_from(ring->buffer + ring->write_offset, buffer, rest_count) < 0) {
 		return -EFAULT;
 	}
 	ring->write_offset += rest_count;
+	ring->read_available += rest_count;
 
 	return count;
 }

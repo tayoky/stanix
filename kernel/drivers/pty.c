@@ -19,21 +19,29 @@ static ssize_t pty_output(tty_t *tty, const char *buf, size_t count) {
 	pty_t *pty = slave->pty;
 	
 	ssize_t total = 0;
-	int ret = 0;
+	ssize_t ret = 0;
 	spinlock_acquire(&pty->lock);
 	while (count > 0) {
 		spinlock_raw_release(&slave->tty.lock);
-		if (sleep_on_queue_lock_interruptible(&pty->writer_queue, &pty->lock, device_is_unplugged(&tty->device)) < 0) {
+		if (sleep_on_queue_lock_interruptible(&pty->writer_queue, &pty->lock, ringbuffer_write_available(&pty->output_buffer) > 0 || device_is_unplugged(&tty->device)) < 0) {
 			spinlock_raw_acquire(&slave->tty.lock);
 			ret = -EINTR;
 			break;
 		}
 		spinlock_raw_acquire(&slave->tty.lock);
 
+		if (device_is_unplugged(&tty->device)) {
+			ret = -ENXIO;
+			break;
+		}
+
 		ret = ringbuffer_write(&pty->output_buffer, buf, count);
 		if (ret < 0) break;
 
 		wakeup_queue(&pty->reader_queue, 0);
+		
+		count -= ret;
+		buf += ret;
 	}
 	spinlock_release(&pty->lock);
 	if (ret < 0 && total == 0) return ret;
@@ -54,10 +62,10 @@ static ssize_t pty_master_raw_read(pty_t *pty, void *buffer, size_t count, long 
 			return -EAGAIN;
 		} else {
 			// sleep until we can read
-			if (sleep_on_queue_lock_interruptible(&pty->reader_queue, &pty->lock, ringbuffer_read_available(&pty->output_buffer) && pty_is_disconnected(pty)) < 0) {
+			if (sleep_on_queue_lock_interruptible(&pty->reader_queue, &pty->lock, ringbuffer_read_available(&pty->output_buffer) > 0 || pty_is_disconnected(pty)) < 0) {
 				return -EINTR;
 			}
-			if (pty_is_disconnected(pty) && !ringbuffer_read_available(&pty->output_buffer)) {
+			if (pty_is_disconnected(pty) && ringbuffer_read_available(&pty->output_buffer) == 0) {
 				// nobody has open the slave and there is no data
 				return -EIO;
 			}
