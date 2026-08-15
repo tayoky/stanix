@@ -3,6 +3,7 @@
 
 #include <kernel/device.h>
 #include <kernel/ringbuf.h>
+#include <kernel/sleep.h>
 #include <kernel/vfs.h>
 #include <sys/input.h>
 
@@ -16,12 +17,14 @@ typedef struct input_ops {
 
 typedef struct input_device {
 	device_t device;
-	vfs_fd_t *controlling_fd;
+	vfs_fd_t *controlling_fd;       // protected by lock
 	input_ops_t *ops;
-	ringbuffer_t events;
+	ringbuffer_t events;            // protected by lock
+	sleep_queue_t sleep_queue;      // protected by lock
+	char layout[INPUT_LAYOUT_SIZE]; // protected by lock
+	spinlock_t lock;
 	unsigned long class;
 	unsigned long subclass;
-	char layout[INPUT_LAYOUT_SIZE];
 } input_device_t;
 
 int input_device_register(input_device_t *input_device);

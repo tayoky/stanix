@@ -10,97 +10,147 @@
 #include <errno.h>
 #include <poll.h>
 
+static int tty_output(tty_t *tty, char c);
+
+static int tty_end_read_sleep(tty_t *tty) {
+	if (device_is_unplugged(&tty->device)) {
+		return 1;
+	}
+	 
+	if (tty->termios.c_lflag & ICANON) {
+		if (tty->lines > 0) {
+			return 1;
+		}
+	} else {
+		if (ringbuffer_read_available(&tty->input_buffer) >= tty->termios.c_cc[VMIN]) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+// TODO : respect line bounds on canonical mode
+static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count) {
+	// sleep until read available
+	if (!(fd->flags & O_NONBLOCK)) {
+		if (sleep_on_lock(&tty->reader_queue, &tty->lok, tty_end_read_sleep(tty)) < 0) {
+			return -EINTR;
+		}
+	}
+
+	if (tty->termios.c_lflag & ICANON) {
+		if (tty->lines <= 0) {
+			if (device_is_unplugged(&tty->device)) {
+				return 0;
+			} else {
+				return -EAGAIN;
+			}
+		}	
+	} else {
+		if (ringbuffer_read(&tty->input_buffer) < tty->termios) {
+			if (device_is_unplugged(&tty->device)) {
+				return 0;
+			} else {
+				return -EAGAIN;
+			}
+		}
+	}
+
+	ssize_t ret = ringbuffer_read(&tty->input_buffer, buffer, count, fd->flags);
+	if (tty->lines > 0 && ret >= 0) {
+		tty->lines--;
+	}
+	wakeup_queue(&tty->writer_queue);
+	return ret;
+}
+
 static ssize_t tty_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	(void)offset;
 	tty_t *tty = (tty_t *)fd->private;
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	ssize_t ret = tty_raw_read(tty, buffer, count);
+	spinlock_release_irq(&tty->lock, irq_save);
+	return ret;
+}
 
-	if (tty->termios.c_lflag & ICANON) {
-		ssize_t rsize = ringbuffer_read(&tty->input_buffer, buffer, count, fd->flags);
-		if (rsize < 0) {
-			return rsize;
+static ssize_t tty_raw_write(tty_t *tty, const char *buffer, size_t count) {
+	ssize_t total = 0;
+	while (count > 0) {	
+		char kbuf[128];
+		size_t w = sizeof(kbuf) < remaining ? sizeof(kbuf) : remaining;
+		int ret = safe_copy_from(kbuf, buffer, w);
+		if (ret < 0) return total > 0 ? total : ret;
+
+		for (size_t i=0; i<w; i++) {
+			tty_output(tty, kbuf[i]);
 		}
-		if (((char *)buffer)[rsize - 1] == tty->termios.c_cc[VEOF]) {
-			rsize--;
-		}
-		return rsize;
+		count -= w;
+		buffer += w;
+		total += w;
 	}
-
-	return ringbuffer_read(&tty->input_buffer, buffer, count, fd->flags);
+	return total;
 }
 
 static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	(void)offset;
 	tty_t *tty = (tty_t *)fd->private;
-
-	const char *buf = buffer;
-	size_t remaining = count;
-	while (remaining > 0) {	
-		char kbuf[128];
-		size_t w = sizeof(kbuf) < remaining ? sizeof(kbuf) : remaining;
-		int ret = safe_copy_from(kbuf, buf, w);
-		if (ret < 0) return ret;
-
-		for (size_t i=0; i<w; i++) {
-			tty_output(tty, kbuf[i]);
-		}
-		remaining -= w;
-		buf += w;
-	}
-	return count;
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	ssize_t ret = tty_raw_read(tty, buffer, count);
+	spinlock_release_irq(&tty->lock, irq_save);
+	return ret;
 }
 
 static int tty_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	tty_t *tty = (tty_t *)fd->private;
-
-	if (device_is_unplugged(&tty->device)) {
-		// cannot wait on disconnected ttys
-		return 0;
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	// cannot wait on disconnected ttys
+	if (!device_is_unplugged(&tty->device)) {
+		sleep_add_to_queue(&tty->reader_queue);
 	}
-
-	if (event->events & (POLLIN | POLLHUP)) {
-		sleep_add_to_queue(&tty->input_buffer.reader_queue);
-	}
-
+	spinlock_release_irq(&tty->lock, irq_save);
 	return 0;
 }
 
 static int tty_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 	tty_t *tty = (tty_t *)fd->private;
-	if (event->events & (POLLIN | POLLHUP)) {
-		sleep_remove_from_queue(&tty->input_buffer.reader_queue);
-	}
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	sleep_remove_from_queue(&tty->reader_queue);
+	spinlock_release_irq(&tty->lock, irq_save);
 	return 0;
 }
 
 static int tty_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	tty_t *tty = (tty_t *)fd->private;
-
-	if (device_is_unplugged(&tty->device)) {
-		event->revents |= POLLHUP;
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	if (device_is_unplugged(&tty->device)) event->revents |= POLLHUP;
+	if (tty->termios.c_lflag & ICANON) {
+		if (tty->lines > 0) event->revents |= POLLIN;
+	} else {
+		if (ringbuffer_read_available(&tty->input_buffer) >= ttt->termios.c_cc[VMIN]) event->revents |= POLLIN;
 	}
 
-	if (ringbuffer_read_available(&tty->input_buffer)) event->revents |= POLLIN;
-
-	// technicly we sometimes cannot write
+	// technically we sometimes cannot write
 	// but who care ?
 	event->revents |= POLLOUT;
 
+	spinlock_release_irq(&tty->lock, irq_save);
 	return 0;
 }
 
 static void tty_destroy(device_t *device) {
 	tty_t *tty = (tty_t *)device;
 
-	spinlock_acquire(&tty->lock);
+	int irq_save = spinlock_acquire_irq(&tty->lock);
 
 	// TODO : send SIGHUP
 	
 	process_group_release(tty->fg_group);
-	spinlock_release(&tty->lock);
+	wakeup_queue(&tty->reader_queue);
+	wakeup_queue(&tty->writer_queue);
+	spinlock_release_irq(&tty->lock, irq_save);
 
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
-	ringbuffer_wakeup_all(&tty->input_buffer);
 	ringbuffer_destroy(&tty->input_buffer);
 	kfree(tty->canon_buf);
 }
@@ -140,9 +190,9 @@ static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) {
 }
 
 int tty_do_ioctl(tty_t *tty, long request, void *arg) {
-	spinlock_acquire(&tty->lock);
+	int irq_save = spinlock_acquire_irq(&tty->lock);
 	int ret = tty_do_raw_ioctl(tty, request, arg);
-	spinlock_release(&tty->lock);
+	spinlock_release_irq(&tty->lock, irq_save);
 	return ret;
 }
 
@@ -189,7 +239,8 @@ int tty_register(tty_t *tty, const char *fmt, dev_t number);
 
 // tty_output and tty_input based on TorauOS's tty system
 
-int tty_output(tty_t *tty, char c) {
+static int tty_output(tty_t *tty, char c) {
+	spinlock_assert_acquired(&tty->lock);
 	if (tty->termios.c_oflag & OPOST) {
 		// enable output processing
 		if (tty->termios.c_oflag & OLCUC) {
@@ -223,7 +274,8 @@ int tty_output(tty_t *tty, char c) {
 	return 0;
 }
 
-int tty_input(tty_t *tty, char c) {
+static int tty_input(tty_t *tty, char c) {
+	spinlock_assert_acquired(&tty->lock);
 	if (tty->termios.c_iflag & INLCR) {
 		// translate NL to CR
 		if (c == '\n') c = '\r';
@@ -295,17 +347,23 @@ int tty_input(tty_t *tty, char c) {
 				tty->canon_index = 0;
 				return 0;
 			}
+			if (tty->termios.c_cc[VEOF] == c) {
+				goto flush;
+			}
 		}
 
 		tty->canon_buf[tty->canon_index] = c;
 		tty->canon_index++;
-		if (c == '\n' || c == tty->termios.c_cc[VEOL] || c == tty->termios.c_cc[VEOF]) {
-			if ((size_t)ringbuffer_write(&tty->input_buffer, tty->canon_buf, tty->canon_index, 0) < tty->canon_index) {
+		if (c == '\n' || c == tty->termios.c_cc[VEOL]) {
+flush:
+			if ((size_t)ringbuffer_write(&tty->input_buffer, tty->canon_buf, tty->canon_index) < tty->canon_index) {
 				if (tty->termios.c_iflag & IMAXBEL) {
 					tty_output(tty, '\a');
 				}
 			}
+			tty->lines++;
 			tty->canon_index = 0;
+			wakeup_queue(&tty->reader_queue);
 		}
 		return 0;
 	}
@@ -315,11 +373,28 @@ int tty_input(tty_t *tty, char c) {
 	}
 
 	// check for full ringbuffer
-	if (ringbuffer_write(&tty->input_buffer, &c, 1, 0) == 0) {
+	if (ringbuffer_write(&tty->input_buffer, &c, sizeof(c)) == 0) {
 		if (tty->termios.c_iflag & IMAXBEL) {
 			tty_output(tty, '\a');
 		}
 	}
+	wakeup_queue(&tty->reader_queue);
 
 	return 0;
+}
+
+// TODO : implement blocking write
+int tty_add_input(tty_t *tty, const char *buffer, size_t count, long flags) {
+	(void)flags;
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	
+	ssize_t total = 0;
+	while (count > 0) {
+		tty_raw_input(tty, *buffer);
+		count--;
+		total++;
+		buffer++;
+	}
+	spinlock_release_irq(&tty->lock, irq_save);
+	return total;
 }

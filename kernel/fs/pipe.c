@@ -11,73 +11,167 @@
 #include <stdatomic.h>
 
 typedef struct pipe {
-	ringbuffer_t ring;
-	atomic_int isbroken;
+	ringbuffer_t ring;          // protected by lock
+	sleep_queue_t reader_queue; // protected by lock
+	sleep_queue_t writer_queue; // protected by lock
+	int isbroken;               // protected by lock
+	spinlock_t lock;
 } pipe_t;
 
 #define PIPE_SIZE 4096
 
-static ssize_t pipe_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
-	(void)offset;
-	pipe_t *pipe = (pipe_t *)fd->private;
-
+static ssize_t pipe_raw_read(pipe_t *pipe, void *buffer, size_t count, long flags) {
 	// broken pipe check
-	if (pipe->isbroken && !ringbuffer_read_available(&pipe->ring)) {
+	if (pipe->isbroken && ringbuffer_read_available(&pipe->ring) == 0) {
 		return 0;
 	}
 
-	return ringbuffer_read(&pipe->ring, buffer, count, fd->flags);
+	if (ringbuffer_read_available(&pipe->ring) == 0) {
+		if (flags & O_NONBLOCK) {
+			return -EAGAIN;
+		} else {
+			// wait until read available
+			if (sleep_on_lock_interruptible(&pipe->reader_queue, &pipe->lock, ringbuffer_read_available(&pipe->ring) || pipe->isbroken) < 0) {
+				return -EINTR;
+			}
+
+			// second broken pipe check
+			if (pipe->isbroken && ringbuffer_read_available(&pipe->ring) == 0) {
+				return 0;
+			}
+		}
+	}
+
+	ssize_t ret = ringbuffer_read(&pipe->ring, buffer, count);
+	wakeup_queue(&pipe->writer_queue, 0);
+	return ret;
 }
 
-static ssize_t pipe_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
+static ssize_t pipe_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	(void)offset;
 	pipe_t *pipe = (pipe_t *)fd->private;
+	spinlock_acquire(&pipe->lock);
+	ssize_t ret = pipe_raw_read(pipe, buffer, count, fd->flags);
+	spinlock_release(&pipe->lock);
+	return ret;
+}
 
+static ssize_t pipe_raw_write(pipe_t *pipe, const char *buffer, size_t count, long flags) {
 	// broken pipe check
 	if (pipe->isbroken) {
 		return -EPIPE;
 	}
 
-	return ringbuffer_write(&pipe->ring, buffer, count, fd->flags);
+	ssize_t total = 0;
+	int ret = 0;
+	while (count > 0) {
+		// guarantee atomic write for write under size of 4096
+		// mandated by posix
+		size_t minimum_write = count < 4096 ? count : 4096;
+		if (ringbuffer_write_available(&pipe->ring) < minimum_write) {
+			if (flags & O_NONBLOCK) {
+				ret = -EAGAIN;
+				goto finish;
+			}
+		} else {
+			// sleep until we can write
+			if (sleep_on_lock_interruptible(&pipe->reader_queue, &pipe->lock, ringbuffer_write_available(&pipe->ring) >= minimum_write || pipe->isbroken) < 0) {
+				ret = -EINTR;
+				goto finish;
+			}
+			// second broken pipe check
+			if (pipe->isbroken) {
+				ret = -EPIPE;
+				goto finish;
+			}
+		}
+
+		ssize_t written = ringbuffer_write(&pipe->ring, buf, count);
+		wakeup_queue(&pipe->reader_queue);
+		count  -= written;
+		total  += written;
+		buffer += written;
+	}
+
+finish:
+	if (ret < 0 && total == 0) return ret;
+	return total;
+}
+
+static ssize_t pipe_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
+	(void)offset;
+	pipe_t *pipe = (pipe_t *)fd->private;
+	spinlock_acquire(&pipe->lock);
+	ssize_t ret = pipe_raw_write(pipe, buffer, count, fd->flags);
+	spinlock_release(&pipe->lock);
+	return ret;
 }
 
 static int pipe_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	pipe_t *pipe = (pipe_t *)fd->private;
-	if (atomic_load(&pipe->isbroken)) {
-		// cannot wait on broken pipe
-		return 0;
+	spinlock_acquire(&pipe->lock);
+	
+	// cannot wait on broken pipe
+	if (!pipe->isbroken) {
+		if (fd->ops->read) {
+			sleep_add_to_queue(&pipe->reader_queue);
+		} else {
+			sleep_add_to_queue(&pipe->writer_queue);
+		}
 	}
 
-	return ringbuffer_poll_add(&pipe->ring, event);
+	spinlock_release(&pipe->lock);
+	return 0;
 }
 
 static int pipe_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 	pipe_t *pipe = (pipe_t *)fd->private;
-	return ringbuffer_poll_remove(&pipe->ring, event);
+	spinlock_acquire(&pipe->lock);
+
+	if (fd->ops->read) {
+		sleep_remove_from_queue(&pipe->reader_queue);
+	} else {
+		sleep_remove_from_queue(&pipe->writer_queue);
+	}
+
+	spinlock_release(&pipe->lock);
+	return 0;
 }
 
 static int pipe_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	pipe_t *pipe = (pipe_t *)fd->private;
-	if (atomic_load(&pipe->isbroken)) {
-		event->events |= POLLHUP;
+	spinlock_acquire(&pipe->lock);
+
+	if (pipe->isbroken) {
+		event->revents |= POLLHUP;
 	}
-	return ringbuffer_poll_get(&pipe->ring, event);
+	if (fd->ops->read && ringbuffer_read_available(&pipe->ring) > 0) {
+		event->revents |= POLLIN;
+	}
+	if (fd->ops->write && ringbuffer_write_available(&pipe->ring) > 0) {
+		event->revents |= POLLOUT;
+	}
+
+	spinlock_release(&pipe->lock);
+	return 0;
 }
 
 static void pipe_close(vfs_fd_t *fd) {
 	pipe_t *pipe = (pipe_t *)fd->private;
+	spinlock_acquire(&pipe->lock);
 
-	// if it's already broken delete the pipe
-	if (atomic_exchange(&pipe->isbroken, 1)) {
+	if (pipe->isbroken) {
+		// if it's already broken delete the pipe
 		ringbuffer_destroy(&pipe->ring);
+		spinlock_release(&pipe->lock);
 		kfree(pipe);
-		return;
 	} else {
 		// else wakeup everybody that might be waiting for something
-		ringbuffer_wakeup_all(&pipe->ring);
+		pipe->isbroken = 1;
+		wakeup_queue(&pipe->reader_queue);
+		wakeup_queue(&pipe->writer_queue);
+		spinlock_release(&pipe->lock);
 	}
-
-	return;
 }
 
 static vfs_fd_ops_t pipe_write_ops = {

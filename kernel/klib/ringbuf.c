@@ -29,21 +29,7 @@ size_t ringbuffer_write_available(ringbuffer_t *ring) {
 	return ring->buffer_size - ringbuffer_read_available(ring);
 }
 
-ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count, long flags) {
-	int irq_save = spinlock_acquire_irq(&ring->lock);
-
-	// check if there are something to read or sleep
-	if (ringbuffer_read_available(ring) == 0) {
-		if (flags & O_NONBLOCK) {
-			spinlock_release_irq(&ring->lock, irq_save);
-			return -EWOULDBLOCK;
-		}
-		if (sleep_on_queue_lock_interruptible(&ring->reader_queue, ringbuffer_read_available(ring), &ring->lock) == -EINTR) {
-			spinlock_release_irq(&ring->lock, irq_save);
-			return -EINTR;
-		}
-	}
-
+ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count) {
 	char *buffer = (char *)buf;
 	// cant read more that what is available
 	if (count > ringbuffer_read_available(ring)) {
@@ -55,7 +41,6 @@ ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count, long flags)
 	size_t rest_count = count;
 	if (count + ring->read_offset >= ring->buffer_size) {
 		if (safe_copy_to(buffer, ring->buffer + ring->read_offset, ring->buffer_size - ring->read_offset) < 0) {
-			spinlock_release_irq(&ring->lock, irq_save);
 			return -EFAULT;
 		}
 		rest_count -= ring->buffer_size - ring->read_offset;
@@ -65,103 +50,38 @@ ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count, long flags)
 
 	// now read the rest
 	if (safe_copy_to(buffer, ring->buffer + ring->read_offset, rest_count) < 0){
-		spinlock_release_irq(&ring->lock, irq_save);
 		return -EFAULT;
 	}
 	ring->read_offset += rest_count;
 
-	wakeup_queue(&ring->writer_queue, 1);
-	spinlock_release_irq(&ring->lock, irq_save);
-
 	return count;
 }
 
-ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count, long flags) {
+ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count) {
 	char *buffer = (char *)buf;
 
-	size_t remaining = count;
-	while (remaining > 0) {
-		int irq_save = spinlock_acquire_irq(&ring->lock);
+	// cant write more that what is available
+	if (count > ringbuffer_write_available(ring)) {
+		count = ringbuffer_write_available(ring);
+	}
 
-		if (ringbuffer_write_available(ring) == 0) {
-			if (flags & O_NONBLOCK) {
-				spinlock_release_irq(&ring->lock, irq_save);
-				return -EWOULDBLOCK;
-			}
-			if (sleep_on_queue_lock_interruptible(&ring->writer_queue, ringbuffer_write_available(ring), &ring->lock) == -EINTR) {
-				spinlock_release_irq(&ring->lock, irq_save);
-				return -EINTR;
-			}
-		}
+	ring->read_available += count;
 
-		// cant write more that what is available
-		size_t rest_count = remaining;
-		if (rest_count > ringbuffer_write_available(ring)) {
-			rest_count = ringbuffer_write_available(ring);
-		}
-
-		remaining -= rest_count;
-		ring->read_available += rest_count;
-
-		// if the write go farther than the end cut in two
-		if (rest_count + ring->write_offset >= ring->buffer_size) {
-			if (safe_copy_from(ring->buffer + ring->write_offset, buffer, ring->buffer_size - ring->write_offset) < 0) {
-				spinlock_release_irq(&ring->lock, irq_save);
-				return -EFAULT;
-			}
-			rest_count -= ring->buffer_size - ring->write_offset;
-			buffer += ring->buffer_size - ring->write_offset;
-			ring->write_offset = 0;
-		}
-
-		// now write the rest
-		if (safe_copy_from(ring->buffer + ring->write_offset, buffer, rest_count)) {
-			spinlock_release_irq(&ring->lock, irq_save);
+	// if the write go farther than the end cut in two
+	if (rest_count + ring->write_offset >= ring->buffer_size) {
+		if (safe_copy_from(ring->buffer + ring->write_offset, buffer, ring->buffer_size - ring->write_offset) < 0) {
 			return -EFAULT;
 		}
-		ring->write_offset += rest_count;
-		buffer += rest_count;
-
-		// if a process is waiting to read wakeup
-		wakeup_queue(&ring->reader_queue, 1);
-		spinlock_release_irq(&ring->lock, irq_save);
+		rest_count -= ring->buffer_size - ring->write_offset;
+		buffer += ring->buffer_size - ring->write_offset;
+		ring->write_offset = 0;
 	}
+
+	// now write the rest
+	if (safe_copy_from(ring->buffer + ring->write_offset, buffer, rest_count)) {
+		return -EFAULT;
+	}
+	ring->write_offset += rest_count;
 
 	return count;
-}
-
-void ringbuffer_wakeup_all(ringbuffer_t *ring) {
-	wakeup_queue(&ring->reader_queue, 0);
-	wakeup_queue(&ring->writer_queue, 0);
-}
-
-int ringbuffer_poll_add(ringbuffer_t *ring, poll_event_t *event) {
-	if (event->events & (POLLIN | POLLHUP)) {
-		sleep_add_to_queue(&ring->reader_queue);
-	}
-	if (event->events & POLLOUT) {
-		sleep_add_to_queue(&ring->writer_queue);
-	}
-
-	return 0;
-}
-
-int ringbuffer_poll_remove(ringbuffer_t *ring, poll_event_t *event) {
-	if (event->events & (POLLIN | POLLHUP)) {
-		sleep_remove_from_queue(&ring->reader_queue);
-	}
-	if (event->events & POLLOUT) {
-		sleep_remove_from_queue(&ring->writer_queue);
-	}
-	return 0;
-}
-
-int ringbuffer_poll_get(ringbuffer_t *ring, poll_event_t *event) {
-	if (ringbuffer_read_available(ring)) {
-		event->revents |= POLLIN;
-	}
-	if (ringbuffer_write_available(ring)) {
-		event->revents |= POLLOUT;
-	}
-	return 0;
 }

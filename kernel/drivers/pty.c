@@ -9,9 +9,31 @@
 #include <kernel/tty.h>
 #include <poll.h>
 
-static ssize_t pty_output(tty_t *tty, const char *buf, size_t size) {
-	pty_t *pty = tty->private_data;
-	return ringbuffer_write(&pty->output_buffer, buf, size, 0);
+static int pty_is_disconnected(pty_t *pty) {
+	return atomic_load(&pty->slave->tty.device.ref_count) == 1;
+}
+
+static ssize_t pty_output(tty_t *tty, const char *buf, size_t count) {
+	pty_slave_t *slave = container_of(tty, pty_slave_t, tty);
+	pty_t *pty = slave->pty;
+	
+	ssize_t total = 0;
+	int ret = 0;
+	spinlock_acquire(&pty->lock);
+	while (count > 0) {
+		if (sleep_on_lock(&pty->writer_queue, &pty->lock, device_is_unplugged(&tty->device)) < 0) {
+			ret = -EINTR;
+			break;
+		}
+
+		ret = ringbuffer_write(&pty->output_buffer, buf, count);
+		if (ret < 0) break;
+
+		wakeup_queue(&pty->reader_queue, 0);
+	}
+	spinlock_release(&pty->lock);
+	if (ret < 0 && total == 0) return ret;
+	return total;
 }
 
 static void pty_cleanup(pty_t *pty) {
@@ -19,70 +41,86 @@ static void pty_cleanup(pty_t *pty) {
 	kfree(pty);
 }
 
-static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
-	(void)offset;
-
-	pty_t *pty = (pty_t *)fd->private;
-
-	if (atomic_load(&pty->slave->device.ref_count) == 1 && !ringbuffer_read_available(&pty->output_buffer)) {
-		// nobody has open the slave and there is no data
-		return -EIO;
+static ssize_t pty_master_raw_read(pty_t *pty, void *buffer, size_t count, long flags) {
+	if (ringbuffer_read_available(&pty->output_buffer) == 0) {
+		if (pty_is_disconnected(pty)) {
+			// nobody has open the slave and there is no data
+			return -EIO;
+		} else if (flags & O_NONBLOCK) {
+			return -EAGAIN;
+		} else {
+			// sleep until we can read
+			if (sleep_on_lock(&pty->reader_queue, &pty->lock, ringbuffer_read_available(&pty->output_buffer) && pty_is_disconnected(pty)) < 0) {
+				return -EINTR;
+			}
+			if (pty_is_disconnected(pty) && !ringbuffer_read_available(&pty->output_buffer)) {
+				// nobody has open the slave and there is no data
+				return -EIO;
+			}
+		}
 	}
 
-	return ringbuffer_read(&pty->output_buffer, buffer, count, fd->flags);
+	return ringbuffer_read(&pty->output_buffer, buffer, count);
+}
+
+static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
+	pty_t *pty = (pty_t *)fd->private;
+	spinlock_acquire(&pty->lock);
+	ssize_t ret = pty_master_raw_read(pty, buffer, count, fd->flags);
+	spinlock_release(&pty->lock);
+	return ret;
 }
 
 static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	(void)offset;
 	pty_t *pty = (pty_t *)fd->private;
-	tty_t *tty = pty->slave;
 
 	const char *buf = buffer;
-	size_t remaining = count;
-	while (remaining > 0) {	
+	ssize_t total = 0;
+	int ret = 0;
+	spinlock_acquire(&pty->lock);
+	while (count > 0) {	
 		char kbuf[128];
-		size_t w = sizeof(kbuf) < remaining ? sizeof(kbuf) : remaining;
-		int ret = safe_copy_from(kbuf, buf, w);
-		if (ret < 0) return ret;
+		size_t w = sizeof(kbuf) < count ? sizeof(kbuf) : count;
+		ret = safe_copy_from(kbuf, buf, w);
+		if (ret < 0) break;
 
-		for (size_t i=0; i<w; i++) {
-			tty_input(tty, kbuf[i]);
-		}
-		remaining -= w;
+		ret = tty_add_input(&pty->slave.tty, kbuf, w);
+		if (ret < 0) break;
+
+		count -= w;
 		buf += w;
+		total += w;
 	}
-	return (ssize_t)count;
+	spinlock_release(&pty->lock);
+	if (ret < 0 && total == 0) return ret;
+	return total;
 }
 
 static int pty_master_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	pty_t *pty = (pty_t *)fd->private;
-	tty_t *tty = pty->slave;
 	switch (request) {
 	case TIOCGPTPEER:;
-		vfs_fd_t *slave_fd = device_open(&tty->device, O_RDWR);
+		vfs_fd_t *slave_fd = device_open(&pty->slave->tty.device, O_RDWR);
 		return add_fd(slave_fd, 0);
 	default:
-		return tty_do_ioctl(tty, request, arg);
+		return tty_do_ioctl(&pty->slave.tty, request, arg);
 	};
-}
-
-static int pty_is_disconnected(pty_t *pty) {
-	return atomic_load(&pty->slave->device.ref_count) == 1;
 }
 
 static int pty_master_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	pty_t *pty = (pty_t *)fd->private;
 
-	// cannot wait on disconnected master
-	if (pty_is_disconnected(pty)) {
-		return 0;
+	if (event->events & (POLLIN | POLLHUP)) {
+		spinlock_acquire(&pty->lock);
+		sleep_add_to_queue(&pty->reader_queue);
+		spinlock_release(&pty->lock);
 	}
 
-	if (event->events & (POLLIN | POLLHUP)) {
-		sleep_add_to_queue(&pty->output_buffer.reader_queue);
-	}
 	if (event->events & POLLOUT) {
-		sleep_add_to_queue(&pty->slave->input_buffer.writer_queue);
+		int irq_save = spinlock_acquire_irq(&pty->slave->tty.lock);
+		sleep_add_to_queue(&pty->slave->writer_queue);
+		spinlock_release_irq(&pty->slave->tty.lock, irq_save);
 	}
 
 	return 0;
@@ -91,12 +129,13 @@ static int pty_master_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 static int pty_master_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 	pty_t *pty = (pty_t *)fd->private;
 
-	if (event->events & (POLLIN | POLLHUP)) {
-		sleep_remove_from_queue(&pty->output_buffer.reader_queue);
-	}
-	if (event->events & POLLOUT) {
-		sleep_remove_from_queue(&pty->slave->input_buffer.writer_queue);
-	}
+	spinlock_acquire(&pty->lock);
+	sleep_remove_from_queue(&pty->reader_queue);
+	spinlock_release(&pty->lock);
+	
+	int irq_save = spinlock_acquire_irq(&pty->slave->tty.lock);
+	sleep_remove_from_queue(&pty->slave->writer_queue);
+	spinlock_release_irq(&pty->slave->tty.lock, irq_save);
 
 	return 0;
 }
@@ -104,9 +143,14 @@ static int pty_master_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 static int pty_master_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	pty_t *pty = (pty_t *)fd->private;
 
-	if (ringbuffer_read_available(&pty->output_buffer)) event->revents |= POLLIN;
-	if (ringbuffer_write_available(&pty->slave->input_buffer)) event->revents |= POLLOUT;
+	spinlock_acquire(&pty->lock);
 	if (pty_is_disconnected(pty)) event->revents |= POLLHUP;
+	if (ringbuffer_read_available(&pty->output_buffer) > 0) event->revents |= POLLIN;
+	spinlock_release(&pty->lock);
+
+	int irq_save = spinlock_acquire_irq(&pty->slave->tty.lock);
+	if (ringbuffer_write_available(&pty->slave->input_buffer) > 0) event->revents |= POLLOUT;
+	spinlock_release_irq(&pty->slave->tty.lock, irq_save);
 
 	return 0;
 }
@@ -140,12 +184,12 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	memset(pty, 0, sizeof(pty_t));
 	ringbuffer_init(&pty->output_buffer, 4096);
 
-	tty_t *slave         = kmalloc(sizeof(tty_t));
+	pty_slave_t *slave = kmalloc(sizeof(pty_slave_t));
 	memset(slave, 0, sizeof(tty_t));
-	pty->slave           = slave;
-	*rep                 = slave;
-	slave->private_data  = pty;
-	slave->ops           = &pty_slave_ops;
+	pty->slave         = slave;
+	*rep               = &slave->tty;
+	slave->pty         = pty;
+	slave->tty.ops     = &pty_slave_ops;
 
 	// create the master fd
 	(*master_fd)            = vfs_fd_alloc();

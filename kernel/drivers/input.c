@@ -5,21 +5,24 @@
 #include <sys/input.h>
 #include <poll.h>
 
-#define check_control(val) if (!input_device->controlling_fd) input_device->controlling_fd = fd;\
-										 if (input_device->controlling_fd != fd) return val;
+static int input_device_check_control(input_device_t *input_device, vfs_fd_t *fd) {
+	spinlock_assert_acquired(&input_device->lock);
+	if (!input_device->controlling_fd) input_device->controlling_fd = fd;
+	return input_device->controlling_fd == fd;
+}
 
 static void input_device_drop_control(input_device_t *input_device) {
+	spinlock_assert_acquired(&input_device->lock);
 	kdebugf("process %d drop control\n", get_current_proc()->pid);
 	input_device->controlling_fd = NULL;
 
 	// we need to wakeup everyone
 	// because know they can take control of the input device :)
-	ringbuffer_wakeup_all(&input_device->events);
+	wakeup_queue(&input_device->sleep_queue);
 }
 
-static int input_device_ioctl(vfs_fd_t *fd, long req, void *arg) {
+static int input_device_raw_ioctl(input_device_t *input_device, long req, void *arg) {
 	int ret = -EINVAL;
-	input_device_t *input_device = fd->private;
 	if (device_is_unplugged(&input_device->device)) {
 		return -ENXIO;
 	}
@@ -50,68 +53,97 @@ static int input_device_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	}
 }
 
-static ssize_t input_device_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
+static int input_device_ioctl(vfs_fd_t *fd, long req, void *arg) {
+	input_device_t *input_device = fd->private;
+	int irq_save = spinlock_acquire_irq(&input_device->lock);
+	int ret = input_device_raw_ioctl(input_device, req, arg);
+	spinlock_release_irq(&input_device->lock, irq_save);
+	return ret;
+}
+
+static ssize_t input_device_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	(void)offset;
 	input_device_t *input_device = fd->private;
-	if (device_is_unplugged(&input_device->device)) {
-		return -ENXIO;
-	}
-	check_control(0);
+	int irq_save = spinlock_acquire_irq(&input_device->lock);
 
 	// can only read full events
 	count -= count % sizeof(struct input_event);
 
-	return ringbuffer_read(&input_device->events, buf, count, fd->flags);
+	ssize_t ret = 0;
+	if (device_is_unplugged(&input_device->device)) {
+		ret = -ENXIO;
+		goto finish;
+	}
+	if (ringbuffer_read_available(&input_device->events) == 0 || !input_device_check_control(input_device, fd)) {
+		if (fd->flags & O_NONBLOCK) {
+			ret = -EAGAIN;
+			goto finish;
+		} else {
+			// wait until we can read an event
+			if (sleep_on_lock_interruptible(&input_device->sleep_queue, &input_device->lock, ringbuffer_read_available(&input_device->events) > 0 && input_device_check_control(input_device)) < 0) {
+				ret = -EINTR;
+				goto finish;
+			}
+		}
+	}
+	ret = ringbuffer_read(&input_device->events, buffer, count);
+
+finish:
+	spinlock_release_irq(&input_device->lock, irq_save);
+	return ret;
 }
 
 static void input_device_close(vfs_fd_t *fd) {
 	input_device_t *input_device = fd->private;
+	int irq_save = spinlock_acquire_irq(&input_device->lock);
 	if (fd == input_device->controlling_fd) {
 		input_device_drop_control(input_device);
 	}
+	spinlock_release_irq(&input_device->lock, irq_save);
 }
 
 static int input_device_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	input_device_t *input_device = fd->private;
-	if (device_is_unplugged(&input_device->device)) {
-		// cannot wait un unplugged device
-		return 0;
+	int irq_save = spinlock_acquire_irq(&input_device->lock);
+	// cannot wait on unplugged device
+	if (!device_is_unplugged(&input_device->device)) {
+		sleep_add_to_queue(&input_device->sleep_queue);
 	}
-	if (event->events | (POLLIN | POLLHUP)) {
-		sleep_add_to_queue(&input_device->events.reader_queue);
-	}
+	spinlock_release_irq(&input_device->lock, irq_save);
 	return 0;
 }
 
 static int input_device_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 	input_device_t *input_device = fd->private;
-	if (event->events | (POLLIN | POLLHUP)) {
-		sleep_remove_from_queue(&input_device->events.reader_queue);
-	}
+	int irq_save = spinlock_acquire_irq(&input_device->lock);
+	sleep_remove_from_queue(&input_device->sleep_queue);
+	spinlock_release_irq(&input_device->lock, irq_save);
 	return 0;
 }
 
 static int input_device_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	input_device_t *input_device = fd->private;
+	int irq_save = spinlock_acquire_irq(&input_device->lock);
 	if (device_is_unplugged(&input_device->device)) {
 		event->revents |= POLLHUP;
+	} else if (input_device_check_control(input_device, fd)) {
+		if (ringbuffer_read_available(&input_device->events)) {
+			event->revents |= POLLIN;
+		}
 	}
-
-	check_control(0);
-
-	if (ringbuffer_read_available(&input_device->events)) {
-		event->revents |= POLLIN;
-	}
+	spinlock_release_irq(&input_device->lock, irq_save);
 
 	return 0;
 }
 
 static void input_device_destroy(device_t *device) {
 	input_device_t *input_device = container_of(device, input_device_t, device);
-	ringbuffer_wakeup_all(&input_device->events);
+	int irq_save = spinlock_acquire_irq(&input_device->lock);
 	if (input_device->ops && input_device->ops->destroy) {
 		input_device->ops->destroy(input_device);
 	}
+	wakeup_queue(&input_device->sleep_queue);
+	spinlock_release_irq(&input_device->lock, irq_save);
 	ringbuffer_destroy(&input_device->events);
 }
 
@@ -132,12 +164,17 @@ static vfs_fd_ops_t input_ops = {
 };
 
 int input_device_send_event(input_device_t *input_device, struct input_event *event) {
+	int irq_save = spinlock_acquire_irq(&input_device->lock);
 	if (device_is_unplugged(&input_device->device)) {
+		spinlock_release_irq(&input_device->lock, irq_save);
 		return -ENXIO;
 	}
 	event->ie_class    = input_device->class;
 	event->ie_subclass = input_device->subclass;
-	ringbuffer_write(&input_device->events, event, sizeof(struct input_event), O_NONBLOCK);
+	if (ringbuffer_write(&input_device->events, event, sizeof(struct input_event)) > 0) {
+		wakeup_queue(&input_device->sleep_queue);
+	}
+	spinlock_release_irq(&input_device->lock, irq_save);
 	return 0;
 }
 
