@@ -22,13 +22,11 @@ typedef struct pipe {
 #define PIPE_SIZE 4096
 
 static ssize_t pipe_raw_read(pipe_t *pipe, void *buffer, size_t count, long flags) {
-	// broken pipe check
-	if (pipe->isbroken && ringbuffer_read_available(&pipe->ring) == 0) {
-		return 0;
-	}
-
 	if (ringbuffer_read_available(&pipe->ring) == 0) {
-		if (flags & O_NONBLOCK) {
+		// broken pipe check
+		if (pipe->isbroken) {
+			return 0;
+		} else if (flags & O_NONBLOCK) {
 			return -EAGAIN;
 		} else {
 			// wait until read available
@@ -74,12 +72,13 @@ static ssize_t pipe_raw_write(pipe_t *pipe, const char *buffer, size_t count, lo
 				ret = -EAGAIN;
 				goto finish;
 			}
-		} else {
+
 			// sleep until we can write
 			if (sleep_on_queue_lock_interruptible(&pipe->writer_queue, &pipe->lock, ringbuffer_write_available(&pipe->ring) >= minimum_write || pipe->isbroken) < 0) {
 				ret = -EINTR;
 				goto finish;
 			}
+
 			// second broken pipe check
 			if (pipe->isbroken) {
 				ret = -EPIPE;
