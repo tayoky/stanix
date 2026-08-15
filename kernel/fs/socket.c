@@ -341,7 +341,7 @@ int socket_connect(vfs_fd_t *fd, const struct sockaddr *address, socklen_t addre
 	if (fd->type != S_IFSOCK) return -ENOTSOCK;
 	socket_t *socket = container_of(fd, socket_t, fd);
 	spinlock_acquire(&socket->lock);
-	int ret = socket_raw_bind(socket, address, address_len);
+	int ret = socket_raw_connect(socket, address, address_len);
 	spinlock_release(&socket->lock);
 	return ret;
 }

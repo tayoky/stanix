@@ -67,7 +67,9 @@ static int unix_connect(socket_t *sock, const struct sockaddr *addr, socklen_t a
 		return -ECONNREFUSED;
 	}
 	
+	spinlock_acquire(&server->socket.lock);
 	int ret = socket_queue_connection(&server->socket, socket);
+	spinlock_release(&server->socket.lock);
 	if (ret < 0) return ret;
 
 	// FIXME : if we get interrupted here we will still be in the connect queue
