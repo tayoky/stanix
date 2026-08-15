@@ -378,12 +378,13 @@ static int tty_input(tty_t *tty, char c) {
 		tty->canon_index++;
 		if (c == '\n' || c == tty->termios.c_cc[VEOL]) {
 flush:
-			if ((size_t)ringbuffer_write(&tty->input_buffer, tty->canon_buf, tty->canon_index) < tty->canon_index) {
+			ssize_t ret;
+			if ((ret = ringbuffer_write(&tty->input_buffer, tty->canon_buf, tty->canon_index)) < (ssize_t)tty->canon_index) {
 				if (tty->termios.c_iflag & IMAXBEL) {
 					tty_output(tty, '\a');
 				}
 			}
-			tty->lines[tty->lines_count++] = tty->canon_index;
+			tty->lines[tty->lines_count++] = ret;
 			tty->canon_index = 0;
 			wakeup_queue(&tty->reader_queue, 0);
 		}
