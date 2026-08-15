@@ -155,13 +155,28 @@ static int ide_channel_probe(devnode_t *devnode) {
 	devnode->private = channel;
 
 	// get resources from the IDE controller
+	int ret = 0;
 	channel->base  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, IDE_RID_BASE);
 	channel->ctrl  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, IDE_RID_CTRL);
 	channel->bmide = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, IDE_RID_BMIDE);
 	channel->nIEN = 0x2;
+	if (IS_ERR(channel->base)) {
+		ret = PTR2ERR(channel->base);
+		goto error;
+	}
+	if (IS_ERR(channel->ctrl)) {
+		ret = PTR2ERR(channel->ctrl);
+		goto error;
+	}
 	
-	int ret = ide_channel_reset(channel);
-	if (ret < 0) return ret;
+	ret = ide_channel_reset(channel);
+	if (ret < 0) {
+error:
+		device_release_resource(devnode, channel->base);
+		device_release_resource(devnode, channel->ctrl);
+		device_release_resource(devnode, channel->bmide);
+		return ret;
+	}
 
 	// create children ata channels
 	channel->master = ide_channel_create_child(channel, devnode, 0);
