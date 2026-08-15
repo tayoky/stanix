@@ -32,7 +32,7 @@ static ssize_t pipe_raw_read(pipe_t *pipe, void *buffer, size_t count, long flag
 			return -EAGAIN;
 		} else {
 			// wait until read available
-			if (sleep_on_queue_lock_interruptible(&pipe->reader_queue, &pipe->lock, ringbuffer_read_available(&pipe->ring) || pipe->isbroken) < 0) {
+			if (sleep_on_queue_lock_interruptible(&pipe->reader_queue, &pipe->lock, ringbuffer_read_available(&pipe->ring) > 0|| pipe->isbroken) < 0) {
 				return -EINTR;
 			}
 
@@ -76,7 +76,7 @@ static ssize_t pipe_raw_write(pipe_t *pipe, const char *buffer, size_t count, lo
 			}
 		} else {
 			// sleep until we can write
-			if (sleep_on_queue_lock_interruptible(&pipe->reader_queue, &pipe->lock, ringbuffer_write_available(&pipe->ring) >= minimum_write || pipe->isbroken) < 0) {
+			if (sleep_on_queue_lock_interruptible(&pipe->writer_queue, &pipe->lock, ringbuffer_write_available(&pipe->ring) >= minimum_write || pipe->isbroken) < 0) {
 				ret = -EINTR;
 				goto finish;
 			}
