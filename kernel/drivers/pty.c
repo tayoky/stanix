@@ -72,7 +72,11 @@ static ssize_t pty_master_raw_read(pty_t *pty, void *buffer, size_t count, long 
 		}
 	}
 
-	return ringbuffer_read(&pty->output_buffer, buffer, count);
+	ssize_t ret = ringbuffer_read(&pty->output_buffer, buffer, count);
+	if (ret >= 0) {
+		wakeup_queue(&pty->writer_queue, 0);
+	}
+	return ret;
 }
 
 static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
