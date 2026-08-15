@@ -50,7 +50,8 @@ struct pty_slave {
 	pty_t *pty;
 };
 
-int tty_add_input(tty_t *tty, const char *buffer, size_t count, long flags);
+int tty_raw_add_input(tty_t *tty, const char *buffer, size_t count);
+int tty_add_input(tty_t *tty, const char *buffer, size_t count);
 int tty_do_ioctl(tty_t *fd, long request, void *arg);
 int tty_register(tty_t *tty, const char *fmt, dev_t number);
 

@@ -33,7 +33,7 @@ static int tty_end_read_sleep(tty_t *tty) {
 static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count) {
 	// sleep until read available
 	if (!(fd->flags & O_NONBLOCK)) {
-		if (sleep_on_lock(&tty->reader_queue, &tty->lok, tty_end_read_sleep(tty)) < 0) {
+		if (sleep_on_lock_interruptible(&tty->reader_queue, &tty->lok, tty_end_read_sleep(tty)) < 0) {
 			return -EINTR;
 		}
 	}
@@ -383,11 +383,8 @@ flush:
 	return 0;
 }
 
-// TODO : implement blocking write
-int tty_add_input(tty_t *tty, const char *buffer, size_t count, long flags) {
-	(void)flags;
-	int irq_save = spinlock_acquire_irq(&tty->lock);
-	
+int tty_raw_add_input(tty_t *tty, const char *buffer, size_t count) {
+	spinlock_assert_acquired(&tty->lock);
 	ssize_t total = 0;
 	while (count > 0) {
 		tty_raw_input(tty, *buffer);
@@ -395,6 +392,12 @@ int tty_add_input(tty_t *tty, const char *buffer, size_t count, long flags) {
 		total++;
 		buffer++;
 	}
-	spinlock_release_irq(&tty->lock, irq_save);
 	return total;
+}
+
+int tty_add_input(tty_t *tty, const char *buffer, size_t count) {
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	ssize_t ret = tty_raw_add_input(tty, buffer, count);
+	spinlock_release_irq(&tty->lock, irq_save);
+	return ret;
 }

@@ -50,7 +50,7 @@ static ssize_t pty_master_raw_read(pty_t *pty, void *buffer, size_t count, long 
 			return -EAGAIN;
 		} else {
 			// sleep until we can read
-			if (sleep_on_lock(&pty->reader_queue, &pty->lock, ringbuffer_read_available(&pty->output_buffer) && pty_is_disconnected(pty)) < 0) {
+			if (sleep_on_lock_interruptible(&pty->reader_queue, &pty->lock, ringbuffer_read_available(&pty->output_buffer) && pty_is_disconnected(pty)) < 0) {
 				return -EINTR;
 			}
 			if (pty_is_disconnected(pty) && !ringbuffer_read_available(&pty->output_buffer)) {
@@ -74,25 +74,45 @@ static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t 
 static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	(void)offset;
 	pty_t *pty = (pty_t *)fd->private;
+	pty_slave_t *slave = pty->slave;
 
 	const char *buf = buffer;
 	ssize_t total = 0;
 	int ret = 0;
-	spinlock_acquire(&pty->lock);
+	int irq_save = spinlock_acquire_irq(&slave.tty.lock);
 	while (count > 0) {	
 		char kbuf[128];
 		size_t w = sizeof(kbuf) < count ? sizeof(kbuf) : count;
 		ret = safe_copy_from(kbuf, buf, w);
 		if (ret < 0) break;
 
-		ret = tty_add_input(&pty->slave.tty, kbuf, w);
+		if (ringbuffer_write_available(&slave->tty.input_buffer) == 0) {
+			if (pty_is_disconnected(pty)) {
+				ret = -EIO;
+				break;
+			} else if (fd->flags & O_NONBLOCK) {
+				ret = -EAGAIN;
+				break;
+			} else if (sleep_on_lock_interruptible(&pty->slave->tty.writer_queue, &pty->slave.tty.lock, ringbuffer_write_available(&slave->tty.input_buffer) > 0 || pty_is_disconnected(pty)) < 0) {
+				ret = -EINTR;
+				break;
+			}
+			
+		}
+
+		if (pty_is_disconnected(pty)) {
+			ret = -EIO;
+			break;
+		}
+
+		ret = tty_raw_add_input(&pty->slave.tty, kbuf, w);
 		if (ret < 0) break;
 
 		count -= w;
 		buf += w;
 		total += w;
 	}
-	spinlock_release(&pty->lock);
+	spinlock_release_irq(&pty->slave.tty.lock, irq_save);
 	if (ret < 0 && total == 0) return ret;
 	return total;
 }

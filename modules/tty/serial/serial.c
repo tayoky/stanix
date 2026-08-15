@@ -48,7 +48,7 @@ static void serial_handler(registers_t *frame, void *data) {
 	uint8_t lsr = resource_read8(serial->io_res, SERIAL_LSR);
 	if (lsr & SERIAL_LSR_DR) {
 		uint8_t data = resource_read8(serial->io_res, SERIAL_DATA);
-		tty_add_input(&serial->tty, &data, sizeof(data), O_NONBLOCK);
+		tty_add_input(&serial->tty, &data, sizeof(data));
 	}
 }
 
