@@ -131,8 +131,8 @@ static ssize_t unix_recvmsg(socket_t *sock, struct msghdr *message, int flags) {
 		}
 
 		for (int i=0; i<message->msg_iovlen; i++) {
-			ssize_t ret = socket_dequeue_recived_packet(sock, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, socket->socket.type == SOCK_SEQPACKET);
-			if (ret < 0) return ret;
+			ssize_t ret = socket_dequeue_recived_packet(&socket->socket, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, socket->socket.type == SOCK_SEQPACKET);
+			if (ret < 0) return total > 0 ? total : ret;
 			total += ret;
 		}
 	}
@@ -152,7 +152,7 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 		return -ENOSYS;
 	} else {
 		for (int i=0; i<message->msg_iovlen; i++) {
-			int ret = socket_queue_recived_packet(sock, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len);
+			int ret = socket_queue_recived_packet(&socket->connected->socket, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len);
 			if (ret < 0) return ret;
 			total += message->msg_iov[i].iov_len;
 		}
@@ -232,6 +232,7 @@ static socket_t *unix_create(int type, int protocol) {
 	if (type > SOCK_SEQPACKET) return NULL;
 
 	unix_socket_t *socket = slab_alloc(&unix_sockets_slab);
+	if (!socket) return NULL;
 	memset(socket, 0, sizeof(unix_socket_t));
 	socket->socket.type     = type;
 	socket->socket.protocol = protocol;

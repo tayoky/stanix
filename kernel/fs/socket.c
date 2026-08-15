@@ -103,6 +103,7 @@ static void socket_init(socket_t *socket) {
 	socket->fd.flags   = O_RDWR;
 	socket->fd.ref_count = 1;
 	socket->fd.inode = NULL;
+	list_init(&socket->recived);
 	socket->state = SOCKET_STATE_INIT;
 }
 
@@ -123,6 +124,7 @@ int socket_queue_recived_packet(socket_t *socket, void *data, size_t size) {
 
 	if (safe_copy_from(packet->data, data, size) < 0) {
 		ret = -EFAULT;
+		kfree(packet->data);
 free_packet:
 		slab_free(packet);
 		return ret;
@@ -145,7 +147,8 @@ static int socket_wait(socket_t *socket) {
 		return -EAGAIN;
 	}
 
-	int ret = sleep_on_queue_lock_interruptible(&socket->sleep_queue, &socket->lock, !list_is_empty(&socket->recived) || socket->state == SOCKET_STATE_DISCONNECTED);	if (list_is_empty(&socket->recived) && socket->state == SOCKET_STATE_DISCONNECTED) ret = -ENOTCONN;
+	int ret = sleep_on_queue_lock_interruptible(&socket->sleep_queue, &socket->lock, !list_is_empty(&socket->recived) || socket->state == SOCKET_STATE_DISCONNECTED);
+	if (list_is_empty(&socket->recived) && socket->state == SOCKET_STATE_DISCONNECTED) ret = -ENOTCONN;
 	if (ret < 0) return ret;
 	
 	return 0;
@@ -154,7 +157,7 @@ static int socket_wait(socket_t *socket) {
 ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, int keep_bounds) {
 	spinlock_assert_acquired(&socket->lock);
 	int ret = socket_wait(socket);
-	if (ret < 0)  return ret;
+	if (ret < 0) return ret;
 
 	ssize_t total = 0;
 	char *buffer = buf;
@@ -171,7 +174,8 @@ ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, 
 		packet->read += to_read;
 		total        += to_read;
 		buffer       += to_read;
-		if (packet->read == packet->size) {
+		size         -= to_read;
+		if (packet->read >= packet->size) {
 			kdebugf("dequed packet\n");
 			// whole packet is read
 			list_remove(&socket->recived, &packet->node);
