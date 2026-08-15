@@ -27,10 +27,11 @@ typedef struct tty {
 	struct winsize size;        // protected by lock
 	size_t column;              // protected by lock
 	tty_ops_t *ops;
-	size_t lines;               // protected by lock
 	char *canon_buf;            // protected by lock
 	size_t canon_index;         // protected by lock
 	process_group_t *fg_group;  // protected by lock
+	size_t lines_count;          // protected by lock
+	size_t lines[512];          // protected by lock
 	spinlock_t lock;
 } tty_t;
 

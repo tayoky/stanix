@@ -19,7 +19,7 @@ static int tty_end_read_sleep(tty_t *tty) {
 	}
 	 
 	if (tty->termios.c_lflag & ICANON) {
-		if (tty->lines > 0) {
+		if (tty->lines_count > 0) {
 			return 1;
 		}
 	} else {
@@ -39,14 +39,24 @@ static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count, long flags) 
 		}
 	}
 
+	ssize_t ret = 0; 
 	if (tty->termios.c_lflag & ICANON) {
-		if (tty->lines <= 0) {
+		if (tty->lines_count <= 0) {
 			if (device_is_unplugged(&tty->device)) {
 				return 0;
 			} else {
 				return -EAGAIN;
 			}
-		}	
+		}
+		if (count > tty->lines[0]) count = tty->lines[0]; 
+		ret = ringbuffer_read(&tty->input_buffer, buffer, count);
+		if (ret >= 0) {
+			tty->lines[0] -= ret;
+			if (tty->lines[0] == 0) {
+				tty->lines_count--;
+				memmove(&tty->lines[0], &tty->lines[1], sizeof(size_t) * tty->lines_count);
+			}
+		}
 	} else {
 		if (ringbuffer_read_available(&tty->input_buffer) < tty->termios.c_cc[VMIN]) {
 			if (device_is_unplugged(&tty->device)) {
@@ -55,13 +65,12 @@ static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count, long flags) 
 				return -EAGAIN;
 			}
 		}
+		ret = ringbuffer_read(&tty->input_buffer, buffer, count);
 	}
 
-	ssize_t ret = ringbuffer_read(&tty->input_buffer, buffer, count);
-	if (tty->lines > 0 && ret >= 0) {
-		tty->lines--;
+	if (ret >= 0) {
+		wakeup_queue(&tty->writer_queue, 0);
 	}
-	wakeup_queue(&tty->writer_queue, 0);
 	return ret;
 }
 
@@ -226,7 +235,7 @@ int tty_register(tty_t *tty, const char *fmt, dev_t number) {
 	tty->termios.c_cc[VMIN]   = 1;
 	tty->termios.c_iflag      = ICRNL | IMAXBEL;
 	tty->termios.c_oflag      = OPOST | ONLCR;
-	tty->termios.c_lflag      = ECHONL | ECHOK | ECHOE | ECHO | ICANON | IEXTEN | ISIG;
+	tty->termios.c_lflag      = ECHONL | ECHOK | ECHOE | ECHOCTL | ECHO | ICANON | IEXTEN | ISIG;
 	tty->termios.c_cflag      = CS8;
 
 	tty->canon_buf      = kmalloc(512);
@@ -301,13 +310,25 @@ static int tty_input(tty_t *tty, char c) {
 	// signal support here
 	if (tty->termios.c_lflag & ISIG) {
 		if (c == tty->termios.c_cc[VINTR]) {
+			if (tty->termios.c_lflag & ECHOCTL) {
+				tty_output(tty, c);
+			}
 			signal_send_group(tty->fg_group, SIGINT);
+			return 0;
 		}
 		if (c == tty->termios.c_cc[VQUIT]) {
+			if (tty->termios.c_lflag & ECHOCTL) {
+				tty_output(tty, c);
+			}
 			signal_send_group(tty->fg_group, SIGQUIT);
+			return 0;
 		}
 		if (c == tty->termios.c_cc[VSUSP]) {
+			if (tty->termios.c_lflag & ECHOCTL) {
+				tty_output(tty, c);
+			}
 			signal_send_group(tty->fg_group, SIGTSTP);
+			return 0;
 		}
 	}
 
@@ -362,7 +383,7 @@ flush:
 					tty_output(tty, '\a');
 				}
 			}
-			tty->lines++;
+			tty->lines[tty->lines_count++] = tty->canon_index;
 			tty->canon_index = 0;
 			wakeup_queue(&tty->reader_queue, 0);
 		}
