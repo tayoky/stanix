@@ -2,6 +2,7 @@
 #include <kernel/input.h>
 #include <kernel/process.h>
 #include <kernel/userspace.h>
+#include <kernel/poll.h>
 #include <sys/input.h>
 #include <poll.h>
 
@@ -18,10 +19,10 @@ static void input_device_drop_control(input_device_t *input_device) {
 
 	// we need to wakeup everyone
 	// because know they can take control of the input device :)
-	wakeup_queue(&input_device->sleep_queue);
+	wakeup_queue(&input_device->sleep_queue, 0);
 }
 
-static int input_device_raw_ioctl(input_device_t *input_device, long req, void *arg) {
+static int input_device_raw_ioctl(input_device_t *input_device, vfs_fd_t *fd, long req, void *arg) {
 	int ret = -EINVAL;
 	if (device_is_unplugged(&input_device->device)) {
 		return -ENXIO;
@@ -56,7 +57,7 @@ static int input_device_raw_ioctl(input_device_t *input_device, long req, void *
 static int input_device_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	input_device_t *input_device = fd->private;
 	int irq_save = spinlock_acquire_irq(&input_device->lock);
-	int ret = input_device_raw_ioctl(input_device, req, arg);
+	int ret = input_device_raw_ioctl(input_device, fd, req, arg);
 	spinlock_release_irq(&input_device->lock, irq_save);
 	return ret;
 }
@@ -80,7 +81,7 @@ static ssize_t input_device_read(vfs_fd_t *fd, void *buffer, off_t offset, size_
 			goto finish;
 		} else {
 			// wait until we can read an event
-			if (sleep_on_lock_interruptible(&input_device->sleep_queue, &input_device->lock, ringbuffer_read_available(&input_device->events) > 0 && input_device_check_control(input_device)) < 0) {
+			if (sleep_on_queue_lock_interruptible(&input_device->sleep_queue, &input_device->lock, ringbuffer_read_available(&input_device->events) > 0 && input_device_check_control(input_device, fd)) < 0) {
 				ret = -EINTR;
 				goto finish;
 			}
@@ -142,7 +143,7 @@ static void input_device_destroy(device_t *device) {
 	if (input_device->ops && input_device->ops->destroy) {
 		input_device->ops->destroy(input_device);
 	}
-	wakeup_queue(&input_device->sleep_queue);
+	wakeup_queue(&input_device->sleep_queue, 0);
 	spinlock_release_irq(&input_device->lock, irq_save);
 	ringbuffer_destroy(&input_device->events);
 }
@@ -172,7 +173,7 @@ int input_device_send_event(input_device_t *input_device, struct input_event *ev
 	event->ie_class    = input_device->class;
 	event->ie_subclass = input_device->subclass;
 	if (ringbuffer_write(&input_device->events, event, sizeof(struct input_event)) > 0) {
-		wakeup_queue(&input_device->sleep_queue);
+		wakeup_queue(&input_device->sleep_queue, 0);
 	}
 	spinlock_release_irq(&input_device->lock, irq_save);
 	return 0;

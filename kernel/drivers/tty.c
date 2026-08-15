@@ -4,6 +4,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/userspace.h>
 #include <kernel/signal.h>
+#include <kernel/poll.h>
 #include <kernel/string.h>
 #include <kernel/tty.h>
 #include <sys/ioctl.h>
@@ -30,10 +31,10 @@ static int tty_end_read_sleep(tty_t *tty) {
 }
 
 // TODO : respect line bounds on canonical mode
-static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count) {
+static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count, long flags) {
 	// sleep until read available
-	if (!(fd->flags & O_NONBLOCK)) {
-		if (sleep_on_lock_interruptible(&tty->reader_queue, &tty->lok, tty_end_read_sleep(tty)) < 0) {
+	if (!(flags & O_NONBLOCK)) {
+		if (sleep_on_queue_lock_interruptible(&tty->reader_queue, &tty->lock, tty_end_read_sleep(tty)) < 0) {
 			return -EINTR;
 		}
 	}
@@ -47,7 +48,7 @@ static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count) {
 			}
 		}	
 	} else {
-		if (ringbuffer_read(&tty->input_buffer) < tty->termios) {
+		if (ringbuffer_read_available(&tty->input_buffer) < tty->termios.c_cc[VMIN]) {
 			if (device_is_unplugged(&tty->device)) {
 				return 0;
 			} else {
@@ -56,11 +57,11 @@ static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count) {
 		}
 	}
 
-	ssize_t ret = ringbuffer_read(&tty->input_buffer, buffer, count, fd->flags);
+	ssize_t ret = ringbuffer_read(&tty->input_buffer, buffer, count);
 	if (tty->lines > 0 && ret >= 0) {
 		tty->lines--;
 	}
-	wakeup_queue(&tty->writer_queue);
+	wakeup_queue(&tty->writer_queue, 0);
 	return ret;
 }
 
@@ -68,7 +69,7 @@ static ssize_t tty_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) 
 	(void)offset;
 	tty_t *tty = (tty_t *)fd->private;
 	int irq_save = spinlock_acquire_irq(&tty->lock);
-	ssize_t ret = tty_raw_read(tty, buffer, count);
+	ssize_t ret = tty_raw_read(tty, buffer, count, fd->flags);
 	spinlock_release_irq(&tty->lock, irq_save);
 	return ret;
 }
@@ -77,7 +78,7 @@ static ssize_t tty_raw_write(tty_t *tty, const char *buffer, size_t count) {
 	ssize_t total = 0;
 	while (count > 0) {	
 		char kbuf[128];
-		size_t w = sizeof(kbuf) < remaining ? sizeof(kbuf) : remaining;
+		size_t w = sizeof(kbuf) < count ? sizeof(kbuf) : count;
 		int ret = safe_copy_from(kbuf, buffer, w);
 		if (ret < 0) return total > 0 ? total : ret;
 
@@ -95,7 +96,7 @@ static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t 
 	(void)offset;
 	tty_t *tty = (tty_t *)fd->private;
 	int irq_save = spinlock_acquire_irq(&tty->lock);
-	ssize_t ret = tty_raw_read(tty, buffer, count);
+	ssize_t ret = tty_raw_write(tty, buffer, count);
 	spinlock_release_irq(&tty->lock, irq_save);
 	return ret;
 }
@@ -126,7 +127,7 @@ static int tty_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	if (tty->termios.c_lflag & ICANON) {
 		if (tty->lines > 0) event->revents |= POLLIN;
 	} else {
-		if (ringbuffer_read_available(&tty->input_buffer) >= ttt->termios.c_cc[VMIN]) event->revents |= POLLIN;
+		if (ringbuffer_read_available(&tty->input_buffer) >= tty->termios.c_cc[VMIN]) event->revents |= POLLIN;
 	}
 
 	// technically we sometimes cannot write
@@ -145,8 +146,8 @@ static void tty_destroy(device_t *device) {
 	// TODO : send SIGHUP
 	
 	process_group_release(tty->fg_group);
-	wakeup_queue(&tty->reader_queue);
-	wakeup_queue(&tty->writer_queue);
+	wakeup_queue(&tty->reader_queue, 0);
+	wakeup_queue(&tty->writer_queue, 0);
 	spinlock_release_irq(&tty->lock, irq_save);
 
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
@@ -210,7 +211,7 @@ static vfs_fd_ops_t tty_ops = {
 	.poll_get    = tty_poll_get,
 };
 
-int tty_register(tty_t *tty, const char *fmt, dev_t number);
+int tty_register(tty_t *tty, const char *fmt, dev_t number) {
 	ringbuffer_init(&tty->input_buffer, 4096);
 
 	// reset termios to default value
@@ -363,7 +364,7 @@ flush:
 			}
 			tty->lines++;
 			tty->canon_index = 0;
-			wakeup_queue(&tty->reader_queue);
+			wakeup_queue(&tty->reader_queue, 0);
 		}
 		return 0;
 	}
@@ -378,7 +379,7 @@ flush:
 			tty_output(tty, '\a');
 		}
 	}
-	wakeup_queue(&tty->reader_queue);
+	wakeup_queue(&tty->reader_queue, 0);
 
 	return 0;
 }
@@ -387,7 +388,7 @@ int tty_raw_add_input(tty_t *tty, const char *buffer, size_t count) {
 	spinlock_assert_acquired(&tty->lock);
 	ssize_t total = 0;
 	while (count > 0) {
-		tty_raw_input(tty, *buffer);
+		tty_input(tty, *buffer);
 		count--;
 		total++;
 		buffer++;

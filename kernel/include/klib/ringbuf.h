@@ -1,7 +1,7 @@
 #ifndef KERNEL_RINGBUF_H
 #define KERNEL_RINGBUF_H
 
-#include <abi/types.h>
+#include <sys/types.h>
 #include <stdint.h>
 #include <stddef.h>
 

@@ -145,7 +145,7 @@ static int socket_wait(socket_t *socket) {
 		return -EAGAIN;
 	}
 
-	int ret = sleep_on_queue_lock_interruptible(&socket->sleep_queue, !list_is_empty(&socket->recived) || socket->state == SOCKET_STATE_DISCONNECTED, &socket->lock);
+	int ret = sleep_on_queue_lock_interruptible(&socket->sleep_queue, &socket->lock, !list_is_empty(&socket->recived) || socket->state == SOCKET_STATE_DISCONNECTED);
 	if (socket->state == SOCKET_STATE_DISCONNECTED) ret = -ENOTCONN;
 	if (ret < 0) {
 		return ret;
@@ -215,7 +215,7 @@ void *socket_dequeue_connection(socket_t *socket) {
 	return data;
 }
 
-void socket_set_state(socket_t *socket, int state);
+void socket_set_state(socket_t *socket, int state) {
 	spinlock_assert_acquired(&socket->lock);
 	socket->state = state;
 	wakeup_queue(&socket->sleep_queue, 0);

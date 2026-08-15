@@ -6,6 +6,7 @@
 #include <kernel/process.h>
 #include <kernel/ringbuf.h>
 #include <kernel/string.h>
+#include <kernel/poll.h>
 #include <kernel/tty.h>
 #include <poll.h>
 
@@ -21,10 +22,13 @@ static ssize_t pty_output(tty_t *tty, const char *buf, size_t count) {
 	int ret = 0;
 	spinlock_acquire(&pty->lock);
 	while (count > 0) {
-		if (sleep_on_lock(&pty->writer_queue, &pty->lock, device_is_unplugged(&tty->device)) < 0) {
+		spinlock_raw_release(&slave->tty.lock);
+		if (sleep_on_queue_lock_interruptible(&pty->writer_queue, &pty->lock, device_is_unplugged(&tty->device)) < 0) {
+			spinlock_raw_acquire(&slave->tty.lock);
 			ret = -EINTR;
 			break;
 		}
+		spinlock_raw_acquire(&slave->tty.lock);
 
 		ret = ringbuffer_write(&pty->output_buffer, buf, count);
 		if (ret < 0) break;
@@ -50,7 +54,7 @@ static ssize_t pty_master_raw_read(pty_t *pty, void *buffer, size_t count, long 
 			return -EAGAIN;
 		} else {
 			// sleep until we can read
-			if (sleep_on_lock_interruptible(&pty->reader_queue, &pty->lock, ringbuffer_read_available(&pty->output_buffer) && pty_is_disconnected(pty)) < 0) {
+			if (sleep_on_queue_lock_interruptible(&pty->reader_queue, &pty->lock, ringbuffer_read_available(&pty->output_buffer) && pty_is_disconnected(pty)) < 0) {
 				return -EINTR;
 			}
 			if (pty_is_disconnected(pty) && !ringbuffer_read_available(&pty->output_buffer)) {
@@ -79,7 +83,7 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 	const char *buf = buffer;
 	ssize_t total = 0;
 	int ret = 0;
-	int irq_save = spinlock_acquire_irq(&slave.tty.lock);
+	int irq_save = spinlock_acquire_irq(&slave->tty.lock);
 	while (count > 0) {	
 		char kbuf[128];
 		size_t w = sizeof(kbuf) < count ? sizeof(kbuf) : count;
@@ -93,7 +97,7 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 			} else if (fd->flags & O_NONBLOCK) {
 				ret = -EAGAIN;
 				break;
-			} else if (sleep_on_lock_interruptible(&pty->slave->tty.writer_queue, &pty->slave.tty.lock, ringbuffer_write_available(&slave->tty.input_buffer) > 0 || pty_is_disconnected(pty)) < 0) {
+			} else if (sleep_on_queue_lock_interruptible(&pty->slave->tty.writer_queue, &pty->slave->tty.lock, ringbuffer_write_available(&slave->tty.input_buffer) > 0 || pty_is_disconnected(pty)) < 0) {
 				ret = -EINTR;
 				break;
 			}
@@ -105,14 +109,14 @@ static ssize_t pty_master_write(vfs_fd_t *fd, const void *buffer, off_t offset, 
 			break;
 		}
 
-		ret = tty_raw_add_input(&pty->slave.tty, kbuf, w);
+		ret = tty_raw_add_input(&pty->slave->tty, kbuf, w);
 		if (ret < 0) break;
 
 		count -= w;
 		buf += w;
 		total += w;
 	}
-	spinlock_release_irq(&pty->slave.tty.lock, irq_save);
+	spinlock_release_irq(&pty->slave->tty.lock, irq_save);
 	if (ret < 0 && total == 0) return ret;
 	return total;
 }
@@ -124,7 +128,7 @@ static int pty_master_ioctl(vfs_fd_t *fd, long request, void *arg) {
 		vfs_fd_t *slave_fd = device_open(&pty->slave->tty.device, O_RDWR);
 		return add_fd(slave_fd, 0);
 	default:
-		return tty_do_ioctl(&pty->slave.tty, request, arg);
+		return tty_do_ioctl(&pty->slave->tty, request, arg);
 	};
 }
 
@@ -139,7 +143,7 @@ static int pty_master_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 
 	if (event->events & POLLOUT) {
 		int irq_save = spinlock_acquire_irq(&pty->slave->tty.lock);
-		sleep_add_to_queue(&pty->slave->writer_queue);
+		sleep_add_to_queue(&pty->slave->tty.writer_queue);
 		spinlock_release_irq(&pty->slave->tty.lock, irq_save);
 	}
 
@@ -154,7 +158,7 @@ static int pty_master_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 	spinlock_release(&pty->lock);
 	
 	int irq_save = spinlock_acquire_irq(&pty->slave->tty.lock);
-	sleep_remove_from_queue(&pty->slave->writer_queue);
+	sleep_remove_from_queue(&pty->slave->tty.writer_queue);
 	spinlock_release_irq(&pty->slave->tty.lock, irq_save);
 
 	return 0;
@@ -169,7 +173,7 @@ static int pty_master_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	spinlock_release(&pty->lock);
 
 	int irq_save = spinlock_acquire_irq(&pty->slave->tty.lock);
-	if (ringbuffer_write_available(&pty->slave->input_buffer) > 0) event->revents |= POLLOUT;
+	if (ringbuffer_write_available(&pty->slave->tty.input_buffer) > 0) event->revents |= POLLOUT;
 	spinlock_release_irq(&pty->slave->tty.lock, irq_save);
 
 	return 0;
@@ -220,14 +224,14 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	(*master_fd)->flags     = O_RDWR;
 
 	// register and save the slave
-	if (tty_register(slave, "pts/%d", makedev(pty_major, 0)) < 0) {
+	if (tty_register(&slave->tty, "pts/%d", makedev(pty_major, 0)) < 0) {
 		vfs_close(*master_fd);
 		return -ENOENT;
 	}
 
-	*slave_fd = device_open(&slave->device, O_RDWR);
+	*slave_fd = device_open(&slave->tty.device, O_RDWR);
 
-	return minor(slave->device.number);
+	return minor(slave->tty.device.number);
 }
 
 void init_ptys(void) {

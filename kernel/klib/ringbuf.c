@@ -66,9 +66,10 @@ ssize_t ringbuffer_write(ringbuffer_t *ring, const void *buf, size_t count) {
 	}
 
 	ring->read_available += count;
-
+	
 	// if the write go farther than the end cut in two
-	if (rest_count + ring->write_offset >= ring->buffer_size) {
+	size_t rest_count = count;
+	if (count + ring->write_offset >= ring->buffer_size) {
 		if (safe_copy_from(ring->buffer + ring->write_offset, buffer, ring->buffer_size - ring->write_offset) < 0) {
 			return -EFAULT;
 		}

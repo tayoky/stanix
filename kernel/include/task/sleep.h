@@ -16,7 +16,7 @@ typedef struct sleep_queue {
 	list_t waiters;
 } sleep_queue_t;
 
-#define sleep_on_queue_lock_interruptible(queue, cond, l) ({\
+#define sleep_on_queue_lock_interruptible(queue, l, cond) ({\
 	int ret = 0;\
 	for (;;) {\
 		/* fast path */\
@@ -44,7 +44,7 @@ typedef struct sleep_queue {
 })
 
 
-#define sleep_on_queue_lock(queue, cond, l) ({\
+#define sleep_on_queue_lock(queue, l, cond) ({\
 	int ret = 0;\
 	for (;;) {\
 		/* fast path */\
@@ -71,8 +71,8 @@ typedef struct sleep_queue {
 	ret;\
 })
 
-#define sleep_on_queue_condition(queue, cond) sleep_on_queue_lock(queue, cond, NULL)
-#define sleep_on_queue_condition_interruptible(queue, cond) sleep_on_queue_lock_interruptible(queue, cond, NULL)
+#define sleep_on_queue_condition(queue, cond) sleep_on_queue_lock(queue, NULL, cond)
+#define sleep_on_queue_condition_interruptible(queue, cond) sleep_on_queue_lock_interruptible(queue, NULL, cond)
 
 void init_sleep(void);
 

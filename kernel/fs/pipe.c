@@ -5,6 +5,7 @@
 #include <kernel/ringbuf.h>
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
+#include <kernel/sleep.h>
 #include <kernel/vfs.h>
 #include <errno.h>
 #include <poll.h>
@@ -31,7 +32,7 @@ static ssize_t pipe_raw_read(pipe_t *pipe, void *buffer, size_t count, long flag
 			return -EAGAIN;
 		} else {
 			// wait until read available
-			if (sleep_on_lock_interruptible(&pipe->reader_queue, &pipe->lock, ringbuffer_read_available(&pipe->ring) || pipe->isbroken) < 0) {
+			if (sleep_on_queue_lock_interruptible(&pipe->reader_queue, &pipe->lock, ringbuffer_read_available(&pipe->ring) || pipe->isbroken) < 0) {
 				return -EINTR;
 			}
 
@@ -75,7 +76,7 @@ static ssize_t pipe_raw_write(pipe_t *pipe, const char *buffer, size_t count, lo
 			}
 		} else {
 			// sleep until we can write
-			if (sleep_on_lock_interruptible(&pipe->reader_queue, &pipe->lock, ringbuffer_write_available(&pipe->ring) >= minimum_write || pipe->isbroken) < 0) {
+			if (sleep_on_queue_lock_interruptible(&pipe->reader_queue, &pipe->lock, ringbuffer_write_available(&pipe->ring) >= minimum_write || pipe->isbroken) < 0) {
 				ret = -EINTR;
 				goto finish;
 			}
@@ -86,8 +87,8 @@ static ssize_t pipe_raw_write(pipe_t *pipe, const char *buffer, size_t count, lo
 			}
 		}
 
-		ssize_t written = ringbuffer_write(&pipe->ring, buf, count);
-		wakeup_queue(&pipe->reader_queue);
+		ssize_t written = ringbuffer_write(&pipe->ring, buffer, count);
+		wakeup_queue(&pipe->reader_queue, 0);
 		count  -= written;
 		total  += written;
 		buffer += written;
@@ -168,8 +169,8 @@ static void pipe_close(vfs_fd_t *fd) {
 	} else {
 		// else wakeup everybody that might be waiting for something
 		pipe->isbroken = 1;
-		wakeup_queue(&pipe->reader_queue);
-		wakeup_queue(&pipe->writer_queue);
+		wakeup_queue(&pipe->reader_queue, 0);
+		wakeup_queue(&pipe->writer_queue, 0);
 		spinlock_release(&pipe->lock);
 	}
 }

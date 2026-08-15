@@ -7,6 +7,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/ringbuf.h>
 #include <kernel/xarray.h>
+#include <kernel/poll.h>
 #include <errno.h>
 #include <poll.h>
 

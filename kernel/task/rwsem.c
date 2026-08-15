@@ -17,7 +17,7 @@ int rwsem_acquire_read(rwsem_t *rwsem) {
 		// we already own it
 		rwsem->lock_depth++;
 	} else {
-		sleep_on_queue_lock(&rwsem->reader_queue, rwsem->waiting_writers_count == 0 && !rwsem->writer_active, &rwsem->lock);
+		sleep_on_queue_lock(&rwsem->reader_queue, &rwsem->lock, rwsem->waiting_writers_count == 0 && !rwsem->writer_active);
 		rwsem->readers_count++;
 	}
 	spinlock_release(&rwsem->lock);
@@ -48,7 +48,7 @@ int rwsem_acquire_write(rwsem_t *rwsem) {
 		rwsem->lock_depth++;
 	} else {
 		rwsem->waiting_writers_count++;
-		sleep_on_queue_lock(&rwsem->writer_queue, rwsem->readers_count == 0 && !rwsem->writer_active, &rwsem->lock);
+		sleep_on_queue_lock(&rwsem->writer_queue, &rwsem->lock, rwsem->readers_count == 0 && !rwsem->writer_active);
 		rwsem->waiting_writers_count--;
 		rwsem->writer_active = get_current_task();
 		rwsem->lock_depth = 1;
