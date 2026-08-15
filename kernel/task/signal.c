@@ -158,6 +158,7 @@ void signal_context_destroy(signal_context_t *signal_context) {
 		node = node->next;
 		slab_free(signal);
 	}
+	spinlock_release(&signal_context->lock);
 }
 
 
