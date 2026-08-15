@@ -145,11 +145,8 @@ static int socket_wait(socket_t *socket) {
 		return -EAGAIN;
 	}
 
-	int ret = sleep_on_queue_lock_interruptible(&socket->sleep_queue, &socket->lock, !list_is_empty(&socket->recived) || socket->state == SOCKET_STATE_DISCONNECTED);
-	if (socket->state == SOCKET_STATE_DISCONNECTED) ret = -ENOTCONN;
-	if (ret < 0) {
-		return ret;
-	}
+	int ret = sleep_on_queue_lock_interruptible(&socket->sleep_queue, &socket->lock, !list_is_empty(&socket->recived) || socket->state == SOCKET_STATE_DISCONNECTED);	if (list_is_empty(&socket->recived) && socket->state == SOCKET_STATE_DISCONNECTED) ret = -ENOTCONN;
+	if (ret < 0) return ret;
 	
 	return 0;
 }
@@ -173,6 +170,7 @@ ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, 
 		
 		packet->read += to_read;
 		total        += to_read;
+		buffer       += to_read;
 		if (packet->read == packet->size) {
 			kdebugf("dequed packet\n");
 			// whole packet is read
