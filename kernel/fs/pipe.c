@@ -193,6 +193,7 @@ static vfs_fd_ops_t pipe_read_ops = {
 int pipe_create(vfs_fd_t **read, vfs_fd_t **write) {
 	pipe_t *pipe = kmalloc(sizeof(pipe_t));
 	if (!pipe) return -ENOMEM;
+	memset(pipe, 0, sizeof(pipe_t));
 	pipe->isbroken = 0;
 	ringbuffer_init(&pipe->ring, PIPE_SIZE);
 
