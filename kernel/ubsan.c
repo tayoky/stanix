@@ -74,31 +74,31 @@ static void print_typevalue(const struct type_descriptor *type, uintptr_t value)
 	case TK_INTEGER:;
 		switch (type->type_info) {
 		case 0x0006:
-			kprintf("%hhu", value);
+			kprintf("%hhu", (unsigned char)value);
 			break;
 		case 0x0007:
-			kprintf("%hhd", value);
+			kprintf("%hhd", (signed char)value);
 			break;
 		case 0x0008:
-			kprintf("%hu", value);
+			kprintf("%hu", (unsigned short)value);
 			break;
 		case 0x0009:
-			kprintf("%hd", value);
+			kprintf("%hd", (short)value);
 			break;
 		case 0x000a:
-			kprintf("%u", value);
+			kprintf("%u", (unsigned int)value);
 			break;
 		case 0x000b:
-			kprintf("%d", value);
+			kprintf("%d", (int)value);
 			break;
 		case 0x000c:
-			kprintf("%llu", value);
+			kprintf("%llu", (unsigned long long)value);
 			break;
 		case 0x000d:
-			kprintf("%lld", value);
+			kprintf("%lld", (long long)value);
 			break;
 		default:
-			kprintf("%lx", value);
+			kprintf("%lx", (unsigned long)value);
 			break;
 		}
 		break;
