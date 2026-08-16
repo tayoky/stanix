@@ -1176,6 +1176,7 @@ err:
 }
 
 pid_t sys_getpgid(pid_t pid) {
+	if (!pid) pid = get_current_proc()->pid;
 	process_t *proc = proc_from_pid(pid);
 	if (!proc) return -ESRCH;
 	spinlock_acquire(&proc->proc_lock);
