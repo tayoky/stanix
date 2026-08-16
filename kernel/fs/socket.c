@@ -114,6 +114,7 @@ int socket_queue_recived_packet(socket_t *socket, void *data, size_t size) {
 	spinlock_acquire(&socket->lock);
 	int ret = 0;
 	if (!packet) return -ENOMEM;
+	memset(packet, 0, sizeof(socket_packet_t));
 	packet->data = kmalloc(size);
 	packet->size = size;
 	packet->read = 0;
@@ -193,6 +194,7 @@ int socket_queue_connection(socket_t *socket, void *data) {
 	socket_packet_t *packet = slab_alloc(&socket_packets_slab);
 	spinlock_acquire(&socket->lock);
 	if (!packet) return -ENOMEM;
+	memset(packet, 0, sizeof(socket_packet_t));
 	packet->data = data;
 	
 	list_append(&socket->recived, &packet->node);

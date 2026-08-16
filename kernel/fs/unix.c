@@ -104,7 +104,7 @@ static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_le
 	// we can now connect to the socket
 	*new_sock = unix_create(sock->type, sock->protocol);
 
-	unix_pair(container_of(new_sock, unix_socket_t, socket), peer);
+	unix_pair(container_of(*new_sock, unix_socket_t, socket), peer);
 	if (addr_len) *addr_len = sizeof(struct sockaddr_un);
 	// UNSAFE
 	if (address) *address = peer->addr;
@@ -152,7 +152,9 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 		return -ENOSYS;
 	} else {
 		for (int i=0; i<message->msg_iovlen; i++) {
+			spinlock_acquire(&socket->connected->socket.lock);
 			int ret = socket_queue_recived_packet(&socket->connected->socket, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len);
+			spinlock_release(&socket->connected->socket.lock);
 			if (ret < 0) return ret;
 			total += message->msg_iov[i].iov_len;
 		}
@@ -238,7 +240,6 @@ static socket_t *unix_create(int type, int protocol) {
 	socket->socket.protocol = protocol;
 	socket->socket.domain   = &unix_domain;
 	socket->addr.sun_family = AF_UNIX;
-
 	return &socket->socket;
 }
 
