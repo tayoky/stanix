@@ -9,6 +9,7 @@
 #include <kernel/tty.h>
 #include <sys/ioctl.h>
 #include <errno.h>
+#include <ctype.h>
 #include <poll.h>
 
 static int tty_output(tty_t *tty, char c) {
@@ -63,6 +64,7 @@ static int tty_canon_send_line(tty_t *tty) {
 
 	if (tty->lines_count >= arraylen(tty->lines)) {
 		tty_max_bell(tty);
+		return 0;
 	}
 
 	tty->lines[tty->lines_count++] = ret;
@@ -78,7 +80,7 @@ static int tty_has_lflag(tty_t *tty, tcflag_t flags) {
 
 static int tty_erase(tty_t *tty, char c) {
 	spinlock_assert_acquired(&tty->lock);
-	if (iscntl(c)) {
+	if (iscntrl(c) && tty_has_lflag(tty, ECHOCTL)) {
 		// if char is a control char we need to earse both the char and the ^
 		tty_output(tty, '\b');
 		tty_output(tty, ' ');
@@ -173,13 +175,10 @@ static int tty_input(tty_t *tty, char c) {
 		} else {
 			if (tty->canon_index >= sizeof(tty->canon_buf)) {
 				tty_max_bell(tty);
-				return 0;
+			} else {
+				tty->canon_buf[tty->canon_index++] = c;
+				tty_echo(tty, c);
 			}
-
-			tty->canon_buf[tty->canon_index++] = c;
-			tty->canon_index++;
-
-			tty_echo(tty, c);
 
 			if (c == '\n' || c == tty->termios.c_cc[VEOL]) {
 				tty_canon_send_line(tty);
@@ -368,7 +367,6 @@ static void tty_destroy(device_t *device) {
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
 	ringbuffer_destroy(&tty->input_buffer);
-	kfree(tty->canon_buf);
 }
 
 static int tty_termios_update(tty_t *tty, struct termios *new) {
@@ -376,7 +374,7 @@ static int tty_termios_update(tty_t *tty, struct termios *new) {
 		int ret = tty->ops->update_termios(tty, new);
 		if (ret < 0) return ret;
 	}
-	if ((new->c_lflag & ICANON) && !(tty->termios->c_lflag & ICANON)) {
+	if ((new->c_lflag & ICANON) && !(tty->termios.c_lflag & ICANON)) {
 		// entering canonical mode
 		// throw the whole buffer as a line
 		if (ringbuffer_read_available(&tty->input_buffer) > 0) {
@@ -385,9 +383,10 @@ static int tty_termios_update(tty_t *tty, struct termios *new) {
 		} else {
 			tty->lines_count = 0;
 		}
-		wakeup_queue(&tty->buffer_input_buffer, 0);
+		tty->canon_index = 0;
+		wakeup_queue(&tty->reader_queue, 0);
 	}
-	if (!(new->c_lflag & ICANON) && (tty->termios->c_lflag & ICANON)) {
+	if (!(new->c_lflag & ICANON) && (tty->termios.c_lflag & ICANON)) {
 		// exiting canonical mode
 		// send the on going line
 		if (tty->canon_index > 0) {
@@ -474,7 +473,6 @@ int tty_register(tty_t *tty, const char *fmt, dev_t number) {
 	tty->termios.c_lflag      = ECHONL | ECHOK | ECHOE | ECHOCTL | ECHO | ICANON | IEXTEN | ISIG;
 	tty->termios.c_cflag      = CS8;
 
-	tty->canon_buf      = kmalloc(512);
 	tty->canon_index    = 0;
 	tty->device.type    = DEVICE_CHAR;
 	tty->device.ops     = &tty_ops;
