@@ -334,20 +334,29 @@ void signal_handle(registers_t *registers) {
 	}
 }
 
-void signal_restore_handler(registers_t *context) {
+void signal_restore_handler(registers_t *registers) {
 	kdebugf("restore signal handler\n");
 
 	// since the magic return address as been poped,
-	// this mean there only the ucontext left
-	ucontext_t *ucontext = (ucontext_t *)SP_REG(*context);
+	// this mean there only the signal frame left
+	signal_frame_t frame;
+	if (user_copy_auto_from(&frame, (void*)SP_REG(*registers)) < 0) {
+		// avoid infinite recursion shit that could happen if we just send SIGSEGV
+		proc_sigexit(SIGILL);
+	}
 
 	// restore the old mask
 	spinlock_acquire(&get_current_task()->signal_context.lock);
-	get_current_task()->sig_mask = ucontext->uc_sigmask;
+	get_current_task()->sig_mask = frame.ucontext.uc_sigmask;
 	spinlock_release(&get_current_task()->signal_context.lock);
 
-	acontext_t *old_context = (acontext_t *)&ucontext->uc_mcontext;
+	acontext_t *old_context = (acontext_t *)&frame.ucontext.uc_mcontext;
 	kdebugf("sp : %p\n", SP_REG(old_context->frame));
 
-	arch_load_context((acontext_t *)&ucontext->uc_mcontext);
+	if (!arch_registers_is_userspace(registers)) {
+		// avoid infinite recursion shit that could happen if we just send SIGILL
+		proc_sigexit(SIGILL);
+	}
+
+	arch_load_context(old_context);
 }
