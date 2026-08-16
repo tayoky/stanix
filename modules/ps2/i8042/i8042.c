@@ -35,7 +35,7 @@ int have_ports[2] = { 1, 0 };
 static ps2_dev_t ports[2];
 static int no_translation;
 
-// i8042 specific I/O
+// i8042 controller I/O
 
 static int i8042_wait_output(void) {
 	for (size_t i = 0; i < 100000; i++) {
@@ -98,131 +98,33 @@ void i8042_flush(void) {
 	while (in_byte(I8042_STATUS) & 1) in_byte(I8042_DATA);
 }
 
-// generic ps2 I/O
+// i8042 devices I/O
 
-int ps2_read(void) {
-	return i8042_read();
-}
-
-static int ps2_write(uint8_t data) {
+static int i8042_device_send(devnode_t *controller, ps2_dev_t *device, uint8_t data) {
+	(void)controller;
+	if (device == &ports[1]) {
+		int ret = i8042_send_command(I8042_SEND_PORT2);
+		if (ret < 0) return ret;
+	}
 	return i8042_write(data);
 }
 
-int ps2_send(uint8_t port, uint8_t data) {
-	for (int i=0; i < 3; i++) {
-		if (port == 2) {
-			int ret = i8042_send_command(I8042_SEND_PORT2);
-			if (ret < 0) return ret;
-		}
-		int ret = ps2_write(data);
-		if (ret < 0) return ret;
-
-		ret = ps2_read();
-		if (ret < 0) return ret;
-		if (ret != PS2_RESEND) return ret;
-		// retry
-	}
-	return -ETIMEDOUT;
-}
-
-int ps2_reset(uint8_t port) {
-	int ret = ps2_send(port, PS2_RESET);
-	if (ret < 0)  return ret;
-	if (ret != PS2_ACK) return -EIO;
-
-	ret = ps2_read();
-	if (ret < 0) return ret;
-	if (ret != PS2_SELF_TEST_PASSED) return -EIO;
-
-	// discard the id
-	int c0 = ps2_read();
-	if (c0 == 0xAB || c0 == 0xAC) {
-		ps2_read();
-	}
-	return 0;
-}
-
-static void print_device_name(int port) {
-	if (port == 1) {
-		kdebugf("ps2 : first port device : ");
-	} else {
-		kdebugf("ps2 : second port device : ");
-	}
-
-	if (ps2_send(port, PS2_IDENTIFY) != PS2_ACK) {
-		kprintf("unknown device\n");
-	}
-
-	int c0 = ps2_read();
-	int c1 = -1;
-	if (c0 == 0xAB || c0 == 0xAC) {
-		c1 = ps2_read();
-	}
-
-	ports[port - 1].device_id[0] = c0;
-	ports[port - 1].device_id[1] = c1;
-
-	switch (c0) {
-	case -1: //-1 mean no byte
-		kprintf("Ancient AT keyboard\n");
-		break;
-	case 0x00:
-		kprintf("Standard PS/2 mouse\n");
-		break;
-	case 0x03:
-		kprintf("Mouse with scroll wheel\n");
-		break;
-	case 0x04:
-		kprintf("5-button mouse\n");
-		break;
-	case 0xAB:
-		switch (c1) {
-		case 0x83:
-		case 0xC1:
-			kprintf("MF2 keyboard\n");
-			break;
-		case 0x84:
-			kprintf("Short Keyboard\n");
-			break;
-		case 0x85:
-			kprintf("122-Key Host Connect(ed) Keyboard\n");
-			break;
-		case 0x86:
-			kprintf("122-key keyboards\n");
-			break;
-		default:
-			kprintf("unknown keyboard %x:%x\n", c0, c1);
-			break;
-		}
-		break;
-	case 0xAC:
-		switch (c1) {
-		case 0xA1:
-			kprintf("NCD Sun layout keyboard\n");
-			break;
-		default:
-			kprintf("unknown device\n");
-			break;
-		}
-		break;
-	default:
-		kprintf("unknown device : %x:%x\n", c0, c1);
-		break;
-	}
-
+static int i8042_device_read(devnode_t *controller, ps2_dev_t *device) {
+	(void)controller;
+	(void)device;
+	// TODO : do some checking ??
+	return i8042_read();
 }
 
 static void setup_ps2_dev(devnode_t *bus, int port) {
-	char name[32];
 	ports[port - 1].devnode.type = BUS_PS2;
-	ports[port - 1].port = port;
 
 	// allocate irqs
 	hwirq_t hwirq = port == 1 ? 1 : 12;
 	irq_t *irq = irq_get_from_hwirq(main_irq_chip, hwirq);
 	kassert(irq);
 	bus_add_resource_desc_data(&ports[port - 1].devnode, irq, 1, RESOURCE_IRQ, PS2_RID_IRQ);
-	bus_attach_child(bus, &ports[port - 1].devnode, NULL, UNIT_NOUNIT);
+	ps2_add_device(bus, &ports[port - 1].devnode);
 }
 
 static int i8042_probe(devnode_t *devnode) {
@@ -297,15 +199,7 @@ static int i8042_probe(devnode_t *devnode) {
 	// now scan the device on each port
 	for (int i=1; i < 3; i++) {
 		if (!have_ports[i - 1]) continue;
-		if (ps2_send(i, PS2_DISABLE_SCANNING) != PS2_ACK) {
-			// no device on the port
-			have_ports[i - 1] = 0;
-			kdebugf("ps2 : no device on port %d\n", i);
-		} else {
-			// identify the device
-			print_device_name(i);
-			setup_ps2_dev(devnode, i);
-		}
+		setup_ps2_dev(devnode, i);
 	}
 
 	// we now want to enable translation
@@ -324,11 +218,15 @@ static int i8042_probe(devnode_t *devnode) {
 	return 0;
 }
 
-static driver_t i8042_driver = {
-	.name = "i8042",
-	.device_name = "ps2",
-	.probe = i8042_probe,
-	.buses = BUSES("root"),
+static ps2_driver_t i8042_driver = {
+	.driver = {
+		.name = "i8042",
+		.device_name = "ps2",
+		.probe = i8042_probe,
+		.buses = BUSES("root"),
+	},
+	.send = i8042_device_send,
+	.read = i8042_device_read,
 };
 
 static int init_i8042(int argc, char **argv) {
@@ -339,18 +237,11 @@ static int init_i8042(int argc, char **argv) {
 	// hardly attach a i8042 bus to root
 	bus_attach_child(bus_get_root(), NULL, "ps2", UNIT_NOUNIT);
 
-	// export time
-	EXPORT(ps2_read);
-	EXPORT(ps2_send);
-	EXPORT(ps2_reset);
 	return 0;
 }
 
 static int fini_i8042() {
 	driver_unregister(&i8042_driver);
-	UNEXPORT(ps2_read);
-	UNEXPORT(ps2_send);
-	UNEXPORT(ps2_reset);
 	return 0;
 }
 

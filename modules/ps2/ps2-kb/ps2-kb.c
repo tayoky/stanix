@@ -24,8 +24,9 @@ typedef struct ps2_kb {
 static void ps2_kb_handler(registers_t *registers, void *data) {
 	(void)registers;
 	ps2_kb_t *keyboard = data;
+	ps2_dev_t *ps2_dev = container_of(keyboard->input_device.device->devnode, ps2_dev_t, devnode);
 
-	uint8_t scancode = ps2_read();
+	uint8_t scancode = ps2_read(ps2_dev);
 
 	if (scancode == 0xE0) {
 		keyboard->extended = 1;
@@ -54,8 +55,8 @@ static void ps2_kb_handler(registers_t *registers, void *data) {
 }
 
 static int ps2_kb_set_scancode(ps2_dev_t *ps2_dev, int scancode) {
-	if (ps2_send(ps2_dev->port, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
-	if (ps2_send(ps2_dev->port, scancode) != PS2_ACK) goto error;
+	if (ps2_send_command(ps2_dev, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
+	if (ps2_send_command(ps2_dev, scancode) != PS2_ACK) goto error;
 	return 0;
 
 error:
@@ -64,9 +65,9 @@ error:
 }
 
 static int ps2_kb_get_scancode(ps2_dev_t *ps2_dev) {
-	if (ps2_send(ps2_dev->port, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
-	if (ps2_send(ps2_dev->port, 0) != PS2_ACK) goto error;
-	return ps2_read();
+	if (ps2_send_command(ps2_dev, PS2_KEYBOARD_SET_SCANCODE) != PS2_ACK) goto error;
+	if (ps2_send_command(ps2_dev, 0) != PS2_ACK) goto error;
+	return ps2_read(ps2_dev);
 
 error:
 	kdebugf("error while reading scancode\n");
@@ -90,10 +91,9 @@ static int ps2_kb_check(devnode_t *devnode) {
 
 static int ps2_kb_probe(devnode_t *devnode) {
 	ps2_dev_t *ps2_dev   = container_of(devnode, ps2_dev_t, devnode);
-	int port             = ps2_dev->port;
 
 	// reset the device
-	if (ps2_reset(port) < 0) {
+	if (ps2_reset(ps2_dev) < 0) {
 		kinfof("ps2 : keyboard reset failed\n");
 		return -EIO;
 	}
@@ -117,7 +117,7 @@ static int ps2_kb_probe(devnode_t *devnode) {
 		}
 	}
 
-	if (ps2_send(port, PS2_ENABLE_SCANNING) != PS2_ACK) {
+	if (ps2_send_command(port, PS2_ENABLE_SCANNING) != PS2_ACK) {
 		kdebugf("ps2 : error while enabling scanning\n");
 		return -EIO;
 	}

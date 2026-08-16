@@ -17,7 +17,7 @@ for MODULE in test \
 pci \
 libata ide ata \
 part fat \
-i8042 ps2-kb ps2-mouse \
+libps2 i8042 ps2-kb ps2-mouse \
 isa \
 serial ; do
     if kcmdline "--disable-$MODULE" ; then

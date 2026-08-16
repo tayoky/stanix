@@ -24,17 +24,18 @@ typedef struct ps2_mouse {
 	int x;
 } ps2_mouse_t;
 
-static int ps2_mouse_set_rate(int port, int rate) {
-	if (ps2_send(port, PS2_MOUSE_SET_RATE) != PS2_ACK) return -EIO;
-	if (ps2_send(port, rate) != PS2_ACK) return -EIO;
+static int ps2_mouse_set_rate(ps2_dev_t *ps2_dev, int rate) {
+	if (ps2_send_command(ps2_dev, PS2_MOUSE_SET_RATE) != PS2_ACK) return -EIO;
+	if (ps2_send_command(ps2_dev, rate) != PS2_ACK) return -EIO;
 	return 0;
 }
 
 static void ps2_mouse_handler(registers_t *registers, void *data) {
 	(void)registers;
 	ps2_mouse_t *mouse = data;
+	ps2_dev_t *ps2_dev = container_of(mouse->input_device.device->devnode, ps2_dev_t, devnode);
 	
-	uint8_t b = ps2_read();
+	uint8_t b = ps2_read(ps2_dev);
 	switch (mouse->packet++) {
 	case 0:
 		if (!(b & 0x08)) {
@@ -130,15 +131,14 @@ static int ps2_mouse_check(devnode_t *devnode) {
 
 static int ps2_mouse_probe(devnode_t *devnode) {
 	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
-	int port = ps2_dev->port;
 
 	// first do a reset
-	if (ps2_reset(port) < 0) {
+	if (ps2_reset(ps2_dev) < 0) {
 		kinfof("mouse reset failed\n");
 		return -EIO;
 	}
 
-	if (ps2_send(port, PS2_ENABLE_SCANNING) != PS2_ACK) {
+	if (ps2_send_command(ps2_dev, PS2_ENABLE_SCANNING) != PS2_ACK) {
 		kinfof("error while enabling scanning\n");
 		return -EIO;
 	}
