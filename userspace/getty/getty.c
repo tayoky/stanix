@@ -30,8 +30,16 @@ void reset(void) {
 		return;
 	}
 
+	attr.c_cc[VEOF]   = 004;
+	attr.c_cc[VEOL]   = 000;
+	attr.c_cc[VERASE] = 0177;
+	attr.c_cc[VINTR]  = 003;
+	attr.c_cc[VKILL]  = 025;
+	attr.c_cc[VQUIT]  = 034;
+	attr.c_cc[VSUSP]  = 032;
+	attr.c_cc[VMIN]   = 1;
 	attr.c_oflag |= OPOST | ONLCR;
-	attr.c_lflag |= ISIG | ICANON | ECHO | ECHOE | ECHOK;
+	attr.c_lflag |= ISIG | ICANON | ECHO | ECHOE | ECHOK | ECHOCTL;
 
 	if (tcsetattr(STDOUT_FILENO, TCIOFLUSH, &attr) < 0) {
 		syslog(LOG_WARNING, "could not set termios attributes : %m");
@@ -162,6 +170,7 @@ int main(int argc, char **argv) {
 	}
 
 	syslog(LOG_INFO, "starting tty login on port '%s'", port);
+	setsid();
 
 	if (strcmp(port, "-")) {
 		// we need to setup
@@ -179,6 +188,9 @@ int main(int argc, char **argv) {
 		dup2(tty, STDERR_FILENO);
 		if (tty > STDERR_FILENO) close(tty);
 	}
+
+	// setup process group
+	tcsetpgrp(STDOUT_FILENO, getpgid(0));
 
 	setenv("TERM", term, 1);
 

@@ -158,7 +158,6 @@ pid_t start_getty(const char *autologin) {
 
 	char *argv[] = {
 		"/bin/getty",
-		"--noreset",
 		"-",
 		"ansi",
 		NULL
@@ -166,7 +165,6 @@ pid_t start_getty(const char *autologin) {
 
 	char *autologin_argv[] = {
 		"/bin/getty",
-		"--noreset",
 		"--autologin",
 		(char*)autologin,
 		"-",
