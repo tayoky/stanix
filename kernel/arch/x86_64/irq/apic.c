@@ -206,10 +206,33 @@ static void apic_eoi(irq_chip_t *irq_chip, irq_t *irq) {
 	local_apic_write(LOCAL_APIC_REG_EOI, 0);
 }
 
+static irq_t *apic_msi_allocate(irq_chip_t *irq_chip) {
+	irq_t *irq = irq_allocate_object(IRQ_NO_IRQNUM, IRQ_NO_HWIRQ);
+	if (!irq) return NULL;
+	irq_set_vector(irq, IRQ_VECTOR_ALLOCATE);
+	irq_add_to_chip(irq_chip, irq);
+	return irq;
+}
+
+static uintptr_t apic_get_msi_address(irq_chip_t *irq_chip, irq_t *irq) {
+	(void)irq_chip;
+	(void)irq;
+	return local_apic_address;
+}
+
+static uint32_t apic_get_message_data(irq_chip_t *irq_chip, irq_t *irq) {
+	(void)irq_chip;
+	uint32_t data = irq->vector & 0xff;
+	return data;
+}
+
 static irq_chip_t apic_chip = {
-	.name             = "APIC",
-	.type             = IRQ_CHIP_APIC,
-	.mask             = apic_mask,
-	.unmask           = apic_unmask,
-	.eoi              = apic_eoi,
+	.name            = "APIC",
+	.type            = IRQ_CHIP_APIC,
+	.mask            = apic_mask,
+	.unmask          = apic_unmask,
+	.eoi             = apic_eoi,
+	.msi_allocate    = apic_msi_allocate,
+	.msi_get_address = apic_msi_get_address,
+	.msi_get_data    = apic_msi_get_data,
 };
