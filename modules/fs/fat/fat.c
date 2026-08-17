@@ -20,7 +20,7 @@ static vfs_fd_ops_t fat_fd_ops;
 static slab_cache_t fat_inodes_slab;
 
 static size_t fat_cluster2offset(fat_superblock_t *fat_superblock, uint32_t cluster) {
-	return cluster * fat_superblock->cluster_size + fat_superblock->data_start;
+	return (cluster - 2) * fat_superblock->cluster_size + fat_superblock->data_start;
 }
 
 static uint32_t fat_get_next_cluster(fat_superblock_t *fat_superblock, uint32_t cluster) {
@@ -419,12 +419,11 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 	vfs_fd_t *dev = vfs_open(source, O_RDONLY);
 	if (!dev) return -ENOENT;
 
-	fat_bpb bpb;
+	fat_bpb_t bpb;
 	if (vfs_read(dev, &bpb, 0, sizeof(bpb)) != sizeof(bpb)) {
 		vfs_close(dev);
 		return -EIO; // not sure this is the good error code
 	}
-	kdebugf("%ld\n", offsetof(fat_bpb, extended.fat32.signature));
 	if (bpb.extended.fat32.signature != 0xaa55) {
 		kdebugf("invalid signature\n");
 		vfs_close(dev);
@@ -481,8 +480,8 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 		fat_entry_t root_entry;
 		memset(&root_entry, 0, sizeof(root_entry));
 		root_entry.attribute      = ATTR_DIRECTORY;
-		root_entry.cluster_lower  = bpb.extended.fat32.root_cluster & 0xf;
-		root_entry.cluster_higher = (bpb.extended.fat32.root_cluster >> 8) & 0xf;
+		root_entry.cluster_lower  = bpb.extended.fat32.root_cluster & 0xff;
+		root_entry.cluster_higher = (bpb.extended.fat32.root_cluster >> 16) & 0xff;
 		// how do we get size ?
 		local_root = fat_entry2node(&root_entry, fat_superblock);
 	} else {

@@ -72,7 +72,7 @@ typedef struct fat_bpb {
 		fat32_bpb_t fat32;
 		fat16_bpb_t fat16;
 	} extended;
-} __attribute__((packed)) fat_bpb;
+} __attribute__((packed)) fat_bpb_t;
 
 typedef struct fat_entry {
 	char name[11];
