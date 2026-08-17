@@ -85,15 +85,16 @@ static void ide_channel_io_wait(ide_channel_t *channel) {
 }
 
 static int ide_channel_poll(ide_channel_t *channel, uint8_t mask, uint8_t value) {
+	uint8_t status;
 	for (size_t timeout = 0; timeout < 10000; timeout++) {
-		uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
+		status = ide_channel_read(channel, IDE_REG_STATUS);
 		if (status & IDE_SR_ERR) {
 			kwarningf("error %hhx\n", ide_channel_read(channel, IDE_REG_ERROR));
 			return -EIO;
 		}
 		if ((status & mask) == value) return 0;
 	}
-	kwarningf("timeout expired\n");
+	kwarningf("timeout expired status=%hhx mask=%hhx value=%hhx\n", status, mask, value);
 	return -ETIMEDOUT;
 }
 
@@ -202,6 +203,8 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 		drv_select |= (uint8_t)((command->lba >> 24) & 0xf);
 	}
 	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select);
+
+	kdebugf("send command opcode=%hhx sectors_count=%zu lba=%zu flags=%x\n", command->opcode, command->sectors_count, command->lba, command->flags);
 
 	ide_channel_io_wait(channel);
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
