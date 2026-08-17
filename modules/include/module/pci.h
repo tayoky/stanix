@@ -23,6 +23,9 @@ typedef struct pci_dev {
 #define PCI_RID_BAR3   PCI_RID_BAR(3)
 #define PCI_RID_BAR4   PCI_RID_BAR(4)
 #define PCI_RID_BAR5   PCI_RID_BAR(5)
+#define PCI_RID_IRQ_LINE   9
+#define PCI_RID_MSI(n)     (10 + (n))
+#define PCI_RID_MSIX(n)    (50 + (n))
 
 #define PCI_INVALID_BAR ((uintptr_t)-1)
 

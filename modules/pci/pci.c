@@ -293,6 +293,11 @@ static int write_bar(pci_dev_t *pci_dev, int bar, resource_t *resource) {
 	return 0;
 }
 
+static void write_irq_line(pci_dev_t *pci_dev, resource_t *resource) {
+	irq_t *irq = (irq_t*)resource->start;
+	pci_config_write8(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_INT_LINE, irq->irq_num);
+}
+
 static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *arg) {
 	devnode_t *pci_bus = arg;
 	uint16_t vendorID  = pci_config_read16(bus, device, function, PCI_CONFIG_VENDOR_ID);
@@ -321,6 +326,11 @@ static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *
 		i += setup_bar(pci_dev, i);
 	}
 
+	// TODO : discover msi/msi-x
+
+	// discover irq line
+	bus_add_resource_desc(&pci_dev->devnode, RESOURCE_ANY_START, 1, PCI_RID_IRQ_LINE);
+
 	bus_attach_child(pci_bus, &pci_dev->devnode, NULL, UNIT_NOUNIT);
 }
 
@@ -336,6 +346,12 @@ static resource_t *pci_allocate_resource(devnode_t *pci_bus, devnode_t *devnode,
 	}
 	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
 	switch (resource->flags & RESOURCE_TYPE) {
+	case RESOURCE_IRQ:
+		if (rid == PCI_RID_IRQ_LINE) {
+			write_irq_line(pci_dev, resource);
+		}
+		// TODO : handle MSI and MSI-X
+		break;
 	case RESOURCE_IOPORT:
 	case RESOURCE_MEMORY:
 		if (rid >= PCI_RID_BAR0 && rid <= PCI_RID_BAR5) {
