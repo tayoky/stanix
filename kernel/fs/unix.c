@@ -145,7 +145,6 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 
 	ssize_t total = 0;
-	kdebugf("unix socket sendmsg\n");
 
 	if (sock->type == SOCK_DGRAM || sock->type == SOCK_RAW) {
 		// TODO

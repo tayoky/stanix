@@ -24,7 +24,7 @@ typedef struct ps2_kb {
 static void ps2_kb_handler(registers_t *registers, void *data) {
 	(void)registers;
 	ps2_kb_t *keyboard = data;
-	ps2_dev_t *ps2_dev = container_of(keyboard->input_device.device->devnode, ps2_dev_t, devnode);
+	ps2_dev_t *ps2_dev = container_of(keyboard->input_device.device.devnode, ps2_dev_t, devnode);
 
 	uint8_t scancode = ps2_read(ps2_dev);
 
@@ -82,7 +82,7 @@ static int ps2_kb_check(devnode_t *devnode) {
 	case 0xAB:
 	case 0xAC:
 	case -1:
-		kdebugf("ps2 keyboard found on port %d\n", ps2_dev->port);
+		kdebugf("ps2 keyboard found\n");
 		return 1;
 	default:
 		return 0;
@@ -117,7 +117,7 @@ static int ps2_kb_probe(devnode_t *devnode) {
 		}
 	}
 
-	if (ps2_send_command(port, PS2_ENABLE_SCANNING) != PS2_ACK) {
+	if (ps2_send_command(ps2_dev, PS2_ENABLE_SCANNING) != PS2_ACK) {
 		kdebugf("ps2 : error while enabling scanning\n");
 		return -EIO;
 	}

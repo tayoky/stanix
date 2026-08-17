@@ -33,7 +33,7 @@ static int ps2_mouse_set_rate(ps2_dev_t *ps2_dev, int rate) {
 static void ps2_mouse_handler(registers_t *registers, void *data) {
 	(void)registers;
 	ps2_mouse_t *mouse = data;
-	ps2_dev_t *ps2_dev = container_of(mouse->input_device.device->devnode, ps2_dev_t, devnode);
+	ps2_dev_t *ps2_dev = container_of(mouse->input_device.device.devnode, ps2_dev_t, devnode);
 	
 	uint8_t b = ps2_read(ps2_dev);
 	switch (mouse->packet++) {
@@ -125,7 +125,7 @@ static int ps2_mouse_check(devnode_t *devnode) {
 	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
 	if (devnode->type != BUS_PS2) return 0;
 	if (ps2_dev->device_id[0]) return 0;
-	kdebugf("found ps2 mouse on port %d\n", ps2_dev->port);
+	kdebugf("found ps2 mouse on port\n");
 	return 1;
 }
 

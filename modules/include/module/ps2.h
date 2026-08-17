@@ -21,7 +21,7 @@
 
 typedef int ps2_device_id_t[2];
 typedef struct ps2_driver ps2_driver_t;
-typedef ps2_dev ps2_dev_t;
+typedef struct ps2_dev ps2_dev_t;
 
 struct ps2_driver {
 	driver_t driver;

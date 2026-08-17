@@ -124,7 +124,7 @@ static void setup_ps2_dev(devnode_t *bus, int port) {
 	irq_t *irq = irq_get_from_hwirq(main_irq_chip, hwirq);
 	kassert(irq);
 	bus_add_resource_desc_data(&ports[port - 1].devnode, irq, 1, RESOURCE_IRQ, PS2_RID_IRQ);
-	ps2_add_device(bus, &ports[port - 1].devnode);
+	ps2_add_device(bus, &ports[port - 1]);
 }
 
 static int i8042_probe(devnode_t *devnode) {
@@ -232,7 +232,7 @@ static ps2_driver_t i8042_driver = {
 static int init_i8042(int argc, char **argv) {
 	no_translation = have_opt(argc, argv, "--no-translation");
 
-	driver_register(&i8042_driver);
+	driver_register(&i8042_driver.driver);
 
 	// hardly attach a i8042 bus to root
 	bus_attach_child(bus_get_root(), NULL, "ps2", UNIT_NOUNIT);
@@ -241,7 +241,7 @@ static int init_i8042(int argc, char **argv) {
 }
 
 static int fini_i8042() {
-	driver_unregister(&i8042_driver);
+	driver_unregister(&i8042_driver.driver);
 	return 0;
 }
 

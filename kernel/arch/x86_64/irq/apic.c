@@ -214,13 +214,13 @@ static irq_t *apic_msi_allocate(irq_chip_t *irq_chip) {
 	return irq;
 }
 
-static uintptr_t apic_get_msi_address(irq_chip_t *irq_chip, irq_t *irq) {
+static uintptr_t apic_msi_get_address(irq_chip_t *irq_chip, irq_t *irq) {
 	(void)irq_chip;
 	(void)irq;
 	return local_apic_address;
 }
 
-static uint32_t apic_get_message_data(irq_chip_t *irq_chip, irq_t *irq) {
+static uint32_t apic_msi_get_data(irq_chip_t *irq_chip, irq_t *irq) {
 	(void)irq_chip;
 	uint32_t data = irq->vector & 0xff;
 	return data;

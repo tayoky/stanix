@@ -131,7 +131,6 @@ free_packet:
 		return ret;
 	}
 
-	kdebugf("queue packet\n");
 	list_append(&socket->recived, &packet->node);
 	wakeup_queue(&socket->sleep_queue, 0);
 	return 0;
@@ -177,7 +176,6 @@ ssize_t socket_dequeue_recived_packet(socket_t *socket, void *buf, size_t size, 
 		buffer       += to_read;
 		size         -= to_read;
 		if (packet->read >= packet->size) {
-			kdebugf("dequed packet\n");
 			// whole packet is read
 			list_remove(&socket->recived, &packet->node);
 			kfree(packet->data);

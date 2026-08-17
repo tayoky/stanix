@@ -2,14 +2,13 @@
 #include <module/ps2.h>
 
 int ps2_add_device(devnode_t *controller, ps2_dev_t *device) {
+	device->controller = controller;
 	if (ps2_send_command(device, PS2_DISABLE_SCANNING) != PS2_ACK) {
 		// no or broken device
 		return -ENODEV;
 	}
 
-	device->controller = controller;
-
-	kinfos("found device : ");
+	kinfof("found device : ");
 
 	if (ps2_send_command(device, PS2_IDENTIFY) != PS2_ACK) {
 		kprintf("unknown device\n");
