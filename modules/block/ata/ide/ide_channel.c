@@ -85,14 +85,16 @@ static void ide_channel_io_wait(ide_channel_t *channel) {
 }
 
 static int ide_channel_poll(ide_channel_t *channel, uint8_t mask, uint8_t value) {
-	size_t timeout = 10000;
-	while ((ide_channel_read(channel, IDE_REG_STATUS) & mask) != value) {
-		if (--timeout <= 0) {
-			kwarningf("timeout expired\n");
-			return -ETIMEDOUT;
-		};
+	for (size_t timeout = 0; timeout < 10000; timeout++) {
+		uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
+		if (status & IDE_ST_ERR) {
+			kwarningf("error %hhx\n", ide_channel_read(channel, IDE_REG_ERROR));
+			return -EIO;
+		}
+		if ((status & mask) == value) return 0;
 	}
-	return 0;
+	kwarningf("timeout expired\n");
+	return -ETIMEDOUT;
 }
 
 static int ide_channel_reset(ide_channel_t *channel) {
@@ -101,13 +103,11 @@ static int ide_channel_reset(ide_channel_t *channel) {
 	ide_channel_write(channel, IDE_REG_CONTROL, 0x4 | channel->nIEN);
 	ide_channel_io_wait(channel);
 	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
+	ide_channel_io_wait(channel);
 
-	if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
-		mutex_release(&channel->mutex);
-		return -ETIMEDOUT;
-	}
+	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
 	mutex_release(&channel->mutex);
-	return 0;
+	return ret;
 }
 
 static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t *bus, uint8_t drive) {
@@ -209,9 +209,8 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 		// no drive
 		return -ENODEV;
 	}
-	if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
-		return -ETIMEDOUT;
-	}
+	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
+	if (ret < 0) return 0;
 
 	if (command->flags & ATA_CMD_SEND_LBA48) {
 		ide_channel_write(channel, IDE_REG_SECCOUNT0, (uint8_t)(command->sectors_count >> 8));
@@ -234,9 +233,8 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	if (command->flags & (ATA_CMD_READ_BUF | ATA_CMD_WRITE_BUF)) {
 		for (size_t i = 0; i < command->sectors_count; i++) {
 			ide_channel_io_wait(channel);
-			if (ide_channel_poll(channel, IDE_SR_BSY | IDE_SR_DRQ, IDE_SR_DRQ) < 0) {
-				return -EIO;
-			}
+			ret = ide_channel_poll(channel, IDE_SR_BSY | IDE_SR_DRQ, IDE_SR_DRQ);
+			if (ret < 0) return ret;
 			for (size_t j = 0; j < 256; j++) {
 				if (command->flags & ATA_CMD_WRITE_BUF) {
 					resource_write16(channel->base, IDE_REG_DATA, *(buf++));
@@ -246,12 +244,8 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 			}
 		}
 	} else {
-			if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
-				return -EIO;
-			}
-	}
-	if (ide_channel_read(channel, IDE_REG_STATUS) & IDE_SR_ERR) {
-		return -EIO;
+		ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
+		if (ret < 0) return ret;
 	}
 	return 0;
 }
