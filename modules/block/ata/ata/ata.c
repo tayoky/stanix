@@ -24,7 +24,7 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 
 	if (request->type == BLOCK_REQUEST_FLUSH) {
 		ata_command_t *command = ata_create_command(device);
-		command->opcode = (disk->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH : ATA_CMD_CACHE_FLUSH_EXT;
+		command->opcode = (disk->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
 
 		ioreq_set_callback(&command->ioreq, ata_finish_callback, request);
 		return ioreq_submit(&command->ioreq);
