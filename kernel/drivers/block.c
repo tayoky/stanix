@@ -184,10 +184,11 @@ void block_finish_request(block_request_t *request, int ret) {
 	if (request->callback) {
 		request->callback(request, request->data);
 	}
+	block_device_t *block_device = request->block_device;
 	slab_free(request);
 
 	// maybee now the block device can handle a pending request
-	block_submit_pending_request(request->block_device);
+	block_submit_pending_request(block_device);
 }
 
 void block_submit_pending_request(block_device_t *block_device) {
