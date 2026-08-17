@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
 
 	chdir(pwd->pw_dir);
 
-	// clear screen and print /motd
+	// print the motd
 	system("cat /etc/motd");
 
 	if (!shell) shell = pwd->pw_shell;

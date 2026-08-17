@@ -20,6 +20,7 @@ static vfs_fd_ops_t fat_fd_ops;
 static slab_cache_t fat_inodes_slab;
 
 static size_t fat_cluster2offset(fat_superblock_t *fat_superblock, uint32_t cluster) {
+	kassert(cluster >= 2);
 	return (cluster - 2) * fat_superblock->cluster_size + fat_superblock->data_start;
 }
 
@@ -167,7 +168,10 @@ static int fat_getattr(vfs_node_t *vnode, struct stat *st) {
 }
 
 static int fat_read_entry(fat_superblock_t *fat_superblock, size_t offset, fat_entry_t *entry) {
-	return vfs_read(fat_superblock->superblock.device, entry, offset, sizeof(fat_entry_t));
+	ssize_t ret = vfs_read(fat_superblock->superblock.device, entry, offset, sizeof(fat_entry_t));
+	if (ret < 0) return ret;
+	if (ret < sizeof(fat_entry_t)) return -EIO;
+	return 0;
 }
 
 static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, size_t *offset, fat_entry_t *entry) {
@@ -177,12 +181,15 @@ static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, 
 
 	// jump to next entry
 	*offset += sizeof(fat_entry_t);
-	if (!inode->is_fat16_root && !((*offset) % fat_superblock->cluster_size)) {
-		// end of cluster
-		// jump to next cluster
-		*cluster = fat_get_next_cluster(fat_superblock, *cluster);
-		if (*cluster != FAT_EOF) {
-			*offset = fat_cluster2offset(fat_superblock, *cluster);
+	if (!inode->is_fat16_root) {
+		size_t cluster_end = fat_cluster2offset(fat_superblock, *cluster) + fat_superblock->cluster_size;
+		if (*offset >= cluster_end) {
+			// end of cluster
+			// jump to next cluster
+			*cluster = fat_get_next_cluster(fat_superblock, *cluster);
+			if (*cluster != FAT_EOF) {
+				*offset = fat_cluster2offset(fat_superblock, *cluster);
+			}
 		}
 	}
 	return 0;
@@ -480,8 +487,8 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 		fat_entry_t root_entry;
 		memset(&root_entry, 0, sizeof(root_entry));
 		root_entry.attribute      = ATTR_DIRECTORY;
-		root_entry.cluster_lower  = bpb.extended.fat32.root_cluster & 0xff;
-		root_entry.cluster_higher = (bpb.extended.fat32.root_cluster >> 16) & 0xff;
+		root_entry.cluster_lower  = bpb.extended.fat32.root_cluster & 0xffff;
+		root_entry.cluster_higher = (bpb.extended.fat32.root_cluster >> 16) & 0xffff;
 		// how do we get size ?
 		local_root = fat_entry2node(&root_entry, fat_superblock);
 	} else {
