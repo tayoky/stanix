@@ -106,7 +106,7 @@ static int ata_probe(devnode_t *devnode) {
 	identify->opcode = ATA_CMD_IDENTIFY;
 	identify->lba = 0;
 	identify->sectors_count = 1;
-	identify->flags = ATA_CMD_SEND_LBA28 | ATA_CMD_READ_BUF;
+	identify->flags = ATA_CMD_READ_BUF;
 	identify->buf = &ident;
 
 	int ret = ata_submit_command_sync(identify);
