@@ -210,7 +210,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 		return -ENODEV;
 	}
 	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
-	if (ret < 0) return 0;
+	if (ret < 0) return ret;
 
 	if (command->flags & ATA_CMD_SEND_LBA48) {
 		ide_channel_write(channel, IDE_REG_SECCOUNT0, (uint8_t)(command->sectors_count >> 8));
@@ -243,11 +243,9 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 				}
 			}
 		}
-	} else {
-		ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
-		if (ret < 0) return ret;
 	}
-	return 0;
+	
+	return ide_channel_poll(channel, IDE_SR_BSY, 0);
 }
 
 // TODO : true async
