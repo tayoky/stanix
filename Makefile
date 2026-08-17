@@ -182,9 +182,9 @@ $(ESP_ROOT)/boot/initrd.tar : $(BASE_INITRD_SRC) build-userspace build-modules
 	@mkdir -p $(@D)
 	@echo "GEN boot/initrd.tar"
 	@mkdir -p $(INITRD)/dev $(INITRD)/tmp $(INITRD)/mnt $(INITRD)/proc $(INITRD)/sys
-	@cp -Pf -r $(BASE_INITRD)/* $(INITRD)/
+	@cp -Pf -p -r $(BASE_INITRD)/* $(INITRD)/
 # temporary until real sysroot, copy sysroot to initrd
-	@cp -Pf -r $(SYSROOT)/* $(INITRD)/
+	@cp -Pf -p -r $(SYSROOT)/* $(INITRD)/
 	@cd $(INITRD) && tar -cf $(ESP_ROOT)/boot/initrd.tar *
 
 $(ESP_ROOT)/boot/limine/limine.conf : limine.conf
