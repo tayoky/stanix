@@ -106,6 +106,27 @@ void irq_free(irq_t *irq) {
 	IRQ_CHIP_OP(irq->irq_chip, free, irq);
 }
 
+irq_t *irq_msi_allocate(irq_chip_t *irq_chip) {
+	if (irq_chip->msi_allocate) {
+		return irq_chip->msi_allocate(irq_chip);
+	} else {
+		return NULL;
+	}
+}
+
+uintptr_t irq_msi_get_address(irq_t *irq) {
+	IRQ_CHIP_OP(irq->irq_chip, msi_get_address, irq);
+	return 0;
+}
+
+uint32_t irq_msi_get_data(irq_t *irq) {
+	// we need to make sure the vector is allocated
+	// for the irq chip to generate the data
+	irq_lazy_allocate_vector(irq);
+	IRQ_CHIP_OP(irq->irq_chip, msi_get_data, irq);
+	return 0;
+}
+
 void irq_set_vector(irq_t *irq, intrnum_t vector) {
 	irq->vector = vector;
 	if (vector < 0 || vector >= (intrnum_t)arraylen(vector2irq) || vector == IRQ_VECTOR_ALLOCATE) {

@@ -32,6 +32,9 @@ struct irq_chip {
 	// optionals
 	irq_t *(*get_from_irqnum)(irq_chip_t *irq_chip, irqnum_t irqnum);
 	irq_t *(*get_from_hwirq)(irq_chip_t *irq_chip, hwirq_t hwirq);
+	irq_t *(*msi_allocate)(irq_chip_t *irq_chip);
+	uintptr_t (*msi_get_address)(irq_chip_t *irq_chip, irq_t *irq);
+	uint32_t (*msi_get_data)(irq_chip_t *irq_chip, irq_t *irq);
 	irq_t *(*allocate)(irq_chip_t *irq_chip);
 	void (*free)(irq_chip_t *irq_chip, irq_t *irq);
 
@@ -49,6 +52,9 @@ irq_t *irq_get_from_irqnum(irq_chip_t *irq_chip, irqnum_t irqnum);
 irq_t *irq_get_from_hwirq(irq_chip_t *irq_chip, hwirq_t hwirq);
 irq_t *irq_allocate(irq_chip_t *irq_chip);
 void irq_free(irq_t *irq);
+irq_t *irq_msi_allocate(irq_chip_t *irq_chip);
+uintptr_t irq_msi_get_address(irq_t *irq);
+uint32_t irq_msi_get_data(irq_t *irq);
 void *irq_register_handler(irq_t *irq, interrupt_handler_t handler, void *data);
 void irq_unregister_handler(irq_t *irq, void *handle);
 
