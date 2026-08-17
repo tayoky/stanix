@@ -24,71 +24,56 @@ static inline uint32_t addr2conf_addr(uint8_t bus, uint8_t device, uint8_t funct
 	return (((uint32_t)bus) << 16) | (((uint32_t)device) << 11) | (((uint32_t)function) << 8) | offset | ((uint32_t)0x80000000);
 }
 
-uint32_t pci_read_config_dword(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+uint32_t pci_config_read32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+	// check alignement
+	kassert(offset % 4 == 0);
+
 	uint32_t addr = addr2conf_addr(bus, device, function, offset);
-
-	// write the address with the two last bit always 0
-	out_long(CONFIG_ADDRESS, addr & (~(uint32_t)0b11));
-
+	out_long(CONFIG_ADDRESS, addr);
 	return in_long(CONFIG_DATA);
 }
 
-void pci_write_config_dword(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t data) {
+void pci_config_write32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t data) {
+	// check alignement
+	kassert(offset % 4 == 0);
+
 	uint32_t addr = addr2conf_addr(bus, device, function, offset);
-
-	// write the address with the two last bit always 0
-	out_long(CONFIG_ADDRESS, addr & (~(uint32_t)0b11));
-
+	out_long(CONFIG_ADDRESS, addr);
 	out_long(CONFIG_DATA, data);
 }
 
-uint16_t pci_read_config_word(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
-	uint32_t addr = addr2conf_addr(bus, device, function, offset);
+uint16_t pci_config_read16(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+	// check alignement
+	kassert(offset % 2 == 0);
 
-	// write the address with the two last bit always 0
-	out_long(CONFIG_ADDRESS, addr & (~(uint32_t)0b11));
-
-	// shift to get the good word
-	return (uint16_t)((in_long(CONFIG_DATA) >> ((offset & 2) * 8)) & 0xFFFF);
+	uint32_t data = pci_config_read32(bus, device, function, offset & ~3U);
+	int shift = (offset % 4) * 8;
+	return (uint16_t)((data >> shift) & 0xffff);
 }
 
+void pci_config_write16(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t data) {
+	// check alignement
+	kassert(offset % 2 == 0);
 
-void pci_write_config_word(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t data) {
-	uint32_t addr = addr2conf_addr(bus, device, function, offset);
-
-	out_long(CONFIG_ADDRESS, addr & (~(uint32_t)0b11));
-
-	uint32_t dword = in_long(CONFIG_DATA);
-	dword &= (0xffff << ((offset & 2) * 8));
-	dword |= data << ((offset & 2) * 8);
-
-	out_long(CONFIG_ADDRESS, addr & (~(uint32_t)0b11));
-
-	out_long(CONFIG_DATA, data);
+	uint32_t new_data = pci_config_read32(bus, device, function, offset & ~3U);
+	int shift = (offset % 4) * 8;
+	new_data &= ~(0xffffU << shift);
+	new_data |= data << shift;
+	pci_config_write32(bus, device, function, offset & ~3U, new_data);
+}
+	
+uint8_t pci_config_read8(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+	uint32_t data = pci_config_read32(bus, device, function, offset & ~3U);
+	int shift = (offset % 4) * 8;
+	return (uint8_t)((data >> shift) & 0xff);
 }
 
-uint8_t pci_read_config_byte(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
-	uint32_t addr = addr2conf_addr(bus, device, function, offset);
-
-	// write the address with the two last bit always 0
-	out_long(CONFIG_ADDRESS, addr & (~(uint32_t)0b11));
-
-	// shift to get the good word
-	return (uint8_t)((in_long(CONFIG_DATA) >> ((offset & 0b11) * 8)) & 0xFF);
-}
-
-void pci_write_config_byte(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint8_t data) {
-	uint32_t addr = addr2conf_addr(bus, device, function, offset);
-
-	out_long(CONFIG_ADDRESS, addr & (~(uint32_t)0b11));
-
-	uint32_t dword = in_long(CONFIG_DATA);
-	dword &= (0xff << ((offset & 2) * 8));
-	dword |= data << ((offset & 2) * 8);
-
-	out_long(CONFIG_ADDRESS, addr & (~(uint32_t)0b11));
-
-	out_long(CONFIG_DATA, data);
+void pci_config_write8(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint8_t data) {
+	uint32_t new_data = pci_config_read32(bus, device, function, offset & ~3U);
+	int shift = (offset % 4) * 8;
+	new_data &= ~(0xffU << shift);
+	new_data |= data << shift;
+	pci_config_write32(bus, device, function, offset & ~3U, new_data);
 }
 
 static void check_bus(uint8_t bus, void (*func)(uint8_t, uint8_t, uint8_t, void *), void *);
@@ -98,13 +83,13 @@ static void check_function(uint8_t bus, uint8_t device, uint8_t function, void (
 		func(bus, device, function, arg);
 	}
 
-	uint8_t base_class = (pci_read_config_word(bus, device, function, PCI_CONFIG_CLASS) >> 8) & 0xFF;
-	uint8_t sub_class  = pci_read_config_word(bus, device, function, PCI_CONFIG_CLASS) & 0xFF;
+	uint8_t base_class = (pci_config_read16(bus, device, function, PCI_CONFIG_CLASS) >> 8) & 0xFF;
+	uint8_t sub_class  = pci_config_read16(bus, device, function, PCI_CONFIG_CLASS) & 0xFF;
 	uint8_t secondary_bus;
 
 	// check for PCI to PCI bridge
 	if ((base_class == 0x6) && (sub_class == 0x4)) {
-		secondary_bus = (pci_read_config_word(bus, device, function, PCI_CONFIG_BUS_NUMBER) >> 8) & 0xFF;
+		secondary_bus = (pci_config_read16(bus, device, function, PCI_CONFIG_BUS_NUMBER) >> 8) & 0xFF;
 		check_bus(secondary_bus, func, arg);
 	}
 }
@@ -113,7 +98,7 @@ static void check_device(uint8_t bus, uint8_t device, void (*func)(uint8_t, uint
 	uint8_t function = 0;
 
 	// read the vendor id of the device
-	uint16_t vendorID = pci_read_config_word(bus, device, function, PCI_CONFIG_VENDOR_ID);
+	uint16_t vendorID = pci_config_read16(bus, device, function, PCI_CONFIG_VENDOR_ID);
 	if (vendorID == 0xFFFF) {
 		// device doesn't exist
 		return;
@@ -122,11 +107,11 @@ static void check_device(uint8_t bus, uint8_t device, void (*func)(uint8_t, uint
 	// now we know the device exist check every single function of the device
 	check_function(bus, device, function, func, arg);
 	// read the header type
-	uint32_t header_type = pci_read_config_word(bus, device, function, PCI_CONFIG_HEADER_TYPE);
+	uint32_t header_type = pci_config_read16(bus, device, function, PCI_CONFIG_HEADER_TYPE);
 	if (header_type & 0x80) {
 		// it's a multi-function device, so check remaining functions
 		for (function = 1; function < 8; function++) {
-			if (pci_read_config_word(bus, device, function, PCI_CONFIG_VENDOR_ID) != 0xFFFF) {
+			if (pci_config_read16(bus, device, function, PCI_CONFIG_VENDOR_ID) != 0xFFFF) {
 				check_function(bus, device, function, func, arg);
 			}
 		}
@@ -144,7 +129,7 @@ static void check_bus(uint8_t bus, void (*func)(uint8_t, uint8_t, uint8_t, void 
 void pci_foreach(void (*func)(uint8_t, uint8_t, uint8_t, void *), void *arg) {
 	uint8_t function;
 
-	uint32_t headerType = pci_read_config_word(0, 0, 0, PCI_CONFIG_HEADER_TYPE);
+	uint32_t headerType = pci_config_read16(0, 0, 0, PCI_CONFIG_HEADER_TYPE);
 	if ((headerType & 0x80) == 0) {
 		// single PCI host controller
 		check_bus(0, func, arg);
@@ -152,7 +137,7 @@ void pci_foreach(void (*func)(uint8_t, uint8_t, uint8_t, void *), void *arg) {
 		// multiple PCI host controllers
 		// each function belong to a PCI host controller
 		for (function = 0; function < 8; function++) {
-			if (pci_read_config_word(0, 0, function, PCI_CONFIG_VENDOR_ID) != 0xFFFF) {
+			if (pci_config_read_word(0, 0, function, PCI_CONFIG_VENDOR_ID) != 0xFFFF) {
 				check_bus(function, func, arg);
 			}
 		}
@@ -160,8 +145,8 @@ void pci_foreach(void (*func)(uint8_t, uint8_t, uint8_t, void *), void *arg) {
 }
 
 uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR) {
-	uintptr_t BAR_low  = pci_read_config_dword(addr->bus, addr->device, addr->function, PCI_CONFIG_BAR0 + BAR * 4);
-	uintptr_t BAR_high = pci_read_config_dword(addr->bus, addr->device, addr->function, PCI_CONFIG_BAR0 + BAR * 4 + 4);
+	uintptr_t BAR_low  = pci_config_read32(addr->bus, addr->device, addr->function, PCI_CONFIG_BAR0 + BAR * 4);
+	uintptr_t BAR_high = pci_config_read32(addr->bus, addr->device, addr->function, PCI_CONFIG_BAR0 + BAR * 4 + 4);
 	if (BAR_low & 1) {
 		// io port
 		if (ioport) {
@@ -189,7 +174,7 @@ uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR) {
 }
 
 static size_t setup_bar(pci_dev_t *pci_dev, int bar) {
-	uint64_t bar_value = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
+	uint64_t bar_value = pci_config_read32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
 	int is_ioport      = bar_value & 0x1;
 	int is_64bits = 0;
 	if (!is_ioport && (bar_value & 0x6) == 0x4) {
@@ -201,7 +186,7 @@ static size_t setup_bar(pci_dev_t *pci_dev, int bar) {
 		}
 
 		// we need to read the higher part
-		uint64_t bar_high = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4);
+		uint64_t bar_high = pci_config_read32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4);
 		bar_value |= bar_high << 32;
 	}
 
@@ -216,24 +201,24 @@ static size_t setup_bar(pci_dev_t *pci_dev, int bar) {
 		base = RESOURCE_ANY_START;
 	}
 
-	pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, 0xffffffff);
+	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, 0xffffffff);
 	if (is_64bits) {
-		pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4, 0xffffffff);
+		pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4, 0xffffffff);
 	}
 
 	uint64_t readback;
 	if (is_64bits) {
-		uint32_t readback_low  = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
-		uint32_t readback_high = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4);
+		uint32_t readback_low  = pci_config_read32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
+		uint32_t readback_high = pci_config_read32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4);
 		readback               = ((uint64_t)readback_high << 32) | readback_low;
 	} else {
-		readback = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
+		readback = pci_config_read32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
 	}
 
 	// restore
-	pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, bar_value);
+	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, bar_value);
 	if (is_64bits) {
-		pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4, bar_value >> 32);
+		pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4, bar_value >> 32);
 	}
 
 	// mask the control bits
@@ -277,7 +262,7 @@ finish:
 }
 
 static int write_bar(pci_dev_t *pci_dev, int bar, resource_t *resource) {
-	uint32_t bar_value = pci_read_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
+	uint32_t bar_value = pci_config_read32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
 	int is_64bits = 0;
 	int is_ioport = bar_value & 0x1;
 	uint32_t mask;
@@ -301,17 +286,17 @@ static int write_bar(pci_dev_t *pci_dev, int bar, resource_t *resource) {
 	}
 
 	// write the actual BAR
-	pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, resource->start | (bar_value & mask));
+	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4, resource->start | (bar_value & mask));
 	if (is_64bits) {
-		pci_write_config_dword(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4, (uint32_t)(resource->start >> 32));
+		pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + (bar + 1) * 4, (uint32_t)(resource->start >> 32));
 	}
 	return 0;
 }
 
 static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *arg) {
 	devnode_t *pci_bus = arg;
-	uint16_t vendorID  = pci_read_config_word(bus, device, function, PCI_CONFIG_VENDOR_ID);
-	uint16_t deviceID  = pci_read_config_word(bus, device, function, PCI_CONFIG_DEVICE_ID);
+	uint16_t vendorID  = pci_config_read16(bus, device, function, PCI_CONFIG_VENDOR_ID);
+	uint16_t deviceID  = pci_config_read16(bus, device, function, PCI_CONFIG_DEVICE_ID);
 	kdebugf("pci : find bus %d device %d function %d vendorID : %lx deviceID : %lx\n", bus, device, function, vendorID, deviceID);
 
 	char name[64];
@@ -324,9 +309,9 @@ static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *
 	pci_dev->devnode.name = strdup(name);
 	pci_dev->device_id    = deviceID;
 	pci_dev->vendor_id    = vendorID;
-	pci_dev->class        = pci_read_config_byte(bus, device, function, PCI_CONFIG_BASE_CLASS);
-	pci_dev->subclass     = pci_read_config_byte(bus, device, function, PCI_CONFIG_SUB_CLASS);
-	pci_dev->prog_if      = pci_read_config_byte(bus, device, function, PCI_CONFIG_PROG_IF);
+	pci_config_dev->class        = pci_read_byte(bus, device, function, PCI_CONFIG_BASE_CLASS);
+	pci_config_dev->subclass     = pci_read_byte(bus, device, function, PCI_CONFIG_SUB_CLASS);
+	pci_config_dev->prog_if      = pci_read_byte(bus, device, function, PCI_CONFIG_PROG_IF);
 	pci_dev->bus          = bus;
 	pci_dev->device       = device;
 	pci_dev->function     = function;
@@ -373,7 +358,7 @@ static ssize_t pci_read(devnode_t *devnode, void *buf, off_t offset, size_t size
 
 	uint16_t *buffer = buf;
 	for (size_t i = 0; i < (size / 2); i++) {
-		*(buffer++) = pci_read_config_word(pci_dev->bus, pci_dev->device, pci_dev->function, offset);
+		*(buffer++) = pci_config_read16(pci_dev->bus, pci_dev->device, pci_dev->function, offset);
 		offset += 2;
 	}
 
@@ -404,12 +389,12 @@ int init_pci(int argc, char **argv) {
 	bus_attach_child(bus_get_root(), NULL, "pci", UNIT_NOUNIT);
 
 	EXPORT(pci_foreach);
-	EXPORT(pci_read_config_dword)
-	EXPORT(pci_read_config_word)
-	EXPORT(pci_read_config_byte)
-	EXPORT(pci_write_config_dword)
-	EXPORT(pci_write_config_word)
-	EXPORT(pci_write_config_byte)
+	EXPORT(pci_config_read32)
+	EXPORT(pci_config_read16)
+	EXPORT(pci_config_read8)
+	EXPORT(pci_config_write32)
+	EXPORT(pci_config_write16)
+	EXPORT(pci_config_write8)
 	EXPORT(pci_get_bar)
 	return 0;
 }
@@ -417,12 +402,12 @@ int init_pci(int argc, char **argv) {
 int fini_pci() {
 	driver_unregister(&pci_driver);
 	UNEXPORT(pci_foreach);
-	UNEXPORT(pci_read_config_dword)
-	UNEXPORT(pci_read_config_word)
-	UNEXPORT(pci_read_config_byte)
-	UNEXPORT(pci_write_config_dword)
-	UNEXPORT(pci_write_config_word)
-	UNEXPORT(pci_write_config_byte)
+	UNEXPORT(pci_config_read32)
+	UNEXPORT(pci_config_read16)
+	UNEXPORT(pci_config_read8)
+	UNEXPORT(pci_config_write32)
+	UNEXPORT(pci_config_write16)
+	UNEXPORT(pci_config_write8)
 	UNEXPORT(pci_get_bar)
 	return 0;
 }

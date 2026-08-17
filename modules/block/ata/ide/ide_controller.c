@@ -45,8 +45,8 @@ static int ide_controller_pci_probe(devnode_t *devnode) {
 	}
 
 	// write new prog if
-	pci_write_config_byte(bus, device, function, PCI_CONFIG_PROG_IF, prog_if);
-	prog_if = pci_dev->prog_if = pci_read_config_byte(bus, device, function, PCI_CONFIG_PROG_IF);
+	pci_config_write8(bus, device, function, PCI_CONFIG_PROG_IF, prog_if);
+	prog_if = pci_dev->prog_if = pci_config_read8(bus, device, function, PCI_CONFIG_PROG_IF);
 
 	// check resources
 	if (prog_if & PROG_IF_CHANNEL1_NATIVE) {

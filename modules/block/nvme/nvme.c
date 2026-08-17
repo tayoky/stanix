@@ -28,8 +28,8 @@ static void reset_nvme(uint64_t BAR){
 
 static void check_dev(uint8_t bus,uint8_t device,uint8_t function,void *arg){
 	(void)arg;
-	uint8_t base_class = (pci_read_config_word(bus,device,function,PCI_CONFIG_CLASS) >> 8) & 0xFF;
-	uint8_t sub_class = pci_read_config_word(bus,device,function,PCI_CONFIG_CLASS) & 0xFF;
+	uint8_t base_class = (pci_config_read16(bus,device,function,PCI_CONFIG_CLASS) >> 8) & 0xFF;
+	uint8_t sub_class = pci_config_read16(bus,device,function,PCI_CONFIG_CLASS) & 0xFF;
 
 	if((base_class == 1) && (sub_class == 8)){
 		kdebugf("nvme : find nvme disk on %d:%d:%d\n",bus,device,function);
