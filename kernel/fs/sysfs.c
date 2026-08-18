@@ -24,8 +24,10 @@ static vfs_fd_ops_t sysfs_fd_ops;
 #define INODE_KERNEL_DIR       8
 #define INODE_SLAB_DIR         9
 #define INODE_SLAB             10
-#define INODE_KCMDLINE         11
-#define INODE_MEM              12
+#define INODE_RMAN_DIR         11
+#define INODE_RMAN             12
+#define INODE_KCMDLINE         13
+#define INODE_MEM              14
 
 typedef struct static_entry {
 	int type;
@@ -50,6 +52,7 @@ static static_entry_t devnode_entries[] = {
 
 static static_entry_t kernel_entries[] = {
 	ENTRY(S_IFDIR, INODE_SLAB_DIR, "slab"),
+	ENTRY(S_IFDIR, INODE_RMAN_DIR, "rman"),
 	ENTRY(S_IFREG, INODE_KCMDLINE, "cmdline"),
 };
 
@@ -144,6 +147,15 @@ static int sysfs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 			}
 		}
 		break;
+	case INODE_RMAN_DIR:
+		foreach (node, &rmans_list) {
+			rman_t *rman = container_of(node, rman_t, node);
+			if (!strcmp(rman->name, dentry->name)) {
+				child_inode = sysfs_new_inode(INODE_RMAN, rman, S_IFREG);
+				break;
+			}
+		}
+		break;
 	}
 	if (child_inode) {
 		child_inode->vnode.superblock = vnode->superblock;
@@ -210,6 +222,18 @@ static int sysfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *
 			return 0;
 		}
 		return -ENOENT;
+	case INODE_RMAN_DIR:
+		foreach (node, &rmans_list) {
+			if (index != 0) {
+				index--;
+				continue;
+			}
+			rman_t *rman = container_of(node, rman_t, node);
+			strcpy(dirent->d_name, rman->name);
+			dirent->d_type = DT_REG;
+			return 0;
+		}
+		return -ENOENT;
 	default:
 		return -ENOSYS;
 	}
@@ -237,6 +261,19 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 					 "full count : %zu\n",
 				slab->size, slab->free.node_count,
 				slab->partial.node_count, slab->full.node_count);
+		break;
+	case INODE_RMAN:;
+		rman_t *rman = inode->ptr;
+		char *ptr = str;
+		foreach (node, &rman->segs) {
+			rman_seg_t *seg = container_of(node, rman_seg_t, node);
+			ptr += sprintf(ptr, "%lx-%lx ", seg->start, seg->start + seg->size);
+			if (seg->devnode) {
+				ptr += sprintf(ptr, "%s\n", device_get_name(seg->devnode));
+			} else {
+				ptr += sprintf(ptr, "[free]\n");
+			}
+		}
 		break;
 	case INODE_KCMDLINE:
 		strcpy(str, kcmdline_get());

@@ -64,6 +64,7 @@ typedef struct rman_seg {
 
 // rman is heavely inspired by freebsd
 typedef struct rman {
+	list_node_t node;
 	mutex_t mutex;
 	list_t segs;
 	const char *name;
@@ -210,5 +211,7 @@ static inline void resource_write32(resource_t *resource, uint16_t index, uint32
 		break;
 	}
 }
+
+extern list_t rmans_list;
 
 #endif

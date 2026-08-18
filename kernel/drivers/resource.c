@@ -10,11 +10,13 @@
 static slab_cache_t resources_slab;
 static slab_cache_t resource_descs_slab;
 static slab_cache_t rman_segs_slab;
+list_t rmans_list;
 
 void init_resource(void) {
 	slab_init(&resources_slab, sizeof(resource_t), "resources");
 	slab_init(&resource_descs_slab, sizeof(resource_desc_t), "resource-descs");
 	slab_init(&rman_segs_slab, sizeof(rman_seg_t), "rman-segs");
+	list_init(&rmans_list);
 }
 
 resource_t *resource_allocate(devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
@@ -107,9 +109,11 @@ void rman_init(rman_t *rman, int type, const char *name) {
 	mutex_init(&rman->mutex);
 	rman->type = type;
 	rman->name = name;
+	list_append(&rmans_list, &rman->node);
 }
 
 void rman_destroy(rman_t *rman) {
+	list_remove(&rmans_list, &rman->node);
 	list_node_t *node = rman->segs.first_node;
 	while (node) {
 		rman_seg_t *seg = container_of(node, rman_seg_t, node);
