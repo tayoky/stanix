@@ -47,7 +47,8 @@ typedef struct resource {
 
 #define RID_ANY 0 // special rid to tell that we need any resource of the specified type (and don't care about rid)
 #define RID_NONE -1
-#define RESOURCE_ANY_START ((size_t)-1)
+#define RESOURCE_ANY_START 0
+#define RESOURCE_ANY_END   ((size_t)-1)
 #define RESOURCE_ANY_SIZE  0
 #define RESOURCE_ANY_ALIGN 0
 #define RESOURCE_ANY_BOUND 0
@@ -56,6 +57,7 @@ typedef struct rman_seg {
 	list_node_t node;
 	struct devnode *devnode;
 	size_t start;
+	size_t end;
 	size_t size;
 } rman_seg_t;
 
@@ -63,7 +65,6 @@ typedef struct rman_seg {
 typedef struct rman {
 	mutex_t mutex;
 	list_t segs;
-	size_t dynamic_start;
 	const char *name;
 	int type;
 } rman_t;
@@ -73,7 +74,6 @@ void init_resource(void);
 void rman_init(rman_t *rman, int type, const char *name);
 void rman_destroy(rman_t *rman);
 int rman_add_region(rman_t *rman, size_t start, size_t size);
-void rman_set_dynamic_start(rman_t *rman, size_t start);
 resource_t *rman_allocate(rman_t *rman, struct devnode *devnode, resource_request_t *request);
 void rman_free(rman_t *rman, struct devnode *devnode, resource_t *resource);
 

@@ -235,8 +235,17 @@ static size_t setup_bar(pci_dev_t *pci_dev, int bar) {
 
 	size_t bar_size = (~readback) + 1;
 
+	size_t end;
+	if (base == RESOURCE_ANY_START) {
+		// we cannot allocate 32 bits bar after the 4GB limit
+		end = is_64bits ? UINT64_MAX : UINT32_MAX;
+	} else {
+		end = base + bar_size;
+	}
+
 	resource_request_t request = {
 		.start = base,
+		.end   = end,
 		.size  = bar_size,
 		.align = bar_size,
 	};

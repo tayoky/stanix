@@ -88,18 +88,17 @@ static inline void bus_attach_resource_desc(devnode_t *devnode, resource_desc_t 
 	list_append(&devnode->resource_descs, &resource_desc->node);
 }
 
-static inline int bus_add_resource_desc_request(devnode_t *devnode, resource_request_t *request, int rid) {
+static inline int bus_add_resource_desct(devnode_t *devnode, resource_request_t *request, int rid) {
 	resource_desc_t *desc = resource_desc_allocate(request, rid);
-	if (!desc) {
-		return -ENOMEM;
-	}
+	if (!desc) return -ENOMEM;
 	bus_attach_resource_desc(devnode, desc);
 	return 0;
 }
 
-static inline int bus_add_resource_desc(devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
+static inline int bus_add_fixed_resource_desc(devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
 	resource_request_t request = {
 		.start = start,
+		.end   = start + size,
 		.size  = size,
 		.flags = flags,
 	};
@@ -107,7 +106,7 @@ static inline int bus_add_resource_desc(devnode_t *devnode, size_t start, size_t
 }
 
 static inline int bus_add_resource_desc_data(devnode_t *devnode, void *data, size_t size, int flags, int rid) {
-	return bus_add_resource_desc(devnode, (size_t)data, size, flags, rid);
+	return bus_add_fixed_resource_desc(devnode, (size_t)data, size, flags, rid);
 }
 
 static inline void bus_detach_resource_desc(devnode_t *devnode, resource_desc_t *resource_desc) {
@@ -138,9 +137,10 @@ static inline resource_t *device_get_resource(devnode_t *devnode, int flags, int
 
 resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_request_t *request, int rid);
 
-static inline resource_t *bus_allocate_start_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
+static inline resource_t *bus_allocate_fixed_resource(devnode_t *bus, devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
 	resource_request_t request = {
 		.start = start,
+		.end   = start + size,
 		.size  = size,
 		.flags = flags,
 	};
@@ -148,11 +148,17 @@ static inline resource_t *bus_allocate_start_resource(devnode_t *bus, devnode_t 
 }
 
 static inline resource_t *bus_allocate_size_resource(devnode_t *bus, devnode_t *devnode, size_t size, int flags, int rid) {
-	return bus_allocate_start_resource(bus, devnode, RESOURCE_ANY_START, size, flags, rid);
+	resource_request_t request = {
+		.start = RESOURCE_ANY_START,
+		.end   = RESOURCE_ANY_END,
+		.size  = size,
+		.flags = flags,
+	};
+	return bus_allocate_resource(bus, devnode, &request, rid);
 }
 
 static inline resource_t *bus_allocate_simple_resource(devnode_t *bus, devnode_t *devnode, int flags, int rid) {
-	return bus_allocate_start_resource(bus, devnode, RESOURCE_ANY_START, RESOURCE_ANY_SIZE, flags, rid);
+	return bus_allocate_size_resource(bus, devnode, RESOURCE_ANY_SIZE, flags, rid);
 }
 
 #define BUS_UPWARD_OP(bus, op, ...) \
@@ -196,9 +202,10 @@ static inline resource_t *device_allocate_resource(devnode_t *devnode, resource_
 	return bus_allocate_resource(devnode->parent, devnode, request, rid);
 }
 
-static inline resource_t *device_allocate_start_resource(devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
+static inline resource_t *device_allocate_fixed_resource(devnode_t *devnode, size_t start, size_t size, int flags, int rid) {
 	resource_request_t request = {
 		.start = start,
+		.end   = start + size,
 		.size  = size,
 		.flags = flags,
 	};
@@ -206,11 +213,17 @@ static inline resource_t *device_allocate_start_resource(devnode_t *devnode, siz
 }
 
 static inline resource_t *device_allocate_size_resource(devnode_t *devnode, size_t size, int flags, int rid) {
-	return device_allocate_start_resource(devnode, RESOURCE_ANY_START, size, flags, rid);
+	resource_request_t request = {
+		.start = RESOURCE_ANY_START,
+		.end   = RESOURCE_ANY_END,
+		.size  = size,
+		.flags = flags,
+	};
+	return device_allocate_resource(devnode, &request, rid);
 }
 
 static inline resource_t *device_allocate_simple_resource(devnode_t *devnode, int flags, int rid) {
-	return device_allocate_start_resource(devnode, RESOURCE_ANY_START, RESOURCE_ANY_SIZE, flags, rid);
+	return device_allocate_size_resource(devnode, RESOURCE_ANY_SIZE, flags, rid);
 }
 
 static inline void device_release_resource(devnode_t *devnode, resource_t *resource) {

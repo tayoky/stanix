@@ -18,7 +18,6 @@ static int root_probe(devnode_t *devnode) {
 	// TODO : add  pci bus, isa/acpi, ...
 	rman_init(&io_rman, RESOURCE_IOPORT, "IO ports");
 	rman_add_region(&io_rman, 0, 0xffff);
-	rman_set_dynamic_start(&io_rman, 0x1000);
 	return 0;
 }
 
@@ -35,6 +34,10 @@ static resource_t *root_allocate_resource(devnode_t *bus, devnode_t *devnode, re
 		}
 		return resource_allocate_request(devnode, request, rid);
 	case RESOURCE_IOPORT:
+		// by default start to dynamicly allocate from 0x1000
+		if (request->start == RESOURCE_ANY_START) {
+			request->start = 0x1000;
+		}
 		return rman_allocate(&io_rman, devnode, request);
 	case RESOURCE_MEMORY:
 		return resource_allocate_request(devnode, request, rid);

@@ -79,7 +79,7 @@ static int isa_probe(devnode_t *isa_bus) {
 		// add ioports
 		for (size_t j=0; j<ISA_MAX_IOPORT; j++) {
 			if (!probe->ioports[j].valid) continue;
-			bus_add_resource_desc(child, probe->ioports[j].start, probe->ioports[j].size, RESOURCE_IOPORT, ISA_RID_IOPORT(j));
+			bus_add_fixed_resource_desc(child, probe->ioports[j].start, probe->ioports[j].size, RESOURCE_IOPORT, ISA_RID_IOPORT(j));
 		}
 
 		// add irqs

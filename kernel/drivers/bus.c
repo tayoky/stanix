@@ -155,6 +155,9 @@ resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_r
 		if (request->start == RESOURCE_ANY_START) {
 			request->start = desc->request.start;
 		}
+		if (request->start == RESOURCE_ANY_END) {
+			request->start = desc->request.end;
+		}
 		if (request->size == RESOURCE_ANY_SIZE) {
 			request->size = desc->request.size;
 		}
