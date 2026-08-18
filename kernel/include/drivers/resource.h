@@ -1,13 +1,14 @@
 #ifndef KERNEL_RESOURCE_H
 #define KERNEL_RESOURCE_H
 
-#include <kernel/irq.h>
+#include <kernel/interrupt.h>
 #include <kernel/mmio.h>
 #include <kernel/list.h>
 #include <kernel/port.h>
 #include <kernel/mutex.h>
 #include <kernel/assert.h>
 
+struct irq;
 struct devnode;
 
 typedef struct resource_request {
@@ -103,11 +104,7 @@ static inline void *resource_get_vaddr(resource_t *resource) {
 	return resource->data;
 }
 
-static inline irq_t *resource_get_irq(resource_t *resource) {
-	kassert((resource->flags & RESOURCE_TYPE) == RESOURCE_IRQ);
-	if (!resource) return NULL;
-	return (irq_t*)resource->start;
-}
+struct irq *resource_get_irq(resource_t *resource, size_t index);
 
 static inline size_t resource_get_start(resource_t *resource) {
 	return resource->start;
@@ -118,13 +115,21 @@ static inline size_t resource_get_size(resource_t *resource) {
 	return resource->size;
 }
 
-static inline void *resource_register_handler(resource_t *resource, interrupt_handler_t handler, void *data) {
+void *resource_register_indexed_handler(resource_t *resource, size_t index, interrupt_handler_t handler, void *data) {
 	return irq_register_handler(resource_get_irq(resource), handler, data);
 }
 
-static inline void resource_unregister_handler(resource_t *resource, void *handle) {
+void resource_unregister_indexed_handler(resource_t *resource, size_t index, void *handle) {
 	if (!resource || IS_ERR(resource)) return;
 	irq_unregister_handler(resource_get_irq(resource), handle);
+}
+
+static inline void *resource_register_handler(resource_t *resource, interrupt_handler_t handler, void *data) {
+	return resource_register_indexed_handler(resource, 0, handler, data);
+}
+
+static inline void resource_unregister_handler(resource_t *resource, void *handle) {
+	resource_unregister_indexed_handler(resource, 0, handle);
 }
 
 static inline uint8_t resource_read8(resource_t *resource, uint16_t index) {

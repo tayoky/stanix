@@ -2,6 +2,7 @@
 #define KERNEL_IRQ_H
 
 #include <kernel/interrupt.h>
+#include <kernel/resource.h>
 #include <kernel/arch.h>
 #include <kernel/list.h>
 #include <stdint.h>
@@ -9,7 +10,6 @@
 typedef int hwirq_t;
 typedef int irqnum_t;
 
-#define IRQ_NO_IRQNUM -1
 #define IRQ_NO_HWIRQ  -1
 
 typedef struct irq {
@@ -35,6 +35,7 @@ struct irq_chip {
 	uint32_t (*msi_get_data)(irq_chip_t *irq_chip, irq_t *irq);
 
 	list_t irqs;
+	rman_t rman;
 	const char *name;
 	int type;
 };
@@ -52,6 +53,7 @@ void *irq_register_handler(irq_t *irq, interrupt_handler_t handler, void *data);
 void irq_unregister_handler(irq_t *irq, void *handle);
 
 // irq chip functions
+void init_irq_chip(irq_chip_t *irq_chip);
 void irq_set_vector(irq_t *irq, intrnum_t vector);
 void irq_add_to_chip(irq_chip_t *irq_chip, irq_t *irq);
 irq_t *irq_allocate_object(irqnum_t irqnum, hwirq_t hwirq);

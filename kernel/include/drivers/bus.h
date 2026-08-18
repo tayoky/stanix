@@ -105,8 +105,14 @@ static inline int bus_add_fixed_resource_desc(devnode_t *devnode, size_t start, 
 	return bus_add_resource_desc_request(devnode, &request, rid);
 }
 
-static inline int bus_add_resource_desc_data(devnode_t *devnode, void *data, size_t size, int flags, int rid) {
-	return bus_add_fixed_resource_desc(devnode, (size_t)data, size, flags, rid);
+static inline int bus_add_size_resource_desc(devnode_t *devnode, size_t size, int flags, int rid) {
+	resource_request_t request = {
+		.start = RESOURCE_ANY_START,
+		.end   = RESOURCE_ANY_END,
+		.size  = size,
+		.flags = flags,
+	};
+	return bus_add_resource_desc_request(devnode, &request, rid);
 }
 
 static inline void bus_detach_resource_desc(devnode_t *devnode, resource_desc_t *resource_desc) {

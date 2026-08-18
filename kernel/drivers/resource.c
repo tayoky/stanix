@@ -1,4 +1,5 @@
 #include <kernel/bus.h>
+#include <kernel/irq.h>
 #include <kernel/list.h>
 #include <kernel/resource.h>
 #include <kernel/slab.h>
@@ -31,6 +32,22 @@ resource_t *resource_allocate(devnode_t *devnode, size_t start, size_t size, int
 void resource_free(devnode_t *devnode, resource_t *resource) {
 	bus_detach_resource(devnode, resource);
 	slab_free(resource);
+}
+
+irq_t *resource_get_irq(resource_t *resource, size_t index) {
+	if (!resource) return NULL;
+	kassert((resource->flags & RESOURCE_TYPE) == RESOURCE_IRQ);
+	kassert(index < resource->size);
+	return irq_get_from_irqnum(main_irq_chip, resource->start + index);
+}
+
+void *resource_register_indexed_handler(resource_t *resource, size_t index, interrupt_handler_t handler, void *data) {
+	return irq_register_handler(resource_get_irq(resource, index), handler, data);
+}
+
+void resource_unregister_indexed_handler(resource_t *resource, size_t index, void *handle) {
+	if (!resource || IS_ERR(resource)) return;
+	irq_unregister_handler(resource_get_irq(resource, index), handle);
 }
 
 resource_desc_t *resource_desc_allocate(resource_request_t *request, int rid) {

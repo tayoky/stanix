@@ -26,13 +26,7 @@ static resource_t *root_allocate_resource(devnode_t *bus, devnode_t *devnode, re
 	(void)rid;
 	switch (request->flags & RESOURCE_TYPE) {
 	case RESOURCE_IRQ:
-		kassert(request->size == 1);
-		if (request->start == RESOURCE_ANY_START) {
-			irq_t *irq = irq_allocate(main_irq_chip);
-			if (!irq) return ERR2PTR(-ENOMEM);
-			request->start = (uintptr_t)irq;
-		}
-		return resource_allocate_request(devnode, request, rid);
+		return rman_allocate(&main_irq_chip->rman, devnode, request);
 	case RESOURCE_IOPORT:
 		// by default start to dynamicly allocate from 0x1000
 		if (request->start == RESOURCE_ANY_START) {
@@ -51,9 +45,7 @@ static int root_release_resource(devnode_t *bus, devnode_t *devnode, resource_t 
 	(void)devnode;
 	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_IRQ:
-		// TODO : irq_free if it was allocated
-		resource_free(devnode, resource);
-		return 0;
+		return rman_free(&main_irq_chip->rman, devnode, resource);
 	case RESOURCE_IOPORT:
 		rman_free(&io_rman, devnode, resource);
 		return 0;

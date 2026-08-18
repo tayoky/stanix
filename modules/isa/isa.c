@@ -87,7 +87,7 @@ static int isa_probe(devnode_t *isa_bus) {
 			if (!probe->irqs[j]) continue;
 			irq_t *irq = irq_get_from_hwirq(main_irq_chip, probe->irqs[j]);
 			if (!irq) continue;
-			bus_add_resource_desc_data(child, irq, 1, RESOURCE_IRQ, ISA_RID_IRQ(j));
+			bus_add_fixed_resource_desc(child, irq->hwirq, 1, RESOURCE_IRQ, ISA_RID_IRQ(j));
 		}
 		bus_attach_child(isa_bus, child, probe->name, UNIT_ALLOCATE);
 	}

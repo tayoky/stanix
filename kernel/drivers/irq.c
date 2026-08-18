@@ -72,18 +72,6 @@ irq_t *irq_get_from_hwirq(irq_chip_t *irq_chip, hwirq_t hwirq) {
 	return NULL;
 }
 
-irq_t *irq_allocate(irq_chip_t *irq_chip) {
-	// search for unallocated irqs
-	// TODO : use rman
-	foreach (node, &irq_chip->irqs) {
-	irq_t *irq = container_of(node, irq_t, node);
-	if (list_is_empty(&irq->handlers)) {
-			return irq;
-		}
-	}
-	return NULL;
-}
-
 uintptr_t irq_msi_get_address(irq_t *irq) {
 	IRQ_CHIP_OP(irq->irq_chip, msi_get_address, irq);
 	return 0;
@@ -92,6 +80,10 @@ uintptr_t irq_msi_get_address(irq_t *irq) {
 uint32_t irq_msi_get_data(irq_t *irq) {
 	IRQ_CHIP_OP(irq->irq_chip, msi_get_data, irq);
 	return 0;
+}
+
+void init_irq_chip(irq_chip_t *irq_chip) {
+	rman_init(&irq_chip->rman, RESOURCE_IRQ, irq_chip->name);
 }
 
 void irq_set_vector(irq_t *irq, intrnum_t vector) {
@@ -103,6 +95,7 @@ void irq_set_vector(irq_t *irq, intrnum_t vector) {
 void irq_add_to_chip(irq_chip_t *irq_chip, irq_t *irq) {
 	irq->irq_chip = irq_chip;
 	list_append(&irq_chip->irqs, &irq->node);
+	rman_add_region(&irq_chip->rman, irq->irq_num, 1);
 }
 
 irq_t *irq_allocate_object(irqnum_t irqnum, hwirq_t hwirq) {

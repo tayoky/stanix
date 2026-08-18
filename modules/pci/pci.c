@@ -376,7 +376,7 @@ static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *
 	}
 
 	// discover irq line
-	bus_add_resource_desc(&pci_dev->devnode, RESOURCE_ANY_START, 1, PCI_RID_IRQ_LINE);
+	bus_add_size_resource_desc(&pci_dev->devnode, 1, RESOURCE_IRQ, PCI_RID_IRQ_LINE);
 
 	bus_attach_child(pci_bus, &pci_dev->devnode, NULL, UNIT_NOUNIT);
 }
