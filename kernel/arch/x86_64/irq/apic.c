@@ -168,6 +168,17 @@ void init_apic(void) {
 		current += entry->length;
 	}
 
+	// turn remaining vectors into msi
+	for (;;) {
+		intrnum_t vector = allocate_vector();
+		if (vector > 255) break;
+		irq_t *irq = irq_allocate_object(IRQ_MSI_START + vector, IRQ_NOHWIRQ);
+		if (!irq) break;
+		irq_set_vector(irq, vector);
+		irq_add_to_chip(&apic_chip, irq);
+		return NULL;
+	}
+
 
 	// tell the irq system we use apic
 	main_irq_chip = &apic_chip;

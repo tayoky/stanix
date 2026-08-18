@@ -11,6 +11,8 @@ typedef int hwirq_t;
 typedef int irqnum_t;
 
 #define IRQ_NO_HWIRQ  -1
+#define IRQ_MSI_START 0x1000
+#define IRQ_MSI_END   0x2000
 
 typedef struct irq {
 	list_node_t node;
