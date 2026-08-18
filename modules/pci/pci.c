@@ -316,8 +316,25 @@ static void parse_msi(pci_dev_t *pci_dev) {
 
 	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MASK, 0xffffffff);
 
-	// TODO : discover interrupts
-	uint8_t interrupt_count = (message_control >> 1) & 0x7;
+	uint8_t interrupts_count = 1U << ((message_control >> 1) & 0x7U);
+	kinfof("found msi with %hhu interrupts\n", interrupts_count);
+	resource_request_t request = {
+		.start = IRQ_MSI_START,
+		.end   = IRQ_MSI_END,
+		.size  = interrupts_count,
+		.align = interrupts_count,
+		.flags = RESOURCE_IOPORT,
+	};
+	bus_add_resource_desc(&pci_dev->devnode, &request, PCI_RID_MSI);
+}
+
+static void write_msi(pci_dev_t *pci_dev, resource_t *resource) {
+	irq_t *irq = resource_get_irq(resource, 0);
+	uintptr_t addr = irq_get_msi_addr(irq);
+	uint32_t data  = irq_get_mdi_data(irq);
+	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MSG_ADDR_LOW,  addr & 0xffffffff);
+	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MSG_ADDR_HIGH, (addr >> 32) & 0xffffffff);
+	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MSG_DATA, data);
 }
 
 static void parse_capabilities(pci_dev_t *pci_dev) {
@@ -396,8 +413,9 @@ static resource_t *pci_allocate_resource(devnode_t *pci_bus, devnode_t *devnode,
 	case RESOURCE_IRQ:
 		if (rid == PCI_RID_IRQ_LINE) {
 			write_irq_line(pci_dev, resource);
+		} else if (rid == PCI_RID_MSI) {
+			write_msi(pci_dev, resource);
 		}
-		// TODO : handle MSI and MSI-X
 		break;
 	case RESOURCE_IOPORT:
 	case RESOURCE_MEMORY:
