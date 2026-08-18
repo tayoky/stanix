@@ -14,6 +14,8 @@ typedef struct pci_dev {
 	uint8_t bus;
 	uint8_t device;
 	uint8_t function;
+	uint8_t msi_offset;
+	uint8_t msix_offset;
 } pci_dev_t;
 
 #define PCI_RID_BAR(n) (1 + (n))
@@ -39,18 +41,33 @@ typedef struct pci_dev {
 #define PCI_CONFIG_BASE_CLASS  0x0B
 #define PCI_CONFIG_HEADER_TYPE 0x0E
 
+#define PCI_STATUS_CAPABILITY_LIST (1U << 4)
+
 // header type 0x0
-#define PCI_CONFIG_BAR0     0x10
-#define PCI_CONFIG_BAR1     0x14
-#define PCI_CONFIG_BAR2     0x18
-#define PCI_CONFIG_BAR3     0x20
-#define PCI_CONFIG_BAR4     0x22
-#define PCI_CONFIG_BAR5     0x24
-#define PCI_CONFIG_INT_LINE 0x3C
-#define PCI_CONFIG_INT_PIN  0x3D
+#define PCI_CONFIG_BAR0         0x10
+#define PCI_CONFIG_BAR1         0x14
+#define PCI_CONFIG_BAR2         0x18
+#define PCI_CONFIG_BAR3         0x20
+#define PCI_CONFIG_BAR4         0x22
+#define PCI_CONFIG_BAR5         0x24
+#define PCI_CONFIG_CAPABILITIES 0x34
+#define PCI_CONFIG_INT_LINE     0x3C
+#define PCI_CONFIG_INT_PIN      0x3D
 
 // header type 0x01 (PCI to PCI bridge)
 #define PCI_CONFIG_BUS_NUMBER 0x18
+
+#define PCI_CAP_MSI                0x5
+#define PCI_CAP_MSI_MSG_CONTROL    0x02
+#define PCI_CAP_MSI_MSG_ADDR_LOW   0x04
+#define PCI_CAP_MSI_MSG_ADDR_HIGH  0x08
+#define PCI_CAP_MSI_MSG_DATA       0x0c
+#define PCI_CAP_MSI_MASK           0x10
+#define PCI_CAP_MSI_PENDING        0x14
+#define PCI_CAP_MSI_MSG_CONTROL_ENABLE (1U << 0)
+#define PCI_CAP_MSI_MSG_CONTROL_64BIT  (1U << 7)
+
+#define PCI_CAP_MSIX 0x11
 
 /**
  * @brief read a aligned dword from a pci device configuration space

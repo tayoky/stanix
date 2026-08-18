@@ -47,7 +47,7 @@ uint16_t pci_config_read16(uint8_t bus, uint8_t device, uint8_t function, uint8_
 	kassert(offset % 2 == 0);
 
 	uint32_t data = pci_config_read32(bus, device, function, offset & ~3U);
-	int shift = (offset % 4) * 8;
+	int shift     = (offset % 4) * 8;
 	return (uint16_t)((data >> shift) & 0xffff);
 }
 
@@ -56,21 +56,21 @@ void pci_config_write16(uint8_t bus, uint8_t device, uint8_t function, uint8_t o
 	kassert(offset % 2 == 0);
 
 	uint32_t new_data = pci_config_read32(bus, device, function, offset & ~3U);
-	int shift = (offset % 4) * 8;
+	int shift         = (offset % 4) * 8;
 	new_data &= ~(0xffffU << shift);
 	new_data |= data << shift;
 	pci_config_write32(bus, device, function, offset & ~3U, new_data);
 }
-	
+
 uint8_t pci_config_read8(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
 	uint32_t data = pci_config_read32(bus, device, function, offset & ~3U);
-	int shift = (offset % 4) * 8;
+	int shift     = (offset % 4) * 8;
 	return (uint8_t)((data >> shift) & 0xff);
 }
 
 void pci_config_write8(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint8_t data) {
 	uint32_t new_data = pci_config_read32(bus, device, function, offset & ~3U);
-	int shift = (offset % 4) * 8;
+	int shift         = (offset % 4) * 8;
 	new_data &= ~(0xffU << shift);
 	new_data |= data << shift;
 	pci_config_write32(bus, device, function, offset & ~3U, new_data);
@@ -176,7 +176,7 @@ uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR) {
 static size_t setup_bar(pci_dev_t *pci_dev, int bar) {
 	uint64_t bar_value = pci_config_read32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
 	int is_ioport      = bar_value & 0x1;
-	int is_64bits = 0;
+	int is_64bits      = 0;
 	if (!is_ioport && (bar_value & 0x6) == 0x4) {
 		is_64bits = 1;
 
@@ -263,8 +263,8 @@ finish:
 
 static int write_bar(pci_dev_t *pci_dev, int bar, resource_t *resource) {
 	uint32_t bar_value = pci_config_read32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
-	int is_64bits = 0;
-	int is_ioport = bar_value & 0x1;
+	int is_64bits      = 0;
+	int is_ioport      = bar_value & 0x1;
 	uint32_t mask;
 	if (is_ioport) {
 		// ioport
@@ -294,8 +294,44 @@ static int write_bar(pci_dev_t *pci_dev, int bar, resource_t *resource) {
 }
 
 static void write_irq_line(pci_dev_t *pci_dev, resource_t *resource) {
-	irq_t *irq = (irq_t*)resource->start;
+	irq_t *irq = (irq_t *)resource->start;
 	pci_config_write8(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_INT_LINE, irq->irq_num);
+}
+
+static void parse_msi(pci_dev_t *pci_dev) {
+	// on startup disable msi and mask everything
+	uint8_t message_control = pci_config_read8(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MSG_CONTROL);
+	message_control &= ~PCI_CAP_MSI_MSG_CONTROL_ENABLE;
+	message_control |= PCI_CAP_MSI_MSG_CONTROL_64BIT;
+	pci_config_write8(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MSG_CONTROL, message_control);
+
+	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MASK, 0xffffffff);
+
+	// TODO : discover interrupts
+	uint8_t interrupt_count = (message_control >> 1) & 0x7;
+}
+
+static void parse_capabilities(pci_dev_t *pci_dev) {
+	// we have a capability list
+	uint8_t current = pci_config_read8(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_CAPABILITIES) & ~3U;
+	while (current) {
+		uint8_t id = pci_config_read8(pci_dev->bus, pci_dev->device, pci_dev->function, current);
+		switch (id) {
+		case PCI_CAP_MSI:
+			if (pci_dev->msi_offset) {
+				// multiple msi capabilities ???
+				// invalid
+				kwarningf("multiple msi capabilities");
+				return;
+			}
+			pci_dev->msi_offset = offset;
+			break;
+		}
+		current = pci_config_read8(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->current + 1) & ~2U;
+	}
+	if (pci_dev->msi_offset) {
+		parse_msi(pci_dev, current);
+	}
 }
 
 static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *arg) {
@@ -310,23 +346,25 @@ static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *
 	// setup the pci_dev
 	pci_dev_t *pci_dev = kmalloc(sizeof(pci_dev_t));
 	memset(pci_dev, 0, sizeof(pci_dev_t));
-	pci_dev->devnode.type = BUS_PCI;
-	pci_dev->devnode.name = strdup(name);
-	pci_dev->device_id    = deviceID;
-	pci_dev->vendor_id    = vendorID;
-	pci_config_dev->class        = pci_read_byte(bus, device, function, PCI_CONFIG_BASE_CLASS);
-	pci_config_dev->subclass     = pci_read_byte(bus, device, function, PCI_CONFIG_SUB_CLASS);
-	pci_config_dev->prog_if      = pci_read_byte(bus, device, function, PCI_CONFIG_PROG_IF);
-	pci_dev->bus          = bus;
-	pci_dev->device       = device;
-	pci_dev->function     = function;
+	pci_dev->devnode.type    = BUS_PCI;
+	pci_dev->devnode.name    = strdup(name);
+	pci_dev->device_id       = deviceID;
+	pci_dev->vendor_id       = vendorID;
+	pci_config_dev->class    = pci_config_read8(bus, device, function, PCI_CONFIG_BASE_CLASS);
+	pci_config_dev->subclass = pci_config_read8(bus, device, function, PCI_CONFIG_SUB_CLASS);
+	pci_config_dev->prog_if  = pci_config_read8(bus, device, function, PCI_CONFIG_PROG_IF);
+	pci_dev->bus             = bus;
+	pci_dev->device          = device;
+	pci_dev->function        = function;
 
 	// resource discovery time
 	for (int i = 0; i < 6;) {
-		i += setup_bar(pci_dev, i);
+		i += parse_bar(pci_dev, i);
 	}
-
-	// TODO : discover msi/msi-x
+	uint8_t status = pci_config_read8(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_STATUS);
+	if (status & PCI_STATUS_CAPABILITY_LIST) {
+		parse_capabilities(pci_dev);
+	}
 
 	// discover irq line
 	bus_add_resource_desc(&pci_dev->devnode, RESOURCE_ANY_START, 1, PCI_RID_IRQ_LINE);
@@ -388,10 +426,10 @@ static int pci_probe(devnode_t *devnode) {
 
 
 static driver_t pci_driver = {
-	.name        = "pci",
-	.device_name = "pci",
-	.buses       = BUSES("root"),
-	.probe       = pci_probe,
+	.name              = "pci",
+	.device_name       = "pci",
+	.buses             = BUSES("root"),
+	.probe             = pci_probe,
 	.allocate_resource = pci_allocate_resource,
 };
 
