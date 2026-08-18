@@ -123,6 +123,29 @@ void rman_destroy(rman_t *rman) {
 	}
 }
 
+static void rman_merge(rman_t *rman, rman_seg_t *seg) {
+	// merge with prev
+	if (seg->node.prev) {
+		rman_seg_t *prev_seg = container_of(seg->node.prev, rman_seg_t, node);
+		if (prev_seg->start + prev_seg->size == seg->start && !rman_seg_is_allocated(prev_seg)) {
+			list_remove(&rman->segs, &prev_seg->node);
+			seg->start = prev_seg->start;
+			seg->size += prev_seg->size;
+			slab_free(prev_seg);
+		}
+	}
+
+	// merge with next
+	if (seg->node.next) {
+		rman_seg_t *next_seg = container_of(seg->node.next, rman_seg_t, node);
+		if (seg->start + seg->size == next_seg->start && !rman_seg_is_allocated(next_seg)) {
+			list_remove(&rman->segs, &next_seg->node);
+			seg->size += next_seg->size;
+			slab_free(next_seg);
+		}
+	}
+}
+
 static int rman_raw_add_region(rman_t *rman, size_t start, size_t size) {
 	rman_seg_t *before = rman_get_seg_before(rman, start);
 	if (before && (before->start + before->size > start)) {
@@ -144,6 +167,7 @@ static int rman_raw_add_region(rman_t *rman, size_t start, size_t size) {
 	rman_seg_t *seg = rman_allocate_seg(start, size);
 	if (!seg) return -ENOMEM;
 	list_add_after(&rman->segs, before ? &before->node : NULL, &seg->node);
+	rman_merge(rman, seg);
 	return 0;
 }
 
@@ -263,27 +287,8 @@ static void rman_raw_free(rman_t *rman, devnode_t *devnode, resource_t *resource
 	// mark seg as free
 	kassert(devnode == seg->devnode);
 	seg->devnode = NULL;
-
-	// merge with prev
-	if (seg->node.prev) {
-		rman_seg_t *prev_seg = container_of(seg->node.prev, rman_seg_t, node);
-		if (prev_seg->start + prev_seg->size == seg->start && !rman_seg_is_allocated(prev_seg)) {
-			list_remove(&rman->segs, &prev_seg->node);
-			seg->start = prev_seg->start;
-			seg->size += prev_seg->size;
-			slab_free(prev_seg);
-		}
-	}
-
-	// merge with next
-	if (seg->node.next) {
-		rman_seg_t *next_seg = container_of(seg->node.next, rman_seg_t, node);
-		if (seg->start + seg->size == next_seg->start && !rman_seg_is_allocated(next_seg)) {
-			list_remove(&rman->segs, &next_seg->node);
-			seg->size += next_seg->size;
-			slab_free(next_seg);
-		}
-	}
+	
+	rman_merge(rman, seg);
 
 	resource_free(devnode, resource);
 }
