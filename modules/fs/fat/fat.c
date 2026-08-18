@@ -80,8 +80,16 @@ static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
 		for (size_t count = 0; count < PAGE_SIZE;) {
 			size_t read_size = min(PAGE_SIZE, fat_superblock->cluster_size - cluster_offset);
 
-			// early EOF ??? probably corrupted fat fs
-			if (cluster == FAT_EOF) return -EIO;
+			if (cluster == FAT_EOF) {
+				if (offset + PAGE_SIZE > inode->entry.file_size) {
+					// we are on the last page, early EOF is normal
+					memset(vaddr, 0, PAGE_SIZE - count);
+					break;
+				} else {
+					// corrupt FS
+					return -EIO;
+				}
+			}
 
 			ssize_t ret = vfs_read(fat_superblock->superblock.device, vaddr, fat_cluster2offset(fat_superblock, cluster) + cluster_offset, read_size);
 			if (ret < 0) return (int)ret;
