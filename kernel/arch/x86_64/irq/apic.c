@@ -14,6 +14,11 @@ static uintptr_t local_apic_address;
 static volatile void *local_apic;
 static xarray_t ioapic_list;
 
+static intrnum_t allocate_vector(void) {
+	static intrnum_t i = 64;
+	return i++;
+}
+
 int have_apic(void) {
 	if (kcmdline_have_opt("--disable-apic")) {
 		return 0;
@@ -111,7 +116,7 @@ void init_apic(void) {
 			irqnum_t gsi = ioapic->gsi_base + i;
 			irq_t *irq = irq_allocate_object(gsi, gsi);
 			// let the irq system allocate a vector for us
-			irq_set_vector(irq, IRQ_VECTOR_ALLOCATE);
+			irq_set_vector(irq, allocate_vector());
 			irq_add_to_chip(&apic_chip, irq);
 			kdebugf("gsi=%d vector=%d hwirq=%d\n", gsi, irq->vector, irq->hwirq);
 
@@ -195,8 +200,7 @@ static void apic_unmask(irq_chip_t *irq_chip, irq_t *irq) {
 	ioapic_t *ioapic = get_ioapic_for_gsi(irq->irqnum);
 	if (!ioapic) return;
 	uint64_t redirection = ioapic_read_redirection(ioapic, irq->irqnum - ioapic->gsi_base);
-	redirection &= ~(IOAPIC_MASK | IOAPIC_VECTOR);
-	redirection |= irq->vector;
+	redirection &= ~IOAPIC_MASK;
 	ioapic_write_redirection(ioapic, irq->irqnum - ioapic->gsi_base, redirection);
 }
 
@@ -204,14 +208,6 @@ static void apic_eoi(irq_chip_t *irq_chip, irq_t *irq) {
 	(void)irq_chip;
 	(void)irq;
 	local_apic_write(LOCAL_APIC_REG_EOI, 0);
-}
-
-static irq_t *apic_msi_allocate(irq_chip_t *irq_chip) {
-	irq_t *irq = irq_allocate_object(IRQ_NO_IRQNUM, IRQ_NO_HWIRQ);
-	if (!irq) return NULL;
-	irq_set_vector(irq, IRQ_VECTOR_ALLOCATE);
-	irq_add_to_chip(irq_chip, irq);
-	return irq;
 }
 
 static uintptr_t apic_msi_get_address(irq_chip_t *irq_chip, irq_t *irq) {
@@ -232,7 +228,6 @@ static irq_chip_t apic_chip = {
 	.mask            = apic_mask,
 	.unmask          = apic_unmask,
 	.eoi             = apic_eoi,
-	.msi_allocate    = apic_msi_allocate,
 	.msi_get_address = apic_msi_get_address,
 	.msi_get_data    = apic_msi_get_data,
 };

@@ -26,20 +26,6 @@ void init_irq(void) {
 	init_arch_irq();
 }
 
-static void irq_lazy_allocate_vector(irq_t *irq) {
-	if (irq->vector == IRQ_VECTOR_ALLOCATE) {
-		// allocate vector
-		for (intrnum_t i=64; i<(intrnum_t)arraylen(vector2irq); i++) {
-			if (!vector2irq[i]) {
-				irq->vector = i;
-				vector2irq[i] = irq;
-				return;
-			}
-		}
-		panic("out of cpu vector", NULL);
-	}
-}
-
 #define IRQ_CHIP_OP(irq_chip, op, ...) \
 	if (irq_chip->op) { \
 		return irq_chip->op(irq_chip, __VA_ARGS__); \
@@ -57,7 +43,6 @@ void irq_mask(irq_t *irq) {
 }
 
 void irq_unmask(irq_t *irq) {
-	irq_lazy_allocate_vector(irq);
 	IRQ_CHIP_OP(irq->irq_chip, unmask, irq);
 }
 
@@ -88,30 +73,15 @@ irq_t *irq_get_from_hwirq(irq_chip_t *irq_chip, hwirq_t hwirq) {
 }
 
 irq_t *irq_allocate(irq_chip_t *irq_chip) {
-	if (irq_chip->allocate) {
-		return irq_chip->allocate(irq_chip);
-	} else {
-		// search for unallocated irqs
-		foreach (node, &irq_chip->irqs) {
-			irq_t *irq = container_of(node, irq_t, node);
-			if (list_is_empty(&irq->handlers)) {
-				return irq;
-			}
+	// search for unallocated irqs
+	// TODO : use rman
+	foreach (node, &irq_chip->irqs) {
+	irq_t *irq = container_of(node, irq_t, node);
+	if (list_is_empty(&irq->handlers)) {
+			return irq;
 		}
-		return NULL;
 	}
-}
-
-void irq_free(irq_t *irq) {
-	IRQ_CHIP_OP(irq->irq_chip, free, irq);
-}
-
-irq_t *irq_msi_allocate(irq_chip_t *irq_chip) {
-	if (irq_chip->msi_allocate) {
-		return irq_chip->msi_allocate(irq_chip);
-	} else {
-		return NULL;
-	}
+	return NULL;
 }
 
 uintptr_t irq_msi_get_address(irq_t *irq) {
@@ -120,18 +90,13 @@ uintptr_t irq_msi_get_address(irq_t *irq) {
 }
 
 uint32_t irq_msi_get_data(irq_t *irq) {
-	// we need to make sure the vector is allocated
-	// for the irq chip to generate the data
-	irq_lazy_allocate_vector(irq);
 	IRQ_CHIP_OP(irq->irq_chip, msi_get_data, irq);
 	return 0;
 }
 
 void irq_set_vector(irq_t *irq, intrnum_t vector) {
 	irq->vector = vector;
-	if (vector < 0 || vector >= (intrnum_t)arraylen(vector2irq) || vector == IRQ_VECTOR_ALLOCATE) {
-		return;
-	}
+	kassert (vector >= 0 && vector < (intrnum_t)arraylen(vector2irq));
 	vector2irq[vector] = irq;
 }
 
