@@ -26,6 +26,10 @@ static resource_t *root_allocate_resource(devnode_t *bus, devnode_t *devnode, re
 	(void)rid;
 	switch (request->flags & RESOURCE_TYPE) {
 	case RESOURCE_IRQ:
+		// by default, avoid allocating msi
+		if (request->end == RESOURCE_ANY_END) {
+			request->end = IRQ_MSI_START;
+		}
 		return rman_allocate(&main_irq_chip->rman, devnode, request);
 	case RESOURCE_IOPORT:
 		// by default start to dynamicly allocate from 0x1000
