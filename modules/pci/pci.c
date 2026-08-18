@@ -405,7 +405,7 @@ static resource_t *pci_allocate_resource(devnode_t *pci_bus, devnode_t *devnode,
 		// not a child of us just passthough
 		return bus_allocate_resource(pci_bus->parent, devnode, request, RID_NONE);
 	}
-	resource_t *resource = bus_allocate_resource(pci_bus->parent, devnode, request, rid);
+	resource_t *resource = bus_allocate_resource(pci_bus->parent, devnode, request, RID_NONE);
 	if (IS_ERR(resource)) {
 		return resource;
 	}

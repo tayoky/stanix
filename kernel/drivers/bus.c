@@ -155,8 +155,8 @@ resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_r
 		if (request->start == RESOURCE_ANY_START) {
 			request->start = desc->request.start;
 		}
-		if (request->start == RESOURCE_ANY_END) {
-			request->start = desc->request.end;
+		if (request->end == RESOURCE_ANY_END) {
+			request->end = desc->request.end;
 		}
 		if (request->size == RESOURCE_ANY_SIZE) {
 			request->size = desc->request.size;
@@ -168,6 +168,9 @@ resource_t *bus_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_r
 			request->bound = desc->request.bound;
 		}
 		request->flags |= desc->request.flags & ~RESOURCE_TYPE;
+	} else if (rid != RID_NONE) {
+		// no desc for this rid
+		return ERR2PTR(-ENOENT);
 	}
 	request->flags &= ~RESOURCE_ACTIVE;
 	resource = __helper_bus_allocate_resource(bus, devnode, request, rid);
