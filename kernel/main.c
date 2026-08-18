@@ -109,6 +109,7 @@ void kmain() {
 	init_kheap();
 	init_xarray();
 	init_acpi();
+	init_resource();
 	init_irq();
 	init_vfs();
 	init_tmpfs();
@@ -127,7 +128,6 @@ void kmain() {
 	init_proc();
 	init_signal();
 	init_task();
-	init_resource();
 	init_bus();
 	init_root_bus();
 	init_timer();

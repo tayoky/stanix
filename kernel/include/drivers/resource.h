@@ -13,6 +13,7 @@ struct devnode;
 
 typedef struct resource_request {
 	size_t start;
+	size_t end;
 	size_t size;
 	size_t align;
 	size_t bound;
@@ -58,7 +59,6 @@ typedef struct rman_seg {
 	list_node_t node;
 	struct devnode *devnode;
 	size_t start;
-	size_t end;
 	size_t size;
 } rman_seg_t;
 
@@ -115,14 +115,9 @@ static inline size_t resource_get_size(resource_t *resource) {
 	return resource->size;
 }
 
-void *resource_register_indexed_handler(resource_t *resource, size_t index, interrupt_handler_t handler, void *data) {
-	return irq_register_handler(resource_get_irq(resource), handler, data);
-}
+void *resource_register_indexed_handler(resource_t *resource, size_t index, interrupt_handler_t handler, void *data);
 
-void resource_unregister_indexed_handler(resource_t *resource, size_t index, void *handle) {
-	if (!resource || IS_ERR(resource)) return;
-	irq_unregister_handler(resource_get_irq(resource), handle);
-}
+void resource_unregister_indexed_handler(resource_t *resource, size_t index, void *handle);
 
 static inline void *resource_register_handler(resource_t *resource, interrupt_handler_t handler, void *data) {
 	return resource_register_indexed_handler(resource, 0, handler, data);

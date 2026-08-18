@@ -1,4 +1,5 @@
 #include <kernel/bus.h>
+#include <kernel/irq.h>
 #include <kernel/devclass.h>
 #include <kernel/kheap.h>
 #include <kernel/module.h>
@@ -137,7 +138,7 @@ void pci_foreach(void (*func)(uint8_t, uint8_t, uint8_t, void *), void *arg) {
 		// multiple PCI host controllers
 		// each function belong to a PCI host controller
 		for (function = 0; function < 8; function++) {
-			if (pci_config_read_word(0, 0, function, PCI_CONFIG_VENDOR_ID) != 0xFFFF) {
+			if (pci_config_read16(0, 0, function, PCI_CONFIG_VENDOR_ID) != 0xFFFF) {
 				check_bus(function, func, arg);
 			}
 		}
@@ -173,7 +174,7 @@ uintptr_t pci_get_bar(pci_dev_t *addr, int ioport, int BAR) {
 	}
 }
 
-static size_t setup_bar(pci_dev_t *pci_dev, int bar) {
+static size_t parse_bar(pci_dev_t *pci_dev, int bar) {
 	uint64_t bar_value = pci_config_read32(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_BAR0 + bar * 4);
 	int is_ioport      = bar_value & 0x1;
 	int is_64bits      = 0;
@@ -265,7 +266,7 @@ static size_t setup_bar(pci_dev_t *pci_dev, int bar) {
 			request.align = 16;
 		}
 	}
-	bus_add_resource_desc_request(&pci_dev->devnode, &request, PCI_RID_BAR(bar));
+	bus_add_resource_desc(&pci_dev->devnode, &request, PCI_RID_BAR(bar));
 finish:
 	return is_64bits ? 2 : 1;
 }
@@ -304,7 +305,7 @@ static int write_bar(pci_dev_t *pci_dev, int bar, resource_t *resource) {
 
 static void write_irq_line(pci_dev_t *pci_dev, resource_t *resource) {
 	irq_t *irq = (irq_t *)resource->start;
-	pci_config_write8(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_INT_LINE, irq->irq_num);
+	pci_config_write8(pci_dev->bus, pci_dev->device, pci_dev->function, PCI_CONFIG_INT_LINE, irq->irqnum);
 }
 
 static void parse_msi(pci_dev_t *pci_dev) {
@@ -330,8 +331,8 @@ static void parse_msi(pci_dev_t *pci_dev) {
 
 static void write_msi(pci_dev_t *pci_dev, resource_t *resource) {
 	irq_t *irq = resource_get_irq(resource, 0);
-	uintptr_t addr = irq_get_msi_addr(irq);
-	uint32_t data  = irq_get_mdi_data(irq);
+	uintptr_t addr = irq_msi_get_address(irq);
+	uint32_t data  = irq_msi_get_data(irq);
 	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MSG_ADDR_LOW,  addr & 0xffffffff);
 	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MSG_ADDR_HIGH, (addr >> 32) & 0xffffffff);
 	pci_config_write32(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->msi_offset + PCI_CAP_MSI_MSG_DATA, data);
@@ -350,13 +351,13 @@ static void parse_capabilities(pci_dev_t *pci_dev) {
 				kwarningf("multiple msi capabilities");
 				return;
 			}
-			pci_dev->msi_offset = offset;
+			pci_dev->msi_offset = current;
 			break;
 		}
-		current = pci_config_read8(pci_dev->bus, pci_dev->device, pci_dev->function, pci_dev->current + 1) & ~2U;
+		current = pci_config_read8(pci_dev->bus, pci_dev->device, pci_dev->function, current + 1) & ~3U;
 	}
 	if (pci_dev->msi_offset) {
-		parse_msi(pci_dev, current);
+		parse_msi(pci_dev);
 	}
 }
 
@@ -372,16 +373,16 @@ static void create_pci_dev(uint8_t bus, uint8_t device, uint8_t function, void *
 	// setup the pci_dev
 	pci_dev_t *pci_dev = kmalloc(sizeof(pci_dev_t));
 	memset(pci_dev, 0, sizeof(pci_dev_t));
-	pci_dev->devnode.type    = BUS_PCI;
-	pci_dev->devnode.name    = strdup(name);
-	pci_dev->device_id       = deviceID;
-	pci_dev->vendor_id       = vendorID;
-	pci_config_dev->class    = pci_config_read8(bus, device, function, PCI_CONFIG_BASE_CLASS);
-	pci_config_dev->subclass = pci_config_read8(bus, device, function, PCI_CONFIG_SUB_CLASS);
-	pci_config_dev->prog_if  = pci_config_read8(bus, device, function, PCI_CONFIG_PROG_IF);
-	pci_dev->bus             = bus;
-	pci_dev->device          = device;
-	pci_dev->function        = function;
+	pci_dev->devnode.type = BUS_PCI;
+	pci_dev->devnode.name = strdup(name);
+	pci_dev->device_id    = deviceID;
+	pci_dev->vendor_id    = vendorID;
+	pci_dev->class        = pci_config_read8(bus, device, function, PCI_CONFIG_BASE_CLASS);
+	pci_dev->subclass     = pci_config_read8(bus, device, function, PCI_CONFIG_SUB_CLASS);
+	pci_dev->prog_if      = pci_config_read8(bus, device, function, PCI_CONFIG_PROG_IF);
+	pci_dev->bus          = bus;
+	pci_dev->device       = device;
+	pci_dev->function     = function;
 
 	// resource discovery time
 	for (int i = 0; i < 6;) {

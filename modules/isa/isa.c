@@ -1,6 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
 #include <kernel/bus.h>
+#include <kernel/irq.h>
 #include <module/pci.h>
 #include <module/isa.h>
 

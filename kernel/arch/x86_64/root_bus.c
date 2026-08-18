@@ -49,7 +49,8 @@ static int root_release_resource(devnode_t *bus, devnode_t *devnode, resource_t 
 	(void)devnode;
 	switch (resource->flags & RESOURCE_TYPE) {
 	case RESOURCE_IRQ:
-		return rman_free(&main_irq_chip->rman, devnode, resource);
+		rman_free(&main_irq_chip->rman, devnode, resource);
+		return 0;
 	case RESOURCE_IOPORT:
 		rman_free(&io_rman, devnode, resource);
 		return 0;

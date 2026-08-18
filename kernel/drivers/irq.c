@@ -95,7 +95,7 @@ void irq_set_vector(irq_t *irq, intrnum_t vector) {
 void irq_add_to_chip(irq_chip_t *irq_chip, irq_t *irq) {
 	irq->irq_chip = irq_chip;
 	list_append(&irq_chip->irqs, &irq->node);
-	rman_add_region(&irq_chip->rman, irq->irq_num, 1);
+	rman_add_region(&irq_chip->rman, irq->irqnum, 1);
 }
 
 irq_t *irq_allocate_object(irqnum_t irqnum, hwirq_t hwirq) {

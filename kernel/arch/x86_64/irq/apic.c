@@ -172,11 +172,10 @@ void init_apic(void) {
 	for (;;) {
 		intrnum_t vector = allocate_vector();
 		if (vector > 255) break;
-		irq_t *irq = irq_allocate_object(IRQ_MSI_START + vector, IRQ_NOHWIRQ);
+		irq_t *irq = irq_allocate_object(IRQ_MSI_START + vector, IRQ_NO_HWIRQ);
 		if (!irq) break;
 		irq_set_vector(irq, vector);
 		irq_add_to_chip(&apic_chip, irq);
-		return NULL;
 	}
 
 
