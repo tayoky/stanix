@@ -35,7 +35,16 @@ void start_getty(session_t *session) {
 		utils_hashmap_add(&sessions, session->pid, session);
 		return;
 	}
-	execl("/bin/getty", "getty", session->path, NULL);
+	int fd = open(session->path, O_RDWR);
+	if (fd < 0) {
+		syslog(LOG_ERR, "failed to open '%s' : %m", session->path);
+		exit(1);
+	}
+	dup2(fd, STDIN_FILENO);
+	dup2(fd, STDOUT_FILENO);
+	dup2(fd, STDERR_FILENO);
+	if (fd > STDERR_FILENO) close(fd);
+	execl("/bin/getty", "getty", "-", NULL);
 	exit(1);
 }
 
