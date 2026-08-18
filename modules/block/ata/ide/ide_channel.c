@@ -194,6 +194,9 @@ static void ide_channel_detach(devnode_t *devnode) {
 }
 
 static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t *device, ata_command_t *command) {
+	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
+	if (ret < 0) return ret;
+
 	// select the drive
 	// TODO : don't reselect if is was already selected
 	uint8_t drv_select = IDE_DRV_SELECT_LEGACY | IDE_DRV_SELECT_LBA;
@@ -213,7 +216,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 		// no drive
 		return -ENODEV;
 	}
-	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
+	ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
 	if (ret < 0) return ret;
 
 	if (command->flags & ATA_CMD_SEND_LBA48) {
