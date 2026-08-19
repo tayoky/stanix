@@ -439,7 +439,6 @@ static inline off_t vfs_generic_seek(vfs_fd_t *fd, off_t offset, int whence) {
 	struct stat st;
 	vfs_getattr(fd->inode, &st);
 
-
 	off_t new_offset;
 	switch (whence) {
 	case SEEK_SET:

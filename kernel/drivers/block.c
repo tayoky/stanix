@@ -103,6 +103,28 @@ static ssize_t block_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_
 	return do_request(block_device, (void*)buffer, offset, count, BLOCK_REQUEST_WRITE);
 }
 
+static off_t block_seek(vfs_fd_t *fd, off_t offset, int whence) {
+	block_device_t *block_device = container_of(fd->private, block_device_t, device);
+
+	off_t new_offset;
+	switch (whence) {
+	case SEEK_SET:
+		new_offset = offset;
+		break;
+	case SEEK_CUR:
+		new_offset = fd->offset + offset;
+		break;
+	case SEEK_END:
+		new_offset = block_device->sectors_count * block_device->sector_size + offset;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (new_offset < 0) return -EINVAL;
+	return fd->offset = new_offset;
+}
+
 static int block_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
 	switch (request) {
@@ -118,8 +140,9 @@ static int block_ioctl(vfs_fd_t *fd, long request, void *arg) {
 }
 
 static vfs_fd_ops_t block_ops = {
-	.read = block_read,
+	.read  = block_read,
 	.write = block_write,
+	.seek  = block_seek,
 	.ioctl = block_ioctl,
 };
 
