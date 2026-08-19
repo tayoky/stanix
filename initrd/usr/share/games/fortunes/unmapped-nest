@@ -20,7 +20,7 @@ The more flexibility the better
 	-- Dcraft BG in #dexxplay-os
 %
 JS will never enter the Ethereal project
-	-- Sasdallas in #the-ethereal-operating system
+	-- Sasdallas in #the-ethereal-operating-system
 %
 There is nothing wrong with wet pants and telling everybody about it
 	-- UnmappedStack in #tacos-update
@@ -36,3 +36,6 @@ I ran over an orphan child, he is no longer
 %
 I terminated the zombie and killed its parent
 	-- UnmappedStack in #off-topic
+%
+I already have a deadlock detector built into my spinlocks, it just handles it by halting all involved processors
+	-- UnmappedStack in #the-ethereal-operating-system
