@@ -33,14 +33,17 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 	}
 
 	// LBA28 has a lower limit
-	if (request->start_sector >= 0x10000000 && !(disk->common_ident.command_sets & (1 << 26))) {
-		// high LBA but no LBA28 support... uh ?
+	if (request->start_sector + request->sectors_count >= 0x10000000 && !(disk->common_ident.command_sets & (1 << 26))) {
+		// high LBA but no LBA48 support... uh ?
 		return -EIO;
 	}
 
 	uint8_t opcode;
 	int flags = 0;
 	if (disk->common_ident.command_sets & (1 << 26)) {
+		if (request->sectors_count > 65536) {
+			return -ENOTSUP;
+		}
 		if (request->type == BLOCK_REQUEST_WRITE) {
 			opcode = ATA_CMD_WRITE_PIO_EXT;
 		} else {
@@ -48,6 +51,9 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 		}
 		flags = ATA_CMD_SEND_LBA48;
 	} else {
+		if (request->sectors_count > 256) {
+			return -ENOTSUP;
+		}
 		if (request->type == BLOCK_REQUEST_WRITE) {
 			opcode = ATA_CMD_WRITE_PIO;
 		} else {
