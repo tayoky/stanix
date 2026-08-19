@@ -2,6 +2,10 @@
 #include <libini.h>
 #include <tgui/tgui.h>
 
+void close_window(void) {
+	tgui_quit();
+}
+
 void add_label(tgui_box_t *box, const char *text) {
 	tgui_label_t *label = tgui_label_new(text);
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(label), TGUI_TRUE);
@@ -22,7 +26,7 @@ int main() {
 	if (!window) {
 		return 1;
 	}
-	tgui_widget_connect_signal(TGUI_WIDGET_CAST(window), "destroy", TCALLBACK_CAST(tgui_quit), NULL);
+	tgui_widget_connect_signal(TGUI_WIDGET_CAST(window), "destroy", TCALLBACK_CAST(close_window), NULL);
 
 	tgui_box_t *box = tgui_box_new();
 	tgui_widget_set_hexpand(TGUI_WIDGET_CAST(box), TGUI_TRUE);
