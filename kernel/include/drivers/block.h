@@ -4,6 +4,7 @@
 #include <kernel/list.h>
 #include <kernel/device.h>
 #include <kernel/assert.h>
+#include <kernel/ioreq.h>
 
 typedef struct block_ops block_ops_t;
 typedef struct block_device block_device_t;
@@ -24,15 +25,13 @@ struct block_device {
 };
 
 struct block_request {
+	ioreq_t ioreq;
 	list_node_t node;
 	block_device_t *block_device;
 	size_t start_sector;
 	size_t sectors_count;
 	void *buf;
-	void (*callback)(block_request_t *request, void *data);
-	void *data;
 	int type;
-	int ret;
 };
 
 #define BLOCK_REQUEST_READ  1
@@ -41,14 +40,6 @@ struct block_request {
 
 void init_block(void);
 block_request_t *block_create_request(block_device_t *block_device, int type);
-static inline void block_request_set_callback(block_request_t *block_request, void (*callback)(block_request_t*,void*), void *data) {
-	block_request->callback = callback;
-	block_request->data     = data;
-}
-int block_submit_request(block_request_t *request);
-int block_submit_request_sync(block_request_t *request);
-void block_cancel_request(block_request_t *request);
-void block_finish_request(block_request_t *request, int ret);
 void block_submit_pending_request(block_device_t *block_device);
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number);
 #endif

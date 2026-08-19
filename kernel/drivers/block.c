@@ -41,7 +41,7 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 	if (start % block_device->sector_size != 0
 			|| end % block_device->sector_size != 0
 			|| (uintptr_t)buf % 16 != 0) {
-		kbuf = kmalloc((end_sector - start_sector) * block_device->sector_size);
+		kbuf = kmalloc(sectors_count * block_device->sector_size);
 		if (!kbuf) return -ENOMEM;
 		if (type == BLOCK_REQUEST_WRITE) {
 			// fill first and last sector
@@ -51,7 +51,7 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 				request->start_sector = start_sector;
 				request->sectors_count = 1;
 				request->buf = kbuf;
-				ret = block_submit_request_sync(request);
+				ret = ioreq_submit_sync_interruptible(&request->ioreq);
 				if (ret < 0) goto error;
 			}
 			if (end % block_device->sector_size != 0 && (start % block_device->sector_size == 0 || start_sector != end_sector)) {
@@ -59,7 +59,7 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 				request->start_sector = end_sector - 1;
 				request->sectors_count = 1;
 				request->buf = kbuf + (sectors_count - 1) * block_device->sector_size;
-				ret = block_submit_request_sync(request);
+				ret = ioreq_submit_sync_interruptible(&request->ioreq);
 				if (ret < 0) goto error;
 			}
 			ret = safe_copy_from((char*)kbuf + start % block_device->sector_size, buf, end - start);
@@ -75,7 +75,7 @@ error:
 	request->start_sector = start_sector;
 	request->sectors_count = sectors_count;
 	request->buf = kbuf ? kbuf : buf;
-	int ret = block_submit_request_sync(request);
+	int ret = ioreq_submit_sync_interruptible(&request->ioreq);
 	if (ret >= 0 && type == BLOCK_REQUEST_READ && kbuf) {
 		ret = safe_copy_to(buf, (char*)kbuf + start % block_device->sector_size, end - start);
 	}
@@ -87,7 +87,7 @@ error:
 		block_request_t *flush_request = block_create_request(block_device, BLOCK_REQUEST_FLUSH);
 		flush_request->start_sector = start_sector;
 		flush_request->sectors_count = sectors_count;
-		ret = block_submit_request_sync(flush_request);
+		ret = ioreq_submit_sync_interruptible(&flush_request->ioreq);
 	}
 
 	return ret < 0 ? ret : (ssize_t)(end - start);
@@ -123,17 +123,8 @@ static vfs_fd_ops_t block_ops = {
 	.ioctl = block_ioctl,
 };
 
-block_request_t *block_create_request(block_device_t *block_device, int type) {
-	kassert(block_device);
-	block_request_t *request = slab_alloc(&block_requests_slab);
-	if (!request) return NULL;
-	memset(request, 0, sizeof(block_request_t));
-	request->block_device = block_device;
-	request->type         = type;
-	return request;
-}
-
-int block_submit_request(block_request_t *request) {
+static int block_submit_request(ioreq_t *ioreq) {
+	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
 	kassert(request->block_device);
 	kassert(request->block_device->ops);
 	if (!request->block_device->ops->submit) {
@@ -151,44 +142,42 @@ int block_submit_request(block_request_t *request) {
 	return ret;
 }
 
-typedef struct block_wait_data {
-	oneshot_t oneshot;
-	int ret;
-} block_wait_data_t;
-
-static void block_wait_callback(block_request_t *request, void *data) {
-	block_wait_data_t *wait_data = data;
-	wait_data->ret = request->ret;
-	oneshot_signal(&wait_data->oneshot);
+static void block_cancel_request(ioreq_t *ioreq) {
+	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
+	(void)request;
+	// TODO
 }
 
-int block_submit_request_sync(block_request_t *request) {
-	block_wait_data_t wait_data;
-	oneshot_init(&wait_data.oneshot);
-
-	block_request_set_callback(request, block_wait_callback, &wait_data);
-	int ret = block_submit_request(request);
-	if (ret < 0) return ret;
-
-	ret = oneshot_wait(&wait_data.oneshot);
-	if (ret < 0) return ret;
-	return wait_data.ret;
-}
-
-void block_cancel_request(block_request_t *request) {
-	slab_free(request);
-}
-
-void block_finish_request(block_request_t *request, int ret) {
-	request->ret = ret;
-	if (request->callback) {
-		request->callback(request, request->data);
-	}
+static void block_finish_request(ioreq_t *ioreq) {
+	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
 	block_device_t *block_device = request->block_device;
 	slab_free(request);
 
 	// maybee now the block device can handle a pending request
 	block_submit_pending_request(block_device);
+}
+
+static void block_cleanup_request(ioreq_t *ioreq) {
+	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
+	slab_free(request);
+}
+
+static ioreq_ops_t block_request_ops = {
+	.submit  = block_submit_request,
+	.cancel  = block_cancel_request,
+	.finish  = block_finish_request,
+	.cleanup = block_cleanup_request,
+};
+
+block_request_t *block_create_request(block_device_t *block_device, int type) {
+	kassert(block_device);
+	block_request_t *request = slab_alloc(&block_requests_slab);
+	if (!request) return NULL;
+	memset(request, 0, sizeof(block_request_t));
+	request->ioreq.ops    = &block_request_ops;
+	request->block_device = block_device;
+	request->type         = type;
+	return request;
 }
 
 void block_submit_pending_request(block_device_t *block_device) {
@@ -205,7 +194,7 @@ void block_submit_pending_request(block_device_t *block_device) {
 		list_prepend(&block_device->pending_requests, &request->node);
 	} else if (ret < 0) {
 		// UNSAFE : recursion
-		block_finish_request(request, ret);
+		ioreq_finish(&request->ioreq, ret);
 	}
 }
 

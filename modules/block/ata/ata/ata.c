@@ -15,7 +15,9 @@ typedef struct ata_disk {
 } ata_disk_t;
 
 static void ata_finish_callback(ioreq_t *ioreq, void *data) {
-	block_finish_request(data, ioreq->ret);
+	block_request_t *request = data;
+	// bubble up
+	ioreq_finish(&request->ioreq, ioreq->ret);
 }
 
 static int ata_submit(block_device_t *block_device, block_request_t *request) {
