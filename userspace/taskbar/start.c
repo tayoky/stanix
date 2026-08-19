@@ -1,7 +1,7 @@
 #include <tgui/tgui.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <desktop.h>
+#include <taskbar.h>
 
 static void app_click(tgui_list_item_t *list_item) {
 	app_t *app = list_item->item;

@@ -1,5 +1,5 @@
 #include <tgui/tgui.h>
-#include <desktop.h>
+#include <taskbar.h>
 #include <twm.h>
 
 static tgui_vector_t *taskbutton_list;

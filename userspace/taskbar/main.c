@@ -5,7 +5,7 @@
 #include <twm.h>
 #include <dirent.h>
 #include <libini.h>
-#include <desktop.h>
+#include <taskbar.h>
 
 tgui_vector_t *app_list;
 
@@ -46,14 +46,14 @@ int main() {
 	create_taskbar(1);
 
 	// TODO : cleanup
-	DIR *dir = opendir("/etc/desktop.d");
+	DIR *dir = opendir("/etc/taskbar.d");
 	if (dir) {
 		struct dirent *entry;
 		while ((entry = readdir(dir))) {
 			char full_path[sizeof(entry->d_name) + 16];
 			// ignore hidden entries
 			if (entry->d_name[0] == '.') continue;
-			snprintf(full_path, sizeof(full_path), "/etc/desktop.d/%s", entry->d_name);
+			snprintf(full_path, sizeof(full_path), "/etc/taskbar.d/%s", entry->d_name);
 			utils_shashmap_t *data = ini_parse_file(full_path);
 			if (!data) continue;
 

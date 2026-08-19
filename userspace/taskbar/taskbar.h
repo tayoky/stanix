@@ -1,5 +1,5 @@
-#ifndef DESKTOP_H
-#define DESKTOP_H
+#ifndef TASKBAR_H
+#define TASKBAR_H
 
 #include <tgui/tgui.h>
 #include <sys/types.h>
