@@ -178,7 +178,7 @@ static int fat_getattr(vfs_node_t *vnode, struct stat *st) {
 static int fat_read_entry(fat_superblock_t *fat_superblock, size_t offset, fat_entry_t *entry) {
 	ssize_t ret = vfs_read(fat_superblock->superblock.device, entry, offset, sizeof(fat_entry_t));
 	if (ret < 0) return ret;
-	if (ret < sizeof(fat_entry_t)) return -EIO;
+	if (ret < (ssize_t)sizeof(fat_entry_t)) return -EIO;
 	return 0;
 }
 
@@ -253,25 +253,25 @@ static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, ui
 static int fat_parse_sfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, size_t *offset, fat_entry_t *entry, char name[512]) {
 	size_t j = 0;
 	for (int i = 0; i < 8; i++) {
-		if (entry.name[i] == ' ') break;
-		if (entry.nt_reserved & FAT_NT_CASE_LOWER_BASE) {
-			name[j++] = tolower(entry.name[i]);
+		if (entry->name[i] == ' ') break;
+		if (entry->nt_reserved & FAT_NT_CASE_LOWER_BASE) {
+			name[j++] = tolower(entry->name[i]);
 		} else {
-			name[j++] = toupper(entry.name[i]);
+			name[j++] = toupper(entry->name[i]);
 		}
 	}
 
 	// don't add "." for directories/files without extension
-	if (entry.name[8] != ' ') {
+	if (entry->name[8] != ' ') {
 		name[j++] = '.';
 	}
 
 	for (int i = 8; i < 11; i++) {
-		if (entry.name[i] == ' ') break;
-		if (entry.nt_reserved & FAT_NT_CASE_LOWER_BASE) {
-			name[j++] = tolower(entry.name[i]);
+		if (entry->name[i] == ' ') break;
+		if (entry->nt_reserved & FAT_NT_CASE_LOWER_BASE) {
+			name[j++] = tolower(entry->name[i]);
 		} else {
-			name[j++] = toupper(entry.name[i]);
+			name[j++] = toupper(entry->name[i]);
 		}
 	}
 	name[j] = '\0';
@@ -392,7 +392,7 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		if ((entry.attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
 			// long name
 			char name[512];
-			ret = fat_next_lfn(fat_superblock, inode, &cluster, &offset, &entry);
+			ret = fat_next_lfn(fat_superblock, inode, &cluster, &offset, &entry, name);
 			if (ret < 0) return ret;
 			if (!strcmp(dentry->name, name)) {
 				// we found it

@@ -85,7 +85,7 @@ static void ide_channel_io_wait(ide_channel_t *channel) {
 }
 
 static int ide_channel_poll(ide_channel_t *channel, uint8_t mask, uint8_t value) {
-	uint8_t status;
+	uint8_t status = 0;
 	for (size_t timeout = 0; timeout < 10000; timeout++) {
 		status = ide_channel_read(channel, IDE_REG_STATUS);
 		if ((status & mask) == value) break;
