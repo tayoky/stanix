@@ -23,3 +23,6 @@
 [submodule "userspace/tvi"]
 	path = userspace/tvi
 	url = https://github.com/tayoky/tvi
+[submodule "userspace/tgui-apps"]
+	path = userspace/tgui-apps
+	url = https://github.com/tayoky/tgui-apps
