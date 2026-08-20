@@ -214,6 +214,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 		uintptr_t page    = cache_get_page(cache, addr);
 		page_t *page_info = pmm_page_info(page);
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_BUSY);
+		pmm_wakeup(page);
 		spinlock_acquire(&lru_lock);
 		cached_page_add_lru(page, page_info);
 		spinlock_release(&lru_lock);

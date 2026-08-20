@@ -1,5 +1,6 @@
 #include <kernel/spinlock.h>
 #include <kernel/kernel.h>
+#include <kernel/sleep.h>
 #include <kernel/string.h>
 #include <kernel/bootinfo.h>
 #include <kernel/assert.h>
@@ -20,6 +21,7 @@ static uintptr_t zero_page = PAGE_INVALID;
 static uintptr_t highest_page = 0;
 static pmm_t pmms[ZONES_COUNT];
 static int is_stage2 = 0;
+static sleep_queue_t sleep_queues[64];
 
 #define PAGES_INFO_MMU_FLAGS MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL
 
@@ -342,12 +344,19 @@ uintptr_t pmm_dup_page(uintptr_t page) {
 	return new_page;
 }
 
+static sleep_queue_t *pmm_get_queue(uintptr_t page) {
+	size_t index = (page / PAGE_SIZE) % arraylen(sleep_queues);
+	return &sleep_queues[index];
+}
+
 int pmm_wait(uintptr_t page, unsigned int mask, unsigned int value) {
-	// TODO
-	(void)page;
-	(void)mask;
-	(void)value;
-	return 0;
+	sleep_queue_t *queue = pmm_get_queue(page);
+	page_t *page_info = pmm_page_info(page);
+	return sleep_on_condition_interruptible(queue, (atomic_load(&page_info->flags) & mask) == value);
+}
+
+void pmm_wakeup(uintptr_t page) {
+	wakeup_queue(pmm_get_queue(page), 0);
 }
 
 uintptr_t pmm_get_zero_page(void) {
