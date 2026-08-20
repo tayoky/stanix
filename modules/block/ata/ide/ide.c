@@ -3,8 +3,9 @@
 #include <ide.h>
 
 int ide_init(int argc, char **argv) {
-	(void)argc;
-	(void)argv;
+	if (have_opt(argc, argv, "--disable-irq")) {
+		disable_irq = 1;
+	}
 	driver_register(&ide_controller_driver);
 	driver_register(&ide_channel_driver.driver);
 	return 0;

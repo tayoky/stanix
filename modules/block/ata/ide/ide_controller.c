@@ -10,6 +10,8 @@
 #define PROG_IF_CHANNEL2_SWITCH_CAPABLE (1U << 3)
 #define PROG_IF_BUS_MASTERING           (1U << 7)
 
+int disable_irq = 0;
+
 static int ide_controller_pci_check(devnode_t *devnode) {
 	pci_dev_t *pci_dev = container_of(devnode, pci_dev_t, devnode);
 	if (devnode->type != BUS_PCI) return 0;
@@ -50,19 +52,25 @@ static int ide_controller_pci_probe(devnode_t *devnode) {
 
 	// check resources
 	if (prog_if & PROG_IF_CHANNEL1_NATIVE) {
-		controller->base1 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PCI_RID_BAR0);
-		controller->ctrl1 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PCI_RID_BAR1);
+		controller->channel_res[0].base = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PCI_RID_BAR0);
+		controller->channel_res[0].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PCI_RID_BAR1);
 	} else {
-		controller->base1 = device_allocate_fixed_resource(devnode, 0x1f0, 8, RESOURCE_IOPORT, RID_NONE);
-		controller->ctrl1 = device_allocate_fixed_resource(devnode, 0x3f4, 4, RESOURCE_IOPORT, RID_NONE);
+		controller->channel_res[0].base = device_allocate_fixed_resource(devnode, 0x1f0, 8, RESOURCE_IOPORT, RID_NONE);
+		controller->channel_res[0].ctrl = device_allocate_fixed_resource(devnode, 0x3f4, 4, RESOURCE_IOPORT, RID_NONE);
+		controller->channel_res[0].irq  = device_allocate_fixed_resource(devnode, 14, 1, RESOURCE_IRQ, RID_NINE);
 	}
 
 	if (prog_if & PROG_IF_CHANNEL2_NATIVE) {
-		controller->base2 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PCI_RID_BAR2);
-		controller->ctrl2 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PCI_RID_BAR3);
+		controller->channel_res[1].base = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PCI_RID_BAR2);
+		controller->channel_res[1].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PCI_RID_BAR3);
 	} else {
-		controller->base2 = device_allocate_fixed_resource(devnode, 0x170, 8, RESOURCE_IOPORT, RID_NONE);
-		controller->ctrl2 = device_allocate_fixed_resource(devnode, 0x374, 4, RESOURCE_IOPORT, RID_NONE);
+		controller->channel_res[1].base = device_allocate_fixed_resource(devnode, 0x170, 8, RESOURCE_IOPORT, RID_NONE);
+		controller->channel_res[1].ctrl = device_allocate_fixed_resource(devnode, 0x374, 4, RESOURCE_IOPORT, RID_NONE);
+		controller->channel_res[1].irq  = device_allocate_fixed_resource(devnode, 15, 1, RESOURCE_IRQ, RID_NINE);
+	}
+
+	if (prog_if & (PROG_IF_CHANNEL1_NATIVE | PROG_IF_CHANNEL2_NATIVE)) {
+		controller->shared_irq = device_allocate_simple_resource(devnode, RESOURCE_IRQ | RESOURCE_ACTIVE, PCI_RID_IRQ_LINE);
 	}
 
 	if (prog_if & PROG_IF_BUS_MASTERING) {
@@ -83,11 +91,12 @@ static int ide_controller_isa_probe(devnode_t *devnode) {
 	// since the ISA bus is hardcoded, resources are always here
 	// no need to check anything
 	ide_controller_t *controller = devnode->private;
-	controller->base1 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT0);
-	controller->ctrl1 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT1);
-	controller->base2 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT2);
-	controller->ctrl2 = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT3);
-	controller->bmide = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT4);
+	controller->channel_res[0].base = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT0);
+	controller->channel_res[0].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT1);
+	controller->channel_res[1].base = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT2);
+	controller->channel_res[1].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT3);
+	controller->channel_res[0].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IRQ0);
+	controller->channel_res[1].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IRQ1);
 	return 0;
 }
 
@@ -100,6 +109,28 @@ static int ide_controller_check(devnode_t *devnode) {
 	default:
 		return 0;
 	}
+}
+
+static void ide_controller_create_child(devnode_t *devnode, ide_controller_t *controller, int i) {
+	if (IS_ERR(controller->channel_res[i].base) || IS_ERR(controller->channel_res[i].ctrl)) {
+		return;
+	}
+
+	devnode_t *channel = device_allocate();
+	bus_add_fixed_resource_desc(channel, controller->channel_res[i].base->start, controller->channel_res[i].base->size, RESOURCE_IOPORT, IDE_RID_BASE);
+	bus_add_fixed_resource_desc(channel, controller->channel_res[i].ctrl->start, controller->channel_res[i].ctrl->size, RESOURCE_IOPORT, IDE_RID_CTRL);
+	if (controller->bmide && !IS_ERR(controller->bmide)) {
+		bus_add_fixed_resource_desc(channel, controller->bmide->start + i * 8, 8, RESOURCE_IOPORT, IDE_RID_BMIDE);
+	}
+	if (!disable_irq) {
+		resource_t *irq = controller->channel_res[i].irq;
+		if (!irq) irq = controller->shared_irq;
+		if (irq && !IS_ERR(irq)) {
+			bus_add_fixed_resource_desc(channel, irq->start, irq->size, RESOURCE_IRQ, IDE_RID_IRQ);
+		}
+	}
+
+	bus_attach_child(devnode, channel, "ide_channel", devnode->unit * 2 + i);
 }
 
 static int ide_controller_probe(devnode_t *devnode) {
@@ -124,25 +155,8 @@ static int ide_controller_probe(devnode_t *devnode) {
 		return ret;
 	}
 
-	// create child
-	if (!IS_ERR(controller->base1) && !IS_ERR(controller->ctrl1)) {
-		devnode_t *channel1 = device_allocate();
-		bus_add_fixed_resource_desc(channel1, controller->base1->start, controller->base1->size, RESOURCE_IOPORT, IDE_RID_BASE);
-		bus_add_fixed_resource_desc(channel1, controller->ctrl1->start, controller->ctrl1->size, RESOURCE_IOPORT, IDE_RID_CTRL);
-		if (controller->bmide && !IS_ERR(controller->bmide)) {
-			bus_add_fixed_resource_desc(channel1, controller->bmide->start, 8, RESOURCE_IOPORT, IDE_RID_BMIDE);
-		}
-		bus_attach_child(devnode, channel1, "ide_channel", devnode->unit * 2 + 0);
-	}
-	if (!IS_ERR(controller->base2) && !IS_ERR(controller->ctrl2)) {
-		devnode_t *channel2 = device_allocate();
-		bus_add_fixed_resource_desc(channel2, controller->base2->start, controller->base2->size, RESOURCE_IOPORT, IDE_RID_BASE);
-		bus_add_fixed_resource_desc(channel2, controller->ctrl2->start, controller->ctrl2->size, RESOURCE_IOPORT, IDE_RID_CTRL);
-		if (controller->bmide && !IS_ERR(controller->bmide)) {
-			bus_add_fixed_resource_desc(channel2, controller->bmide->start + 8, 8, RESOURCE_IOPORT, IDE_RID_BMIDE);
-		}
-		bus_attach_child(devnode, channel2, "ide_channel", devnode->unit * 2 + 1);
-	}
+	ide_create_child(devnode, controller, 0);
+	ide_create_child(devnode, controller, 1);
 	return 0;
 }
 
@@ -156,7 +170,8 @@ static void ide_controller_detach(devnode_t *devnode) {
 }
 
 static resource_t *ide_controller_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_request_t *request, int rid) {
-	if ((request->flags & RESOURCE_TYPE) == RESOURCE_IOPORT && rid >= IDE_RID_BASE && rid <= IDE_RID_BMIDE) {
+	if (((resource->flags & RESOURCE_TYPE) == RESOURCE_IOPORT && resource->rid >= IDE_RID_BASE && resource->rid <= IDE_RID_BMIDE)
+			|| ((resource->flags & RESOURCE_TYPE) == RESOURCE_IRQ && resource->rid == IDE_RID_IRQ)) {
 		// the controller init already verified and allocated the resources
 		// no need to redo it
 		return resource_allocate_request(devnode, request, rid);
@@ -166,7 +181,8 @@ static resource_t *ide_controller_allocate_resource(devnode_t *bus, devnode_t *d
 }
 
 static int ide_controller_release_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
-	if ((resource->flags & RESOURCE_TYPE) == RESOURCE_IOPORT && resource->rid >= IDE_RID_BASE && resource->rid <= IDE_RID_BMIDE) {
+	if (((resource->flags & RESOURCE_TYPE) == RESOURCE_IOPORT && resource->rid >= IDE_RID_BASE && resource->rid <= IDE_RID_BMIDE)
+			|| ((resource->flags & RESOURCE_TYPE) == RESOURCE_IRQ && resource->rid == IDE_RID_IRQ)) {
 		// we bypassed parent allocation for this
 		// we need to bypass parent release too
 		resource_free(devnode, resource);
