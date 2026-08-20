@@ -56,7 +56,7 @@ static uint32_t fat_get_next_cluster(fat_superblock_t *fat_superblock, uint32_t 
 	}
 }
 
-static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
+static int fat_transfer_pages(cache_t *cache, off_t offset, size_t size, int write) {
 	fat_inode_t *inode               = container_of(cache, fat_inode_t, cache);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
 	// cluster size is always driver or multiple of page size
@@ -78,7 +78,7 @@ static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
 		kassert(page != PAGE_INVALID);
 		char *vaddr = mmu_phys2virt(page);
 		for (size_t count = 0; count < PAGE_SIZE;) {
-			size_t read_size = min(PAGE_SIZE, fat_superblock->cluster_size - cluster_offset);
+			size_t chunk_size = min(PAGE_SIZE, fat_superblock->cluster_size - cluster_offset);
 
 			if (cluster == FAT_EOF) {
 				if (offset + PAGE_SIZE > inode->entry.file_size) {
@@ -91,25 +91,44 @@ static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
 				}
 			}
 
-			ssize_t ret = vfs_read(fat_superblock->superblock.device, vaddr, fat_cluster2offset(fat_superblock, cluster) + cluster_offset, read_size);
+			ssize_t ret;
+			if (write) {
+				ret = vfs_write(fat_superblock->superblock.device, vaddr, fat_cluster2offset(fat_superblock, cluster) + cluster_offset, chunk_size);
+			} else {
+				ret = vfs_read(fat_superblock->superblock.device, vaddr, fat_cluster2offset(fat_superblock, cluster) + cluster_offset, chunk_size);
+			}
 			if (ret < 0) return (int)ret;
-			if (ret != (ssize_t)read_size) return -EIO;
+			if (ret != (ssize_t)chunk_size) return -EIO;
 
-			vaddr += read_size;
-			cluster_offset += read_size;
-			count += read_size;
+			vaddr += chunk_size;
+			cluster_offset += chunk_size;
+			count += chunk_size;
 			if (cluster_offset == fat_superblock->cluster_size) {
 				cluster_offset = 0;
 				cluster        = fat_get_next_cluster(fat_superblock, cluster);
 			}
 		}
 	}
+	return 0;
+}
+
+static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
+	int ret = fat_transfer_pages(cache, offset, size, 0);
+	if (ret < 0) return 0;
 	cache_read_terminate(cache, offset, size);
 	return 0;
 }
 
+static int fat_write_pages(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
+	int ret = fat_transfer_pages(cache, offset, size, 1);
+	if (ret < 0) return 0;
+	cache_write_terminate(cache, offset, size, callback, arg);
+	return 0;
+}
+
 static cache_ops_t fat_cache_ops = {
-	.read = fat_read_pages,
+	.read  = fat_read_pages,
+	.write = fat_write_pages,
 };
 
 static vfs_node_t *fat_entry2node(fat_entry_t *entry, fat_superblock_t *fat_superblock) {
