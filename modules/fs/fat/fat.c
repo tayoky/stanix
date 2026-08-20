@@ -193,7 +193,6 @@ static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, 
 
 	int ret = fat_read_entry(fat_superblock, *offset, entry);
 	if (ret < 0) return ret;
-	kdebugf("got entry attr=%hhx\n", entry->attribute);
 
 	// jump to next entry
 	*offset += sizeof(fat_entry_t);
@@ -356,22 +355,34 @@ static int fat_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *di
 	uint32_t cluster  = inode->first_cluster;
 	kdebugf("readdir on %s , first cluster is %lx\n", inode->is_fat16_root ? "root" : "not root", cluster);
 	for (;;) {
-		// skip everything with VOLUME_ID attr or free
 		fat_entry_t entry;
-		for (;;) {
-			int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
-			if (ret < 0) return ret;
-			if (entry.name[0] == 0x00) {
-				// everything is free after that
-				// we hit last
-				return -ENOENT;
-			}
-			if (!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5)) break;
+		int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
+		if (ret < 0) return ret;
+
+		// skip everything with VOLUME_ID attr or free
+		if (entry.name[0] == 0x00) {
+			// everything is free after that
+			// we hit last
+			break;
 		}
-		if (index == 0) {
+		if (entry.name[0] == (char)0xe5) {
+			// free entry
+			continue;
+		}
+		if ((entry.attribute & ATTR_VOLUME_ID) && (entry.attribute & ATTR_LONG_NAME) != ATTR_LONG_NAME) {
+			// we have a real volume id
+			continue;
+		}
+
+		if (index-- == 0) {
 			return fat2dirent(fat_superblock, inode, cluster, offset, &entry, dirent);
+		} else {
+			// consume the entry
+			while ((entry.attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
+				ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
+				if (ret < 0) return ret;
+			}
 		}
-		index--;
 	}
 	return -ENOENT;
 }
