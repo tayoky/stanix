@@ -39,8 +39,8 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 
 	void *kbuf = NULL;
 	if (start % block_device->sector_size != 0
-			|| end % block_device->sector_size != 0
-			|| (uintptr_t)buf % 16 != 0) {
+		|| end % block_device->sector_size != 0
+		|| (uintptr_t)buf % 16 != 0) {
 		kbuf = kmalloc(sectors_count * block_device->sector_size);
 		if (!kbuf) return -ENOMEM;
 		if (type == BLOCK_REQUEST_WRITE) {
@@ -62,9 +62,9 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 				ret = ioreq_submit_sync_interruptible(&request->ioreq);
 				if (ret < 0) goto error;
 			}
-			ret = safe_copy_from((char*)kbuf + start % block_device->sector_size, buf, end - start);
+			ret = safe_copy_from((char *)kbuf + start % block_device->sector_size, buf, end - start);
 			if (ret < 0) {
-error:
+			error:
 				kfree(kbuf);
 				return ret;
 			}
@@ -77,7 +77,7 @@ error:
 	request->buf = kbuf ? kbuf : buf;
 	int ret = ioreq_submit_sync_interruptible(&request->ioreq);
 	if (ret >= 0 && type == BLOCK_REQUEST_READ && kbuf) {
-		ret = safe_copy_to(buf, (char*)kbuf + start % block_device->sector_size, end - start);
+		ret = safe_copy_to(buf, (char *)kbuf + start % block_device->sector_size, end - start);
 	}
 
 	kfree(kbuf);
@@ -93,14 +93,46 @@ error:
 	return ret < 0 ? ret : (ssize_t)(end - start);
 }
 
+// TODO : make this async
+static int block_read_pages(cache_t *cache, off_t offset, size_t size) {
+	block_device_t *block_device = container_of(cache, block_device_t, cache);
+
+	// TODO : pass pages direcly
+	char *buffer = kmalloc(size);
+	if (!buffer) return -ENOMEM;
+
+	int ret = do_request(block_device, buffer, offset, size, BLOCK_REQUEST_READ);
+	if (ret < 0) return ret;
+
+	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
+		uintptr_t page = cache_get_page(cache, addr);
+		void *vaddr = mmu_phys2virt(page);
+		memcpy(vaddr, buffer, PAGE_SIZE);
+		buffer += PAGE_SIZE;
+	}
+
+	cache_read_terminate(cache, offset, size);
+	return 0;
+}
+
+// TODO : make this async
+static int block_write_pages(cache_t *cache, off_t offset, size_t count, cache_callback_t callback, void *arg) {
+	return -ENOSYS;
+}
+
+static cache_ops_t block_cache_ops = {
+	.read  = block_read_pages,
+	.write = block_write_pages,
+};
+
 static ssize_t block_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
-	return do_request(block_device, buffer, offset, count, BLOCK_REQUEST_READ);
+	return cache_read(&block_device->cache, buffer, offset, count);
 }
 
 static ssize_t block_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
-	return do_request(block_device, (void*)buffer, offset, count, BLOCK_REQUEST_WRITE);
+	return cache_write(&block_device->cache, buffer, offset, count);
 }
 
 static off_t block_seek(vfs_fd_t *fd, off_t offset, int whence) {
@@ -154,7 +186,7 @@ static int block_submit_request(ioreq_t *ioreq) {
 		return -EIO;
 	}
 	int ret = request->block_device->ops->submit(request->block_device, request);
-	if (ret == -EAGAIN)  {
+	if (ret == -EAGAIN) {
 		// the block device cannot handle that many requests
 		// we have to try again later when some requests finish
 		list_append(&request->block_device->pending_requests, &request->node);
@@ -225,6 +257,7 @@ static void block_destroy(device_t *device) {
 	block_device_t *block_device = container_of(device, block_device_t, device);
 	(void)block_device;
 	// TODO : cancel every requests
+	free_cache(&block_device->cache);
 }
 
 static void block_cleanup(device_t *device) {
@@ -239,5 +272,8 @@ int block_device_register(block_device_t *block_device, const char *fmt, dev_t n
 	block_device->device.ops     = &block_ops;
 	block_device->device.destroy = block_destroy;
 	block_device->device.cleanup = block_cleanup;
+	init_cache(&block_device->cache);
+	block_device->cache.ops      = &block_cache_ops;
+	block_device->cache.size     = block_device->sectors_count * block_device->sector_size;
 	return device_register(&block_device->device, fmt, number);
 }

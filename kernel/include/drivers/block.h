@@ -4,6 +4,7 @@
 #include <kernel/list.h>
 #include <kernel/device.h>
 #include <kernel/assert.h>
+#include <kernel/cache.h>
 #include <kernel/ioreq.h>
 
 typedef struct block_ops block_ops_t;
@@ -18,6 +19,7 @@ struct block_ops {
 
 struct block_device {
 	device_t device;
+	cache_t cache;
 	list_t pending_requests;
 	block_ops_t *ops;
 	size_t sector_size;
