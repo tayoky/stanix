@@ -184,8 +184,16 @@ static int fat_read_entry(fat_superblock_t *fat_superblock, size_t offset, fat_e
 
 static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, size_t *offset, fat_entry_t *entry) {
 	if (*cluster == FAT_EOF) return -ENOENT;
+	if (inode->is_fat16_root) {
+		size_t index = (*offset - inode->start) / sizeof(fat_entry_t);
+		if (index >= inode->entries_count) {
+			return -ENOENT;
+		}
+	}
+
 	int ret = fat_read_entry(fat_superblock, *offset, entry);
 	if (ret < 0) return ret;
+	kdebugf("got entry attr=%hhx\n", entry->attribute);
 
 	// jump to next entry
 	*offset += sizeof(fat_entry_t);
@@ -218,7 +226,12 @@ static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, ui
 	if (!(long_entry.ord & LAST_LONG_ENTRY)) return -EIO;
 	uint16_t utf16_name[256];
 	size_t name_len = 0;
-	for (size_t ord = (long_entry.ord & ~LAST_LONG_ENTRY); ord > 0; ord--) {
+	size_t ord_count = (long_entry.ord & ~LAST_LONG_ENTRY);
+	if (ord_count > 20) {
+		// invalid to have more than 20
+		return -EIO;
+	}
+	for (size_t ord = ord_count; ord > 0; ord--) {
 		if ((long_entry.ord & ~LAST_LONG_ENTRY) != ord) {
 			// corrupted
 			return -EIO;
@@ -243,7 +256,13 @@ static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, ui
 	ssize_t len = utf16_to_utf8(utf16_name, name_len, (uint8_t *)name);
 	if (len < 0) return len;
 	name[len] = '\0';
+
+	// the last entry should be the associed sfn
 	memcpy(entry, &long_entry, sizeof(fat_entry_t));
+	if ((entry->attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
+		// the last is not sfn
+		return -EIO;
+	}
 	return 0;
 }
 
@@ -301,30 +320,27 @@ static int fat_sfn_match(fat_entry_t *entry, const char *name) {
 /**
  * @brief parse fat entries and make a directory entry from it
  */
-static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t cluster, size_t offset, struct dirent *dirent) {
-	fat_entry_t entry;
-	int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
-	if (ret < 0) return ret;
-
-	if (entry.name[0] == 0x00) {
+static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t cluster, size_t offset, fat_entry_t *entry, struct dirent *dirent) {
+	if (entry->name[0] == 0x00) {
 		// everything is free after that
 		// we hit last
 		return -ENOENT;
 	}
 
+	int ret = 0;
 	char name[512];
-	if ((entry.attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
+	if ((entry->attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
 		// we have a long name
-		ret = fat_next_lfn(fat_superblock, inode, &cluster, &offset, &entry, name);
+		ret = fat_next_lfn(fat_superblock, inode, &cluster, &offset, entry, name);
 		if (ret < 0) return ret;
 	} else {
 		// we have a short name
-		ret = fat_parse_sfn(fat_superblock, inode, &cluster, &offset, &entry, name);
+		ret = fat_parse_sfn(fat_superblock, inode, &cluster, &offset, entry, name);
 		if (ret < 0) return ret;
 	}
 
 	snprintf(dirent->d_name, sizeof(dirent->d_name), "%s", name);
-	if (entry.attribute & ATTR_DIRECTORY) {
+	if (entry->attribute & ATTR_DIRECTORY) {
 		dirent->d_type = DT_DIR;
 	} else {
 		dirent->d_type = DT_REG;
@@ -337,14 +353,12 @@ static int fat_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *di
 	fat_superblock_t *fat_superblock = container_of(vnode->superblock, fat_superblock_t, superblock);
 
 	size_t offset     = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
-	uint32_t remaning = inode->is_fat16_root ? inode->entries_count : UINT32_MAX;
 	uint32_t cluster  = inode->first_cluster;
 	kdebugf("readdir on %s , first cluster is %lx\n", inode->is_fat16_root ? "root" : "not root", cluster);
-	while (index > 0) {
-		if (remaning == 0) return -ENOENT;
+	for (;;) {
 		// skip everything with VOLUME_ID attr or free
+		fat_entry_t entry;
 		for (;;) {
-			fat_entry_t entry;
 			int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
 			if (ret < 0) return ret;
 			if (entry.name[0] == 0x00) {
@@ -353,35 +367,31 @@ static int fat_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *di
 				return -ENOENT;
 			}
 			if (!(entry.attribute & ATTR_VOLUME_ID) && (entry.name[0] != (char)0xe5)) break;
-			remaning--;
-			if (remaning == 0) return -ENOENT;
+		}
+		if (index == 0) {
+			return fat2dirent(fat_superblock, inode, cluster, offset, &entry, dirent);
 		}
 		index--;
-		remaning--;
 	}
-	if (remaning == 0) return -ENOENT;
-
-	return fat2dirent(fat_superblock, inode, cluster, offset, dirent);
+	return -ENOENT;
 }
 
 static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	fat_inode_t *inode               = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(vnode->superblock, fat_superblock_t, superblock);
 
-	uint32_t remaning = inode->is_fat16_root ? inode->entries_count : UINT32_MAX;
 	uint64_t offset   = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
 	uint32_t cluster  = inode->first_cluster;
 
-	while (remaning > 0) {
+	for (;;) {
 		fat_entry_t entry;
 		int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
 		if (ret < 0) return ret;
-		if (inode->is_fat16_root) remaning--;
 
 		if (entry.name[0] == 0x00) {
 			// everything is free after that
 			// we hit last
-			return -ENOENT;
+			break;
 		}
 
 		if (entry.name[0] == (char)0xe5) {
@@ -480,7 +490,7 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 	fat_superblock->reserved_sectors  = bpb.reserved_sectors;
 	fat_superblock->sector_size       = bpb.byte_per_sector;
 	fat_superblock->cluster_size      = bpb.byte_per_sector * bpb.sector_per_cluster;
-	fat_superblock->data_start        = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector;
+	fat_superblock->data_start        = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat + root_sectors) * bpb.byte_per_sector;
 
 	vfs_node_t *local_root;
 	if (fat_type == FAT32) {
