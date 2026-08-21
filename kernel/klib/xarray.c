@@ -367,13 +367,13 @@ static void *xarray_raw_first_from(xarray_t *xarray, size_t from, size_t *index)
 
 void *xarray_first_from(xarray_t *xarray, size_t from, size_t *index) {
 	rcu_acquire_read(&xarray->rcu);
-	void *ret = xarray_raw_first(xarray, from, index);
+	void *ret = xarray_raw_first_from(xarray, from, index);
 	rcu_release_read(&xarray->rcu);
 	return ret;
 }
 
 void *xarray_next(xarray_t *xarray, size_t after, size_t *index) {
-	return xarray_first_form(xarray, after + 1, index);
+	return xarray_first_from(xarray, after + 1, index);
 }
 
 static void xarray_debug_depth(size_t depth) {

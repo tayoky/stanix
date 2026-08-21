@@ -142,7 +142,7 @@ static void ide_channel_irq_handler(registers_t *registers, void *data) {
 		kwarningf("error status=%hhx error=%hhx\n", status, ide_channel_read(channel, IDE_REG_ERROR));
 error:
 		atomic_store(&channel->current_command, NULL);
-		ioreq_finish(command, -EIO);
+		ioreq_finish(&command->ioreq, -EIO);
 		return;
 	}
 
@@ -159,7 +159,7 @@ error:
 		}
 		char *buf = command->buf;
 		ide_channel_transfer_sector(channel, buf + (channel->current_sector++) * 512, command->flags);
-		if (channel->current_sector < command->sector_count) {
+		if (channel->current_sector < command->sectors_count) {
 			// we have others sectors to read/write
 			return;
 		} else if (command->flags & ATA_CMD_WRITE_BUF) {
@@ -176,7 +176,7 @@ error:
 	
 	// command finished :D
 	atomic_store(&channel->current_command, NULL);
-	ioreq_finish(command, 0);
+	ioreq_finish(&command->ioreq, 0);
 }
 
 static int ide_channel_reset(ide_channel_t *channel) {
@@ -251,7 +251,7 @@ static int ide_channel_probe(devnode_t *devnode) {
 	}
 	
 	if (channel->irq && !IS_ERR(channel->irq)) {
-		channel->irq_handler = resource_register_handler(channel->irq, channel->irq_handler, ide_channel_irq_handler, channel);
+		channel->irq_handler = resource_register_handler(channel->irq, ide_channel_irq_handler, channel);
 	}
 	
 	ret = ide_channel_reset(channel);
@@ -296,7 +296,7 @@ static int ide_channel_poll_mode(ide_channel_t *channel, ata_command_t *command)
 	
 	ide_channel_io_wait(channel);
 	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
-	if (ret < 0) return;
+	if (ret < 0) return ret;
 
 	atomic_store(&channel->current_command, NULL);
 	ioreq_finish(&command->ioreq, 0);
@@ -351,7 +351,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 		ide_channel_io_wait(channel);
 		int ret = ide_channel_poll(channel, IDE_SR_DRQ, IDE_SR_DRQ);
 		if (ret < 0) return ret;
-		ide_transfer_sector(channel, command->buf, command->flags);
+		ide_channel_transfer_sector(channel, command->buf, command->flags);
 		channel->current_sector++;
 	}
 
@@ -359,7 +359,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 		// the irq handler will take care of the rest
 		return 0;
 	} else {
-		return ide_poll_mode(channel, command);
+		return ide_channel_poll_mode(channel, command);
 	}
 }
 

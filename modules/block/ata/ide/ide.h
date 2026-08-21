@@ -41,6 +41,6 @@ typedef struct ide_controller {
 
 extern driver_t ide_controller_driver;
 extern ata_driver_t ide_channel_driver;
-extern int disable_irq = 0;
+extern int disable_irq;
 
 #endif

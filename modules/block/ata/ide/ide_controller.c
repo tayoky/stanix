@@ -57,7 +57,7 @@ static int ide_controller_pci_probe(devnode_t *devnode) {
 	} else {
 		controller->channel_res[0].base = device_allocate_fixed_resource(devnode, 0x1f0, 8, RESOURCE_IOPORT, RID_NONE);
 		controller->channel_res[0].ctrl = device_allocate_fixed_resource(devnode, 0x3f4, 4, RESOURCE_IOPORT, RID_NONE);
-		controller->channel_res[0].irq  = device_allocate_fixed_resource(devnode, 14, 1, RESOURCE_IRQ, RID_NINE);
+		controller->channel_res[0].irq  = device_allocate_fixed_resource(devnode, 14, 1, RESOURCE_IRQ, RID_NONE);
 	}
 
 	if (prog_if & PROG_IF_CHANNEL2_NATIVE) {
@@ -66,7 +66,7 @@ static int ide_controller_pci_probe(devnode_t *devnode) {
 	} else {
 		controller->channel_res[1].base = device_allocate_fixed_resource(devnode, 0x170, 8, RESOURCE_IOPORT, RID_NONE);
 		controller->channel_res[1].ctrl = device_allocate_fixed_resource(devnode, 0x374, 4, RESOURCE_IOPORT, RID_NONE);
-		controller->channel_res[1].irq  = device_allocate_fixed_resource(devnode, 15, 1, RESOURCE_IRQ, RID_NINE);
+		controller->channel_res[1].irq  = device_allocate_fixed_resource(devnode, 15, 1, RESOURCE_IRQ, RID_NONE);
 	}
 
 	if (prog_if & (PROG_IF_CHANNEL1_NATIVE | PROG_IF_CHANNEL2_NATIVE)) {
@@ -95,8 +95,8 @@ static int ide_controller_isa_probe(devnode_t *devnode) {
 	controller->channel_res[0].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT1);
 	controller->channel_res[1].base = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT2);
 	controller->channel_res[1].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT3);
-	controller->channel_res[0].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IRQ0);
-	controller->channel_res[1].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IRQ1);
+	controller->channel_res[0].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IRQ(0));
+	controller->channel_res[1].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IRQ(1));
 	return 0;
 }
 
@@ -155,23 +155,26 @@ static int ide_controller_probe(devnode_t *devnode) {
 		return ret;
 	}
 
-	ide_create_child(devnode, controller, 0);
-	ide_create_child(devnode, controller, 1);
+	ide_controller_create_child(devnode, controller, 0);
+	ide_controller_create_child(devnode, controller, 1);
 	return 0;
 }
 
 static void ide_controller_detach(devnode_t *devnode) {
 	ide_controller_t *controller = devnode->private;
-	device_release_resource(devnode, controller->base1);
-	device_release_resource(devnode, controller->base2);
-	device_release_resource(devnode, controller->ctrl1);
-	device_release_resource(devnode, controller->ctrl2);
+	device_release_resource(devnode, controller->channel_res[0].base);
+	device_release_resource(devnode, controller->channel_res[0].ctrl);
+	device_release_resource(devnode, controller->channel_res[0].irq);
+	device_release_resource(devnode, controller->channel_res[1].base);
+	device_release_resource(devnode, controller->channel_res[1].ctrl);
+	device_release_resource(devnode, controller->channel_res[1].irq);
 	device_release_resource(devnode, controller->bmide);
+	device_release_resource(devnode, controller->shared_irq);
 }
 
 static resource_t *ide_controller_allocate_resource(devnode_t *bus, devnode_t *devnode, resource_request_t *request, int rid) {
-	if (((resource->flags & RESOURCE_TYPE) == RESOURCE_IOPORT && resource->rid >= IDE_RID_BASE && resource->rid <= IDE_RID_BMIDE)
-			|| ((resource->flags & RESOURCE_TYPE) == RESOURCE_IRQ && resource->rid == IDE_RID_IRQ)) {
+	if (((request->flags & RESOURCE_TYPE) == RESOURCE_IOPORT && rid >= IDE_RID_BASE && rid <= IDE_RID_BMIDE)
+			|| ((request->flags & RESOURCE_TYPE) == RESOURCE_IRQ && rid == IDE_RID_IRQ)) {
 		// the controller init already verified and allocated the resources
 		// no need to redo it
 		return resource_allocate_request(devnode, request, rid);

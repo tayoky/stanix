@@ -352,7 +352,7 @@ static sleep_queue_t *pmm_get_queue(uintptr_t page) {
 int pmm_wait(uintptr_t page, unsigned int mask, unsigned int value) {
 	sleep_queue_t *queue = pmm_get_queue(page);
 	page_t *page_info = pmm_page_info(page);
-	return sleep_on_condition_interruptible(queue, (atomic_load(&page_info->flags) & mask) == value);
+	return sleep_on_queue_condition_interruptible(queue, (atomic_load(&page_info->flags) & mask) == value);
 }
 
 void pmm_wakeup(uintptr_t page) {
