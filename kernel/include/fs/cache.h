@@ -46,9 +46,24 @@ static inline uintptr_t cache_get_page(cache_t *cache, off_t offset) {
 	return page;
 }
 
+static inline uintptr_t cache_get_next_page(cache_t *cache, off_t after, off_t *offset) {
+	size_t index;
+	uintptr_t page = (uintptr_t)xarray_next(&cache->pages, PAGE2PFN(after), &index);
+	if (!page) return PAGE_INVALID;
+	if (offset) *offset = PFN2PAGE(index);
+	return page;
+}
+
 static inline void cache_call_callback(cache_t *cache, cache_callback_t callback, void *arg) {
 	if (!callback) return;
 	callback(cache, arg);
 }
+
+
+#define cache_foreach_range(addr, page, cache, start, end) \
+	loop_var(size_t, index) \
+	loop_var(uintptr_t, addr) \
+	loop_var(uintptr_t, page) \
+	for (page = (uintptr_t)xarray_first_from(&(cache)->pages, (start), &index), addr = PFN2PAGE(index); page && addr < (end); page = (uintptr_t)xarray_next(&(cache)->pages, index, &index), addr = PFN2PAGE(index))
 
 #endif

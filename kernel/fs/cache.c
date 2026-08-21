@@ -23,6 +23,7 @@ static page_lru_list_t lru_lists[4] = {
 	{PAGE_INVALID, PAGE_INVALID},
 };
 static spinlock_t lru_lock;
+static list_t caches;
 
 #define LRU_INACTIVE 0
 #define LRU_ACTIVE   2
@@ -126,6 +127,7 @@ static void cached_page_free(uintptr_t page) {
 void init_cache(cache_t *cache) {
 	memset(cache, 0, sizeof(cache_t));
 	xarray_init(&cache->pages);
+	list_append(&caches, &cache->node);
 }
 
 void free_cache(cache_t *cache) {
@@ -135,6 +137,7 @@ void free_cache(cache_t *cache) {
 		cached_page_free(page);
 	}
 	xarray_destroy(&cache->pages);
+	list_remove(&caches, &cache->node);
 }
 
 static void signal_oneshot(cache_t *cache, void *arg) {
@@ -357,33 +360,41 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 	uintptr_t start, end;
 	cache_get_range(cache, offset, size, &start, &end);
 
-	uintptr_t batch_start = start;
-	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		rcu_acquire_read(&cache->pages.rcu);
-		uintptr_t page = cache_get_page(cache, addr);
-
-		if (page == PAGE_INVALID) {
-end_batch:
+	uintptr_t batch_start = PAGE_INVALID;
+	uintptr_t batch_end   = PAGE_INVALID;
+	rcu_acquire_read(&cache->pages.rcu);
+	cache_foreach_range(addr, page, cache, start, end) {
+		if (batch_start != PAGE_INVALID && batch_end != addr) {
+			// we reached end of the batch
 			rcu_release_read(&cache->pages.rcu);
-			if (batch_start != addr) {
-				// we reached end of the batch
-				cache->ops->write(cache, batch_start, addr - batch_start, callback, arg);
-			}
-			batch_start = addr + PAGE_SIZE;
-			continue;
+			cache->ops->write(cache, batch_start, batch_end - batch_start, callback, arg);
+			rcu_acquire_read(&cache->pages.rcu);
+			batch_start = PAGE_INVALID;
+			batch_end = PAGE_INVALID;
 		}
 
 		if (!cached_page_clear_dirty(page, pmm_page_info(page))) {
-			goto end_batch;
+			if (batch_start != PAGE_INVALID && batch_end != addr) {
+				// we reached end of the batch
+				rcu_release_read(&cache->pages.rcu);
+				cache->ops->write(cache, batch_start, batch_end - batch_start, callback, arg);
+				rcu_acquire_read(&cache->pages.rcu);
+				batch_start = PAGE_INVALID;
+				batch_end = PAGE_INVALID;
+			}
+			continue;
 		}
+
+		if (batch_start == PAGE_INVALID) batch_start = addr;
+		batch_end = addr + PAGE_SIZE;
 
 		// prevent the page from being freed while we write
 		pmm_retain(page);
-		rcu_release_read(&cache->pages.rcu);
 	}
+	rcu_release_read(&cache->pages.rcu);
 
-	if (batch_start != end) {
-		cache->ops->write(cache, batch_start, end - batch_start, callback, arg);
+	if (batch_start != PAGE_INVALID) {
+		cache->ops->write(cache, batch_start, batch_end - batch_start, callback, arg);
 	}
 	return 0;
 }
