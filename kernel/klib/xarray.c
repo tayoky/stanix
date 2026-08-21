@@ -64,6 +64,7 @@ static void xarray_entry_destroy(uintptr_t entry) {
 void xarray_destroy(xarray_t *xarray) {
 	rcu_acquire_write(&xarray->rcu);
 	xarray_entry_destroy(xarray_entry_fetch(&xarray->rcu.ptr));
+	rcu_release_write(&xarray->rcu);
 }
 
 static inline size_t xarray_node_get_local_index(xarray_node_t *node, size_t index) {
