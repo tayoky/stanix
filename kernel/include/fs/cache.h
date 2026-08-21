@@ -17,7 +17,7 @@ typedef struct cache_op {
 } cache_ops_t;
 
 typedef struct cache {
-	rwlock_t lock;
+	list_node_t node;
 	xarray_t pages;
 	cache_ops_t *ops;
 	size_t size;
@@ -39,6 +39,7 @@ int cache_truncate(cache_t *cache, size_t size);
 int cache_open(cache_t *cache, struct vfs_fd *fd);
 void cache_read_terminate(cache_t *cache, off_t offset, size_t size);
 void cache_write_terminate(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg);
+void cache_flush_all(void);
 
 static inline uintptr_t cache_get_page(cache_t *cache, off_t offset) {
 	uintptr_t page = (uintptr_t)xarray_get(&cache->pages, PAGE2PFN(offset));

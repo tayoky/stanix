@@ -131,13 +131,21 @@ void init_cache(cache_t *cache) {
 }
 
 void free_cache(cache_t *cache) {
+	list_remove(&caches, &cache->node);
+	// flush the whole thing
+	cache_flush(cache, 0, cache->size);
 	xarray_foreach (offset, value, &cache->pages) {
 		uintptr_t page = (uintptr_t)value;
-		if (cache->ops->write) cache->ops->write(cache, offset, PAGE_SIZE, NULL, NULL);
 		cached_page_free(page);
 	}
 	xarray_destroy(&cache->pages);
-	list_remove(&caches, &cache->node);
+}
+
+void cache_flush_all(void) {
+	foreach (node, &caches) {
+		cache_t *cache = container_of(node, cache_t, node);
+		cache_flush(cache, 0, cache->size);
+	}
 }
 
 static void signal_oneshot(cache_t *cache, void *arg) {
