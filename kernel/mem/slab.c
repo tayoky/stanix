@@ -16,7 +16,7 @@ static void slab_calculate_order(slab_cache_t *slab_cache) {
 
 	size_t best_waste = SIZE_MAX;
 	int best_order = ORDER_SIZE64;
-	for (int order=0; order<ORDERS_COUNT; order++) {
+	for (int order=0; order < ORDERS_COUNT; order++) {
 		size_t usable_size = ORDER2COUNT(order) * PAGE_SIZE - sizeof(slab_t);
 		size_t objects_per_slab = usable_size / slab_cache->size;
 		if (objects_per_slab == 0) continue;
@@ -61,23 +61,23 @@ static slab_t *new_slab(slab_cache_t *slab_cache) {
 	memset(slab, 0, sizeof(slab_t));
 	slab->cache = slab_cache;
 	slab->state = SLAB_FREE;
-	for (size_t i=0; i<ORDER2COUNT(slab_cache->order); i++) {
+	for (size_t i=0; i < ORDER2COUNT(slab_cache->order); i++) {
 		pmm_page_info(page + i * PAGE_SIZE)->private = slab;
 	}
 
 	// init the free list
 	size_t objects_count = (ORDER2COUNT(slab_cache->order) * PAGE_SIZE - sizeof(slab_t)) / slab_cache->size;
-	for (size_t i=0; i<objects_count; i++) {
-		slab_free_node_t *current = (slab_free_node_t*)((uintptr_t)slab + sizeof(slab_t) + i * slab_cache->size);
+	for (size_t i=0; i < objects_count; i++) {
+		slab_free_node_t *current = (slab_free_node_t *)((uintptr_t)slab + sizeof(slab_t) + i * slab_cache->size);
 		if (i == objects_count - 1) {
 			// this is the last element
 			current->next = NULL;
 		} else {
-			slab_free_node_t *next = (slab_free_node_t*)((uintptr_t)slab + sizeof(slab_t) + (i+1) * slab_cache->size);
+			slab_free_node_t *next = (slab_free_node_t *)((uintptr_t)slab + sizeof(slab_t) + (i + 1) * slab_cache->size);
 			current->next = next;
 		}
 	}
-	slab->free = (slab_free_node_t*)((uintptr_t)slab + sizeof(slab_t));
+	slab->free = (slab_free_node_t *)((uintptr_t)slab + sizeof(slab_t));
 	return slab;
 }
 
@@ -90,20 +90,18 @@ static void *slab_evict(slab_cache_t *slab_cache) {
 }
 
 static void free_slab(slab_t *slab) {
+	spinlock_assert_acquired(&slab->cache->lock);
 	uintptr_t pages = mmu_virt2phys(slab);
 	pmm_set_free_pages(pages, slab->cache->order);
 }
 
 void *slab_alloc(slab_cache_t *slab_cache) {
 	int irq_save = spinlock_acquire_irq(&slab_cache->lock);
-	slab_t *slab = container_of(slab_cache->partial.first_node, slab_t, node);
-	if (!slab) {
+	slab_t *slab;
+	if (list_is_empty(&slab_cache->partial)) {
 		// we have no partial slab
 		// take a free slab and move it into partial
-		slab = container_of(slab_cache->free.first_node, slab_t, node);
-		if (slab) {
-			list_remove(&slab_cache->free, &slab->node);
-		} else {
+		if (list_is_empty(&slab_cache->free)) {
 			// we need to create a new slab
 			slab = new_slab(slab_cache);
 			if (!slab) {
@@ -117,11 +115,16 @@ void *slab_alloc(slab_cache_t *slab_cache) {
 				}
 				return data;
 			}
+			list_remove(&slab_cache->free, &slab->node);
+		} else {
+			slab = container_of(slab_cache->free.first_node, slab_t, node);
 		}
 
 		// move the slab in partial list
 		slab->state = SLAB_PARTIAL;
 		list_add_after(&slab_cache->partial, NULL, &slab->node);
+	} else {
+		slab = container_of(slab_cache->partial.first_node, slab_t, node);
 	}
 
 	slab_free_node_t *node = slab->free;
