@@ -39,8 +39,7 @@ static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset,
 
 	void *kbuf = NULL;
 	if (start % block_device->sector_size != 0
-		|| end % block_device->sector_size != 0
-		|| (uintptr_t)buf % 16 != 0) {
+		|| end % block_device->sector_size != 0) {
 		kbuf = kmalloc(sectors_count * block_device->sector_size);
 		if (!kbuf) return -ENOMEM;
 		if (type == BLOCK_REQUEST_WRITE) {
@@ -102,7 +101,10 @@ static int block_read_pages(cache_t *cache, off_t offset, size_t size) {
 	if (!buffer) return -ENOMEM;
 
 	int ret = do_request(block_device, buffer, offset, size, BLOCK_REQUEST_READ);
-	if (ret < 0) return ret;
+	if (ret < 0) {
+		kfree(buffer);
+		return ret;
+	}
 
 	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
 		uintptr_t page = cache_get_page(cache, addr);
@@ -110,6 +112,8 @@ static int block_read_pages(cache_t *cache, off_t offset, size_t size) {
 		memcpy(vaddr, buffer, PAGE_SIZE);
 		buffer += PAGE_SIZE;
 	}
+
+	kfree(buffer);
 
 	cache_read_terminate(cache, offset, size);
 	return 0;
