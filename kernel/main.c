@@ -33,6 +33,7 @@
 #include <kernel/bootinfo.h>
 #include <kernel/process.h>
 #include <kernel/block.h>
+#include <kernel/workqueue.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -128,6 +129,7 @@ void kmain() {
 	init_proc();
 	init_signal();
 	init_task();
+	init_workqueue();
 	init_bus();
 	init_root_bus();
 	init_timer();
