@@ -205,7 +205,6 @@ void *socket_dequeue_connection(socket_t *socket) {
 	kassert(socket->state == SOCKET_STATE_LISTEN || socket->state == SOCKET_STATE_DISCONNECTED);
 	int ret = socket_wait(socket);
 	if (ret < 0)  {
-		spinlock_release(&socket->lock);
 		return ERR2PTR(ret);
 	}
 	
