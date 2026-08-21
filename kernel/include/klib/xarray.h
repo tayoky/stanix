@@ -99,6 +99,15 @@ static inline void *xarray_clear(xarray_t *xarray, size_t index) {
 void *xarray_first(xarray_t *xarray, size_t *index);
 
 /**
+ * @brief get the first non NULL value in a xarray from a specified location
+ * @param xarray the xarray in which to find the first value of
+ * @param from where to start searching
+ * @param index where to store the index of the first value
+ * @return the first non NULL value
+ */
+void *xarray_first_from(xarray_t *xarray, size_t from, size_t *index);
+
+/**
  * @brief get the first non NULL value in a xarray after a speficied index
  * @param xarray the xarray in which to find the first value of
  * @param after find a non NULL array after this index
@@ -123,5 +132,18 @@ void xarray_debug(xarray_t *xarray);
 	for (size_t index, _1 = 1; _1; _1 = 0) \
 		for (void *value, *_2 = (void *)1; _2; _2 = NULL) \
 			for (value = xarray_first(xarray, &index); value; value = xarray_next(xarray, index, &index))
+
+/**
+ * @brief iterate over each non NULL value in a xarray in a range
+ * @param index the name of the variable to hold the index
+ * @param value the name of the variable to hold the value
+ * @param xarray the xarray to iterate on
+ * @param start the start of the range
+ * @param end the end of the range
+ */
+#define xarray_foreach_range(index, value, xarray, start, end) \
+	for (size_t index, _1 = 1; _1; _1 = 0) \
+		for (void *value, *_2 = (void *)1; _2; _2 = NULL) \
+			for (value = xarray_first_from(xarray, start, &index); value && index < end; value = xarray_next(xarray, index, &index))
 
 #endif

@@ -359,17 +359,21 @@ void *xarray_first(xarray_t *xarray, size_t *index) {
 	return ret;
 }
 
-static void *xarray_raw_next(xarray_t *xarray, size_t after, size_t *index) {
+static void *xarray_raw_first_from(xarray_t *xarray, size_t from, size_t *index) {
 	uintptr_t entry = xarray_entry_fetch(&xarray->rcu.ptr);
-	if (!xarray_is_in_bound(entry, after + 1)) return NULL;
-	return xarray_entry_find_non_null(entry, after + 1, index);
+	if (!xarray_is_in_bound(entry, from)) return NULL;
+	return xarray_entry_find_non_null(entry, from, index);
+}
+
+void *xarray_first_from(xarray_t *xarray, size_t from, size_t *index) {
+	rcu_acquire_read(&xarray->rcu);
+	void *ret = xarray_raw_first(xarray, from, index);
+	rcu_release_read(&xarray->rcu);
+	return ret;
 }
 
 void *xarray_next(xarray_t *xarray, size_t after, size_t *index) {
-	rcu_acquire_read(&xarray->rcu);
-	void *ret = xarray_raw_next(xarray, after, index);
-	rcu_release_read(&xarray->rcu);
-	return ret;
+	return xarray_first_form(xarray, after + 1, index);
 }
 
 static void xarray_debug_depth(size_t depth) {
