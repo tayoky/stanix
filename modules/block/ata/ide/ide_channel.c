@@ -121,12 +121,12 @@ static void ide_channel_disable_irq(ide_channel_t *channel) {
 	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
 }
 
-static void ide_channel_transfer_sector(ide_channel_t *channel, char *buf, long flags) {
-	for (size_t j = 0; j < 256; j++) {
+static void ide_channel_transfer_sector(ide_channel_t *channel, uint16_t *buf, long flags) {
+	for (size_t i = 0; i < 256; i++) {
 		if (flags & ATA_CMD_WRITE_BUF) {
-			resource_write16(channel->base, IDE_REG_DATA, *(buf++));
+			resource_write16(channel->base, IDE_REG_DATA, buf[i]);
 		} else if (flags & ATA_CMD_READ_BUF) {
-			*(buf++) = resource_read16(channel->base, IDE_REG_DATA);
+			buf[i] = resource_read16(channel->base, IDE_REG_DATA);
 		}
 	}
 }
@@ -157,8 +157,8 @@ error:
 			kwarningf("expected data request status=%hhx\n", status);
 			goto error;
 		}
-		char *buf = command->buf;
-		ide_channel_transfer_sector(channel, buf + (channel->current_sector++) * 512, command->flags);
+		uint16_t *buf = command->buf;
+		ide_channel_transfer_sector(channel, buf + (channel->current_sector++) * 256, command->flags);
 		if (channel->current_sector < command->sectors_count) {
 			// we have others sectors to read/write
 			return;
@@ -286,12 +286,12 @@ static void ide_channel_detach(devnode_t *devnode) {
 
 static int ide_channel_poll_mode(ide_channel_t *channel, ata_command_t *command) {
 	// TODO : DMA support
-	char *buf = command->buf;
+	uint16_t *buf = command->buf;
 	while (channel->current_sector < command->sectors_count) {
 		ide_channel_io_wait(channel);
 		int ret = ide_channel_poll(channel, IDE_SR_BSY | IDE_SR_DRQ, IDE_SR_DRQ);
 		if (ret < 0) return ret;
-		ide_channel_transfer_sector(channel, buf + (channel->current_sector++ * 512), command->flags);
+		ide_channel_transfer_sector(channel, buf + (channel->current_sector++ * 256), command->flags);
 	}
 	
 	ide_channel_io_wait(channel);
