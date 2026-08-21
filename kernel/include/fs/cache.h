@@ -26,10 +26,10 @@ typedef struct cache {
 
 void init_cache(cache_t *cache);
 void free_cache(cache_t *cache);
-int cache_cache_async(cache_t *cache, off_t offset, size_t size);
+uintptr_t cache_get_page(cache_t *cache, off_t offset);
+int cache_preload(cache_t *cache, off_t offset, size_t size);
 int cache_uncache_async(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg);
 int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg);
-int cache_cache(cache_t *cache, off_t offset, size_t size);
 int cache_uncache(cache_t *cache, off_t offset, size_t size);
 int cache_flush(cache_t *cache, off_t offset, size_t size);
 int cache_mmap(cache_t *cache, off_t offset, struct vmm_seg *seg);
@@ -45,6 +45,17 @@ static inline uintptr_t cache_lookup_page(cache_t *cache, off_t offset) {
 	uintptr_t page = (uintptr_t)xarray_get(&cache->pages, PAGE2PFN(offset));
 	if (!page) return PAGE_INVALID;
 	return page;
+}
+
+static inline uintptr_t cache_lookup_and_ref_page(cache_t *cache, off_t offset) {
+	rcu_acquire_read(&cache->pages.rcu);
+	uintptr_t page = (uintptr_t)xarray_get(&cache->pages, PAGE2PFN(offset));
+	if (!page) {
+		rcu_release_read(&cache->pages.rcu);
+		return PAGE_INVALID;
+	}
+	rcu_release_read(&cache->pages.rcu);
+	return pmm_retain(page);
 }
 
 static inline uintptr_t cache_get_next_page(cache_t *cache, off_t after, off_t *offset) {
