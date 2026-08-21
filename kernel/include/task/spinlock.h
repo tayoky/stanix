@@ -26,7 +26,7 @@ void preempt_disable(void);
 #ifdef SPINLOCK_DEBUG
 static inline void __spinlock_raw_acquire(spinlock_t *lock, const char *line) {
 	while (atomic_flag_test_and_set_explicit(&lock->lock, memory_order_acquire)) {
-		kdebugf("deadlock, lock acquired at %s\n", lock->line);
+		kdebugf("deadlock on %s, lock acquired at %s\n", line, lock->line);
 		panic("deadlock", NULL);
 	}
 	lock->line = line;
