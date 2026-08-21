@@ -6,6 +6,7 @@
 #include <kernel/bus.h>
 #include <kernel/atomic.h>
 #include <kernel/resource.h>
+#include <kernel/workqueue.h>
 #include <module/ata.h>
 
 #define IDE_RID_BASE  1
@@ -14,7 +15,7 @@
 #define IDE_RID_IRQ   4
 
 typedef struct ide_channel {
-	mutex_t mutex;
+	work_t work;
 	resource_t *base;
 	resource_t *ctrl;
 	resource_t *bmide;
@@ -24,6 +25,7 @@ typedef struct ide_channel {
 	ata_device_t *slave;
 	ATOMIC(ata_command_t *) current_command;
 	size_t current_sector;
+	int ret;
 	uint8_t nIEN;
 } ide_channel_t;
 

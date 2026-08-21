@@ -141,8 +141,8 @@ static void ide_channel_irq_handler(registers_t *registers, void *data) {
 	if (status & IDE_SR_ERR) {
 		kwarningf("error status=%hhx error=%hhx\n", status, ide_channel_read(channel, IDE_REG_ERROR));
 error:
-		atomic_store(&channel->current_command, NULL);
-		ioreq_finish(&command->ioreq, -EIO);
+		channel->ret = -EIO;
+		work_queue(&channel->work);
 		return;
 	}
 
@@ -175,8 +175,20 @@ error:
 	}
 	
 	// command finished :D
+	channel->ret = 0;
+	work_queue(&channel->work);
+}
+
+/**
+ * @brief triggered when a command finish
+ * @param work the work of the ide channel
+ */
+static void ide_channel_work(work_t *work) {
+	ide_channel_t *channel = container_of(work, ide_channel_t, work);
+	ata_command_t *command = channel->current_command;
+
 	atomic_store(&channel->current_command, NULL);
-	ioreq_finish(&command->ioreq, 0);
+	ioreq_finish(&command->ioreq, channel->ret);
 }
 
 static int ide_channel_reset(ide_channel_t *channel) {
@@ -251,6 +263,7 @@ static int ide_channel_probe(devnode_t *devnode) {
 	}
 	
 	if (channel->irq && !IS_ERR(channel->irq)) {
+		work_init(&channel->work, ide_channel_work);
 		channel->irq_handler = resource_register_handler(channel->irq, ide_channel_irq_handler, channel);
 	}
 	
