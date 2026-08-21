@@ -154,14 +154,6 @@ static void signal_oneshot(cache_t *cache, void *arg) {
 	oneshot_signal(oneshot);
 }
 
-static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t end) {
-	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page(cache, addr);
-		if (page == PAGE_INVALID) continue;
-		pmm_release_page(page);
-	}
-}
-
 static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t *start, uintptr_t *end) {
 	*start     = PAGE_ALIGN_DOWN(offset);
 	*end       = PAGE_ALIGN_UP(offset + size);
@@ -174,8 +166,8 @@ static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t
 	}
 }
 
-static int wait_page_non_busy(uintptr_t page) {
-	return pmm_wait(page, PAGE_FLAG_BUSY, 0);
+static int wait_page_ready(uintptr_t page) {
+	return pmm_wait(page, PAGE_FLAG_READING, 0);
 }
 
 static void *page2value(uintptr_t page) {
@@ -214,7 +206,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page    = cache_lookup_page(cache, addr);
 		page_t *page_info = pmm_page_info(page);
-		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_BUSY);
+		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_READING);
 		pmm_wakeup(page);
 		spinlock_acquire(&lru_lock);
 		cached_page_add_lru(page, page_info);
@@ -223,7 +215,15 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 }
 
 void cache_write_terminate(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
-	release_pages_in_range(cache, offset, offset + size);
+	uintptr_t end = offset + size;
+	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+		uintptr_t page = cache_lookup_page(cache, addr);
+		if (page == PAGE_INVALID) continue;
+		page_t *page_info = pmm_page_info(page);
+		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
+		pmm_wakeup(page);
+		pmm_release_page(page);
+	}
 	cache_call_callback(cache, callback, arg);
 }
 
@@ -233,7 +233,7 @@ static uintptr_t setup_page(cache_t *cache, off_t offset, int *raced) {
 	
 	page_t *page_info = pmm_page_info(page);
 	page_info->flags &= ~(PAGE_FLAG_DIRTY);
-	page_info->flags |= PAGE_FLAG_BUSY;
+	page_info->flags |= PAGE_FLAG_READING;
 	page_info->private       = cache;
 	page_info->cached.offset = PAGE2PFN(addr);
 
@@ -266,7 +266,7 @@ uintptr_t cache_get_page(cache_t *cache, off_t offset) {
 		// we need to load the page
 		cache->ops->read(cache, PAGE_ALIGN_DOWN(offset), PAGE_ALIGN_DOWN(offset) + PAGE_SIZE);
 	}
-	wait_page_non_busy(page);
+	wait_page_ready(page);
 	// TODO : put at the end of lru
 	return page;
 }
@@ -394,6 +394,11 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 				batch_end = PAGE_INVALID;
 			}
 			continue;
+		}
+		if (atomic_fetch_or(&pmm_page_info(page)->flags, PMM_FLAG_WRITING) & PMM_FLAG_WRITING) {
+			// already writing ???
+			// what do we do
+			// TODO : handle this
 		}
 
 		if (batch_start == PAGE_INVALID) batch_start = addr;

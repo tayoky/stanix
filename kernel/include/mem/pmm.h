@@ -43,10 +43,11 @@ typedef struct page {
 	};
 } page_t;
 
-#define PAGE_FLAG_DIRTY    0x1
-#define PAGE_FLAG_BUSY     0x2 // page is busy (doing IO, ...)
-#define PAGE_FLAG_USABLE   0x4 // the page is usable memory
-#define PAGE_FLAG_RESERVED 0x8 // the page is reserved memory
+#define PAGE_FLAG_DIRTY    0x01
+#define PAGE_FLAG_USABLE   0x04 // the page is usable memory
+#define PAGE_FLAG_RESERVED 0x08 // the page is reserved memory
+#define PAGE_FLAG_READING  0x10 // page is currently being loaded into memory
+#define PAGE_FLAG_WRITING  0x20 // page is currently being written back
 
 #define ZONE_DEFAULT   42
 #define ZONE_DMA24     0
