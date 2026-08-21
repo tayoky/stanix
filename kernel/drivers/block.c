@@ -195,8 +195,6 @@ static int block_submit_request(ioreq_t *ioreq) {
 		// we have to try again later when some requests finish
 		list_append(&request->block_device->pending_requests, &request->node);
 		ret = 0;
-	} else if (ret < 0) {
-		slab_free(request);
 	}
 	return ret;
 }
@@ -210,7 +208,6 @@ static void block_cancel_request(ioreq_t *ioreq) {
 static void block_finish_request(ioreq_t *ioreq) {
 	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
 	block_device_t *block_device = request->block_device;
-	slab_free(request);
 
 	// maybee now the block device can handle a pending request
 	block_submit_pending_request(block_device);
