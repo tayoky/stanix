@@ -111,17 +111,82 @@ static int ide_channel_poll(ide_channel_t *channel, uint8_t mask, uint8_t value)
 	return -ETIMEDOUT;
 }
 
+static void ide_channel_enable_irq(ide_channel_t *channel) {
+	channel->nIEN &= ~0x2U;
+	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
+}
+
+static void ide_channel_disable_irq(ide_channel_t *channel) {
+	channel->nIEN |= 0x2;
+	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
+}
+
+static void ide_channel_transfer_sector(ide_channel_t *channel, char *buf, long flags) {
+	for (size_t j = 0; j < 256; j++) {
+		if (flags & ATA_CMD_WRITE_BUF) {
+			resource_write16(channel->base, IDE_REG_DATA, *(buf++));
+		} else if (flags & ATA_CMD_READ_BUF) {
+			*(buf++) = resource_read16(channel->base, IDE_REG_DATA);
+		}
+	}
+}
+
+static void ide_channel_irq_handler(registers_t *registers, void *data) {
+	(void)registers;
+	ide_channel_t *channel = data;
+	ata_command_t *command = atomic_load(&channel->current_command);
+
+	ide_channel_io_wait(channel);
+	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
+	if (status & IDE_SR_ERR) {
+		kwarningf("error status=%hhx error=%hhx\n", status, ide_channel_read(channel, IDE_REG_ERROR));
+error:
+		atomic_store(&channel->current_command, NULL);
+		ioreq_finish(command, -EIO);
+		return;
+	}
+
+	if (status & IDE_SR_BSY) {
+		// surpirous wakeup
+		return;
+	}
+
+	// do we have sectors left
+	if (channel->current_sector < command->sectors_count) {
+		if (!(status & IDE_SR_DRQ)) {
+			kwarningf("expected data request status=%hhx\n", status);
+			goto error;
+		}
+		char *buf = command->buf;
+		ide_channel_transfer_sector(channel, buf + (channel->current_sector++) * 512, command->flags);
+		if (channel->current_sector < command->sector_count) {
+			// we have others sectors to read/write
+			return;
+		} else if (command->flags & ATA_CMD_WRITE_BUF) {
+			// we will get another irq for confirmation
+			// of last sector write
+			return;
+		}
+	} else {
+		if (status & IDE_SR_DRQ) {
+			kwarningf("unexpected data request status=%hhx\n", status);
+			goto error;
+		}
+	}
+	
+	// command finished :D
+	atomic_store(&channel->current_command, NULL);
+	ioreq_finish(command, 0);
+}
+
 static int ide_channel_reset(ide_channel_t *channel) {
 	// soft reset
-	mutex_acquire(&channel->mutex);
 	ide_channel_write(channel, IDE_REG_CONTROL, 0x4 | channel->nIEN);
 	ide_channel_io_wait(channel);
 	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
 	ide_channel_io_wait(channel);
 
-	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
-	mutex_release(&channel->mutex);
-	return ret;
+	return ide_channel_poll(channel, IDE_SR_BSY, 0);
 }
 
 static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t *bus, uint8_t drive) {
@@ -165,7 +230,6 @@ static int ide_channel_probe(devnode_t *devnode) {
 	ide_channel_t *channel = kmalloc(sizeof(ide_channel_t));
 	if (!channel) return -ENOMEM;
 	memset(channel, 0, sizeof(ide_channel_t));
-	mutex_init(&channel->mutex);
 	devnode->private = channel;
 
 	// get resources from the IDE controller
@@ -173,6 +237,9 @@ static int ide_channel_probe(devnode_t *devnode) {
 	channel->base  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, IDE_RID_BASE);
 	channel->ctrl  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, IDE_RID_CTRL);
 	channel->bmide = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, IDE_RID_BMIDE);
+	if (!disable_irq) {
+		channel->irq = device_allocate_simple_resource(devnode, RESOURCE_IRQ, IDE_RID_IRQ);
+	}
 	channel->nIEN = 0x2;
 	if (IS_ERR(channel->base)) {
 		ret = PTR2ERR(channel->base);
@@ -183,26 +250,57 @@ static int ide_channel_probe(devnode_t *devnode) {
 		goto error;
 	}
 	
+	if (channel->irq && !IS_ERR(channel->irq)) {
+		channel->irq_handler = resource_register_handler(channel->irq, channel->irq_handler, ide_channel_irq_handler, channel);
+	}
+	
 	ret = ide_channel_reset(channel);
 	if (ret < 0) {
 error:
+		resource_unregister_handler(channel->irq, channel->irq_handler);
 		device_release_resource(devnode, channel->base);
 		device_release_resource(devnode, channel->ctrl);
 		device_release_resource(devnode, channel->bmide);
+		device_release_resource(devnode, channel->irq);
 		return ret;
 	}
 
 	// create children ata channels
 	channel->master = ide_channel_create_child(channel, devnode, 0);
 	channel->slave = ide_channel_create_child(channel, devnode, IDE_DRV_SELECT_SLAVE);
+
+	if (channel->irq_handler) {
+		ide_channel_enable_irq(channel);
+	}
 	return 0;
 }
 
 static void ide_channel_detach(devnode_t *devnode) {
 	ide_channel_t *channel = devnode->private;
+	resource_unregister_handler(channel->irq, channel->irq_handler);
 	device_release_resource(devnode, channel->base);
 	device_release_resource(devnode, channel->ctrl);
 	device_release_resource(devnode, channel->bmide);
+	device_release_resource(devnode, channel->irq);
+}
+
+static int ide_channel_poll_mode(ide_channel_t *channel, ata_command_t *command) {
+	// TODO : DMA support
+	char *buf = command->buf;
+	while (channel->current_sector < command->sectors_count) {
+		ide_channel_io_wait(channel);
+		int ret = ide_channel_poll(channel, IDE_SR_BSY | IDE_SR_DRQ, IDE_SR_DRQ);
+		if (ret < 0) return ret;
+		ide_channel_transfer_sector(channel, buf + (channel->current_sector++ * 512), command->flags);
+	}
+	
+	ide_channel_io_wait(channel);
+	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
+	if (ret < 0) return;
+
+	atomic_store(&channel->current_command, NULL);
+	ioreq_finish(&command->ioreq, 0);
+	return 0;
 }
 
 static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t *device, ata_command_t *command) {
@@ -246,37 +344,36 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	}
 
 	ide_channel_write(channel, IDE_REG_COMMAND, command->opcode);
-	ide_channel_io_wait(channel);
+	channel->current_sector = 0;
 
-	// TODO : DMA support
-	uint16_t *buf = command->buf;
-	if (command->flags & (ATA_CMD_READ_BUF | ATA_CMD_WRITE_BUF)) {
-		for (size_t i = 0; i < command->sectors_count; i++) {
-			ret = ide_channel_poll(channel, IDE_SR_BSY | IDE_SR_DRQ, IDE_SR_DRQ);
-			if (ret < 0) return ret;
-			for (size_t j = 0; j < 256; j++) {
-				if (command->flags & ATA_CMD_WRITE_BUF) {
-					resource_write16(channel->base, IDE_REG_DATA, *(buf++));
-				} else {
-					*(buf++) = resource_read16(channel->base, IDE_REG_DATA);
-				}
-			}
-		}
+	if ((command->flags & ATA_CMD_WRITE_BUF) && command->sectors_count > 0) {
+		// we need to write the first sector
+		ide_channel_io_wait(channel);
+		int ret = ide_channel_poll(channel, IDE_SR_DRQ, IDE_SR_DRQ);
+		if (ret < 0) return ret;
+		ide_transfer_sector(channel, command->buf, command->flags);
+		channel->current_sector++;
 	}
-	
-	return ide_channel_poll(channel, IDE_SR_BSY, 0);
+
+	if (channel->irq_handler) {
+		// the irq handler will take care of the rest
+		return 0;
+	} else {
+		return ide_poll_mode(channel, command);
+	}
 }
 
-// TODO : true async
 static int ide_channel_submit_ata_command(devnode_t *bus, ata_device_t *device, ata_command_t *command) {
 	ide_channel_t *channel = bus->private;
-	if (mutex_try_acquire(&channel->mutex) < 0) {
+	ata_command_t *expected = NULL;
+	if (!atomic_compare_exchange_strong(&channel->current_command, &expected, command)) {
 		return -EAGAIN;
 	}
 	int ret = ide_channel_raw_send_ata_command(channel, device, command);
-	mutex_release(&channel->mutex);
-	ioreq_finish(&command->ioreq, ret);
-	return 0;
+	if (ret < 0) {
+		atomic_store(&channel->current_command, NULL);
+	}
+	return ret;
 }
 
 ata_driver_t ide_channel_driver = {

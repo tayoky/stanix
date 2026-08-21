@@ -4,7 +4,7 @@
 // ide specific ata shit
 
 #include <kernel/bus.h>
-#include <kernel/mutex.h>
+#include <kernel/atomic.h>
 #include <kernel/resource.h>
 #include <module/ata.h>
 
@@ -19,8 +19,11 @@ typedef struct ide_channel {
 	resource_t *ctrl;
 	resource_t *bmide;
 	resource_t *irq;
+	void *irq_handler;
 	ata_device_t *master;
 	ata_device_t *slave;
+	ATOMIC(ata_command_t *) current_command;
+	size_t current_sector;
 	uint8_t nIEN;
 } ide_channel_t;
 
