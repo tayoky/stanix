@@ -74,7 +74,7 @@ static int fat_transfer_pages(cache_t *cache, off_t offset, size_t size, int wri
 	// read page per page
 	size_t cluster_offset = offset % fat_superblock->cluster_size; // offset within the current cluster
 	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page(cache, addr);
+		uintptr_t page = cache_lookup_page(cache, addr);
 		kassert(page != PAGE_INVALID);
 		char *vaddr = mmu_phys2virt(page);
 		for (size_t count = 0; count < PAGE_SIZE;) {

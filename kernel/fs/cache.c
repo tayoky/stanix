@@ -156,7 +156,7 @@ static void signal_oneshot(cache_t *cache, void *arg) {
 
 static void release_pages_in_range(cache_t *cache, uintptr_t start, uintptr_t end) {
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page(cache, addr);
+		uintptr_t page = cache_lookup_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
 		pmm_release_page(page);
 	}
@@ -180,7 +180,7 @@ static int wait_page_non_busy(uintptr_t page) {
 
 static int wait_pages_non_busy(cache_t *cache, uintptr_t start, uintptr_t end) {
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page(cache, addr);
+		uintptr_t page = cache_lookup_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
 		int ret = wait_page_non_busy(page);
 		if (ret < 0) return ret;
@@ -198,7 +198,7 @@ static uintptr_t value2page(void *value) {
 	return (uintptr_t)value;
 }
 
-static uintptr_t cache_get_page_and_clear(cache_t *cache, off_t offset) {
+static uintptr_t cache_lookup_page_and_clear(cache_t *cache, off_t offset) {
 	return value2page(xarray_clear(&cache->pages, PAGE2PFN(offset)));
 }
 
@@ -222,7 +222,7 @@ uintptr_t cache_evict(void) {
 void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page    = cache_get_page(cache, addr);
+		uintptr_t page    = cache_lookup_page(cache, addr);
 		page_t *page_info = pmm_page_info(page);
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_BUSY);
 		pmm_wakeup(page);
@@ -247,7 +247,7 @@ int cache_cache_async(cache_t *cache, off_t offset, size_t size) {
 	int ret = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		rcu_acquire_read(&cache->pages.rcu);
-		uintptr_t page = cache_get_page(cache, addr);
+		uintptr_t page = cache_lookup_page(cache, addr);
 		// fast path
 		if (page != PAGE_INVALID) {
 already_cached:
@@ -298,7 +298,7 @@ already_cached:
 error:
 		// FIXME : only free pages that were busy
 		for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-			uintptr_t page = cache_get_page_and_clear(cache, addr);
+			uintptr_t page = cache_lookup_page_and_clear(cache, addr);
 			pmm_release_page(page);
 		}
 		return ret;
@@ -328,7 +328,7 @@ static void uncache_callback(cache_t *cache, void *arg) {
 	cache_get_range(cache, req->offset, req->size, &start, &end);
 
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page_and_clear(cache, addr);
+		uintptr_t page = cache_lookup_page_and_clear(cache, addr);
 		if (page == PAGE_INVALID) {
 			// the page is not cached
 			// there is nothing to uncache
@@ -454,7 +454,7 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	// no need to hold rcu read lock
 	// since we already hold a ref to the pages
 	// thanks to cache_cache_async
-	uintptr_t page = cache_get_page(cache, offset);
+	uintptr_t page = cache_lookup_page(cache, offset);
 	if (page == PAGE_INVALID) {
 		// the page is not cached
 		// we are cooked
@@ -513,7 +513,7 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 	// since we already hold a ref to the pages
 	// thanks to cache_cache_async
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE, vaddr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page(cache, addr);
+		uintptr_t page = cache_lookup_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
 		
 		// cache_cache_async already made a new ref to the page
@@ -537,7 +537,7 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	// thanks to cache_cache
 	char *buf = buffer;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page(cache, addr);
+		uintptr_t page = cache_lookup_page(cache, addr);
 		if (page == PAGE_INVALID) {
 			ret = -EIO;
 			goto error;
@@ -579,7 +579,7 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 	// thanks to cache_cache
 	const char *buf = buffer;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page(cache, addr);
+		uintptr_t page = cache_lookup_page(cache, addr);
 		if (page == PAGE_INVALID) {
 			ret = -EIO;
 			goto error;

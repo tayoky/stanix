@@ -20,7 +20,7 @@ static vfs_inode_ops_t tmpfs_inode_ops;
 static int tmpfs_cache_read(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page(cache, addr);
+		uintptr_t page = cache_lookup_page(cache, addr);
 		memset(mmu_phys2virt(page), 0, PAGE_SIZE);
 	}
 	cache_read_terminate(cache, offset, size);
