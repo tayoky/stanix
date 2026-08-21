@@ -5,6 +5,8 @@
 #include <kernel/pmm.h>
 #include <kernel/mmu.h>
 
+#define ENABLE_POISON
+
 static list_t slabs_list;
 
 static void slab_calculate_order(slab_cache_t *slab_cache) {
@@ -137,11 +139,16 @@ void *slab_alloc(slab_cache_t *slab_cache) {
 		list_remove(&slab_cache->partial, &slab->node);
 		list_append(&slab_cache->full, &slab->node);
 	}
-
 	spinlock_release_irq(&slab_cache->lock, irq_save);
+	
+#ifdef ENABLE_POISON
+	memset(node, 0xaa, slab_cache->size);
+#endif
+
 	if (slab_cache->constructor) {
 		slab_cache->constructor(slab_cache, node);
 	}
+
 	return node;
 }
 
@@ -155,6 +162,10 @@ void slab_free(void *ptr) {
 	}
 
 	int irq_save = spinlock_acquire_irq(&slab_cache->lock);
+
+#ifdef ENABLE_POISON
+	memset(ptr, 0xdd, slab_cache->size);
+#endif
 
 	// add the object to the list of free slot
 	slab_free_node_t *node = ptr;
