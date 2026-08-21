@@ -18,6 +18,8 @@ typedef struct cache_op {
 
 typedef struct cache {
 	list_node_t node;
+	list_node_t dirty_node; // protected by dirty_lock
+	size_t dirty_count;     // protected by dirty_lock
 	xarray_t pages;
 	cache_ops_t *ops;
 	size_t size;

@@ -16,19 +16,14 @@ typedef struct page_lru_list {
 	uintptr_t last;
 } page_lru_list_t;
 
-static page_lru_list_t lru_lists[4] = {
-	{PAGE_INVALID, PAGE_INVALID},
-	{PAGE_INVALID, PAGE_INVALID},
-	{PAGE_INVALID, PAGE_INVALID},
-	{PAGE_INVALID, PAGE_INVALID},
-};
+static page_lru_list_t lru_active = {PAGE_INVALID, PAGE_INVALID};
+static page_lru_list_t lru_inactive = {PAGE_INVALID, PAGE_INVALID};
 static spinlock_t lru_lock;
+static spinlock_t dirty_lock;
 static list_t caches;
+static list_t dirty_caches;
 
-#define LRU_INACTIVE 0
-#define LRU_ACTIVE   2
-#define LRU_CLEAN    0
-#define LRU_DIRTY    1
+// TODO : implement difference between dirty and not dirty
 
 static uintptr_t cached_page_get_lru_prev(page_t *page_info) {
 	return PFN2PAGE(page_info->cached.lru_prev);
@@ -59,10 +54,8 @@ static int cached_page_is_dirty(page_t *page_info) {
 }
 
 static page_lru_list_t *get_lru_list(page_t *page_info) {
-	size_t index = 0;
-	if (cached_page_is_active(page_info)) index += LRU_ACTIVE;
-	if (cached_page_is_dirty((page_info))) index += LRU_DIRTY;
-	return &lru_lists[index];
+	(void)page_info;
+	return &lru_inactive;
 }
 
 static void cached_page_remove_lru(page_t *page_info) {
@@ -96,23 +89,29 @@ static void cached_page_add_lru(uintptr_t page, page_t *page_info) {
 	lru_list->first = page;
 }
 
-static void cached_page_mark_dirty(uintptr_t page, page_t *page_info) {
-	spinlock_acquire(&lru_lock);
+static void cache_mark_page_dirty(cache_t *cache, uintptr_t page) {
+	page_t *page_info = pmm_page_info(page);
 	if (!(atomic_fetch_or(&page_info->flags, PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY)) {
-		cached_page_remove_lru(page_info);
-		cached_page_add_lru(page, page_info);
+		spinlock_acquire(&dirty_lock);
+		if (cache->dirty_lock-- == 1) {
+			// this is the first dirty page
+			list_append(&dirty_caches, &cache->dirty_node);
+		}
+		spinlock_release(&dirty_lock);
 	}
-	spinlock_release(&lru_lock);
 }
 
-static int cached_page_clear_dirty(uintptr_t page, page_t *page_info) {
-	spinlock_acquire(&lru_lock);
+static int cache_clear_page_dirty(cache_t *cache, uintptr_t page) {
+	page_t *page_info = pmm_page_info(page);
 	int ret = atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY;
 	if (ret) {
-		cached_page_remove_lru(page_info);
-		cached_page_add_lru(page, page_info);
+		spinlock_acquire(&dirty_lock);
+		if (cache->dirty_lock-- == 1) {
+			// this was the last dirty page
+			list_remove(&dirty_caches, &cache->dirty_node);
+		}
+		spinlock_release(&dirty_lock);
 	}
-	spinlock_release(&lru_lock);
 	return ret;
 }
 
@@ -142,8 +141,9 @@ void free_cache(cache_t *cache) {
 }
 
 void cache_flush_all(void) {
-	foreach (node, &caches) {
-		cache_t *cache = container_of(node, cache_t, node);
+	// TODO : use dirty_lock
+	foreach (node, &dirty_caches) {
+		cache_t *cache = container_of(node, cache_t, dirty_node);
 		cache_flush(cache, 0, cache->size);
 	}
 }
@@ -200,7 +200,7 @@ static uintptr_t cache_compare_and_set_page(cache_t *cache, off_t offset, uintpt
 
 uintptr_t cache_evict(void) {
 	// for now only evict inactive pages
-	uintptr_t page = lru_lists[LRU_INACTIVE + LRU_CLEAN].last;
+	uintptr_t page = lru_inactive.last;
 	if (page == PAGE_INVALID) return PAGE_INVALID;
 	page_t *page_info = pmm_page_info(page);
 	cache_t *cache    = page_info->private;
@@ -267,6 +267,7 @@ uintptr_t cache_get_page(cache_t *cache, off_t offset) {
 		cache->ops->read(cache, PAGE_ALIGN_DOWN(offset), PAGE_ALIGN_DOWN(offset) + PAGE_SIZE);
 	}
 	wait_page_non_busy(page);
+	// TODO : put at the end of lru
 	return page;
 }
 
@@ -285,7 +286,7 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 			rcu_release_read(&cache->pages.rcu);
 already_cached:
 			// the page is already cached
-			// there is nothing to cache
+			// there is nothing to load
 			if (batch_start != addr) {
 				cache->ops->read(cache, batch_start, addr - batch_start);
 			}
@@ -383,7 +384,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 			batch_end = PAGE_INVALID;
 		}
 
-		if (!cached_page_clear_dirty(page, pmm_page_info(page))) {
+		if (!cache_clear_page_dirty(cache, page)) {
 			if (batch_start != PAGE_INVALID && batch_end != addr) {
 				// we reached end of the batch
 				rcu_release_read(&cache->pages.rcu);
@@ -430,7 +431,7 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 		long mmu_flags = mmu_get_flags(get_current_proc()->vmm_space.addrspace, addr);
 		if (mmu_flags & MMU_FLAG_DIRTY) {
 			mmu_set_flags(get_current_proc()->vmm_space.addrspace, addr, mmu_flags & ~MMU_FLAG_DIRTY);
-			cached_page_mark_dirty(page, pmm_page_info(page));
+			cache_mark_page_dirty(cache, page);
 		}
 	}
 
@@ -586,7 +587,7 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 			break;
 		}
 
-		cached_page_mark_dirty(page, pmm_page_info(page));
+		cache_mark_page_dirty(cache, page);
 
 		pmm_release_page(page);
 		buf += page_end - page_start;
