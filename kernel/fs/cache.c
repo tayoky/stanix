@@ -193,6 +193,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page    = cache_lookup_page(cache, addr);
+		kassert(page != PAGE_INVALID);
 		page_t *page_info = pmm_page_info(page);
 		cached_page_set_error(page_info, ret);
 		
@@ -204,7 +205,8 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_READING);
 		pmm_wakeup(page);
-		
+	
+		// FIXME RACE : the page could get freed
 		if (ret >= 0) {
 			spinlock_acquire(&lru_lock);
 			cached_page_add_lru(page, page_info);
@@ -217,7 +219,7 @@ void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_page(cache, addr);
-		if (page == PAGE_INVALID) continue;
+		kassert(page != PAGE_INVALID);
 		page_t *page_info = pmm_page_info(page);
 		cached_page_set_error(page_info, ret);
 
@@ -228,7 +230,6 @@ void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
 		pmm_wakeup(page);
-		pmm_release_page(page);
 	}
 }
 
@@ -448,9 +449,6 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 
 		if (batch_start == PAGE_INVALID) batch_start = addr;
 		batch_end = addr + PAGE_SIZE;
-
-		// prevent the page from being freed while we write
-		pmm_retain(page);
 	}
 	rcu_release_read(&cache->pages.rcu);
 
