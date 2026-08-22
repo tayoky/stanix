@@ -165,11 +165,19 @@ static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t
 }
 
 static int wait_page_ready(uintptr_t page) {
-	return pmm_wait(page, PAGE_FLAG_READING, 0);
+	int flags;
+	int ret = pmm_wait_get(page, PAGE_FLAG_READING, 0, &flags);
+	if (ret < 0) return ret;
+	ret = -((flags & PMM_FLAG_ERROR) >> PMM_FLAG_ERROR_SHIFT);
+	return ret;
 }
 
 static int wait_page_written(uintptr_t page) {
-	return pmm_wait(page, PAGE_FLAG_WRITING, 0);
+	int flags;
+	int ret = pmm_wait_get(page, PAGE_FLAG_WRITING, 0, &flags);
+	if (ret < 0) return ret;
+	ret = -((flags & PMM_FLAG_ERROR) >> PMM_FLAG_ERROR_SHIFT);
+	return ret;
 }
 
 static void *page2value(uintptr_t page) {
@@ -197,11 +205,17 @@ uintptr_t cache_evict(void) {
 	return PAGE_INVALID;
 }
 
-void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
+static void cached_page_set_error(page_t *page_info, int ret) {
+	atomic_fetch_and(&page_info->flags, ~PMM_FLAG_ERROR);
+	atomic_fetch_or(&page_info->flags, ((uint16_t)-ret) << PMM_FLAG_ERROR_SHIFT);
+}
+
+void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page    = cache_lookup_page(cache, addr);
 		page_t *page_info = pmm_page_info(page);
+		cached_page_set_error(page_info, ret);
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_READING);
 		pmm_wakeup(page);
 		spinlock_acquire(&lru_lock);
@@ -210,12 +224,13 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 	}
 }
 
-void cache_write_terminate(cache_t *cache, off_t offset, size_t size) {
+void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
 		page_t *page_info = pmm_page_info(page);
+		cached_page_set_error(page_info, ret);
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
 		pmm_wakeup(page);
 		pmm_release_page(page);
@@ -342,7 +357,9 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 			}
 			continue;
 		}
-		if (atomic_fetch_or(&pmm_page_info(page)->flags, PMM_FLAG_WRITING) & PMM_FLAG_WRITING) {
+
+		page_t *page_info = pmm_page_info(page);
+		if (atomic_fetch_or(&page_info->flags, PMM_FLAG_WRITING) & PMM_FLAG_WRITING) {
 			// already writing ???
 			// what do we do
 			// TODO : handle this

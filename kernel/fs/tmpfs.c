@@ -23,7 +23,7 @@ static int tmpfs_cache_read(cache_t *cache, off_t offset, size_t size) {
 		uintptr_t page = cache_lookup_page(cache, addr);
 		memset(mmu_phys2virt(page), 0, PAGE_SIZE);
 	}
-	cache_read_terminate(cache, offset, size);
+	cache_read_terminate(cache, offset, size, 0);
 	return 0;
 }
 

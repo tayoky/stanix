@@ -23,7 +23,6 @@ typedef struct cache {
 	size_t size;
 } cache_t;
 
-
 void init_cache(cache_t *cache);
 void free_cache(cache_t *cache);
 uintptr_t cache_get_page(cache_t *cache, off_t offset);
@@ -35,8 +34,8 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size);
 ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t size);
 int cache_truncate(cache_t *cache, size_t size);
 int cache_open(cache_t *cache, struct vfs_fd *fd);
-void cache_read_terminate(cache_t *cache, off_t offset, size_t size);
-void cache_write_terminate(cache_t *cache, off_t offset, size_t size);
+void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret);
+void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret);
 void cache_flush_all(void);
 
 static inline uintptr_t cache_lookup_page(cache_t *cache, off_t offset) {

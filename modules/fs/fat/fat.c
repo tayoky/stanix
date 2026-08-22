@@ -115,14 +115,14 @@ static int fat_transfer_pages(cache_t *cache, off_t offset, size_t size, int wri
 static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
 	int ret = fat_transfer_pages(cache, offset, size, 0);
 	if (ret < 0) return 0;
-	cache_read_terminate(cache, offset, size);
+	cache_read_terminate(cache, offset, size, 0);
 	return 0;
 }
 
 static int fat_write_pages(cache_t *cache, off_t offset, size_t size) {
 	int ret = fat_transfer_pages(cache, offset, size, 1);
 	if (ret < 0) return 0;
-	cache_write_terminate(cache, offset, size);
+	cache_write_terminate(cache, offset, size, 0);
 	return 0;
 }
 

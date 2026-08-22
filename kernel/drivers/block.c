@@ -115,7 +115,7 @@ static int block_read_pages(cache_t *cache, off_t offset, size_t size) {
 
 	kfree(buffer);
 
-	cache_read_terminate(cache, offset, size);
+	cache_read_terminate(cache, offset, size, 0);
 	return 0;
 }
 

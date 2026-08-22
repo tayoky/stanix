@@ -48,6 +48,8 @@ typedef struct page {
 #define PAGE_FLAG_RESERVED 0x08 // the page is reserved memory
 #define PAGE_FLAG_READING  0x10 // page is currently being loaded into memory
 #define PAGE_FLAG_WRITING  0x20 // page is currently being written back
+#define PAGE_FLAG_ERROR       0xffff0000
+#define PAGE_FLAG_ERROR_SHIFT 16
 
 #define ZONE_DEFAULT   42
 #define ZONE_DMA24     0
@@ -190,9 +192,21 @@ int pmm_retain(uintptr_t page);
  * @param page the page to wait for
  * @param mask the mask to apply to the flags
  * @param value the value the masked flags must be equal to
+ * @param flag the value of the flag at the time when the condition became true
  * @return -EINTR if interrupted else 0
  */
-int pmm_wait(uintptr_t page, unsigned int mask, unsigned int value);
+int pmm_wait_get(uintptr_t page, unsigned int mask, unsigned int value, int *flags);
+
+/**
+ * @brief wait until a specified page has a masked flag equal to a value
+ * @param page the page to wait for
+ * @param mask the mask to apply to the flags
+ * @param value the value the masked flags must be equal to
+ * @return -EINTR if interrupted else 0
+ */
+static inline int pmm_wait(uintptr_t page, unsigned int mask, unsigned int value) {
+	return pmm_wait_get(page, mask, value, NULL);
+}
 
 /**
  * @brief wakeup tasks waiting for change on a page
