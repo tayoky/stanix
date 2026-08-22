@@ -9,12 +9,14 @@ typedef struct ioreq ioreq_t;
 typedef struct ioreq_ops ioreq_ops_t;
 
 struct ioreq {
-	ref_count_t ref_count;
 	oneshot_t oneshot;
+	ref_count_t ref_count;
 	ioreq_ops_t *ops;
 	void (*callback)(ioreq_t *ioreq, void *data);
 	void *data;
+	uintptr_t data2[3];
 	int ret;
+	int padding;
 };
 
 struct ioreq_ops {

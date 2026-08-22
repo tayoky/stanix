@@ -13,100 +13,24 @@ void init_block(void) {
 	slab_init(&block_requests_slab, sizeof(block_request_t), "block-requests");
 }
 
-// TODO : expose an async API (when the vfs support one)
-static ssize_t do_request(block_device_t *block_device, void *buf, off_t offset, size_t count, int type) {
-	if (device_is_unplugged(&block_device->device)) {
-		return -ENXIO;
+#define DATA_OFFSET 0
+#define DATA_COUNT  1
+
+static void block_read_pages_callback(ioreq_t *ioreq, void *data) {
+	(void)data;
+	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
+	block_device_t *block_device = request->block_device;
+	off_t offset = ioreq->data2[DATA_OFFSET];
+	size_t count = ioreq->data2[DATA_COUNT];
+
+	if (ioreq->ret < 0) {
+		kfree(request->buf);
+		cache_read_terminate(&block_device->cache, offset, size, ioreq->ret);
+		return;
 	}
 
-	size_t start = offset;
-	size_t end   = offset + count;
-	size_t start_sector = start / block_device->sector_size;
-	size_t end_sector   = (end + block_device->sector_size - 1) / block_device->sector_size;
-
-	// bound checks
-	if (start == end) {
-		return 0;
-	}
-	if (start_sector >= block_device->sectors_count) {
-		return 0;
-	}
-	if (end_sector > block_device->sectors_count) {
-		end_sector = block_device->sectors_count;
-		end = end_sector * block_device->sector_size;
-	}
-	size_t sectors_count = end_sector - start_sector;
-
-	void *kbuf = NULL;
-	if (start % block_device->sector_size != 0
-		|| end % block_device->sector_size != 0) {
-		kbuf = kmalloc(sectors_count * block_device->sector_size);
-		if (!kbuf) return -ENOMEM;
-		if (type == BLOCK_REQUEST_WRITE) {
-			// fill first and last sector
-			int ret = 0;
-			if (start % block_device->sector_size != 0) {
-				block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
-				request->start_sector = start_sector;
-				request->sectors_count = 1;
-				request->buf = kbuf;
-				ret = ioreq_submit_sync_interruptible(&request->ioreq);
-				if (ret < 0) goto error;
-			}
-			if (end % block_device->sector_size != 0 && (start % block_device->sector_size == 0 || start_sector != end_sector)) {
-				block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
-				request->start_sector = end_sector - 1;
-				request->sectors_count = 1;
-				request->buf = kbuf + (sectors_count - 1) * block_device->sector_size;
-				ret = ioreq_submit_sync_interruptible(&request->ioreq);
-				if (ret < 0) goto error;
-			}
-			ret = safe_copy_from((char *)kbuf + start % block_device->sector_size, buf, end - start);
-			if (ret < 0) {
-			error:
-				kfree(kbuf);
-				return ret;
-			}
-		}
-	}
-
-	block_request_t *request = block_create_request(block_device, type);
-	request->start_sector = start_sector;
-	request->sectors_count = sectors_count;
-	request->buf = kbuf ? kbuf : buf;
-	int ret = ioreq_submit_sync_interruptible(&request->ioreq);
-	if (ret >= 0 && type == BLOCK_REQUEST_READ && kbuf) {
-		ret = safe_copy_to(buf, (char *)kbuf + start % block_device->sector_size, end - start);
-	}
-
-	kfree(kbuf);
-
-	if (ret >= 0 && type == BLOCK_REQUEST_WRITE) {
-		// we need to flush
-		block_request_t *flush_request = block_create_request(block_device, BLOCK_REQUEST_FLUSH);
-		flush_request->start_sector = start_sector;
-		flush_request->sectors_count = sectors_count;
-		ret = ioreq_submit_sync_interruptible(&flush_request->ioreq);
-	}
-
-	return ret < 0 ? ret : (ssize_t)(end - start);
-}
-
-// TODO : make this async
-static int block_read_pages(cache_t *cache, off_t offset, size_t size) {
-	block_device_t *block_device = container_of(cache, block_device_t, cache);
-
-	// TODO : pass pages direcly
-	void *buffer = kmalloc(size);
-	if (!buffer) return -ENOMEM;
-
-	int ret = do_request(block_device, buffer, offset, size, BLOCK_REQUEST_READ);
-	if (ret < 0) {
-		kfree(buffer);
-		return ret;
-	}
-
-	char *ptr  = buffer;
+	char *ptr = request->buf;
+	ptr += offset % block_device->sector_size;
 	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_page(cache, addr);
 		kassert(page != PAGE_INVALID);
@@ -115,15 +39,122 @@ static int block_read_pages(cache_t *cache, off_t offset, size_t size) {
 		ptr += PAGE_SIZE;
 	}
 
-	kfree(buffer);
+	kfree(request->buf);
 
-	cache_read_terminate(cache, offset, size, 0);
+	cache_read_terminate(&block_device->cache, offset, size, 0);
+}
+
+static int block_read_pages(cache_t *cache, off_t offset, size_t count) {
+	block_device_t *block_device = container_of(cache, block_device_t, cache);
+
+	// determinate the bounds of the read
+	size_t start = offset;
+	size_t end   = offset + count;
+	size_t start_sector = start / block_device->sector_size;
+	size_t end_sector   = (end + block_device->sector_size - 1) / block_device->sector_size;
+	if (end_sector > block_device->sectors_count) {
+		end_sector = block_device->sectors_count;
+		end = end_sector * block_device->sector_size;
+	}
+	size_t sectors_count = end_sector - start_sector;
+
+	// TODO : pass pages direcly
+	void *buffer = kmalloc(sectors_count * block_device->sector_size);
+	if (!buffer) return -ENOMEM;
+
+	int ret = 0;
+	block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
+	if (!request) {
+		ret = -ENOMEM;
+error:
+		kfree(buffer);
+		return ret;
+	}
+	request->start_sector = start_sector;
+	request->sectors_count = sectors_count;
+	request->buf = buffer;
+	request->ioreq.data2[DATA_OFFSET] = offset;
+	request->ioreq.data2[DATA_COUNT]   = count;
+	ioreq_set_callback(&request->ioreq, block_read_pages_callback, NULL);
+	ret = ioreq_submit(&request->ioreq);
+	if (ret < 0) goto error;
 	return 0;
 }
 
 // TODO : make this async
 static int block_write_pages(cache_t *cache, off_t offset, size_t count) {
-	return -ENOSYS;
+	block_device_t *block_device = container_of(cache, block_device_t, cache);
+
+	// determinate the bounds of the write
+	size_t start = offset;
+	size_t end   = offset + count;
+	size_t start_sector = start / block_device->sector_size;
+	size_t end_sector   = (end + block_device->sector_size - 1) / block_device->sector_size;
+	if (end_sector > block_device->sectors_count) {
+		end_sector = block_device->sectors_count;
+		end = end_sector * block_device->sector_size;
+	}
+	size_t sectors_count = end_sector - start_sector;
+
+	void *buffer = kmalloc(sectors_count * block_device->sector_size);
+	if (!buffer) return -ENOMEM;
+
+	// fill first and last sector
+	int ret = 0;
+	if (start % block_device->sector_size != 0) {
+		block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
+		if (!request) goto error_nomem;
+		request->start_sector = start_sector;
+		request->sectors_count = 1;
+		request->buf = kbuf;
+		ret = ioreq_submit_sync_interruptible(&request->ioreq);
+		if (ret < 0) goto error;
+	}
+	if (end % block_device->sector_size != 0 && (start % block_device->sector_size == 0 || start_sector != end_sector)) {
+		block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
+		if (!request) goto error_nomem;
+		request->start_sector = end_sector - 1;
+		request->sectors_count = 1;
+		request->buf = kbuf + (sectors_count - 1) * block_device->sector_size;
+		ret = ioreq_submit_sync_interruptible(&request->ioreq);
+		if (ret < 0) goto error;
+	}
+
+	char *ptr = buffer;
+	ptr += start % block_device->sector_size;
+	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
+		uintptr_t page = cache_lookup_page(cache, addr);
+		kassert(page != PAGE_INVALID);
+		void *vaddr = mmu_phys2virt(page);
+		memcpy(ptr; vaddr, PAGE_SIZE);
+		ptr += PAGE_SIZE;
+	}
+
+	block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_WRITE);
+	if (!request) {
+error_nomem:
+		ret = -ENOMEM;
+error:
+		kfree(buffer);
+		return ret;
+	}
+	request->start_sector = start_sector;
+	request->sectors_count = sectors_count;
+	request->buf = buffer;
+	ret = ioreq_submit_sync_interruptible(&request->ioreq);
+	kfree(buffer);
+	if (ret < 0) return ret;
+
+	// we need to flush
+	block_request_t *flush_request = block_create_request(block_device, BLOCK_REQUEST_FLUSH);
+	if (!flush_request)
+	flush_request->start_sector = start_sector;
+	flush_request->sectors_count = sectors_count;
+	ret = ioreq_submit_sync_interruptible(&flush_request->ioreq);
+	if (ret < 0) return ret;
+
+	cache_write_terminate(cache, offset, size, 0);
+	return 0;
 }
 
 static cache_ops_t block_cache_ops = {
