@@ -36,8 +36,19 @@ int vfs_unregister_fs(vfs_filesystem_t *fs) {
 	return 0;
 }
 
-static void vfs_destroy_superblock(vfs_superblock_t *superblock) {
+int vfs_superblock_flush(vfs_superblock_t *superblock) {
+	if (!superblock) return -EINVAL;
+	// TODO : flush dirty inodes
+	if (superblock->ops && superblock->ops->flush) {
+		int ret = 0;
+		if (ret < 0) return ret;
+	}
+	return 0;
+}
+
+static void vfs_superblock_destroy(vfs_superblock_t *superblock) {
 	if (!superblock) return;
+	vfs_superblock_flush(superblock);
 	if (superblock->ops && superblock->ops->destroy) {
 		superblock->ops->destroy(superblock);
 	} else {
@@ -63,7 +74,7 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 			ret                          = vfs_mount(target, superblock);
 			superblock->root->superblock = superblock;
 			if (ret < 0) {
-				vfs_destroy_superblock(superblock);
+				vfs_superblock_destroy(superblock);
 			}
 			return ret;
 		}
@@ -123,7 +134,7 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 		return -EINVAL;
 	}
 
-	vfs_destroy_superblock(mount_point->inode->superblock);
+	vfs_superblock_destroy(mount_point->inode->superblock);
 
 	// replace the fake dentry by the one before it
 	vfs_dentry_t *parent = mount_point->parent;

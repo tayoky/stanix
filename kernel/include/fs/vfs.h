@@ -148,6 +148,7 @@ typedef struct vfs_superblock {
 typedef struct vfs_superblock_ops {
 	void (*destroy)(vfs_superblock_t *superblock);
 	int (*flush_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
+	int (*flush)(vfs_superblock_t *superblock);
 } vfs_superblock_ops_t;
 
 #define VFS_SUPERBLOCK_NO_DCACHE 0x01
@@ -169,6 +170,8 @@ void init_vfs_fd(void);
  * @param node the inode to initialize
  */
 void vfs_init_created_node(vfs_node_t *node);
+
+int vfs_superblock_flush(vfs_superblock_t *superblock);
 
 int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock);
 
@@ -249,6 +252,8 @@ static inline vfs_node_t *vfs_node_ref(vfs_node_t *node) {
 }
 
 void vfs_node_release(vfs_node_t *node);
+
+void vfs_node_mark_dirty(vfs_node_t *node);
 
 /**
  * @brief lock an inode for writing

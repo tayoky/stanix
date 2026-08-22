@@ -142,13 +142,19 @@ void vfs_node_release(vfs_node_t *node) {
 		return;
 	}
 
-	// we can finaly close
+	vfs_node_flush(node);
 
+	// we can finnaly cleanup
 	if (node->ops->cleanup) {
 		node->ops->cleanup(node);
 	} else {
 		kfree(node);
 	}
+}
+
+void vfs_node_mark_dirty(vfs_node_t *node) {
+	// TODO : add to some kind of dirty list
+	atomic_fetch_or(&node->flags, VNODE_FLAG_DIRTY);
 }
 
 int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {
@@ -493,7 +499,7 @@ int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask) {
 	if (mask & VNODE_ATTR_ATIME) atomic_store(&node->atime, st->st_atime);
 	if (mask & VNODE_ATTR_MTIME) atomic_store(&node->mtime, st->st_mtime);
 	if (mask & VNODE_ATTR_CTIME) atomic_store(&node->ctime, st->st_ctime);
-	atomic_fetch_or(&node->flags, VNODE_FLAG_DIRTY);
+	vfs_node_mark_dirty(node);
 	return ret;
 }
 
