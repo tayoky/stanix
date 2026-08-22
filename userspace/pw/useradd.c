@@ -37,6 +37,7 @@ int useradd(int argc, char **argv) {
 		switch (opt) {
 		case 'k':
 			skel = optarg;
+			break;
 		case 'h':
 			help();
 			break;

@@ -15,7 +15,7 @@ static FILE *master;
 static FILE *master_tmp;
 
 static void master_putpwent(struct passwd *pwd, FILE *stream) {
-	fprintf(stream, "%s:%s:%d:%d:%s:%ld:%ld:%s:%s:%s\n",
+	fprintf(stream, "%s:%s:%ld:%ld:%s:%ld:%ld:%s:%s:%s\n",
 			pwd->pw_name, pwd->pw_passwd, pwd->pw_uid, pwd->pw_gid,
 			pwd->pw_class, pwd->pw_change, pwd->pw_expire,
 			pwd->pw_gecos, pwd->pw_dir, pwd->pw_shell);
@@ -54,7 +54,7 @@ static struct passwd *master_fgetpwent(FILE *stream) {
 }
 
 static void passwd_putpwent(struct passwd *pwd, FILE *stream) {
-	fprintf(stream, "%s:x:%d:%d:%s:%s:%s\n",
+	fprintf(stream, "%s:x:%ld:%ld:%s:%s:%s\n",
 			pwd->pw_name, pwd->pw_uid, pwd->pw_gid,
 			pwd->pw_gecos, pwd->pw_dir, pwd->pw_shell);
 }

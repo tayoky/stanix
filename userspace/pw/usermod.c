@@ -69,7 +69,6 @@ int usermod(int argc, char **argv) {
 
 	struct passwd *pwd;
 	int found = 0;
-	int ret = 0;
 	while ((pwd = get_pwd())) {
 		if (strcmp(pwd->pw_name, name)) {
 			put_pwd(pwd);
