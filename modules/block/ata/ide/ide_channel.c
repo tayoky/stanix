@@ -170,7 +170,6 @@ error:
 	} else {
 		if (status & IDE_SR_DRQ) {
 			kwarningf("unexpected data request status=%hhx\n", status);
-			goto error;
 		}
 	}
 	
