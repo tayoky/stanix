@@ -161,9 +161,18 @@ static ssize_t fat_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t 
 	return cache_write(&inode->cache, buffer, offset, count);
 }
 
+static int fat_flush(vfs_fd_t *fd) {
+	fat_inode_t *inode = fd->private;
+	int ret = cache_flush(&inode->cache);
+	if (ret < 0) return ret;
+	// TODO : maybe do not sync the whole disk
+	return vfs_flush(fd->inode->superblock->device);
+}
+
 static vfs_fd_ops_t fat_fd_ops = {
 	.read  = fat_read,
 	.write = fat_write,
+	.flush = fat_flush,
 };
 
 static int fat_open(vfs_fd_t *fd) {
