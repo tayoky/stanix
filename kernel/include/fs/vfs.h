@@ -132,7 +132,7 @@ typedef struct vfs_fd_ops {
 	int (*poll_add)(vfs_fd_t *, struct poll_event *);
 	int (*poll_remove)(vfs_fd_t *, struct poll_event *);
 	int (*poll_get)(vfs_fd_t *, struct poll_event *);
-	int (*flush)(vfs_fd_t *fd);
+	int (*flush)(vfs_fd_t *fd, off_t off, size_t count);
 } vfs_fd_ops_t;
 
 typedef struct vfs_superblock {
@@ -514,20 +514,24 @@ int vfs_poll_add(vfs_fd_t *fd, struct poll_event *event);
 int vfs_poll_remove(vfs_fd_t *fd, struct poll_event *event);
 int vfs_poll_get(vfs_fd_t *fd, struct poll_event *event);
 
-static inline int vfs_flush(vfs_fd_t *fd) {
+static inline int vfs_flush_range(vfs_fd_t *fd, off_t offset, size_t count) {
 	if (!fd) return -EBADF;
-	if (fd->inode) {
-		int ret = vfs_node_flush(fd->inode);
-		if (ret < 0) return ret;
-	}
 	if (!fd->ops->flush) {
 		// unlike a lot of ops we allow to not have flush
 		// it just mean the content is not buffered
 		return 0;
 	}
-	return fd->ops->flush(fd);
+	return fd->ops->flush(fd, offset, count);
 }
-	
+
+static inline vfs_flush(vfs_fd_t *fd) {
+	if (!fd) return -EBADF;
+	if (fd->inode) {
+		int ret = vfs_node_flush(fd->inode);
+		if (ret < 0) return ret;
+	}
+	return vfs_flush_range(fd, 0, SIZE_MAX);
+}
 
 int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent);
 

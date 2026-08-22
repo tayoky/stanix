@@ -97,9 +97,15 @@ static ssize_t part_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t co
 	return vfs_write(partition->dev, buf, offset + partition->offset, count);
 }
 
-static ssize_t part_flsuh(vfs_fd_t *fd) {
+static int part_flush(vfs_fd_t *fd, off_t offset, size_t count) {
 	part_t *partition = fd->private;
-	return vfs_flush(partition->dev);
+	if ((size_t)offset > partition->size) {
+		return -ERANGE;
+	}
+	if ((size_t)offset + count > partition->size) {
+		count = partition->size - offset;
+	}
+	return vfs_flush_range(partition->dev, offset + partition->offset, count);
 }
 
 static void part_destroy(device_t *device) {

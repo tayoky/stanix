@@ -175,9 +175,9 @@ static int block_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	}
 }
 
-static int block_flush(vfs_fd_t *fd) {
+static int block_flush(vfs_fd_t *fd, off_t offset, size_t count) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
-	return cache_flush_whole(&block_device->cache);
+	return cache_flush(&block_device->cache, offset, count);
 }
 
 static vfs_fd_ops_t block_ops = {
