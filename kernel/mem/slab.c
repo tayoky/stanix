@@ -4,8 +4,7 @@
 #include <kernel/slab.h>
 #include <kernel/pmm.h>
 #include <kernel/mmu.h>
-
-#define ENABLE_POISON
+#include <kernel/config.h>
 
 static list_t slabs_list;
 

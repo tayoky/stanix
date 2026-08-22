@@ -2,9 +2,9 @@
 #define KERNEL_SPINLOCK_H
 
 // deadlock detection only work on non SMP
-#define SPINLOCK_DEBUG
 
-#ifdef SPINLOCK_DEBUG
+#include <kernel/config.h>
+#ifdef ENABLE_SPINLOCK_DEBUG
 #include <kernel/macro.h>
 #include <kernel/panic.h>
 #include <kernel/print.h>
@@ -15,7 +15,7 @@
 
 typedef struct spinlock {
 	atomic_flag lock;
-#ifdef SPINLOCK_DEBUG
+#ifdef ENABLE_SPINLOCK_DEBUG
 	const char *line;
 #endif
 } spinlock_t;
@@ -23,7 +23,7 @@ typedef struct spinlock {
 void preempt_enable(void);
 void preempt_disable(void);
 	
-#ifdef SPINLOCK_DEBUG
+#ifdef ENABLE_SPINLOCK_DEBUG
 static inline void __spinlock_raw_acquire(spinlock_t *lock, const char *line) {
 	while (atomic_flag_test_and_set_explicit(&lock->lock, memory_order_acquire)) {
 		kdebugf("deadlock on %s, lock acquired at %s\n", line, lock->line);
