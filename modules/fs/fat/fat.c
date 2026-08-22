@@ -119,10 +119,10 @@ static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
 	return 0;
 }
 
-static int fat_write_pages(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
+static int fat_write_pages(cache_t *cache, off_t offset, size_t size) {
 	int ret = fat_transfer_pages(cache, offset, size, 1);
 	if (ret < 0) return 0;
-	cache_write_terminate(cache, offset, size, callback, arg);
+	cache_write_terminate(cache, offset, size);
 	return 0;
 }
 

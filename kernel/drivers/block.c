@@ -120,7 +120,7 @@ static int block_read_pages(cache_t *cache, off_t offset, size_t size) {
 }
 
 // TODO : make this async
-static int block_write_pages(cache_t *cache, off_t offset, size_t count, cache_callback_t callback, void *arg) {
+static int block_write_pages(cache_t *cache, off_t offset, size_t count) {
 	return -ENOSYS;
 }
 

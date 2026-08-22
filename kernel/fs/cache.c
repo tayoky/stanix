@@ -129,10 +129,14 @@ void init_cache(cache_t *cache) {
 	list_append(&caches, &cache->node);
 }
 
+static int cache_flush_whole_async(cache_t *cache) {
+	return cache_flush_async(cache, 0, cache->size);
+}
+
 void free_cache(cache_t *cache) {
 	list_remove(&caches, &cache->node);
 	// flush the whole thing
-	cache_flush(cache, 0, cache->size);
+	cache_flush_whole_async(cache);
 	xarray_foreach (offset, value, &cache->pages) {
 		uintptr_t page = (uintptr_t)value;
 		cached_page_free(page);
@@ -144,14 +148,8 @@ void cache_flush_all(void) {
 	// TODO : use dirty_lock
 	foreach (node, &dirty_caches) {
 		cache_t *cache = container_of(node, cache_t, dirty_node);
-		cache_flush(cache, 0, cache->size);
+		cache_flush_whole_async(cache);
 	}
-}
-
-static void signal_oneshot(cache_t *cache, void *arg) {
-	(void)cache;
-	oneshot_t *oneshot = arg;
-	oneshot_signal(oneshot);
 }
 
 static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t *start, uintptr_t *end) {
@@ -168,6 +166,10 @@ static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t
 
 static int wait_page_ready(uintptr_t page) {
 	return pmm_wait(page, PAGE_FLAG_READING, 0);
+}
+
+static int wait_page_written(uintptr_t page) {
+	return pmm_wait(page, PAGE_FLAG_WRITING, 0);
 }
 
 static void *page2value(uintptr_t page) {
@@ -191,14 +193,8 @@ static uintptr_t cache_compare_and_set_page(cache_t *cache, off_t offset, uintpt
 }
 
 uintptr_t cache_evict(void) {
-	// for now only evict inactive pages
-	uintptr_t page = lru_inactive.last;
-	if (page == PAGE_INVALID) return PAGE_INVALID;
-	page_t *page_info = pmm_page_info(page);
-	cache_t *cache    = page_info->private;
-	off_t offset      = cached_page_get_offset(page_info);
-	if (cache_uncache(cache, offset, PAGE_SIZE) < 0) return PAGE_INVALID;
-	return page;
+	// TODO
+	return PAGE_INVALID;
 }
 
 void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
@@ -214,7 +210,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size) {
 	}
 }
 
-void cache_write_terminate(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
+void cache_write_terminate(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_page(cache, addr);
@@ -224,7 +220,6 @@ void cache_write_terminate(cache_t *cache, off_t offset, size_t size, cache_call
 		pmm_wakeup(page);
 		pmm_release_page(page);
 	}
-	cache_call_callback(cache, callback, arg);
 }
 
 static uintptr_t setup_page(cache_t *cache, off_t offset, int *raced) {
@@ -267,7 +262,7 @@ uintptr_t cache_get_page(cache_t *cache, off_t offset) {
 		cache->ops->read(cache, PAGE_ALIGN_DOWN(offset), PAGE_ALIGN_DOWN(offset) + PAGE_SIZE);
 	}
 	wait_page_ready(page);
-	// TODO : put at the end of lru
+	// TODO : put at the head of lru
 	return page;
 }
 
@@ -317,55 +312,7 @@ error:
 	return 0;
 }
 
-typedef struct uncache_req {
-	off_t offset;
-	size_t size;
-	cache_callback_t callback;
-	void *arg;
-} uncache_req_t;
-
-static void uncache_callback(cache_t *cache, void *arg) {
-	uncache_req_t *req = arg;
-
-	uintptr_t start, end;
-	cache_get_range(cache, req->offset, req->size, &start, &end);
-
-	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page_and_clear(cache, addr);
-		if (page == PAGE_INVALID) {
-			// the page is not cached
-			// there is nothing to uncache
-			continue;
-		}
-		cached_page_free(page);
-	}
-	cache_callback_t callback = req->callback;
-	void *callback_arg        = req->arg;
-	kfree(req);
-	if (callback) callback(cache, callback_arg);
-}
-
-int cache_uncache_async(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
-	uncache_req_t *req = kmalloc(sizeof(uncache_req_t));
-	req->offset        = offset;
-	req->size          = size;
-	req->callback      = callback;
-	req->arg           = arg;
-	int ret            = cache_flush_async(cache, offset, size, uncache_callback, req);
-	if (ret < 0) kfree(req);
-	return ret;
-}
-
-int cache_uncache(cache_t *cache, off_t offset, size_t size) {
-	oneshot_t oneshot;
-	oneshot_init(&oneshot);
-
-	int ret = cache_uncache_async(cache, offset, size, signal_oneshot, &oneshot);
-	if (ret < 0) return ret;
-	return oneshot_wait_interruptible(&oneshot);
-}
-
-int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_t callback, void *arg) {
+int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 	if (!cache->ops || !cache->ops->write) return -EINVAL;
 
 	uintptr_t start, end;
@@ -378,7 +325,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 		if (batch_start != PAGE_INVALID && batch_end != addr) {
 			// we reached end of the batch
 			rcu_release_read(&cache->pages.rcu);
-			cache->ops->write(cache, batch_start, batch_end - batch_start, callback, arg);
+			cache->ops->write(cache, batch_start, batch_end - batch_start);
 			rcu_acquire_read(&cache->pages.rcu);
 			batch_start = PAGE_INVALID;
 			batch_end = PAGE_INVALID;
@@ -388,7 +335,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 			if (batch_start != PAGE_INVALID && batch_end != addr) {
 				// we reached end of the batch
 				rcu_release_read(&cache->pages.rcu);
-				cache->ops->write(cache, batch_start, batch_end - batch_start, callback, arg);
+				cache->ops->write(cache, batch_start, batch_end - batch_start);
 				rcu_acquire_read(&cache->pages.rcu);
 				batch_start = PAGE_INVALID;
 				batch_end = PAGE_INVALID;
@@ -410,18 +357,24 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size, cache_callback_
 	rcu_release_read(&cache->pages.rcu);
 
 	if (batch_start != PAGE_INVALID) {
-		cache->ops->write(cache, batch_start, batch_end - batch_start, callback, arg);
+		cache->ops->write(cache, batch_start, batch_end - batch_start);
 	}
 	return 0;
 }
 
 int cache_flush(cache_t *cache, off_t offset, size_t size) {
-	oneshot_t oneshot;
-	oneshot_init(&oneshot);
-
-	int ret = cache_flush_async(cache, offset, size, signal_oneshot, &oneshot);
+	int ret = cache_flush_async(cache, offset, size);
 	if (ret < 0) return ret;
-	return oneshot_wait_interruptible(&oneshot);
+
+	// wait for each page to be fully written
+	uintptr_t start, end;
+	cache_get_range(cache, offset, size, &start, &end);
+	cache_foreach_range(addr, page, cache, start, end) {
+		(void)addr;
+		ret = cache_wait_page_written(page);
+		if (ret < 0) return ret;
+	}
+	return 0;
 }
 
 // mapping cache
