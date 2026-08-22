@@ -97,7 +97,7 @@ static int block_read_pages(cache_t *cache, off_t offset, size_t size) {
 	block_device_t *block_device = container_of(cache, block_device_t, cache);
 
 	// TODO : pass pages direcly
-	char *buffer = kmalloc(size);
+	void *buffer = kmalloc(size);
 	if (!buffer) return -ENOMEM;
 
 	int ret = do_request(block_device, buffer, offset, size, BLOCK_REQUEST_READ);
@@ -106,11 +106,13 @@ static int block_read_pages(cache_t *cache, off_t offset, size_t size) {
 		return ret;
 	}
 
+	char *ptr  = buffer;
 	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_page(cache, addr);
+		kassert(page != PAGE_INVALID);
 		void *vaddr = mmu_phys2virt(page);
-		memcpy(vaddr, buffer, PAGE_SIZE);
-		buffer += PAGE_SIZE;
+		memcpy(vaddr, ptr, PAGE_SIZE);
+		ptr += PAGE_SIZE;
 	}
 
 	kfree(buffer);
