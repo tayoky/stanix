@@ -6,6 +6,7 @@
 #include <kernel/print.h>
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
+#include <kernel/config.h>
 
 #define KHEAP_MMU_FLAGS MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL
 
@@ -146,6 +147,10 @@ void free(void *ptr) {
 		spinlock_release(&kheap_lock);
 		return;
 	}
+
+#ifdef ENABLE_POISON
+	memset(ptr, 0xdd, current_seg->length);
+#endif
 
 	current_seg->magic = HEAP_SEG_MAGIC_FREE;
 

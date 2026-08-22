@@ -3,8 +3,16 @@
 
 // kernel compile time config
 
+// enable poison
+// poison with 0xaa for allocate non initalized regions
+// poison with 0xdd for freed regions
 #define ENABLE_POISON
+
+// enable kernel assertion checks
 #define ENABLE_KASSERT
-#define ENABLE_SPINLOCK_DEBUG // work only with no SMP
+
+// enable deadlock debugger
+// work only with no SMP
+#define ENABLE_SPINLOCK_DEBUG
 
 #endif
