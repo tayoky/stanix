@@ -123,35 +123,6 @@ static void cached_page_free(uintptr_t page) {
 	pmm_release_page(page);
 }
 
-void init_cache(cache_t *cache) {
-	memset(cache, 0, sizeof(cache_t));
-	xarray_init(&cache->pages);
-	list_append(&caches, &cache->node);
-}
-
-static int cache_flush_whole_async(cache_t *cache) {
-	return cache_flush_async(cache, 0, cache->size);
-}
-
-void free_cache(cache_t *cache) {
-	list_remove(&caches, &cache->node);
-	// flush the whole thing
-	cache_flush_whole_async(cache);
-	xarray_foreach (offset, value, &cache->pages) {
-		uintptr_t page = (uintptr_t)value;
-		cached_page_free(page);
-	}
-	xarray_destroy(&cache->pages);
-}
-
-void cache_flush_all(void) {
-	// TODO : use dirty_lock
-	foreach (node, &dirty_caches) {
-		cache_t *cache = container_of(node, cache_t, dirty_node);
-		cache_flush_whole_async(cache);
-	}
-}
-
 static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t *start, uintptr_t *end) {
 	*start     = PAGE_ALIGN_DOWN(offset);
 	*end       = PAGE_ALIGN_UP(offset + size);
@@ -164,17 +135,25 @@ static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t
 	}
 }
 
-static int wait_page_ready(uintptr_t page) {
-	int flags;
+static int cache_wait_page_ready(uintptr_t page) {
+	unsigned int flags;
 	int ret = pmm_wait_get(page, PAGE_FLAG_READING, 0, &flags);
 	if (ret < 0) return ret;
 	ret = -((flags & PMM_FLAG_ERROR) >> PMM_FLAG_ERROR_SHIFT);
 	return ret;
 }
 
-static int wait_page_written(uintptr_t page) {
-	int flags;
+static int cache_wait_page_written(uintptr_t page) {
+	unsigned int flags;
 	int ret = pmm_wait_get(page, PAGE_FLAG_WRITING, 0, &flags);
+	if (ret < 0) return ret;
+	ret = -((flags & PMM_FLAG_ERROR) >> PMM_FLAG_ERROR_SHIFT);
+	return ret;
+}
+
+static int cache_wait_page_no_io(uintptr_t page) {
+	unsigned int flags;
+	int ret = pmm_wait_get(page, PAGE_FLAG_WRITING | PAGE_FLAG_READING, 0, &flags);
 	if (ret < 0) return ret;
 	ret = -((flags & PMM_FLAG_ERROR) >> PMM_FLAG_ERROR_SHIFT);
 	return ret;
@@ -190,7 +169,7 @@ static uintptr_t value2page(void *value) {
 	return (uintptr_t)value;
 }
 
-static uintptr_t cache_lookup_page_and_clear(cache_t *cache, off_t offset) {
+static uintptr_t cache_lookup_and_clear_page(cache_t *cache, off_t offset) {
 	return value2page(xarray_clear(&cache->pages, PAGE2PFN(offset)));
 }
 
@@ -219,7 +198,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 		
 		if (ret < 0) {
 			// the read fail, remove the pages
-			cache_lookup_page_and_clear(cache, addr);
+			cache_lookup_and_clear_page(cache, addr);
 			pmm_release_page(page);
 		}
 
@@ -253,7 +232,7 @@ void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 	}
 }
 
-static uintptr_t setup_page(cache_t *cache, off_t offset, int *raced) {
+static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 	uintptr_t page = pmm_allocate_page();
 	if (page == PAGE_INVALID) return PAGE_INVALID;
 	
@@ -272,6 +251,21 @@ static uintptr_t setup_page(cache_t *cache, off_t offset, int *raced) {
 		pmm_release_page(page);
 		*raced = 1;
 		return new_page;
+	}
+}
+
+/**
+ * @note before calling this make sure no new I/O can be done on the pages
+ */
+static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
+	cache_foreach_range(addr, page, cache, offset, offset + size) {
+		// wait until no I/O is done
+		int ret = cache_wait_page_no_io(cache, page);
+		if (ret < 0) return ret;
+
+		page = cache_lookup_and_clear_page(cache, addr);
+		cached_page_free(page);
+		return 0;
 	}
 }
 
@@ -295,6 +289,32 @@ static int cache_write_pages(cache_t *cache, off_t offset, size_t size) {
 	return ret;
 }
 
+void init_cache(cache_t *cache) {
+	memset(cache, 0, sizeof(cache_t));
+	xarray_init(&cache->pages);
+	list_append(&caches, &cache->node);
+}
+
+static int cache_flush_whole_async(cache_t *cache) {
+	return cache_flush_async(cache, 0, cache->size);
+}
+
+void free_cache(cache_t *cache) {
+	list_remove(&caches, &cache->node);
+	// flush the whole thing
+	cache_flush_whole_async(cache);
+	cache_free_pages(cache, 0, PAGE_ALIGN_UP(cache->size));
+	xarray_destroy(&cache->pages);
+}
+
+void cache_flush_all(void) {
+	// TODO : use dirty_lock
+	foreach (node, &dirty_caches) {
+		cache_t *cache = container_of(node, cache_t, dirty_node);
+		cache_flush_whole_async(cache);
+	}
+}
+
 int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 	rcu_acquire_read(&cache->pages.rcu);
 	uintptr_t page = cache_lookup_page(cache, offset);
@@ -302,7 +322,7 @@ int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 	int ret = 0;
 	if (page == PAGE_INVALID) {
 		int raced;
-		page = setup_page(cache, addr, &raced);
+		page = cache_setup_page(cache, addr, &raced);
 		if (page == PAGE_INVALID) {
 			rcu_release_read(&cache->pages.rcu);
 			return -ENOMEM;
@@ -318,7 +338,7 @@ int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 		ret = cache_read_pages(cache, PAGE_ALIGN_DOWN(offset), PAGE_SIZE);
 	}
 	if (ret >= 0) {
-		ret = wait_page_ready(page);
+		ret = cache_wait_page_ready(page);
 	}
 	if (ret < 0) {
 		pmm_release_page(page);
@@ -354,7 +374,7 @@ already_cached:
 		}
 
 		int raced;
-		page = setup_page(cache, addr, &raced);
+		page = cache_setup_page(cache, addr, &raced);
 		if (page == PAGE_INVALID) {
 			if (batch_start != addr) {
 				ret = cache_read_pages(cache, batch_start, addr - batch_start);
@@ -625,8 +645,9 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 int cache_truncate(cache_t *cache, size_t size) {
 	// FIXME : we might need a lock for this
 	if (size < cache->size) {
-		// TODO : free pages
-		if (ret < 0) return ret;
+		uintptr_t start = PAGE_ALIGN_DOWN(size);
+		uintptr_t end   = PAGE_ALIGN_UP(cache->size);
+		cache_free_pages(cache, start, end - start);
 	}
 	cache->size = size;
 	return 0;

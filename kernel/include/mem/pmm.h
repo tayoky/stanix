@@ -195,7 +195,7 @@ int pmm_retain(uintptr_t page);
  * @param flag the value of the flag at the time when the condition became true
  * @return -EINTR if interrupted else 0
  */
-int pmm_wait_get(uintptr_t page, unsigned int mask, unsigned int value, int *flags);
+int pmm_wait_get(uintptr_t page, unsigned int mask, unsigned int value, unsigned int *flags);
 
 /**
  * @brief wait until a specified page has a masked flag equal to a value

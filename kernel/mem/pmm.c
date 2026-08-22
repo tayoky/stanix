@@ -349,10 +349,10 @@ static sleep_queue_t *pmm_get_queue(uintptr_t page) {
 	return &sleep_queues[index];
 }
 
-int pmm_wait_get(uintptr_t page, unsigned int mask, unsigned int value, int *flags) {
+int pmm_wait_get(uintptr_t page, unsigned int mask, unsigned int value, unsigned int *flags) {
 	sleep_queue_t *queue = pmm_get_queue(page);
 	page_t *page_info = pmm_page_info(page);
-	int current_flags = 0;
+	unsigned int current_flags = 0;
 	int ret = sleep_on_queue_condition_interruptible(queue, ((current_flags = atomic_load(&page_info->flags)) & mask) == value);
 	if (ret < 0) return ret;
 	if (flags) *flags = current_flags;
