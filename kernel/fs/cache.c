@@ -433,10 +433,10 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 		}
 
 		page_t *page_info = pmm_page_info(page);
-		if (atomic_fetch_or(&page_info->flags, PMM_FLAG_WRITING) & PMM_FLAG_WRITING) {
-			// already writing ???
-			// what do we do
-			// TODO : handle this
+		while (atomic_fetch_or(&page_info->flags, PMM_FLAG_WRITING) & PMM_FLAG_WRITING) {
+			// already writing
+			// wait until write complete
+			cache_wait_page_written(page);
 		}
 
 		if (batch_start == PAGE_INVALID) batch_start = addr;
