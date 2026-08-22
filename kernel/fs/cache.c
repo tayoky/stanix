@@ -373,7 +373,6 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 		uintptr_t page = cache_lookup_page(cache, addr);
 		// fast path
 		if (page != PAGE_INVALID) {
-			rcu_release_read(&cache->pages.rcu);
 already_cached:
 			// the page is already cached
 			// there is nothing to load
