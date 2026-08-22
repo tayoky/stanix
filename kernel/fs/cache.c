@@ -295,16 +295,20 @@ void init_cache(cache_t *cache) {
 	list_append(&caches, &cache->node);
 }
 
-static int cache_flush_whole_async(cache_t *cache) {
-	return cache_flush_async(cache, 0, cache->size);
-}
-
 void free_cache(cache_t *cache) {
 	list_remove(&caches, &cache->node);
 	// flush the whole thing
 	cache_flush_whole_async(cache);
 	cache_free_pages(cache, 0, PAGE_ALIGN_UP(cache->size));
 	xarray_destroy(&cache->pages);
+}
+
+int cache_flush_whole_async(cache_t *cache) {
+	return cache_flush_async(cache, 0, cache->size);
+}
+
+int cache_flush_whole(cache_t *cache) {
+	return cache_flush(cache, 0, cache->size);
 }
 
 void cache_flush_all(void) {

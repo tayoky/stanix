@@ -175,11 +175,17 @@ static int block_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	}
 }
 
+static int block_flush(vfs_fd_t *fd) {
+	block_device_t *block_device = container_of(fd->private, block_device_t, device);
+	return cache_flush_whole(&block_device->cache);
+}
+
 static vfs_fd_ops_t block_ops = {
 	.read  = block_read,
 	.write = block_write,
 	.seek  = block_seek,
 	.ioctl = block_ioctl,
+	.flush = block_flush,
 };
 
 static int block_submit_request(ioreq_t *ioreq) {
