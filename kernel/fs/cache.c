@@ -312,9 +312,17 @@ int cache_flush_whole(cache_t *cache) {
 }
 
 void cache_flush_all(void) {
-	// TODO : use dirty_lock
-	foreach (node, &dirty_caches) {
-		cache_t *cache = container_of(node, cache_t, dirty_node);
+	for (;;) {
+		spinlock_acquire(&dirty_lock);
+		if (list_is_empty(&dirty_caches)) {
+			spinlock_release(&dirty_lock);
+			break;
+		}
+		cache_t *cache = container_of(dirty_caches.first_node, cache_t, dirty_node);
+		list_remove(&dirty_caches, &cache->dirty_node);
+		spinlock_release(&dirty_lock);
+
+		// FIXME RACE : how do we make sure the cache hasen't been freed?
 		cache_flush_whole_async(cache);
 	}
 }
