@@ -93,7 +93,7 @@ static void cache_mark_page_dirty(cache_t *cache, uintptr_t page) {
 	page_t *page_info = pmm_page_info(page);
 	if (!(atomic_fetch_or(&page_info->flags, PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY)) {
 		spinlock_acquire(&dirty_lock);
-		if (cache->dirty_lock-- == 1) {
+		if (cache->dirty_count++ == 0) {
 			// this is the first dirty page
 			list_append(&dirty_caches, &cache->dirty_node);
 		}
@@ -106,7 +106,7 @@ static int cache_clear_page_dirty(cache_t *cache, uintptr_t page) {
 	int ret = atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY;
 	if (ret) {
 		spinlock_acquire(&dirty_lock);
-		if (cache->dirty_lock-- == 1) {
+		if (cache->dirty_count-- == 1) {
 			// this was the last dirty page
 			list_remove(&dirty_caches, &cache->dirty_node);
 		}
@@ -215,7 +215,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 
 void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 	uintptr_t end = offset + size;
-	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
+	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
 		page_t *page_info = pmm_page_info(page);
@@ -223,7 +223,7 @@ void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 
 		if (ret < 0) {
 			// the write failed the page return to dirty
-			cached_page_mark_dirty(cache, page);
+			cache_page_mark_dirty(cache, page);
 		}
 
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
@@ -240,9 +240,9 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 	page_info->flags &= ~(PAGE_FLAG_DIRTY);
 	page_info->flags |= PAGE_FLAG_READING;
 	page_info->private       = cache;
-	page_info->cached.offset = PAGE2PFN(addr);
+	page_info->cached.offset = PAGE2PFN(offset);
 
-	uintptr_t new_page = cache_compare_and_set_page(cache, addr, PAGE_INVALID, page);
+	uintptr_t new_page = cache_compare_and_set_page(cache, offset, PAGE_INVALID, page);
 	if (new_page == PAGE_INVALID) {
 		*raced = 0;
 		return page;
@@ -265,8 +265,8 @@ static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 
 		page = cache_lookup_and_clear_page(cache, addr);
 		cached_page_free(page);
-		return 0;
 	}
+	return 0;
 }
 
 static int cache_read_pages(cache_t *cache, off_t offset, size_t size) {
@@ -284,7 +284,7 @@ static int cache_write_pages(cache_t *cache, off_t offset, size_t size) {
 	int ret = cache->ops->write(cache, offset, size);
 	if (ret < 0) {
 		// syncronous error
-		cache_read_terminate(cache, offset, size, ret);
+		cache_write_terminate(cache, offset, size, ret);
 	}
 	return ret;
 }
@@ -519,12 +519,13 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	if (seg->flags & VMM_FLAG_PRIVATE) {
 		if (prot == MMU_FLAG_WRITE) {
 			// if we faulted for write duplicate now
-			page = pmm_dup_page(page);
+			uintptr_t new_page = pmm_dup_page(page);
 			pmm_release_page(page);
-			if (page == PAGE_INVALID) {
+			if (new_page == PAGE_INVALID) {
 				signal_send_task(get_current_task(), SIGBUS);
 				return 1;
 			}
+			page = new_page;
 		} else {
 			mapping_prot &= ~MMU_FLAG_WRITE;
 		}
