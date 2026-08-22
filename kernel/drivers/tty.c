@@ -228,7 +228,7 @@ static int tty_end_read_sleep(tty_t *tty) {
 			return 1;
 		}
 	} else {
-		if (ringbuffer_read_available(&tty->input_buffer) >= tty->termios.c_cc[VMIN]) {
+		if (ringbuffer_read_available(&tty->input_buffer) >= (size_t)tty->termios.c_cc[VMIN]) {
 			return 1;
 		}
 	}
@@ -263,7 +263,7 @@ static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count, long flags) 
 			}
 		}
 	} else {
-		if (ringbuffer_read_available(&tty->input_buffer) < tty->termios.c_cc[VMIN]) {
+		if (ringbuffer_read_available(&tty->input_buffer) < (size_t)tty->termios.c_cc[VMIN]) {
 			if (device_is_unplugged(&tty->device)) {
 				return 0;
 			} else {
@@ -316,6 +316,7 @@ static ssize_t tty_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t 
 }
 
 static int tty_poll_add(vfs_fd_t *fd, poll_event_t *event) {
+	(void)event;
 	tty_t *tty = (tty_t *)fd->private;
 	int irq_save = spinlock_acquire_irq(&tty->lock);
 	// cannot wait on disconnected ttys
@@ -327,6 +328,7 @@ static int tty_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 }
 
 static int tty_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	(void)event;
 	tty_t *tty = (tty_t *)fd->private;
 	int irq_save = spinlock_acquire_irq(&tty->lock);
 	sleep_remove_from_queue(&tty->reader_queue);
@@ -339,9 +341,9 @@ static int tty_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	int irq_save = spinlock_acquire_irq(&tty->lock);
 	if (device_is_unplugged(&tty->device)) event->revents |= POLLHUP;
 	if (tty->termios.c_lflag & ICANON) {
-		if (tty->lines > 0) event->revents |= POLLIN;
+		if (tty->lines_count > 0) event->revents |= POLLIN;
 	} else {
-		if (ringbuffer_read_available(&tty->input_buffer) >= tty->termios.c_cc[VMIN]) event->revents |= POLLIN;
+		if (ringbuffer_read_available(&tty->input_buffer) >= (size_t)tty->termios.c_cc[VMIN]) event->revents |= POLLIN;
 	}
 
 	// technically we sometimes cannot write
@@ -384,7 +386,6 @@ static int tty_termios_update(tty_t *tty, struct termios *new) {
 			tty->lines_count = 0;
 		}
 		tty->canon_index = 0;
-		wakeup_queue(&tty->reader_queue, 0);
 	}
 	if (!(new->c_lflag & ICANON) && (tty->termios.c_lflag & ICANON)) {
 		// exiting canonical mode
@@ -395,6 +396,10 @@ static int tty_termios_update(tty_t *tty, struct termios *new) {
 	}
 
 	tty->termios = *new;
+	
+	// modifing termios can change wakeup conditions
+	wakeup_queue(&tty->reader_queue, 0);
+
 	return 0;
 }
 

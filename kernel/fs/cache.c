@@ -139,7 +139,7 @@ static int cache_wait_page_ready(uintptr_t page) {
 	unsigned int flags;
 	int ret = pmm_wait_get(page, PAGE_FLAG_READING, 0, &flags);
 	if (ret < 0) return ret;
-	ret = -((flags & PMM_FLAG_ERROR) >> PMM_FLAG_ERROR_SHIFT);
+	ret = -((flags & PAGE_FLAG_ERROR) >> PAGE_FLAG_ERROR_SHIFT);
 	return ret;
 }
 
@@ -147,7 +147,7 @@ static int cache_wait_page_written(uintptr_t page) {
 	unsigned int flags;
 	int ret = pmm_wait_get(page, PAGE_FLAG_WRITING, 0, &flags);
 	if (ret < 0) return ret;
-	ret = -((flags & PMM_FLAG_ERROR) >> PMM_FLAG_ERROR_SHIFT);
+	ret = -((flags & PAGE_FLAG_ERROR) >> PAGE_FLAG_ERROR_SHIFT);
 	return ret;
 }
 
@@ -155,7 +155,7 @@ static int cache_wait_page_no_io(uintptr_t page) {
 	unsigned int flags;
 	int ret = pmm_wait_get(page, PAGE_FLAG_WRITING | PAGE_FLAG_READING, 0, &flags);
 	if (ret < 0) return ret;
-	ret = -((flags & PMM_FLAG_ERROR) >> PMM_FLAG_ERROR_SHIFT);
+	ret = -((flags & PAGE_FLAG_ERROR) >> PAGE_FLAG_ERROR_SHIFT);
 	return ret;
 }
 
@@ -185,8 +185,8 @@ uintptr_t cache_evict(void) {
 }
 
 static void cached_page_set_error(page_t *page_info, int ret) {
-	atomic_fetch_and(&page_info->flags, ~PMM_FLAG_ERROR);
-	atomic_fetch_or(&page_info->flags, ((uint16_t)-ret) << PMM_FLAG_ERROR_SHIFT);
+	atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_ERROR);
+	atomic_fetch_or(&page_info->flags, ((uint16_t)-ret) << PAGE_FLAG_ERROR_SHIFT);
 }
 
 void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
@@ -223,7 +223,7 @@ void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 
 		if (ret < 0) {
 			// the write failed the page return to dirty
-			cache_page_mark_dirty(cache, page);
+			cache_mark_page_dirty(cache, page);
 		}
 
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
@@ -260,7 +260,7 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 	cache_foreach_range(addr, page, cache, offset, offset + size) {
 		// wait until no I/O is done
-		int ret = cache_wait_page_no_io(cache, page);
+		int ret = cache_wait_page_no_io(page);
 		if (ret < 0) return ret;
 
 		page = cache_lookup_and_clear_page(cache, addr);
@@ -334,7 +334,7 @@ int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 	int ret = 0;
 	if (page == PAGE_INVALID) {
 		int raced;
-		page = cache_setup_page(cache, addr, &raced);
+		page = cache_setup_page(cache, offset, &raced);
 		if (page == PAGE_INVALID) {
 			rcu_release_read(&cache->pages.rcu);
 			return -ENOMEM;
@@ -400,7 +400,7 @@ already_cached:
 	}
 
 	if (batch_start != end) {
-		ret = cache_read_pages(cache, batch_start, addr - batch_start);
+		ret = cache_read_pages(cache, batch_start, end - batch_start);
 		if (ret < 0) return ret;
 	}
 
@@ -441,7 +441,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 		}
 
 		page_t *page_info = pmm_page_info(page);
-		while (atomic_fetch_or(&page_info->flags, PMM_FLAG_WRITING) & PMM_FLAG_WRITING) {
+		while (atomic_fetch_or(&page_info->flags, PAGE_FLAG_WRITING) & PAGE_FLAG_WRITING) {
 			// already writing
 			// wait until write complete
 			cache_wait_page_written(page);
@@ -484,6 +484,8 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 	// never sync private mappings
 	if (seg->flags & VMM_FLAG_PRIVATE) return 0;
 
+	cache_t *cache = seg->private_data;
+
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = mmu_virt2phys((void *)addr);
 		long mmu_flags = mmu_get_flags(get_current_proc()->vmm_space.addrspace, addr);
@@ -494,7 +496,7 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 	}
 
 	if (flags & VMM_FLAG_SYNC) {
-		return cache_flush(seg->private_data, seg->offset + start - seg->start, end - start);
+		return cache_flush(cache, seg->offset + start - seg->start, end - start);
 	} else {
 		return 0;
 	}

@@ -86,20 +86,6 @@ static rman_seg_t *rman_get_seg_before(rman_t *rman, size_t addr) {
 	return prev;
 }
 
-static rman_seg_t *rman_get_seg_at(rman_t *rman, size_t addr) {
-	foreach (node, &rman->segs) {
-		rman_seg_t *seg = container_of(node, rman_seg_t, node);
-		if (seg->start <= addr && seg->start + seg->size > addr) {
-			return seg;
-		}
-		if (seg->start > addr) {
-			// we are beyond
-			break;
-		}
-	}
-	return NULL;
-}
-
 static int rman_seg_is_allocated(rman_seg_t *seg) {
 	return seg->devnode != NULL;
 }

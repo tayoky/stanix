@@ -104,6 +104,7 @@ static void input_device_close(vfs_fd_t *fd) {
 }
 
 static int input_device_poll_add(vfs_fd_t *fd, poll_event_t *event) {
+	(void)event;
 	input_device_t *input_device = fd->private;
 	int irq_save = spinlock_acquire_irq(&input_device->lock);
 	// cannot wait on unplugged device
@@ -115,6 +116,7 @@ static int input_device_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 }
 
 static int input_device_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	(void)event;
 	input_device_t *input_device = fd->private;
 	int irq_save = spinlock_acquire_irq(&input_device->lock);
 	sleep_remove_from_queue(&input_device->sleep_queue);

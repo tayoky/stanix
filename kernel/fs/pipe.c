@@ -108,6 +108,7 @@ static ssize_t pipe_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t
 }
 
 static int pipe_poll_add(vfs_fd_t *fd, poll_event_t *event) {
+	(void)event;
 	pipe_t *pipe = (pipe_t *)fd->private;
 	spinlock_acquire(&pipe->lock);
 	
@@ -125,6 +126,7 @@ static int pipe_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 }
 
 static int pipe_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	(void)event;
 	pipe_t *pipe = (pipe_t *)fd->private;
 	spinlock_acquire(&pipe->lock);
 

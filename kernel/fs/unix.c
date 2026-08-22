@@ -162,6 +162,7 @@ static ssize_t unix_sendmsg(socket_t *sock, const struct msghdr *message, int fl
 }
 
 static int unix_poll_add(socket_t *sock, poll_event_t *event) {
+	(void)event;
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	switch (socket->socket.state) {
 	case SOCKET_STATE_DISCONNECTED:
@@ -176,6 +177,7 @@ static int unix_poll_add(socket_t *sock, poll_event_t *event) {
 }
 
 static int unix_poll_remove(socket_t *sock, poll_event_t *event) {
+	(void)event;
 	unix_socket_t *socket = container_of(sock, unix_socket_t, socket);
 	switch (socket->socket.state) {
 	case SOCKET_STATE_DISCONNECTED:

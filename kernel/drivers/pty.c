@@ -80,6 +80,7 @@ static ssize_t pty_master_raw_read(pty_t *pty, void *buffer, size_t count, long 
 }
 
 static ssize_t pty_master_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
+	(void)offset;
 	pty_t *pty = (pty_t *)fd->private;
 	spinlock_acquire(&pty->lock);
 	ssize_t ret = pty_master_raw_read(pty, buffer, count, fd->flags);
@@ -163,6 +164,7 @@ static int pty_master_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 }
 
 static int pty_master_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
+	(void)event;
 	pty_t *pty = (pty_t *)fd->private;
 
 	spinlock_acquire(&pty->lock);
