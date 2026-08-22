@@ -210,6 +210,7 @@ static void cached_page_set_error(page_t *page_info, int ret) {
 	atomic_fetch_or(&page_info->flags, ((uint16_t)-ret) << PMM_FLAG_ERROR_SHIFT);
 }
 
+// TODO : remove pages from cache on fail
 void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 	uintptr_t end = offset + size;
 	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
@@ -259,13 +260,18 @@ static uintptr_t setup_page(cache_t *cache, off_t offset, int *raced) {
 	}
 }
 
-uintptr_t cache_get_page(cache_t *cache, off_t offset) {
+int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 	rcu_acquire_read(&cache->pages.rcu);
 	uintptr_t page = cache_lookup_page(cache, offset);
 	int need_read = 0;
+	int ret = 0;
 	if (page == PAGE_INVALID) {
 		int raced;
 		page = setup_page(cache, addr, &raced);
+		if (page == PAGE_INVALID) {
+			rcu_release_read(&cache->pages.rcu);
+			return -ENOMEM;
+		}	
 		if (!raced) {
 			need_read = 1;
 		}
@@ -274,11 +280,19 @@ uintptr_t cache_get_page(cache_t *cache, off_t offset) {
 	rcu_release_read(&cache->pages.rcu);
 	if (need_read) {
 		// we need to load the page
-		cache->ops->read(cache, PAGE_ALIGN_DOWN(offset), PAGE_ALIGN_DOWN(offset) + PAGE_SIZE);
+		// TODO : run cache_read_terminate on fail
+		ret = cache->ops->read(cache, PAGE_ALIGN_DOWN(offset), PAGE_ALIGN_DOWN(offset) + PAGE_SIZE);
 	}
-	wait_page_ready(page);
+	if (ret >= 0) {
+		ret = wait_page_ready(page);
+	}
+	if (ret < 0) {
+		pmm_release_page(page);
+		return ret;
+	}
 	// TODO : put at the head of lru
-	return page;
+	*page_ret = page;
+	return 0;
 }
 
 int cache_preload(cache_t *cache, off_t offset, size_t size) {
@@ -429,8 +443,9 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
 	off_t offset    = vpage - seg->start + seg->offset;
 
-	uintptr_t page = cache_get_page(cache, offset);
-	if (page == PAGE_INVALID) {
+	uintptr_t page;
+	int ret = cache_get_page(cache, offset, &page);
+	if (ret < 0) {
 		// the page is not cached
 		// we are cooked
 		kdebugf("uncached mapped page access\n");
@@ -504,11 +519,10 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	char *buf = buffer;
 	ssize_t total = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page(cache, addr);
-		if (page == PAGE_INVALID) {
-			ret = -EIO;
-			break;
-		}
+		uintptr_t page;
+		ret = cache_get_page(cache, addr, &page);
+		if (ret < 0) break;
+		
 		uintptr_t page_start = 0;
 		uintptr_t page_end   = PAGE_SIZE;
 		if (addr == start) {
@@ -543,11 +557,10 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 	const char *buf = buffer;
 	ssize_t total = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_get_page(cache, addr);
-		if (page == PAGE_INVALID) {
-			ret = -EIO;
-			break;
-		}
+		uintptr_t page;
+		ret = cache_get_page(cache, addr, &page);
+		if (ret < 0) break;
+		
 		uintptr_t page_start = 0;
 		uintptr_t page_end   = PAGE_SIZE;
 		if (addr == start) {

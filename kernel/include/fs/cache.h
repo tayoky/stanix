@@ -25,7 +25,7 @@ typedef struct cache {
 
 void init_cache(cache_t *cache);
 void free_cache(cache_t *cache);
-uintptr_t cache_get_page(cache_t *cache, off_t offset);
+int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page);
 int cache_preload(cache_t *cache, off_t offset, size_t size);
 int cache_flush_async(cache_t *cache, off_t offset, size_t size);
 int cache_flush(cache_t *cache, off_t offset, size_t size);
