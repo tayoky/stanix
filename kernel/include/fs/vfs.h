@@ -132,6 +132,7 @@ typedef struct vfs_fd_ops {
 	int (*poll_add)(vfs_fd_t *, struct poll_event *);
 	int (*poll_remove)(vfs_fd_t *, struct poll_event *);
 	int (*poll_get)(vfs_fd_t *, struct poll_event *);
+	int (*flush)(vfs_fd_t *fd);
 } vfs_fd_ops_t;
 
 typedef struct vfs_superblock {
@@ -146,8 +147,7 @@ typedef struct vfs_superblock {
 
 typedef struct vfs_superblock_ops {
 	void (*destroy)(vfs_superblock_t *superblock);
-	int (*write_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
-	int (*read_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
+	int (*flush_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
 } vfs_superblock_ops_t;
 
 #define VFS_SUPERBLOCK_NO_DCACHE 0x01
@@ -371,19 +371,20 @@ static inline int vfs_update_time(vfs_node_t *node, int mask) {
 
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
+
 /**
- * @brief write an inode back to disk
+ * @brief flush an inode back to disk
  * @param node the node to writeback
  */
-static inline int vfs_node_write(vfs_node_t *node) {
+static inline int vfs_node_flush(vfs_node_t *node) {
 	if (!node) return -EBADF;
-	if (!atomic_fetch_and(&node->flags, ~VNODE_FLAG_DIRTY)) {
+	if (!(atomic_fetch_and(&node->flags, ~VNODE_FLAG_DIRTY) & VNODE_FLAG_DIRTY)) {
 		// not dirty
 		return 0;
 	}
 	kassert(node->superblock);
-	if (!node->superblock->ops || !node->superblock->ops->write_inode) return -EOPNOTSUPP;
-	return node->superblock->ops->write_inode(node->superblock, node);
+	if (!node->superblock->ops || !node->superblock->ops->flush_inode) return 0;
+	return node->superblock->ops->flush_inode(node->superblock, node);
 }
 
 // fds operations
@@ -512,6 +513,21 @@ static inline int vfs_mmap(vfs_fd_t *fd, off_t offset, struct vmm_seg *seg) {
 int vfs_poll_add(vfs_fd_t *fd, struct poll_event *event);
 int vfs_poll_remove(vfs_fd_t *fd, struct poll_event *event);
 int vfs_poll_get(vfs_fd_t *fd, struct poll_event *event);
+
+static inline int vfs_flush(vfs_fd_t *fd) {
+	if (!fd) return -EBADF;
+	if (fd->inode) {
+		int ret = vfs_node_flush(fd->inode);
+		if (ret < 0) return ret;
+	}
+	if (!fd->ops->flush) {
+		// unlike a lot of ops we allow to not have flush
+		// it just mean the content is not buffered
+		return 0;
+	}
+	return fd->ops->flush(fd);
+}
+	
 
 int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent);
 
