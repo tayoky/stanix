@@ -53,8 +53,9 @@ static inline uintptr_t cache_lookup_and_ref_page(cache_t *cache, off_t offset) 
 		rcu_release_read(&cache->pages.rcu);
 		return PAGE_INVALID;
 	}
+	pmm_retain(page);
 	rcu_release_read(&cache->pages.rcu);
-	return pmm_retain(page);
+	return page;
 }
 
 static inline uintptr_t cache_get_next_page(cache_t *cache, off_t after, off_t *offset) {
