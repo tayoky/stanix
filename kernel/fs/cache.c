@@ -649,7 +649,7 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 int cache_truncate(cache_t *cache, size_t size) {
 	// FIXME : we might need a lock for this
 	if (size < cache->size) {
-		uintptr_t start = PAGE_ALIGN_DOWN(size);
+		uintptr_t start = PAGE_ALIGN_UP(size);
 		uintptr_t end   = PAGE_ALIGN_UP(cache->size);
 		cache_free_pages(cache, start, end - start);
 	}
