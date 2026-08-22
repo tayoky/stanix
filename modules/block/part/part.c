@@ -97,6 +97,11 @@ static ssize_t part_write(vfs_fd_t *fd, const void *buf, off_t offset, size_t co
 	return vfs_write(partition->dev, buf, offset + partition->offset, count);
 }
 
+static ssize_t part_flsuh(vfs_fd_t *fd) {
+	part_t *partition = fd->private;
+	return vfs_flush(partition->dev);
+}
+
 static void part_destroy(device_t *device) {
 	part_t *part = (part_t *)device;
 	vfs_close(part->dev);
@@ -107,6 +112,7 @@ static vfs_fd_ops_t part_ops = {
 	.read  = part_read,
 	.write = part_write,
 	.ioctl = part_ioctl,
+	.flush = part_flush,
 };
 
 static int part_major;
