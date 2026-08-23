@@ -405,6 +405,8 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 		goto error;
 	}
 
+	vfs_node_acquire_write(parent_entry->inode);
+
 	// permission checking
 	struct stat parent_st;
 	struct stat child_st;
@@ -413,22 +415,28 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	if (parent_st.st_mode & S_ISVTX) {
 		// special case for sticky bit
 		if (parent_st.st_uid != get_current_euid() && child_st.st_uid != get_current_euid()) {
-			return -EACCES;
+			vfs_node_release_write(parent_entry->inode);
+			ret = -EACCES;
+			goto error;
 		}
 
 	} else {
 		if (!(vfs_perm(parent_entry->inode) & PERM_WRITE)) {
-			return -EACCES;
+			vfs_node_release_write(parent_entry->inode);
+			ret = -EACCES;
+			goto error;
 		}
 	}
 
 	// call unlink on the parent
 	vfs_node_t *parent = parent_entry->inode;
 	if (!parent->ops || !parent->ops->unlink) {
+		vfs_node_release_write(parent_entry->inode);
 		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = parent->ops->unlink(parent, dentry);
+	vfs_node_release_write(parent_entry->inode);
 	if (ret < 0) goto error;
 
 	vfs_unlink_dentry(dentry);
@@ -465,6 +473,8 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 		goto error;
 	}
 
+	vfs_node_acquire_write(parent_entry->inode);
+
 	// permission checking
 	struct stat parent_st;
 	struct stat child_st;
@@ -473,22 +483,28 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	if (parent_st.st_mode & S_ISVTX) {
 		// special case for sticky bit
 		if (parent_st.st_uid != get_current_euid() && child_st.st_uid != get_current_euid()) {
-			return -EACCES;
+			vfs_node_release_write(parent_entry->inode);
+			ret = -EACCES;
+			goto error;
 		}
 
 	} else {
 		if (!(vfs_perm(parent_entry->inode) & PERM_WRITE)) {
-			return -EACCES;
+			vfs_node_release_write(parent_entry->inode);
+			ret = -EACCES;
+			goto error;
 		}
 	}
 
 	// call rmdir on the parent
 	vfs_node_t *parent = parent_entry->inode;
 	if (!parent->ops || !parent->ops->rmdir) {
+		vfs_node_release_write(parent_entry->inode);
 		ret = -EOPNOTSUPP;
 		goto error;
 	}
 	ret = parent->ops->rmdir(parent, dentry);
+	vfs_node_release_write(parent_entry->inode);
 	if (ret < 0) goto error;
 
 	vfs_unlink_dentry(dentry);
