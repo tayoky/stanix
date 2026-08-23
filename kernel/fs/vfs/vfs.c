@@ -38,7 +38,17 @@ int vfs_unregister_fs(vfs_filesystem_t *fs) {
 
 int vfs_superblock_flush(vfs_superblock_t *superblock) {
 	if (!superblock) return -EINVAL;
-	// TODO : flush dirty inodes
+	// TODO : maybee use a dedicated dirty list
+	rcu_acquire_read(&superblock->inodes.rcu);
+	foreach (index, value, &superblock->inodes) {
+		vfs_node_t *node = value;
+		vfs_node_ref(node);
+		rcu_release_read(&superblock->inodes.rcu);
+		vfs_node_flush(node);
+		vfs_node_release(node(;
+		rcu_acquire_read(&superblock->inodes.rcu);
+	}
+	rcu_release_read(&superblock->inodes.rcu);
 	if (superblock->ops && superblock->ops->flush) {
 		int ret = 0;
 		if (ret < 0) return ret;

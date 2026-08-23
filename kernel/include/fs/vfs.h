@@ -65,6 +65,7 @@ struct vfs_node {
 };
 
 #define VNODE_FLAG_DIRTY 0x01
+#define VNODE_FLAG_NEW   0x02 // newly created (and unpopulated)
 
 /**
  * @brief represent a directory entry
@@ -152,6 +153,7 @@ struct vfs_superblock_ops {
 	void (*destroy)(vfs_superblock_t *superblock);
 	int (*flush_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
 	int (*flush)(vfs_superblock_t *superblock);
+	vfs_node_t (*allocate_inode)(vfs_superblock_t *superblock);
 };
 
 #define VFS_SUPERBLOCK_NO_DCACHE 0x01
@@ -166,6 +168,8 @@ void init_vfs(void);
 void init_vfs_dentry(void);
 void init_vfs_fd(void);
 
+int vfs_superblock_flush(vfs_superblock_t *superblock);
+
 // inode operations
 
 /**
@@ -174,7 +178,16 @@ void init_vfs_fd(void);
  */
 void vfs_init_created_node(vfs_node_t *node);
 
-int vfs_superblock_flush(vfs_superblock_t *superblock);
+vfs_node_t *vfs_node_allocate(vfs_superblock_t *superblock);
+
+/**
+ * @brief lookup an inode in the inode cache and create it if needed
+ * @param superblock the superblock to lookup into
+ * @param inode_number the inode number to lookup
+ * @return the inode or NULL on errors
+ * @note this create a new ref to the inode and if the inode needed to be created it return with the write lock acquired and the new flag set
+ */
+vfs_node_t *vfs_node_get(vfs_superblock_t *superblock, ino_t inode_number);
 
 int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock);
 
@@ -639,22 +652,6 @@ void dentry_add_lru(vfs_dentry_t *dentry);
 void vfs_dentry_remove_lru(vfs_dentry_t *dentry);
 void vfs_dentry_add(vfs_dentry_t *parent, vfs_dentry_t *child);
 void vfs_dentry_remove(vfs_dentry_t *dentry);
-
-static inline vfs_node_t *vfs_node_cache_lookup(vfs_superblock_t *superblock, vfs_dentry_t *dentry) {
-	vfs_node_t *node = dentry->inode;
-	if (node) {
-		return vfs_node_ref(node);
-	}
-	rcu_acquire_read(&superblock->inodes.rcu);
-	node = xarray_get(&superblock->inodes, dentry->inode_number);
-	if (node) {
-		dentry->inode = vfs_node_ref(node);
-		rcu_release_read(&superblock->inodes.rcu);
-		return vfs_node_ref(node);
-	}
-	rcu_release_read(&superblock->inodes.rcu);
-	return NULL;
-}
 
 static inline int vfs_dentry_is_negative(vfs_dentry_t *dentry) {
 	return dentry->inode == NULL;

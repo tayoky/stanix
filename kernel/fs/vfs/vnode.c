@@ -60,6 +60,39 @@ void vfs_init_created_node(vfs_node_t *node) {
 	node->atime = node->mtime = node->ctime = gettime_sec(CLOCK_REALTIME);
 }
 
+vfs_node_t *vfs_node_allocate(vfs_superblock_t *superblock) {
+	if (!superblock || !superblock->ops || !superblock->ops->allocate_inode) return NULL;
+	vfs_node_t *node = superblock->ops->allocate_inode(superblock);
+	if (!node) return NULL;
+	memset(node, 0, sizeof(vfs_node_t));
+	node->flags |= VNODE_FLAG_NEW;
+	node->ref_count = 1;
+	return node;
+}
+
+vfs_node_t *vfs_node_get(vfs_superblock_t *superblock, ino_t inode_number) {
+	rcu_acquire_read(&superblock->inodes.rcu);
+	vfs_node_t *node = xarray_get(&superblock->inode, inode_number);
+	if (node) return node;
+	rcu_release_read(&superblock->inodes.rcu);
+
+	// the node is not cached, create it
+	node = vfs_node_allocate(superblock);
+	if (!node) return NULL;
+
+	// FIXME RACE : fix when we get xarray_raw_cmpxchg
+	vfs_node_t *old_node = xarray_cmpxchg(&superblock->inodes, NULL, node);
+	if (old_node) {
+		// we raced
+		vfs_node_ref(old_node);
+		vfs_node_release(node);
+		return old_node;
+	}
+
+	vfs_node_acquire_write(node);	
+	return node;
+}
+
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 	if (!S_ISLNK(node->mode)) {
 		return -ENOLINK;
@@ -144,7 +177,11 @@ void vfs_node_release(vfs_node_t *node) {
 
 	vfs_node_flush(node);
 
-	// we can finnaly cleanup
+	// remove from the cache
+	// FIXME : we have a race if someone get a new ref while le we clear
+	xarray_clear(&superblock, node->inode_number);
+
+	// we can cleanup
 	if (node->ops->cleanup) {
 		node->ops->cleanup(node);
 	} else {
