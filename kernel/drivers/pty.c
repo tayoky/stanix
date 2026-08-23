@@ -139,7 +139,7 @@ static int pty_master_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	switch (request) {
 	case TIOCGPTPEER:;
 		vfs_fd_t *slave_fd = device_open(&pty->slave->tty.device, O_RDWR);
-		return add_fd(slave_fd, 0);
+		return fd_add(slave_fd, 0);
 	default:
 		return tty_do_ioctl(&pty->slave->tty, request, arg);
 	};

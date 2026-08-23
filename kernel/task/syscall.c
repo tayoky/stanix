@@ -74,7 +74,7 @@ int sys_open(const char *path, int flags, mode_t mode) {
 		fd_flags |= FD_CLOEXEC;
 	}
 
-	int fd = add_fd(vfs_fd, fd_flags);
+	int fd = fd_add(vfs_fd, fd_flags);
 	if (fd < 0) {
 		vfs_close(vfs_fd);
 	}
@@ -82,27 +82,32 @@ int sys_open(const char *path, int flags, mode_t mode) {
 }
 
 int sys_close(int fd) {
-	return close_fd(fd);
+	vfs_fd_t *fd = fd_get_and_remove(fd);
+	if (!fd) return -EBADF;
+	vfs_close(fd);
+	return 0;
 }
 
 ssize_t sys_write(int fd, const void *buffer, size_t count) {
 	if (!CHECK_MEM(buffer, count)) return -EFAULT;
 
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
 
-	return vfs_user_write(file.fd, buffer, count);
+	ssize_t ret = vfs_user_write(vfs_fd, buffer, count);
+	vfs_close(vfs_fd);
+	return ret;
 }
 
 ssize_t sys_read(int fd, void *buffer, size_t count) {
 	if (!CHECK_MEM(buffer, count)) return -EFAULT;
 
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
 	
-	return vfs_user_read(file.fd, buffer, count);
+	ssize_t ret = vfs_user_read(vfs_fd, buffer, count);
+	vfs_close(vfs_fd);
+	return ret;
 }
 
 void sys_exit(int error_code) {
@@ -112,13 +117,11 @@ void sys_exit(int error_code) {
 }
 
 int sys_dup(int oldfd) {
-	file_descriptor_t file;
-	int ret = get_fd(oldfd, &file);
-	if (ret < 0) return ret;
+	long flags;
+	vfs_fd_t *vfs_fd = fd_get_flags(fd, &flags);
+	if (!vfs_fd) return -EBADF;
 
-	vfs_fd_t *vfs_fd = vfs_dup(file.fd);
-
-	ret = add_fd(vfs_fd, file.flags);
+	int ret = fd_add(vfs_fd, flags);
 	if (ret < 0) {
 		vfs_close(vfs_fd);
 	}
@@ -130,37 +133,32 @@ int sys_dup2(int oldfd, int newfd) {
 	if (oldfd == newfd) {
 		return newfd;
 	}
-	if (newfd < 0 || newfd >= MAX_FD) {
-		return -EBADF;
-	}
+	if (newfd < 0) return -EBADF;
 
-	file_descriptor_t old_file;
-	int ret = get_fd(oldfd, &old_file);
-	if (ret < 0) return ret;
-	// TODO : make this safer
-	file_descriptor_t *new_file = &get_current_proc()->fd_table.fds[newfd];
+	long flags;
+	vfs_fd_t *fd = fd_get_flags(oldfd, &flags);
+	if (!fd) return -EBADF;
+
+	vfs_fd_t *old_fd = fd_set(newfd, fd, flags);
 
 	// we can close if aready open
-	if (new_file->present) {
-		close_fd(newfd);
+	if (old_fd) {
+		vfs_close(old_fd);
 	}
 
-	// make the actual copy
-	new_file->fd = vfs_dup(old_file.fd);
-	new_file->present = 1;
-	new_file->flags  = old_file.flags;
 	return newfd;
 }
 
 off_t sys_seek(int fd, off_t offset, int whence) {
-	if (whence > 2) {
+	if (whence > SEEK_END) {
 		return -EINVAL;
 	}
 
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
-	return vfs_seek(file.fd, offset, whence);
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
+	off_t ret = vfs_seek(vfs_fd, offset, whence);
+	vfs_close(vfs_fd);
+	return ret;
 }
 
 uint64_t sys_sbrk(intptr_t incr) {
@@ -185,12 +183,13 @@ uint64_t sys_sbrk(intptr_t incr) {
 	return proc->heap_end;
 }
 
-int sys_ioctl(int fd, uint64_t request, void *arg) {
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
+int sys_ioctl(int fd, long request, void *arg) {
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
 
-	return vfs_ioctl(file.fd, request, arg);
+	int ret = vfs_ioctl(vfs_fd, request, arg);
+	vfs_close(vfs_fd);
+	return ret;
 }
 
 int sys_nanosleep(const struct timespec *duration, struct timespec *rem) {
@@ -224,13 +223,13 @@ int sys_pipe(int pipefd[2]) {
 	int ret = pipe_create(&read_vfs_fd, &write_vfs_fd);
 	if (ret < 0) return ret;
 
-	int read_fd = add_fd(read_vfs_fd, 0);
+	int read_fd = fd_add(read_vfs_fd, 0);
 	if (read_fd < 0) {
 		vfs_close(read_vfs_fd);
 		vfs_close(write_vfs_fd);
 		return read_fd;
 	}
-	int write_fd = add_fd(write_vfs_fd, 0);
+	int write_fd = fd_add(write_vfs_fd, 0);
 	if (write_fd < 0) {
 		sys_close(read_fd);
 		vfs_close(write_vfs_fd);
@@ -242,8 +241,8 @@ int sys_pipe(int pipefd[2]) {
 		write_fd,
 	};
 	if (user_copy_auto_to(pipefd, &kpipefd) < 0) {
-		close_fd(kpipefd[0]);
-		close_fd(kpipefd[1]);
+		sys_close(kpipefd[0]);
+		sys_close(kpipefd[1]);
 		return -EFAULT;
 	}
 	return 0;
@@ -294,11 +293,11 @@ int sys_mkdir(const char *path, mode_t mode) {
 int sys_readdir(int fd, struct dirent *dirent, long int index) {
 	if (!CHECK_STRUCT(dirent)) return -EFAULT;
 
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
-
-	return vfs_readdir(file.fd->inode, index, dirent);
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
+	int ret = vfs_readdir(vfs_fd->inode, index, dirent);
+	vfs_close(vfs_fd);
+	return ret;
 }
 
 int sys_stat(const char *pathname, struct stat *st) {
@@ -332,12 +331,12 @@ int sys_lstat(const char *pathname, struct stat *st) {
 }
 
 int sys_fstat(int fd, struct stat *st) {
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
 	
 	struct stat kst;
-	ret = vfs_getattr(file.fd->inode, &kst);
+	int ret = vfs_getattr(vfs_fd->inode, &kst);
+	vfs_close(vfs_fd);
 	if (ret < 0) return ret;
 
 	return user_copy_auto_to(st, &kst);
@@ -503,12 +502,13 @@ int sys_rmmod(const char *name) {
 }
 
 int sys_isatty(int fd) {
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
 
 	struct termios t;
-	if (vfs_ioctl(file.fd, TIOCGETA, &t) == 0) {
+	int ret = vfs_ioctl(vfs_fd, TIOCGETA, &t);
+	vfs_close(vfs_fd);
+	if (ret == 0) {
 		return 1;
 	} else {
 		return -ENOTTY;
@@ -533,16 +533,16 @@ int sys_openpty(int *amaster, int *aslave, char *name, const struct termios *ter
 	int ret = new_pty(&master_vfs_fd, &slave_vfs_fd, &tty);
 	if (ret < 0) return ret;
 
-	int master_fd = add_fd(master_vfs_fd, 0);
+	int master_fd = fd_add(master_vfs_fd, 0);
 	if (master_fd < 0) {
 		vfs_close(master_vfs_fd);
 		vfs_close(slave_vfs_fd);
 		return master_fd;
 	}
 	
-	int slave_fd = add_fd(slave_vfs_fd, 0);
+	int slave_fd = fd_add(slave_vfs_fd, 0);
 	if (slave_fd < 0) {
-		close_fd(master_fd);
+		sys_close(master_fd);
 		vfs_close(slave_vfs_fd);
 		return slave_fd;
 	}
@@ -583,37 +583,42 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 		}
 	}
 
+	int ret = 0;
 	poll_t poll;
 	poll_init(&poll);
 	for (nfds_t i=0; i<nfds; i++) {
-		file_descriptor_t file;
-		int ret = get_fd(fds[i].fd, &file);
-		if (ret < 0) {
+		vfs_fd_t *vfs_fd = fd_get(fd);
+		if (!vfs_fd) {
 			fds[i].revents = POLLNVAL;
 			poll_cancel(&poll);
-			poll_fini(&poll);
-			return -EBADF;
+			ret = -EBADF;
+			goto error;
 		}
 		fds[i].revents = 0;
-		poll_add(&poll, file.fd, fds[i].events);
+		poll_add(&poll, vfs_fd, fds[i].events);
 	}
 
-	int ret = poll_wait(&poll, timeout >= 0 ? &end : NULL);
+	ret = poll_wait(&poll, timeout >= 0 ? &end : NULL);
 	if (ret < 0) {
 		poll_fini(&poll);
-		return ret;
+		goto error;
 	}
 
 	list_node_t *current = poll.events.first_node;
 	for (nfds_t i=0; i<nfds; i++) {
-		poll_event_t *event = container_of(current ,poll_event_t, node);
+		poll_event_t *event = container_of(current, poll_event_t, node);
 		current = current->next;
 		fds[i].revents = event->revents;
 	}
 
+error:
+	// free fds
+	foreach (node, &poll.events) {
+		poll_event_t *event = container_of(node, poll_event_t, node);
+		vfs_close(event->fd);
+	}
 	poll_fini(&poll);
-
-	return 0;
+	return ret;
 }
 
 int sys_sigprocmask(int how, const sigset_t *restrict set, sigset_t *oldset) {
@@ -936,13 +941,12 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 
 	vfs_fd_t *vfs_fd = NULL;
 	if (!(flags & MAP_ANONYMOUS)) {
-		file_descriptor_t file;
-		int ret = get_fd(fd, &file);
-		if (ret < 0) return (void*)(uintptr_t)ret;
-		vfs_fd = file.fd;
+		vfs_fd = fd_get(fd);
+		if (!fd) return (void*)(uintptr_t)-EBADF;
 	}
 
 	vmm_seg_t *seg = vmm_map(addr, length, mmu_flags, vmm_flags, vfs_fd, offset);
+	vfs_close(vfs_fd);
 	if (IS_ERR(seg)) {
 		return (void *)(uintptr_t)PTR2ERR(seg);
 	} else {
@@ -1091,12 +1095,16 @@ int sys_lchmod(const char *pathname, mode_t mode) {
 }
 
 int sys_fchmod(int fd, mode_t mode) {
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
-	if (!file.fd->inode) return -EINVAL;
-
-	return vfs_chmod(file.fd->inode, mode);
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
+	int ret = 0;
+	if (vfs_fd->inode) {
+		ret = vfs_chmod(vfs_fd->inode, mode);
+	} else {
+		ret = -EINVAL;
+	}
+	vfs_close(vfs_fd);
+	return ret;
 }
 
 int sys_chown(const char *pathname, uid_t owner, gid_t group) {
@@ -1107,7 +1115,6 @@ int sys_chown(const char *pathname, uid_t owner, gid_t group) {
 
 	int ret = vfs_chown(node, owner, group);
 	vfs_node_release(node);
-
 	return ret;
 }
 
@@ -1119,17 +1126,20 @@ int sys_lchown(const char *pathname, uid_t owner, gid_t group) {
 
 	int ret = vfs_chown(node, owner, group);
 	vfs_node_release(node);
-
 	return ret;
 }
 
 int sys_fchown(int fd, uid_t owner, gid_t group) {
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
-	if (!file.fd->inode) return -EINVAL;
-
-	return vfs_chown(file.fd->inode, owner, group);
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
+	int ret = 0;
+	if (vfs_fd->inode) {
+		ret = vfs_chown(vfs_fd->inode, owner, group);
+	} else {
+		ret = -EINVAL;
+	}
+	vfs_close(vfs_fd);
+	return ret;
 }
 
 int sys_setpgid(pid_t pid, pid_t pgid) {
@@ -1191,31 +1201,40 @@ pid_t sys_getpgid(pid_t pid) {
 	return ret;
 }
 
-// FIXME : fcntl is highly broken
 int sys_fcntl(int fd, int op, int arg) {
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
+	long flags;
+	vfs_fd_t *vfs_fd = fd_get(fd, &flags);
+	if (!vfs_fd) return -EBADF;
 
+	int ret = 0;
 	switch (op) {
 	case F_DUPFD:
 		//TODO respect arg
-		return sys_dup(fd);
+		ret = sys_dup(fd);
+		break;
 	case F_GETFD:
-		return file.flags;
+		ret = flags;
+		break;
 	case F_SETFD:
-		file.flags = arg;
-		return 0;
+		// FIXME RACE this one is racy
+		fd_set(fd, vfs_fd, arg);
+		ret = 0;
+		break;
 	case F_GETFL:
-		return file.fd->flags;
+		ret = vfs_fd->flags;
+		break;
 	case F_SETFL:;
 		// only some flags can be changed
 		long changable_flags = O_NONBLOCK | O_APPEND;
-		file.fd->flags = (file.flags & ~changable_flags) | (arg & changable_flags);
-		return 0;
+		vfs_fd->flags = (file.flags & ~changable_flags) | (arg & changable_flags);
+		ret = 0;
+		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
+		break;
 	}
+	vfs_close(vfs_fd);
+	return ret;
 }
 
 mode_t sys_umask(mode_t mask) {
@@ -1266,12 +1285,16 @@ int sys_truncate(const char *pathname, off_t length) {
 }
 
 int sys_ftruncate(int fd, off_t length) {
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
-	if (!file.fd->inode) return -EINVAL;
-
-	return vfs_truncate(file.fd->inode, (size_t)length);
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;	
+	int ret = 0;
+	if (vfs_fd->inode) {
+		ret = vfs_truncate(vfs_fd->inode, (size_t)length);
+	} else {
+		ret = -EINVAL;
+	}
+	vfs_close(vfs_fd);
+	return ret;
 }
 
 int sys_link(const char *oldpath, const char *newpath) {
@@ -1369,7 +1392,7 @@ int sys_socket(int domain, int type, int protocol) {
 	vfs_fd_t *socket = socket_create(domain, type, protocol);
 	if (!socket) return -EPROTONOSUPPORT;
 
-	int fd = add_fd(socket, 0);
+	int fd = fd_add(socket, 0);
 	if (fd < 0) {
 		vfs_close(socket);
 	}
@@ -1381,15 +1404,15 @@ int sys_accept(int socket, struct sockaddr *address, socklen_t *address_len) {
 		return -EFAULT;
 	}
 
-	file_descriptor_t file;
-	int ret = get_fd(socket, &file);
-	if (ret < 0) return ret;
+	vfs_fd_t *fd = fd_get(socket);
+	if (!fd) return -EBADF;
 
 	vfs_fd_t *new_sock;
-	ret = socket_accept(file.fd, address, address_len, &new_sock);
+	int ret = socket_accept(fd, address, address_len, &new_sock);
+	vfs_close(fd);
 	if (ret < 0) return ret;
 
-	int fd = add_fd(new_sock, 0);
+	int fd = fd_add(new_sock, 0);
 	if (fd < 0) {
 		vfs_close(new_sock);
 	}
@@ -1401,11 +1424,11 @@ int sys_bind(int socket, const struct sockaddr *address, socklen_t address_len) 
 		return -EFAULT;
 	}
 
-	file_descriptor_t file;
-	int ret = get_fd(socket, &file);
-	if (ret < 0) return ret;
-
-	return socket_bind(file.fd, address, address_len);
+	vfs_fd_t *fd = fd_get(socket);
+	if (!fd) return -EBADF;
+	int ret = socket_bind(fd, address, address_len);
+	vfs_close(fd);
+	return ret;
 }
 
 int sys_connect(int socket, const struct sockaddr *address, socklen_t address_len) {
@@ -1413,19 +1436,19 @@ int sys_connect(int socket, const struct sockaddr *address, socklen_t address_le
 		return -EFAULT;
 	}
 
-	file_descriptor_t file;
-	int ret = get_fd(socket, &file);
-	if (ret < 0) return ret;
-
-	return socket_connect(file.fd, address, address_len);
+	vfs_fd_t *fd = fd_get(socket);
+	if (!fd) return -EBADF;
+	int ret = socket_connect(fd, address, address_len);
+	vfs_close(fd);
+	return ret;
 }
 
 int sys_listen(int socket, int backlog) {
-	file_descriptor_t file;
-	int ret = get_fd(socket, &file);
-	if (ret < 0) return ret;
-
-	return socket_listen(file.fd, backlog);
+	vfs_fd_t *fd = fd_get(socket);
+	if (!fd) return -EBADF;
+	int ret = socket_listen(fd, backlog);
+	vfs_close(fd);
+	return ret;
 }
 
 int getpeername(int socket, struct sockaddr *address, socklen_t *address_len);
@@ -1441,11 +1464,11 @@ ssize_t sys_recvmsg(int socket, struct msghdr *message, int flags) {
 		return -EFAULT;
 	}
 
-	file_descriptor_t file;
-	int ret = get_fd(socket, &file);
-	if (ret < 0) return ret;
-
-	return socket_recvmsg(file.fd, message, flags);
+	vfs_fd_t *fd = fd_get(socket);
+	if (!fd) return -EBADF;
+	int ret = socket_recvmsg(fd, message, flags);
+	vfs_close(fd);
+	return ret;
 }
 
 ssize_t sys_sendmsg(int socket, const struct msghdr *message, int flags) {
@@ -1456,11 +1479,11 @@ ssize_t sys_sendmsg(int socket, const struct msghdr *message, int flags) {
 		return -EFAULT;
 	}
 
-	file_descriptor_t file;
-	int ret = get_fd(socket, &file);
-	if (ret < 0) return ret;
-
-	return socket_sendmsg(file.fd, message, flags);
+	vfs_fd_t *fd = fd_get(socket);
+	if (!fd) return -EBADF;
+	int ret = socket_sendmsg(fd, message, flags);
+	vfs_close(fd);
+	return ret;
 }
 
 int sys_futex(long *addr, int op, long val) {
@@ -1475,11 +1498,11 @@ int sys_fdname(int fd, char *buf, size_t size) {
 		return -EFAULT;
 	}
 
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
 
-	char *path = vfs_dentry_path(file.fd->dentry);
+	char *path = vfs_dentry_path(vfs_fd->dentry);
+	vfs_close(vfs_fd);
 
 	if (size < strlen(path) + 1) {
 		kfree(path);
@@ -1494,11 +1517,11 @@ int sys_fdname(int fd, char *buf, size_t size) {
 }
 
 int sys_fchdir(int fd) {
-	file_descriptor_t file;
-	int ret = get_fd(fd, &file);
-	if (ret < 0) return ret;
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
 	
 	if (!S_ISDIR(file.fd->inode->mode)) {
+		vfs_close(vfs_fd);
 		return -ENOTDIR;
 	}
 
@@ -1507,6 +1530,7 @@ int sys_fchdir(int fd) {
 
 	// set new cwd
 	get_current_proc()->cwd = vfs_dentry_ref(file.fd->dentry);
+	vfs_close(vfd_fd);
 	return 0;
 }
 
@@ -1521,11 +1545,11 @@ int sys_fstatat(int fd, const char *path, struct stat *st, int flags) {
 	vfs_dentry_t *at;
 	if (fd == AT_FDCWD) {
 		at = get_current_proc()->cwd;
-	} else {	
-		file_descriptor_t file;
-		int ret = get_fd(fd, &file);
-		if (ret < 0) return ret;
-		at = file.fd->dentry;
+	} else {
+		vfs_fd_t *vfs_fd = fd_get(fd);
+		if (!vfs_fd) return -EBADF;
+		at = vfs_fd->dentry;
+		vfs_close(vfs_fd);
 	}
 
 	// FIXME : maybee we need to create a ref to at idk

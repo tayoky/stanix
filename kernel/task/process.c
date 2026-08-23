@@ -258,10 +258,10 @@ void do_proc_deletion(void) {
 	spinlock_release(&get_current_proc()->proc_lock);
 
 	// close every open fd
-	for (size_t i = 0; i < MAX_FD; i++) {
-		if (get_current_proc()->fd_table.fds[i].present) {
-			close_fd(i);
-		}
+	xarray_foreach (index, value, &get_current_proc()->fd_table.rcu) {
+		(void)index;
+		vfs_fd_t *fd = fd_value2fd(value, NULL);
+		vfs_close(fd);
 	}
 
 	// release locked dentry
@@ -281,4 +281,40 @@ void proc_zombie_cleanup(process_t *proc) {
 
 	// the parent hold a ref that we need to free
 	proc_release(proc);
+}
+
+int fd_add(vfs_fd_t *fd, long flags) {
+	if (IS_ERR(fd)) return PTR2ERR(fd);
+	
+	uintptr_t value = (uintptr_t)fd;
+	if (flags & FD_CLOEXEC) value |= FDTABLE_CLOEXEC;
+
+	return xarray_allocate(&get_current_proc()->fd_table, (void*)value);
+}
+
+vfs_fd_t *fd_set(int index, vfs_fd_t *fd, long flags) {
+	if (IS_ERR(fd)) return PTR2ERR(fd);
+	
+	uintptr_t value = (uintptr_t)fd;
+	if (flags & FD_CLOEXEC) value |= FDTABLE_CLOEXEC;
+
+	void *prev_value = xarray_set(&get_current_proc()->fd_table, index, (void*)value);
+	return fd_value2fd(prev_value, NULL);
+}
+
+vfs_fd_t *fd_get_flags(int fd, long *flags) {
+	if (fd < 0) return NULL;
+
+	rcu_acquire_read(&get_current_proc()->fd_table.rcu);
+	vfs_fd_t *vfs_fd = fd_value2fd(xarray_get(&get_current_proc()->fd_table, fd), flags);
+	vfs_dup(vfs_fd);
+	rcu_release_read(&get_current_proc()->fd_table.rcu);
+	return vfs_fd;
+}
+
+
+vfs_fd_t *fd_get_and_remove(int fd) {
+	if (fd < 0) return NULL;
+
+	return fd_value2fd(xarray_clear(&get_current_proc()->fd_table, fd), NULL);
 }

@@ -110,14 +110,19 @@ error:
 
 		vmm_unmap_all();
 
-		// cose fd with CLOEXEC flags
-		for (size_t i = 0; i < MAX_FD; i++) {
-			file_descriptor_t file;
-			if (get_fd(i, &file) < 0) continue;
-			if (file.flags & FD_CLOEXEC) {
-				close_fd(i);
+		// close fds with CLOEXEC flags
+		rcu_read_acquire(&get_current_proc()->fd_table.rcu);
+		xarray_foreach (index, value, &get_current_proc()->fd_table.rcu) {
+			long flags;
+			vfs_fd_t *fd = fd_value2fd(value, &flags);
+			if (flags & FD_CLOEXEC) {
+				fd_get_and_remove(index);
+				rcu_read_release(&get_current_proc()->fd_table.rcu);
+				vfs_close(fd);
+				rcu_read_acquire(&get_current_proc()->fd_table.rcu);
 			}
 		}
+		rcu_read_release(&get_current_proc()->fd_table.rcu);
 	}
 
 	// set the heap start to 0 for future comparaison
@@ -299,7 +304,7 @@ error:
 	push_auxv(&sp, AT_EGID, get_current_egid());
 
 	if (interpret) {
-		int fd = add_fd(interpret, FD_CLOEXEC);
+		int fd = fd_add(interpret, FD_CLOEXEC);
 		push_auxv(&sp, AT_EXECFD, fd);
 	}
 

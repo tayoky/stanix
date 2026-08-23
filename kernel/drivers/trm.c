@@ -107,7 +107,7 @@ static int trm_alloc_fb(vfs_fd_t *fd, trm_gpu_t *gpu, trm_fb_t *fb) {
 	fb_fd->type      = S_IFBLK;
 	fb_fd->flags     = O_WRONLY;
 	fb_fd->ref_count = 1;
-	fb->fd           = add_fd(fb_fd, 0);
+	fb->fd           = fd_add(fb_fd, 0);
 
 	return 0;
 }

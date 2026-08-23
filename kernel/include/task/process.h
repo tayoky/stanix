@@ -6,23 +6,11 @@
 #include <kernel/rculist.h>
 #include <kernel/scheduler.h>
 #include <kernel/sleep.h>
+#include <kernel/xarray.h>
 #include <kernel/cred.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
 #include <sys/signal.h>
-
-#define MAX_FD 32
-
-typedef struct file_descriptor {
-	vfs_fd_t *fd;
-	long present;
-	long flags;
-} file_descriptor_t;
-
-typedef struct fd_table {
-	file_descriptor_t fds[MAX_FD];
-	rwlock_t lock;
-} fd_table_t;
 
 typedef struct process process_t;
 struct tty;
@@ -55,7 +43,7 @@ struct process {
 	ref_count_t ref_count;
 	process_t *parent;           // write protected by proctree lock and protected by proc lock
 	process_group_t *group;      // write protected by proctree lock and protected by proc lock
-	fd_table_t fd_table;
+	xarray_t fd_table;
 	vfs_dentry_t *cwd;
 	vfs_dentry_t *exe;
 	char *cmdline;               // protected by proc lock
@@ -72,6 +60,8 @@ struct process {
 	ATOMIC(int) state;           // write protected by proc lock and proctree lock
 	ATOMIC(int) flags;
 };
+
+#define FDTABLE_CLOEXEC 0x2
 
 #define PROC_STATE_RUNNING 1
 #define PROC_STATE_ZOMBIE  2
@@ -242,22 +232,54 @@ void proc_zombie_cleanup(process_t *proc);
  * @param flags the fd flags to add with (FD_CLOEXEC, ...)
  * @return the fd number on success else an error code
  */
-int add_fd(vfs_fd_t *fd, long flags);
+int fd_add(vfs_fd_t *fd, long flags);
+
+/**
+ * @brief add a file descriptor to the current's process fd table
+ * @param index the fd number to give it
+ * @param fd the \ref vfs_fd_t to add
+ * @param flags the fd flags to add with (FD_CLOEXEC, ...)
+ * @return the previous fd at this location
+ */
+vfs_fd_t *fd_set(int index, vfs_fd_t *fd, long flags);
 
 /**
  * @brief get a file descriptor from the current's process fd table
  * @param fd the fd number to get the data of
- * @param file_descriptor where to store the fetched data (can be NULL)
- * @return the fd number on success else an error code
+ * @param flags where to store the fd flags
+ * @return the vfs fd on success or NULL on error
+ * @note this create a new ref to the fd that must be freed using \ref vfs_close
  */
-int get_fd(int fd, file_descriptor_t *file_descriptor);
+vfs_fd_t *fd_get_flags(int fd, long *flags);
 
 /**
- * @brief remove and close a file descriptor from the current's process fd table
- * @param fd the fd number to close
- * @return the fd number on succes else an error code
+ * @brief get a file descriptor from the current's process fd table
+ * @param fd the fd number to get the data of
+ * @return the vfs fd on success or NULL on error
+ * @note this create a new ref to the fd that must be freed using \ref vfs_close
  */
-int close_fd(int fd);
+static inline vfs_fd_t *fd_get(int fd) {
+	return fd_get_flags(fd, NULL);
+}
+
+/**
+ * @brief remove a file descriptor from the current's process fd table
+ * @param fd the fd number remove
+ * @return the fd number on succes else an error code
+ * @note this steal the ref to the fd that must be freed using \ref vfs_close
+ */
+vfs_fd_t *fd_get_and_remove(int fd);
+
+static inline vfs_fd_t *fd_value2fd(void *value, long *flags) {
+	if (!value) return NULL;
+	uintptr_t data = (uintptr_t)value;
+	if (flags) {
+		*flags = 0;
+		if (data & FDTABLE_CLOEXEC) *flags |= FDTABLE_CLOEXEC;
+	}
+	data &= ~0xfUL;
+	return (vfs_fd_t*)data;
+}
 
 extern xarray_t procs;
 extern process_t *init;
