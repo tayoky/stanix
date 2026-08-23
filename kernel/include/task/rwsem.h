@@ -3,6 +3,7 @@
 
 #include <kernel/spinlock.h>
 #include <kernel/scheduler.h>
+#include <kernel/assert.h>
 #include <kernel/sleep.h>
 
 /**
@@ -24,5 +25,7 @@ int rwsem_acquire_read(rwsem_t *rwsem);
 int rwsem_release_read(rwsem_t *rwsem);
 int rwsem_acquire_write(rwsem_t *rwsem);
 int rwsem_release_write(rwsem_t *rwsem);
+
+#define rwsem_assert_write_acquired(rwsem) kassert((rwsem)->writer_active == get_current_task() && "rwsem acquired for write")
 
 #endif

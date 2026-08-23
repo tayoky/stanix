@@ -259,18 +259,33 @@ void vfs_node_release(vfs_node_t *node);
 void vfs_node_mark_dirty(vfs_node_t *node);
 
 /**
+ * @brief lock the rwsem of an inode for reading
+ * @param node the inode to lock
+ */
+static inline vfs_node_acquire_read(vfs_node_t *node) {
+	if (node) rwsem_acquire_read(&node->rwsem);
+}
+
+/**
+ * @brief unlock a inode previously locked with \ref vfs_node_acquire_read
+ * @param node the inode to unlock
+ */
+static inline vfs_node_release_read(vfs_node_t *node) {
+	if (node) rwsem_release_read(&node->rwsem);
+}
+/**
  * @brief lock the rwsem of an inode for writing
  * @param node the inode to lock
  */
-static inline vfs_node_lock(vfs_node_t *node) {
+static inline vfs_node_acquire_write(vfs_node_t *node) {
 	if (node) rwsem_acquire_write(&node->rwsem);
 }
 
 /**
- * @brief unlock a inode previously locked with \ref vfs_node_lock
+ * @brief unlock a inode previously locked with \ref vfs_node_acquire_write
  * @param node the inode to unlock
  */
-static inline vfs_node_unlock(vfs_node_t *node) {
+static inline vfs_node_release_write(vfs_node_t *node) {
 	if (node) rwsem_release_write(&node->rwsem);
 }
 
@@ -312,9 +327,11 @@ static inline int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
  * @param node context of the file
  * @param size the new size
  * @return 0 on success else error code
+ * @note must be called with node locked for write
  */
-static inline int vfs_truncate(vfs_node_t *node, size_t size) {
+static inline int vfs_raw_truncate(vfs_node_t *node, size_t size) {
 	if (!node) return -EBADF;
+	rwsem_assert_write_acquired(node);
 	if (!node->ops->truncate) return -EOPNOTSUPP;
 	switch (node->mode & S_IFMT) {
 	case S_IFREG:
@@ -324,6 +341,18 @@ static inline int vfs_truncate(vfs_node_t *node, size_t size) {
 	default:
 		return -EINVAL;
 	}
+}
+/**
+ * @brief truncate a file to a specfied size
+ * @param node context of the file
+ * @param size the new size
+ * @return 0 on success else error code
+ */
+static inline int vfs_truncate(vfs_node_t *node, size_t size) {
+	vfs_node_acquire_write(node);
+	int ret = vfs_raw_truncate(node, size);
+	vfs_node_release_write(node);
+	return ret;
 }
 
 /**
@@ -349,13 +378,13 @@ static inline int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
 	struct stat st;
 	st.st_uid = owner;
 	st.st_gid = group_owner;
-	vfs_node_lock(node);
+	vfs_node_acquire_write(node);
 
 	// clear setuid bit and setgid bit
 	st.st_mode = node->mode & ~(S_ISUID | S_ISGID);
 
 	int ret = vfs_raw_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
-	vfs_node_unlock(node);
+	vfs_node_release_write(node);
 	return ret;
 }
 
