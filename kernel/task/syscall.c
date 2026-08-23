@@ -1578,6 +1578,37 @@ pid_t sys_getsid(void) {
 	return sid;
 }
 
+int sys_fdatasync(int fd) {
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	int ret = vfs_flush_range(vfs_fd, 0, SIZE_MAX);
+	vfs_close(vfs_fd);
+	return ret;
+}
+
+int sys_fsync(int fd) {
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	int ret = vfs_flush(vfs_fd);
+	vfs_close(vfs_fd);
+	return ret;
+}
+
+int sys_syncfs(int fd) {
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
+	int ret = 0;
+	if (vfs_fd->inode) {
+		ret = vfs_superblock_flush(vfs_fd->inode->superblock);
+	} else {
+		ret = -EINVAL;
+	}
+	vfs_close(vfs_fd);
+	return ret;
+}
+
+void sys_sync(void) {
+	cache_flush_all();
+}
+
 int sys_stub(void) {
 	return -ENOSYS;
 }
@@ -1685,10 +1716,10 @@ void *syscall_table[] = {
 	(void *)sys_tgsigqueue,
 	(void *)sys_setsid,
 	(void *)sys_getsid,
-	(void *)sys_stub, // sys_fdatasync
-	(void *)sys_stub, // sys_fsync
-	(void *)sys_stub, // sys_syncfs
-	(void *)sys_stub, // sys_sync
+	(void *)sys_fdatasync,
+	(void *)sys_fsync,
+	(void *)sys_syncfs,
+	(void *)sys_sync,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
