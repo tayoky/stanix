@@ -108,19 +108,24 @@ typedef struct fat_superblock {
 	uint16_t sector_size;
 	uint32_t sectors_per_fat;
 	uint32_t cluster_size;
+	uint32_t data_clusters;
+	uint32_t cluster_search_hint;
+	uint8_t fat_count;
 	off_t data_start; // start of root/data section start
 } fat_superblock_t;
 
 // in memory inode
 typedef struct fat_inode {
 	vfs_node_t vnode;
+	cache_t cache;
 	fat_entry_t entry;
 	uint32_t first_cluster;
+	off_t entry_offset;
+	
 	// used for fat16/12 root
 	int is_fat16_root;
-	uint64_t start;
+	off_t start;
 	uint16_t entries_count;
-	cache_t cache;
 } fat_inode_t;
 
 #endif
