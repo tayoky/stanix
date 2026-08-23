@@ -258,7 +258,7 @@ void do_proc_deletion(void) {
 	spinlock_release(&get_current_proc()->proc_lock);
 
 	// close every open fd
-	xarray_foreach (index, value, &get_current_proc()->fd_table.rcu) {
+	xarray_foreach (index, value, &get_current_proc()->fd_table) {
 		(void)index;
 		vfs_fd_t *fd = fd_value2fd(value, NULL);
 		vfs_close(fd);
