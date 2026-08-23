@@ -93,6 +93,20 @@ vfs_node_t *vfs_node_get(vfs_superblock_t *superblock, ino_t inode_number) {
 	return node;
 }
 
+int vfs_node_flush(vfs_node_t *node) {
+	if (!node) return -EBADF;
+	if (!(atomic_fetch_and(&node->flags, ~(VNODE_FLAG_DIRTY | VNODE_FLAG_DATA_DIRTY)) & (VNODE_FLAG_DIRTY | VNODE_DATA_DIRTY))) {
+		// not dirty
+		return 0;
+	}
+	kassert(node->superblock);
+	if (!node->superblock->ops || !node->superblock->ops->flush_inode) return 0;
+	vfs_node_acquire_read(node);
+	int ret = node->superblock->ops->flush_inode(node->superblock, node);
+	vfs_node_release_read(node);
+	return ret;
+}
+
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 	if (!S_ISLNK(node->mode)) {
 		return -ENOLINK;
@@ -190,8 +204,11 @@ void vfs_node_release(vfs_node_t *node) {
 }
 
 void vfs_node_mark_dirty(vfs_node_t *node) {
-	// TODO : add to some kind of dirty list
 	atomic_fetch_or(&node->flags, VNODE_FLAG_DIRTY);
+}
+
+void vfs_node_mark_data_dirty(vfs_node_t *node) {
+	atomic_fetch_or(&node->flags, VNODE_FLAG_DATA_DIRTY);
 }
 
 int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {

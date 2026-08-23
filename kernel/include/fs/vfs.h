@@ -65,8 +65,9 @@ struct vfs_node {
 	spinlock_t lock;
 };
 
-#define VNODE_FLAG_DIRTY 0x01
-#define VNODE_FLAG_NEW   0x02 // newly created (and unpopulated)
+#define VNODE_FLAG_DIRTY      0x01
+#define VNODE_FLAG_DATA_DIRTY 0x02 // metadata required for data is dirty
+#define VNODE_FLAG_NEW        0x04 // newly created (and unpopulated)
 
 /**
  * @brief represent a directory entry
@@ -271,6 +272,7 @@ static inline vfs_node_t *vfs_node_ref(vfs_node_t *node) {
 void vfs_node_release(vfs_node_t *node);
 
 void vfs_node_mark_dirty(vfs_node_t *node);
+void vfs_node_mark_data_dirty(vfs_node_t *node);
 
 /**
  * @brief lock the rwsem of an inode for reading
@@ -341,32 +343,25 @@ static inline int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
  * @param node context of the file
  * @param size the new size
  * @return 0 on success else error code
- * @note must be called with node locked for write
  */
-static inline int vfs_raw_truncate(vfs_node_t *node, size_t size) {
+static inline int vfs_truncate(vfs_node_t *node, size_t size) {
 	if (!node) return -EBADF;
 	rwsem_assert_write_acquired(&node->rwsem);
 	if (!node->ops->truncate) return -EOPNOTSUPP;
 	switch (node->mode & S_IFMT) {
 	case S_IFREG:
-		return node->ops->truncate(node, size);
+		vfs_node_acquire_write(node);
+		int ret = node->ops->truncate(node, size);
+		if (ret >= 0) {
+			vfs_node_mark_data_dirty(node);
+		}
+		vfs_node_release_write(node);
+		return ret;
 	case S_IFDIR:
 		return -EISDIR;
 	default:
 		return -EINVAL;
 	}
-}
-/**
- * @brief truncate a file to a specfied size
- * @param node context of the file
- * @param size the new size
- * @return 0 on success else error code
- */
-static inline int vfs_truncate(vfs_node_t *node, size_t size) {
-	vfs_node_acquire_write(node);
-	int ret = vfs_raw_truncate(node, size);
-	vfs_node_release_write(node);
-	return ret;
 }
 
 /**
@@ -428,15 +423,14 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
  * @brief flush an inode back to disk
  * @param node the node to writeback
  */
-static inline int vfs_node_flush(vfs_node_t *node) {
-	if (!node) return -EBADF;
-	if (!(atomic_fetch_and(&node->flags, ~VNODE_FLAG_DIRTY) & VNODE_FLAG_DIRTY)) {
-		// not dirty
+int vfs_node_flush(vfs_node_t *node);
+
+static inline int vfs_node_data_flush(vfs_node_t *node) {
+	if (atomic_load(&node->flags) & VNODE_FLAG_DATA_DIRTY)B{
+		return vfs_node_flush(node);
+	} else {
 		return 0;
 	}
-	kassert(node->superblock);
-	if (!node->superblock->ops || !node->superblock->ops->flush_inode) return 0;
-	return node->superblock->ops->flush_inode(node->superblock, node);
 }
 
 // fds operations
@@ -568,6 +562,12 @@ int vfs_poll_get(vfs_fd_t *fd, struct poll_event *event);
 
 static inline int vfs_flush_range(vfs_fd_t *fd, off_t offset, size_t count) {
 	if (!fd) return -EBADF;
+	if (fd->inode) {
+		// we might need to flush the inode
+		// if it has data related dirty stuff
+		int ret = vfs_node_data_flush(fd->inode);
+		if (ret < 0) return ret;
+	}
 	if (!fd->ops->flush) {
 		// unlike a lot of ops we allow to not have flush
 		// it just mean the content is not buffered
