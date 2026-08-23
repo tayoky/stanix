@@ -296,7 +296,7 @@ static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, ui
 /**
  * @brief parse a short filename entry
  */
-static int fat_parse_sfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, size_t *offset, fat_entry_t *entry, char name[512]) {
+static int fat_parse_sfn(fat_entry_t *entry, char name[512]) {
 	size_t j = 0;
 	for (int i = 0; i < 8; i++) {
 		if (entry->name[i] == ' ') break;
@@ -362,7 +362,7 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 		if (ret < 0) return ret;
 	} else {
 		// we have a short name
-		ret = fat_parse_sfn(fat_superblock, inode, &cluster, &offset, entry, name);
+		ret = fat_parse_sfn(entry, name);
 		if (ret < 0) return ret;
 	}
 
