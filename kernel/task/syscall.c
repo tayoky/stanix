@@ -944,7 +944,7 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 	vfs_fd_t *vfs_fd = NULL;
 	if (!(flags & MAP_ANONYMOUS)) {
 		vfs_fd = fd_get(fd);
-		if (!fd) return (void*)(uintptr_t)-EBADF;
+		if (!vfs_fd) return (void*)(uintptr_t)-EBADF;
 	}
 
 	vmm_seg_t *seg = vmm_map(addr, length, mmu_flags, vmm_flags, vfs_fd, offset);
@@ -1737,7 +1737,7 @@ void syscall_handler(registers_t *context, void *arg) {
 		ARG0_REG(*context) = (uint64_t)-EINVAL;
 		return;
 	}
-
+	
 	get_current_task()->syscall_frame = context;
 
 #ifdef DEBUG
