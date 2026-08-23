@@ -111,18 +111,18 @@ error:
 		vmm_unmap_all();
 
 		// close fds with CLOEXEC flags
-		rcu_read_acquire(&get_current_proc()->fd_table.rcu);
-		xarray_foreach (index, value, &get_current_proc()->fd_table.rcu) {
+		rcu_acquire_read(&get_current_proc()->fd_table.rcu);
+		xarray_foreach (index, value, &get_current_proc()->fd_table) {
 			long flags;
 			vfs_fd_t *fd = fd_value2fd(value, &flags);
 			if (flags & FD_CLOEXEC) {
 				fd_get_and_remove(index);
-				rcu_read_release(&get_current_proc()->fd_table.rcu);
+				rcu_release_read(&get_current_proc()->fd_table.rcu);
 				vfs_close(fd);
-				rcu_read_acquire(&get_current_proc()->fd_table.rcu);
+				rcu_acquire_read(&get_current_proc()->fd_table.rcu);
 			}
 		}
-		rcu_read_release(&get_current_proc()->fd_table.rcu);
+		rcu_release_read(&get_current_proc()->fd_table.rcu);
 	}
 
 	// set the heap start to 0 for future comparaison

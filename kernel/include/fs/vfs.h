@@ -4,6 +4,7 @@
 #include <kernel/assert.h>
 #include <kernel/atomic.h>
 #include <kernel/list.h>
+#include <kernel/rwsem.h>
 #include <kernel/refcount.h>
 #include <kernel/spinlock.h>
 #include <kernel/time.h>
@@ -41,7 +42,7 @@ typedef struct vfs_node vfs_node_t;
 typedef struct vfs_inode_ops vfs_inode_ops_t;
 typedef struct vfs_fd vfs_fd_t;
 typedef struct vfs_fd_ops vfs_fd_ops_t;
-typedef struct superblock vfs_superblock_t;
+typedef struct vfs_superblock vfs_superblock_t;
 typedef struct vfs_superblock_ops vfs_superblock_ops_t;
 typedef struct vfs_dentry vfs_dentry_t;
 
@@ -153,7 +154,7 @@ struct vfs_superblock_ops {
 	void (*destroy)(vfs_superblock_t *superblock);
 	int (*flush_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
 	int (*flush)(vfs_superblock_t *superblock);
-	vfs_node_t (*allocate_inode)(vfs_superblock_t *superblock);
+	vfs_node_t *(*allocate_inode)(vfs_superblock_t *superblock);
 };
 
 #define VFS_SUPERBLOCK_NO_DCACHE 0x01
@@ -344,7 +345,7 @@ static inline int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
  */
 static inline int vfs_raw_truncate(vfs_node_t *node, size_t size) {
 	if (!node) return -EBADF;
-	rwsem_assert_write_acquired(node);
+	rwsem_assert_write_acquired(&node->rwsem);
 	if (!node->ops->truncate) return -EOPNOTSUPP;
 	switch (node->mode & S_IFMT) {
 	case S_IFREG:

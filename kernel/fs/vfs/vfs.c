@@ -40,12 +40,12 @@ int vfs_superblock_flush(vfs_superblock_t *superblock) {
 	if (!superblock) return -EINVAL;
 	// TODO : maybee use a dedicated dirty list
 	rcu_acquire_read(&superblock->inodes.rcu);
-	foreach (index, value, &superblock->inodes) {
+	xarray_foreach (index, value, &superblock->inodes) {
 		vfs_node_t *node = value;
 		vfs_node_ref(node);
 		rcu_release_read(&superblock->inodes.rcu);
 		vfs_node_flush(node);
-		vfs_node_release(node(;
+		vfs_node_release(node);
 		rcu_acquire_read(&superblock->inodes.rcu);
 	}
 	rcu_release_read(&superblock->inodes.rcu);

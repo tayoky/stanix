@@ -25,14 +25,14 @@ static void block_read_pages_callback(ioreq_t *ioreq, void *data) {
 
 	if (ioreq->ret < 0) {
 		kfree(request->buf);
-		cache_read_terminate(&block_device->cache, offset, size, ioreq->ret);
+		cache_read_terminate(&block_device->cache, offset, count, ioreq->ret);
 		return;
 	}
 
 	char *ptr = request->buf;
 	ptr += offset % block_device->sector_size;
-	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page(cache, addr);
+	for (uintptr_t addr = offset; addr < offset + count; addr += PAGE_SIZE) {
+		uintptr_t page = cache_lookup_page(&block_device->cache, addr);
 		kassert(page != PAGE_INVALID);
 		void *vaddr = mmu_phys2virt(page);
 		memcpy(vaddr, ptr, PAGE_SIZE);
@@ -41,7 +41,7 @@ static void block_read_pages_callback(ioreq_t *ioreq, void *data) {
 
 	kfree(request->buf);
 
-	cache_read_terminate(&block_device->cache, offset, size, 0);
+	cache_read_terminate(&block_device->cache, offset, count, 0);
 }
 
 static int block_read_pages(cache_t *cache, off_t offset, size_t count) {
@@ -96,7 +96,7 @@ static int block_write_pages(cache_t *cache, off_t offset, size_t count) {
 	}
 	size_t sectors_count = end_sector - start_sector;
 
-	void *buffer = kmalloc(sectors_count * block_device->sector_size);
+	char *buffer = kmalloc(sectors_count * block_device->sector_size);
 	if (!buffer) return -ENOMEM;
 
 	// fill first and last sector
@@ -106,7 +106,7 @@ static int block_write_pages(cache_t *cache, off_t offset, size_t count) {
 		if (!request) goto error_nomem;
 		request->start_sector = start_sector;
 		request->sectors_count = 1;
-		request->buf = kbuf;
+		request->buf = buffer;
 		ret = ioreq_submit_sync_interruptible(&request->ioreq);
 		if (ret < 0) goto error;
 	}
@@ -115,18 +115,18 @@ static int block_write_pages(cache_t *cache, off_t offset, size_t count) {
 		if (!request) goto error_nomem;
 		request->start_sector = end_sector - 1;
 		request->sectors_count = 1;
-		request->buf = kbuf + (sectors_count - 1) * block_device->sector_size;
+		request->buf = buffer + (sectors_count - 1) * block_device->sector_size;
 		ret = ioreq_submit_sync_interruptible(&request->ioreq);
 		if (ret < 0) goto error;
 	}
 
 	char *ptr = buffer;
 	ptr += start % block_device->sector_size;
-	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
+	for (uintptr_t addr = offset; addr < offset + count; addr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_page(cache, addr);
 		kassert(page != PAGE_INVALID);
 		void *vaddr = mmu_phys2virt(page);
-		memcpy(ptr; vaddr, PAGE_SIZE);
+		memcpy(ptr, vaddr, PAGE_SIZE);
 		ptr += PAGE_SIZE;
 	}
 
@@ -153,7 +153,7 @@ error:
 	ret = ioreq_submit_sync_interruptible(&flush_request->ioreq);
 	if (ret < 0) return ret;
 
-	cache_write_terminate(cache, offset, size, 0);
+	cache_write_terminate(cache, offset, count, 0);
 	return 0;
 }
 

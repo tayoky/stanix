@@ -21,6 +21,7 @@
 #include <kernel/futex.h>
 #include <kernel/asm.h>
 #include <kernel/poll.h>
+#include <kernel/cache.h>
 #include <abi/termios.h>
 #include <abi/dirent.h>
 #include <sys/types.h>
@@ -82,9 +83,9 @@ int sys_open(const char *path, int flags, mode_t mode) {
 }
 
 int sys_close(int fd) {
-	vfs_fd_t *fd = fd_get_and_remove(fd);
-	if (!fd) return -EBADF;
-	vfs_close(fd);
+	vfs_fd_t *vfs_fd = fd_get_and_remove(fd);
+	if (!vfs_fd) return -EBADF;
+	vfs_close(vfs_fd);
 	return 0;
 }
 
@@ -118,7 +119,7 @@ void sys_exit(int error_code) {
 
 int sys_dup(int oldfd) {
 	long flags;
-	vfs_fd_t *vfs_fd = fd_get_flags(fd, &flags);
+	vfs_fd_t *vfs_fd = fd_get_flags(oldfd, &flags);
 	if (!vfs_fd) return -EBADF;
 
 	int ret = fd_add(vfs_fd, flags);
@@ -587,7 +588,8 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 	poll_t poll;
 	poll_init(&poll);
 	for (nfds_t i=0; i<nfds; i++) {
-		vfs_fd_t *vfs_fd = fd_get(fd);
+		// UNSAFE
+		vfs_fd_t *vfs_fd = fd_get(fds[i].fd);
 		if (!vfs_fd) {
 			fds[i].revents = POLLNVAL;
 			poll_cancel(&poll);
@@ -1203,7 +1205,7 @@ pid_t sys_getpgid(pid_t pid) {
 
 int sys_fcntl(int fd, int op, int arg) {
 	long flags;
-	vfs_fd_t *vfs_fd = fd_get(fd, &flags);
+	vfs_fd_t *vfs_fd = fd_get_flags(fd, &flags);
 	if (!vfs_fd) return -EBADF;
 
 	int ret = 0;
@@ -1226,7 +1228,7 @@ int sys_fcntl(int fd, int op, int arg) {
 	case F_SETFL:;
 		// only some flags can be changed
 		long changable_flags = O_NONBLOCK | O_APPEND;
-		vfs_fd->flags = (file.flags & ~changable_flags) | (arg & changable_flags);
+		vfs_fd->flags = (vfs_fd->flags & ~changable_flags) | (arg & changable_flags);
 		ret = 0;
 		break;
 	default:
@@ -1404,12 +1406,12 @@ int sys_accept(int socket, struct sockaddr *address, socklen_t *address_len) {
 		return -EFAULT;
 	}
 
-	vfs_fd_t *fd = fd_get(socket);
-	if (!fd) return -EBADF;
+	vfs_fd_t *vfs_fd = fd_get(socket);
+	if (!vfs_fd) return -EBADF;
 
 	vfs_fd_t *new_sock;
-	int ret = socket_accept(fd, address, address_len, &new_sock);
-	vfs_close(fd);
+	int ret = socket_accept(vfs_fd, address, address_len, &new_sock);
+	vfs_close(vfs_fd);
 	if (ret < 0) return ret;
 
 	int fd = fd_add(new_sock, 0);
@@ -1520,7 +1522,11 @@ int sys_fchdir(int fd) {
 	vfs_fd_t *vfs_fd = fd_get(fd);
 	if (!vfs_fd) return -EBADF;
 	
-	if (!S_ISDIR(file.fd->inode->mode)) {
+	if (!vfs_fd->inode) {
+		vfs_close(vfs_fd);
+		return -EINVAL;
+	}
+	if (!S_ISDIR(vfs_fd->inode->mode)) {
 		vfs_close(vfs_fd);
 		return -ENOTDIR;
 	}
@@ -1529,8 +1535,8 @@ int sys_fchdir(int fd) {
 	vfs_dentry_release(get_current_proc()->cwd);
 
 	// set new cwd
-	get_current_proc()->cwd = vfs_dentry_ref(file.fd->dentry);
-	vfs_close(vfd_fd);
+	get_current_proc()->cwd = vfs_dentry_ref(vfs_fd->dentry);
+	vfs_close(vfs_fd);
 	return 0;
 }
 

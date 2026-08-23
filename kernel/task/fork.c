@@ -39,13 +39,15 @@ pid_t fork(void) {
 	memcpy(child->sig_handlers, get_current_proc()->sig_handlers, sizeof(get_current_proc()->sig_handlers));
 
 	// clone fd table
-	rcu_read_acquire(&get_current_proc()->fd_table.rcu);
-	xarray_foreach (index, value, &get_current_proc()->fd_table.rcu) {
+	rcu_acquire_read(&get_current_proc()->fd_table.rcu);
+	xarray_foreach (index, value, &get_current_proc()->fd_table) {
 		vfs_fd_t *fd = fd_value2fd(value, NULL);
 		vfs_dup(fd);
+		rcu_release_read(&get_current_proc()->fd_table.rcu);
 		xarray_set(&child->fd_table, index, value);
+		rcu_acquire_read(&get_current_proc()->fd_table.rcu);
 	}
-	rcu_read_release(&get_current_proc()->fd_table.rcu);
+	rcu_release_read(&get_current_proc()->fd_table.rcu);
 
 	// make it ruuuunnnnn !!!
 	unblock_task(child->main_thread);
