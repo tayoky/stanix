@@ -31,8 +31,8 @@ int rwsem_release_read(rwsem_t *rwsem) {
 		rwsem->lock_depth--;
 		kassert(rwsem->lock_depth > 0);
 	} else {
+		kassert(rwsem->readers_count > 0);
 		rwsem->readers_count--;
-		kassert(rwsem->readers_count >= 0);
 		if (rwsem->readers_count == 0) {
 			wakeup_queue(&rwsem->writer_queue, 1);
 		}

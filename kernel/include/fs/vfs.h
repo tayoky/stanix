@@ -35,49 +35,52 @@
 #define SEEK_END 2
 #endif
 
-struct vfs_node;
 struct vmm_seg;
-struct vfs_inode_ops;
-struct vfs_fd_ops;
-struct vfs_superblock_ops;
-struct superblock;
 struct poll_event;
+typedef struct vfs_node vfs_node_t;
+typedef struct vfs_inode_ops vfs_inode_ops_t;
+typedef struct vfs_fd vfs_fd_t;
+typedef struct vfs_fd_ops vfs_fd_ops_t;
+typedef struct superblock vfs_superblock_t;
+typedef struct vfs_superblock_ops vfs_superblock_ops_t;
+typedef struct vfs_dentry vfs_dentry_t;
 
 /**
  * @brief represent an inode
  */
-typedef struct vfs_node {
-	struct vfs_superblock *superblock;
-	struct vfs_inode_ops *ops;
+struct vfs_node {
+	rwsem_t rwsem;
+	vfs_superblock_t *superblock;
+	vfs_inode_ops_t *ops;
 	ino_t number;
 	ATOMIC(long) flags;
 	ref_count_t ref_count;
-	ATOMIC(uid_t) uid;
-	ATOMIC(gid_t) gid;
-	ATOMIC(mode_t) mode;
-	ATOMIC(time_t) atime;
-	ATOMIC(time_t) mtime;
-	ATOMIC(time_t) ctime;
+	ATOMIC(uid_t) uid;    // write protected by lock
+	ATOMIC(gid_t) gid;    // write protected by lock
+	ATOMIC(mode_t) mode;  // write protected by lock
+	ATOMIC(time_t) atime; // write protected by lock
+	ATOMIC(time_t) mtime; // write protected by lock
+	ATOMIC(time_t) ctime; // write protected by lock
 	spinlock_t lock;
-} vfs_node_t;
+};
 
 #define VNODE_FLAG_DIRTY 0x01
 
 /**
  * @brief represent a directory entry
  */
-typedef struct vfs_dentry {
+struct vfs_dentry {
 	list_node_t children_node;
 	list_node_t lru_node;
 	char name[256];
 	vfs_node_t *inode;
 	ino_t inode_number;
 	long flags;
-	struct vfs_dentry *parent;
-	struct vfs_dentry *old; // used for mount point
+	vfs_dentry_t *parent;
+	vfs_dentry_t *old; // used for mount point
 	list_t children;
 	ref_count_t ref_count;
-} vfs_dentry_t;
+};
 
 #define VFS_DENTRY_MOUNT    0x01 // the dentry is a mount point
 #define VFS_DENTRY_UNLINKED 0x02 // the dentry is unlinked
@@ -85,21 +88,21 @@ typedef struct vfs_dentry {
 /**
  * @brief represent an open context with a file/dir/device
  */
-typedef struct vfs_fd {
+struct vfs_fd {
 	vfs_node_t *inode;
 	vfs_dentry_t *dentry;
-	struct vfs_fd_ops *ops;
+	vfs_fd_ops_t *ops;
 	void *private;
 	ref_count_t ref_count;
 	long flags;
 	long type;
 	off_t offset;
-} vfs_fd_t;
+};
 
 /**
  * @brief all operations that can be done on a \ref vfs_node_t
  */
-typedef struct vfs_inode_ops {
+struct vfs_inode_ops {
 	int (*lookup)(vfs_node_t *vnode, vfs_dentry_t *dentry);
 	int (*readdir)(vfs_node_t *vnode, unsigned long index, struct dirent *);
 	int (*create)(vfs_node_t *vnode, vfs_dentry_t *, mode_t perm);
@@ -114,42 +117,42 @@ typedef struct vfs_inode_ops {
 	int (*setattr)(vfs_node_t *vnode, struct stat *, int mask);
 	int (*getattr)(vfs_node_t *vnode, struct stat *);
 	int (*truncate)(vfs_node_t *vnode, size_t);
-	void (*cleanup)(vfs_node_t *);
-	int (*open)(vfs_fd_t *);
-} vfs_inode_ops_t;
+	void (*cleanup)(vfs_node_t *vnode);
+	int (*open)(vfs_fd_t *vnode);
+};
 
 /**
- * @brief contain all \ref vfs_fd_t operations
+ * @brief all operations that can be done on a \ref vfs_fd_t
  */
-typedef struct vfs_fd_ops {
+struct vfs_fd_ops {
 	int (*open)(vfs_fd_t *);
-	ssize_t (*read)(vfs_fd_t *, void *buf, off_t off, size_t count);
-	ssize_t (*write)(vfs_fd_t *, const void *buf, off_t off, size_t count);
-	int (*ioctl)(vfs_fd_t *, long, void *);
-	int (*mmap)(vfs_fd_t *, off_t, struct vmm_seg *);
-	void (*close)(vfs_fd_t *);
-	off_t (*seek)(vfs_fd_t *, off_t offset, int whence);
-	int (*poll_add)(vfs_fd_t *, struct poll_event *);
-	int (*poll_remove)(vfs_fd_t *, struct poll_event *);
-	int (*poll_get)(vfs_fd_t *, struct poll_event *);
+	ssize_t (*read)(vfs_fd_t *fd, void *buf, off_t off, size_t count);
+	ssize_t (*write)(vfs_fd_t *fd, const void *buf, off_t off, size_t count);
+	int (*ioctl)(vfs_fd_t *fd, long req, void *arg);
+	int (*mmap)(vfs_fd_t *fd, off_t offset, struct vmm_seg *);
+	void (*close)(vfs_fd_t *fd);
+	off_t (*seek)(vfs_fd_t *fd, off_t offset, int whence);
+	int (*poll_add)(vfs_fd_t *fd, struct poll_event *event);
+	int (*poll_remove)(vfs_fd_t *fd, struct poll_event *event);
+	int (*poll_get)(vfs_fd_t *fd, struct poll_event *event);
 	int (*flush)(vfs_fd_t *fd, off_t off, size_t count);
-} vfs_fd_ops_t;
+};
 
-typedef struct vfs_superblock {
+struct vfs_superblock {
 	list_node_t node;
 	xarray_t inodes;
 	vfs_node_t *root;
-	struct vfs_superblock_ops *ops;
+	vfs_superblock_ops_t *ops;
 	vfs_fd_t *device;
 	long flags;
 	char name[PATH_MAX];
-} vfs_superblock_t;
+};
 
-typedef struct vfs_superblock_ops {
+struct vfs_superblock_ops {
 	void (*destroy)(vfs_superblock_t *superblock);
 	int (*flush_inode)(vfs_superblock_t *superblock, vfs_node_t *vnode);
 	int (*flush)(vfs_superblock_t *superblock);
-} vfs_superblock_ops_t;
+};
 
 #define VFS_SUPERBLOCK_NO_DCACHE 0x01
 
@@ -256,11 +259,11 @@ void vfs_node_release(vfs_node_t *node);
 void vfs_node_mark_dirty(vfs_node_t *node);
 
 /**
- * @brief lock an inode for writing
+ * @brief lock the rwsem of an inode for writing
  * @param node the inode to lock
  */
 static inline vfs_node_lock(vfs_node_t *node) {
-	if (node) spinlock_acquire(&node->lock);
+	if (node) rwsem_acquire_write(&node->rwsem);
 }
 
 /**
@@ -268,7 +271,7 @@ static inline vfs_node_lock(vfs_node_t *node) {
  * @param node the inode to unlock
  */
 static inline vfs_node_unlock(vfs_node_t *node) {
-	if (node) spinlock_release(&node->lock);
+	if (node) rwsem_release_write(&node->rwsem);
 }
 
 int vfs_getattr(vfs_node_t *node, struct stat *st);
@@ -279,7 +282,7 @@ int vfs_getattr(vfs_node_t *node, struct stat *st);
  * @param st the value of the attributes
  * @param mask a mask of the atrributes to set
  * @return 0 on success, else error code
- * @note must be wrapped between \ref vfs_node_lock and \ref vfs_node_unlock
+ * @note must be called with the node's lock acquired
  */
 int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask);
 #define VNODE_ATTR_MODE  0x01
@@ -297,9 +300,10 @@ int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask);
  * @return 0 on success, else error code
  */
 static inline int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
-	vfs_node_lock(node);
+	if (!node) return -EBADF;
+	spinlock_acquire(&node->lock);
 	int ret = vfs_raw_setattr(node, st, mask);
-	vfs_node_unlock(node);
+	spinlock_release(&node->lock);
 	return ret;
 }
 
