@@ -263,6 +263,7 @@ void do_proc_deletion(void) {
 		vfs_fd_t *fd = fd_value2fd(value, NULL);
 		vfs_close(fd);
 	}
+	xarray_destroy(&get_current_proc()->fd_table);
 
 	// release locked dentry
 	vfs_dentry_release(get_current_proc()->cwd);
