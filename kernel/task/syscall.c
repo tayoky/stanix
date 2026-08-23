@@ -1661,6 +1661,10 @@ void *syscall_table[] = {
 	(void *)sys_tgsigqueue,
 	(void *)sys_setsid,
 	(void *)sys_getsid,
+	(void *)sys_stub, // sys_fdatasync
+	(void *)sys_stub, // sys_fsync
+	(void *)sys_stub, // sys_syncfs
+	(void *)sys_stub, // sys_sync
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
