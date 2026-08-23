@@ -88,13 +88,13 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 
 	// create a new fake dentry for the root of the superblock
 	vfs_dentry_t *root_dentry = vfs_dentry_allocate();
-	root_dentry->parent       = vfs_dentry_ref(mount_point->parent);
+	root_dentry->parent       = mount_point->parent;
 	memcpy(root_dentry->name, mount_point->name, sizeof(mount_point->name));
 	root_dentry->inode     = vfs_node_ref(superblock->root);
 	root_dentry->ref_count = 1;
 	root_dentry->flags     = VFS_DENTRY_MOUNT;
 
-	// make a new ref to the mount point to prevent it from being close
+	// make a new ref to the mount point to prevent it from being closed
 	root_dentry->old = vfs_dentry_ref(mount_point);
 
 	// insert the new fake dentry at the place of the original one
@@ -132,6 +132,10 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 		// not even a mount point
 		vfs_dentry_release(mount_point);
 		return -EINVAL;
+	}
+
+	if (atomic_load(&mount_point->ref_count) > 1) {
+		return -EBUSY;
 	}
 
 	vfs_superblock_destroy(mount_point->inode->superblock);
