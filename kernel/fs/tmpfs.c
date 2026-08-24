@@ -258,7 +258,7 @@ static void tmpfs_cleanup(vfs_node_t *vnode) {
 static int tmpfs_mknod(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode, dev_t dev) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
 	kassert(S_ISDIR(inode->vnode.mode));
-	if (tmpfs_exist(inode, dentry)) return -EEXIST;
+	kassert(!tmpfs_exist(inode, dentry));
 
 	// create new inode
 	tmpfs_inode_t *child_inode = new_inode(vnode->superblock, mode);
@@ -293,7 +293,7 @@ static int tmpfs_link(vfs_dentry_t *old_dentry, vfs_node_t *new_dir, vfs_dentry_
 static int tmpfs_symlink(vfs_node_t *vnode, vfs_dentry_t *dentry, const char *target) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
 	kassert(S_ISDIR(inode->vnode.mode));
-	if (tmpfs_exist(inode, dentry)) return -EEXIST;
+	kassert(!tmpfs_exist(inode, dentry));
 
 	tmpfs_inode_t *symlink    = new_inode(vnode->superblock, S_IFLNK | 0777);
 	symlink->link.buffer_size = strlen(target);
@@ -330,7 +330,7 @@ static int tmpfs_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	kassert(S_ISDIR(inode->vnode.mode));
 
 	tmpfs_dirent_t *entry = tmpfs_get_entry(inode, dentry);
-	if (!entry) return ENOENT;
+	kassert(entry);
 	kassert(!S_ISDIR(entry->inode->vnode.mode));
 
 	tmpfs_remove_entry(inode, entry);
@@ -344,7 +344,7 @@ static int tmpfs_rmdir(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	kassert(S_ISDIR(inode->vnode.mode));
 
 	tmpfs_dirent_t *entry = tmpfs_get_entry(inode, dentry);
-	if (!entry) return ENOENT;
+	kassert(entry);
 	kassert(S_ISDIR(entry->inode->vnode.mode));
 
 	// check if the directory is empty
