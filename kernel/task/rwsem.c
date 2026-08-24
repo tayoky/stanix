@@ -28,8 +28,8 @@ int rwsem_release_read(rwsem_t *rwsem) {
 	spinlock_acquire(&rwsem->lock);
 	if (rwsem->writer_active == get_current_task()) {
 		// this is a writer lock that aqcuired a read
-		rwsem->lock_depth--;
 		kassert(rwsem->lock_depth > 0);
+		rwsem->lock_depth--;
 	} else {
 		kassert(rwsem->readers_count > 0);
 		rwsem->readers_count--;
@@ -60,6 +60,7 @@ int rwsem_acquire_write(rwsem_t *rwsem) {
 int rwsem_release_write(rwsem_t *rwsem) {
 	spinlock_acquire(&rwsem->lock);
 	kassert(rwsem->writer_active == get_current_task());
+	kassert(rwsem->lock_depth > 0);
 	rwsem->lock_depth--;
 	if (rwsem->lock_depth == 0) {
 		rwsem->writer_active = NULL;
