@@ -78,21 +78,36 @@ typedef struct {
 	uint32_t signature;
 } ata_device_t;
 
+typedef struct ata_regs {
+	uint8_t command;
+	uint8_t device;
+	uint8_t lba0;
+	uint8_t lba1;
+	uint8_t lba2;
+	uint8_t lba3;
+	uint8_t lba4;
+	uint8_t lba5;
+	uint16_t sectors_size;
+} ata_regs_t;
+
 typedef struct ata_command {
 	ioreq_t ioreq;
 	list_node_t node;
+	ata_regs_t regs;
 	uint64_t lba;
-	size_t sectors_count;
+	uint16_t sectors_count;
 	void *buf;
 	ata_device_t *device;
 	uint8_t opcode;
 	uint8_t flags;
+	uint8_t scsi_cmd[16];
 } ata_command_t;
 
 #define ATA_CMD_SEND_LBA28     0x01
 #define ATA_CMD_SEND_LBA48     0x02
 #define ATA_CMD_READ_BUF       0x04
 #define ATA_CMD_WRITE_BUF      0x08
+#define ATA_CMD_SCSI           0x10
 
 typedef struct ata_driver {
 	driver_t driver;
