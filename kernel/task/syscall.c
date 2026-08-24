@@ -602,7 +602,6 @@ int sys_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 
 	ret = poll_wait(&poll, timeout >= 0 ? &end : NULL);
 	if (ret < 0) {
-		poll_fini(&poll);
 		goto error;
 	}
 
