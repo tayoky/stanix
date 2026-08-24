@@ -39,12 +39,17 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 	vfs_node_acquire_write(parent->inode);
 
 	vfs_dentry_t *exist = vfs_lookup(parent, vfs_basename(path));
-	if (exist) {
-		vfs_dentry_release(exist);
+	if ((IS_ERR(exist) && PTR2ERR(exist) != -ENOENT) || (!IS_ERR(exist) && exist)) {
+		int ret = -EEXIST;
+		if (IS_ERR(exist)) {
+			ret = PTR2ERR(exist);
+		} else {
+			vfs_dentry_release(exist);
+		}
 		vfs_node_release_write(parent->inode);
 		vfs_dentry_release(parent);
 		vfs_dentry_release(dentry);
-		return -EEXIST;
+		return ret;
 	}
 
 	if (!(vfs_perm(parent->inode) & PERM_WRITE)) {
