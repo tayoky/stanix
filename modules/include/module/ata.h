@@ -94,11 +94,9 @@ typedef struct ata_command {
 	ioreq_t ioreq;
 	list_node_t node;
 	ata_regs_t regs;
-	uint64_t lba;
-	uint16_t sectors_count;
 	void *buf;
+	size_t buf_size;
 	ata_device_t *device;
-	uint8_t opcode;
 	uint8_t flags;
 	uint8_t scsi_cmd[16];
 } ata_command_t;

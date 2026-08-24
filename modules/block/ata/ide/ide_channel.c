@@ -121,6 +121,8 @@ static void ide_channel_disable_irq(ide_channel_t *channel) {
 	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
 }
 
+// TODO : respect a buffer size
+// we currently UB/crash if the buffer has less than 512 bytes remaining
 static void ide_channel_transfer_sector(ide_channel_t *channel, uint16_t *buf, long flags) {
 	for (size_t i = 0; i < 256; i++) {
 		if (flags & ATA_CMD_WRITE_BUF) {
@@ -151,15 +153,15 @@ error:
 		return;
 	}
 
-	// do we have sectors left
-	if (channel->current_sector < command->sectors_count) {
+	// do we have data to transfer
+	if (channel->current_sector * 512 < command->buf_size) {
 		if (!(status & IDE_SR_DRQ)) {
 			kwarningf("expected data request status=%hhx\n", status);
 			goto error;
 		}
 		uint16_t *buf = command->buf;
 		ide_channel_transfer_sector(channel, buf + (channel->current_sector++) * 256, command->flags);
-		if (channel->current_sector < command->sectors_count) {
+		if (channel->current_sector * 512 < command->buf_size) {
 			// we have others sectors to read/write
 			return;
 		} else if (command->flags & ATA_CMD_WRITE_BUF) {
@@ -299,7 +301,7 @@ static void ide_channel_detach(devnode_t *devnode) {
 static int ide_channel_poll_mode(ide_channel_t *channel, ata_command_t *command) {
 	// TODO : DMA support
 	uint16_t *buf = command->buf;
-	while (channel->current_sector < command->sectors_count) {
+	while (channel->current_sector * 512 < command->buf_size) {
 		ide_channel_io_wait(channel);
 		int ret = ide_channel_poll(channel, IDE_SR_BSY | IDE_SR_DRQ, IDE_SR_DRQ);
 		if (ret < 0) return ret;
@@ -325,12 +327,10 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	if (device == channel->slave) {
 		drv_select |= IDE_DRV_SELECT_SLAVE;
 	}
-	if (command->flags & ATA_CMD_SEND_LBA28) {
-		drv_select |= (uint8_t)((command->lba >> 24) & 0xf);
-	}
+	drv_select |= command->regs.device;
 	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select);
 
-	kdebugf("send command opcode=%hhx sectors_count=%zu lba=%zu flags=%x\n", command->opcode, command->sectors_count, command->lba, command->flags);
+	kdebugf("send command opcode=%hhx sectors_count=%zu lba=%zu flags=%x\n", command->regs.opcode, command->regs.sectors_count, command->lba, command->flags);
 
 	ide_channel_io_wait(channel);
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
@@ -342,23 +342,23 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	if (ret < 0) return ret;
 
 	if (command->flags & ATA_CMD_SEND_LBA48) {
-		ide_channel_write(channel, IDE_REG_SECCOUNT0, (uint8_t)(command->sectors_count >> 8));
-		ide_channel_write(channel, IDE_REG_LBA0, (uint8_t)(command->lba >> 24));
-		ide_channel_write(channel, IDE_REG_LBA1, (uint8_t)(command->lba >> 32));
-		ide_channel_write(channel, IDE_REG_LBA2, (uint8_t)(command->lba >> 40));
+		ide_channel_write(channel, IDE_REG_SECCOUNT0, (uint8_t)(command->regs.sectors_count >> 8));
+		ide_channel_write(channel, IDE_REG_LBA0, command->regs.lba3);
+		ide_channel_write(channel, IDE_REG_LBA1, command->regs.lba4);
+		ide_channel_write(channel, IDE_REG_LBA2, command->regs.lba5);
 	}
 
 	if (command->flags & (ATA_CMD_SEND_LBA28 | ATA_CMD_SEND_LBA48)) {
 		ide_channel_write(channel, IDE_REG_SECCOUNT0, (uint8_t)(command->sectors_count));
-		ide_channel_write(channel, IDE_REG_LBA0, (uint8_t)(command->lba));
-		ide_channel_write(channel, IDE_REG_LBA1, (uint8_t)(command->lba >> 8));
-		ide_channel_write(channel, IDE_REG_LBA2, (uint8_t)(command->lba >> 16));
+		ide_channel_write(channel, IDE_REG_LBA0, command->regs.lba0);
+		ide_channel_write(channel, IDE_REG_LBA1, command->regs.lba1);
+		ide_channel_write(channel, IDE_REG_LBA2, command->regs.lba2);
 	}
 
-	ide_channel_write(channel, IDE_REG_COMMAND, command->opcode);
+	ide_channel_write(channel, IDE_REG_COMMAND, command->regs.command);
 	channel->current_sector = 0;
 
-	if ((command->flags & ATA_CMD_WRITE_BUF) && command->sectors_count > 0) {
+	if ((command->flags & ATA_CMD_WRITE_BUF) && command->buf_size > 0) {
 		// we need to write the first sector
 		ide_channel_io_wait(channel);
 		int ret = ide_channel_poll(channel, IDE_SR_DRQ, IDE_SR_DRQ);

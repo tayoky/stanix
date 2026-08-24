@@ -28,7 +28,7 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 
 	if (request->type == BLOCK_REQUEST_FLUSH) {
 		ata_command_t *command = ata_create_command(device);
-		command->opcode = (disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48) ? ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
+		command->regs.command = (disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48) ? ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
 
 		ioreq_set_callback(&command->ioreq, ata_finish_callback, request);
 		return ioreq_submit(&command->ioreq);
@@ -70,11 +70,23 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 	}
 
 	ata_command_t *command = ata_create_command(device);
-	command->opcode = opcode;
-	command->sectors_count = request->sectors_count;
-	command->lba = request->start_sector;
-	command->flags = flags;
-	command->buf   = request->buf;
+	command->regs.command = opcode;
+	command->regs.sectors_count = request->sectors_count;
+
+	command->regs.lba0 = (uint8_t)(request->start_sector >> 0);
+	command->regs.lba1 = (uint8_t)(request->start_sector >> 8);
+	command->regs.lba2 = (uint8_t)(request->start_sector >> 16);
+	if (flags & ATA_CMD_SEND_LBA28) {
+		command->regs.device = (uint8_t)((request->start_sector >> 24) & 0x0f);
+	} else {
+		command->regs.lba3 = (uint8_t)(request->start_sector >> 24);
+		command->regs.lba4 = (uint8_t)(request->start_sector >> 32);
+		command->regs.lba5 = (uint8_t)(request->start_sector >> 40);
+	}
+
+	command->flags    = flags;
+	command->buf      = request->buf;
+	command->buf_size = request->sectors_count * block_device->sector_size;
 	ioreq_set_callback(&command->ioreq, ata_finish_callback, request);
 	return ioreq_submit(&command->ioreq);
 }
@@ -113,11 +125,10 @@ static int ata_probe(devnode_t *devnode) {
 
 	ata_ident_t ident;
 	ata_command_t *identify = ata_create_command(device);
-	identify->opcode = ATA_CMD_IDENTIFY;
-	identify->lba = 0;
-	identify->sectors_count = 1;
+	identify->regs.command = ATA_CMD_IDENTIFY;
 	identify->flags = ATA_CMD_READ_BUF;
 	identify->buf = &ident;
+	identify->buf_size = sizeof(ident);
 
 	int ret = ata_submit_command_sync(identify);
 	if (ret < 0) return ret;
