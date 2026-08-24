@@ -94,10 +94,13 @@ static int signal_add_pending(signal_context_t *signal_context, process_t *proc,
 int signal_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
 	if (siginfo->si_signo == 0) return 0;
 	if (!group) return -ESRCH;
+	rculist_acquire_read(&group->processes);
 	rculist_foreach (node, &group->processes) {
 		process_t *proc = container_of(node, process_t, group_node);
+		// FIXME : this function allocate memory
 		signal_send_siginfo_proc(proc, siginfo);
 	}
+	rculist_release_read(&group->processes);
 	return 0;
 }
 

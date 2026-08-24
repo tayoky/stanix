@@ -714,11 +714,14 @@ static int user_send_siginfo_proc(process_t *proc, siginfo_t *siginfo) {
 
 static int user_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
 	int ret = -ESRCH;
+	rculist_acquire_read(&group->processes);
 	rculist_foreach (node, &group->processes) {
 		process_t *proc = container_of(node, process_t, group_node);
+		// FIXME : this function allocate memory
 		int sub_ret = user_send_siginfo_proc(proc, siginfo);
 		if (ret == -ESRCH || sub_ret == 0) ret = sub_ret;
 	}
+	rculist_release_read(&group->processes);
 	return ret;
 }
 

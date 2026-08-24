@@ -219,6 +219,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	}
 
 	// first search in the dentries cache
+	rculist_acquire_read(&entry->children);
 	rculist_foreach (list_node, &entry->children) {
 		vfs_dentry_t *current_entry = container_of(list_node, vfs_dentry_t, children_node);
 		if (!strcmp(current_entry->name, name)) {
@@ -230,9 +231,11 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 			if (ret->ref_count == 1) {
 				vfs_dentry_remove_lru(ret);
 			}
+			rculist_release_read(&entry->children);
 			return ret;
 		}
 	}
+	rculist_release_read(&entry->children);
 
 	// it isen't chached
 	// ask the fs for it
