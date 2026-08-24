@@ -355,21 +355,7 @@ static inline int vfs_truncate(vfs_node_t *node, size_t size) {
  * @param perm new permission
  * @return 0 on succes else error code
  */
-static inline int vfs_chmod(vfs_node_t *node, mode_t perm) {
-	struct stat st;
-	st.st_mode = perm;
-
-	vfs_node_acquire_write(node);
-	uid_t current_euid = get_current_euid();
-	int ret;
-	if (current_euid == node->uid || current_euid == EUID_ROOT) {
-		ret = vfs_setattr(node, &st, VNODE_ATTR_MODE);
-	} else {
-		ret = -EPERM;
-	}
-	vfs_node_release_write(node);
-	return ret;
-}
+int vfs_chmod(vfs_node_t *node, mode_t perm);
 
 /**
  * @brief change owner of a file/dir
@@ -378,24 +364,7 @@ static inline int vfs_chmod(vfs_node_t *node, mode_t perm) {
  * @param group_owner gid of new group_owner
  * @return 0 on succes else error code
  */
-static inline int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
-	struct stat st;
-	st.st_uid = owner;
-	st.st_gid = group_owner;
-
-	vfs_node_acquire_write(node);
-	uid_t current_euid = get_current_euid();
-	int ret;
-	if (current_euid == node->uid || current_euid == EUID_ROOT) {
-		// clear setuid bit and setgid bit
-		st.st_mode = node->mode & ~(S_ISUID | S_ISGID);
-		ret = vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
-	} else {
-		ret = -EPERM;
-	}
-	vfs_node_release_write(node);
-	return ret;
-}
+int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner);
 
 /**
  * @brief change times of a file/dir
@@ -403,22 +372,7 @@ static inline int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
  * @param times the times (0 is atime and 1 is mtime)
  * @return 0 on succes else error code
  */
-static inline int vfs_utimes(vfs_node_t *node, const struct timeval times[2]) {
-	struct stat st;
-	st.st_atime = times[0].tv_sec;
-	st.st_mtime = times[1].tv_sec;
-
-	vfs_node_acquire_write(node);
-	uid_t current_euid = get_current_euid();
-	int ret;
-	if (current_euid == node->uid || current_euid == EUID_ROOT) {
-		ret = vfs_setattr(node, &st, VNODE_ATTR_ATIME | VNODE_ATTR_MTIME);
-	} else {
-		ret = -EPERM;
-	}
-	vfs_node_release_write(node);
-	return ret;
-}
+int vfs_utimes(vfs_node_t *node, const struct timeval times[2]);
 
 static inline int vfs_update_time(vfs_node_t *node, int mask) {
 	struct stat st;
@@ -436,7 +390,7 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
 int vfs_node_flush(vfs_node_t *node);
 
 static inline int vfs_node_data_flush(vfs_node_t *node) {
-	if (atomic_load(&node->flags) & VNODE_FLAG_DATA_DIRTY)B{
+	if (atomic_load(&node->flags) & VNODE_FLAG_DATA_DIRTY) {
 		return vfs_node_flush(node);
 	} else {
 		return 0;

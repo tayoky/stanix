@@ -87,7 +87,7 @@ typedef struct ata_regs {
 	uint8_t lba3;
 	uint8_t lba4;
 	uint8_t lba5;
-	uint16_t sectors_size;
+	uint16_t sectors_count;
 } ata_regs_t;
 
 typedef struct ata_command {

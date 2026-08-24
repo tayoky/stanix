@@ -106,9 +106,61 @@ vfs_node_t *vfs_node_get(vfs_superblock_t *superblock, ino_t inode_number) {
 	return node;
 }
 
+int vfs_chmod(vfs_node_t *node, mode_t perm) {
+	struct stat st;
+	st.st_mode = perm;
+
+	vfs_node_acquire_write(node);
+	uid_t current_euid = get_current_euid();
+	int ret;
+	if (current_euid == node->uid || current_euid == EUID_ROOT) {
+		ret = vfs_setattr(node, &st, VNODE_ATTR_MODE);
+	} else {
+		ret = -EPERM;
+	}
+	vfs_node_release_write(node);
+	return ret;
+}
+
+int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
+	struct stat st;
+	st.st_uid = owner;
+	st.st_gid = group_owner;
+
+	vfs_node_acquire_write(node);
+	uid_t current_euid = get_current_euid();
+	int ret;
+	if (current_euid == node->uid || current_euid == EUID_ROOT) {
+		// clear setuid bit and setgid bit
+		st.st_mode = node->mode & ~(S_ISUID | S_ISGID);
+		ret = vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
+	} else {
+		ret = -EPERM;
+	}
+	vfs_node_release_write(node);
+	return ret;
+}
+
+int vfs_utimes(vfs_node_t *node, const struct timeval times[2]) {
+	struct stat st;
+	st.st_atime = times[0].tv_sec;
+	st.st_mtime = times[1].tv_sec;
+
+	vfs_node_acquire_write(node);
+	uid_t current_euid = get_current_euid();
+	int ret;
+	if (current_euid == node->uid || current_euid == EUID_ROOT) {
+		ret = vfs_setattr(node, &st, VNODE_ATTR_ATIME | VNODE_ATTR_MTIME);
+	} else {
+		ret = -EPERM;
+	}
+	vfs_node_release_write(node);
+	return ret;
+}
+
 int vfs_node_flush(vfs_node_t *node) {
 	if (!node) return -EBADF;
-	if (!(atomic_fetch_and(&node->flags, ~(VNODE_FLAG_DIRTY | VNODE_FLAG_DATA_DIRTY)) & (VNODE_FLAG_DIRTY | VNODE_DATA_DIRTY))) {
+	if (!(atomic_fetch_and(&node->flags, ~(VNODE_FLAG_DIRTY | VNODE_FLAG_DATA_DIRTY)) & (VNODE_FLAG_DIRTY | VNODE_FLAG_DATA_DIRTY))) {
 		// not dirty
 		return 0;
 	}

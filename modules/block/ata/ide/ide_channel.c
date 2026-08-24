@@ -330,7 +330,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	drv_select |= command->regs.device;
 	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select);
 
-	kdebugf("send command opcode=%hhx sectors_count=%zu lba=%zu flags=%x\n", command->regs.opcode, command->regs.sectors_count, command->lba, command->flags);
+	kdebugf("send command opcode=%hhx sectors_count=%zu flags=%x\n", command->regs.command, command->regs.sectors_count, command->flags);
 
 	ide_channel_io_wait(channel);
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
@@ -349,7 +349,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	}
 
 	if (command->flags & (ATA_CMD_SEND_LBA28 | ATA_CMD_SEND_LBA48)) {
-		ide_channel_write(channel, IDE_REG_SECCOUNT0, (uint8_t)(command->sectors_count));
+		ide_channel_write(channel, IDE_REG_SECCOUNT0, (uint8_t)(command->regs.sectors_count));
 		ide_channel_write(channel, IDE_REG_LBA0, command->regs.lba0);
 		ide_channel_write(channel, IDE_REG_LBA1, command->regs.lba1);
 		ide_channel_write(channel, IDE_REG_LBA2, command->regs.lba2);

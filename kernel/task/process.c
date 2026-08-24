@@ -294,7 +294,7 @@ int fd_add(vfs_fd_t *fd, long flags) {
 }
 
 vfs_fd_t *fd_set(int index, vfs_fd_t *fd, long flags) {
-	if (IS_ERR(fd)) return PTR2ERR(fd);
+	if (IS_ERR(fd)) return fd;
 	
 	uintptr_t value = (uintptr_t)fd;
 	if (flags & FD_CLOEXEC) value |= FDTABLE_CLOEXEC;

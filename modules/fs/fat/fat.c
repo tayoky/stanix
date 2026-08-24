@@ -19,7 +19,7 @@ static vfs_inode_ops_t fat_inode_ops;
 static vfs_fd_ops_t fat_fd_ops;
 static slab_cache_t fat_inodes_slab;
 
-static size_t fat_cluster2offset(fat_superblock_t *fat_superblock, uint32_t cluster) {
+static off_t fat_cluster2offset(fat_superblock_t *fat_superblock, uint32_t cluster) {
 	kassert(cluster >= 2);
 	return (cluster - 2) * fat_superblock->cluster_size + fat_superblock->data_start;
 }
@@ -64,7 +64,7 @@ static int fat_raw_set_next_cluster(fat_superblock_t *fat_superblock, off_t offs
 		uint8_t ent12[3];
 		ssize_t ret = vfs_read(fat_superblock->superblock.device, &ent12, offset + offset12, sizeof(ent12));
 		if (ret < 0) return ret;
-		if (ret < sizeof(ent12)) return -EIO;
+		if (ret < (ssize_t)sizeof(ent12)) return -EIO;
 		if (cluster % 2) {
 			ent12[1] = ((next << 4) & 0xF0U) | (ent12[1] & 0x0FU);
 			ent12[2] = (uint8_t)(next >> 4);
@@ -74,7 +74,7 @@ static int fat_raw_set_next_cluster(fat_superblock_t *fat_superblock, off_t offs
 		}
 		ret = vfs_write(fat_superblock->superblock.device, &ent12, offset + offset12, sizeof(ent12));
 		if (ret < 0) return ret;
-		if (ret < sizeof(ent12)) return -EIO;
+		if (ret < (ssize_t)sizeof(ent12)) return -EIO;
 		return 0;
 	case FAT16:
 		if (next == FAT_EOF) next = 0xFFF8;
@@ -82,7 +82,7 @@ static int fat_raw_set_next_cluster(fat_superblock_t *fat_superblock, off_t offs
 		off_t offset16 = fat_superblock->reserved_sectors * fat_superblock->sector_size + cluster * 2;
 		ret = vfs_write(fat_superblock->superblock.device, &ent16, offset + offset16, sizeof(ent16));
 		if (ret < 0) return ret;
-		if (ret < sizeof(ent16)) return -EIO;
+		if (ret < (ssize_t)sizeof(ent16)) return -EIO;
 		return 0;
 	case FAT32:
 		if (next == FAT_EOF) next = 0x0FFFFFF8;
@@ -90,7 +90,7 @@ static int fat_raw_set_next_cluster(fat_superblock_t *fat_superblock, off_t offs
 		off_t offset32 = fat_superblock->reserved_sectors * fat_superblock->sector_size + cluster * 4;
 		ret = vfs_write(fat_superblock->superblock.device, &ent32, offset + offset32, sizeof(ent32));
 		if (ret < 0) return ret;
-		if (ret < sizeof(ent32)) return -EIO;
+		if (ret < (ssize_t)sizeof(ent32)) return -EIO;
 		return 0;
 	default:
 		kassert(!"invalid fat type");
@@ -122,13 +122,13 @@ static uint32_t fat_allocate_cluster(fat_superblock_t *fat_superblock) {
 	while (cluster < fat_superblock->data_clusters + 2) {
 		if (fat_get_next_cluster(fat_superblock, cluster) == FAT_FREE) {
 			// this cluster is free
-			fat_superblock->cluser_search_hint = cluster + 1;
+			fat_superblock->cluster_search_hint = cluster + 1;
 			mutex_release(&fat_superblock->write_lock);
 			return cluster;
 		}
 		cluster++;
 	}
-	fat_superblock->cluser_search_hint = fat_superblock->data_clusters + 2;
+	fat_superblock->cluster_search_hint = fat_superblock->data_clusters + 2;
 	mutex_release(&fat_superblock->write_lock);
 	return FAT_EOF;
 }
@@ -303,14 +303,14 @@ static int fat_getattr(vfs_node_t *vnode, struct stat *st) {
 	return 0;
 }
 
-static int fat_read_entry(fat_superblock_t *fat_superblock, size_t offset, fat_entry_t *entry) {
+static int fat_read_entry(fat_superblock_t *fat_superblock, off_t offset, fat_entry_t *entry) {
 	ssize_t ret = vfs_read(fat_superblock->superblock.device, entry, offset, sizeof(fat_entry_t));
 	if (ret < 0) return ret;
 	if (ret < (ssize_t)sizeof(fat_entry_t)) return -EIO;
 	return 0;
 }
 
-static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, size_t *offset, fat_entry_t *entry) {
+static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, off_t *offset, fat_entry_t *entry) {
 	if (*cluster == FAT_EOF) return -ENOENT;
 	if (inode->is_fat16_root) {
 		size_t index = (*offset - inode->start) / sizeof(fat_entry_t);
@@ -325,7 +325,7 @@ static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, 
 	// jump to next entry
 	*offset += sizeof(fat_entry_t);
 	if (!inode->is_fat16_root) {
-		size_t cluster_end = fat_cluster2offset(fat_superblock, *cluster) + fat_superblock->cluster_size;
+		off_t cluster_end = fat_cluster2offset(fat_superblock, *cluster) + fat_superblock->cluster_size;
 		if (*offset >= cluster_end) {
 			// end of cluster
 			// jump to next cluster
@@ -341,7 +341,7 @@ static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, 
 /**
  * @brief parse next lfn sequence
  */
-static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, size_t *offset, off_t *sfn_offset, fat_entry_t *entry, char name[512]) {
+static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, off_t *offset, off_t *sfn_offset, fat_entry_t *entry, char name[512]) {
 	kdebugf("long name\n");
 	fat_long_entry_t long_entry;
 	memcpy(&long_entry, entry, sizeof(fat_entry_t));
@@ -448,7 +448,7 @@ static int fat_sfn_match(fat_entry_t *entry, const char *name) {
 /**
  * @brief parse fat entries and make a directory entry from it
  */
-static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t cluster, size_t offset, fat_entry_t *entry, struct dirent *dirent) {
+static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t cluster, off_t offset, fat_entry_t *entry, struct dirent *dirent) {
 	if (entry->name[0] == 0x00) {
 		// everything is free after that
 		// we hit last
@@ -480,7 +480,7 @@ static int fat_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *di
 	fat_inode_t *inode               = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(vnode->superblock, fat_superblock_t, superblock);
 
-	size_t offset     = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
+	off_t offset     = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
 	uint32_t cluster  = inode->first_cluster;
 	kdebugf("readdir on %s , first cluster is %lx\n", inode->is_fat16_root ? "root" : "not root", cluster);
 	for (;;) {
@@ -520,7 +520,7 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	fat_inode_t *inode               = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(vnode->superblock, fat_superblock_t, superblock);
 
-	uint64_t offset   = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
+	off_t offset   = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
 	uint32_t cluster  = inode->first_cluster;
 
 	for (;;) {
@@ -569,18 +569,20 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 static int fat_set_cluster(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t number, uint32_t cluster) {
 	if (cluster > 0) {
-		uint32_t prev = fat_get_cluster(inode, number - 1);
+		uint32_t prev = fat_get_cluster(fat_superblock, inode, number - 1);
 		if (prev == FAT_EOF || prev == FAT_FREE) return -EIO;
-		fat_set_next_cluster(fat_superblock, prev, cluster);
+		int ret = fat_set_next_cluster(fat_superblock, prev, cluster);
+		if (ret < 0) return ret;
 	} else {
 		inode->first_cluster = cluster;
 	}
+	return 0;
 }
 
-static int fat_truncate(vfs_node *vnode, size_t size) {
+static int fat_truncate(vfs_node_t *vnode, size_t size) {
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
-	size_t current_clusters_count = (cache->size + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
+	size_t current_clusters_count = (inode->entry.file_size + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
 	size_t new_clusters_count = (size + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
 
 	if (new_clusters_count < current_clusters_count) {
@@ -629,12 +631,12 @@ static void fat_cleanup(vfs_node_t *vnode) {
 	slab_free(vnode);
 }
 
-static int fat_flush_inode(superblock_t *superblock, vfs_node_t *vnode) {
+static int fat_flush_inode(vfs_superblock_t *superblock, vfs_node_t *vnode) {
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(superblock, fat_superblock_t, superblock);
 	ssize_t ret = vfs_write(fat_superblock->superblock.device, &inode->entry, inode->entry_offset, sizeof(fat_entry_t));
 	if (ret < 0) return ret;
-	if (ret < sizeof(fat_entry_t)) return -EIO;
+	if (ret < (ssize_t)sizeof(fat_entry_t)) return -EIO;
 	return 0;
 }
 
