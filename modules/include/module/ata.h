@@ -24,6 +24,20 @@
 #define ATA_CMD_IDENTIFY_PACKET 0xA1
 #define ATA_CMD_IDENTIFY        0xEC
 
+// ata status
+#define ATA_SR_BSY  0x80 // busy
+#define ATA_SR_DRDY 0x40 // drive ready
+#define ATA_SR_DF   0x20 // drive write fault
+#define ATA_SR_DSC  0x10 // drive seek complete
+#define ATA_SR_DRQ  0x08 // data request ready
+#define ATA_SR_CORR 0x04 // corrected data
+#define ATA_SR_IDX  0x02 // index
+#define ATA_SR_ERR  0x01 // error
+
+#define ATA_DRV_SELECT_LEGACY 0xa0
+#define ATA_DRV_SELECT_LBA    0x40
+#define ATA_DRV_SELECT_SLAVE  0x10
+
 #define ATA_IDENT_DEVICETYPE   0
 #define ATA_IDENT_CYLINDERS    2
 #define ATA_IDENT_HEADS        6
@@ -81,19 +95,20 @@ typedef struct {
 typedef struct ata_regs {
 	uint8_t command;
 	uint8_t device;
+	uint8_t sectors_count0;
 	uint8_t lba0;
 	uint8_t lba1;
 	uint8_t lba2;
+	uint8_t sectors_count1;
 	uint8_t lba3;
 	uint8_t lba4;
 	uint8_t lba5;
-	uint16_t sectors_count;
 } ata_regs_t;
 
 typedef struct ata_command {
 	ioreq_t ioreq;
-	list_node_t node;
 	ata_regs_t regs;
+	list_node_t node;
 	void *buf;
 	size_t buf_size;
 	ata_device_t *device;
@@ -115,6 +130,9 @@ typedef struct ata_driver {
 #define ATA_BUSES BUSES("ide_channel")
 
 ata_command_t *ata_create_command(ata_device_t *device);
+ata_command_t *ata_create_lba48_command(ata_device_t *device, uint8_t command, size_t lba, uint16_t sectors_count);
+ata_command_t *ata_create_lba28_command(ata_device_t *device, uint8_t command, size_t lba, uint8_t sectors_count);
+
 int ata_submit_command_sync(ata_command_t *command);
 
 void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident);

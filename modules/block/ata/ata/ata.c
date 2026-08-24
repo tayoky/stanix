@@ -41,7 +41,7 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 	}
 
 	uint8_t opcode;
-	int flags = 0;
+	ata_command_t *command;
 	if (disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48) {
 		if (request->sectors_count > 65536) {
 			return -ENOTSUP;
@@ -51,7 +51,7 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 		} else {
 			opcode = ATA_CMD_READ_PIO_EXT;
 		}
-		flags = ATA_CMD_SEND_LBA48;
+		command = ata_create_lba48_command(device, opcode, request->start_sector, request->sectors_count);
 	} else {
 		if (request->sectors_count > 256) {
 			return -ENOTSUP;
@@ -61,30 +61,14 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 		} else {
 			opcode = ATA_CMD_READ_PIO;
 		}
-		flags = ATA_CMD_SEND_LBA28;
+		command = ata_create_lba28_command(device, opcode, request->start_sector, request->sectors_count);
 	}
+
 	if (request->type == BLOCK_REQUEST_WRITE) {
-		flags |= ATA_CMD_WRITE_BUF;
+		command->flags |= ATA_CMD_WRITE_BUF;
 	} else {
-		flags |= ATA_CMD_READ_BUF;
+		command->flags |= ATA_CMD_READ_BUF;
 	}
-
-	ata_command_t *command = ata_create_command(device);
-	command->regs.command = opcode;
-	command->regs.sectors_count = request->sectors_count;
-
-	command->regs.lba0 = (uint8_t)(request->start_sector >> 0);
-	command->regs.lba1 = (uint8_t)(request->start_sector >> 8);
-	command->regs.lba2 = (uint8_t)(request->start_sector >> 16);
-	if (flags & ATA_CMD_SEND_LBA28) {
-		command->regs.device = (uint8_t)((request->start_sector >> 24) & 0x0f);
-	} else {
-		command->regs.lba3 = (uint8_t)(request->start_sector >> 24);
-		command->regs.lba4 = (uint8_t)(request->start_sector >> 32);
-		command->regs.lba5 = (uint8_t)(request->start_sector >> 40);
-	}
-
-	command->flags    = flags;
 	command->buf      = request->buf;
 	command->buf_size = request->sectors_count * block_device->sector_size;
 	ioreq_set_callback(&command->ioreq, ata_finish_callback, request);

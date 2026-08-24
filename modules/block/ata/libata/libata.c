@@ -86,6 +86,36 @@ ata_command_t *ata_create_command(ata_device_t *device) {
 	return command;
 }
 
+ata_command_t *ata_create_lba48_command(ata_device_t *device, uint8_t command, size_t lba, uint16_t sectors_count) {
+	ata_command_t *command = ata_create_command(device);
+	if (!command) return NULL;
+	command->regs.device |= ATA_DRV_SELECT_LBA;
+	command->regs.lba0 = (uint8_t)(lba >> 0);
+	command->regs.lba1 = (uint8_t)(lba >> 8);
+	command->regs.lba2 = (uint8_t)(lba >> 16);
+	command->regs.lba3 = (uint8_t)(lba >> 24);
+	command->regs.lba4 = (uint8_t)(lba >> 32);
+	command->regs.lba5 = (uint8_t)(lba >> 40);
+	command->regs.sectors_count0 = (uint8_t)(sectors_count >> 0);
+	command->regs.sectors_count1 = (uint8_t)(sectors_count >> 8);
+	command->regs.command = command;
+	command->flags |= ATA_CMD_SEND_LBA48;
+	return command;
+}
+
+ata_command_t *ata_create_lba28_command(ata_device_t *device, uint8_t command, size_t lba, uint8_t sectors_count) {
+	ata_command_t *command = ata_create_command(device);
+	if (!command) return NULL;
+	command->regs.device |= ATA_DRV_SELECT_LBA | ((lba >> 24) & 0xf0);
+	command->regs.lba0 = (uint8_t)(lba >> 0);
+	command->regs.lba1 = (uint8_t)(lba >> 8);
+	command->regs.lba2 = (uint8_t)(lba >> 16);
+	command->regs.sectors_count0 = (uint8_t)(sectors_count >> 0);
+	command->regs.command = command;
+	command->flags |= ATA_CMD_SEND_LBA28;
+	return command;
+}
+
 int ata_submit_command_sync(ata_command_t *command) {
 	ioreq_ref(&command->ioreq);
 	int ret = ata_submit_or_queue_command(command);

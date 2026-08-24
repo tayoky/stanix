@@ -25,20 +25,6 @@
 #define IDE_REG_ALTSTATUS  0x0C
 #define IDE_REG_DEVADDRESS 0x0D
 
-// ata status
-#define IDE_SR_BSY  0x80 // busy
-#define IDE_SR_DRDY 0x40 // drive ready
-#define IDE_SR_DF   0x20 // drive write fault
-#define IDE_SR_DSC  0x10 // drive seek complete
-#define IDE_SR_DRQ  0x08 // data request ready
-#define IDE_SR_CORR 0x04 // corrected data
-#define IDE_SR_IDX  0x02 // index
-#define IDE_SR_ERR  0x01 // error
-
-#define IDE_DRV_SELECT_LEGACY 0xa0
-#define IDE_DRV_SELECT_LBA    0x40
-#define IDE_DRV_SELECT_SLAVE  0x10
-
 static void ide_channel_write(ide_channel_t *channel, uint32_t reg, uint8_t data) {
 	// set HOB
 	if (reg > 0x07 && reg < 0x0C) {
@@ -99,10 +85,10 @@ static int ide_channel_poll(ide_channel_t *channel, uint8_t mask, uint8_t value)
 		gettime(CLOCK_MONOTONIC, &current);
 		status = ide_channel_read(channel, IDE_REG_STATUS);
 		if ((status & mask) == value) break;
-		if (status & IDE_SR_ERR) break;
+		if (status & ATA_SR_ERR) break;
 		yield(1);
 	}
-	if (status & IDE_SR_ERR) {
+	if (status & ATA_SR_ERR) {
 		kwarningf("error status=%hhx error=%hhx\n", status, ide_channel_read(channel, IDE_REG_ERROR));
 		return -EIO;
 	}
@@ -140,7 +126,7 @@ static void ide_channel_irq_handler(registers_t *registers, void *data) {
 
 	ide_channel_io_wait(channel);
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
-	if (status & IDE_SR_ERR) {
+	if (status & ATA_SR_ERR) {
 		kwarningf("error status=%hhx error=%hhx\n", status, ide_channel_read(channel, IDE_REG_ERROR));
 error:
 		channel->ret = -EIO;
@@ -148,14 +134,14 @@ error:
 		return;
 	}
 
-	if (status & IDE_SR_BSY) {
+	if (status & ATA_SR_BSY) {
 		// surpirous wakeup
 		return;
 	}
 
 	// do we have data to transfer
 	if (channel->current_sector * 512 < command->buf_size) {
-		if (!(status & IDE_SR_DRQ)) {
+		if (!(status & ATA_SR_DRQ)) {
 			kwarningf("expected data request status=%hhx\n", status);
 			goto error;
 		}
@@ -170,7 +156,7 @@ error:
 			return;
 		}
 	} else {
-		if (status & IDE_SR_DRQ) {
+		if (status & ATA_SR_DRQ) {
 			kwarningf("unexpected data request status=%hhx\n", status);
 		}
 	}
@@ -199,12 +185,12 @@ static int ide_channel_reset(ide_channel_t *channel) {
 	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
 	ide_channel_io_wait(channel);
 
-	return ide_channel_poll(channel, IDE_SR_BSY, 0);
+	return ide_channel_poll(channel, ATA_SR_BSY, 0);
 }
 
 static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t *bus, uint8_t drive) {
 	// select the drive
-	uint8_t drv_select = IDE_DRV_SELECT_LEGACY | IDE_DRV_SELECT_LBA | drive;
+	uint8_t drv_select = ATA_DRV_SELECT_LEGACY | ATA_DRV_SELECT_LBA | drive;
 	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select);
 
 	ide_channel_io_wait(channel);
@@ -213,7 +199,7 @@ static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t 
 		// no drive
 		return NULL;
 	}
-	if (ide_channel_poll(channel, IDE_SR_BSY, 0) < 0) {
+	if (ide_channel_poll(channel, ATA_SR_BSY, 0) < 0) {
 		return NULL;
 	}
 
@@ -281,7 +267,7 @@ error:
 
 	// create children ata channels
 	channel->master = ide_channel_create_child(channel, devnode, 0);
-	channel->slave = ide_channel_create_child(channel, devnode, IDE_DRV_SELECT_SLAVE);
+	channel->slave = ide_channel_create_child(channel, devnode, ATA_DRV_SELECT_SLAVE);
 
 	if (channel->irq_handler) {
 		ide_channel_enable_irq(channel);
@@ -303,13 +289,13 @@ static int ide_channel_poll_mode(ide_channel_t *channel, ata_command_t *command)
 	uint16_t *buf = command->buf;
 	while (channel->current_sector * 512 < command->buf_size) {
 		ide_channel_io_wait(channel);
-		int ret = ide_channel_poll(channel, IDE_SR_BSY | IDE_SR_DRQ, IDE_SR_DRQ);
+		int ret = ide_channel_poll(channel, ATA_SR_BSY | ATA_SR_DRQ, ATA_SR_DRQ);
 		if (ret < 0) return ret;
 		ide_channel_transfer_sector(channel, buf + (channel->current_sector++ * 256), command->flags);
 	}
 	
 	ide_channel_io_wait(channel);
-	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
+	int ret = ide_channel_poll(channel, ATA_SR_BSY, 0);
 	if (ret < 0) return ret;
 
 	atomic_store(&channel->current_command, NULL);
@@ -318,19 +304,19 @@ static int ide_channel_poll_mode(ide_channel_t *channel, ata_command_t *command)
 }
 
 static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t *device, ata_command_t *command) {
-	int ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
+	int ret = ide_channel_poll(channel, ATA_SR_BSY, 0);
 	if (ret < 0) return ret;
 
 	// select the drive
 	// TODO : don't reselect if is was already selected
-	uint8_t drv_select = IDE_DRV_SELECT_LEGACY | IDE_DRV_SELECT_LBA;
+	uint8_t drv_select = ATA_DRV_SELECT_LEGACY;
 	if (device == channel->slave) {
-		drv_select |= IDE_DRV_SELECT_SLAVE;
+		drv_select |= ATA_DRV_SELECT_SLAVE;
 	}
 	drv_select |= command->regs.device;
 	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select);
 
-	kdebugf("send command opcode=%hhx sectors_count=%zu flags=%x\n", command->regs.command, command->regs.sectors_count, command->flags);
+	kdebugf("send command opcode=%hhx sectors_count=%02hhx%0hhx flags=%x\n", command->regs.command, command->regs.sectors_count1, command->regs.sectors_count0, command->flags);
 
 	ide_channel_io_wait(channel);
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
@@ -338,18 +324,18 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 		// no drive
 		return -ENODEV;
 	}
-	ret = ide_channel_poll(channel, IDE_SR_BSY, 0);
+	ret = ide_channel_poll(channel, ATA_SR_BSY, 0);
 	if (ret < 0) return ret;
 
 	if (command->flags & ATA_CMD_SEND_LBA48) {
-		ide_channel_write(channel, IDE_REG_SECCOUNT0, (uint8_t)(command->regs.sectors_count >> 8));
+		ide_channel_write(channel, IDE_REG_SECCOUNT0, command->regs.sectors_count1);
 		ide_channel_write(channel, IDE_REG_LBA0, command->regs.lba3);
 		ide_channel_write(channel, IDE_REG_LBA1, command->regs.lba4);
 		ide_channel_write(channel, IDE_REG_LBA2, command->regs.lba5);
 	}
 
 	if (command->flags & (ATA_CMD_SEND_LBA28 | ATA_CMD_SEND_LBA48)) {
-		ide_channel_write(channel, IDE_REG_SECCOUNT0, (uint8_t)(command->regs.sectors_count));
+		ide_channel_write(channel, IDE_REG_SECCOUNT0, command->regs.sectors_count0);
 		ide_channel_write(channel, IDE_REG_LBA0, command->regs.lba0);
 		ide_channel_write(channel, IDE_REG_LBA1, command->regs.lba1);
 		ide_channel_write(channel, IDE_REG_LBA2, command->regs.lba2);
@@ -361,7 +347,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	if ((command->flags & ATA_CMD_WRITE_BUF) && command->buf_size > 0) {
 		// we need to write the first sector
 		ide_channel_io_wait(channel);
-		int ret = ide_channel_poll(channel, IDE_SR_DRQ, IDE_SR_DRQ);
+		int ret = ide_channel_poll(channel, ATA_SR_DRQ, ATA_SR_DRQ);
 		if (ret < 0) return ret;
 		ide_channel_transfer_sector(channel, command->buf, command->flags);
 		channel->current_sector++;
