@@ -4,6 +4,7 @@
 #include <kernel/assert.h>
 #include <kernel/atomic.h>
 #include <kernel/list.h>
+#include <kernel/rculist.h>
 #include <kernel/rwsem.h>
 #include <kernel/refcount.h>
 #include <kernel/spinlock.h>
@@ -73,7 +74,7 @@ struct vfs_node {
  * @brief represent a directory entry
  */
 struct vfs_dentry {
-	list_node_t children_node;
+	rculist_node_t children_node;
 	list_node_t lru_node;
 	char name[256];
 	vfs_node_t *inode;
@@ -81,7 +82,7 @@ struct vfs_dentry {
 	long flags;
 	vfs_dentry_t *parent;
 	vfs_dentry_t *old; // used for mount point
-	list_t children;
+	rculist_t children;
 	ref_count_t ref_count;
 };
 

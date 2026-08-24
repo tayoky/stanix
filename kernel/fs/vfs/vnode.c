@@ -132,6 +132,11 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 	}
 }
 
+// FIXME 2 : we have a few races in there
+// - 1 double lookup if two thread call ops->lookup on the same name
+// - 2 dentry eviction before we get time to remove it from lru
+// - 3 if a dentry is added to the cache between when we check the rculist and when call ops->lookup
+// - 4 if the permission change between when we check the perm and when check the cache
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	// cannot do lookup on negative entry
 	if (vfs_dentry_is_negative(entry)) {
@@ -157,7 +162,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	}
 
 	// first search in the dentries cache
-	foreach (list_node, &entry->children) {
+	rculist_foreach (list_node, &entry->children) {
 		vfs_dentry_t *current_entry = container_of(list_node, vfs_dentry_t, children_node);
 		if (!strcmp(current_entry->name, name)) {
 			// cached entries must not be negative

@@ -13,12 +13,12 @@ static slab_cache_t dentries_slab;
 void vfs_dentry_add(vfs_dentry_t *parent, vfs_dentry_t *child) {
 	// child hold a ref to the parent
 	child->parent = vfs_dentry_ref(parent);
-	list_append(&parent->children, &child->children_node);
+	rculist_append(&parent->children, &child->children_node);
 }
 
 void vfs_dentry_remove(vfs_dentry_t *dentry) {
 	if (!dentry->parent) return;
-	list_remove(&dentry->parent->children, &dentry->children_node);
+	rculist_remove(&dentry->parent->children, &dentry->children_node);
 	// child hold a ref to the parent
 	vfs_dentry_release(dentry->parent);
 	dentry->parent = NULL;
@@ -79,7 +79,7 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 
 			// we cannot use vfs_remove_entry cause it call vfs_dentry_release
 			if (parent) {
-				list_remove(&parent->children, &dentry->children_node);
+				rculist_remove(&parent->children, &dentry->children_node);
 			}
 			dentry->parent = NULL;
 			slab_free(dentry);
