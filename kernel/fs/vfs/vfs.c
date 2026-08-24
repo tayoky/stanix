@@ -109,8 +109,8 @@ int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
 
 	// insert the new fake dentry at the place of the original one
 	if (mount_point->parent) {
-		list_remove(&mount_point->parent->children, &mount_point->children_node);
-		list_append(&mount_point->parent->children, &root_dentry->children_node);
+		rculist_remove(&mount_point->parent->children, &mount_point->children_node);
+		rculist_append(&mount_point->parent->children, &root_dentry->children_node);
 	} else if (mount_point == vfs_get_root()) {
 		// special case for root
 		vfs_set_root(root_dentry);
@@ -154,8 +154,8 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *parent = mount_point->parent;
 	if (parent) {
 		mount_point->parent = NULL;
-		list_remove(&parent->children, &mount_point->children_node);
-		list_append(&parent->children, &mount_point->old->children_node);
+		rculist_remove(&parent->children, &mount_point->children_node);
+		rculist_append(&parent->children, &mount_point->old->children_node);
 	}
 
 	vfs_dentry_release(mount_point);
