@@ -39,6 +39,11 @@ int slab_init(slab_cache_t *slab_cache, size_t size, const char *name) {
 	if (size > PAGE_SIZE - sizeof(slab_t)) return -EINVAL;
 	kdebugf("init slab '%s'\n", name);
 	memset(slab_cache, 0, sizeof(slab_cache_t));
+
+	// round size to multiple of 16
+	if (size % 16 != 0) {
+		size += 16 - (size % 16);
+	}
 	slab_cache->name = name;
 	slab_cache->size = size;
 	slab_calculate_order(slab_cache);
