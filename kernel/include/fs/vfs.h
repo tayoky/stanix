@@ -331,7 +331,6 @@ int vfs_setattr(vfs_node_t *node, struct stat *st, int mask);
  */
 static inline int vfs_truncate(vfs_node_t *node, size_t size) {
 	if (!node) return -EBADF;
-	rwsem_assert_write_acquired(&node->rwsem);
 	if (!node->ops->truncate) return -EOPNOTSUPP;
 	switch (node->mode & S_IFMT) {
 	case S_IFREG:
