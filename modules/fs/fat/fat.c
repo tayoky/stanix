@@ -206,10 +206,11 @@ static cache_ops_t fat_cache_ops = {
 	.write = fat_write_pages,
 };
 
-static vfs_node_t *fat_entry2node(fat_entry_t *entry, fat_superblock_t *fat_superblock) {
+static vfs_node_t *fat_entry2node(off_t entry_offset, fat_entry_t *entry, fat_superblock_t *fat_superblock) {
 	fat_inode_t *inode   = slab_alloc(&fat_inodes_slab);
 	inode->entry         = *entry;
 	inode->first_cluster = (entry->cluster_higher << 16) | entry->cluster_lower;
+	inode->entry_offset  = entry_offset;
 
 	inode->vnode.ops        = &fat_inode_ops;
 	inode->vnode.superblock = &fat_superblock->superblock;
@@ -240,24 +241,6 @@ static ssize_t fat_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t 
 	return cache_write(&inode->cache, buffer, offset, count);
 }
 
-static int fat_truncate(vfs_fd_t *fd, size_t size) {
-	fat_inode_t *inode = fd->private;
-	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
-	size_t current_clusters_count = (cache->size + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
-	size_t new_clusters_count = (size + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
-
-	if (new_clusters_count < current_clusters_count) {
-		// TODO : free clusters
-	} else if (new_clusters_count > current_clusters_count) {
-		// TODO : allocate clusters
-		return -ENOSYS;
-	}
-
-	cache_truncate(&inode->cache, size);
-	inode->entry.file_size = size;
-	return 0;
-}
-
 static int fat_flush(vfs_fd_t *fd, off_t offset, size_t count) {
 	fat_inode_t *inode = fd->private;
 	int ret = cache_flush(&inode->cache, offset, count);
@@ -269,7 +252,6 @@ static int fat_flush(vfs_fd_t *fd, off_t offset, size_t count) {
 static vfs_fd_ops_t fat_fd_ops = {
 	.read     = fat_read,
 	.write    = fat_write,
-	.truncate = fat_truncate,
 	.flush    = fat_flush,
 };
 
@@ -339,7 +321,7 @@ static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, 
 /**
  * @brief parse next lfn sequence
  */
-static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, size_t *offset, fat_entry_t *entry, char name[512]) {
+static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, size_t *offset, off_t *sfn_offset, fat_entry_t *entry, char name[512]) {
 	kdebugf("long name\n");
 	fat_long_entry_t long_entry;
 	memcpy(&long_entry, entry, sizeof(fat_entry_t));
@@ -373,6 +355,7 @@ static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, ui
 		memcpy(&utf16_name[i + 11], long_entry.name3, sizeof(long_entry.name3));
 		name_len += 13;
 
+		if (sfn_offset) *sfn_offset = fat_cluster2offset(fat_superblock, *cluster) + *offset;
 		int ret = fat_next_entry(fat_superblock, inode, cluster, offset, (fat_entry_t *)&long_entry);
 		if (ret < 0) return ret;
 	}
@@ -456,7 +439,7 @@ static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint
 	char name[512];
 	if ((entry->attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
 		// we have a long name
-		ret = fat_next_lfn(fat_superblock, inode, &cluster, &offset, entry, name);
+		ret = fat_next_lfn(fat_superblock, inode, &cluster, &offset, NULL, entry, name);
 		if (ret < 0) return ret;
 	} else {
 		// we have a short name
@@ -522,6 +505,7 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 	for (;;) {
 		fat_entry_t entry;
+		off_t sfn_offset = fat_cluster2offset(fat_superblock, cluster) + offset;
 		int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
 		if (ret < 0) return ret;
 
@@ -539,11 +523,11 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		if ((entry.attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
 			// long name
 			char name[512];
-			ret = fat_next_lfn(fat_superblock, inode, &cluster, &offset, &entry, name);
+			ret = fat_next_lfn(fat_superblock, inode, &cluster, &offset, &sfn_offset, &entry, name);
 			if (ret < 0) return ret;
 			if (!strcmp(dentry->name, name)) {
 				// we found it
-				dentry->inode = fat_entry2node(&entry, fat_superblock);
+				dentry->inode = fat_entry2node(sfn_offset, &entry, fat_superblock);
 				// TODO : inode number
 				return 0;
 			}
@@ -554,7 +538,7 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 		if (fat_sfn_match(&entry, dentry->name)) {
 			// we found it
-			dentry->inode = fat_entry2node(&entry, fat_superblock);
+			dentry->inode = fat_entry2node(sfn_offset, &entry, fat_superblock);
 			// TODO : inode number
 			return 0;
 		}
@@ -563,9 +547,40 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	return -ENOENT;
 }
 
+static int fat_truncate(vfs_node *vnode, size_t size) {
+	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
+	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
+	size_t current_clusters_count = (cache->size + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
+	size_t new_clusters_count = (size + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
+
+	if (new_clusters_count < current_clusters_count) {
+		// TODO : free clusters
+	} else if (new_clusters_count > current_clusters_count) {
+		// TODO : allocate clusters
+		return -ENOSYS;
+	}
+
+	cache_truncate(&inode->cache, size);
+	inode->entry.file_size = size;
+	return 0;
+}
+
 static void fat_cleanup(vfs_node_t *vnode) {
 	slab_free(vnode);
 }
+
+static int fat_flush_inode(superblock_t *superblock, vfs_node_t *vnode) {
+	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
+	fat_superblock_t *fat_superblock = container_of(superblock, fat_superblock_t, superblock);
+	ssize_t ret = vfs_write(fat_superblock->superblock.device, &inode->entry, inode->entry_offset, sizeof(fat_entry_t));
+	if (ret < 0) return ret;
+	if (ret < sizeof(fat_entry_t)) return -EIO;
+	return 0;
+}
+
+static vfs_superblock_ops_t fat_superblock_ops = {
+	.flush_inode = fat_flush_inode,
+};
 
 int fat_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)flags;
@@ -622,6 +637,7 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 
 	fat_superblock_t *fat_superblock = kmalloc(sizeof(fat_superblock_t));
 	memset(fat_superblock, 0, sizeof(fat_superblock_t));
+	fat_superblock->superblock.ops    = &fat_superblock_ops;
 	fat_superblock->superblock.device = dev;
 	fat_superblock->fat_type          = fat_type;
 	fat_superblock->reserved_sectors  = bpb.reserved_sectors;
@@ -640,13 +656,14 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 		root_entry.cluster_lower  = bpb.extended.fat32.root_cluster & 0xffff;
 		root_entry.cluster_higher = (bpb.extended.fat32.root_cluster >> 16) & 0xffff;
 		// how do we get size ?
-		local_root = fat_entry2node(&root_entry, fat_superblock);
+		local_root = fat_entry2node(0, &root_entry, fat_superblock);
 	} else {
 		// root of fat12/16 is really stupid
 		fat_inode_t *root   = slab_alloc(&fat_inodes_slab);
 		root->entries_count = bpb.root_entires_count;
 		root->start         = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector;
 		root->is_fat16_root = 1;
+		root->entry_offset = 0;
 
 		local_root             = &root->vnode;
 		local_root->mode       = S_IFDIR | 0777;
@@ -660,11 +677,12 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 }
 
 static vfs_inode_ops_t fat_inode_ops = {
-	.readdir = fat_readdir,
-	.lookup  = fat_lookup,
-	.getattr = fat_getattr,
-	.cleanup = fat_cleanup,
-	.open    = fat_open,
+	.readdir  = fat_readdir,
+	.lookup   = fat_lookup,
+	.getattr  = fat_getattr,
+	.truncate = fat_truncate,
+	.cleanup  = fat_cleanup,
+	.open     = fat_open,
 };
 
 static vfs_filesystem_t fat_fs = {
