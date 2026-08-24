@@ -135,7 +135,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i]);
 		if (IS_ERR(next_entry)) {
 			ret = PTR2ERR(next_entry);
-			// maybee we can create it
+			// maybe we can create it
 			if (ret != -ENOENT || i != path_depth - 1 || !(flags & O_CREAT)) {
 				goto error;
 			}
@@ -143,15 +143,23 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 				ret = -EINVAL;
 				goto error;
 			}
+			vfs_node_acquire_write(current_entry->inode);
+			created = 1;
 			ret = vfs_create_at(current_entry, path_array[i], mode);
-			if (ret < 0) goto error;
+			if (ret == -EEXIST) {
+				// created in the meanwhile
+				created = 0;
+			} else if (ret < 0) {
+				vfs_node_release_write(current_entry->inode);
+				goto error;
+			}
 			// we need to manually fetch the new entry
 			next_entry = vfs_lookup(current_entry, path_array[i]);
+			vfs_node_release_write(current_entry->inode);
 			if (IS_ERR(next_entry)) {
 				ret = PTR2ERR(next_entry);
 				goto error;
 			}
-			created = 1;
 		}
 		vfs_dentry_release(current_entry);
 		current_entry = next_entry;
