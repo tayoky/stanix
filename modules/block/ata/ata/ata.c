@@ -8,10 +8,12 @@
 #include <sys/ioctl.h>
 
 #define ATA_SIG 0x00000101
+#define ATA_COMMAND_SETS_LBA48 (1U << 26)
 
 typedef struct ata_disk {
 	block_device_t block_device;
 	ata_common_ident_t common_ident; 
+	size_t sectors_count;
 } ata_disk_t;
 
 static void ata_finish_callback(ioreq_t *ioreq, void *data) {
@@ -26,21 +28,21 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 
 	if (request->type == BLOCK_REQUEST_FLUSH) {
 		ata_command_t *command = ata_create_command(device);
-		command->opcode = (disk->common_ident.command_sets & (1 << 26)) ? ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
+		command->opcode = (disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48) ? ATA_CMD_CACHE_FLUSH_EXT : ATA_CMD_CACHE_FLUSH;
 
 		ioreq_set_callback(&command->ioreq, ata_finish_callback, request);
 		return ioreq_submit(&command->ioreq);
 	}
 
 	// LBA28 has a lower limit
-	if (request->start_sector + request->sectors_count >= 0x10000000 && !(disk->common_ident.command_sets & (1 << 26))) {
+	if (request->start_sector + request->sectors_count >= 0x10000000 && !(disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48)) {
 		// high LBA but no LBA48 support... uh ?
 		return -EIO;
 	}
 
 	uint8_t opcode;
 	int flags = 0;
-	if (disk->common_ident.command_sets & (1 << 26)) {
+	if (disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48) {
 		if (request->sectors_count > 65536) {
 			return -ENOTSUP;
 		}
@@ -126,8 +128,10 @@ static int ata_probe(devnode_t *devnode) {
 	ata_parse_common_ident(&disk->common_ident, &ident);
 	disk->block_device.ops = &ata_ops;
 	disk->block_device.sector_size = 512;
-	disk->block_device.sectors_count = disk->common_ident.sectors_count;
+	disk->block_device.sectors_count = disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48 ? ident.sectors_lba48 : ident.sectors;
 	disk->block_device.device.devnode = devnode;
+
+	kdebugf("model : %s command sets : %x support LBA48 : %s max LBA : %ld\n", disk->common_ident.model, disk->common_ident.command_sets, disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48 ? "true" : "false", disk->block_device.sectors_count);
 
 	block_device_register(&disk->block_device, NULL, 0);
 	return 0;

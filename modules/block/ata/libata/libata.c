@@ -22,13 +22,10 @@ static void ata2str(char *dest, const char *atastr, size_t size) {
 }
 
 void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident) {
-	common_ident->sectors_count = ident->command_sets & (1 << 26) ? ident->sectors_lba48 : ident->sectors;
 	ata2str(common_ident->model,    ident->model,    sizeof(ident->model));
 	ata2str(common_ident->firmware, ident->firmware, sizeof(ident->firmware));
 	ata2str(common_ident->serial,   ident->serial,   sizeof(ident->serial));
 	common_ident->command_sets = ident->command_sets;
-
-	kdebugf("model : %s command sets : %x support LBA48 : %s max LBA : %ld\n", common_ident->model, common_ident->command_sets, common_ident->command_sets & (1 << 26) ? "true" : "false", common_ident->sectors_count);
 }
 
 static int ata_submit_or_queue_command(ata_command_t *command) {

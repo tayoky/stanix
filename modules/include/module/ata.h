@@ -63,7 +63,6 @@ typedef struct ata_ident {
 } __attribute__((packed)) __attribute__((aligned(16))) ata_ident_t;
 
 typedef struct ata_common_ident {
-	size_t sectors_count;
 	uint32_t command_sets;
 	char model[41];
 	char firmware[9];
