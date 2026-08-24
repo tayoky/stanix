@@ -286,6 +286,7 @@ void proc_zombie_cleanup(process_t *proc) {
 
 int fd_add(vfs_fd_t *fd, long flags) {
 	if (IS_ERR(fd)) return PTR2ERR(fd);
+	kassert(fd->ref_count > 0);
 	
 	uintptr_t value = (uintptr_t)fd;
 	if (flags & FD_CLOEXEC) value |= FDTABLE_CLOEXEC;
@@ -295,6 +296,7 @@ int fd_add(vfs_fd_t *fd, long flags) {
 
 vfs_fd_t *fd_set(int index, vfs_fd_t *fd, long flags) {
 	if (IS_ERR(fd)) return fd;
+	kassert(fd->ref_count > 0);
 	
 	uintptr_t value = (uintptr_t)fd;
 	if (flags & FD_CLOEXEC) value |= FDTABLE_CLOEXEC;
@@ -308,6 +310,7 @@ vfs_fd_t *fd_get_flags(int fd, long *flags) {
 
 	rcu_acquire_read(&get_current_proc()->fd_table.rcu);
 	vfs_fd_t *vfs_fd = fd_value2fd(xarray_get(&get_current_proc()->fd_table, fd), flags);
+	if (vfs_fd) kassert(vfs_fd->ref_count > 0);
 	vfs_dup(vfs_fd);
 	rcu_release_read(&get_current_proc()->fd_table.rcu);
 	return vfs_fd;
