@@ -3,13 +3,15 @@
 
 #include <kernel/vfs.h>
 #include <kernel/cache.h>
+#include <kernel/mutex.h>
 #include <stdint.h>
 
 #define FAT12 1
 #define FAT16 2
 #define FAT32 3
 
-#define FAT_EOF 0xFFFFFFFF
+#define FAT_EOF  0xFFFFFFFF
+#define FAT_FREE 0x00000000
 
 #define ATTR_READ_ONLY  0x01
 #define ATTR_HIDDEN     0x02
@@ -103,6 +105,7 @@ typedef struct fat_long_entry {
 
 typedef struct fat_superblock {
 	vfs_superblock_t superblock;
+	mutex_t write_lock;
 	int fat_type;
 	uint16_t reserved_sectors;
 	uint16_t sector_size;

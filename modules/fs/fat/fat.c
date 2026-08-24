@@ -56,7 +56,7 @@ static uint32_t fat_get_next_cluster(fat_superblock_t *fat_superblock, uint32_t 
 	}
 }
 
-static int fat_set_fat_next_cluster(fat_superblock_t *fat_superblock, off_t offset, uint32_t cluster, uint32_t next) {
+static int fat_raw_set_next_cluster(fat_superblock_t *fat_superblock, off_t offset, uint32_t cluster, uint32_t next) {
 	switch (fat_superblock->fat_type) {
 	case FAT12:
 		if (next == FAT_EOF) next = 0xFF8;
@@ -99,36 +99,58 @@ static int fat_set_fat_next_cluster(fat_superblock_t *fat_superblock, off_t offs
 }
 
 static int fat_set_next_cluster(fat_superblock_t *fat_superblock, uint32_t cluster, uint32_t next) {
+	mutex_acquire(&fat_superblock->write_lock);
 	for (size_t i = 0; i < fat_superblock->fat_count; i++) {
 		size_t sector = fat_superblock->reserved_sectors + fat_superblock->sectors_per_fat * i;
-		int ret = fat_set_fat_next_cluster(fat_superblock, sector * fat_superblock->sector_size, cluster, next);
+		int ret = fat_raw_set_next_cluster(fat_superblock, sector * fat_superblock->sector_size, cluster, next);
+		if (ret < 0) {
+			mutex_release(&fat_superblock->write_lock);
+			return ret;
+		}
 	}
+	mutex_release(&fat_superblock->write_lock);
 	return 0;
 }
 
 // TODO : update FSINFO on fat32
 static uint32_t fat_allocate_cluster(fat_superblock_t *fat_superblock) {
+	mutex_acquire(&fat_superblock->write_lock);
 	uint32_t cluster = fat_superblock->cluster_search_hint;
 	if (cluster > fat_superblock->data_clusters + 2 || cluster < 2) {
 		cluster = 2;
 	}
 	while (cluster < fat_superblock->data_clusters + 2) {
-		if (fat_get_next_cluster(fat_superblock, cluster) == 0) {
+		if (fat_get_next_cluster(fat_superblock, cluster) == FAT_FREE) {
 			// this cluster is free
 			fat_superblock->cluser_search_hint = cluster + 1;
+			mutex_release(&fat_superblock->write_lock);
 			return cluster;
 		}
 		cluster++;
 	}
 	fat_superblock->cluser_search_hint = fat_superblock->data_clusters + 2;
+	mutex_release(&fat_superblock->write_lock);
 	return FAT_EOF;
 }
 
 static int fat_free_cluster(fat_superblock_t *fat_superblock, uint32_t cluster) {
+	mutex_acquire(&fat_superblock->write_lock);
 	if (fat_superblock->cluster_search_hint > cluster) {
 		fat_superblock->cluster_search_hint = cluster;
 	}
-	return fat_set_next_cluster(fat_superblock, cluster, 0);
+	int ret = fat_set_next_cluster(fat_superblock, cluster, FAT_FREE);
+	mutex_release(&fat_superblock->write_lock);
+	return ret;
+}
+
+static uint32_t fat_get_cluster(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t number) {
+	uint32_t cluster = inode->first_cluster;
+	for (size_t i = 0; i < number; i++) {
+		if (cluster == FAT_EOF)  return FAT_EOF;
+		if (cluster == FAT_FREE) return FAT_FREE;
+		cluster = fat_get_next_cluster(fat_superblock, cluster);
+	}
+	return cluster;
 }
 
 static int fat_transfer_pages(cache_t *cache, off_t offset, size_t size, int write) {
@@ -137,12 +159,10 @@ static int fat_transfer_pages(cache_t *cache, off_t offset, size_t size, int wri
 	// cluster size is always driver or multiple of page size
 
 	// start by going to the first cluster
-	uint32_t start_cluster = offset / fat_superblock->cluster_size;
-	uint32_t cluster       = inode->first_cluster;
-	for (size_t i = 0; i < start_cluster; i++) {
+	uint32_t cluster = fat_get_cluster(fat_superblock, inode, offset / fat_superblock->cluster_size);
+	if (cluster == FAT_EOF) {
 		// early EOF ??? probably corrupted fat fs
-		if (cluster == FAT_EOF) return -EIO;
-		cluster = fat_get_next_cluster(fat_superblock, cluster);
+		return -EIO;
 	}
 
 	// we got the first cluster
@@ -547,6 +567,16 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	return -ENOENT;
 }
 
+static int fat_set_cluster(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t number, uint32_t cluster) {
+	if (cluster > 0) {
+		uint32_t prev = fat_get_cluster(inode, number - 1);
+		if (prev == FAT_EOF || prev == FAT_FREE) return -EIO;
+		fat_set_next_cluster(fat_superblock, prev, cluster);
+	} else {
+		inode->first_cluster = cluster;
+	}
+}
+
 static int fat_truncate(vfs_node *vnode, size_t size) {
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
@@ -554,10 +584,40 @@ static int fat_truncate(vfs_node *vnode, size_t size) {
 	size_t new_clusters_count = (size + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
 
 	if (new_clusters_count < current_clusters_count) {
-		// TODO : free clusters
+		// free clusters
+		uint32_t cluster = fat_get_cluster(fat_superblock, inode, new_clusters_count);
+		for (size_t i = new_clusters_count; i < current_clusters_count; i++) {
+			// early EOF ?? weird but we don't care
+			if (cluster == FAT_EOF) break;
+			uint32_t next = fat_get_next_cluster(fat_superblock, cluster);
+			fat_free_cluster(fat_superblock, cluster);
+			cluster = next;
+		}
+		int ret = fat_set_cluster(fat_superblock, inode, new_clusters_count, cluster);
+		if (ret < 0) {
+			// TODO : restore ?? IDK
+			return ret;
+		}
 	} else if (new_clusters_count > current_clusters_count) {
-		// TODO : allocate clusters
-		return -ENOSYS;
+		// allocate clusters
+		uint32_t cluster = FAT_EOF;
+		mutex_acquire(&fat_superblock->write_lock);
+		for (size_t i = current_clusters_count; i < new_clusters_count; i++) {
+			uint32_t new_cluster = fat_allocate_cluster(fat_superblock);
+			if (new_cluster == FAT_EOF) {
+				// TODO : free already allocated clusters
+				mutex_release(&fat_superblock->write_lock);
+				return -ENOSPC;
+			}
+			fat_set_next_cluster(fat_superblock, new_cluster, cluster);
+			cluster = new_cluster;
+		}
+		mutex_release(&fat_superblock->write_lock);
+		int ret = fat_set_cluster(fat_superblock, inode, current_clusters_count, cluster);
+		if (ret < 0) {
+			// TODO : free already allocated clusters
+			return ret;
+		}
 	}
 
 	cache_truncate(&inode->cache, size);
@@ -646,6 +706,7 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 	fat_superblock->data_start        = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat + root_sectors) * bpb.byte_per_sector;
 	fat_superblock->data_clusters     = data_clusters;
 	fat_superblock->fat_count         = bpb.fat_count;
+	mutex_init(&fat_superblock->write_lock);
 
 	vfs_node_t *local_root;
 	if (fat_type == FAT32) {
