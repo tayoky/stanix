@@ -30,18 +30,31 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 		return -ENOTDIR;
 	}
 
-	if (!(vfs_perm(parent->inode) & PERM_WRITE)) {
-		vfs_dentry_release(parent);
-		return -EACCES;
-	}
-
 	vfs_dentry_t *dentry = vfs_dentry_allocate();
 	if (!dentry) {
 		vfs_dentry_release(parent);
 		return -ENOMEM;
 	}
+
+	vfs_node_acquire_write(parent->inode);
+
+	vfs_dentry_t *exist = vfs_lookup(parent, vfs_basename(path));
+	if (exist) {
+		vfs_dentry_release(exist);
+		vfs_node_release_write(parent->inode);
+		vfs_dentry_release(parent);
+		vfs_dentry_release(dentry);
+		return -EEXIST;
+	}
+
+	if (!(vfs_perm(parent->inode) & PERM_WRITE)) {
+		vfs_node_release_write(parent->inode);
+		vfs_dentry_release(parent);
+		vfs_dentry_release(dentry);
+		return -EACCES;
+	}
 	strcpy(dentry->name, vfs_basename(path));
-	dentry->ref_count = 0;
+	dentry->ref_count = 1;
 
 	*_parent = parent;
 	*_dentry = dentry;
@@ -230,6 +243,7 @@ int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 	}
 
 error:
+	vfs_node_release_write(parent->inode);
 	vfs_dentry_release(parent);
 	vfs_dentry_release(dentry);
 	return ret;
@@ -254,6 +268,7 @@ int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 	}
 
 error:
+	vfs_node_release_write(parent->inode);
 	vfs_dentry_release(parent);
 	vfs_dentry_release(dentry);
 	return ret;
@@ -278,6 +293,7 @@ int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev) {
 	}
 
 error:
+	vfs_node_release_write(parent->inode);
 	vfs_dentry_release(parent);
 	vfs_dentry_release(dentry);
 	return ret;
@@ -312,6 +328,7 @@ int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at
 	}
 
 error:
+	vfs_node_release_write(new_parent->inode);
 	vfs_dentry_release(old_dentry);
 	vfs_dentry_release(new_parent);
 	vfs_dentry_release(new_dentry);
@@ -332,6 +349,7 @@ int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path) {
 	if (ret < 0) goto error;
 
 error:
+	vfs_node_release_write(parent->inode);
 	vfs_dentry_release(parent);
 	vfs_dentry_release(dentry);
 	return ret;
@@ -373,6 +391,7 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 	}
 
 error:
+	vfs_node_release_write(new_parent->inode);
 	vfs_dentry_release(old_dentry);
 	vfs_dentry_release(new_parent);
 	vfs_dentry_release(new_dentry);
