@@ -133,14 +133,14 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 }
 
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
-	// check perm
-	if (!(vfs_perm(entry->inode) & PERM_EXECUTE)) {
-		return ERR2PTR(-EACCES);
-	}
-
 	// cannot do lookup on negative entry
 	if (vfs_dentry_is_negative(entry)) {
 		return ERR2PTR(-EINVAL);
+	}
+
+	// check perm
+	if (!(vfs_perm(entry->inode) & PERM_EXECUTE)) {
+		return ERR2PTR(-EACCES);
 	}
 
 	if (!S_ISDIR(entry->inode->mode)) {
@@ -172,7 +172,6 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 		}
 	}
 
-
 	// it isen't chached
 	// ask the fs for it
 	if (!entry->inode->ops->lookup) {
@@ -183,8 +182,10 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	strcpy(child_entry->name, name);
 	child_entry->ref_count = 1;
 
+	vfs_node_acquire_read(entry->inode);
 	int ret = entry->inode->ops->lookup(entry->inode, child_entry);
 	if (ret < 0) {
+		vfs_node_release_read(entry->inode);
 		slab_free(child_entry);
 		return ERR2PTR(ret);
 	}
@@ -192,6 +193,7 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 
 	// link it in the dentry cache
 	vfs_dentry_add(entry, child_entry);
+	vfs_node_release_read(entry->inode);
 	return child_entry;
 }
 
@@ -569,16 +571,12 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	return 0;
 }
 
-int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask) {
+static int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask) {
 	// make sure we can actually setattr
 	if (!node) return -EBADF;
 	spinlock_assert_acquired(&node->lock);
 	if (!node->ops || !node->ops->setattr) {
 		return -EOPNOTSUPP;
-	}
-	uid_t current_euid = get_current_euid();
-	if (current_euid != node->uid && current_euid != EUID_ROOT) {
-		return -EPERM;
 	}
 	int ret = node->ops->setattr(node, st, mask);
 	if (ret < 0) return ret;
@@ -589,6 +587,14 @@ int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask) {
 	if (mask & VNODE_ATTR_MTIME) atomic_store(&node->mtime, st->st_mtime);
 	if (mask & VNODE_ATTR_CTIME) atomic_store(&node->ctime, st->st_ctime);
 	vfs_node_mark_dirty(node);
+	return ret;
+}
+
+int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
+	if (!node) return -EBADF;
+	spinlock_acquire(&node->lock);
+	int ret = vfs_raw_setattr(node, st, mask);
+	spinlock_release(&node->lock);
 	return ret;
 }
 

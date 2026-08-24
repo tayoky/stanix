@@ -308,35 +308,19 @@ static inline vfs_node_release_write(vfs_node_t *node) {
 int vfs_getattr(vfs_node_t *node, struct stat *st);
 
 /**
- * @brief set attributes on an inode
- * @param node the node to set the attribute of
- * @param st the value of the attributes
- * @param mask a mask of the atrributes to set
- * @return 0 on success, else error code
- * @note must be called with the node's lock acquired
- */
-int vfs_raw_setattr(vfs_node_t *node, struct stat *st, int mask);
-#define VNODE_ATTR_MODE  0x01
-#define VNODE_ATTR_UID   0x02
-#define VNODE_ATTR_GID   0x04
-#define VNODE_ATTR_ATIME 0x08
-#define VNODE_ATTR_MTIME 0x10
-#define VNODE_ATTR_CTIME 0x20
-
-/**
  * @brief safely set attributes on an inode
  * @param node the node to set the attribute of
  * @param st the value of the attributes
  * @param mask a mask of the atrributes to set
  * @return 0 on success, else error code
  */
-static inline int vfs_setattr(vfs_node_t *node, struct stat *st, int mask) {
-	if (!node) return -EBADF;
-	spinlock_acquire(&node->lock);
-	int ret = vfs_raw_setattr(node, st, mask);
-	spinlock_release(&node->lock);
-	return ret;
-}
+int vfs_setattr(vfs_node_t *node, struct stat *st, int mask);
+#define VNODE_ATTR_MODE  0x01
+#define VNODE_ATTR_UID   0x02
+#define VNODE_ATTR_GID   0x04
+#define VNODE_ATTR_ATIME 0x08
+#define VNODE_ATTR_MTIME 0x10
+#define VNODE_ATTR_CTIME 0x20
 
 /**
  * @brief truncate a file to a specfied size
@@ -373,7 +357,17 @@ static inline int vfs_truncate(vfs_node_t *node, size_t size) {
 static inline int vfs_chmod(vfs_node_t *node, mode_t perm) {
 	struct stat st;
 	st.st_mode = perm;
-	return vfs_setattr(node, &st, VNODE_ATTR_MODE);
+
+	vfs_node_acquire_write(node);
+	uid_t current_euid = get_current_euid();
+	int ret;
+	if (current_euid == node->uid || current_euid == EUID_ROOT) {
+		ret = vfs_setattr(node, &st, VNODE_ATTR_MODE);
+	} else {
+		ret = -EPERM;
+	}
+	vfs_node_release_write(node);
+	return ret;
 }
 
 /**
@@ -387,12 +381,17 @@ static inline int vfs_chown(vfs_node_t *node, uid_t owner, gid_t group_owner) {
 	struct stat st;
 	st.st_uid = owner;
 	st.st_gid = group_owner;
+
 	vfs_node_acquire_write(node);
-
-	// clear setuid bit and setgid bit
-	st.st_mode = node->mode & ~(S_ISUID | S_ISGID);
-
-	int ret = vfs_raw_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
+	uid_t current_euid = get_current_euid();
+	int ret;
+	if (current_euid == node->uid || current_euid == EUID_ROOT) {
+		// clear setuid bit and setgid bit
+		st.st_mode = node->mode & ~(S_ISUID | S_ISGID);
+		ret = vfs_setattr(node, &st, VNODE_ATTR_UID | VNODE_ATTR_GID);
+	} else {
+		ret = -EPERM;
+	}
 	vfs_node_release_write(node);
 	return ret;
 }
@@ -407,7 +406,17 @@ static inline int vfs_utimes(vfs_node_t *node, const struct timeval times[2]) {
 	struct stat st;
 	st.st_atime = times[0].tv_sec;
 	st.st_mtime = times[1].tv_sec;
-	return vfs_setattr(node, &st, VNODE_ATTR_ATIME | VNODE_ATTR_MTIME);
+
+	vfs_node_acquire_write(node);
+	uid_t current_euid = get_current_euid();
+	int ret;
+	if (current_euid == node->uid || current_euid == EUID_ROOT) {
+		ret = vfs_setattr(node, &st, VNODE_ATTR_ATIME | VNODE_ATTR_MTIME);
+	} else {
+		ret = -EPERM;
+	}
+	vfs_node_release_write(node);
+	return ret;
 }
 
 static inline int vfs_update_time(vfs_node_t *node, int mask) {
