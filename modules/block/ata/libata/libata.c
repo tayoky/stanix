@@ -42,6 +42,9 @@ static int ata_submit_or_queue_command(ata_command_t *command) {
 static int ata_submit_command(ioreq_t *ioreq) {
 	ata_command_t *ata_command = container_of(ioreq, ata_command_t, ioreq);
 	ata_driver_t *ata_driver = container_of(ata_command->device->channel->driver, ata_driver_t, driver);
+	kdebugf("send ");
+	ata_print_command(ata_command);
+	kprintf("\n");
 	return ata_driver->submit_ata_command(ata_command->device->channel, ata_command->device, ata_command);
 }
 
@@ -124,6 +127,52 @@ int ata_submit_command_sync(ata_command_t *command) {
 	}
 	ioreq_release(&command->ioreq);
 	return ret;
+}
+
+static const char ata_opcode2str(uint8_t command) {
+#define COMMAND(opcode) case ATA_CMD_ ## opcode: return #opcode;
+	switch (command) {
+	COMMAND(READ_PIO)
+	COMMAND(READ_PIO_EXT)
+	COMMAND(READ_DMA)
+	COMMAND(READ_DMA_EXT)
+	COMMAND(WRITE_PIO)
+	COMMAND(WRITE_PIO_EXT)
+	COMMAND(WRITE_DMA)
+	COMMAND(WRITE_DMA_EXT)
+	COMMAND(CACHE_FLUSH)
+	COMMAND(CACHE_FLUSH_EXT)
+	COMMAND(PACKET)
+	COMMAND(IDENTIFY_PACKET)
+	COMMAND(IDENTIFY)
+	default:
+		return "UNKNOWN";
+	}
+#undef COMMAND
+}
+
+void ata_print_command(ata_command_t *command) {
+	kprintf("ATA command ");
+	kprintf("opcode=%02hhx(%s) ", command->regs.command, ata_opcode2str(command->regs.command));
+	kprintf("lba=%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx ",
+			command->regs.lba0, command->regs.lba1, command->regs.lba2,
+			command->regs.lba3, command->regs.lba4, command->regs.lba5);
+	kprintf("sectors_count=%02hhx%02hhx ", command->regs.sectors_count0, command->regs.sectors_count1);
+	kprintf("flags=%02hhx(", command->flags);
+	int prev = 0;
+#define FLAG(x) \
+	if (command->flag & ATA_CMD_ ## x) {\
+		if (prev) kprintf(", "); \
+		prev = 1; \
+		kprintf(#x);\
+	}
+	FLAG(SEND_LBA28)
+	FLAG(SEND_LBA48)
+	FLAG(READ_BUF)
+	FLAG(WRITE_BUF)
+	FLAG(SCSI)
+#undef FLAG
+	kprintf(")");
 }
 
 int libata_init(int argc, char **argv) {

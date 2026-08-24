@@ -136,4 +136,6 @@ ata_command_t *ata_create_lba28_command(ata_device_t *device, uint8_t command, s
 int ata_submit_command_sync(ata_command_t *command);
 
 void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident);
+
+void ata_print_command(ata_command_t *command);
 #endif

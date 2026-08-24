@@ -316,8 +316,6 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	drv_select |= command->regs.device;
 	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select);
 
-	kdebugf("send command opcode=%hhx sectors_count=%02hhx%0hhx flags=%x\n", command->regs.command, command->regs.sectors_count1, command->regs.sectors_count0, command->flags);
-
 	ide_channel_io_wait(channel);
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
 	if (status == 0 || status == 0xff) {
