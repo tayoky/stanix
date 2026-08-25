@@ -215,6 +215,7 @@ static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
 }
 
 static int fat_write_pages(cache_t *cache, off_t offset, size_t size) {
+	kdebugf("writing pages\n");
 	int ret = fat_transfer_pages(cache, offset, size, 1);
 	if (ret < 0) return 0;
 	cache_write_terminate(cache, offset, size, 0);
@@ -342,7 +343,6 @@ static int fat_next_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, 
  * @brief parse next lfn sequence
  */
 static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, off_t *offset, off_t *sfn_offset, fat_entry_t *entry, char name[512]) {
-	kdebugf("long name\n");
 	fat_long_entry_t long_entry;
 	memcpy(&long_entry, entry, sizeof(fat_entry_t));
 
@@ -634,6 +634,7 @@ static void fat_cleanup(vfs_node_t *vnode) {
 static int fat_flush_inode(vfs_superblock_t *superblock, vfs_node_t *vnode) {
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(superblock, fat_superblock_t, superblock);
+	kdebugf("writing inode\n");
 	ssize_t ret = vfs_write(fat_superblock->superblock.device, &inode->entry, inode->entry_offset, sizeof(fat_entry_t));
 	if (ret < 0) return ret;
 	if (ret < (ssize_t)sizeof(fat_entry_t)) return -EIO;
@@ -648,8 +649,8 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 	(void)flags;
 	(void)data;
 	(void)target;
-	vfs_fd_t *dev = vfs_open(source, O_RDONLY);
-	if (!dev) return -ENOENT;
+	vfs_fd_t *dev = vfs_open(source, O_RDWR);
+	if (IS_ERR(dev)) return PTR2ERR(dev);
 
 	fat_bpb_t bpb;
 	if (vfs_read(dev, &bpb, 0, sizeof(bpb)) != sizeof(bpb)) {

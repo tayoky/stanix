@@ -193,7 +193,7 @@ int part_mount(const char *source, const char *target, unsigned long flags, cons
 
 	kdebugf("mount %s to %s\n", source, target);
 
-	vfs_fd_t *dev = vfs_open(source, O_RDONLY);
+	vfs_fd_t *dev = vfs_open(source, O_RDWR);
 	if (!dev)return -ENOENT;
 
 	mbr_table_t mbr;
