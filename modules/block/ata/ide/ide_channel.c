@@ -399,8 +399,7 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	ide_channel_write(channel, IDE_REG_DRV_SELECT, drv_select);
 
 	ide_channel_io_wait(channel);
-	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
-	if (status == 0 || status == 0xff) {
+	if (ide_channel_read(channel, IDE_REG_STATUS) == 0xff) {
 		// no drive
 		return -ENODEV;
 	}

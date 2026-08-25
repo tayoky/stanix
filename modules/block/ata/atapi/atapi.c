@@ -26,7 +26,7 @@ static int atapi_probe(devnode_t *devnode) {
 	identify->regs.command = ATA_CMD_IDENTIFY_PACKET;
 	identify->flags        = ATA_CMD_READ_BUF;
 	identify->buf          = &ident;
-	identify->buf_size     = &ident;
+	identify->buf_size     = sizeof(ident);
 
 	int ret = ioreq_submit_sync(&identify->ioreq);
 	if (ret < 0) return ret;
@@ -45,7 +45,7 @@ static int atapi_probe(devnode_t *devnode) {
 		disk->packet_length = 16;
 		break;
 	default:
-		kwarning("unknow packet size\n");
+		kwarningf("unknow packet size\n");
 		kfree(disk);
 		return -ENOTSUP;
 	}
@@ -66,7 +66,7 @@ static void atapi_command_finish(ioreq_t *ioreq, void *data) {
 	ioreq_finish(data, ioreq->ret);
 }
 
-static int atapi_send_scsi_command(devnode_t *devnode, scsi_device_t *scsi_device, scsi_command_t *command) {
+static int atapi_submit_scsi_command(devnode_t *devnode, scsi_device_t *scsi_device, scsi_command_t *command) {
 	(void)scsi_device;
 	ata_device_t *device = container_of(devnode, ata_device_t, devnode);
 	atapi_disk_t *disk = devnode->private;
@@ -76,7 +76,7 @@ static int atapi_send_scsi_command(devnode_t *devnode, scsi_device_t *scsi_devic
 	if (!ata_command) return -ENOMEM;
 
 	ata_command->regs.command = ATA_CMD_PACKET;
-	ata_command->regs.flags   = ATA_CMD_PACKET_PROTOCOL | ATA_CMD_SEND_LBA28;
+	ata_command->flags   = ATA_CMD_PACKET_PROTOCOL | ATA_CMD_SEND_LBA28;
 	// set the maximum bytes count
 	ata_command->regs.lba1 = (uint8_t)(command->buf_size >> 0);
 	ata_command->regs.lba2 = (uint8_t)(command->buf_size >> 8);
@@ -84,14 +84,14 @@ static int atapi_send_scsi_command(devnode_t *devnode, scsi_device_t *scsi_devic
 	memcpy(&ata_command->packet, &command->data, sizeof(ata_command->packet));
 	ata_command->packet_length  = disk->packet_length;
 	ata_command->buf_size = command->buf_size;
-	ata_command->buf      = command->size;
+	ata_command->buf      = command->buf;
 	if (command->flags & SCSI_CMD_READ_BUF) {
 		ata_command->flags |= SCSI_CMD_READ_BUF;
 	} else if (command->flags & SCSI_CMD_WRITE_BUF) {
 		ata_command->flags |= SCSI_CMD_WRITE_BUF;
 	}
 
-	ioreq_set_callback(&ata_command->ioreq, command);
+	ioreq_set_callback(&ata_command->ioreq, atapi_command_finish, command);
 
 	return ioreq_submit(&ata_command->ioreq);
 }
@@ -105,7 +105,7 @@ static scsi_driver_t atapi_driver = {
 		.probe  = atapi_probe,
 		.detach = atapi_detach,
 	},
-	.send_scsi_command = atapi_send_scsi_command,
+	.submit_scsi_command = atapi_submit_scsi_command,
 };
 
 static int atapi_init(int argc, char **argv) {
@@ -120,8 +120,8 @@ static int atapi_fini(void) {
 
 kmodule_t module_meta = {
 	.magic       = MODULE_MAGIC,
-	.init        = ata_init,
-	.fini        = ata_fini,
+	.init        = atapi_init,
+	.fini        = atapi_fini,
 	.author      = "tayoky",
 	.name        = "atapi",
 	.description = "ATAPI disk driver",
