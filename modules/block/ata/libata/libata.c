@@ -127,6 +127,7 @@ void ata_print_command(ata_command_t *command) {
 	}
 	FLAG(SEND_LBA28)
 	FLAG(SEND_LBA48)
+	FLAG(SEND_FEATURES)
 	FLAG(READ_BUF)
 	FLAG(WRITE_BUF)
 	FLAG(PACKET_PROTOCOL)

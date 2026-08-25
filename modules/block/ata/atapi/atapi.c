@@ -75,8 +75,9 @@ static int atapi_submit_scsi_command(devnode_t *devnode, scsi_device_t *scsi_dev
 	ata_command_t *ata_command = ata_create_command(device);
 	if (!ata_command) return -ENOMEM;
 
-	ata_command->regs.command = ATA_CMD_PACKET;
-	ata_command->flags   = ATA_CMD_PACKET_PROTOCOL | ATA_CMD_SEND_LBA28;
+	ata_command->regs.command  = ATA_CMD_PACKET;
+	ata_command->regs.features = 0; // PIO mode
+	ata_command->flags   = ATA_CMD_PACKET_PROTOCOL | ATA_CMD_SEND_LBA28 | ATA_CMD_SEND_FEATURES;
 	// set the maximum bytes count
 	ata_command->regs.lba1 = (uint8_t)(command->buf_size >> 0);
 	ata_command->regs.lba2 = (uint8_t)(command->buf_size >> 8);

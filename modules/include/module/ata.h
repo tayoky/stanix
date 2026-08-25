@@ -99,6 +99,7 @@ typedef struct {
 typedef struct ata_regs {
 	uint8_t command;
 	uint8_t device;
+	uint8_t features;
 	uint8_t sectors_count0;
 	uint8_t lba0;
 	uint8_t lba1;
@@ -125,6 +126,7 @@ typedef struct ata_command {
 #define ATA_CMD_READ_BUF        0x04
 #define ATA_CMD_WRITE_BUF       0x08
 #define ATA_CMD_PACKET_PROTOCOL 0x10
+#define ATA_CMD_SEND_FEATURES   0x20
 
 typedef struct ata_driver {
 	driver_t driver;

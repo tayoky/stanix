@@ -406,6 +406,10 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	ret = ide_channel_poll(channel, ATA_SR_BSY, 0);
 	if (ret < 0) return ret;
 
+	if (command->flags & ATA_CMD_SEND_FEATURES) {
+		ide_channel_write(channel, IDE_REG_FEATURES, command->regs.features);
+	}
+
 	if (command->flags & ATA_CMD_SEND_LBA48) {
 		ide_channel_write(channel, IDE_REG_SECCOUNT0, command->regs.sectors_count1);
 		ide_channel_write(channel, IDE_REG_LBA0, command->regs.lba3);
