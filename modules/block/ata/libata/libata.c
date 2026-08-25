@@ -139,6 +139,8 @@ int libata_init(int argc, char **argv) {
 	(void)argv;
 	slab_init(&ata_commands_slab, sizeof(ata_command_t), "ata-commands");
 	EXPORT(ata_create_command);
+	EXPORT(ata_create_lba28_command);
+	EXPORT(ata_create_lba48_command);
 	EXPORT(ata_parse_common_ident);
 	EXPORT(ata_print_command);
 	return 0;
@@ -147,6 +149,8 @@ int libata_init(int argc, char **argv) {
 int libata_fini(void) {
 	slab_destroy(&ata_commands_slab);
 	UNEXPORT(ata_create_command);
+	UNEXPORT(ata_create_lba28_command);
+	UNEXPORT(ata_create_lba48_command);
 	UNEXPORT(ata_parse_common_ident);
 	UNEXPORT(ata_print_command);
 	return 0;

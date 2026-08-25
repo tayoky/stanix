@@ -446,6 +446,7 @@ static int ide_channel_submit_ata_command(devnode_t *bus, ata_device_t *device, 
 		spinlock_release(&channel->lock);
 		return 0;
 	}
+	channel->current_command = command;
 	spinlock_release(&channel->lock);
 	int ret = ide_channel_raw_send_ata_command(channel, device, command);
 	if (ret < 0) {
