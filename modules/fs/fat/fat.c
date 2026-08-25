@@ -229,7 +229,7 @@ static cache_ops_t fat_cache_ops = {
 static vfs_node_t *fat_entry2node(off_t entry_offset, fat_entry_t *entry, fat_superblock_t *fat_superblock) {
 	fat_inode_t *inode   = slab_alloc(&fat_inodes_slab);
 	inode->entry         = *entry;
-	inode->first_cluster = (entry->cluster_higher << 16) | entry->cluster_lower;
+	inode->first_cluster = ((uint32_t)entry->cluster_higher << 16) | entry->cluster_lower;
 	inode->entry_offset  = entry_offset;
 
 	inode->vnode.ops        = &fat_inode_ops;
@@ -375,7 +375,7 @@ static int fat_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, ui
 		memcpy(&utf16_name[i + 11], long_entry.name3, sizeof(long_entry.name3));
 		name_len += 13;
 
-		if (sfn_offset) *sfn_offset = fat_cluster2offset(fat_superblock, *cluster) + *offset;
+		if (sfn_offset) *sfn_offset = *offset;
 		int ret = fat_next_entry(fat_superblock, inode, cluster, offset, (fat_entry_t *)&long_entry);
 		if (ret < 0) return ret;
 	}
@@ -525,7 +525,7 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 	for (;;) {
 		fat_entry_t entry;
-		off_t sfn_offset = fat_cluster2offset(fat_superblock, cluster) + offset;
+		off_t sfn_offset = offset;
 		int ret = fat_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
 		if (ret < 0) return ret;
 
