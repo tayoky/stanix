@@ -136,7 +136,7 @@ static int ide_channel_transfer(ide_channel_t *channel, ata_command_t *command) 
 	size_t transfer_size = ide_channel_get_transfer_size(channel, command);
 	if (channel->bytes_transferred + transfer_size > command->buf_size) {
 		// more data than expected ?
-		kwarning("more data than expected\n");
+		kwarningf("more data than expected\n");
 		return -EIO;
 	}
 
@@ -212,7 +212,7 @@ error:
 	// command finished :D
 	channel->ret = 0;
 	work_queue(&channel->work);
-	return 0;
+	return;
 }
 
 static void ide_channel_command_finished(ide_channel_t *channel) {
@@ -442,7 +442,7 @@ static int ide_channel_submit_ata_command(devnode_t *bus, ata_device_t *device, 
 	spinlock_acquire(&channel->lock);
 	if (channel->current_command) {
 		// a command is already running
-		ioreq_queue(&channel->queue, &command->ioreq);
+		ioreq_queue(&command->ioreq, &channel->queue);
 		spinlock_release(&channel->lock);
 		return 0;
 	}

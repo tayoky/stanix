@@ -134,8 +134,8 @@ typedef struct ata_driver {
 #define ATA_BUSES BUSES("ide_channel")
 
 ata_command_t *ata_create_command(ata_device_t *device);
-ata_command_t *ata_create_lba48_command(ata_device_t *device, uint8_t command, size_t lba, uint16_t sectors_count);
-ata_command_t *ata_create_lba28_command(ata_device_t *device, uint8_t command, size_t lba, uint8_t sectors_count);
+ata_command_t *ata_create_lba48_command(ata_device_t *device, uint8_t opcode, size_t lba, uint16_t sectors_count);
+ata_command_t *ata_create_lba28_command(ata_device_t *device, uint8_t opcode, size_t lba, uint8_t sectors_count);
 
 void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident);
 

@@ -12,7 +12,7 @@ static int scsi_submit_command(ioreq_t *ioreq) {
 	kdebugf("send ");
 	scsi_print_command(scsi_command);
 	kprintf("\n");
-	return scsi_driver->submit_scsi_command(scsi_command->device->channel, scsi_command->device, scsi_command);
+	return scsi_driver->submit_scsi_command(scsi_command->device->bus, scsi_command->device, scsi_command);
 }
 
 static void scsi_free_command(ioreq_t *ioreq) {
@@ -25,8 +25,8 @@ static ioreq_ops_t scsi_command_ops = {
 	.cleanup = scsi_free_command,
 };
 
-scsi_command_t *scsi_create_command(scsi_device_t *device, void *data, size_t size);
-	scsi_driver_t *scsi_driver = container_of(device->channel->driver, scsi_driver_t, driver);
+scsi_command_t *scsi_create_command(scsi_device_t *device, void *data, size_t size) {
+	scsi_driver_t *scsi_driver = container_of(device->bus->driver, scsi_driver_t, driver);
 	if (!scsi_driver->submit_scsi_command) return NULL;
 	scsi_command_t *command = slab_alloc(&scsi_commands_slab);
 	if (!command) return NULL;
@@ -35,14 +35,14 @@ scsi_command_t *scsi_create_command(scsi_device_t *device, void *data, size_t si
 	command->ioreq.ops = &scsi_command_ops;
 	if (data) {
 		kassert(size <= sizeof(command->data));
-		memcpy(command->data, data, size);
+		memcpy(&command->data, data, size);
 	}
 	return command;
 }
 
-static const char scsi_opcode2str(uint8_t command) {
+static const char *scsi_opcode2str(uint8_t command) {
 #define COMMAND(opcode) case SCSI_CMD_ ## opcode: return #opcode;
-	switch (command & SCSI_OPCODE_DATA) {
+	switch (command & SCSI_OPCODE_COMMAND) {
 	COMMAND(INQUIRY)
 	default:
 		return "UNKNOWN";
@@ -56,7 +56,7 @@ void scsi_print_command(scsi_command_t *command) {
 	kprintf("flags=%02hhx(", command->flags);
 	int prev = 0;
 #define FLAG(x) \
-	if (command->flag & SCSI_CMD_ ## x) {\
+	if (command->flags & SCSI_CMD_ ## x) {\
 		if (prev) kprintf(", "); \
 		prev = 1; \
 		kprintf(#x);\
@@ -76,14 +76,14 @@ scsi_device_t *scsi_create_device(devnode_t *bus) {
 
 	scsi_inquiry_t inquiry = {
 		.opcode = SCSI_CMD_INQUIRY,
-		.allocation_lenght = sizeof(ident),
+		.allocation_lenght = scsi_uint16_to_data16(sizeof(ident)),
 	};
 
 	scsi_command_t *command = scsi_create_command(device, &inquiry, sizeof(inquiry));
 	command->buf_size = sizeof(ident);
 	command->buf      = &ident;
 
-	ioreq_submit_sync(command);
+	ioreq_submit_sync(&command->ioreq);
 
 	kinfof("found SCSI device vendor %.8s product %.8s\n", ident.vendor, ident.product);
 

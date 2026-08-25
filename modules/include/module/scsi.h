@@ -22,6 +22,13 @@ typedef struct scsi_data16 {
 	uint8_t low;
 } __attribute__((packed)) scsi_data16_t;
 
+static inline scsi_data16_t scsi_uint16_to_data16(uint16_t data) {
+	return (scsi_data16_t){
+		.high = (uint8_t)(data >> 0),
+		.low = (uint8_t)(data >> 8),
+	};
+}
+
 typedef struct scsi_inquiry {
 	uint8_t opcode;
 	uint8_t flags;
@@ -51,7 +58,7 @@ typedef struct scsi_inquiry_data {
 	uint8_t reserved0;
 	uint8_t reserved1;
 	scsi_data16_t version_descriptors[8];
-	uint8_t reserved1[22];
+	uint8_t reserved2[22];
 } __attribute__((packed)) scsi_inquiry_data_t;
 
 #define SCSI_INQUIRY_PERIPHERAL_QUALIFIER              (0b111 << 5)
