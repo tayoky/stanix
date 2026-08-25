@@ -1588,6 +1588,7 @@ pid_t sys_getsid(void) {
 
 int sys_fdatasync(int fd) {
 	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
 	int ret = vfs_flush_range(vfs_fd, 0, SIZE_MAX);
 	vfs_close(vfs_fd);
 	return ret;
@@ -1595,6 +1596,7 @@ int sys_fdatasync(int fd) {
 
 int sys_fsync(int fd) {
 	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
 	int ret = vfs_flush(vfs_fd);
 	vfs_close(vfs_fd);
 	return ret;
