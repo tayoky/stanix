@@ -76,6 +76,10 @@ typedef struct ata_ident {
 	uint16_t obsolete10[152]; // Contain nothing really useful
 } __attribute__((packed)) __attribute__((aligned(16))) ata_ident_t;
 
+#define ATA_IDENT_FLAG_PACKET_SIZE 0x0003
+#define ATA_IDENT_FLAG_PACKET_SIZE_12BYTE 0x0000
+#define ATA_IDENT_FLAG_PACKET_SIZE_16BYTE 0x0001
+
 typedef struct ata_common_ident {
 	uint32_t command_sets;
 	char model[41];
@@ -114,7 +118,7 @@ typedef struct ata_command {
 	ata_device_t *device;
 	uint8_t flags;
 	uint8_t packet[16];
-	uint8_t packet_lenght;
+	uint8_t packet_length;
 } ata_command_t;
 
 #define ATA_CMD_SEND_LBA28      0x01

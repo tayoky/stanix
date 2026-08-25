@@ -155,8 +155,8 @@ static int ide_channel_transfer(ide_channel_t *channel, ata_command_t *command) 
 static void ide_channel_send_packet(ide_channel_t *channel, ata_command_t *command) {
 	uint16_t packet[8];
 	memcpy(packet, command->packet, sizeof(packet));
-	kassert(command->packet_lenght < sizeof(packet));
-	ide_channel_send_data(channel, packet, command->packet_lenght);
+	kassert(command->packet_length < sizeof(packet));
+	ide_channel_send_data(channel, packet, command->packet_length);
 }
 
 static void ide_channel_irq_handler(registers_t *registers, void *data) {

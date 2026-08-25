@@ -10,6 +10,7 @@
 #define SCSI_OPCODE_10BYTE_SECONDARY (0b010 << 5)
 #define SCSI_OPCODE_16BYTE           (0b100 << 5)
 #define SCSI_OPCODE_12BYTE           (0b101 << 5)
+#define SCSI_OPCODE_COMMAND          0x1f
 
 typedef struct scsi_generic {
 	uint8_t opcode;
@@ -28,6 +29,8 @@ typedef struct scsi_inquiry {
 	scsi_data16_t allocation_lenght;
 	uint8_t control;
 } __attribute__((packed)) scsi_inquiry_t;
+
+#define SCSI_CMD_INQUIRY 0x12
 
 #define SCSI_INQUIRY_EVPD 0x01
 
@@ -111,11 +114,9 @@ typedef struct scsi_driver {
 } scsi_driver_t;
 
 scsi_command_t *scsi_create_command(scsi_device_t *device, void *data, size_t size);
-
 int scsi_submit_command_sync(scsi_command_t *command);
-
-void scsi_parse_common_ident(scsi_common_ident_t *common_ident, scsi_ident_t *ident);
-
 void scsi_print_command(scsi_command_t *command);
+
+scsi_device_t *scsi_create_device(devnode_t *bus);
 
 #endif

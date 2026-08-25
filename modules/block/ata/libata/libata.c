@@ -182,6 +182,7 @@ int libata_init(int argc, char **argv) {
 	EXPORT(ata_create_command);
 	EXPORT(ata_submit_command_sync);
 	EXPORT(ata_parse_common_ident);
+	EXPORT(ata_print_command);
 	return 0;
 }
 
@@ -190,6 +191,7 @@ int libata_fini(void) {
 	UNEXPORT(ata_create_command);
 	UNEXPORT(ata_submit_command_sync);
 	UNEXPORT(ata_parse_common_ident);
+	UNEXPORT(ata_print_command);
 	return 0;
 }
 

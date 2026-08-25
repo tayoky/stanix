@@ -83,7 +83,7 @@ int scsi_submit_command_sync(scsi_command_t *command) {
 
 static const char scsi_opcode2str(uint8_t command) {
 #define COMMAND(opcode) case SCSI_CMD_ ## opcode: return #opcode;
-	switch (command & 0x1f) {
+	switch (command & SCSI_OPCODE_DATA) {
 	COMMAND(INQUIRY)
 	default:
 		return "UNKNOWN";
@@ -93,7 +93,7 @@ static const char scsi_opcode2str(uint8_t command) {
 
 void scsi_print_command(scsi_command_t *command) {
 	kprintf("SCSI command ");
-	kprintf("opcode=%02hhx(%s) ", command->regs.command, scsi_opcode2str(command->regs.command));
+	kprintf("opcode=%02hhx(%s) ", command->data.opcode, scsi_opcode2str(command->data.opcode));
 	kprintf("flags=%02hhx(", command->flags);
 	int prev = 0;
 #define FLAG(x) \
@@ -108,13 +108,25 @@ void scsi_print_command(scsi_command_t *command) {
 	kprintf(")");
 }
 
+scsi_device_t *scsi_create_device(devnode_t *bus) {
+	scsi_device_t *device = kmalloc(sizeof(scsi_device_t));
+	if (!device) return NULL;
+	device->bus = bus;
+
+	// TODO : send inquiry and fill some stuff
+
+	bus_attach_child(bus, &device->devnode, NULL, UNIT_NOUNIT);
+	return device;
+}
+
 int libscsi_init(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
 	slab_init(&scsi_commands_slab, sizeof(scsi_command_t), "scsi-commands");
 	EXPORT(scsi_create_command);
 	EXPORT(scsi_submit_command_sync);
-	EXPORT(scsi_parse_common_ident);
+	EXPORT(scsi_print_command);
+	EXPORT(scsi_create_device);
 	return 0;
 }
 
@@ -122,7 +134,8 @@ int libscsi_fini(void) {
 	slab_destroy(&scsi_commands_slab);
 	UNEXPORT(scsi_create_command);
 	UNEXPORT(scsi_submit_command_sync);
-	UNEXPORT(scsi_parse_common_ident);
+	UNEXPORT(scsi_print_command);
+	UNEXPORT(scsi_create_device);
 	return 0;
 }
 
