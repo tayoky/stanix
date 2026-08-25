@@ -39,3 +39,7 @@ I terminated the zombie and killed its parent
 %
 I already have a deadlock detector built into my spinlocks, it just handles it by halting all involved processors
 	-- UnmappedStack in #the-ethereal-operating-system
+%
+Meerkats are like popcorn:
+I don't know how to finish this very deep quote
+	-- UnmappedStack in his discord bio
