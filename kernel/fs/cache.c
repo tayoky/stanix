@@ -124,12 +124,12 @@ static void cached_page_free(uintptr_t page) {
 }
 
 static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t *start, uintptr_t *end) {
+	if (cache->size >= (size_t)offset && cache->size - offset < size) {
+		size = cache->size - offset;
+	}
 	*start     = PAGE_ALIGN_DOWN(offset);
 	*end       = PAGE_ALIGN_UP(offset + size);
 	uintptr_t cache_end = PAGE_ALIGN_UP(cache->size);
-	if (*start > cache_end) {
-		*start = cache_end;
-	}
 	if (*end > cache_end) {
 		*end = cache_end;
 	}
@@ -444,7 +444,9 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 		while (atomic_fetch_or(&page_info->flags, PAGE_FLAG_WRITING) & PAGE_FLAG_WRITING) {
 			// already writing
 			// wait until write complete
+			rcu_release_read(&cache->pages.rcu);
 			cache_wait_page_written(page);
+			rcu_acquire_read(&cache->pages.rcu);
 		}
 
 		if (batch_start == PAGE_INVALID) batch_start = addr;
