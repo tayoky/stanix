@@ -28,7 +28,7 @@ static int atapi_probe(devnode_t *devnode) {
 	identify->buf          = &ident;
 	identify->buf_size     = &ident;
 
-	int ret = ata_submit_command_sync(identify);
+	int ret = ioreq_submit_sync(&identify->ioreq);
 	if (ret < 0) return ret;
 
 	atapi_disk_t *disk = kmalloc(sizeof(atapi_disk_t));

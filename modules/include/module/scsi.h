@@ -98,7 +98,6 @@ typedef struct scsi_device {
 typedef struct scsi_command {
 	ioreq_t ioreq;
 	scsi_generic_t data;
-	list_node_t node;
 	scsi_device_t *device;
 	void *buf;
 	size_t buf_size;
@@ -114,7 +113,6 @@ typedef struct scsi_driver {
 } scsi_driver_t;
 
 scsi_command_t *scsi_create_command(scsi_device_t *device, void *data, size_t size);
-int scsi_submit_command_sync(scsi_command_t *command);
 void scsi_print_command(scsi_command_t *command);
 
 scsi_device_t *scsi_create_device(devnode_t *bus);

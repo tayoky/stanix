@@ -20,7 +20,6 @@ struct block_ops {
 struct block_device {
 	device_t device;
 	cache_t cache;
-	list_t pending_requests;
 	block_ops_t *ops;
 	size_t sector_size;
 	size_t sectors_count;
@@ -28,7 +27,6 @@ struct block_device {
 
 struct block_request {
 	ioreq_t ioreq;
-	list_node_t node;
 	block_device_t *block_device;
 	size_t start_sector;
 	size_t sectors_count;
@@ -42,6 +40,5 @@ struct block_request {
 
 void init_block(void);
 block_request_t *block_create_request(block_device_t *block_device, int type);
-void block_submit_pending_request(block_device_t *block_device);
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number);
 #endif

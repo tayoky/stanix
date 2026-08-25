@@ -51,3 +51,22 @@ void ioreq_finish(ioreq_t *ioreq, int ret) {
 	}
 	ioreq_release(ioreq);
 }
+
+// TODO : should we submit multiple even on success ?
+void ioreq_queue_submit_pending(ioreq_queue_t *queue) {
+	for (;;) {
+		if (list_is_empty(&queue->pendings)) return;
+		ioreq_t *ioreq = container_of(queue->pendings.first_node, ioreq_t, node);
+		list_remove(&queue->pendings, &ioreq->node);
+			if (!ioreq->ops || !ioreq->ops->submit) {
+			ioreq_finish(ioreq, -EOPNOTSUPP);
+			continue;
+		}
+		int ret = ioreq->ops->submit(ioreq);
+		if (ret < 0) {
+			ioreq_finish(ioreq, ret);
+			continue;
+		}
+		break;
+	}
+}

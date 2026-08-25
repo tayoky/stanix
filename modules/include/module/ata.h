@@ -112,7 +112,6 @@ typedef struct ata_regs {
 typedef struct ata_command {
 	ioreq_t ioreq;
 	ata_regs_t regs;
-	list_node_t node;
 	void *buf;
 	size_t buf_size;
 	ata_device_t *device;
@@ -137,8 +136,6 @@ typedef struct ata_driver {
 ata_command_t *ata_create_command(ata_device_t *device);
 ata_command_t *ata_create_lba48_command(ata_device_t *device, uint8_t command, size_t lba, uint16_t sectors_count);
 ata_command_t *ata_create_lba28_command(ata_device_t *device, uint8_t command, size_t lba, uint8_t sectors_count);
-
-int ata_submit_command_sync(ata_command_t *command);
 
 void ata_parse_common_ident(ata_common_ident_t *common_ident, ata_ident_t *ident);
 

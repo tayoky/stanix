@@ -114,7 +114,7 @@ static int ata_probe(devnode_t *devnode) {
 	identify->buf = &ident;
 	identify->buf_size = sizeof(ident);
 
-	int ret = ata_submit_command_sync(identify);
+	int ret = ioreq_submit_sync(&identify->ioreq);
 	if (ret < 0) return ret;
 
 	ata_disk_t *disk = kmalloc(sizeof(ata_disk_t));

@@ -215,6 +215,15 @@ error:
 	return 0;
 }
 
+static void ide_channel_command_finished(ide_channel_t *channel) {
+	spinlock_acquire(&channel->lock);
+	kassert(channel->current_command);
+	channel->current_command = NULL;
+	spinlock_release(&channel->lock);
+
+	ioreq_queue_submit_pending(&channel->queue);
+}
+
 /**
  * @brief triggered when a command finish
  * @param work the work of the ide channel
@@ -223,7 +232,7 @@ static void ide_channel_work(work_t *work) {
 	ide_channel_t *channel = container_of(work, ide_channel_t, work);
 	ata_command_t *command = channel->current_command;
 
-	atomic_store(&channel->current_command, NULL);
+	ide_channel_command_finished(channel);
 	ioreq_finish(&command->ioreq, channel->ret);
 }
 
@@ -430,13 +439,17 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 
 static int ide_channel_submit_ata_command(devnode_t *bus, ata_device_t *device, ata_command_t *command) {
 	ide_channel_t *channel = bus->private;
-	ata_command_t *expected = NULL;
-	if (!atomic_compare_exchange_strong(&channel->current_command, &expected, command)) {
-		return -EAGAIN;
+	spinlock_acquire(&channel->lock);
+	if (channel->current_command) {
+		// a command is already running
+		ioreq_queue(&channel->queue, &command->ioreq);
+		spinlock_release(&channel->lock);
+		return 0;
 	}
+	spinlock_release(&channel->lock);
 	int ret = ide_channel_raw_send_ata_command(channel, device, command);
 	if (ret < 0) {
-		atomic_store(&channel->current_command, NULL);
+		ide_channel_command_finished(channel);
 	}
 	return ret;
 }

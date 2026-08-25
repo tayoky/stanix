@@ -4,7 +4,6 @@
 // ide specific ata shit
 
 #include <kernel/bus.h>
-#include <kernel/atomic.h>
 #include <kernel/resource.h>
 #include <kernel/workqueue.h>
 #include <module/ata.h>
@@ -16,6 +15,7 @@
 
 typedef struct ide_channel {
 	work_t work;
+	ioreq_queue_t queue;           // protected by lock
 	resource_t *base;
 	resource_t *ctrl;
 	resource_t *bmide;
@@ -23,10 +23,11 @@ typedef struct ide_channel {
 	void *irq_handler;
 	ata_device_t *master;
 	ata_device_t *slave;
-	ATOMIC(ata_command_t *) current_command;
+	ata_command_t *current_command; // protected by lock
 	size_t bytes_transferred;
 	int ret;
 	uint8_t nIEN;
+	spinlock_t lock;
 } ide_channel_t;
 
 typedef struct ide_channel_resources {

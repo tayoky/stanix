@@ -229,12 +229,6 @@ static int block_submit_request(ioreq_t *ioreq) {
 		return -EIO;
 	}
 	int ret = request->block_device->ops->submit(request->block_device, request);
-	if (ret == -EAGAIN) {
-		// the block device cannot handle that many requests
-		// we have to try again later when some requests finish
-		list_append(&request->block_device->pending_requests, &request->node);
-		ret = 0;
-	}
 	return ret;
 }
 
@@ -242,14 +236,6 @@ static void block_cancel_request(ioreq_t *ioreq) {
 	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
 	(void)request;
 	// TODO
-}
-
-static void block_finish_request(ioreq_t *ioreq) {
-	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
-	block_device_t *block_device = request->block_device;
-
-	// maybee now the block device can handle a pending request
-	block_submit_pending_request(block_device);
 }
 
 static void block_cleanup_request(ioreq_t *ioreq) {
@@ -260,7 +246,6 @@ static void block_cleanup_request(ioreq_t *ioreq) {
 static ioreq_ops_t block_request_ops = {
 	.submit  = block_submit_request,
 	.cancel  = block_cancel_request,
-	.finish  = block_finish_request,
 	.cleanup = block_cleanup_request,
 };
 
@@ -273,24 +258,6 @@ block_request_t *block_create_request(block_device_t *block_device, int type) {
 	request->block_device = block_device;
 	request->type         = type;
 	return request;
-}
-
-void block_submit_pending_request(block_device_t *block_device) {
-	if (list_is_empty(&block_device->pending_requests)) {
-		return;
-	}
-
-	// TODO : IO scheduler
-	block_request_t *request = container_of(block_device->pending_requests.first_node, block_request_t, node);
-	list_remove(&block_device->pending_requests, &request->node);
-	int ret = block_device->ops->submit(block_device, request);
-	if (ret == -EAGAIN) {
-		// still not ready
-		list_prepend(&block_device->pending_requests, &request->node);
-	} else if (ret < 0) {
-		// UNSAFE : recursion
-		ioreq_finish(&request->ioreq, ret);
-	}
 }
 
 static void block_destroy(device_t *device) {

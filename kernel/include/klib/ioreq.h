@@ -2,15 +2,19 @@
 #define KERNEL_IOREQ_H
 
 #include <kernel/oneshot.h>
+#include <kernel/list.h>
 #include <kernel/refcount.h>
 #include <errno.h>
 
 typedef struct ioreq ioreq_t;
 typedef struct ioreq_ops ioreq_ops_t;
+typedef struct ioreq_queue ioreq_queue_t;
 
 struct ioreq {
 	oneshot_t oneshot;
+	list_node_t node;
 	ref_count_t ref_count;
+	ioreq_queue_t *queue; // only if the request is queued
 	ioreq_ops_t *ops;
 	void (*callback)(ioreq_t *ioreq, void *data);
 	void *data;
@@ -24,6 +28,10 @@ struct ioreq_ops {
 	void (*cancel)(ioreq_t *ioreq);
 	void (*finish)(ioreq_t *ioreq);
 	void (*cleanup)(ioreq_t *ioreq);
+};
+
+struct ioreq_queue {
+	list_t pendings;
 };
 
 static inline ioreq_t *ioreq_ref(ioreq_t *ioreq) {
@@ -68,4 +76,11 @@ int ioreq_submit_sync(ioreq_t *ioreq);
 int ioreq_submit_sync_interruptible(ioreq_t *ioreq);
 
 void ioreq_finish(ioreq_t *ioreq, int ret);
+
+static inline void ioreq_queue(ioreq_t *ioreq, ioreq_queue_t *queue) {
+	ioreq->queue = ioreq;
+	list_append(&queue->pendings, &ioreq->node);
+}
+
+void ioreq_queue_submit_pending(ioreq_queue_t *queue);
 #endif
