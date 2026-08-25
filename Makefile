@@ -91,17 +91,21 @@ test-qemu-kvm : test-qemu-kvm-nvme
 
 test-qemu-nvme : image-hdd
 	qemu-system-$(ARCH) \
-	-drive file=$(HDD_IMAGE),if=none,id=nvm -serial stdio \
+	-drive file=$(HDD_IMAGE),format=raw,if=none,id=nvm -serial stdio \
 	-device nvme,serial=deadbeef,drive=nvm -m 512
 
 test-qemu-kvm-nvme : image-hdd
 	qemu-system-$(ARCH) \
-	-drive file=$(HDD_IMAGE),if=none,id=nvm -serial stdio \
+	-drive file=$(HDD_IMAGE),format=raw,if=none,id=nvm -serial stdio \
 	-device nvme,serial=deadbeef,drive=nvm -m 1024 -cpu host -enable-kvm -smp 1
 
 test-qemu-ata : image-hdd
+# make a copy since qemu want one image for each disk 
+	cp $(HDD_IMAGE) copy.hdd
 	qemu-system-$(ARCH) \
-	-hda $(HDD_IMAGE) -serial stdio  -m 512
+	-drive file=$(HDD_IMAGE),format=raw,if=none,id=nvm \
+	-device nvme,serial=deadbeef,drive=nvm,bootindex=1 \
+	-drive file=copy.hdd,format=raw,if=ide -serial stdio  -m 512
 #--trace "ide_*"
 
 test-qemu-cdrom : image-iso
@@ -165,7 +169,7 @@ build-tlibc : header
 $(ESP_ROOT)/boot/stanix.elf : build-kernel
 build-kernel : build-tlibc build-libraries header
 # we need to install the kernel into the EFI system partition
-	@$(MAKE) -C kernel install DESTDIR="$(ESP_ROOT)" BUILDDIR=$(BUILDDIR)/kernel
+	@$(MAKE) -C kernel install-bin DESTDIR="$(ESP_ROOT)" BUILDDIR=$(BUILDDIR)/kernel
 
 build-modules : build-tlibc build-libraries header
 # we need to install modules in the initrd as they are required to load the sysroot
