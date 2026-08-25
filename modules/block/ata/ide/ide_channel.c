@@ -107,16 +107,54 @@ static void ide_channel_disable_irq(ide_channel_t *channel) {
 	ide_channel_write(channel, IDE_REG_CONTROL, channel->nIEN);
 }
 
-// TODO : respect a buffer size
-// we currently UB/crash if the buffer has less than 512 bytes remaining
-static void ide_channel_transfer_sector(ide_channel_t *channel, uint16_t *buf, long flags) {
-	for (size_t i = 0; i < 256; i++) {
+static void ide_channel_transfer(ide_channel_t *channel, uint16_t *buf, size_t count, long flags) {
+	for (size_t i = 0; i < count; i++) {
 		if (flags & ATA_CMD_WRITE_BUF) {
 			resource_write16(channel->base, IDE_REG_DATA, buf[i]);
 		} else if (flags & ATA_CMD_READ_BUF) {
 			buf[i] = resource_read16(channel->base, IDE_REG_DATA);
 		}
 	}
+}
+
+static void ide_channel_send_packet(ide_channel_t *channel, ata_command_t *command) {
+	uint16_t packet[8];
+	memcpy(packet, command->packet, sizeof(packet));
+	kassert(command->packet_lenght < sizeof(packet));
+	ide_channel_transfer(channel, packet, command->packet_lenght / sizeof(uint16_t), ATA_CMD_WRITE_BUF);
+}
+
+static int ide_channel_irq_transfer_sectors(ide_channel_t *channel, ata_command_t *command) {
+	if (channel->bytes_transferred < command->buf_size) {
+		// do we have remaining data to transfer
+		if (!(status & ATA_SR_DRQ)) {
+			kwarningf("expected data request status=%hhx\n", status);
+			return -EIO;
+		}
+		uint16_t *buf = command->buf;
+		buf += channel->bytes_transferred / sizeof(uint16_t)
+;
+		channel->bytes_transferred += 512;
+		ide_channel_transfer(channel, buf, 256, command->flags);
+		if (channel->bytes_transferred < command->buf_size) {
+			// we have others sectors to read/write
+			return 0;
+		} else if (command->flags & ATA_CMD_WRITE_BUF) {
+			// we will get another irq for confirmation
+			// of last sector write
+			return 0;
+		}
+	} else {
+		if (status & ATA_SR_DRQ) {
+			kwarningf("unexpected data request status=%hhx\n", status);
+			return -EIO;
+		}
+	}
+	
+	// command finished :D
+	channel->ret = 0;
+	work_queue(&channel->work);
+	return 0;
 }
 
 static void ide_channel_irq_handler(registers_t *registers, void *data) {
@@ -126,10 +164,13 @@ static void ide_channel_irq_handler(registers_t *registers, void *data) {
 
 	ide_channel_io_wait(channel);
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
+
+	int ret = 0;
 	if (status & ATA_SR_ERR) {
 		kwarningf("error status=%hhx error=%hhx\n", status, ide_channel_read(channel, IDE_REG_ERROR));
+		ret = -EIO;
 error:
-		channel->ret = -EIO;
+		channel->ret = ret;
 		work_queue(&channel->work);
 		return;
 	}
@@ -139,31 +180,16 @@ error:
 		return;
 	}
 
-	// do we have data to transfer
-	if (channel->current_sector * 512 < command->buf_size) {
-		if (!(status & ATA_SR_DRQ)) {
-			kwarningf("expected data request status=%hhx\n", status);
-			goto error;
-		}
-		uint16_t *buf = command->buf;
-		ide_channel_transfer_sector(channel, buf + (channel->current_sector++) * 256, command->flags);
-		if (channel->current_sector * 512 < command->buf_size) {
-			// we have others sectors to read/write
-			return;
-		} else if (command->flags & ATA_CMD_WRITE_BUF) {
-			// we will get another irq for confirmation
-			// of last sector write
-			return;
-		}
-	} else {
-		if (status & ATA_SR_DRQ) {
-			kwarningf("unexpected data request status=%hhx\n", status);
-		}
+	switch (channel->state) {
+	case IDE_STATE_TRANSFER_SECTORS:
+		ret = ide_channel_irq_transfer_sectors(channel, command);
+		break;
+	default:
+		kassert(!"unknown IDE channel state");
+		break;
 	}
-	
-	// command finished :D
-	channel->ret = 0;
-	work_queue(&channel->work);
+
+	if (ret < 0) goto error;
 }
 
 /**
@@ -284,14 +310,44 @@ static void ide_channel_detach(devnode_t *devnode) {
 	device_release_resource(devnode, channel->irq);
 }
 
+static int ide_channel_irq_mode(ide_channel_t *channel, ata_command_t *command) {
+	if (command->flags & ATA_CMD_PACKET_PROTOCOL) {
+		// the irq will handle everything
+		return 0;
+	}
+
+	if ((command->flags & ATA_CMD_WRITE_BUF) && command->buf_size > 0) {
+		// we need to write the first sector
+		ide_channel_io_wait(channel);
+		int ret = ide_channel_poll(channel, ATA_SR_DRQ, ATA_SR_DRQ);
+		if (ret < 0) return ret;
+		channel->bytes_transferred += 512;
+		ide_channel_transfer(channel, command->buf, 256, command->flags);
+	}
+
+	// the irq handler will take care of the rest
+	return 0;
+}
+
 static int ide_channel_poll_mode(ide_channel_t *channel, ata_command_t *command) {
-	// TODO : DMA support
-	uint16_t *buf = command->buf;
-	while (channel->current_sector * 512 < command->buf_size) {
+	if (command->flags & ATA_CMD_PACKET_PROTOCOL) {
 		ide_channel_io_wait(channel);
 		int ret = ide_channel_poll(channel, ATA_SR_BSY | ATA_SR_DRQ, ATA_SR_DRQ);
 		if (ret < 0) return ret;
-		ide_channel_transfer_sector(channel, buf + (channel->current_sector++ * 256), command->flags);
+		ide_channel_send_packet(channel, command);
+		// TODO : transfer data
+		kassert(!"TODO : packet protocol poll mode");
+		return -ENOSYS;
+	}
+
+	// TODO : DMA support
+	uint16_t *buf = command->buf;
+	while (channel->bytes_transferred < command->buf_size) {
+		ide_channel_io_wait(channel);
+		int ret = ide_channel_poll(channel, ATA_SR_BSY | ATA_SR_DRQ, ATA_SR_DRQ);
+		if (ret < 0) return ret;
+		ide_channel_transfer(channel, buf + channel->bytes_transferred, 256, command->flags);
+		channel->bytes_transferred += 512;
 	}
 	
 	ide_channel_io_wait(channel);
@@ -306,6 +362,14 @@ static int ide_channel_poll_mode(ide_channel_t *channel, ata_command_t *command)
 static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t *device, ata_command_t *command) {
 	int ret = ide_channel_poll(channel, ATA_SR_BSY, 0);
 	if (ret < 0) return ret;
+	
+	// reset channel state tracking
+	channel->bytes_transfered = 0;
+	if (command->flags & ATA_CMD_PACKET_PROTOCOL) {
+		channel->state = IDE_STATE_SEND_PACKET;
+	} else {
+		channel->state = IDE_STATE_TRANSFER_SECTORS;
+	}
 
 	// select the drive
 	// TODO : don't reselect if is was already selected
@@ -340,20 +404,9 @@ static int ide_channel_raw_send_ata_command(ide_channel_t *channel, ata_device_t
 	}
 
 	ide_channel_write(channel, IDE_REG_COMMAND, command->regs.command);
-	channel->current_sector = 0;
-
-	if ((command->flags & ATA_CMD_WRITE_BUF) && command->buf_size > 0) {
-		// we need to write the first sector
-		ide_channel_io_wait(channel);
-		int ret = ide_channel_poll(channel, ATA_SR_DRQ, ATA_SR_DRQ);
-		if (ret < 0) return ret;
-		ide_channel_transfer_sector(channel, command->buf, command->flags);
-		channel->current_sector++;
-	}
 
 	if (channel->irq_handler) {
-		// the irq handler will take care of the rest
-		return 0;
+		return ide_channel_irq_mode(channel, command);
 	} else {
 		return ide_channel_poll_mode(channel, command);
 	}

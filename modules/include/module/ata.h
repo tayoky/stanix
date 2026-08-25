@@ -113,14 +113,15 @@ typedef struct ata_command {
 	size_t buf_size;
 	ata_device_t *device;
 	uint8_t flags;
-	uint8_t scsi_cmd[16];
+	uint8_t packet[16];
+	uint8_t packet_lenght;
 } ata_command_t;
 
-#define ATA_CMD_SEND_LBA28     0x01
-#define ATA_CMD_SEND_LBA48     0x02
-#define ATA_CMD_READ_BUF       0x04
-#define ATA_CMD_WRITE_BUF      0x08
-#define ATA_CMD_SCSI           0x10
+#define ATA_CMD_SEND_LBA28      0x01
+#define ATA_CMD_SEND_LBA48      0x02
+#define ATA_CMD_READ_BUF        0x04
+#define ATA_CMD_WRITE_BUF       0x08
+#define ATA_CMD_PACKET_PROTOCOL 0x10
 
 typedef struct ata_driver {
 	driver_t driver;

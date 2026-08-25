@@ -170,7 +170,7 @@ void ata_print_command(ata_command_t *command) {
 	FLAG(SEND_LBA48)
 	FLAG(READ_BUF)
 	FLAG(WRITE_BUF)
-	FLAG(SCSI)
+	FLAG(PACKET_PROTOCOL)
 #undef FLAG
 	kprintf(")");
 }

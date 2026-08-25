@@ -24,10 +24,15 @@ typedef struct ide_channel {
 	ata_device_t *master;
 	ata_device_t *slave;
 	ATOMIC(ata_command_t *) current_command;
-	size_t current_sector;
+	size_t bytes_transferred;
 	int ret;
 	uint8_t nIEN;
+	uint8_t state;
 } ide_channel_t;
+
+#define IDE_STATE_TRANSFER_SECTORS     1
+#define IDE_STATE_SEND_PACKET          2
+#define IDE_STATE_TRANSFER_PACKET_DATA 3
 
 typedef struct ide_channel_resources {
 	resource_t *base;
