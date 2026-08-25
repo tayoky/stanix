@@ -72,7 +72,22 @@ scsi_device_t *scsi_create_device(devnode_t *bus) {
 	if (!device) return NULL;
 	device->bus = bus;
 
-	// TODO : send inquiry and fill some stuff
+	scsi_inquiry_data_t ident;
+
+	scsi_inquiry_t inquiry = {
+		.opcode = SCSI_CMD_INQUIRY,
+		.allocation_lenght = sizeof(ident),
+	};
+
+	scsi_command_t *command = scsi_create_command(device, &inquiry, sizeof(inquiry));
+	command->buf_size = sizeof(ident);
+	command->buf      = &ident;
+
+	ioreq_submit_sync(command);
+
+	kinfof("found SCSI device vendor %.8s product %.8s\n", ident.vendor, ident.product);
+
+	// TODO : fill some stuff
 
 	bus_attach_child(bus, &device->devnode, NULL, UNIT_NOUNIT);
 	return device;

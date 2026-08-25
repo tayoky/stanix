@@ -43,8 +43,8 @@ typedef struct scsi_inquiry_data {
 	uint8_t flags1;
 	uint8_t flags2;
 	uint8_t flags3;
-	uint8_t vendor_ident[8];
-	uint8_t product_ident[8];
+	uint8_t vendor[8];
+	uint8_t product[8];
 	uint8_t product_revision[8];
 	uint8_t serial[8];
 	uint8_t vendor_unique[8];
@@ -60,21 +60,21 @@ typedef struct scsi_inquiry_data {
 #define SCSI_INQUIRY_PERIPHERAL_QUALIFIER_RESERVED    (0b010 << 5)
 #define SCSI_INQUIRY_PERIPHERAL_QUALIFIER_UNSUPPORTED (0b011 << 5)
 #define SCSI_INQUIRY_PERIPHERAL_TYPE 0x1f
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_SBC4    0x00
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_SSC3    0x01
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_SSC     0x02
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_SPC2    0x03
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_SBC_ALT 0x04
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_MMC5    0x05
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_SBC     0x07
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_SMC3    0x08
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_SCC2    0x0c
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_SES     0x0d
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_RBC     0x0e
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_OCRW    0x0f
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_BCC     0x10
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_OSD     0x11
-#define SCSI_INQUIRY_PERIPHERAL_TYPE_ADC2    0x12
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_SBC4    0x00 // direct access block device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_SSC3    0x01 // sequential access device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_SSC     0x02 // printer device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_SPC2    0x03 // processor device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_SBC_ALT 0x04 // write-once device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_MMC5    0x05 // CD/DVD device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_SBC     0x07 // optical memory device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_SMC3    0x08 // medium changer device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_SCC2    0x0c // storage array controller
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_SES     0x0d // enclosure services device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_RBC     0x0e // simplified direct access device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_OCRW    0x0f // optical card reader/writer device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_BCC     0x10 // bridge controller device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_OSD     0x11 // object based storage device
+#define SCSI_INQUIRY_PERIPHERAL_TYPE_ADC2    0x12 // automation/driver interface
 #define SCSI_INQUIRY_PERIPHERAL_TYPE_UNKNOWN 0x1f
 
 #define SCSI_INQUIRY_RMB 0x80 // device is removable
