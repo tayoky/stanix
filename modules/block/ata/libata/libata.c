@@ -114,9 +114,9 @@ void ata_print_command(ata_command_t *command) {
 	kprintf("ATA command ");
 	kprintf("opcode=%02hhx(%s) ", command->regs.command, ata_opcode2str(command->regs.command));
 	kprintf("lba=%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx ",
-			command->regs.lba0, command->regs.lba1, command->regs.lba2,
-			command->regs.lba3, command->regs.lba4, command->regs.lba5);
-	kprintf("sectors_count=%02hhx%02hhx ", command->regs.sectors_count0, command->regs.sectors_count1);
+			command->regs.lba5, command->regs.lba4, command->regs.lba3,
+			command->regs.lba2, command->regs.lba1, command->regs.lba0);
+	kprintf("sectors_count=%02hhx%02hhx ", command->regs.sectors_count1, command->regs.sectors_count0);
 	kprintf("flags=%02hhx(", command->flags);
 	int prev = 0;
 #define FLAG(x) \
