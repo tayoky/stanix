@@ -155,7 +155,7 @@ static int ide_channel_transfer(ide_channel_t *channel, ata_command_t *command) 
 static void ide_channel_send_packet(ide_channel_t *channel, ata_command_t *command) {
 	uint16_t packet[8];
 	memcpy(packet, command->packet, sizeof(packet));
-	kassert(command->packet_length < sizeof(packet));
+	kassert(command->packet_length <= sizeof(packet));
 	ide_channel_send_data(channel, packet, command->packet_length);
 }
 
