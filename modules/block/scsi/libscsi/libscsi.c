@@ -67,6 +67,43 @@ void scsi_print_command(scsi_command_t *command) {
 	kprintf(")");
 }
 
+static const char *scsi_peripheral2str(uint8_t peripheral) {
+	switch (peripheral & SCSI_INQUIRY_PERIPHERAL_TYPE) {
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_SBC4:
+		return "SBC4 direct access block device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_SSC3:
+		return "SSC3 sequential access block device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_SSC:
+		return "SSC printer device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_SPC2:
+		return "SPC2 processor device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_SBC_ALT:
+		return "SBC write-once device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_MMC5:
+		return "MMC5 CD/DVD device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_SBC:
+		return "SBC optical memory device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_SMC3:
+		return "SMC3 medium changer device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_SCC2:
+		return "SCC2 array storage controller";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_SES:
+		return "SES enclosure services device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_RBC:
+		return "RBC simplified direct access device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_OCRW:
+		return "OCRW optical card reader/writer device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_BBC:
+		return "BBC bridge controller device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_OSD:
+		return "OSD object based storage device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_ADC2:
+		return "ADC2 automation/drive interface";
+	default:
+		return "unknown";
+	}
+}
+
 scsi_device_t *scsi_create_device(devnode_t *bus) {
 	scsi_device_t *device = kmalloc(sizeof(scsi_device_t));
 	if (!device) return NULL;
@@ -80,15 +117,26 @@ scsi_device_t *scsi_create_device(devnode_t *bus) {
 	};
 
 	scsi_command_t *command = scsi_create_command(device, &inquiry, sizeof(inquiry));
+	if (!command) {
+error:
+		kfree(device);
+		return NULL;
+	}
 	command->buf_size = sizeof(ident);
 	command->buf      = &ident;
 
-	ioreq_submit_sync(&command->ioreq);
+	int ret = ioreq_submit_sync(&command->ioreq);
+	if (ret < 0) goto error;
 
-	kinfof("found SCSI device vendor %.8s product %.8s\n", ident.vendor, ident.product);
 
-	// TODO : fill some stuff
+	if ((ident.peripheral & SCSI_INQUIRY_PERIPHERAL_QUALIFER) != SCSI_INQUIRY_PERIPHERAL_QUALIFER_CONNECTED) {
+		// not connected
+		goto error;
+	}
 
+	kinfof("found SCSI device %hhx(%s), vendor %.8s product %.8s\n", ident.peripheral, scsi_peripheral2str(ident.peripheral), ident.vendor, ident.product);
+
+	device->type = ident.peripheral & SCSI_INQUIRY_PERIPHERAL_TYPE;
 	bus_attach_child(bus, &device->devnode, NULL, UNIT_NOUNIT);
 	return device;
 }

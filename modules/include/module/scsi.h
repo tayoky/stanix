@@ -100,6 +100,7 @@ typedef struct scsi_device {
 	devnode_t devnode;
 	devnode_t *bus;
 	list_t pending_commands;
+	int type;
 } scsi_device_t;
 
 typedef struct scsi_command {
