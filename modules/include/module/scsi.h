@@ -24,8 +24,8 @@ typedef struct scsi_data16 {
 
 static inline scsi_data16_t scsi_uint16_to_data16(uint16_t data) {
 	return (scsi_data16_t){
-		.high = (uint8_t)(data >> 0),
-		.low = (uint8_t)(data >> 8),
+		.high = (uint8_t)(data >> 8),
+		.low = (uint8_t)(data >> 0),
 	};
 }
 
