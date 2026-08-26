@@ -163,7 +163,7 @@ typedef struct scsi_read_toc {
 #define SCSI_READ_TOC_FORMAT_MULTI_SESSIONS 0x01
 #define SCSI_READ_TOC_FORMAT_RAW_TOC        0x02
 
-#define SCSI_READ_TOC_MAX_TRACK 100
+#define SCSI_READ_TOC_MAX_TRACKS 100
 
 typedef struct scsi_read_toc_data {
 	scsi_data16_t data_length;
@@ -182,14 +182,14 @@ typedef struct scsi_read_toc_data {
 			uint8_t track_number;
 			uint8_t reserved1;
 			scsi_data32_t track_start;
-		} __attribute__((packed)) formatted_toc[SCSI_READ_TOC_MAX_TRACK];
+		} __attribute__((packed)) formatted_toc[SCSI_READ_TOC_MAX_TRACKS];
 		struct {
 			uint8_t reserved0;
 			uint8_t flags;
 			uint8_t first_track;
 			uint8_t reserved1;
 			scsi_data32_t first_track_start;
-		} __attribute__((packed)) multi_sessions[SCSI_READ_TOC_MAX_TRACK];
+		} __attribute__((packed)) multi_sessions[SCSI_READ_TOC_MAX_TRACKS];
 	};
 } __attribute__((packed)) scsi_read_toc_data_t;
 

@@ -74,9 +74,12 @@ scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size
 static const char *scsi_opcode2str(uint8_t command) {
 #define COMMAND(opcode) case SCSI_ ## opcode ## _OPCODE: return #opcode;
 	switch (command & SCSI_OPCODE_COMMAND) {
+	COMMAND(INQUIRY)
 	COMMAND(READ_CAPACITY10)
-	COMMAND(READ_CAPACITY16)
+	COMMAND(READ10)
 	COMMAND(READ_TOC)
+	COMMAND(READ12)
+	COMMAND(READ_CAPACITY16)
 	default:
 		return "UNKNOWN";
 	}
