@@ -5,7 +5,7 @@
 #include <kernel/bus.h>
 #include <module/ata.h>
 #include <sys/block.h>
-#include <sys/ioctl.h>
+#include <sys/device.h>
 
 #define ATA_SIG 0x00000101
 #define ATA_COMMAND_SETS_LBA48 (1U << 26)
@@ -13,7 +13,6 @@
 typedef struct ata_disk {
 	block_device_t block_device;
 	ata_common_ident_t common_ident; 
-	size_t sectors_count;
 } ata_disk_t;
 
 static void ata_finish_callback(ioreq_t *ioreq, void *data) {
@@ -81,8 +80,12 @@ static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
 	}
 	ata_disk_t *disk = container_of(block_device, ata_disk_t, block_device);
 	switch (req) {
-	case I_MODEL:
-		return safe_copy_auto_to(arg, &disk->common_ident.model);
+	case DEVICE_GET_INFO:;
+		device_info_t info = {0};
+		snprintf(info.product,  sizeof(info.product),  "%s", disk->common_ident.model);
+		snprintf(info.firmware, sizeof(info.firmware), "%s", disk->common_ident.firmware);
+		snprintf(info.serial,   sizeof(info.serial),   "%s", disk->common_ident.serial);
+		return safe_copy_auto_to(arg, &info);
 	default:
 		return -EINVAL;
 	}
