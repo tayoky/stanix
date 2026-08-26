@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
 	term.ops = &term_ops;
 	term_init(&term);
 
-	int crtl = 0;
+	int ctrl = 0;
 
 	for (;;) {
 		struct pollfd wait[] = {
@@ -308,11 +308,11 @@ int main(int argc, char **argv) {
 				goto ignore;
 			}
 
-			if (event.ie_key.key == INPUT_KEY_LCRTL || event.ie_key.key == INPUT_KEY_RCRTL) {
+			if (event.ie_key.key == INPUT_KEY_LCTRL || event.ie_key.key == INPUT_KEY_RCTRL) {
 				if (event.ie_key.flags & IE_KEY_RELEASE) {
-					crtl = 0;
+					ctrl = 0;
 				} else {
-					crtl = 1;
+					ctrl = 1;
 				}
 				goto ignore;
 			}
@@ -331,8 +331,8 @@ int main(int argc, char **argv) {
 			}
 			// put into the pty
 			if (str) {
-				//if crtl is pressed send special crtl + XXX char
-				if (crtl && strlen(str) == 1) {
+				//if ctrl is pressed send special ctrl + XXX char
+				if (ctrl && strlen(str) == 1) {
 					char c = tolower(str[0]) - 'a' + 1;
 					dprintf(master, "%c", c);
 				} else {

@@ -36,8 +36,8 @@ static unsigned int parse_keyname(char *ptr, char **end) {
 	CHECK(PAGE_DOWN);
 	CHECK(LSHIFT);
 	CHECK(RSHIFT);
-	CHECK(LCRTL);
-	CHECK(RCRTL);
+	CHECK(LCTRl);
+	CHECK(RCTRl);
 	CHECK(LALT);
 	CHECK(RALT);
 	CHECK(ALTGR);

@@ -42,7 +42,7 @@ tgui_window_t *window;
 tgui_canva_t *canva;
 static int master;
 int running = 1;
-int crtl = 0;
+int ctrl = 0;
 
 uint32_t ansi_colours[] = {
 	0x000000, //black
@@ -157,8 +157,8 @@ void key_press_callback(tobject_t *tobject, tgui_event_press_t *event) {
 	long key = event->sym;
 	char buf[MB_CUR_MAX + 1];
 
-	if (key == TGUI_KEY_LCRTL || key == INPUT_KEY_RCRTL) {
-		crtl = 1;
+	if (key == TGUI_KEY_LCTRL || key == INPUT_KEY_RCTRL) {
+		ctrl = 1;
 		return ;
 	}
 	if (key >= TGUI_KEY_FIRST) {
@@ -170,7 +170,7 @@ void key_press_callback(tobject_t *tobject, tgui_event_press_t *event) {
 	}
 
 	wctomb(buf, key);
-	if (crtl && strlen(buf) == 1) {
+	if (ctrl && strlen(buf) == 1) {
 		char c = tolower(buf[0]) - 'a' + 1;
 		dprintf(master, "%c", c);
 	} else if (buf[0]) {
@@ -183,8 +183,8 @@ void key_press_callback(tobject_t *tobject, tgui_event_press_t *event) {
 void key_release_callback(tobject_t *tobject, tgui_event_release_t *event) {
 	(void)tobject;
 	long key = event->sym;
-	if (key == TGUI_KEY_LCRTL || key == INPUT_KEY_RCRTL) {
-		crtl = 0;
+	if (key == TGUI_KEY_LCTRL || key == INPUT_KEY_RCTRL) {
+		ctrl = 0;
 		return;
 	}
 	return;
