@@ -12,7 +12,30 @@
 
 typedef struct mmc_disk {
 	block_device_t block_device;
+	cdrom_toc_header_t toc;
+	size_t tracks_count;
+	cdrom_toc_entry_t *tracks;
 } mmc_disk_t;
+
+static cdrom_toc_entry_t *mmc_get_track(mmc_disk_t *disk, size_t track) {
+	for (size_t i = 0; i < disk->tracks_count; i++) {
+		if (disk->tracks[i].track == track) {
+			return &disk->tracks[i];
+		}
+	}
+	return NULL;
+}
+
+static cdrom_toc_entry_t *mmc_get_track_at(mmc_disk_t *disk, size_t lba) {
+	for (size_t i = 0; i < disk->tracks_count; i++) {
+		uintptr_t start = disk->tracks[i].start;
+		uintptr_t end   = disk->tracks[i].end;
+		if (start <= lba && end > lba) {
+			return &disk->tracks[i];
+		}
+	}
+	return NULL;
+}
 
 static void mmc_finish_callback(ioreq_t *ioreq, void *data) {
 	block_request_t *request = data;
@@ -22,7 +45,7 @@ static void mmc_finish_callback(ioreq_t *ioreq, void *data) {
 
 static int mmc_submit(block_device_t *block_device, block_request_t *request) {
 	scsi_device_t *device = container_of(block_device->device.devnode, mmc_device_t, devnode);
-	mmc_disk_t *disk     = container_of(block_device, mmc_disk_t, block_device);
+	mmc_disk_t *disk      = container_of(block_device, mmc_disk_t, block_device);
 
 	// cannot write to a cdrom
 	if (request->type != BLOCK_REQUEST_READ) return -EOPNOTSUPP;
@@ -41,11 +64,25 @@ static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
 		return -ENXIO;
 	}
 	scsi_device_t *device = container_of(block_device->device.devnode, mmc_device_t, devnode);
+	mmc_disk_t *disk      = container_of(block_device, mmc_disk_t, block_device);
 	switch (req) {
 	case DEVICE_GET_INFO:
 		return safe_copy_auto_to(arg, &device->info);
+	case CDROM_EJECT:
+	case CDROM_LOCK:
+	case CDROM_UNLOCK:
+		// TODO
+		return -ENOSYS;
+	case CDROM_READ_TOC_HEADER:
+		return safe_copy_auto_to(arg, &disk->toc);
+	case CDROM_READ_TOC_ENTRY:;
+		cdrom_toc_entry_t current;
+		if (safe_copy_auto_from(&current, arg) < 0) return -EFAULT;
+		cdrom_toc_entry_t *track = mmc_get_track(disk, current->track);
+		if (!track) return -ENOENT;
+		return safe_copy_auto_to(arg, track);
 	default:
-		return -EINVAL;
+		return -ENOTTY;
 	}
 }
 
@@ -88,6 +125,7 @@ static int mmc_probe(devnode_t *devnode) {
 	size_t sector_size = 2048;
 	size_t sectors_count = 0;
 
+	size_t tracks_count = 0;
 	for (size_t i = 0; i < SCSI_READ_TOC_MAX_TRACKS; i++) {
 		size_t track_start = scsi_data32_to_uint32(&read_toc_data.formatted_toc[i].track_start);
 		if (track_start > sectors_count) {
@@ -97,6 +135,12 @@ static int mmc_probe(devnode_t *devnode) {
 			// this is the lead out track
 			break;
 		}
+		tracks_count++;
+	}
+
+	if (tracks_count >= SCSI_READ_TOC_MAX_TRACKS) {
+		kwarningf("too many tracks\n");
+		return -ENOTSUP;
 	}
 
 	// try read capacity (only supported on data disks)
@@ -127,6 +171,26 @@ static int mmc_probe(devnode_t *devnode) {
 	disk->block_device.sector_size = sector_size;
 	disk->block_device.sectors_count = sectors_count;
 	disk->block_device.device.devnode = devnode;
+	disk->toc.first_track = read_toc_data.first_track;
+	disk->toc.last_track  = read_toc_data.last_track;
+	disk->tracks_count = tracks_count;
+	disk->tracks = kmalloc(sizeof(cdrom_toc_entry_t) * tracks_count);
+	if (!disk->tracks) {
+		kfree(disk);
+		return NULL;
+	}
+	memset(disk->tracks, 0, sizeof(cdrom_toc_entry_t) * tracks_count);
+	for (size_t i = 0; i < tracks_count; i++) {
+		size_t track_start = scsi_data32_to_uint32(&read_toc_data.formatted_toc[i].track_start);
+		size_t track_end = scsi_data32_to_uint32(&read_toc_data.formatted_toc[i + 1].track_start);
+		size_t track_number = read_toc_data.formatted_toc[i].track_number;
+		size_t flags = read_toc_data.formatted_toc[i].flags;
+
+		disk->tracks[i].track = track_number;
+		disk->tracks[i].start = track_start;
+		disk->tracks[i].size  = track_end - track_start;
+		disk->tracks[i].flags = flags;
+	}
 
 	block_device_register(&disk->block_device, NULL, 0);
 	return 0;

@@ -197,7 +197,7 @@ static off_t block_seek(vfs_fd_t *fd, off_t offset, int whence) {
 static int block_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
 	switch (request) {
-	case I_BLOCK_GET_SIZE:;
+	case BLOCK_GET_SIZE:;
 		size_t size = block_device->sectors_count * block_device->sector_size;
 		return safe_copy_auto_to(arg, &size);
 	default:

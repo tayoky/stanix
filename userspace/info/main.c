@@ -78,7 +78,7 @@ int main(int argc,char **argv){
 
 	// try to get block size
 	size_t size;
-	if(ioctl(fd, I_BLOCK_GET_SIZE, &size) >= 0){
+	if(ioctl(fd, BLOCK_GET_SIZE, &size) >= 0){
 		printf("size       : %s\n", byte_amount(size));
 	}
 
