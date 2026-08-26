@@ -92,9 +92,9 @@ static int atapi_submit_scsi_command(devnode_t *devnode, scsi_device_t *scsi_dev
 	ata_command->buf_size = command->buf_size;
 	ata_command->buf      = command->buf;
 	if (command->flags & SCSI_CMD_READ_BUF) {
-		ata_command->flags |= SCSI_CMD_READ_BUF;
+		ata_command->flags |= ATA_CMD_READ_BUF;
 	} else if (command->flags & SCSI_CMD_WRITE_BUF) {
-		ata_command->flags |= SCSI_CMD_WRITE_BUF;
+		ata_command->flags |= ATA_CMD_WRITE_BUF;
 	}
 
 	ioreq_set_callback(&ata_command->ioreq, atapi_command_finish, command);

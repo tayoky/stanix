@@ -66,6 +66,7 @@ scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size
 		command = scsi_create_command(device, &cmd, sizeof(cmd));
 	}
 	if (!command) return command;
+	command->flags    = SCSI_CMD_READ_BUF;
 	command->buf      = buf;
 	command->buf_size = buf_size;
 	return command;
@@ -158,6 +159,7 @@ error:
 		kfree(device);
 		return NULL;
 	}
+	command->flags    = SCSI_CMD_READ_BUF;
 	command->buf_size = sizeof(ident);
 	command->buf      = &ident;
 
