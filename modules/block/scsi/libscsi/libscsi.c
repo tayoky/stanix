@@ -46,13 +46,13 @@ scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size
 	if (lba > 0xffffffff) {
 		// TODO : use READ(16)
 		return NULL;
-	if (transfer_length > 0xffff) {
+	} else if (transfer_length > 0xffff) {
 		// use READ(12)
 		scsi_read12_t cmd = {
 			.opcode = SCSI_READ12_OPCODE,
 			.flags  = flags,
 			.lba = scsi_uint32_to_data32(lba),
-			.transfer_length = scsi_uint32_to_data32(transfer_length);
+			.transfer_length = scsi_uint32_to_data32(transfer_length),
 		};
 		command = scsi_create_command(device, &cmd, sizeof(cmd));
 	} else {
@@ -61,7 +61,7 @@ scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size
 			.opcode = SCSI_READ10_OPCODE,
 			.flags  = flags,
 			.lba = scsi_uint32_to_data32(lba),
-			.transfer_length = scsi_uint16_to_data16(transfer_length);
+			.transfer_length = scsi_uint16_to_data16(transfer_length),
 		};
 		command = scsi_create_command(device, &cmd, sizeof(cmd));
 	}
@@ -129,8 +129,8 @@ static const char *scsi_peripheral2str(uint8_t peripheral) {
 		return "RBC simplified direct access device";
 	case SCSI_INQUIRY_PERIPHERAL_TYPE_OCRW:
 		return "OCRW optical card reader/writer device";
-	case SCSI_INQUIRY_PERIPHERAL_TYPE_BBC:
-		return "BBC bridge controller device";
+	case SCSI_INQUIRY_PERIPHERAL_TYPE_BCC:
+		return "BCC bridge controller device";
 	case SCSI_INQUIRY_PERIPHERAL_TYPE_OSD:
 		return "OSD object based storage device";
 	case SCSI_INQUIRY_PERIPHERAL_TYPE_ADC2:
@@ -165,7 +165,7 @@ error:
 	if (ret < 0) goto error;
 
 
-	if ((ident.peripheral & SCSI_INQUIRY_PERIPHERAL_QUALIFER) != SCSI_INQUIRY_PERIPHERAL_QUALIFER_CONNECTED) {
+	if ((ident.peripheral & SCSI_INQUIRY_PERIPHERAL_QUALIFIER) != SCSI_INQUIRY_PERIPHERAL_QUALIFIER_SUPPORTED) {
 		// not connected
 		goto error;
 	}

@@ -110,7 +110,7 @@ typedef struct scsi_inquiry_data {
 #define SCSO_VENDOR_IDENT_SEAGATE "SEAGATE "
 
 // READ CAPACITY(10) command
-typedef scsi_read_capacity10 {
+typedef struct scsi_read_capacity10 {
 	uint8_t opcode;
 	uint8_t reserved0;
 	scsi_data32_t obselete;
@@ -215,7 +215,7 @@ typedef struct scsi_read12 {
 #define SCSI_READ12_OPCODE 0xa8
 
 // READ CAPACITY(16) command
-typedef scsi_read_capacity16 {
+typedef struct scsi_read_capacity16 {
 	uint8_t opcode;
 	uint8_t service_action;
 	scsi_data32_t obselete;
