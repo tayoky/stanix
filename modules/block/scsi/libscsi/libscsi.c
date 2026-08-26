@@ -188,6 +188,7 @@ int libscsi_init(int argc, char **argv) {
 	(void)argv;
 	slab_init(&scsi_commands_slab, sizeof(scsi_command_t), "scsi-commands");
 	EXPORT(scsi_create_command);
+	EXPORT(scsi_create_read_command);
 	EXPORT(scsi_print_command);
 	EXPORT(scsi_create_device);
 	return 0;
@@ -196,6 +197,7 @@ int libscsi_init(int argc, char **argv) {
 int libscsi_fini(void) {
 	slab_destroy(&scsi_commands_slab);
 	UNEXPORT(scsi_create_command);
+	UNEXPORT(scsi_create_read_command);
 	UNEXPORT(scsi_print_command);
 	UNEXPORT(scsi_create_device);
 	return 0;

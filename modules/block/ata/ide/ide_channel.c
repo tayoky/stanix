@@ -185,6 +185,10 @@ error:
 	if (channel->bytes_transferred < command->buf_size) {
 		// do we have remaining data to transfer
 		if (!(status & ATA_SR_DRQ)) {
+			if (command->flags & ATA_CMD_PACKET_PROTOCOL) {
+				// in packet protocol this can be normal
+				goto finish;
+			}
 			kwarningf("expected data request status=%hhx\n", status);
 			ret = -EIO;
 			goto error;
@@ -209,6 +213,7 @@ error:
 		}
 	}
 	
+finish:
 	// command finished :D
 	channel->ret = 0;
 	work_queue(&channel->work);
