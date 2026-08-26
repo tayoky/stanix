@@ -2,11 +2,12 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/block.h>
+#include <sys/device.h>
+#include <libtrm/trm.h>
 #include <libinput.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#include <libtrm/trm.h>
 
 void help(void){
 	puts("info DEVICE");
@@ -66,10 +67,13 @@ int main(int argc,char **argv){
 		printf("device     : %u, %u\n", major(st.st_rdev), minor(st.st_rdev));
 	}
 
-	// try to get model
-	char model[256];
-	if(ioctl(fd, I_MODEL, model) >= 0){
-		printf("model      : %s\n", model);
+	// try to get device info
+	device_info_t device_info = {0};
+	if(ioctl(fd, DEVICE_GET_INFO, &device_info) >= 0){
+		if (device_info.product[0])  printf("product    : %s\n", device_info.product[0]);
+		if (device_info.vendor[0])   printf("vendor    : %s\n", device_info.vendor[0]);
+		if (device_info.firmware[0]) printf("firmware    : %s\n", device_info.firmware[0]);
+		if (device_info.serial[0])   printf("serial    : %s\n", device_info.serial[0]);
 	}
 
 	// try to get block size
