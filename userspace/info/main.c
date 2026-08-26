@@ -71,9 +71,9 @@ int main(int argc,char **argv){
 	device_info_t device_info = {0};
 	if(ioctl(fd, DEVICE_GET_INFO, &device_info) >= 0){
 		if (device_info.product[0])  printf("product    : %s\n", device_info.product);
-		if (device_info.vendor[0])   printf("vendor    : %s\n", device_info.vendor);
-		if (device_info.firmware[0]) printf("firmware    : %s\n", device_info.firmware);
-		if (device_info.serial[0])   printf("serial    : %s\n", device_info.serial);
+		if (device_info.vendor[0])   printf("vendor     : %s\n", device_info.vendor);
+		if (device_info.firmware[0]) printf("firmware   : %s\n", device_info.firmware);
+		if (device_info.serial[0])   printf("serial     : %s\n", device_info.serial);
 	}
 
 	// try to get block size
