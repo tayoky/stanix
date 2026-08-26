@@ -5,7 +5,7 @@
 #include <kernel/bus.h>
 #include <module/scsi.h>
 #include <sys/block.h>
-#include <sys/ioctl.h>
+#include <sys/cdrom.h>
 
 #define ATA_SIG 0x00000101
 #define ATA_COMMAND_SETS_LBA48 (1U << 26)
@@ -29,7 +29,7 @@ static cdrom_toc_entry_t *mmc_get_track(mmc_disk_t *disk, size_t track) {
 static cdrom_toc_entry_t *mmc_get_track_at(mmc_disk_t *disk, size_t lba) {
 	for (size_t i = 0; i < disk->tracks_count; i++) {
 		uintptr_t start = disk->tracks[i].start;
-		uintptr_t end   = disk->tracks[i].end;
+		uintptr_t end   = disk->tracks[i].start + disk->tracks[i].size;
 		if (start <= lba && end > lba) {
 			return &disk->tracks[i];
 		}
@@ -44,13 +44,24 @@ static void mmc_finish_callback(ioreq_t *ioreq, void *data) {
 }
 
 static int mmc_submit(block_device_t *block_device, block_request_t *request) {
-	scsi_device_t *device = container_of(block_device->device.devnode, mmc_device_t, devnode);
+	scsi_device_t *device = container_of(block_device->device.devnode, scsi_device_t, devnode);
 	mmc_disk_t *disk      = container_of(block_device, mmc_disk_t, block_device);
 
 	// cannot write to a cdrom
 	if (request->type != BLOCK_REQUEST_READ) return -EOPNOTSUPP;
 
-	// TODO : verify we are in a data section
+	cdrom_toc_entry_t *start_track = mmc_get_track_at(disk, request->start_sector);
+	cdrom_toc_entry_t *end_track   = mmc_get_track_at(disk, request->start_sector + request->sectors_count);
+
+	// we cannot cross a track boundary
+	if (start_track != end_track) {
+		return -EINVAL;
+	}
+
+	// we cannot read outside a data track
+	if (!start_track || !(start_track->flags & SCSI_READ_TOC_CONTROL_DATA)) {
+		return -EINVAL;
+	}
 
 	scsi_command_t *command = scsi_create_read_command(device, request->start_sector, request->sectors_count, 0, request->buf, request->sectors_count * block_device->sector_size);
 	if (!command) return -ENOMEM;
@@ -63,7 +74,7 @@ static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
 	if (device_is_unplugged(&block_device->device)) {
 		return -ENXIO;
 	}
-	scsi_device_t *device = container_of(block_device->device.devnode, mmc_device_t, devnode);
+	scsi_device_t *device = container_of(block_device->device.devnode, scsi_device_t, devnode);
 	mmc_disk_t *disk      = container_of(block_device, mmc_disk_t, block_device);
 	switch (req) {
 	case DEVICE_GET_INFO:
@@ -78,7 +89,7 @@ static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
 	case CDROM_READ_TOC_ENTRY:;
 		cdrom_toc_entry_t current;
 		if (safe_copy_auto_from(&current, arg) < 0) return -EFAULT;
-		cdrom_toc_entry_t *track = mmc_get_track(disk, current->track);
+		cdrom_toc_entry_t *track = mmc_get_track(disk, current.track);
 		if (!track) return -ENOENT;
 		return safe_copy_auto_to(arg, track);
 	default:
@@ -108,9 +119,9 @@ static int mmc_probe(devnode_t *devnode) {
 	// send READ TOC and see size of the cdrom
 	// TODO : support multi sessions disks
 	scsi_read_toc_data_t read_toc_data = {0};
-	ssci_read_toc_t read_toc_cmd = {
+	scsi_read_toc_t read_toc_cmd = {
 		.opcode = SCSI_READ_TOC_OPCODE,
-		.format = SCSI_READ_TOC_FORMAT_FORMATTED_TOC,
+		.format = SCSI_READ_TOC_FORMAT_FORMATED_TOC,
 		.allocation_length = scsi_uint16_to_data16(sizeof(read_toc_data)),
 	};
 	scsi_command_t *command = scsi_create_command(device, &read_toc_cmd, sizeof(read_toc_cmd));
@@ -160,8 +171,8 @@ static int mmc_probe(devnode_t *devnode) {
 		// TODO : move read capacity stuff to libscsi
 		// the drive support read capacity
 		// we can get drive info from it
-		sector_size   = scsi_data32_to_uint32(&read_capacity_data->block_length);
-		sectors_count = scsi_data32_to_uint32(&read_capacity_data->max_lba);
+		sector_size   = scsi_data32_to_uint32(&read_capacity_data.block_length);
+		sectors_count = scsi_data32_to_uint32(&read_capacity_data.max_lba);
 	}
 
 	mmc_disk_t *disk = kmalloc(sizeof(mmc_disk_t));
@@ -177,7 +188,7 @@ static int mmc_probe(devnode_t *devnode) {
 	disk->tracks = kmalloc(sizeof(cdrom_toc_entry_t) * tracks_count);
 	if (!disk->tracks) {
 		kfree(disk);
-		return NULL;
+		return -ENOMEM;
 	}
 	memset(disk->tracks, 0, sizeof(cdrom_toc_entry_t) * tracks_count);
 	for (size_t i = 0; i < tracks_count; i++) {
@@ -203,7 +214,7 @@ static void mmc_detach(devnode_t *devnode) {
 static driver_t mmc_driver = {
 	.name = "ATA disk",
 	.device_name = "cdrom",
-	.buses = "scsi_bus",
+	.buses = BUSES("scsi_bus"),
 	.check  = mmc_check,
 	.probe  = mmc_probe,
 	.detach = mmc_detach,
