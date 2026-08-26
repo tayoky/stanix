@@ -144,6 +144,7 @@ static const char *scsi_peripheral2str(uint8_t peripheral) {
 scsi_device_t *scsi_create_device(devnode_t *bus) {
 	scsi_device_t *device = kmalloc(sizeof(scsi_device_t));
 	if (!device) return NULL;
+	memset(device, 0, sizeof(scsi_device_t));
 	device->bus = bus;
 
 	scsi_inquiry_data_t ident;
