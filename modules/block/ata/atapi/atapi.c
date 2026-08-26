@@ -71,6 +71,11 @@ static int atapi_submit_scsi_command(devnode_t *devnode, scsi_device_t *scsi_dev
 	ata_device_t *device = container_of(devnode, ata_device_t, devnode);
 	atapi_disk_t *disk = devnode->private;
 
+	if (command->data_length > disk->packet_length) {
+		// the command is too big
+		return -EOPNOTSUPP;
+	}
+
 	// package the scsi command inside a PACKET ata command
 	ata_command_t *ata_command = ata_create_command(device);
 	if (!ata_command) return -ENOMEM;

@@ -37,13 +37,46 @@ scsi_command_t *scsi_create_command(scsi_device_t *device, void *data, size_t si
 		kassert(size <= sizeof(command->data));
 		memcpy(&command->data, data, size);
 	}
+	command->data_length = size;
+	return command;
+}
+
+scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size_t transfer_length, uint8_t flags, void *buf, size_t buf_size) {
+	scsi_command_t *command = NULL;
+	if (lba > 0xffffffff) {
+		// TODO : use READ(16)
+		return NULL;
+	if (transfer_length > 0xffff) {
+		// use READ(12)
+		scsi_read12_t cmd = {
+			.opcode = SCSI_READ12_OPCODE,
+			.flags  = flags,
+			.lba = scsi_uint32_to_data32(lba),
+			.transfer_length = scsi_uint32_to_data32(transfer_length);
+		};
+		command = scsi_create_command(device, &cmd, sizeof(cmd));
+	} else {
+		// use READ(10)
+		scsi_read10_t cmd = {
+			.opcode = SCSI_READ10_OPCODE,
+			.flags  = flags,
+			.lba = scsi_uint32_to_data32(lba),
+			.transfer_length = scsi_uint16_to_data16(transfer_length);
+		};
+		command = scsi_create_command(device, &cmd, sizeof(cmd));
+	}
+	if (!command) return command;
+	command->buf      = buf;
+	command->buf_size = buf_size;
 	return command;
 }
 
 static const char *scsi_opcode2str(uint8_t command) {
-#define COMMAND(opcode) case SCSI_CMD_ ## opcode: return #opcode;
+#define COMMAND(opcode) case SCSI_ ## opcode ## _OPCODE: return #opcode;
 	switch (command & SCSI_OPCODE_COMMAND) {
-	COMMAND(INQUIRY)
+	COMMAND(READ_CAPACITY10)
+	COMMAND(READ_CAPACITY16)
+	COMMAND(READ_TOC)
 	default:
 		return "UNKNOWN";
 	}
@@ -112,8 +145,8 @@ scsi_device_t *scsi_create_device(devnode_t *bus) {
 	scsi_inquiry_data_t ident;
 
 	scsi_inquiry_t inquiry = {
-		.opcode = SCSI_CMD_INQUIRY,
-		.allocation_lenght = scsi_uint16_to_data16(sizeof(ident)),
+		.opcode = SCSI_INQUIRY_OPCODE,
+		.allocation_length = scsi_uint16_to_data16(sizeof(ident)),
 	};
 
 	scsi_command_t *command = scsi_create_command(device, &inquiry, sizeof(inquiry));
