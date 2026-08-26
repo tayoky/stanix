@@ -15,7 +15,8 @@ echo "loading modules"
 
 for MODULE in test \
 pci \
-libata ide ata \
+libscsi scsi-mmc \
+libata ide ata atapi \
 part fat \
 libps2 i8042 ps2-kb ps2-mouse \
 isa \
