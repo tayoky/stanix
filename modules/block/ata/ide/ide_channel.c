@@ -181,15 +181,11 @@ error:
 		// spurious wakeup
 		return;
 	}
-
-	if (channel->bytes_transferred < command->buf_size) {
-		// do we have remaining data to transfer
-		if (!(status & ATA_SR_DRQ)) {
-			if (command->flags & ATA_CMD_PACKET_PROTOCOL) {
-				// in packet protocol this can be normal
-				goto finish;
-			}
-			kwarningf("expected data request status=%hhx\n", status);
+	
+	if (status & ATA_SR_DRQ) {
+		// we have a transfer pending
+		if (channel->bytes_transferred >= command->buf_size) {
+			kwarningf("unexpected data request status=%hhx\n", status);
 			ret = -EIO;
 			goto error;
 		}
@@ -204,16 +200,21 @@ error:
 			// we will get another irq for confirmation
 			// of last transfer write
 			return;
+		} else if (command->flags & ATA_CMD_PACKET_PROTOCOL) {
+			// we will get another irq for confirmation
+			// in pakcet protocol
+			return;
 		}
 	} else {
-		if (status & ATA_SR_DRQ) {
-			kwarningf("unexpected data request status=%hhx\n", status);
+		// in packet protocol transfer the transfer can be smaller than the expected size
+		// TODO : report this into the ata command ?
+		if (channel->bytes_transferred < command->buf_size && !(command->flags & ATA_CMD_PACKET_PROTOCOL)) {
+			kwarningf("expected data request status=%hhx\n", status);
 			ret = -EIO;
 			goto error;
 		}
 	}
 	
-finish:
 	// command finished :D
 	channel->ret = 0;
 	work_queue(&channel->work);
