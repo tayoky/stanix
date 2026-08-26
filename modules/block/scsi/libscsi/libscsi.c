@@ -172,6 +172,10 @@ error:
 
 	kinfof("found SCSI device %hhx(%s), vendor %.8s product %.8s\n", ident.peripheral, scsi_peripheral2str(ident.peripheral), ident.vendor, ident.product);
 
+	snprintf(device->info.product, sizeof(device->info.product), "%.8s", ident.product);
+	snprintf(device->info.vendor,  sizeof(device->info.vendor),  "%.8s", ident.vendor);
+	snprintf(device->info.serial,  sizeof(device->info.serial),  "%.8s", ident.serial);
+
 	device->type = ident.peripheral & SCSI_INQUIRY_PERIPHERAL_TYPE;
 	bus_attach_child(bus, &device->devnode, NULL, UNIT_NOUNIT);
 	return device;

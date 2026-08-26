@@ -40,8 +40,10 @@ static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
 	if (device_is_unplugged(&block_device->device)) {
 		return -ENXIO;
 	}
-	mmc_disk_t *disk = container_of(block_device, mmc_disk_t, block_device);
+	scsi_device_t *device = container_of(block_device->device.devnode, mmc_device_t, devnode);
 	switch (req) {
+	case DEVICE_GET_INFO:
+		return safe_copy_auto_to(arg, &device->info);
 	default:
 		return -EINVAL;
 	}
@@ -66,7 +68,7 @@ static int mmc_check(devnode_t *devnode) {
 static int mmc_probe(devnode_t *devnode) {
 	scsi_device_t *device = container_of(devnode, scsi_device_t, devnode);
 
-	// TODO : send READ TOC and see size of the cdrom
+	// send READ TOC and see size of the cdrom
 	// TODO : support multi sessions disks
 	scsi_read_toc_data_t read_toc_data = {0};
 	ssci_read_toc_t read_toc_cmd = {

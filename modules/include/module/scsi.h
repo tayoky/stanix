@@ -3,6 +3,7 @@
 
 #include <kernel/bus.h>
 #include <kernel/ioreq.h>
+#include <sys/device.h>
 #include <stdint.h>
 
 #define SCSI_OPCODE_6BYTE            (0b000 << 5)
@@ -237,8 +238,8 @@ typedef struct scsi_read_capacity16_data {
 
 typedef struct scsi_device {
 	devnode_t devnode;
+	device_info_t info;
 	devnode_t *bus;
-	list_t pending_commands;
 	int type;
 } scsi_device_t;
 
