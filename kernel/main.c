@@ -41,7 +41,7 @@ kernel_table *kernel = &master_kernel_table;
 
 void print_license(void) {
 	kinfof("the STANIX kernel\n"
-		"Copyright (C) 2025  tayoky\n"
+		"Copyright (C) 2024 - 2025 Tayoky\n"
 		"\n"
 		"This program is free software: you can redistribute it and/or modify\n"
 		"it under the terms of the GNU General Public License as published by\n"
