@@ -1,3 +1,4 @@
+#include <module/part.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
@@ -9,7 +10,7 @@
 #include <fcntl.h>
 #include <string.h>
 
-void help(void){
+void help(void) {
 	puts("info DEVICE");
 	puts("show information about a device");
 }
@@ -22,7 +23,7 @@ const char *trm_plane_type(uint32_t type) {
 		return "cursor plane";
 	case TRM_PLANE_OVERLAY:
 		return "overlay plane";
-	default :
+	default:
 		return "unknow plane type";
 	}
 }
@@ -38,7 +39,7 @@ const char *byte_amount(size_t amount) {
 		NULL,
 	};
 	int i = 0;
-	while(amount >= 1024 && suffix[i + 1]) {
+	while (amount >= 1024 && suffix[i + 1]) {
 		i++;
 		amount /= 1024;
 	}
@@ -47,29 +48,59 @@ const char *byte_amount(size_t amount) {
 	return buf;
 }
 
-int main(int argc,char **argv){
-	if(argc != 2){
-		fprintf(stderr,"not enought argument\n");
+static const char *gpt_guid2str(struct gpt_guid *guid) {
+	static char buf[256];
+	int ptr = sprintf(buf, "%08x-%04hx-%04hx-%04hx-", guid->e1, guid->e2, guid->e3, guid->e4);
+	for (int i = 0; i < 6; i++) {
+		ptr += sprintf(buf + ptr, "%02hhx", guid->e5[i]);
+	}
+	return buf;
+}
+
+int main(int argc, char **argv) {
+	if (argc != 2) {
+		fprintf(stderr, "not enought argument\n");
 		return 1;
 	}
-	if(!strcmp(argv[1],"--help")){
+	if (!strcmp(argv[1], "--help")) {
 		help();
 		return 0;
 	}
-	int fd = open(argv[1],O_RDONLY);
-	if(fd < 0){
+	int fd = open(argv[1], O_RDONLY);
+	if (fd < 0) {
 		perror(argv[1]);
 		return 1;
 	}
-	printf("%s :\n",argv[1]);
+	printf("%s :\n", argv[1]);
 	struct stat st;
 	if (fstat(fd, &st) >= 0) {
 		printf("device     : %u, %u\n", major(st.st_rdev), minor(st.st_rdev));
 	}
 
+	// try to get partition info
+	struct part_info part_info;
+	if (ioctl(fd, I_PART_GET_INFO, &part_info) >= 0) {
+		switch (part_info.type) {
+		case PART_TYPE_MBR:
+			printf("part type  : MBR\n");
+			printf("part uuid  : %08x\n", part_info.mbr.disk_uuid);
+			printf("part type  : %02hhx(MBR)\n", part_info.mbr.type);
+			break;
+		case PART_TYPE_GPT:
+			printf("part type  : GPT\n");
+			printf("disk uuid  : %s\n", gpt_guid2str(&part_info.gpt.disk_uuid));
+			printf("part uuid  : %s\n", gpt_guid2str(&part_info.gpt.part_uuid));
+			printf("part type  : %s\n", gpt_guid2str(&part_info.gpt.type));
+			break;
+		default:
+			printf("part type  : unknown\n");
+			break;
+		}
+	}
+
 	// try to get device info
-	device_info_t device_info = {0};
-	if(ioctl(fd, DEVICE_GET_INFO, &device_info) >= 0){
+	device_info_t device_info = { 0 };
+	if (ioctl(fd, DEVICE_GET_INFO, &device_info) >= 0) {
 		if (device_info.product[0])  printf("product    : %s\n", device_info.product);
 		if (device_info.vendor[0])   printf("vendor     : %s\n", device_info.vendor);
 		if (device_info.firmware[0]) printf("firmware   : %s\n", device_info.firmware);
@@ -78,14 +109,14 @@ int main(int argc,char **argv){
 
 	// try to get block size
 	size_t size;
-	if(ioctl(fd, BLOCK_GET_SIZE, &size) >= 0){
+	if (ioctl(fd, BLOCK_GET_SIZE, &size) >= 0) {
 		printf("size       : %s\n", byte_amount(size));
 	}
 
 
 	// try to get input info
 	struct input_info input_info;
-	if(libinput_get_info(fd, &input_info) >= 0){
+	if (libinput_get_info(fd, &input_info) >= 0) {
 		printf("class      : %s\n", libinput_class_string(input_info.if_class));
 		printf("subclass   : %s\n", libinput_subclass_string(input_info.if_class, input_info.if_subclass));
 	}
@@ -103,7 +134,7 @@ int main(int argc,char **argv){
 		printf("planes     : %lu\n", card->planes_count);
 		printf("crtcs      : %lu\n", card->crtcs_count);
 		printf("connectors : %lu\n", card->connectors_count);
-		for (size_t i=0; i<card->planes_count; i++) {
+		for (size_t i=0; i < card->planes_count; i++) {
 			trm_plane_t *plane = &card->planes[i];
 			printf("plane(%u) : %s\n", plane->id, trm_plane_type(plane->type));
 		}
