@@ -26,6 +26,11 @@ void mount_initrd(void) {
 		halt();
 	}
 
+	// "chroot" into it
+	// HACK : this is a hack because "." follow mount points while it shouldn't
+	// so this is abusing a vfs bug
+	vfs_set_root(vfs_get_dentry("/.", O_RDWR));
+
 	bootinfo_initrd_t *initrd = bootinfo_get_initrd();
 
 	char *addr = initrd->start;

@@ -13,7 +13,7 @@
 #include <poll.h>
 #include <stddef.h>
 
-
+static slab_cache_t mount_points_slab;
 static list_t fs_types;
 static list_t superblocks;
 
@@ -21,6 +21,7 @@ void init_vfs(void) {
 	kstatusf("init vfs... ");
 	init_vfs_fd();
 	init_vfs_dentry();
+	slab_init(&mount_points_slab, sizeof(vfs_mount_point_t), "vfs-mount-points");
 	list_init(&fs_types);
 	list_init(&superblocks);
 	kok();
@@ -81,7 +82,7 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 			if (!superblock) return ret;
 
 			// mount the superblock
-			ret                          = vfs_mount(target, superblock);
+			ret                          = vfs_mount(target, mountflags, superblock);
 			superblock->root->superblock = superblock;
 			if (ret < 0) {
 				vfs_superblock_destroy(superblock);
@@ -93,73 +94,96 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 	return -ENODEV;
 }
 
-int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock) {
-	kdebugf("mount superblock on %s\n", mount_point->name);
+int vfs_mount_on(vfs_dentry_t *mount_on, unsigned long flags, vfs_superblock_t *superblock) {
+	kdebugf("mount superblock on %s\n", mount_on->name);
+
+	vfs_mount_point_t *mount_point = slab_alloc(&mount_points_slab);
+	if (!mount_point) return -ENOMEM;
+
+	// TODO : make sure to follow all mount points first
+	kassert(!mount_on->shadow_mount_point);
 
 	// create a new fake dentry for the root of the superblock
 	vfs_dentry_t *root_dentry = vfs_dentry_allocate();
-	root_dentry->parent       = mount_point->parent;
-	memcpy(root_dentry->name, mount_point->name, sizeof(mount_point->name));
+	root_dentry->parent       = mount_on->parent;
+	memcpy(root_dentry->name, mount_on->name, sizeof(mount_on->name));
 	root_dentry->inode     = vfs_node_ref(superblock->root);
-	root_dentry->ref_count = 1;
-	root_dentry->flags     = VFS_DENTRY_MOUNT;
+	root_dentry->ref_count = 0;
+	root_dentry->mount_point = mount_point;
 
-	// make a new ref to the mount point to prevent it from being closed
-	root_dentry->old = vfs_dentry_ref(mount_point);
+	// setup refs to prevent dentries from being released
+	mount_point->shadow = vfs_dentry_ref(mount_on);
+	mount_point->root   = vfs_dentry_ref(root_dentry);
 
-	// insert the new fake dentry at the place of the original one
-	if (mount_point->parent) {
-		rculist_remove(&mount_point->parent->children, &mount_point->children_node);
-		rculist_append(&mount_point->parent->children, &root_dentry->children_node);
-	} else if (mount_point == vfs_get_root()) {
-		// special case for root
-		vfs_set_root(root_dentry);
-	}
+	// update the old dentry
+	mount_on->shadow_mount_point = mount_point;
 	return 0;
 }
 
-int vfs_mount_at(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock) {
+int vfs_mount_at(vfs_dentry_t *at, const char *name, unsigned long flags, vfs_superblock_t *superblock) {
 	// first open the mount point
+	vfs_dentry_t *parent = vfs_get_dentry_at(at, name, O_PARENT);
+	if (IS_ERR(parent)) return PTR2ERR(parent);
+	if (parent) vfs_node_acquire_write(parent->inode);
+
+	// TODO : use vfs_basename instead
 	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, name, O_RDWR);
 	if (IS_ERR(mount_point)) {
+		if (parent) vfs_node_release_write(parent->inode);
+		vfs_dentry_release(parent);
 		return PTR2ERR(mount_point);
 	}
 
-	int ret = vfs_mount_on(mount_point, superblock);
+	int ret = vfs_mount_on(mount_point, flags, superblock);
 
 	vfs_dentry_release(mount_point);
-
+	if (parent) vfs_node_release_write(parent->inode);
+	vfs_dentry_release(parent);
 	return ret;
 }
 
 int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
-	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, path, 0);
-	if (IS_ERR(mount_point)) {
-		return PTR2ERR(mount_point);
+	vfs_dentry_t *root_dentry = vfs_get_dentry_at(at, path, 0);
+	if (IS_ERR(root_dentry)) {
+		return PTR2ERR(root_dentry);
 	}
 
-	if (!(mount_point->flags & VFS_DENTRY_MOUNT)) {
+	vfs_dentry_t *parent = root_dentry->parent;
+	if (parent) vfs_node_acquire_write(parent->inode);
+
+	if (!root_dentry->mount_point)  {
 		// not even a mount point
-		vfs_dentry_release(mount_point);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto error;
+	}
+	vfs_mount_point_t *mount_point = root_dentry->mount_point;
+	kassert(mount_point->root == root_dentry);
+
+	if (atomic_load(&root_dentry->ref_count) > 2) {
+		ret = -EBUSY;
+		goto error;
 	}
 
-	if (atomic_load(&mount_point->ref_count) > 1) {
-		return -EBUSY;
-	}
+	// update the old entry
+	vfs_dentry_t *mount_on = mount_point->shadow;
+	mount_on->shadow_mount_point = NULL;
 
-	vfs_superblock_destroy(mount_point->inode->superblock);
+	if (parent) vfs_node_release_write(parent->inode);
 
-	// replace the fake dentry by the one before it
-	vfs_dentry_t *parent = mount_point->parent;
-	if (parent) {
-		mount_point->parent = NULL;
-		rculist_remove(&parent->children, &mount_point->children_node);
-		rculist_append(&parent->children, &mount_point->old->children_node);
-	}
+	// cleanup stuff
+	vfs_superblock_t *superblock = root_dentry->inode->superblock;
+	vfs_dentry_release(root_dentry);
+	vfs_dentry_release(mount_point->root);
+	vfs_dentry_release(mount_point->shadow);
+	slab_free(mount_point);
+	vfs_superblock_destroy(superblock);
 
-	vfs_dentry_release(mount_point);
 	return 0;
+
+error:
+	if (parent) vfs_node_release_write(parent->inode);
+	vfs_dentry_release(root_dentry);
+	return ret;
 }
 
 int vfs_user_perm(vfs_node_t *node, uid_t uid, gid_t gid) {

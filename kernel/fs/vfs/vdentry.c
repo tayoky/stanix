@@ -93,6 +93,19 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 	}
 }
 
+/**
+ * @note require to hold the parent's read/write lock
+ */
+static vfs_dentry_t *vfs_follow_mount_points(vfs_dentry_t *dentry) {
+	if (IS_ERR(dentry)) return dentry;
+	while (dentry->shadow_mount_point) {
+		vfs_dentry_t *next = vfs_dentry_ref(dentry->shadow_mount_point->root);
+		kassert(next);
+		dentry = next;
+	}
+	return dentry;
+}
+
 static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, long flags, long *loop_max, mode_t mode) {
 	// we are going to modify it
 	char new_path[strlen(path) + 1];
@@ -101,7 +114,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 	// first parse the path
 	int path_depth   = 0;
 	char last_is_sep = 1;
-	char *path_array[64]; // hardcoded maximum identation level
+	char *path_array[128]; // hardcoded maximum identation level
 
 	for (int i = 0; new_path[i]; i++) {
 		// only if it's a path separator
@@ -131,9 +144,11 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 	int ret;
 	int created = 0;
 	for (int i = 0; i < path_depth; i++) {
-		if (!current_entry) break;
+		kassert(current_entry);
+		vfs_node_acquire_read(current_entry->inode);
 		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i]);
 		if (IS_ERR(next_entry)) {
+			vfs_node_release_read(current_entry->inode);
 			ret = PTR2ERR(next_entry);
 			// maybe we can create it
 			if (ret != -ENOENT || i != path_depth - 1 || !(flags & O_CREAT)) {
@@ -155,13 +170,22 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 			}
 			// we need to manually fetch the new entry
 			next_entry = vfs_lookup(current_entry, path_array[i]);
+
+			// follow mount points with the parent write lock acquired
+			next_entry = vfs_follow_mount_points(next_entry);
+
 			vfs_node_release_write(current_entry->inode);
 			if (IS_ERR(next_entry)) {
 				ret = PTR2ERR(next_entry);
 				goto error;
 			}
+		} else {
+			// classic hot path
+			// follow mount points with the parent read lock acquired
+			next_entry = vfs_follow_mount_points(next_entry);
 		}
 		vfs_dentry_release(current_entry);
+
 		current_entry = next_entry;
 
 		if ((flags & O_NOFOLLOW) && i == path_depth - 1) {
@@ -169,7 +193,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 			continue;
 		}
 
-		// follow symlink
+		// follow symlinks
 		while (current_entry && S_ISLNK(current_entry->inode->mode)) {
 			if (*loop_max <= 0) goto error;
 			(*loop_max)--;
@@ -195,7 +219,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 
 	if (!created && (flags & O_EXCL)) {
 		ret = -EEXIST;
-		return NULL;
+		goto error;
 	}
 
 	return current_entry;

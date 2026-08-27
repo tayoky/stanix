@@ -46,6 +46,7 @@ typedef struct vfs_fd_ops vfs_fd_ops_t;
 typedef struct vfs_superblock vfs_superblock_t;
 typedef struct vfs_superblock_ops vfs_superblock_ops_t;
 typedef struct vfs_dentry vfs_dentry_t;
+typedef struct vfs_mount_point vfs_mount_point_t;
 
 /**
  * @brief represent an inode
@@ -81,12 +82,12 @@ struct vfs_dentry {
 	ino_t inode_number;
 	long flags;
 	vfs_dentry_t *parent;
-	vfs_dentry_t *old; // used for mount point
+	vfs_mount_point_t *mount_point; // only used for mount points
+	vfs_mount_point_t *shadow_mount_point; // the mount this is shadowed by
 	rculist_t children;
 	ref_count_t ref_count;
 };
 
-#define VFS_DENTRY_MOUNT    0x01 // the dentry is a mount point
 #define VFS_DENTRY_UNLINKED 0x02 // the dentry is unlinked
 
 /**
@@ -143,6 +144,7 @@ struct vfs_fd_ops {
 };
 
 struct vfs_superblock {
+	ref_count_t ref_count;
 	list_node_t node;
 	xarray_t inodes;
 	vfs_node_t *root;
@@ -160,6 +162,13 @@ struct vfs_superblock_ops {
 };
 
 #define VFS_SUPERBLOCK_NO_DCACHE 0x01
+#define VFS_SUPERBLOCK_READ_ONLY 0x02
+
+struct vfs_mount_point {
+	vfs_dentry_t *root;
+	vfs_dentry_t *shadow;
+	unsigned long flags;
+} vfs_mount_point_t;
 
 typedef struct vfs_filesystem {
 	list_node_t node;
@@ -192,21 +201,7 @@ vfs_node_t *vfs_node_allocate(vfs_superblock_t *superblock);
  */
 vfs_node_t *vfs_node_get(vfs_superblock_t *superblock, ino_t inode_number);
 
-int vfs_mount_on(vfs_dentry_t *mount_point, vfs_superblock_t *superblock);
-
-/**
- * @brief mount a \ref vfs_superblock_t to the specified path
- * @param path the path to mount to
- * @param sueprblock the superblock to mount
- * @return 0 on success else error code
- */
-static inline int vfs_mount(const char *name, vfs_superblock_t *superblock) {
-	return vfs_mount_at(NULL, name, superblock);
-}
-
-static inline int vfs_unmount(const char *path) {
-	return vfs_unmount_at(NULL, path);
-}
+int vfs_mount_on(vfs_dentry_t *mount_point, unsigned long flags, vfs_superblock_t *superblock);
 
 int vfs_chroot(vfs_dentry_t *new_root);
 
@@ -218,7 +213,7 @@ int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path);
 int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags);
 int vfs_unlink_at(vfs_dentry_t *at, const char *path);
 int vfs_rmdir_at(vfs_dentry_t *at, const char *path);
-int vfs_mount_at(vfs_dentry_t *at, const char *name, vfs_superblock_t *superblock);
+int vfs_mount_at(vfs_dentry_t *at, const char *name, unsigned long vfs_superblock_t *superblock);
 int vfs_unmount_at(vfs_dentry_t *at, const char *path);
 
 static inline int vfs_create(const char *path, mode_t mode) {
@@ -251,6 +246,20 @@ static inline vfs_unlink(const char *path) {
 
 static inline vfs_rmdir(const char *path) {
 	return vfs_rmdir_at(NULL, path);
+}
+
+/**
+ * @brief mount a \ref vfs_superblock_t to the specified path
+ * @param path the path to mount to
+ * @param sueprblock the superblock to mount
+ * @return 0 on success else error code
+ */
+static inline int vfs_mount(const char *name, unsigned long flags, vfs_superblock_t *superblock) {
+	return vfs_mount_at(NULL, name, flags, superblock);
+}
+
+static inline int vfs_unmount(const char *path) {
+	return vfs_unmount_at(NULL, path);
 }
 
 vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *pathname, long flags, ...);
@@ -380,6 +389,7 @@ static inline int vfs_update_time(vfs_node_t *node, int mask) {
 }
 
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
+vfs_dentry_t *vfs_follow_mount_point(vfs_dentry_t *dentry);
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
 
 /**

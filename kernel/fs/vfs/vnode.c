@@ -189,32 +189,39 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 	}
 }
 
-// FIXME 2 : we have a few races in there
+// FIXME RACE : we have a few races in there
 // - 1 double lookup if two thread call ops->lookup on the same name
 // - 2 dentry eviction before we get time to remove it from lru
 // - 3 if a dentry is added to the cache between when we check the rculist and when call ops->lookup
-// - 4 if the permission change between when we check the perm and when check the cache
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	// cannot do lookup on negative entry
 	if (vfs_dentry_is_negative(entry)) {
 		return ERR2PTR(-EINVAL);
 	}
 
-	// check perm
-	if (!(vfs_perm(entry->inode) & PERM_EXECUTE)) {
-		return ERR2PTR(-EACCES);
-	}
-
 	if (!S_ISDIR(entry->inode->mode)) {
 		return ERR2PTR(-ENOTDIR);
 	}
 
+	vfs_node_acquire_read(entry->inode);
+
+	// check perm
+	int ret = 0;
+	if (!(vfs_perm(entry->inode) & PERM_EXECUTE)) {
+		ret = -EACCES;
+error:
+		vfs_node_release_read(entry->inode);
+		return ERR2PTR(ret);
+	}
+
 	// handle .. here so we can handle the parent of mount point
 	if ((!strcmp("..", name)) && entry->parent) {
+		vfs_node_release_read(entry->inode);
 		return vfs_dentry_ref(entry->parent);
 	}
 
 	if ((!strcmp(".", name))) {
+		vfs_node_release_read(entry->inode);
 		return vfs_dentry_ref(entry);
 	}
 
@@ -225,14 +232,14 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 		if (!strcmp(current_entry->name, name)) {
 			// cached entries must not be negative
 			kassert(!vfs_dentry_is_negative(current_entry));
-			vfs_dentry_t *ret = vfs_dentry_ref(current_entry);
 
 			// we might need to remove it from lru
-			if (ret->ref_count == 1) {
-				vfs_dentry_remove_lru(ret);
+			if (current_entry->ref_count == 1) {
+				vfs_dentry_remove_lru(current_entry);
 			}
 			rculist_release_read(&entry->children);
-			return ret;
+			vfs_node_release_read(entry->inode);
+			return current_entry;
 		}
 	}
 	rculist_release_read(&entry->children);
@@ -240,19 +247,18 @@ vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
 	// it isen't chached
 	// ask the fs for it
 	if (!entry->inode->ops->lookup) {
-		return ERR2PTR(-EOPNOTSUPP);
+		ret = -EOPNOTSUPP;
+		goto error;
 	}
 
 	vfs_dentry_t *child_entry = vfs_dentry_allocate();
 	strcpy(child_entry->name, name);
 	child_entry->ref_count = 1;
 
-	vfs_node_acquire_read(entry->inode);
 	int ret = entry->inode->ops->lookup(entry->inode, child_entry);
 	if (ret < 0) {
-		vfs_node_release_read(entry->inode);
 		slab_free(child_entry);
-		return ERR2PTR(ret);
+		goto error;
 	}
 	kassert(!vfs_dentry_is_negative(child_entry));
 
@@ -474,7 +480,7 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	int ret = 0;
 
 	// cannot unlink mount points
-	if (dentry->flags & VFS_DENTRY_MOUNT) {
+	if (dentry->mount_point) {
 		ret = -EBUSY;
 		goto error;
 	}
@@ -542,7 +548,7 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	int ret = 0;
 
 	// cannot rmdir mount points
-	if (dentry->flags & VFS_DENTRY_MOUNT) {
+	if (dentry->mount_point) {
 		ret = -EBUSY;
 		goto error;
 	}
