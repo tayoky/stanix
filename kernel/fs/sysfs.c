@@ -310,8 +310,7 @@ static vfs_fd_ops_t sysfs_fd_ops = {
 	.read = sysfs_read,
 };
 
-static int sysfs_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **out_superblock) {
-	(void)source;
+static int sysfs_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **out_superblock) {
 	(void)target;
 	(void)flags;
 	(void)data;
@@ -321,6 +320,8 @@ static int sysfs_mount(const char *source, const char *target, unsigned long fla
 	sysfs_inode_t *root   = sysfs_new_inode(INODE_ROOT, NULL, S_IFDIR);
 	root->vnode.ref_count = 1;
 	superblock->root      = &root->vnode;
+	superblock->flags  = VFS_SUPERBLOCK_NO_DCACHE;
+	superblock->device = source;
 
 	*out_superblock = superblock;
 	return 0;

@@ -154,7 +154,6 @@ int init_gpt(off_t offset, vfs_fd_t *dev, const char *target) {
 	gpt_header_t gpt;
 	vfs_read(dev, &gpt, offset, sizeof(gpt));
 	if (memcmp(gpt.signature, "EFI PART", 8)) {
-		vfs_close(dev);
 		return -EIO; //what error to return ?
 	}
 	//TODO : check the checksum
@@ -186,24 +185,21 @@ int init_gpt(off_t offset, vfs_fd_t *dev, const char *target) {
 	return 0;
 }
 
-int part_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
+int part_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)data;
 	(void)flags;
 	(void)superblock_out;
 
 	kdebugf("mount %s to %s\n", source, target);
 
-	vfs_fd_t *dev = vfs_open(source, O_RDWR);
-	if (!dev)return -ENOENT;
-
 	mbr_table_t mbr;
-	vfs_read(dev, &mbr, 0, sizeof(mbr));
+	vfs_read(source, &mbr, 0, sizeof(mbr));
 
 	//check for gpt first
 	for (size_t i = 0; i < 4; i++) {
 		if (mbr.entries[i].type == GPT_ID) {
 			//gpt !
-			return init_gpt((off_t)mbr.entries[i].lba_start * 512, dev, target);
+			return init_gpt((off_t)mbr.entries[i].lba_start * 512, source, target);
 		}
 	}
 
@@ -217,9 +213,8 @@ int part_mount(const char *source, const char *target, unsigned long flags, cons
 	for (size_t i = 0; i < 4; i++) {
 		if (!mbr.entries[i].sectors_count)continue;
 		info.type = mbr.entries[i].type;
-		create_part(dev, target, mbr.entries[i].lba_start * 512, mbr.entries[i].lba_start * 512, &counter, &info);
+		create_part(source, target, mbr.entries[i].lba_start * 512, mbr.entries[i].lba_start * 512, &counter, &info);
 	}
-	vfs_close(dev);
 
 	return 0;
 }

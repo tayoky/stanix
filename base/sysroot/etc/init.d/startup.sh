@@ -3,12 +3,12 @@ echo "mounting /tmp"
 mount -t tmpfs -S / -T /tmp
 chmod 01777 /tmp
 echo "mounting /proc"
-mount -t proc -S / -T /proc
+mount -t proc -S /dev/null -T /proc
 echo "mounting /sys"
-mount -t sysfs -S / -T /sys
+mount -t sysfs -S /dev/null -T /sys
 echo "mounting shmfs"
 mkdir -p /dev/shm
-mount -t tmpfs -S / -T /dev/shm
+mount -t tmpfs -S /dev/null -T /dev/shm
 chmod 01777 /dev/shm
 chmod 0755 /dev
 echo "loading modules"
@@ -31,15 +31,12 @@ done
 echo "mount partitions"
 automount
 
-#setup font and frambuffer path
+# setup font and frambuffer path
 export FONT="/usr/share/fonts/zap-light16.psf"
 export FB="/dev/fb0"
 
 # change this to change the keyboard layout
 set-layout /dev/kb0 azerty
-
-#uncomment this line to get a shell on the serial port
-#login --setup-stdin-from-stdout > /dev/ttyS0
 
 # we don't have an audio driver so setup sdl to use dummy audio
 export SDL_AUDIODRIVER="dummy"

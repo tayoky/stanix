@@ -645,21 +645,16 @@ static vfs_superblock_ops_t fat_superblock_ops = {
 	.flush_inode = fat_flush_inode,
 };
 
-int fat_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
+int fat_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)flags;
 	(void)data;
 	(void)target;
-	vfs_fd_t *dev = vfs_open(source, O_RDWR);
-	if (IS_ERR(dev)) return PTR2ERR(dev);
-
 	fat_bpb_t bpb;
-	if (vfs_read(dev, &bpb, 0, sizeof(bpb)) != sizeof(bpb)) {
-		vfs_close(dev);
+	if (vfs_read(source, &bpb, 0, sizeof(bpb)) != sizeof(bpb)) {
 		return -EIO; // not sure this is the good error code
 	}
 	if (bpb.extended.fat32.signature != 0xaa55) {
 		kdebugf("invalid signature\n");
-		vfs_close(dev);
 		return -EFTYPE;
 	}
 
@@ -701,7 +696,7 @@ int fat_mount(const char *source, const char *target, unsigned long flags, const
 	fat_superblock_t *fat_superblock = kmalloc(sizeof(fat_superblock_t));
 	memset(fat_superblock, 0, sizeof(fat_superblock_t));
 	fat_superblock->superblock.ops    = &fat_superblock_ops;
-	fat_superblock->superblock.device = dev;
+	fat_superblock->superblock.device = source;
 	fat_superblock->fat_type          = fat_type;
 	fat_superblock->reserved_sectors  = bpb.reserved_sectors;
 	fat_superblock->sector_size       = bpb.byte_per_sector;

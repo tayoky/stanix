@@ -280,7 +280,7 @@ static vfs_inode_ops_t proc_root_ops = {
 	.lookup  = proc_root_lookup,
 };
 
-int proc_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
+int proc_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)data;
 	(void)source;
 	(void)flags;
@@ -298,6 +298,7 @@ int proc_mount(const char *source, const char *target, unsigned long flags, cons
 	memset(superblock, 0, sizeof(vfs_superblock_t));
 	superblock->root = vnode;
 	superblock->flags |= VFS_SUPERBLOCK_NO_DCACHE;
+	superblock->device = source;
 	vnode->superblock = superblock;
 
 	*superblock_out = superblock;

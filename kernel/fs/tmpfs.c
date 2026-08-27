@@ -82,13 +82,13 @@ static void tmpfs_remove_entry(tmpfs_inode_t *dir, tmpfs_dirent_t *entry) {
 	slab_free(entry);
 }
 
-static int tmpfs_mount(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
+static int tmpfs_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)data;
-	(void)source;
 	(void)flags;
 	(void)target;
 
 	*superblock_out = new_tmpfs();
+	(*superblock_out)->device = source;
 	return 0;
 }
 

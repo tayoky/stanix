@@ -9,7 +9,7 @@ It Allow you to get the path to any file descriptor :D
 %
 Tips : In GUI the program stanix-version allow you to see your current version of Stanix!
 %
-Tips : You can mount your own tmpfs anywhere using "mount -t tmpfs -S / -T /my-tmpfs,
+Tips : You can mount your own tmpfs anywhere using "mount -t tmpfs -S /dev/null -T /my-tmpfs,
 note that this require root permissions.
 %
 The name Stanix comes from the contraction of Stanislas's Unix, Stanislas being my real name!

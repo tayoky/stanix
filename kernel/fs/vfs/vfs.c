@@ -82,8 +82,15 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 			if (!fs->mount) {
 				return -ENODEV;
 			}
-			int ret = fs->mount(source, target, mountflags, data, &superblock);
-			if (ret < 0) return ret;
+
+			vfs_fd_t *src = vfs_open(source, O_RDWR);
+			if (IS_ERR(src)) return PTR2ERR(src);
+
+			int ret = fs->mount(src, target, mountflags, data, &superblock);
+			if (ret < 0) {
+				vfs_close(src);
+				return ret;
+			}
 			if (!superblock) return ret;
 
 			// mount the superblock
