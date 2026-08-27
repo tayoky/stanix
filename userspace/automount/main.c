@@ -123,7 +123,7 @@ int main() {
 		return 1;
 	}
 	check("hd");
-	check("cdrom");
+	check("cd");
 	check("nvme");
 
 	return ret;

@@ -213,7 +213,7 @@ static void mmc_detach(devnode_t *devnode) {
 
 static driver_t mmc_driver = {
 	.name = "ATA disk",
-	.device_name = "cdrom",
+	.device_name = "cd",
 	.buses = BUSES("scsi_bus"),
 	.check  = mmc_check,
 	.probe  = mmc_probe,
