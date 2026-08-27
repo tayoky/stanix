@@ -179,7 +179,8 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 		rcu_release_read(NULL);
 		proc->umask       = get_current_proc()->umask;
 		proc->cmdline     = strdup(get_current_proc()->cmdline);
-		proc->cwd         = vfs_dentry_ref(get_current_proc()->cwd);
+		proc->vfs_context.root = vfs_context_get_root(&get_current_proc()->vfs_context);
+		proc->vfs_context.cwd  = vfs_context_get_cwd(&get_current_proc()->vfs_context);
 		proc->exe         = vfs_dentry_ref(get_current_proc()->exe);
 
 		// add it the the list of the children of the parent
@@ -192,7 +193,8 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 		proc_set_cred(proc, &default_cred);
 		proc->umask  = 022;
 		proc->cmdline = strdup("unknown");
-		proc->cwd = vfs_get_dentry("/", 0);
+		proc->vfs_context.root = vfs_get_dentry("/", 0);
+		proc->vfs_context.cwd  = vfs_get_dentry("/", 0);
 		proc_ref(proc);
 	}
 

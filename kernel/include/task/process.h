@@ -38,13 +38,13 @@ struct process {
 	vmm_space_t vmm_space;
 	sleep_queue_t wait_queue;
 	signal_context_t signal_context;   // cannot acquire if holding proc lock
+	vfs_context_t vfs_context;
 	struct sigaction sig_handlers[32]; // protected by proc lock
 	rcu_ptr_t cred;              // write protected by proc lock
 	ref_count_t ref_count;
 	process_t *parent;           // write protected by proctree lock and protected by proc lock
 	process_group_t *group;      // write protected by proctree lock and protected by proc lock
 	xarray_t fd_table;
-	vfs_dentry_t *cwd;
 	vfs_dentry_t *exe;
 	char *cmdline;               // protected by proc lock
 	uintptr_t heap_start;

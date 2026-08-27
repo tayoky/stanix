@@ -92,7 +92,9 @@ static ssize_t proc_readlink(vfs_node_t *vnode, char *buffer, size_t count) {
 	static char buf[64];
 	switch (inode->type) {
 	case INODE_CWD:;
-		char *cwd = vfs_dentry_path(inode->proc->cwd);
+		vfs_dentry_t *cwd = vfs_context_get_cwd(&inode->proc->vfs_context);
+		char *cwd_path = vfs_dentry_path(cwd);
+		vfs_dentry_release(cwd);
 		if (count > strlen(cwd) + 1) count = strlen(cwd) + 1;
 		memcpy(buffer, cwd, count);
 		kfree(cwd);

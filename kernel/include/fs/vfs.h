@@ -176,6 +176,12 @@ typedef struct vfs_filesystem {
 	int (*mount)(const char *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **mount_point);
 } vfs_filesystem_t;
 
+typedef struct vfs_context {
+	rcu_ptr_t root; // write protected by lock
+	vfs_ptr_t cwd;  // write protected by lock
+	spinlock_t lock;
+} vfs_context_t;
+
 void init_vfs(void);
 void init_vfs_dentry(void);
 void init_vfs_fd(void);
@@ -622,6 +628,62 @@ static inline vfs_dentry_t *vfs_get_dentry(const char *path, long flags, ...) {
 }
 
 void vfs_dentry_release(vfs_dentry_t *dentry);
+
+/**
+ * @brief get the cwd of a vfs_context
+ * @param context the context to get the cwd of
+ * @return a new ref to the cwd
+ * @note create a new ref to the cwd that must be released using \ref vfs_dentry_release
+ */
+static inline vfs_dentry_t *vfs_context_get_cwd(vfs_context_t *context) {
+	rcu_acquire_read(NULL);
+	vfs_dentry_t *cwd = vfs_dentry_ref(rcu_ptr_fetch(&context->cwd));
+	rcu_release_read(NULL);
+	return cwd;
+}
+
+/**
+ * @brief get the root of a vfs_context
+ * @param context the context to get the root of
+ * @return a new ref to the root
+ * @note create a new ref to the root that must be released using \ref vfs_dentry_release
+ */
+static inline vfs_dentry_t *vfs_context_get_root(vfs_context_t *context) {
+	rcu_acquire_read(NULL);
+	vfs_dentry_t *root = vfs_dentry_ref(rcu_ptr_fetch(&context->root));
+	rcu_release_read(NULL);
+	return root;
+}
+
+/**
+ * @brief set the cwd of a vfs_context
+ * @param context the context to set the cwd of
+ * @param cwd the new cwd
+ * @note this internaly create a new ref to the cwd and free the old one
+ */
+static inline void vfs_context_set_cwd(vfs_context_t *context, vfs_dentry_t *cwd) {
+	vfs_dentry_ref(cwd);
+	spinlock_acquire(&context->lock);
+	vfs_dentry_t *old_cwd = rcu_ptr_store(&context->cwd, cwd);
+	spinlock_release(&context->lock);
+	rcu_sync(NULL);
+	vfs_dentry_release(old_cwd);
+}
+
+/**
+ * @brief set the root of a vfs_context
+ * @param context the context to set the root of
+ * @param root the new root
+ * @note this internaly create a new ref to the root and free the old one
+ */
+static inline void vfs_context_set_root(vfs_context_t *context, vfs_dentry_t *root) {
+	vfs_dentry_ref(root);
+	spinlock_acquire(&context->lock);
+	vfs_dentry_t *old_root = rcu_ptr_store(&context->root, root);
+	spinlock_release(&context->lock);
+	rcu_sync(NULL);
+	vfs_dentry_release(old_root);
+}
 
 vfs_dentry_t *vfs_dentry_allocate(void);
 vfs_dentry_t *vfs_get_root(void);

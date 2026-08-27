@@ -344,15 +344,17 @@ int sys_fstat(int fd, struct stat *st) {
 }
 
 int sys_getcwd(char *buf, size_t size) {
-	char *cwd = vfs_dentry_path(get_current_proc()->cwd);
+	vfs_dentry_t *cwd = vfs_context_get_cwd(&get_current_proc()->vfs_cobtext);
+	char *cwd_path = vfs_dentry_path(cwd);
+	vfs_dentry_release(cwd);
 
-	if (size < strlen(cwd) + 1) {
-		kfree(cwd);
+	if (size < strlen(cwd_path) + 1) {
+		kfree(cwd_path);
 		return -ERANGE;
 	}
 
-	int ret = user_copy_to(buf, cwd, strlen(cwd) + 1);
-	kfree(cwd);
+	int ret = user_copy_to(buf, cwd_path, strlen(cwd_path) + 1);
+	kfree(cwd_path);
 	return ret;
 }
 
@@ -360,18 +362,15 @@ int sys_chdir(const char *path) {
 	if (!CHECK_PTR(path)) return -EFAULT;
 
 	// check if exist
-	vfs_dentry_t *entry = vfs_get_dentry(path, 0);
-	if (IS_ERR(entry)) return PTR2ERR(entry);
+	vfs_dentry_t *dentry = vfs_get_dentry(path, 0);
+	if (IS_ERR(dentry)) return PTR2ERR(dentry);
 
-	if (!S_ISDIR(entry->inode->mode)) {
+	if (!S_ISDIR(dentry->inode->mode)) {
+		vfs_dentry_release(dentry);
 		return -ENOTDIR;
 	}
 
-	// free old cwd
-	vfs_dentry_release(get_current_proc()->cwd);
-
-	// set new cwd
-	get_current_proc()->cwd = entry;
+	vfs_context_set_cwd(&get_current_proc()->vfs_context, dentry);
 
 	return 0;
 }
@@ -1524,7 +1523,7 @@ int sys_fchdir(int fd) {
 	vfs_fd_t *vfs_fd = fd_get(fd);
 	if (!vfs_fd) return -EBADF;
 	
-	if (!vfs_fd->inode) {
+	if (!vfs_fd->inode || !vfs_fd->dentry) {
 		vfs_close(vfs_fd);
 		return -EINVAL;
 	}
@@ -1533,11 +1532,8 @@ int sys_fchdir(int fd) {
 		return -ENOTDIR;
 	}
 
-	// free old cwd
-	vfs_dentry_release(get_current_proc()->cwd);
+	vfs_context_set_cwd(&get_current_proc()->vfs_context, vfs_fd->dentry);
 
-	// set new cwd
-	get_current_proc()->cwd = vfs_dentry_ref(vfs_fd->dentry);
 	vfs_close(vfs_fd);
 	return 0;
 }
@@ -1552,17 +1548,20 @@ int sys_fstatat(int fd, const char *path, struct stat *st, int flags) {
 
 	vfs_dentry_t *at;
 	if (fd == AT_FDCWD) {
-		at = get_current_proc()->cwd;
+		at = vfs_context_get_cwd(&get_current_proc()->vfs_cobtext);
 	} else {
 		vfs_fd_t *vfs_fd = fd_get(fd);
 		if (!vfs_fd) return -EBADF;
-		at = vfs_fd->dentry;
+		if (!vfs_fd->dentry) {
+			vfs_close(vfs_fd);
+			return -EINVAL;
+		}
+		at = vfs_dentry_ref(vfs_fd->dentry);
 		vfs_close(vfs_fd);
 	}
 
-	// FIXME : maybee we need to create a ref to at idk
-	
 	vfs_node_t *node = vfs_get_node_at(at, path, O_RDONLY, flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0);
+	vfs_dentry_release(at);
 	if (IS_ERR(node)) return PTR2ERR(node);
 
 	int ret = vfs_getattr(node, st);
@@ -1617,6 +1616,42 @@ int sys_syncfs(int fd) {
 
 void sys_sync(void) {
 	cache_flush_all();
+}
+
+int sys_chroot(const char *path) {
+	if (!CHECK_PTR(path)) return -EFAULT;
+
+	// check if exist
+	vfs_dentry_t *dentry = vfs_get_dentry(path, 0);
+	if (IS_ERR(dentry)) return PTR2ERR(dentry);
+
+	if (!S_ISDIR(dentry->inode->mode)) {
+		vfs_dentry_release(dentry);
+		return -ENOTDIR;
+	}
+
+	vfs_context_set_root(&get_current_proc()->vfs_context, dentry);
+
+	return 0;
+}
+
+int sys_fchroot(int fd) {
+	vfs_fd_t *vfs_fd = fd_get(fd);
+	if (!vfs_fd) return -EBADF;
+	
+	if (!vfs_fd->inode || !vfs_fd->dentry) {
+		vfs_close(vfs_fd);
+		return -EINVAL;
+	}
+	if (!S_ISDIR(vfs_fd->inode->mode)) {
+		vfs_close(vfs_fd);
+		return -ENOTDIR;
+	}
+
+	vfs_context_set_root(&get_current_proc()->vfs_context, vfs_fd->dentry);
+
+	vfs_close(vfs_fd);
+	return 0;
 }
 
 int sys_stub(void) {
@@ -1730,6 +1765,8 @@ void *syscall_table[] = {
 	(void *)sys_fsync,
 	(void *)sys_syncfs,
 	(void *)sys_sync,
+	(void *)sys_chroot,
+	(void *)sys_fchroot,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);

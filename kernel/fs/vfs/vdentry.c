@@ -118,6 +118,9 @@ static vfs_dentry_t *vfs_dentry_follow_mount_points_with_ref(vfs_dentry_t *dentr
 	return vfs_dentry_ref(vfs_dentry_follow_mount_points(dentry));
 }
 
+/**
+ * @note consume a release to at
+ */
 static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, long flags, long *loop_max, mode_t mode) {
 	// we are going to modify it
 	char new_path[strlen(path) + 1];
@@ -152,7 +155,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 		path_depth--;
 	}
 
-	vfs_dentry_t *current_entry = vfs_dentry_ref(at);
+	vfs_dentry_t *current_entry = at;
 	int ret;
 	int created = 0;
 	for (int i = 0; i < path_depth; i++) {
@@ -214,8 +217,11 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 			ssize_t size;
 			if ((size = vfs_readlink(symlink, target, sizeof(target))) < 0) goto error;
 			target[size]     = '\0';
-			vfs_dentry_t *at = target[0] == '/' ? root : current_entry->parent;
-			kassert(at);
+			vfs_dentry_t *at = NULL;
+			if (target[0] != '/') {
+				at = vfs_dentry_ref(current_entry->parent);
+				kassert(at);
+			}
 			next_entry = vfs_get_dentry_at_recur(at, target, flags, loop_max, mode);
 			if (IS_ERR(next_entry)) {
 				ret = PTR2ERR(next_entry);
@@ -250,12 +256,19 @@ vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, 
 		va_end(args);
 	}
 
-	if (!at) {
-		// if absolute relative to root else relative to cwd
-		if (path[0] == '/' || path[0] == '\0') {
-			return vfs_get_dentry_at(root, path, flags, mode);
+	if (at) {
+		vfs_dentry_ref(at);
+	} else {
+		if (get_current_proc()) {
+			// if absolute relative to root else relative to cwd
+			if (path[0] == '/' || path[0] == '\0') {
+				at = vfs_context_get_root(&get_current_proc()->vfs_context);
+			} else {
+				at = vfs_context_get_cwd(&get_current_proc()->vfs_context);
+			}
+		} else {
+			at = vfs_dentry_ref(root);
 		}
-		return vfs_get_dentry_at(get_current_proc()->cwd, path, flags, mode);
 	}
 	return vfs_get_dentry_at_recur(at, path, flags, &loop_max, mode);
 }
@@ -284,6 +297,14 @@ char *vfs_dentry_path(vfs_dentry_t *dentry) {
 	}
 	if (dentry->flags & VFS_DENTRY_UNLINKED) {
 		return strdup("(deleted)");
+	}
+	
+	vfs_dentry_t *top;
+	if (get_current_proc()) {
+		top = vfs_context_get_root(&get_current_proc()->vfs_context);
+		vfs_dentry_release(top);
+	} else {
+		top = root;
 	}
 
 	// TODO : use a dynamic buffer
