@@ -103,22 +103,6 @@ vfs_dentry_t *vfs_dentry_follow_mount_points(vfs_dentry_t *dentry) {
 }
 
 /**
- * @brief must be called with the parent's read/write lock
- */
-static vfs_dentry_t *vfs_dentry_follow_mount_points_with_ref(vfs_dentry_t *dentry) {
-	if (IS_ERR(dentry) || !dentry->shadow_mount_point) {
-		// fast path
-		return dentry;
-	}
-
-	// this weird thing is safe
-	// because the mount point struct already hold refs to the dentries
-	// and cannot be freed since we hold the parent lock
-	vfs_dentry_release(dentry);
-	return vfs_dentry_ref(vfs_dentry_follow_mount_points(dentry));
-}
-
-/**
  * @note consume a release to at
  */
 static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, long flags, long *loop_max, mode_t mode) {
@@ -160,10 +144,8 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 	int created = 0;
 	for (int i = 0; i < path_depth; i++) {
 		kassert(current_entry);
-		vfs_node_acquire_read(current_entry->inode);
 		vfs_dentry_t *next_entry = vfs_lookup(current_entry, path_array[i]);
 		if (IS_ERR(next_entry)) {
-			vfs_node_release_read(current_entry->inode);
 			ret = PTR2ERR(next_entry);
 			// maybe we can create it
 			if (ret != -ENOENT || i != path_depth - 1 || !(flags & O_CREAT)) {
@@ -183,21 +165,15 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 				vfs_node_release_write(current_entry->inode);
 				goto error;
 			}
+
 			// we need to manually fetch the new entry
 			next_entry = vfs_lookup(current_entry, path_array[i]);
-
-			// follow mount points with the parent write lock acquired
-			next_entry = vfs_dentry_follow_mount_points_with_ref(next_entry);
 
 			vfs_node_release_write(current_entry->inode);
 			if (IS_ERR(next_entry)) {
 				ret = PTR2ERR(next_entry);
 				goto error;
 			}
-		} else {
-			// classic hot path
-			// follow mount points with the parent read lock acquired
-			next_entry = vfs_dentry_follow_mount_points_with_ref(next_entry);
 		}
 		vfs_dentry_release(current_entry);
 
@@ -232,7 +208,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 		}
 	}
 
-	// at this point an error happend or the current entry is valid
+	// at this point the current entry should be valid
 	kassert(current_entry);
 
 	if (!created && (flags & O_EXCL)) {

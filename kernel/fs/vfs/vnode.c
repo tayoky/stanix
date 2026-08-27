@@ -233,6 +233,10 @@ error:
 			// cached entries must not be negative
 			kassert(!vfs_dentry_is_negative(current_entry));
 
+			// follow mount points
+			current_entry = vfs_dentry_follow_mount_points(current_entry);
+			vfs_dentry_ref(current_entry);
+
 			// we might need to remove it from lru
 			if (current_entry->ref_count == 1) {
 				vfs_dentry_remove_lru(current_entry);
@@ -261,6 +265,9 @@ error:
 		goto error;
 	}
 	kassert(!vfs_dentry_is_negative(child_entry));
+
+	// no need to follow mount points we just loaded it
+	// it cannot be mounted yet
 
 	// link it in the dentry cache
 	vfs_dentry_add(entry, child_entry);
