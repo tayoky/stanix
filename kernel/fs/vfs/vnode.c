@@ -479,12 +479,6 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 
 	int ret = 0;
 
-	// cannot unlink mount points
-	if (dentry->mount_point) {
-		ret = -EBUSY;
-		goto error;
-	}
-
 	if (S_ISDIR(dentry->inode->mode)) {
 		ret = -EISDIR;
 		goto error;
@@ -493,11 +487,18 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *parent_entry = dentry->parent;
 	if (!parent_entry) {
 		// as far as i know you cannot unlink root
-		ret = -ENOENT;
+		ret = -EINVAL;
 		goto error;
 	}
 
 	vfs_node_acquire_write(parent_entry->inode);
+
+	// cannot unlink mount points
+	if (dentry->mount_point || dentry->shadow_mount_point) {
+		vfs_node_release_write(parent_entry->inode);
+		ret = -EBUSY;
+		goto error;
+	}
 
 	// permission checking
 	struct stat parent_st;
@@ -547,12 +548,6 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 
 	int ret = 0;
 
-	// cannot rmdir mount points
-	if (dentry->mount_point) {
-		ret = -EBUSY;
-		goto error;
-	}
-
 	if (!S_ISDIR(dentry->inode->mode)) {
 		ret = -ENOTDIR;
 		goto error;
@@ -561,11 +556,18 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *parent_entry = dentry->parent;
 	if (!parent_entry) {
 		// as far as i know you cannot rmdir root
-		ret = -ENOENT;
+		ret = -EINVAL;
 		goto error;
 	}
 
 	vfs_node_acquire_write(parent_entry->inode);
+
+	// cannot rmdir mount points
+	if (dentry->mount_point || dentry->shadow_mount_point) {
+		vfs_node_release_write(parent_entry->inode);
+		ret = -EBUSY;
+		goto error;
+	}
 
 	// permission checking
 	struct stat parent_st;
