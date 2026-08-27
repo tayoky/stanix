@@ -287,7 +287,7 @@ char *vfs_dentry_path(vfs_dentry_t *dentry) {
 	char path[PATH_MAX];
 	size_t i  = PATH_MAX;
 	path[--i] = '\0';
-	while (dentry && dentry != root) {
+	while (dentry && dentry != top) {
 		size_t len = strlen(dentry->name);
 		i -= len;
 		memcpy(path + i, dentry->name, len);

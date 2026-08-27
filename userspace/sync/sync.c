@@ -35,6 +35,8 @@ int main(int argc, char **argv) {
 		case 'h':
 			help();
 			return 0;
+		case '?':
+			return 1;
 		}
 	}
 
