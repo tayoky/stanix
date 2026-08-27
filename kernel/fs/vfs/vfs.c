@@ -6,6 +6,7 @@
 #include <kernel/process.h>
 #include <kernel/refcount.h>
 #include <kernel/slab.h>
+#include <kernel/mutex.h>
 #include <kernel/string.h>
 #include <kernel/vfs.h>
 #include <errno.h>
@@ -16,6 +17,10 @@
 static slab_cache_t mount_points_slab;
 static list_t fs_types;
 static list_t superblocks;
+
+// this lock is used to protect mounting on root
+// since root does not have a parent to protect it
+static mutex_t root_mount_lock;
 
 void init_vfs(void) {
 	kstatusf("init vfs... ");
@@ -94,6 +99,22 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 	return -ENODEV;
 }
 
+static vfs_dentry_acquire_mount_lock(vfs_dentry_t *dentry) {
+	if (dentry->parent) {
+		vfs_node_acquire_write(dentry->parent->inode);
+	} else {
+		mutex_acquire(&root_mount_lock);
+	}
+}
+
+static vfs_dentry_release_mount_lock(vfs_dentry_t *dentry) {
+	if (dentry->parent) {
+		vfs_node_release_write(dentry->parent->inode);
+	} else {
+		mutex_release(&root_mount_lock);
+	}
+}
+
 int vfs_mount_on(vfs_dentry_t *mount_on, unsigned long flags, vfs_superblock_t *superblock) {
 	// make sure to be on top of the mountpoint stack
 	mount_on = vfs_dentry_follow_mount_points(mount_on);
@@ -124,34 +145,21 @@ int vfs_mount_on(vfs_dentry_t *mount_on, unsigned long flags, vfs_superblock_t *
 
 int vfs_mount_at(vfs_dentry_t *at, const char *name, unsigned long flags, vfs_superblock_t *superblock) {
 	// first open the mount point
-	vfs_dentry_t *parent = vfs_get_dentry_at(at, name, O_PARENT);
-	if (IS_ERR(parent)) return PTR2ERR(parent);
-	if (parent) vfs_node_acquire_write(parent->inode);
-
-	// TODO : use vfs_basename instead
 	vfs_dentry_t *mount_point = vfs_get_dentry_at(at, name, O_RDWR);
-	if (IS_ERR(mount_point)) {
-		if (parent) vfs_node_release_write(parent->inode);
-		vfs_dentry_release(parent);
-		return PTR2ERR(mount_point);
-	}
+	if (IS_ERR(mount_point)) return PTR2ERR(mount_point);
+	vfs_dentry_acquire_mount_lock(mount_point);
 
 	int ret = vfs_mount_on(mount_point, flags, superblock);
 
+	vfs_dentry_release_mount_lock(mount_point);
 	vfs_dentry_release(mount_point);
-	if (parent) vfs_node_release_write(parent->inode);
-	vfs_dentry_release(parent);
 	return ret;
 }
 
 int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *root_dentry = vfs_get_dentry_at(at, path, 0);
-	if (IS_ERR(root_dentry)) {
-		return PTR2ERR(root_dentry);
-	}
-
-	vfs_dentry_t *parent = root_dentry->parent;
-	if (parent) vfs_node_acquire_write(parent->inode);
+	if (IS_ERR(root_dentry)) return PTR2ERR(root_dentry);
+	vfs_dentry_acquire_mount_lock(root_dentry);
 
 	if (!root_dentry->mount_point)  {
 		// not even a mount point
@@ -170,7 +178,7 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_t *mount_on = mount_point->shadow;
 	mount_on->shadow_mount_point = NULL;
 
-	if (parent) vfs_node_release_write(parent->inode);
+	vfs_dentry_release_mount_lock(root_dentry);
 
 	// cleanup stuff
 	vfs_superblock_t *superblock = root_dentry->inode->superblock;
@@ -183,7 +191,7 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	return 0;
 
 error:
-	if (parent) vfs_node_release_write(parent->inode);
+	vfs_dentry_release_mount_lock(root_dentry);
 	vfs_dentry_release(root_dentry);
 	return ret;
 }
