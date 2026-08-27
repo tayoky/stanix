@@ -267,8 +267,9 @@ void do_proc_deletion(void) {
 	}
 	xarray_destroy(&get_current_proc()->fd_table);
 
-	// release locked dentry
-	vfs_dentry_release(get_current_proc()->cwd);
+	// release dentries
+	vfs_dentry_release(get_current_proc()->vfs_context.root);
+	vfs_dentry_release(get_current_proc()->vfs_context.cwd);
 	vfs_dentry_release(get_current_proc()->exe);
 
 	vmm_unmap_all();

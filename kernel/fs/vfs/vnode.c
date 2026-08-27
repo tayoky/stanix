@@ -259,7 +259,7 @@ error:
 	strcpy(child_entry->name, name);
 	child_entry->ref_count = 1;
 
-	int ret = entry->inode->ops->lookup(entry->inode, child_entry);
+	ret = entry->inode->ops->lookup(entry->inode, child_entry);
 	if (ret < 0) {
 		slab_free(child_entry);
 		goto error;

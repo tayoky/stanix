@@ -99,7 +99,7 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 	return -ENODEV;
 }
 
-static vfs_dentry_acquire_mount_lock(vfs_dentry_t *dentry) {
+static void vfs_dentry_acquire_mount_lock(vfs_dentry_t *dentry) {
 	if (dentry->parent) {
 		vfs_node_acquire_write(dentry->parent->inode);
 	} else {
@@ -107,7 +107,7 @@ static vfs_dentry_acquire_mount_lock(vfs_dentry_t *dentry) {
 	}
 }
 
-static vfs_dentry_release_mount_lock(vfs_dentry_t *dentry) {
+static void vfs_dentry_release_mount_lock(vfs_dentry_t *dentry) {
 	if (dentry->parent) {
 		vfs_node_release_write(dentry->parent->inode);
 	} else {
@@ -137,6 +137,7 @@ int vfs_mount_on(vfs_dentry_t *mount_on, unsigned long flags, vfs_superblock_t *
 	// setup refs to prevent dentries from being released
 	mount_point->shadow = vfs_dentry_ref(mount_on);
 	mount_point->root   = vfs_dentry_ref(root_dentry);
+	mount_point->flags  = flags;
 
 	// update the old dentry
 	mount_on->shadow_mount_point = mount_point;
@@ -161,6 +162,7 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	if (IS_ERR(root_dentry)) return PTR2ERR(root_dentry);
 	vfs_dentry_acquire_mount_lock(root_dentry);
 
+	int ret = 0;
 	if (!root_dentry->mount_point)  {
 		// not even a mount point
 		ret = -EINVAL;

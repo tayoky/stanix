@@ -168,7 +168,7 @@ struct vfs_mount_point {
 	vfs_dentry_t *root;
 	vfs_dentry_t *shadow;
 	unsigned long flags;
-} vfs_mount_point_t;
+};
 
 typedef struct vfs_filesystem {
 	list_node_t node;
@@ -178,7 +178,7 @@ typedef struct vfs_filesystem {
 
 typedef struct vfs_context {
 	rcu_ptr_t root; // write protected by lock
-	vfs_ptr_t cwd;  // write protected by lock
+	rcu_ptr_t cwd;  // write protected by lock
 	spinlock_t lock;
 } vfs_context_t;
 
@@ -219,7 +219,7 @@ int vfs_symlink_at(const char *target, vfs_dentry_t *at, const char *path);
 int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags);
 int vfs_unlink_at(vfs_dentry_t *at, const char *path);
 int vfs_rmdir_at(vfs_dentry_t *at, const char *path);
-int vfs_mount_at(vfs_dentry_t *at, const char *name, unsigned long vfs_superblock_t *superblock);
+int vfs_mount_at(vfs_dentry_t *at, const char *name, unsigned long flags, vfs_superblock_t *superblock);
 int vfs_unmount_at(vfs_dentry_t *at, const char *path);
 
 static inline int vfs_create(const char *path, mode_t mode) {

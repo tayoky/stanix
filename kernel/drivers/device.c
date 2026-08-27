@@ -130,7 +130,7 @@ void init_devices(void) {
 	xarray_init(&devices);
 
 	vfs_superblock_t *devfs_superblock = new_tmpfs();
-	vfs_mount("/dev", devfs_superblock);
+	vfs_mount("/dev", 0, devfs_superblock);
 	devfs_root = vfs_get_dentry("/dev", 0);
 
 	kok();

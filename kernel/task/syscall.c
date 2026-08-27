@@ -344,7 +344,7 @@ int sys_fstat(int fd, struct stat *st) {
 }
 
 int sys_getcwd(char *buf, size_t size) {
-	vfs_dentry_t *cwd = vfs_context_get_cwd(&get_current_proc()->vfs_cobtext);
+	vfs_dentry_t *cwd = vfs_context_get_cwd(&get_current_proc()->vfs_context);
 	char *cwd_path = vfs_dentry_path(cwd);
 	vfs_dentry_release(cwd);
 
@@ -1548,7 +1548,7 @@ int sys_fstatat(int fd, const char *path, struct stat *st, int flags) {
 
 	vfs_dentry_t *at;
 	if (fd == AT_FDCWD) {
-		at = vfs_context_get_cwd(&get_current_proc()->vfs_cobtext);
+		at = vfs_context_get_cwd(&get_current_proc()->vfs_context);
 	} else {
 		vfs_fd_t *vfs_fd = fd_get(fd);
 		if (!vfs_fd) return -EBADF;
