@@ -8,7 +8,8 @@ ISO_IMAGE = stanix.iso
 BUILDENV_SHELL = $(SHELL)
 
 INITRD = $(BUILDDIR)/initrd
-BASE_INITRD = $(CURDIR)/initrd
+BASE_INITRD = $(CURDIR)/base/initrd
+BASE_SYSROOT = $(CURDIR)/base/sysroot
 BASE_INITRD_SRC = $(shell find $(BASE_INITRD) -type f)
 
 ifeq ($(findstring clean,$(MAKECMDGOALS))$(findstring header, $(MAKECMDGOALS)),)
@@ -109,7 +110,7 @@ test-qemu-ata : image-hdd
 #--trace "ide_*"
 
 test-qemu-cdrom : image-iso
-	qemu-system-$(ARCH) -cdrom stanix.iso -serial stdio  --no-shutdown --no-reboot
+	qemu-system-$(ARCH) -cdrom stanix.iso -serial stdio -m 512 --no-shutdown --no-reboot
 
 test-qemu-debug : image-hdd
 	objdump -D $(ESP_ROOT)/boot/stanix.elf > kernel.dump
@@ -139,7 +140,7 @@ $(ISO_IMAGE) : $(ESP_FILES) build-all
         -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
         -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
         -efi-boot-part --efi-boot-image --protective-msdos-label \
-        $(ESP_ROOT) -o $(ISO_IMAGE)
+        $(ESP_ROOT) $(SYSROOT) -o $(ISO_IMAGE) -V "STANIX"
 	@$(MAKE) -C limine
 	$(Q)./limine/limine bios-install $(ISO_IMAGE)
 
@@ -181,11 +182,15 @@ build-libraries : build-tlibc
 build-userspace : build-tlibc build-libraries
 	@$(MAKE) -C userspace install BUILDDIR=$(BUILDDIR)/userspace
 
+build-sysroot : build-userspace
+	@mkdir -p $(SYSROOT)/dev $(SYSROOT)/tmp $(SYSROOT)/mnt $(SYSROOT)/proc $(SYSROOT)/sys
+	@cp -Pf -p -r $(BASE_SYSROOT)/* $(SYSROOT)/
+
 build-initrd : $(ESP_ROOT)/boot/initrd.tar
-$(ESP_ROOT)/boot/initrd.tar : $(BASE_INITRD_SRC) build-userspace build-modules
+$(ESP_ROOT)/boot/initrd.tar : $(BASE_INITRD_SRC) build-userspace build-modules build-sysroot
 	@mkdir -p $(@D)
 	@echo "GEN boot/initrd.tar"
-	@mkdir -p $(INITRD)/dev $(INITRD)/tmp $(INITRD)/mnt $(INITRD)/proc $(INITRD)/sys
+	@mkdir -p $(INITRD)/dev $(INITRD)/tmp $(INITRD)/mnt
 	@cp -Pf -p -r $(BASE_INITRD)/* $(INITRD)/
 # temporary until real sysroot, copy sysroot to initrd
 	@cp -Pf -p -r $(SYSROOT)/* $(INITRD)/
@@ -196,7 +201,7 @@ $(ESP_ROOT)/boot/limine/limine.conf : limine.conf
 	@mkdir -p $(@D)
 	@cp $^ $@
 
-build-all : header build-tlibc build-kernel build-modules build-libraries build-userspace build-initrd
+build-all : header build-tlibc build-kernel build-modules build-libraries build-userspace build-initrd build-sysroot
 build : build-all
 
 build-env :

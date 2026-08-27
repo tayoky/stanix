@@ -13,10 +13,10 @@ OVMF-img.bin
 initrd.tar
 
 # default sysroot
-sysroot
+/sysroot
 
 # built toolchain
-toolchain
+/toolchain
 
 # config
 config.mk
