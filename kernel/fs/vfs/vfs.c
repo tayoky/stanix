@@ -95,17 +95,19 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 }
 
 int vfs_mount_on(vfs_dentry_t *mount_on, unsigned long flags, vfs_superblock_t *superblock) {
+	// make sure to be on top of the mountpoint stack
+	mount_on = vfs_dentry_follow_mount_points(mount_on);
+
 	kdebugf("mount superblock on %s\n", mount_on->name);
 
 	vfs_mount_point_t *mount_point = slab_alloc(&mount_points_slab);
 	if (!mount_point) return -ENOMEM;
 
-	// TODO : make sure to follow all mount points first
 	kassert(!mount_on->shadow_mount_point);
 
 	// create a new fake dentry for the root of the superblock
 	vfs_dentry_t *root_dentry = vfs_dentry_allocate();
-	root_dentry->parent       = mount_on->parent;
+	root_dentry->parent       = vfs_dentry_ref(mount_on->parent);
 	memcpy(root_dentry->name, mount_on->name, sizeof(mount_on->name));
 	root_dentry->inode     = vfs_node_ref(superblock->root);
 	root_dentry->ref_count = 0;

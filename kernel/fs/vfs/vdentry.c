@@ -93,17 +93,29 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 	}
 }
 
-/**
- * @note require to hold the parent's read/write lock
- */
-static vfs_dentry_t *vfs_follow_mount_points(vfs_dentry_t *dentry) {
+vfs_dentry_t *vfs_dentry_follow_mount_points(vfs_dentry_t *dentry) {
 	if (IS_ERR(dentry)) return dentry;
 	while (dentry->shadow_mount_point) {
-		vfs_dentry_t *next = vfs_dentry_ref(dentry->shadow_mount_point->root);
-		kassert(next);
-		dentry = next;
+		dentry = dentry->shadow_mount_point->root;
+		kassert(dentry);
 	}
 	return dentry;
+}
+
+/**
+ * @brief must be called with the parent's read/write lock
+ */
+static vfs_dentry_t *vfs_dentry_follow_mount_points_with_ref(vfs_dentry_t *dentry) {
+	if (IS_ERR(dentry) || !dentry->shadow_mount_point) {
+		// fast path
+		return dentry;
+	}
+
+	// this weird thing is safe
+	// because the mount point struct already hold refs to the dentries
+	// and cannot be freed since we hold the parent lock
+	vfs_dentry_release(dentry);
+	return vfs_dentry_ref(vfs_dentry_follow_mount_points(dentry));
 }
 
 static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, long flags, long *loop_max, mode_t mode) {
@@ -172,7 +184,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 			next_entry = vfs_lookup(current_entry, path_array[i]);
 
 			// follow mount points with the parent write lock acquired
-			next_entry = vfs_follow_mount_points(next_entry);
+			next_entry = vfs_dentry_follow_mount_points_with_ref(next_entry);
 
 			vfs_node_release_write(current_entry->inode);
 			if (IS_ERR(next_entry)) {
@@ -182,7 +194,7 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 		} else {
 			// classic hot path
 			// follow mount points with the parent read lock acquired
-			next_entry = vfs_follow_mount_points(next_entry);
+			next_entry = vfs_dentry_follow_mount_points_with_ref(next_entry);
 		}
 		vfs_dentry_release(current_entry);
 

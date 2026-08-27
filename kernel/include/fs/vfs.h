@@ -389,7 +389,11 @@ static inline int vfs_update_time(vfs_node_t *node, int mask) {
 }
 
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name);
-vfs_dentry_t *vfs_follow_mount_point(vfs_dentry_t *dentry);
+
+/**
+ * @note require the parent's read/write lock
+ */
+vfs_dentry_t *vfs_dentry_follow_mount_points(vfs_dentry_t *dentry);
 ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz);
 
 /**
