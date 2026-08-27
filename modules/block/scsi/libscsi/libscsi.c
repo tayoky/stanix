@@ -141,6 +141,15 @@ static const char *scsi_peripheral2str(uint8_t peripheral) {
 	}
 }
 
+static void scsi_inquiry_str2str(char *dest, const char *src, size_t src_size) {
+	for (size_t i = src_size - 1; i > 0; i--) {
+		if (src[i] != ' ') break;
+		src_size = i;
+	}
+	memcpy(dest, src, src_size);
+	dest[src_size] = '\0';
+}
+
 scsi_device_t *scsi_create_device(devnode_t *bus) {
 	scsi_device_t *device = kmalloc(sizeof(scsi_device_t));
 	if (!device) return NULL;
@@ -173,11 +182,12 @@ error:
 		goto error;
 	}
 
-	kinfof("found SCSI device %hhx(%s), vendor %.8s product %.8s\n", ident.peripheral, scsi_peripheral2str(ident.peripheral), ident.vendor, ident.product);
+	scsi_inquiry_str2str(device->info.product,  ident.product, sizeof(ident.product));
+	scsi_inquiry_str2str(device->info.vendor,   ident.vendor, sizeof(ident.vendor));
+	scsi_inquiry_str2str(device->info.firmware, ident.product_revision, sizeof(ident.product_revision));
+	scsi_inquiry_str2str(device->info.serial,   ident.serial, sizeof(ident.serial));
 
-	snprintf(device->info.product, sizeof(device->info.product), "%.8s", ident.product);
-	snprintf(device->info.vendor,  sizeof(device->info.vendor),  "%.8s", ident.vendor);
-	snprintf(device->info.serial,  sizeof(device->info.serial),  "%.8s", ident.serial);
+	kinfof("found SCSI device %hhx(%s), vendor %s product %s\n", ident.peripheral, scsi_peripheral2str(ident.peripheral), device->info.vendor, device->info.product);
 
 	device->type = ident.peripheral & SCSI_INQUIRY_PERIPHERAL_TYPE;
 	bus_attach_child(bus, &device->devnode, NULL, UNIT_NOUNIT);

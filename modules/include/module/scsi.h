@@ -64,8 +64,8 @@ typedef struct scsi_inquiry_data {
 	uint8_t flags2;
 	uint8_t flags3;
 	uint8_t vendor[8];
-	uint8_t product[8];
-	uint8_t product_revision[8];
+	uint8_t product[16];
+	uint8_t product_revision[4];
 	uint8_t serial[8];
 	uint8_t vendor_unique[8];
 	uint8_t reserved0;
