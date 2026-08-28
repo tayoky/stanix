@@ -140,7 +140,7 @@ $(ISO_IMAGE) : $(ESP_FILES) build-all
         -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
         -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
         -efi-boot-part --efi-boot-image --protective-msdos-label \
-		-v "STANIX" -copyright "/usr/share/doc/COPYING.txt" \
+		-V "STANIX" -copyright "/usr/share/doc/COPYING.txt" \
         $(ESP_ROOT) $(SYSROOT) -o $(ISO_IMAGE)
 	@$(MAKE) -C limine
 	$(Q)./limine/limine bios-install $(ISO_IMAGE)

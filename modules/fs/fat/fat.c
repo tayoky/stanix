@@ -667,7 +667,6 @@ int fat_mount(vfs_fd_t *source, const char *target, unsigned long flags, const v
 
 	if (bpb.byte_per_sector < 512 || bpb.sector_per_cluster == 0) {
 		kdebugf("invalid byte per sectors / sectors per cluster\n");
-		vfs_close(dev);
 		return -EFTYPE;
 	}
 
@@ -691,7 +690,6 @@ int fat_mount(vfs_fd_t *source, const char *target, unsigned long flags, const v
 
 	if (fat_type == FAT32) {
 		if (bpb.extended.fat32.version != 0) {
-			vfs_close(dev);
 			return -EFTYPE;
 		}
 	} else {
