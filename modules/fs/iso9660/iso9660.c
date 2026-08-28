@@ -87,6 +87,7 @@ static int iso9660_read_pages(cache_t *cache, off_t offset, size_t count) {
 		if (ret < 0) return ret;
 		if (ret < PAGE_SIZE) return -EIO;
 	}
+	cache_read_terminate(cache, offset, count, 0);
 	return 0;
 }
 
@@ -281,6 +282,8 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 		kwarningf("no primary descriptor found\n");
 		return -EFTYPE;
 	}
+
+	kdebugf("block size is %zu\n", block_size);
 
 	iso9660_superblock_t *iso9660_superblock = kmalloc(sizeof(iso9660_superblock_t));
 	if (!iso9660_superblock) {

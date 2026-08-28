@@ -190,7 +190,7 @@ int part_mount(vfs_fd_t *source, const char *target, unsigned long flags, const 
 	(void)flags;
 	(void)superblock_out;
 
-	kdebugf("mount %s to %s\n", source, target);
+	kdebugf("mount to %s\n", target);
 
 	mbr_table_t mbr;
 	vfs_read(source, &mbr, 0, sizeof(mbr));
