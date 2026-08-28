@@ -628,7 +628,12 @@ static int fat_truncate(vfs_node_t *vnode, size_t size) {
 }
 
 static void fat_cleanup(vfs_node_t *vnode) {
-	slab_free(vnode);
+	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
+	if (S_ISREG(inode->vnode.mode)) {
+		free_cache(&inode->cache);
+	}
+
+	slab_free(inode);
 }
 
 static int fat_flush_inode(vfs_superblock_t *superblock, vfs_node_t *vnode) {

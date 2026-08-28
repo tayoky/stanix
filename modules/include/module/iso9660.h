@@ -2,6 +2,8 @@
 #define MODULE_ISO9660_H
 
 #include <kernel/endian.h>
+#include <kernel/cache.h>
+#include <kernel/vfs.h>
 #include <stdint.h>
 
 typedef struct iso9660_le_be_uint16 {
@@ -56,6 +58,87 @@ typedef struct iso9660_dentry {
 #define ISO9660_DENTRY_FLAG_UNIX_DATA           0x10
 #define ISO9660_DENTRY_FLAG_NOT_FINAL           0x80
 
+typedef struct iso9660_susp_entry {
+	uint8_t name[2];
+	uint8_t length;
+} __attribute__((packed)) iso9660_susp_entry_t;
+
+typedef struct iso9660_px_entry {
+	iso9660_susp_entry_t susp_entry;
+	uint8_t version;
+	iso9660_le_be_uint32_t mode;
+	iso9660_le_be_uint32_t nlink;
+	iso9660_le_be_uint32_t uid;
+	iso9660_le_be_uint32_t gid;
+	iso9660_le_be_uint32_t inode;
+} __attribute__((packed)) iso9660_px_entry_t;
+
+#define ISO9660_PX_ENTRY         "PX"
+#define ISO9660_PX_ENTRY_LENGTH  44
+#define ISO9660_PX_ENTRY_VERSION 0x01
+
+typedef struct iso9660_pn_entry {
+	iso9660_susp_entry_t susp_entry;
+	uint8_t version;
+	iso9660_le_be_uint32_t dev_high;
+	iso9660_le_be_uint32_t dev_low;
+} __attribute__((packed)) iso9660_pn_entry_t;
+
+#define ISO9660_PN_ENTRY         "PN"
+#define ISO9660_PN_ENTRY_VERSION 0x01
+
+typedef struct iso9660_ln_entry {
+	iso9660_susp_entry_t susp_entry;
+	uint8_t version;
+	uint8_t flags;
+	char components[];
+} __attribute__((packed)) iso9660_ln_entry_t;
+
+#define ISO9660_LN_ENTRY         "LN"
+#define ISO9660_LN_ENTRY_VERSION 0x01
+#define ISO9660_LN_ENTRY_FLAG_CONTINUE 0x01
+
+typedef struct iso9660_ln_component {
+	uint8_t flags;
+	uint8_t length;
+	char data[];
+} __attribute__((packed)) iso9660_ln_component_t;
+
+#define ISO9660_LN_COMPONENT_FLAG_CONTINUE 0x01
+#define ISO9660_LN_COMPONENT_FLAG_CURRENT  0x02
+#define ISO9660_LN_COMPONENT_FLAG_PARENT   0x04
+#define ISO9660_LN_COMPONENT_FLAG_ROOT     0x08
+
+typedef struct iso9660_nm_entry {
+	iso9660_susp_entry_t susp_entry;
+	uint8_t version;
+	uint8_t flags;
+	char data[];
+} __attribute__((packed)) iso9660_nm_entry_t;
+
+#define ISO9660_NM_ENTRY         "NM"
+#define ISO9660_NM_ENTRY_VERSION 0x01
+#define ISO9660_NM_ENTRY_FLAG_CONTINUE 0x01
+#define ISO9660_NM_ENTRY_FLAG_CURRENT  0x02
+#define ISO9660_NM_ENTRY_FLAG_PARENT   0x04
+
+typedef struct iso9660_tf_entry {
+	iso9660_susp_entry_t susp_entry;
+	uint8_t version;
+	char data[];
+} __attribute__((packed)) iso9660_tf_entry_t;
+
+#define ISO9660_TF_ENTRY         "TF"
+#define ISO9660_TF_ENTRY_VERSION 0x01
+#define ISO9660_TF_ENTRY_FLAG_CREATION   0x01
+#define ISO9660_TF_ENTRY_FLAG_MODIFY     0x02
+#define ISO9660_TF_ENTRY_FLAG_ACCESS     0x04
+#define ISO9660_TF_ENTRY_FLAG_ATTRIBUTES 0x08
+#define ISO9660_TF_ENTRY_FLAG_BACKUP     0x10
+#define ISO9660_TF_ENTRY_FLAG_EXPIRATION 0x20
+#define ISO9660_TF_ENTRY_FLAG_EFFECTIVE  0x40
+#define ISO9660_TF_ENTRY_FLAG_LONG_FORM  0x80
+
 typedef struct iso9660_boot_record {
 	char boot_system_identifier[32];
 	char boot_identifier[32];
@@ -109,5 +192,17 @@ typedef struct iso9660_volume_descriptor {
 #define ISO9660_VOLUME_DESCRIPTOR_SUPPLEMENTARY  0x02
 #define ISO9660_VOLUME_DESCRIPTOR_PARTITION      0x03
 #define ISO9660_VOLUME_DESCRIPTOR_SET_TERMINATOR 0xff
+
+typedef struct iso9660_superblock {
+	vfs_superblock_t superblock;
+	size_t block_size;
+} iso9660_superblock_t;
+
+typedef struct iso9660_inode {
+	vfs_node_t vnode;
+	cache_t cache;
+	size_t lba;
+	size_t length;
+} iso9660_inode_t;
 
 #endif
