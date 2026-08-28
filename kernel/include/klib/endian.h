@@ -6,8 +6,8 @@
 
 #define ENDIAN_DEFINE(type, uint) \
 typedef struct le_ ## type { \
-	uint8_t data[sizeof(type)]; \
-} __attribute__((packed)) le_  ## type ## _t; \
+	uint8_t data[sizeof(type ## _t)]; \
+} __attribute__((packed)) le_ ## type ## _t; \
 \
 static inline le_ ## type ## _t type ## _to_le_ ## type(type ## _t data) { \
 	le_ ## type ## _t le_ ## type = {0};\
@@ -26,8 +26,8 @@ static inline type ## _t le_ ## type ## _to_ ## type(le_ ## type ## _t *le_ ## t
 } \
 \
 typedef struct be_ ## type { \
-	uint8_t data[sizeof(type)]; \
-} __attribute__((packed)) be ## type ## _t; \
+	uint8_t data[sizeof(type ## _t)]; \
+} __attribute__((packed)) be_ ## type ## _t; \
 \
 static inline be_ ## type ## _t type ## _to_be_ ## type(type ## _t data) { \
 	be_ ## type ## _t be_ ## type = {0};\

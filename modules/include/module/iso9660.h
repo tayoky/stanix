@@ -12,8 +12,8 @@ typedef struct iso9660_le_be_uint16 {
 } __attribute__((packed)) iso9660_le_be_uint16_t;
 
 typedef struct iso9660_le_be_uint32 {
-	le_uint16_t le;
-	be_uint16_t be;
+	le_uint32_t le;
+	be_uint32_t be;
 } __attribute__((packed)) iso9660_le_be_uint32_t;
 
 typedef struct iso9660_time {
@@ -74,7 +74,6 @@ typedef struct iso9660_px_entry {
 } __attribute__((packed)) iso9660_px_entry_t;
 
 #define ISO9660_PX_ENTRY         "PX"
-#define ISO9660_PX_ENTRY_LENGTH  44
 #define ISO9660_PX_ENTRY_VERSION 0x01
 
 typedef struct iso9660_pn_entry {
@@ -145,7 +144,7 @@ typedef struct iso9660_boot_record {
 } __attribute__((packed)) iso9660_boot_record_t;
 
 typedef struct iso9660_primary_volume {
-	uint8_t unused2;
+	uint8_t unused0;
 	char system_identifier[32];
 	char volume_identifier[32];
 	uint8_t unused1[8];
@@ -171,19 +170,19 @@ typedef struct iso9660_primary_volume {
 	iso9660_time_t modification_time;
 	iso9660_time_t expiration_time;
 	iso9660_time_t effective_time;
-	int8_t file_structure_version;
+	uint8_t file_structure_version;
 	uint8_t unused3;
 	uint8_t application_used[512];
 } __attribute__((packed)) iso9660_primary_volume_t;
 
 typedef struct iso9660_volume_descriptor {
-	int8_t type;
+	uint8_t type;
 	char identifier[5];
-	int8_t version;
+	uint8_t version;
 	union __attribute__((packed)) {
 		uint8_t data[2041];
 		iso9660_boot_record_t boot_record;
-		iso9660_primary_volume_t primary_volume;
+		iso9660_primary_volume_t primary;
 	};
 } __attribute__((packed)) iso9660_volume_descriptor_t;
 
@@ -202,7 +201,9 @@ typedef struct iso9660_inode {
 	vfs_node_t vnode;
 	cache_t cache;
 	size_t lba;
-	size_t length;
+	size_t size;
+	nlink_t nlink;
+	dev_t dev;
 } iso9660_inode_t;
 
 #endif

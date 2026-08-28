@@ -10,18 +10,18 @@ static slab_cache_t iso9660_inodes_slab;
 static iso9660_inode_t *iso9660_entry2inode(iso9660_dentry_t *dentry);
 
 static time_t iso9660_convert_small_time(iso9660_small_time_t *iso9660_time) {
-	time_t *time date2time(iso9660_time->year + 1900, 
+	time_t time = date2time(iso9660_time->year + 1900, 
 			iso9660_time->month,
 			iso9660_time->day,
 			iso9660_time->hour,
 			iso9660_time->minute,
 			iso9660_time->second);
 	// apply offset, because unix timestamps are in UTC
-	time -= iso9660->timezone * 15 * 60;
+	time -= iso9660_time->timezone * 15 * 60;
 	return time;
 }
 
-static void *iso9660_get_susp_entry_start(iso9660_dentry_t *dentry, void *start, const char *name) {
+static void *iso9660_get_susp_entry_start(iso9660_dentry_t *dentry, const char *name, void *start) {
 	char *ptr = start;
 	char *end = (char*)dentry + dentry->length;
 	while (ptr + sizeof(iso9660_susp_entry_t) <= end) {
@@ -41,7 +41,7 @@ static void *iso9660_get_susp_entry(iso9660_dentry_t *dentry, const char *name) 
 		start++;
 	}
 
-	return iso9660_get_susp_entry_start(dentry, buf, buf_size, start);
+	return iso9660_get_susp_entry_start(dentry, name, start);
 }
 
 static void *iso9660_get_susp_entry_after(iso9660_dentry_t *dentry, const char *name, void *data) {
@@ -53,11 +53,11 @@ static void *iso9660_get_susp_entry_after(iso9660_dentry_t *dentry, const char *
 
 static void iso9660_extract_name(iso9660_dentry_t *dentry, char buf[256]) {
 	// TODO : rock ridger name support
-	size_t name_length = 0;
-	while (name_length < dentry->filename_length && name_length + sizeof(iso9660_dentry_t) < dentry->length && dentry->file_identifier[name_length] != ';') {
+	ssize_t name_length = 0;
+	while (name_length < dentry->filename_length && name_length + (ssize_t)sizeof(iso9660_dentry_t) < dentry->length && dentry->file_identifier[name_length] != ';') {
 		name_length++;
 	}
-	if (name_length >= sizeof(buf)) name_length = sizeof(buf) - 1;
+	if (name_length >= 256) name_length = 255;
 	memcpy(buf, dentry->file_identifier, name_length);
 	buf[name_length] = '\0';
 
@@ -113,7 +113,7 @@ static vfs_fd_ops_t iso9660_fd_ops = {
 };
 
 static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
-	iso9660_inode_t *inode = container_of(cache, iso9660_inode_t, cache);
+	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
 	iso9660_superblock_t *iso9660_superblock = container_of(inode->vnode.superblock, iso9660_superblock_t, superblock);
 	off_t offset = inode->lba * iso9660_superblock->block_size;
 	off_t end = offset + inode->size;
@@ -122,10 +122,10 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 		char buf[256];
 		ssize_t ret = vfs_read(iso9660_superblock->superblock.device, buf, offset, sizeof(buf));
 		if (ret < 0) return ret;
-		if (ret < sizeof(iso9660_dentry_t)) return -EIO;
+		if (ret < (ssize_t)sizeof(iso9660_dentry_t)) return -EIO;
 
 		iso9660_dentry_t *dentry = (iso9660_dentry_t*)buf;
-		if (dentry->length < sizeof(iso9660_dentry_t)) return -EIO;
+		if (dentry->length < (ssize_t)sizeof(iso9660_dentry_t)) return -EIO;
 		if (ret < dentry->length) return -EIO;
 		
 		if (index-- > 0) {
@@ -133,7 +133,7 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 			continue;
 		}
 
-		is9660_extract_name(dentry, dirent->d_name);
+		iso9660_extract_name(dentry, dirent->d_name);
 		return 0;
 	}
 
@@ -145,9 +145,9 @@ static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 }
 
 static int iso9660_getattr(vfs_node_t *vnode, struct stat *buf) {
-	iso9660_inode_t *inode = container_of(fd->inode, iso9660_inode_t, vnode);
-	buf->st_nlinks = 1;
-	buf->st_size   = inode->size;
+	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
+	buf->st_nlink = inode->nlink;
+	buf->st_size  = inode->size;
 	return 0;
 }
 
@@ -159,10 +159,11 @@ static int iso9660_open(vfs_fd_t *fd) {
 	iso9660_inode_t *inode = container_of(fd->inode, iso9660_inode_t, vnode);
 	fd->private = inode;
 	fd->ops = &iso9660_fd_ops;
+	return 0;
 }
 
 static void iso9660_cleanup(vfs_node_t *vnode) {
-	iso9660_inode_t *inode = container_of(fd->inode, iso9660_inode_t, vnode);
+	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
 	if (S_ISREG(inode->vnode.mode)) {
 		free_cache(&inode->cache);
 	}
@@ -185,7 +186,7 @@ static vfs_inode_ops_t iso9660_inode_ops = {
 	.unlink   = iso9660_rdonly,
 	.rmdir	  = iso9660_rdonly,
 	.open     = iso9660_open,
-	.cleanup  = iso966p_cleanup,
+	.cleanup  = iso9660_cleanup,
 };
 
 static iso9660_inode_t *iso9660_entry2inode(iso9660_dentry_t *dentry) {
@@ -200,24 +201,26 @@ static iso9660_inode_t *iso9660_entry2inode(iso9660_dentry_t *dentry) {
 	inode->vnode.mode  = 0777;
 	inode->lba         = le_uint32_to_uint32(&dentry->lba.le);
 	inode->size        = le_uint32_to_uint32(&dentry->data_length.le);
+	inode->nlink       = 1;
 
 	iso9660_px_entry_t *px = iso9660_get_susp_entry(dentry, ISO9660_PX_ENTRY);
-	if (px && px->susp->length != ISO9660_PX_ENTRY_LENGTH) px = NULL;
+	if (px && px->susp_entry.length != sizeof(iso9660_px_entry_t)) px = NULL;
 	if (px && px->version != ISO9660_PX_ENTRY_VERSION) px = NULL;
 
 	iso9660_pn_entry_t *pn = iso9660_get_susp_entry(dentry, ISO9660_PN_ENTRY);
-	if (pn && pn->susp->length != ISO9660_PN_ENTRY_LENGTH) pn = NULL;
+	if (pn && pn->susp_entry.length != sizeof(iso9660_pn_entry_t)) pn = NULL;
 	if (pn && pn->version != ISO9660_PN_ENTRY_VERSION) pn = NULL;
 
 	if (px) {
 		// TODO : use inode cache maybee
 		inode->vnode.mode   = le_uint32_to_uint32(&px->mode.le);
-		inode->vnode.nlink  = le_uint32_to_uint32(&px->nlink.le);
 		inode->vnode.uid    = le_uint32_to_uint32(&px->uid.le);
 		inode->vnode.gid    = le_uint32_to_uint32(&px->gid.le);
 		inode->vnode.number = le_uint32_to_uint32(&px->inode.le);
+		inode->nlink  = le_uint32_to_uint32(&px->nlink.le);
 		if (pn) {
-			inode->dev = ((uint64_t)le_uint32_to_uint32(&pn->dev_high) << 32) | le_uint32_to_uint32(&pn->dev_low);
+			inode->dev = ((uint64_t)le_uint32_to_uint32(&pn->dev_high.le) << 32) | le_uint32_to_uint32(&pn->dev_low.le);
+		}
 	} else if (dentry->flags & ISO9660_DENTRY_FLAG_DIRECTORY) {
 		inode->vnode.mode |= S_IFDIR;
 	} else {
@@ -229,7 +232,7 @@ static iso9660_inode_t *iso9660_entry2inode(iso9660_dentry_t *dentry) {
 	return inode;
 }
 
-int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
+static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)flags;
 	(void)data;
 	(void)target;
@@ -242,7 +245,7 @@ int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long flags, con
 	for (size_t offset = 32 * 1024; volume_descriptor.type != ISO9660_VOLUME_DESCRIPTOR_SET_TERMINATOR; offset += sizeof(iso9660_volume_descriptor_t)) {
 		ssize_t ret = vfs_read(source, &volume_descriptor, sizeof(volume_descriptor), offset);
 		if (ret < 0) return ret;
-		if (ret < sizeof(volume_descriptor)) return -EIO;
+		if (ret < (ssize_t)sizeof(volume_descriptor)) return -EIO;
 
 		if (volume_descriptor.type != ISO9660_VOLUME_DESCRIPTOR_PRIMARY) {
 			// not a primary descriptor, we don't care
@@ -250,8 +253,8 @@ int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long flags, con
 		}
 
 		// check if the version is valid
-		if (volume_descriptor.primary.version != 0x01) {
-			kwarningf("unsupported version %hhx\n", volume_descriptor.primary.version);
+		if (volume_descriptor.version != 0x01) {
+			kwarningf("unsupported version %hhx\n", volume_descriptor.version);
 			return -ENOTSUP;
 		}
 
@@ -262,7 +265,7 @@ int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long flags, con
 
 		// TODO : handle stuff
 		// extract root dir, setup superblock with block siee, ...
-		block_size = le_uint16_to_uint16(&volume_descriptor.primary.logical_block_size);
+		block_size = le_uint16_to_uint16(&volume_descriptor.primary.logical_block_size.le);
 		
 		iso9660_dentry_t *root_dentry = (iso9660_dentry_t*)volume_descriptor.primary.root_dentry;
 		if (root_dentry->length != sizeof(volume_descriptor.primary.root_dentry)) {
