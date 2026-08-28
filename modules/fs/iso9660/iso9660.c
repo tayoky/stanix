@@ -52,18 +52,50 @@ static void *iso9660_get_susp_entry_after(iso9660_dentry_t *dentry, const char *
 	return iso9660_get_susp_entry_start(dentry, name, start);
 }
 
-static void iso9660_extract_name(iso9660_dentry_t *dentry, char buf[256]) {
+static void iso9660_extract_name(iso9660_dentry_t *dentry, char *buf, size_t buf_size) {
 	iso9660_nm_entry_t *nm = iso9660_get_susp_entry(dentry, ISO9660_NM_ENTRY);
+	if (nm && nm->length < sizeof(iso9660_nm_entry_t)) nm = NULL;
+	if (nm && nm->version != ISO9660_NM_ENTRY_VERSION) nm = NULL;
 	if (nm) {
 		// we have a rock ridger name
-		// TODO
+		int ptr = 0;
+		for (;;) {
+			if (nm->flags & ISO9660_NM_ENTRY_FLAG_CURRENT) {
+				if (ptr + 1 < buf_size) buf[ptr++] = '.';
+			} else if (nm->flags & ISO9660_NM_ENTRY_FLAG_PARENT) {
+				if (ptr + 1 < buf_size) buf[ptr++] = '.';
+				if (ptr + 1 < buf_size) buf[ptr++] = '.';
+			} else {
+				size_t data_length = nm->length - sizeof(iso9660_nm_entry_t);
+				if (data_length >= buf_size - ptr) data_length = buf_size - ptr - 1;
+				memcpy(&buf[ptr], nm->data, data_length);
+				ptr += data_length;
+			}
+
+			if (nm->flags & ISO9660_NM_ENTRY_FLAG_CONTINUE) {
+				nm = iso9660_get_susp_entry_after(dentry, ISO9660_NM_ENTRY, nm);
+				if (nm && nm->length < sizeof(iso9660_nm_entry_t)) nm = NULL;
+				if (nm && nm->version != ISO9660_NM_ENTRY_VERSION) nm = NULL;
+				if (!nm) {
+					// corrupt long name??
+					// fallback to short name so userspace has at least something to see
+					goto short_name;
+				}
+			} else {
+				// this was the last entry
+				break;
+			}
+		}
+		buf[ptr] = '\0';
+		return 0;
 	}
 
+short_name:
 	ssize_t name_length = 0;
 	while (name_length < dentry->filename_length && name_length + (ssize_t)sizeof(iso9660_dentry_t) < dentry->length && dentry->file_identifier[name_length] != ';') {
 		name_length++;
 	}
-	if (name_length >= 256) name_length = 255;
+	if (name_length >= buf_size) name_length = buf_size;
 	memcpy(buf, dentry->file_identifier, name_length);
 	buf[name_length] = '\0';
 
@@ -83,7 +115,7 @@ static void iso9660_extract_name(iso9660_dentry_t *dentry, char buf[256]) {
 static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t buf_size) {
 	iso9n660_sl_entry_t *sl = iso9660_get_susp_entry(dentry, ISO9660_SL_ENTRY);
 	if (!sl) return -ENOENT;
-	if (sl->susp_entry.length != sizeof(iso9660_sl_entry_t)) return -ENOENT;
+	if (sl->susp_entry.length < sizeof(iso9660_sl_entry_t)) return -ENOENT;
 	if (sl->version != ISO9660_SL_ENTRY_VERSION) return -ENOENT;
 
 	int skip_slash = 1;
@@ -130,6 +162,8 @@ static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t b
 		}
 		if (sl->flags & ISO9660_SL_ENTRY_FLAG_CONTINUE) {
 			sl = iso9660_get_next_entry_after(dentry, ISO966P_SL_ENTRY, sl);
+			if (sl->susp_entry.length < sizeof(iso9660_sl_entry_t)) return -ENOENT;
+			if (sl->version != ISO9660_SL_ENTRY_VERSION) return -ENOENT;
 			if (sl) {
 				// not good, the sl list did not terminate correcly
 				return -EFTYPE;
@@ -203,7 +237,7 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 			continue;
 		}
 
-		iso9660_extract_name(dentry, dirent->d_name);
+		iso9660_extract_name(dentry, dirent->d_name, sizeof(dirent->d_name));
 		return 0;
 	}
 
