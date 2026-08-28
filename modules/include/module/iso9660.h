@@ -86,27 +86,27 @@ typedef struct iso9660_pn_entry {
 #define ISO9660_PN_ENTRY         "PN"
 #define ISO9660_PN_ENTRY_VERSION 0x01
 
-typedef struct iso9660_ln_entry {
+typedef struct iso9660_sl_entry {
 	iso9660_susp_entry_t susp_entry;
 	uint8_t version;
 	uint8_t flags;
 	char components[];
-} __attribute__((packed)) iso9660_ln_entry_t;
+} __attribute__((packed)) iso9660_sl_entry_t;
 
-#define ISO9660_LN_ENTRY         "LN"
-#define ISO9660_LN_ENTRY_VERSION 0x01
-#define ISO9660_LN_ENTRY_FLAG_CONTINUE 0x01
+#define ISO9660_SL_ENTRY         "SL"
+#define ISO9660_SL_ENTRY_VERSION 0x01
+#define ISO9660_SL_ENTRY_FLAG_CONTINUE 0x01
 
-typedef struct iso9660_ln_component {
+typedef struct iso9660_sl_component {
 	uint8_t flags;
 	uint8_t length;
 	char data[];
-} __attribute__((packed)) iso9660_ln_component_t;
+} __attribute__((packed)) iso9660_sl_component_t;
 
-#define ISO9660_LN_COMPONENT_FLAG_CONTINUE 0x01
-#define ISO9660_LN_COMPONENT_FLAG_CURRENT  0x02
-#define ISO9660_LN_COMPONENT_FLAG_PARENT   0x04
-#define ISO9660_LN_COMPONENT_FLAG_ROOT     0x08
+#define ISO9660_SL_COMPONENT_FLAG_CONTINUE 0x01
+#define ISO9660_SL_COMPONENT_FLAG_CURRENT  0x02
+#define ISO9660_SL_COMPONENT_FLAG_PARENT   0x04
+#define ISO9660_SL_COMPONENT_FLAG_ROOT     0x08
 
 typedef struct iso9660_nm_entry {
 	iso9660_susp_entry_t susp_entry;
@@ -199,7 +199,10 @@ typedef struct iso9660_superblock {
 
 typedef struct iso9660_inode {
 	vfs_node_t vnode;
-	cache_t cache;
+	union {
+		cache_t cache;
+		char *link;
+	};
 	size_t lba;
 	size_t size;
 	nlink_t nlink;

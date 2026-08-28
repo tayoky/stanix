@@ -1,3 +1,4 @@
+#include <kernel/userspace.h>
 #include <kernel/module.h>
 #include <kernel/kheap.h>
 #include <kernel/slab.h>
@@ -52,7 +53,12 @@ static void *iso9660_get_susp_entry_after(iso9660_dentry_t *dentry, const char *
 }
 
 static void iso9660_extract_name(iso9660_dentry_t *dentry, char buf[256]) {
-	// TODO : rock ridger name support
+	iso9660_nm_entry_t *nm = iso9660_get_susp_entry(dentry, ISO9660_NM_ENTRY);
+	if (nm) {
+		// we have a rock ridger name
+		// TODO
+	}
+
 	ssize_t name_length = 0;
 	while (name_length < dentry->filename_length && name_length + (ssize_t)sizeof(iso9660_dentry_t) < dentry->length && dentry->file_identifier[name_length] != ';') {
 		name_length++;
@@ -72,6 +78,69 @@ static void iso9660_extract_name(iso9660_dentry_t *dentry, char buf[256]) {
 			break;
 		}
 	}
+}
+
+static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t buf_size) {
+	iso9n660_sl_entry_t *sl = iso9660_get_susp_entry(dentry, ISO9660_SL_ENTRY);
+	if (!sl) return -ENOENT;
+	if (sl->susp_entry.length != sizeof(iso9660_sl_entry_t)) return -ENOENT;
+	if (sl->version != ISO9660_SL_ENTRY_VERSION) return -ENOENT;
+
+	int skip_slash = 1;
+	int ptr = 0;
+	for (;;) {
+		for (size_t offset = 0; offset < sl->length - sizeof(iso9660_sl_entry_t);) {
+			iso9660_sl_component_t *component = (iso9660_sl_component_t*)(sl->components + offset);
+			if (component->length < sizeof(iso9660_component_t)) {
+				// invalid component entry
+				return -EFTYPE;
+			}
+
+			if (skip_slash) {
+				skip_slash = 0;
+			} else {
+				if (ptr + 1 >= buf_size) return -ERANGE;
+				buf[ptr++] = '/';
+			}
+
+			if (component->flags & ISO9660_SL_COMPONENT_FLAG_CURRENT) {
+				if (ptr + 1 >= buf_size) return -ERANGE;
+				buf[ptr++] = '.';
+			} else  if (component->flags & ISO9660_SL_COMPONENT_FLAG_PARENT) {
+				if (ptr + 2 >= buf_size) return -ERANGE;
+				buf[ptr++] = '.';
+				buf[ptr++] = '.';
+			} else if (component->flags & ISO9660_SL_COMPONENT_FLAG_ROOT) {
+				if (ptr + 1 >= buf_size) return -ERANGE;
+				buf[ptr++] = '/';
+
+				// avoid unecessary double slash
+				skip_slash = 0;
+			} else {
+				// raw data component
+				size_t data_length = component->length - sizeof(iso9660_sl_component_t):
+				if (ptr + data_length >= buf_size) return -ERANGE;
+				memcpy(&buf[ptr], component->data, data_length);
+				ptr += data_length;
+			}
+			if (component->flags & ISO9660_SL_COMPONENT_FLAG_CONTINUE) {
+				skip_slash = 1;
+			}
+			offset += component->length;
+		}
+		if (sl->flags & ISO9660_SL_ENTRY_FLAG_CONTINUE) {
+			sl = iso9660_get_next_entry_after(dentry, ISO966P_SL_ENTRY, sl);
+			if (sl) {
+				// not good, the sl list did not terminate correcly
+				return -EFTYPE;
+			}
+		}
+		continue;
+	}
+
+	kassert(ptr < buf_size);
+	buf[ptr] = '\0';
+	return 0;
 }
 
 static int iso9660_read_pages(cache_t *cache, off_t offset, size_t count) {
@@ -145,6 +214,14 @@ static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	return -ENOSYS;
 }
 
+static ssize_t iso9660_readlink(vfs_node_t *vnode, char *buf, size_t bufsize) {
+	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
+	if (!inode->link) return -EIO;
+	if (bufsize > strlen(inode->link)) bufsize = strlen(inode->link);
+	int ret = safe_copy_to(buf, inode->link, bufsize);
+	return ret < 0 ? ret : bufsize;
+}
+
 static int iso9660_getattr(vfs_node_t *vnode, struct stat *buf) {
 	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
 	buf->st_nlink = inode->nlink;
@@ -175,6 +252,7 @@ static void iso9660_cleanup(vfs_node_t *vnode) {
 static vfs_inode_ops_t iso9660_inode_ops = {
 	.readdir  = iso9660_readdir,
 	.lookup   = iso9660_lookup,
+	.readlink = iso9660_readlink,
 	.getattr  = iso9660_getattr,
 	.setattr  = iso9660_rdonly,
 	.truncate = iso9660_rdonly,
@@ -226,9 +304,17 @@ static iso9660_inode_t *iso9660_entry2inode(iso9660_dentry_t *dentry) {
 		inode->vnode.mode |= S_IFDIR;
 	} else {
 		inode->vnode.mode |= S_IFREG;
+	}
+
+	if (S_ISREG(inode->vnode.mode)) {
 		init_cache(&inode->cache);
 		inode->cache.ops  = &iso9660_cache_ops;
 		inode->cache.size = inode->size;
+	} else if (S_ISLNK(inode->vnode.mode)) {
+		char buf[256];
+		if (iso9660_extract_symlink(dentry, buf, sizeof(buf)) >= 0) {
+			inode->link = strdup(buf);
+		}
 	}
 	return inode;
 }
@@ -264,8 +350,7 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 			continue;
 		}
 
-		// TODO : handle stuff
-		// extract root dir, setup superblock with block siee, ...
+		// setup the superblock
 		block_size = le_uint16_to_uint16(&volume_descriptor.primary.logical_block_size.le);
 		
 		iso9660_dentry_t *root_dentry = (iso9660_dentry_t*)volume_descriptor.primary.root_dentry;
