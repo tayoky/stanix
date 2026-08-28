@@ -241,6 +241,40 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 		
 		if (index-- == 0) {
 			iso9660_extract_name(dentry, dirent->d_name, sizeof(dirent->d_name));
+
+			iso9660_px_entry_t *px = iso9660_get_susp_entry(dentry, ISO9660_PX_ENTRY);
+			if (px && px->susp_entry.length != sizeof(iso9660_px_entry_t)) px = NULL;
+			if (px && px->version != ISO9660_PX_ENTRY_VERSION) px = NULL;
+
+			if (px) {
+				switch (le_uint32_to_uint32(&px->mode.le) & S_IFMT) 
+				case I_IFREG:
+					dirent->d_type = DT_REG;
+					break;
+				case I_IFDIR:
+					dirent->d_type = DT_DIR;
+					break;
+				case I_IFIFO:
+					dirent->d_type = DT_FIFO;
+					break;
+				case I_IFSOCK:
+					dirent->d_type = DT_SOCK;
+					break;
+				case I_IFCHR:
+					dirent->d_type = DT_CHR;
+					break;
+				case I_IFBLK:
+					dirent->d_type = DT_BLK;
+					break;
+				case I_IFLNK:
+					dirent->d_type = DT_LNK;
+					break;
+				}
+			} else if (dentry->flags & ISO9660_DENTRY_FLAG_DIRECTORY) {
+				dirent->d_type = DT_DIR;
+			} else {
+				dirent->d_type = DT_REG;
+			}
 			return 0;
 		}
 		offset += dentry->length;
@@ -249,7 +283,7 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 	return -ENOENT;
 }
 
-static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
+static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *vfs_dentry) {
 	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
 	iso9660_superblock_t *iso9660_superblock = container_of(inode->vnode.superblock, iso9660_superblock_t, superblock);
 	off_t offset = inode->lba * iso9660_superblock->block_size;
@@ -264,10 +298,10 @@ static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		char name[256];
 		iso9660_extract_name(dentry, name, sizeof(name));
 
-		if (!strcmp(name, dentry->name)) {
+		if (!strcmp(name, vfs_dentry->name)) {
 			iso9660_inode_t *inode = iso9660_entry2inode(dentry);
 			if (!inode) return -ENOMEM;
-			dentry->inode = &inode->vnode;
+			vfs_dentry->inode = &inode->vnode;
 			return 0;
 		}
 	}
