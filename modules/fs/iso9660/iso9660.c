@@ -177,6 +177,17 @@ static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t b
 	return 0;
 }
 
+static int iso9660_read_dentry(iso9660_superblock_t *iso9660_superblock, char *buf, size_t buf_size, off_t offset) {
+	ssize_t ret = vfs_read(iso9660_superblock->superblock.device, buf, offset, buf_size);
+	if (ret < 0) return ret;
+	if (ret < (ssize_t)sizeof(iso9660_dentry_t)) return -EIO;
+
+	iso9660_dentry_t *dentry = (iso9660_dentry_t*)buf;
+	if (dentry->length < (ssize_t)sizeof(iso9660_dentry_t)) return -EIO;
+	if (ret < dentry->length) return -EIO;
+	return 0;
+}
+
 static int iso9660_read_pages(cache_t *cache, off_t offset, size_t count) {
 	iso9660_inode_t *inode = container_of(cache, iso9660_inode_t, cache);
 	iso9660_superblock_t *iso9660_superblock = container_of(inode->vnode.superblock, iso9660_superblock_t, superblock);
@@ -224,28 +235,43 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 
 	while (offset < end) {
 		char buf[256];
-		ssize_t ret = vfs_read(iso9660_superblock->superblock.device, buf, offset, sizeof(buf));
+		int ret = iso9660_read_dentry(iso9660_superblock, buf, sizeof(buf), offset);
 		if (ret < 0) return ret;
-		if (ret < (ssize_t)sizeof(iso9660_dentry_t)) return -EIO;
-
 		iso9660_dentry_t *dentry = (iso9660_dentry_t*)buf;
-		if (dentry->length < (ssize_t)sizeof(iso9660_dentry_t)) return -EIO;
-		if (ret < dentry->length) return -EIO;
 		
-		if (index-- > 0) {
-			offset += dentry->length;
-			continue;
+		if (index-- == 0) {
+			iso9660_extract_name(dentry, dirent->d_name, sizeof(dirent->d_name));
+			return 0;
 		}
-
-		iso9660_extract_name(dentry, dirent->d_name, sizeof(dirent->d_name));
-		return 0;
+		offset += dentry->length;
 	}
 
 	return -ENOENT;
 }
 
 static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
-	return -ENOSYS;
+	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
+	iso9660_superblock_t *iso9660_superblock = container_of(inode->vnode.superblock, iso9660_superblock_t, superblock);
+	off_t offset = inode->lba * iso9660_superblock->block_size;
+	off_t end = offset + inode->size;
+
+	while (offset < end) {
+		char buf[256];
+		int ret = iso9660_read_dentry(iso9660_superblock, buf, sizeof(buf), offset);
+		if (ret < 0) return ret;
+		iso9660_dentry_t *dentry = (iso9660_dentry_t*)buf;
+
+		char name[256];
+		iso9660_extract_name(dentry, name, sizeof(name));
+
+		if (!strcmp(name, dentry->name)) {
+			iso9660_inode_t *inode = iso9660_entry2inode(dentry);
+			if (!inode) return -ENOMEM;
+			dentry->inode = &inode->vnode;
+			return 0;
+		}
+	}
+	return -ENOENT;
 }
 
 static ssize_t iso9660_readlink(vfs_node_t *vnode, char *buf, size_t bufsize) {
@@ -305,6 +331,7 @@ static vfs_inode_ops_t iso9660_inode_ops = {
 static iso9660_inode_t *iso9660_entry2inode(iso9660_dentry_t *dentry) {
 	iso9660_inode_t *inode = slab_alloc(&iso9660_inodes_slab);
 	if (!inode) return NULL;
+
 	inode->vnode.ops        = &iso9660_inode_ops;
 	inode->vnode.ref_count  = 1;
 	time_t time = iso9660_convert_small_time(&dentry->time);
