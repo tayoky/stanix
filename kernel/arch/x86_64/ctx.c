@@ -32,6 +32,16 @@ void arch_registers_dump(registers_t *registers) {
 	kprintf("flags: 0x%lx\n", registers->flags);
 }
 
+static loaded_module_t *get_module(uintptr_t addr) {
+	loaded_module_t *best = NULL;
+	foreach (node, &loaded_mods) {
+		loaded_module_t *module = container_of(node, loaded_module_t, node);
+		if ((uintptr_t)module->meta->base > addr) break;
+		best = module;
+	}
+	return best;
+}
+
 static const char *get_func_name(uintptr_t addr) {
 	uintptr_t best_match = 0;
 	const char *name     = "";
@@ -68,7 +78,13 @@ void arch_registers_stacktrace(registers_t *registers) {
 		asm("movq %%rbp, %0" : "=r"(rbp));
 	}
 	while (rbp && *rbp && *(rbp + 1)) {
-		kprintf("<0x%lx> %s\n", *(rbp + 1), get_func_name(*(rbp + 1)));
+		uintptr_t addr = *(rbp + 1);
+		loaded_module_t *module = get_module(addr);
+		if (module) {
+			kprintf("<%s+0x%lx> %s\n", module->meta->name, addr - (uintptr_t)module->meta->base, get_func_name(addr));
+		} else {
+			kprintf("<0x%lx> %s\n", addr, get_func_name(addr));
+		}
 		rbp = (uint64_t *)(*rbp);
 	}
 

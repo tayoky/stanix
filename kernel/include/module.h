@@ -55,6 +55,7 @@ typedef struct exported_sym {
 } exported_sym;
 
 extern exported_sym *exported_sym_list;
+extern list_t loaded_mods;
 
 uintptr_t sym_lookup(const char *name);
 
