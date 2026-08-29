@@ -63,8 +63,14 @@ static int mmc_submit(block_device_t *block_device, block_request_t *request) {
 		return -EINVAL;
 	}
 
-	scsi_command_t *command = scsi_create_read_command(device, request->start_sector, request->sectors_count, 0, request->buf, request->sectors_count * block_device->sector_size);
+	scsi_command_t *command = scsi_create_read_command(device, request->start_sector, request->sectors_count, 0); 
 	if (!command) return -ENOMEM;
+
+	int ret = iobuf_dup(&command->iobuf, &request->iobuf);
+	if (ret < 0) {
+		ioreq_release(&command->ioreq);
+		return ret;
+	}
 
 	ioreq_set_callback(&command->ioreq, mmc_finish_callback, request);
 	return ioreq_submit(&command->ioreq);
@@ -126,8 +132,7 @@ static int mmc_probe(devnode_t *devnode) {
 	};
 	scsi_command_t *command = scsi_create_command(device, &read_toc_cmd, sizeof(read_toc_cmd));
 	if (!command) return -ENOMEM;
-	command->buf      = &read_toc_data;
-	command->buf_size = sizeof(read_toc_data);
+	iobuf_init_continuous(&command->iobuf, &read_toc_data, sizeof(read_toc_data));
 
 	int ret = ioreq_submit_sync(&command->ioreq);
 	if (ret < 0) return ret;
@@ -161,9 +166,7 @@ static int mmc_probe(devnode_t *devnode) {
 	};
 	command = scsi_create_command(device, &read_capacity_cmd, sizeof(read_capacity_cmd));
 	if (!command) return -ENOMEM;
-	command->buf      = &read_capacity_data;
-	command->buf_size = sizeof(read_capacity_data);
-
+	iobuf_init_continuous(&command->iobuf, &read_capacity_data, sizeof(read_capacity_data));
 
 	ret = ioreq_submit_sync(&command->ioreq);
 	if (ret >= 0) {

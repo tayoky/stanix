@@ -3,6 +3,7 @@
 
 #include <kernel/bus.h>
 #include <kernel/ioreq.h>
+#include <kernel/iobuf.h>
 #include <kernel/list.h>
 #include <stdint.h>
 #include <errno.h>
@@ -112,9 +113,8 @@ typedef struct ata_regs {
 
 typedef struct ata_command {
 	ioreq_t ioreq;
+	iobuf_t iobuf;
 	ata_regs_t regs;
-	void *buf;
-	size_t buf_size;
 	ata_device_t *device;
 	uint8_t flags;
 	uint8_t packet[16];

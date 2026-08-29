@@ -6,6 +6,7 @@
 #include <kernel/assert.h>
 #include <kernel/cache.h>
 #include <kernel/ioreq.h>
+#include <kernel/iobuf.h>
 
 typedef struct block_ops block_ops_t;
 typedef struct block_device block_device_t;
@@ -27,10 +28,10 @@ struct block_device {
 
 struct block_request {
 	ioreq_t ioreq;
+	iobuf_t iobuf;
 	block_device_t *block_device;
 	size_t start_sector;
 	size_t sectors_count;
-	void *buf;
 	int type;
 };
 

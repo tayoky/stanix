@@ -3,6 +3,7 @@
 
 #include <kernel/bus.h>
 #include <kernel/ioreq.h>
+#include <kernel/iobuf.h>
 #include <sys/device.h>
 #include <stdint.h>
 
@@ -245,11 +246,10 @@ typedef struct scsi_device {
 
 typedef struct scsi_command {
 	ioreq_t ioreq;
+	iobuf_t iobuf;
 	scsi_generic_t data;
 	size_t data_length;
 	scsi_device_t *device;
-	void *buf;
-	size_t buf_size;
 	uint8_t flags;
 } scsi_command_t;
 
@@ -262,7 +262,7 @@ typedef struct scsi_driver {
 } scsi_driver_t;
 
 scsi_command_t *scsi_create_command(scsi_device_t *device, void *data, size_t size);
-scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size_t transfer_length, uint8_t flags, void *buf, size_t buf_size);
+scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size_t transfer_length, uint8_t flags);
 void scsi_print_command(scsi_command_t *command);
 
 scsi_device_t *scsi_create_device(devnode_t *bus);

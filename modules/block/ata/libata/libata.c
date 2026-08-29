@@ -39,6 +39,7 @@ static int ata_submit_command(ioreq_t *ioreq) {
 
 static void ata_free_command(ioreq_t *ioreq) {
 	ata_command_t *ata_command = container_of(ioreq, ata_command_t, ioreq);
+	iobuf_destroy(ata_command->iobuf);
 	slab_free(ata_command);
 }
 

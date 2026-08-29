@@ -16,6 +16,19 @@ void init_block(void) {
 #define DATA_OFFSET 0
 #define DATA_COUNT  1
 
+static int block_fill_iobuf(block_device_t *block_device, iobuf_t *iobuf, off_t offset, size_t count, size_t size) {
+	int ret = iobuf_init_pages(iobuf, size);
+	if (ret < 0) return ret;
+
+	uintptr_t index = offset % block_device->sectors_size;
+	for (uintptr_t addr = offset; addr < offset + count; addr += PAGE_SIZE) {
+		uintptr_t page = cache_lookup_page(&block_device->cache, addr);
+		kassert(page != PAGE_INVALID);
+		iobuf_set_page(iobuf, index, page);
+		index += PAGE_SIZE;
+	}
+}
+
 static void block_read_pages_callback(ioreq_t *ioreq, void *data) {
 	(void)data;
 	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
@@ -23,25 +36,7 @@ static void block_read_pages_callback(ioreq_t *ioreq, void *data) {
 	off_t offset = ioreq->data2[DATA_OFFSET];
 	size_t count = ioreq->data2[DATA_COUNT];
 
-	if (ioreq->ret < 0) {
-		kfree(request->buf);
-		cache_read_terminate(&block_device->cache, offset, count, ioreq->ret);
-		return;
-	}
-
-	char *ptr = request->buf;
-	ptr += offset % block_device->sector_size;
-	for (uintptr_t addr = offset; addr < offset + count; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page(&block_device->cache, addr);
-		kassert(page != PAGE_INVALID);
-		void *vaddr = mmu_phys2virt(page);
-		memcpy(vaddr, ptr, PAGE_SIZE);
-		ptr += PAGE_SIZE;
-	}
-
-	kfree(request->buf);
-
-	cache_read_terminate(&block_device->cache, offset, count, 0);
+	cache_read_terminate(&block_device->cache, offset, count, ioreq->ret);
 }
 
 static int block_read_pages(cache_t *cache, off_t offset, size_t count) {
@@ -58,27 +53,21 @@ static int block_read_pages(cache_t *cache, off_t offset, size_t count) {
 	}
 	size_t sectors_count = end_sector - start_sector;
 
-	// TODO : pass pages direcly
-	void *buffer = kmalloc(sectors_count * block_device->sector_size);
-	if (!buffer) return -ENOMEM;
-
-	int ret = 0;
 	block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
-	if (!request) {
-		ret = -ENOMEM;
-error:
-		kfree(buffer);
+	if (!request) return -ENOMEM;
+
+	int ret = block_fill_iobuf(block_device, &request->iobuf, offset, count, end - start);
+	if (ret < 0) {
+		ioreq_release(&request->ioreq);
 		return ret;
 	}
+
 	request->start_sector = start_sector;
 	request->sectors_count = sectors_count;
-	request->buf = buffer;
 	request->ioreq.data2[DATA_OFFSET] = offset;
 	request->ioreq.data2[DATA_COUNT]   = count;
 	ioreq_set_callback(&request->ioreq, block_read_pages_callback, NULL);
-	ret = ioreq_submit(&request->ioreq);
-	if (ret < 0) goto error;
-	return 0;
+	return ioreq_submit(&request->ioreq);
 }
 
 // TODO : make this async
@@ -96,6 +85,7 @@ static int block_write_pages(cache_t *cache, off_t offset, size_t count) {
 	}
 	size_t sectors_count = end_sector - start_sector;
 
+	// TODO : pass pages direcly
 	char *buffer = kmalloc(sectors_count * block_device->sector_size);
 	if (!buffer) return -ENOMEM;
 
@@ -106,7 +96,7 @@ static int block_write_pages(cache_t *cache, off_t offset, size_t count) {
 		if (!request) goto error_nomem;
 		request->start_sector = start_sector;
 		request->sectors_count = 1;
-		request->buf = buffer;
+		iobuf_init_continuous(&request->iobuf, buffer);
 		ret = ioreq_submit_sync_interruptible(&request->ioreq);
 		if (ret < 0) goto error;
 	}
@@ -115,7 +105,7 @@ static int block_write_pages(cache_t *cache, off_t offset, size_t count) {
 		if (!request) goto error_nomem;
 		request->start_sector = end_sector - 1;
 		request->sectors_count = 1;
-		request->buf = buffer + (sectors_count - 1) * block_device->sector_size;
+		iobuf_init_continuous(&request->iobuf, buffer + (sectors_count - 1) * block_device->sector_size);
 		ret = ioreq_submit_sync_interruptible(&request->ioreq);
 		if (ret < 0) goto error;
 	}
@@ -140,7 +130,7 @@ error:
 	}
 	request->start_sector = start_sector;
 	request->sectors_count = sectors_count;
-	request->buf = buffer;
+	iobuf_init_continuous(&request->iobuf, buffer);
 	ret = ioreq_submit_sync_interruptible(&request->ioreq);
 	kfree(buffer);
 	if (ret < 0) return ret;
@@ -240,6 +230,7 @@ static void block_cancel_request(ioreq_t *ioreq) {
 
 static void block_cleanup_request(ioreq_t *ioreq) {
 	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
+	iobuf_destroy(request->iobuf);
 	slab_free(request);
 }
 

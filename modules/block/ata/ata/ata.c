@@ -68,8 +68,9 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 	} else {
 		command->flags |= ATA_CMD_READ_BUF;
 	}
-	command->buf      = request->buf;
-	command->buf_size = request->sectors_count * block_device->sector_size;
+
+	iobuf_dup(&command->iobuf, &request->iobuf);
+
 	ioreq_set_callback(&command->ioreq, ata_finish_callback, request);
 	return ioreq_submit(&command->ioreq);
 }
@@ -114,8 +115,7 @@ static int ata_probe(devnode_t *devnode) {
 	ata_command_t *identify = ata_create_command(device);
 	identify->regs.command = ATA_CMD_IDENTIFY;
 	identify->flags = ATA_CMD_READ_BUF;
-	identify->buf = &ident;
-	identify->buf_size = sizeof(ident);
+	iobuf_init_continuous(&indentify->iobuf, &ident, sizeof(ident));
 
 	int ret = ioreq_submit_sync(&identify->ioreq);
 	if (ret < 0) return ret;

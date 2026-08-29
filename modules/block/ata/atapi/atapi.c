@@ -25,8 +25,7 @@ static int atapi_probe(devnode_t *devnode) {
 	ata_command_t *identify = ata_create_command(device);
 	identify->regs.command = ATA_CMD_IDENTIFY_PACKET;
 	identify->flags        = ATA_CMD_READ_BUF;
-	identify->buf          = &ident;
-	identify->buf_size     = sizeof(ident);
+	iobuf_init_continuous(&identify->iobuf, &ident, sizeof(ident));
 
 	int ret = ioreq_submit_sync(&identify->ioreq);
 	if (ret < 0) return ret;
@@ -89,8 +88,7 @@ static int atapi_submit_scsi_command(devnode_t *devnode, scsi_device_t *scsi_dev
 
 	memcpy(&ata_command->packet, &command->data, sizeof(ata_command->packet));
 	ata_command->packet_length  = disk->packet_length;
-	ata_command->buf_size = command->buf_size;
-	ata_command->buf      = command->buf;
+	iobuf_dup(&ata_command->iobuf, &command->iobuf);
 	if (command->flags & SCSI_CMD_READ_BUF) {
 		ata_command->flags |= ATA_CMD_READ_BUF;
 	} else if (command->flags & SCSI_CMD_WRITE_BUF) {

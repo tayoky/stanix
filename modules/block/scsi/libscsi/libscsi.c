@@ -17,6 +17,7 @@ static int scsi_submit_command(ioreq_t *ioreq) {
 
 static void scsi_free_command(ioreq_t *ioreq) {
 	scsi_command_t *scsi_command = container_of(ioreq, scsi_command_t, ioreq);
+	iobuf_destroy(&scsi_command->iobuf);
 	slab_free(scsi_command);
 }
 
@@ -41,7 +42,7 @@ scsi_command_t *scsi_create_command(scsi_device_t *device, void *data, size_t si
 	return command;
 }
 
-scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size_t transfer_length, uint8_t flags, void *buf, size_t buf_size) {
+scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size_t transfer_length, uint8_t flags) {
 	scsi_command_t *command = NULL;
 	if (lba > 0xffffffff) {
 		// TODO : use READ(16)
@@ -67,8 +68,6 @@ scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size
 	}
 	if (!command) return command;
 	command->flags    = SCSI_CMD_READ_BUF;
-	command->buf      = buf;
-	command->buf_size = buf_size;
 	return command;
 }
 
@@ -170,8 +169,7 @@ error:
 		return NULL;
 	}
 	command->flags    = SCSI_CMD_READ_BUF;
-	command->buf_size = sizeof(ident);
-	command->buf      = &ident;
+	iobuf_init_continuous(&command->iobuf, &ident, sizeof(ident));
 
 	int ret = ioreq_submit_sync(&command->ioreq);
 	if (ret < 0) goto error;

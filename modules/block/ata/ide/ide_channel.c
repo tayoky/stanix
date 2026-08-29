@@ -134,20 +134,25 @@ static size_t ide_channel_get_transfer_size(ide_channel_t *channel, ata_command_
 
 static int ide_channel_transfer(ide_channel_t *channel, ata_command_t *command) {
 	size_t transfer_size = ide_channel_get_transfer_size(channel, command);
-	if (channel->bytes_transferred + transfer_size > command->buf_size) {
+	if (channel->bytes_transferred + transfer_size > command->iobuf.size) {
 		// more data than expected ?
 		kwarningf("more data than expected\n");
 		return -EIO;
 	}
 
-	uint16_t *buf = command->buf;
-	buf += channel->bytes_transferred / sizeof(uint16_t);
-	
-	channel->bytes_transferred += transfer_size;
-	if (command->flags & ATA_CMD_WRITE_BUF) {
-		ide_channel_send_data(channel, buf, transfer_size);
-	} else {
-		ide_channel_receive_data(channel, buf, transfer_size);
+	while (transfer_size > 0) {
+		size_t buf_size;
+		uint16_t *buf = iobuf_get_at(&command->iobuf, channel->bytes_transferred, &buf_size);
+		size_t chunk_size = transfer_size < buf_size ? transfer_size : buf_size;
+
+		channel->bytes_transferred += chunk_size;
+		transfer_size -= chunk_size;
+
+		if (command->flags & ATA_CMD_WRITE_BUF) {
+			ide_channel_send_data(channel, buf, chunk_size);
+		} else {
+			ide_channel_receive_data(channel, buf, chunk_size);
+		}
 	}
 	return 0;
 }
@@ -184,7 +189,7 @@ error:
 	
 	if (status & ATA_SR_DRQ) {
 		// we have a transfer pending
-		if (channel->bytes_transferred >= command->buf_size) {
+		if (channel->bytes_transferred >= command->iobuf.size) {
 			kwarningf("unexpected data request status=%hhx\n", status);
 			ret = -EIO;
 			goto error;
@@ -193,7 +198,7 @@ error:
 		ret = ide_channel_transfer(channel, command);
 		if (ret < 0) goto error;
 
-		if (channel->bytes_transferred < command->buf_size) {
+		if (channel->bytes_transferred < command->iobuf.size) {
 			// we have others transfer to send/receive
 			return;
 		} else if (command->flags & ATA_CMD_WRITE_BUF) {
@@ -208,7 +213,7 @@ error:
 	} else {
 		// in packet protocol transfer the transfer can be smaller than the expected size
 		// TODO : report this into the ata command ?
-		if (channel->bytes_transferred < command->buf_size && !(command->flags & ATA_CMD_PACKET_PROTOCOL)) {
+		if (channel->bytes_transferred < command->iobuf.size && !(command->flags & ATA_CMD_PACKET_PROTOCOL)) {
 			kwarningf("expected data request status=%hhx\n", status);
 			ret = -EIO;
 			goto error;
@@ -354,7 +359,7 @@ static int ide_channel_irq_mode(ide_channel_t *channel, ata_command_t *command) 
 		return 0;
 	}
 
-	if ((command->flags & ATA_CMD_WRITE_BUF) && command->buf_size > 0) {
+	if ((command->flags & ATA_CMD_WRITE_BUF) && command->iobuf.size > 0) {
 		// for non packet protocol we need to write the first transfer since it does not trigger an irq
 		ide_channel_io_wait(channel);
 		int ret = ide_channel_poll(channel, ATA_SR_DRQ, ATA_SR_DRQ);
@@ -370,7 +375,7 @@ static int ide_channel_irq_mode(ide_channel_t *channel, ata_command_t *command) 
 
 static int ide_channel_poll_mode(ide_channel_t *channel, ata_command_t *command) {
 	// TODO : DMA support
-	while (channel->bytes_transferred < command->buf_size) {
+	while (channel->bytes_transferred < command->iobuf.size) {
 		ide_channel_io_wait(channel);
 		int ret = ide_channel_poll(channel, ATA_SR_BSY | ATA_SR_DRQ, ATA_SR_DRQ);
 		if (ret < 0) return ret;
