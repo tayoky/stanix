@@ -8,7 +8,7 @@
 
 static slab_cache_t iso9660_inodes_slab;
 
-static iso9660_inode_t *iso9660_entry2inode(iso9660_dentry_t *dentry);
+static iso9660_inode_t *iso9660_entry2inode(iso9660_superblock_t *iso9660_superblock, iso9660_dentry_t *dentry);
 
 static time_t iso9660_convert_small_time(iso9660_small_time_t *iso9660_time) {
 	time_t time = date2time(iso9660_time->year + 1900, 
@@ -57,6 +57,7 @@ static void iso9660_extract_name(iso9660_dentry_t *dentry, char *buf, size_t buf
 	if (nm && nm->susp_entry.length < sizeof(iso9660_nm_entry_t)) nm = NULL;
 	if (nm && nm->version != ISO9660_NM_ENTRY_VERSION) nm = NULL;
 	if (nm) {
+		kdebugf("rock ridger\n");
 		// we have a rock ridger name
 		size_t ptr = 0;
 		for (;;) {
@@ -87,6 +88,7 @@ static void iso9660_extract_name(iso9660_dentry_t *dentry, char *buf, size_t buf
 			}
 		}
 		buf[ptr] = '\0';
+		kdebugf("got name %s\n", buf);
 		return;
 	}
 
@@ -299,11 +301,12 @@ static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *vfs_dentry) {
 		iso9660_extract_name(dentry, name, sizeof(name));
 
 		if (!strcmp(name, vfs_dentry->name)) {
-			iso9660_inode_t *inode = iso9660_entry2inode(dentry);
+			iso9660_inode_t *inode = iso9660_entry2inode(iso9660_superblock, dentry);
 			if (!inode) return -ENOMEM;
 			vfs_dentry->inode = &inode->vnode;
 			return 0;
 		}
+		offset += dentry->length;
 	}
 	return -ENOENT;
 }
@@ -362,10 +365,11 @@ static vfs_inode_ops_t iso9660_inode_ops = {
 	.cleanup  = iso9660_cleanup,
 };
 
-static iso9660_inode_t *iso9660_entry2inode(iso9660_dentry_t *dentry) {
+static iso9660_inode_t *iso9660_entry2inode(iso9660_superblock_t *iso9660_superblock, iso9660_dentry_t *dentry) {
 	iso9660_inode_t *inode = slab_alloc(&iso9660_inodes_slab);
 	if (!inode) return NULL;
 
+	inode->vnode.superblock = &iso9660_superblock->superblock;
 	inode->vnode.ops        = &iso9660_inode_ops;
 	inode->vnode.ref_count  = 1;
 	time_t time = iso9660_convert_small_time(&dentry->time);
@@ -422,6 +426,10 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 	size_t block_size = 0;
 	iso9660_inode_t *root = NULL;
 
+	iso9660_superblock_t *iso9660_superblock = kmalloc(sizeof(iso9660_superblock_t));
+	if (!iso9660_superblock) return -ENOMEM;
+	memset(iso9660_superblock, 9, sizeof(iso9660_superblock_t));
+
 	// iterate through each volume descriptor
 	iso9660_volume_descriptor_t volume_descriptor = {0};
 	for (size_t offset = 16 * 2048; volume_descriptor.type != ISO9660_VOLUME_DESCRIPTOR_SET_TERMINATOR; offset += sizeof(iso9660_volume_descriptor_t)) {
@@ -463,7 +471,7 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 			return -EFTYPE;
 		}
 
-		root = iso9660_entry2inode(root_dentry);
+		root = iso9660_entry2inode(iso9660_superblock, root_dentry);
 		if (!root) return -ENOMEM;
 	}
 
@@ -473,13 +481,6 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 	}
 
 	kdebugf("block size is %zu\n", block_size);
-
-	iso9660_superblock_t *iso9660_superblock = kmalloc(sizeof(iso9660_superblock_t));
-	if (!iso9660_superblock) {
-		vfs_node_release(&root->vnode);
-		return -ENOMEM;
-	}
-	memset(iso9660_superblock, 9, sizeof(iso9660_superblock_t));
 	iso9660_superblock->superblock.device = source;
 	iso9660_superblock->superblock.root   = &root->vnode;
 	iso9660_superblock->block_size = block_size;

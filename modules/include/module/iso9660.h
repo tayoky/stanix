@@ -38,16 +38,16 @@ typedef struct iso9660_small_time {
 } __attribute__((packed)) iso9660_small_time_t;
 
 typedef struct iso9660_dentry {
-	int8_t length;
-	int8_t extended_attributes_length;
+	uint8_t length;
+	uint8_t extended_attributes_length;
 	iso9660_le_be_uint32_t lba;
 	iso9660_le_be_uint32_t data_length;
 	iso9660_small_time_t time;
 	uint8_t flags;
-	int8_t file_unit_size;
-	int8_t interleave_gap_size;
+	uint8_t file_unit_size;
+	uint8_t interleave_gap_size;
 	iso9660_le_be_uint16_t volume_sequence_number;
-	int8_t filename_length;
+	uint8_t filename_length;
 	char file_identifier[];
 } __attribute__((packed)) iso9660_dentry_t;
 
