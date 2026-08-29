@@ -341,6 +341,8 @@ static void iso9660_cleanup(vfs_node_t *vnode) {
 	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
 	if (S_ISREG(inode->vnode.mode)) {
 		free_cache(&inode->cache);
+	} else if (S_ISLNK(inode->vnode.mode)) {
+		kfree(inode->link);
 	}
 
 	slab_free(inode);
@@ -438,12 +440,21 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 			return -EFTYPE;
 		}
 		ssize_t ret = vfs_read(source, &volume_descriptor, offset, sizeof(volume_descriptor));
-		if (ret < 0) return ret;
-		if (ret < (ssize_t)sizeof(volume_descriptor)) return -EIO;
+		if (ret < 0) {
+error:
+			kfree(iso9660_superblock);
+			slab_free(root);
+			return ret;
+		}
+		if (ret < (ssize_t)sizeof(volume_descriptor)) {
+			ret = -EIO;
+			goto error;
+		}
 
 		if (memcmp(&volume_descriptor.identifier, ISO9660_VOLUME_DESCRIPTOR_IDENTIFIER, sizeof(volume_descriptor.identifier))) {
 			kwarningf("invalid indentifier\n");
-			return -EFTYPE;
+			ret = -EFTYPE;
+			goto error;
 		}
 
 		if (volume_descriptor.type != ISO9660_VOLUME_DESCRIPTOR_PRIMARY) {
@@ -454,7 +465,8 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 		// check if the version is valid
 		if (volume_descriptor.version != 0x01) {
 			kwarningf("unsupported version %hhx\n", volume_descriptor.version);
-			return -ENOTSUP;
+			ret = -ENOTSUP;
+			goto error;
 		}
 
 		if (root) {
@@ -468,15 +480,20 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 		iso9660_dentry_t *root_dentry = (iso9660_dentry_t*)volume_descriptor.primary.root_dentry;
 		if (root_dentry->length != sizeof(volume_descriptor.primary.root_dentry)) {
 			kwarningf("invalid root dentry length\n");
-			return -EFTYPE;
+			ret = -EFTYPE;
+			goto error;
 		}
 
 		root = iso9660_entry2inode(iso9660_superblock, root_dentry);
-		if (!root) return -ENOMEM;
+		if (!root) {
+			ret = -ENOMEM;
+			goto error;
+		}
 	}
 
 	if (!root) {
 		kwarningf("no primary descriptor found\n");
+		kfree(iso9660_superblock);
 		return -EFTYPE;
 	}
 
