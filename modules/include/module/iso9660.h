@@ -191,6 +191,7 @@ typedef struct iso9660_volume_descriptor {
 #define ISO9660_VOLUME_DESCRIPTOR_SUPPLEMENTARY  0x02
 #define ISO9660_VOLUME_DESCRIPTOR_PARTITION      0x03
 #define ISO9660_VOLUME_DESCRIPTOR_SET_TERMINATOR 0xff
+#define ISO9660_VOLUME_DESCRIPTOR_IDENTIFIER     "CD001"
 
 typedef struct iso9660_superblock {
 	vfs_superblock_t superblock;

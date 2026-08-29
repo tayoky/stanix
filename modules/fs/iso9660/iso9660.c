@@ -424,10 +424,19 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 
 	// iterate through each volume descriptor
 	iso9660_volume_descriptor_t volume_descriptor = {0};
-	for (size_t offset = 32 * 1024; volume_descriptor.type != ISO9660_VOLUME_DESCRIPTOR_SET_TERMINATOR; offset += sizeof(iso9660_volume_descriptor_t)) {
+	for (size_t offset = 16 * 2048; volume_descriptor.type != ISO9660_VOLUME_DESCRIPTOR_SET_TERMINATOR; offset += sizeof(iso9660_volume_descriptor_t)) {
+		if (offset >= 16 * 2048 + 65535 * sizeof(iso9660_volume_descriptor_t)) {
+			kwarningf("no null terminator\n");
+			return -EFTYPE;
+		}
 		ssize_t ret = vfs_read(source, &volume_descriptor, sizeof(volume_descriptor), offset);
 		if (ret < 0) return ret;
 		if (ret < (ssize_t)sizeof(volume_descriptor)) return -EIO;
+
+		if (memcmp(&volume_descriptor.identifier, ISO9660_VOLUME_DESCRIPTOR_IDENTIFIER, sizeof(volume_descriptor.identifier))) {
+			kwarningf("invalid indentifier\n");
+			return -EFTYPE;
+		}
 
 		if (volume_descriptor.type != ISO9660_VOLUME_DESCRIPTOR_PRIMARY) {
 			// not a primary descriptor, we don't care
