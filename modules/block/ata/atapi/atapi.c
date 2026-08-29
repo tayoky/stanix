@@ -83,8 +83,8 @@ static int atapi_submit_scsi_command(devnode_t *devnode, scsi_device_t *scsi_dev
 	ata_command->regs.features = 0; // PIO mode
 	ata_command->flags   = ATA_CMD_PACKET_PROTOCOL | ATA_CMD_SEND_LBA28 | ATA_CMD_SEND_FEATURES;
 	// set the maximum bytes count
-	ata_command->regs.lba1 = (uint8_t)(command->buf_size >> 0);
-	ata_command->regs.lba2 = (uint8_t)(command->buf_size >> 8);
+	ata_command->regs.lba1 = (uint8_t)(command->iobuf.size >> 0);
+	ata_command->regs.lba2 = (uint8_t)(command->iobuf.size >> 8);
 
 	memcpy(&ata_command->packet, &command->data, sizeof(ata_command->packet));
 	ata_command->packet_length  = disk->packet_length;

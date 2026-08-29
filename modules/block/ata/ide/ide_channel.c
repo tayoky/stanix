@@ -117,7 +117,8 @@ static void ide_channel_send_data(ide_channel_t *channel, const uint16_t *buf, s
 static void ide_channel_receive_data(ide_channel_t *channel, uint16_t *buf, size_t count) {
 	kassert(count % 2 == 0);
 	for (size_t i = 0; i < count; i += 2) {
-		buf[i / 2] = resource_read16(channel->base, IDE_REG_DATA);
+		uint16_t data = resource_read16(channel->base, IDE_REG_DATA);
+		if (buf) buf[i / 2] = data; 
 	}
 }
 

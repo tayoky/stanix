@@ -115,7 +115,7 @@ static int ata_probe(devnode_t *devnode) {
 	ata_command_t *identify = ata_create_command(device);
 	identify->regs.command = ATA_CMD_IDENTIFY;
 	identify->flags = ATA_CMD_READ_BUF;
-	iobuf_init_continuous(&indentify->iobuf, &ident, sizeof(ident));
+	iobuf_init_continuous(&identify->iobuf, &ident, sizeof(ident));
 
 	int ret = ioreq_submit_sync(&identify->ioreq);
 	if (ret < 0) return ret;

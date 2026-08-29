@@ -45,7 +45,7 @@ static void *iso9660_get_susp_entry(iso9660_dentry_t *dentry, const char *name) 
 	return iso9660_get_susp_entry_start(dentry, name, start);
 }
 
-static void *iso9660_get_susp_entry_after(iso9660_dentry_t *dentry, const char *name, void *data) {
+static void *iso9660_get_next_susp_entry(iso9660_dentry_t *dentry, const char *name, void *data) {
 	iso9660_susp_entry_t *entry = data;
 
 	char *start = (char*)entry + entry->length;
@@ -54,11 +54,11 @@ static void *iso9660_get_susp_entry_after(iso9660_dentry_t *dentry, const char *
 
 static void iso9660_extract_name(iso9660_dentry_t *dentry, char *buf, size_t buf_size) {
 	iso9660_nm_entry_t *nm = iso9660_get_susp_entry(dentry, ISO9660_NM_ENTRY);
-	if (nm && nm->length < sizeof(iso9660_nm_entry_t)) nm = NULL;
+	if (nm && nm->susp_entry.length < sizeof(iso9660_nm_entry_t)) nm = NULL;
 	if (nm && nm->version != ISO9660_NM_ENTRY_VERSION) nm = NULL;
 	if (nm) {
 		// we have a rock ridger name
-		int ptr = 0;
+		size_t ptr = 0;
 		for (;;) {
 			if (nm->flags & ISO9660_NM_ENTRY_FLAG_CURRENT) {
 				if (ptr + 1 < buf_size) buf[ptr++] = '.';
@@ -66,15 +66,15 @@ static void iso9660_extract_name(iso9660_dentry_t *dentry, char *buf, size_t buf
 				if (ptr + 1 < buf_size) buf[ptr++] = '.';
 				if (ptr + 1 < buf_size) buf[ptr++] = '.';
 			} else {
-				size_t data_length = nm->length - sizeof(iso9660_nm_entry_t);
+				size_t data_length = nm->susp_entry.length - sizeof(iso9660_nm_entry_t);
 				if (data_length >= buf_size - ptr) data_length = buf_size - ptr - 1;
 				memcpy(&buf[ptr], nm->data, data_length);
 				ptr += data_length;
 			}
 
 			if (nm->flags & ISO9660_NM_ENTRY_FLAG_CONTINUE) {
-				nm = iso9660_get_susp_entry_after(dentry, ISO9660_NM_ENTRY, nm);
-				if (nm && nm->length < sizeof(iso9660_nm_entry_t)) nm = NULL;
+				nm = iso9660_get_next_susp_entry(dentry, ISO9660_NM_ENTRY, nm);
+				if (nm && nm->susp_entry.length < sizeof(iso9660_nm_entry_t)) nm = NULL;
 				if (nm && nm->version != ISO9660_NM_ENTRY_VERSION) nm = NULL;
 				if (!nm) {
 					// corrupt long name??
@@ -87,7 +87,7 @@ static void iso9660_extract_name(iso9660_dentry_t *dentry, char *buf, size_t buf
 			}
 		}
 		buf[ptr] = '\0';
-		return 0;
+		return;
 	}
 
 short_name:
@@ -95,7 +95,7 @@ short_name:
 	while (name_length < dentry->filename_length && name_length + (ssize_t)sizeof(iso9660_dentry_t) < dentry->length && dentry->file_identifier[name_length] != ';') {
 		name_length++;
 	}
-	if (name_length >= buf_size) name_length = buf_size;
+	if (name_length >= (ssize_t)buf_size) name_length = buf_size;
 	memcpy(buf, dentry->file_identifier, name_length);
 	buf[name_length] = '\0';
 
@@ -113,17 +113,17 @@ short_name:
 }
 
 static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t buf_size) {
-	iso9n660_sl_entry_t *sl = iso9660_get_susp_entry(dentry, ISO9660_SL_ENTRY);
+	iso9660_sl_entry_t *sl = iso9660_get_susp_entry(dentry, ISO9660_SL_ENTRY);
 	if (!sl) return -ENOENT;
 	if (sl->susp_entry.length < sizeof(iso9660_sl_entry_t)) return -ENOENT;
 	if (sl->version != ISO9660_SL_ENTRY_VERSION) return -ENOENT;
 
 	int skip_slash = 1;
-	int ptr = 0;
+	size_t ptr = 0;
 	for (;;) {
-		for (size_t offset = 0; offset < sl->length - sizeof(iso9660_sl_entry_t);) {
+		for (size_t offset = 0; offset < sl->susp_entry.length - sizeof(iso9660_sl_entry_t);) {
 			iso9660_sl_component_t *component = (iso9660_sl_component_t*)(sl->components + offset);
-			if (component->length < sizeof(iso9660_component_t)) {
+			if (component->length < sizeof(iso9660_sl_component_t)) {
 				// invalid component entry
 				return -EFTYPE;
 			}
@@ -150,7 +150,7 @@ static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t b
 				skip_slash = 0;
 			} else {
 				// raw data component
-				size_t data_length = component->length - sizeof(iso9660_sl_component_t):
+				size_t data_length = component->length - sizeof(iso9660_sl_component_t);
 				if (ptr + data_length >= buf_size) return -ERANGE;
 				memcpy(&buf[ptr], component->data, data_length);
 				ptr += data_length;
@@ -161,7 +161,7 @@ static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t b
 			offset += component->length;
 		}
 		if (sl->flags & ISO9660_SL_ENTRY_FLAG_CONTINUE) {
-			sl = iso9660_get_next_entry_after(dentry, ISO966P_SL_ENTRY, sl);
+			sl = iso9660_get_next_susp_entry(dentry, ISO9660_SL_ENTRY, sl);
 			if (sl->susp_entry.length < sizeof(iso9660_sl_entry_t)) return -ENOENT;
 			if (sl->version != ISO9660_SL_ENTRY_VERSION) return -ENOENT;
 			if (sl) {
@@ -247,26 +247,26 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 			if (px && px->version != ISO9660_PX_ENTRY_VERSION) px = NULL;
 
 			if (px) {
-				switch (le_uint32_to_uint32(&px->mode.le) & S_IFMT) 
-				case I_IFREG:
+				switch (le_uint32_to_uint32(&px->mode.le) & S_IFMT) {
+				case S_IFREG:
 					dirent->d_type = DT_REG;
 					break;
-				case I_IFDIR:
+				case S_IFDIR:
 					dirent->d_type = DT_DIR;
 					break;
-				case I_IFIFO:
+				case S_IFIFO:
 					dirent->d_type = DT_FIFO;
 					break;
-				case I_IFSOCK:
+				case S_IFSOCK:
 					dirent->d_type = DT_SOCK;
 					break;
-				case I_IFCHR:
+				case S_IFCHR:
 					dirent->d_type = DT_CHR;
 					break;
-				case I_IFBLK:
+				case S_IFBLK:
 					dirent->d_type = DT_BLK;
 					break;
-				case I_IFLNK:
+				case S_IFLNK:
 					dirent->d_type = DT_LNK;
 					break;
 				}
@@ -313,7 +313,7 @@ static ssize_t iso9660_readlink(vfs_node_t *vnode, char *buf, size_t bufsize) {
 	if (!inode->link) return -EIO;
 	if (bufsize > strlen(inode->link)) bufsize = strlen(inode->link);
 	int ret = safe_copy_to(buf, inode->link, bufsize);
-	return ret < 0 ? ret : bufsize;
+	return ret < 0 ? ret : (ssize_t)bufsize;
 }
 
 static int iso9660_getattr(vfs_node_t *vnode, struct stat *buf) {

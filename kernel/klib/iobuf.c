@@ -1,5 +1,7 @@
+#include <kernel/string.h>
 #include <kernel/iobuf.h>
 #include <kernel/mmu.h>
+#include <errno.h>
 	
 static iobuf_pages_list_t *iobuf_pages_list_create(uintptr_t *pages, size_t pages_count) {
 	iobuf_pages_list_t *pages_list = kmalloc(sizeof(iobuf_pages_list_t) + pages_count * sizeof(uintptr_t));
@@ -18,7 +20,7 @@ static iobuf_pages_list_t *iobuf_pages_list_create(uintptr_t *pages, size_t page
 }
 
 static iobuf_pages_list_t *iobuf_pages_list_ref(iobuf_pages_list_t *pages_list) {
-	ref_count_inc(&pages_list);
+	ref_count_inc(&pages_list->ref_count);
 	return pages_list;
 }
 
@@ -29,10 +31,11 @@ static void iobuf_pages_list_release(iobuf_pages_list_t *pages_list) {
 	kfree(pages_list);
 }
 
-int iobuf_init_pages(iobuf_t *iobuf, uintptr_t *pages, size_t size) {
+int iobuf_init_pages(iobuf_t *iobuf, uintptr_t *pages, size_t offset, size_t size) {
 	iobuf->type       = IOBUF_TYPE_PAGES;
-	iobuf->pages_list = iobut_pages_list_create(pages, (size + PAGE_SIZE - 1) / PAGE_SIZE);
+	iobuf->pages_list = iobuf_pages_list_create(pages, ((offset + size) + PAGE_SIZE - 1) / PAGE_SIZE);
 	if (!iobuf->pages_list) return -ENOMEM;
+	iobuf->offset     = offset;
 	iobuf->size       = size;
 	return 0;
 }
@@ -47,9 +50,9 @@ void iobuf_destroy(iobuf_t *iobuf) {
 }
 
 int iobuf_dup(iobuf_t *dest, iobuf_t *src) {
-	switch (iobuf->type) {
+	switch (src->type) {
 	case IOBUF_TYPE_CONTINUOUS:
-		dest->buffer = dest->src;
+		dest->buffer = src->buffer;
 		break;
 	case IOBUF_TYPE_PAGES:
 		dest->pages_list = iobuf_pages_list_ref(src->pages_list);
@@ -72,6 +75,7 @@ void *iobuf_get_at(iobuf_t *iobuf, size_t addr, size_t *size) {
 	case IOBUF_TYPE_PAGES:;
 		uintptr_t page = iobuf_get_page_at(iobuf, addr);
 		if (page == PAGE_INVALID) return NULL;
+		addr += iobuf->offset;
 		if (size) *size = PAGE_SIZE - (addr % PAGE_SIZE);
 		return mmu_phys2virt(page) + (addr % PAGE_SIZE);
 	default:
@@ -80,11 +84,11 @@ void *iobuf_get_at(iobuf_t *iobuf, size_t addr, size_t *size) {
 	}
 }
 
-uintptr_t iobuf_page_get_at(iobuf_t *iobuf, size_t addr) {
+uintptr_t iobuf_get_page_at(iobuf_t *iobuf, size_t addr) {
 	kassert(addr < iobuf->size);
 	kassert(iobuf->type == IOBUF_TYPE_PAGES);
 
-	return iobuf->pages_list.pages[addr / PAGE_SIZE];
+	return iobuf->pages_list->pages[(addr + iobuf->offset) / PAGE_SIZE];
 }
 
 static void iobuf_transfer_helper(void *iobuf_buf, void *buf, size_t size, int direction) {
