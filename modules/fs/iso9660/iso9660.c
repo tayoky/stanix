@@ -429,7 +429,7 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 			kwarningf("no null terminator\n");
 			return -EFTYPE;
 		}
-		ssize_t ret = vfs_read(source, &volume_descriptor, sizeof(volume_descriptor), offset);
+		ssize_t ret = vfs_read(source, &volume_descriptor, offset, sizeof(volume_descriptor));
 		if (ret < 0) return ret;
 		if (ret < (ssize_t)sizeof(volume_descriptor)) return -EIO;
 
