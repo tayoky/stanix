@@ -64,7 +64,7 @@ void create_taskbar(twm_screen_t screen) {
 	tgui_widget_set_orientation(TGUI_WIDGET_CAST(main_box), TGUI_ORIENTATION_HORIZONTAL);
 	tgui_window_set_child(taskbar, TGUI_WIDGET_CAST(main_box));
 
-	tgui_popover_t *start_menu = tgui_popover_new();
+	tgui_popover_t *start_menu = tgui_popover_new(TGUI_SURFACE_CAST(taskbar));
 	tgui_list_view_t *start_menu_list = tgui_list_view_new(&app_factory, TGUI_LIST_MODEL_CAST(app_list));
 	tgui_popover_set_child(start_menu, TGUI_WIDGET_CAST(start_menu_list));
 
