@@ -37,7 +37,7 @@ static void *iso9660_get_susp_entry_start(iso9660_dentry_t *dentry, const char *
 
 static void *iso9660_get_susp_entry(iso9660_dentry_t *dentry, const char *name) {
 	char *start = dentry->file_identifier + dentry->filename_length;
-	if (dentry->filename_length % 2 == 0) {
+	if (dentry->filename_length % 2 == 1) {
 		// skip the padding byte
 		start++;
 	}
@@ -95,7 +95,7 @@ short_name:
 	while (name_length < dentry->filename_length && name_length + (ssize_t)sizeof(iso9660_dentry_t) < dentry->length && dentry->file_identifier[name_length] != ';') {
 		name_length++;
 	}
-	if (name_length >= (ssize_t)buf_size) name_length = buf_size;
+	if (name_length >= (ssize_t)buf_size) name_length = buf_size - 1;
 	memcpy(buf, dentry->file_identifier, name_length);
 	buf[name_length] = '\0';
 
@@ -164,12 +164,13 @@ static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t b
 			sl = iso9660_get_next_susp_entry(dentry, ISO9660_SL_ENTRY, sl);
 			if (sl->susp_entry.length < sizeof(iso9660_sl_entry_t)) return -ENOENT;
 			if (sl->version != ISO9660_SL_ENTRY_VERSION) return -ENOENT;
-			if (sl) {
+			if (!sl) {
 				// not good, the sl list did not terminate correcly
 				return -EFTYPE;
 			}
+			continue;
 		}
-		continue;
+		break;
 	}
 
 	kassert(ptr < buf_size);
