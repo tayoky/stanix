@@ -1,0 +1,23 @@
+FROM ubuntu:22.04 AS toolchain-builder
+
+ENV TOOLCHAIN_PREFIX=/opt/toolchain
+ENV SYSROOT=/opt/sysroot
+
+RUN apt update && apt install -y build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf
+
+# copy Stanix's source code
+WORKDIR /src
+COPY . .
+
+RUN scripts/build-toolchain.sh --target=x86_64-stanix --sysroot=$SYSROOT --prefix=$TOOLCHAIN_PREFIX
+
+FROM ubuntu:22.04 AS toolchain
+
+ENV TOOLCHAIN_PREFIX=/opt/toolchain
+ENV SYSROOT=/opt/sysroot
+
+# copy the compiled toolchain
+COPY --from=toolchain-builder $TOOLCHAIN_PREFIX $TOOLCHAIN_PREFIX
+COPY --from=toolchain-builder $SYSROOT $SYSROOT
+
+ENV PATH="${TOOLCHAIN_PREFIX}/bin:${PATH}"

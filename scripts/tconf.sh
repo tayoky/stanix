@@ -1,6 +1,6 @@
 # source this script in your configure
 
-TCONF_VERSION="v0.1.2"
+TCONF_VERSION="v0.1.3"
 
 tconf_print () {
 	echo "$@" 1>&2
@@ -15,7 +15,7 @@ tconf_get_var () {
 }
 
 tconf_to_macro_name () {
-	echo "$@" | tr "a-z./ " "A-Z___" | tr -s _
+	echo "$@" | tr "a-z./ -" "A-Z____" | tr -s _
 }
 
 tconf_to_file_name () {

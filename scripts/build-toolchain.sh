@@ -2,24 +2,28 @@
 
 # build the gcc/binutils toolchain
 
+# save the path to the top
+TOP="$PWD"
+
 # default
 : ${SYSROOT:="./sysroot"}
 : ${TARGET:="$(uname -m)-stanix"}
 : ${NPROC:=$(nproc)}
+PREFIX="$TOP/toolchain"
 
 for i in "$@"; do
 	case $i in
+		--prefix=*)
+			PREFIX="${i#*=}"
+			;;
 		--sysroot=*)
 			SYSROOT="${i#*=}"
-			shift # past argument=value
 			;;
 		--target=*)
 			TARGET="${i#*=}"
-			shift # past argument=value
 			;;
 		--nproc=*)
 			NPROC="${i#*=}"
-			shift # past argument=value
 			;;
 		--help)
 			echo "./build-toolchain.sh [OPTIONS]"
@@ -45,10 +49,6 @@ SYSROOT="$(realpath "$SYSROOT")"
 
 ARCH=${TARGET%%-*}
 
-# save the path to the top
-TOP="$PWD"
-
-PREFIX="$TOP/toolchain"
 set -e
 
 # put everything inside toolchain
