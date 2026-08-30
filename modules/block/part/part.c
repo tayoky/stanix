@@ -1,6 +1,7 @@
 #include <kernel/module.h>
 #include <kernel/string.h>
 #include <kernel/print.h>
+#include <kernel/userspace.h>
 #include <kernel/kheap.h>
 #include <kernel/device.h>
 #include <kernel/vfs.h>
@@ -8,11 +9,11 @@
 #include <stdint.h>
 #include <errno.h>
 
-//module for partions (mbr/gpt)
+// module for partions (mbr/gpt)
 
 #define GPT_ID 0xEE 
 
-typedef struct mbr_entry_struct {
+typedef struct mbr_entry {
 	uint8_t attribute;
 	char chs_start[3];
 	uint8_t type;
@@ -21,7 +22,7 @@ typedef struct mbr_entry_struct {
 	uint32_t sectors_count;
 } __attribute__((packed)) mbr_entry_t;
 
-typedef struct mbr_struct {
+typedef struct mbr {
 	char bootstrap[440];
 	uint32_t uuid;
 	uint16_t reserved;
@@ -29,7 +30,7 @@ typedef struct mbr_struct {
 	uint16_t signature;
 } __attribute__((packed)) mbr_table_t;
 
-typedef struct gpt_struct {
+typedef struct gpt {
 	char signature[8];
 	uint32_t revision;
 	uint32_t header_size;
@@ -39,7 +40,7 @@ typedef struct gpt_struct {
 	uint64_t lba_alt_header;
 	uint64_t lba_start;
 	uint64_t lba_end;
-	struct gpt_guid guid;
+	gpt_guid_t guid;
 	uint64_t lba_guid;
 	uint32_t part_count;
 	uint32_t part_ent_size;
@@ -47,8 +48,8 @@ typedef struct gpt_struct {
 } __attribute__((packed)) gpt_header_t;
 
 typedef struct gpt_entry {
-	struct gpt_guid type;
-	struct gpt_guid guid;
+	gpt_guid_t type;
+	gpt_guid_t guid;
 	uint64_t lba_start;
 	uint64_t lba_end;
 	uint64_t attribute;
@@ -60,16 +61,17 @@ typedef struct part {
 	vfs_fd_t *dev;
 	size_t size;
 	off_t offset;
-	struct part_info info;
+	part_info_t info;
 } part_t;
 
 static int part_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	// expose partiton info to userspace
 	part_t *partition = fd->private;
 	switch (req) {
-	case I_PART_GET_INFO:
-		*(struct part_info *)arg = partition->info;
-		return 0;
+	case PART_GET_INFO:
+		return safe_copy_auto_to(arg, &partition->info);
+	case PART_OPEN_DISK:
+		return fd_add(vfs_dup(partition->dev));
 	default:
 		return vfs_ioctl(partition->dev, req, arg);
 	}
@@ -123,11 +125,14 @@ static vfs_fd_ops_t part_ops = {
 
 static int part_major;
 
-static void swap_guid(struct gpt_guid *guid) {
+static void swap_guid(gpt_guid_t *guid) {
 	guid->e4 = ((guid->e4 & 0xff) << 8) | ((guid->e4 >> 8) & 0xff);
 }
 
-static int create_part(vfs_fd_t *dev, const char *target, off_t offset, size_t size, int *count, struct part_info *info) {
+static int create_part(vfs_fd_t *dev, const char *target, off_t offset, size_t size, int *count, part_info_t *info) {
+	info->offset = offset;
+	info->size   = size;
+
 	kdebugf("find partition offset : %lx size : %ld\n", offset, size);
 	char path[strlen(target) + 16];
 	sprintf(path, "%sp%d", dev->dentry->name, (*count)++);
@@ -160,7 +165,7 @@ int init_gpt(off_t offset, vfs_fd_t *dev, const char *target) {
 
 	off_t off = offset + 512;
 	int counter = 0;
-	struct part_info info = {
+	part_info_t info = {
 		.type = PART_TYPE_GPT,
 	};
 	memcpy(&info.gpt.disk_uuid, &gpt.guid, sizeof(gpt.guid));
@@ -169,10 +174,10 @@ int init_gpt(off_t offset, vfs_fd_t *dev, const char *target) {
 		gpt_entry_t entry;
 		vfs_read(dev, &entry, off, sizeof(entry));
 
-		//ignore empty partitions
-		struct gpt_guid zero;
+		// ignore empty partitions
+		gpt_guid_t zero;
 		memset(&zero, 0, sizeof(zero));
-		if (!memcmp(&entry.guid, &zero, sizeof(struct gpt_guid)))continue;
+		if (!memcmp(&entry.guid, &zero, sizeof(gpt_guid_t)))continue;
 
 		memcpy(&info.gpt.part_uuid, &entry.guid, sizeof(entry.guid));
 		memcpy(&info.gpt.type, &entry.type, sizeof(entry.type));
@@ -204,7 +209,7 @@ int part_mount(vfs_fd_t *source, const char *target, unsigned long flags, const 
 	}
 
 	int counter = 0;
-	struct part_info info = {
+	part_info_t info = {
 		.type = PART_TYPE_MBR,
 		.mbr = {
 			.disk_uuid = mbr.uuid,

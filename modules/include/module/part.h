@@ -3,38 +3,40 @@
 
 #include <stdint.h>
 
-struct gpt_guid {
+typedef struct gpt_guid {
     uint32_t e1;
     uint16_t e2;
     uint16_t e3;
     uint16_t e4;
     uint8_t  e5[6];
-};
+} gpd_guid_t;
 
-struct gpt_info {
-    struct gpt_guid disk_uuid;
-    struct gpt_guid part_uuid;
-    struct gpt_guid type;
-};
+typedef struct gpt_info {
+    gpt_guid_t disk_uuid;
+	gpt_guid_t part_uuid;
+    gpt_guid_t type;
+} gpt_info_t;
 
-struct mbr_info {
+typedef struct mbr_info {
     uint32_t disk_uuid;
     uint8_t type;
-};
+} mbr_info_t;
 
-struct part_info {
+typedef struct part_info {
     int type;
     union {
-        struct gpt_info gpt;
-        struct mbr_info mbr;
+        gpt_info_t gpt;
+        mbr_info_t mbr;
     };
-};
+	size_t offset;
+	size_t size;
+	char padding[128];
+} part_info_t;
 
 #define PART_TYPE_MBR 1
 #define PART_TYPE_GPT 2
 
-#define I_PART_GET_INFO       1193
-#define IOCTL_PART_GET_INFO   I_PART_GET_INFO
-
+#define PART_GET_INFO       19000
+#define PART_OPEN_DISK      19001
 
 #endif

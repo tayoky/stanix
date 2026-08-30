@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 struct fs_type {
-	struct gpt_guid gpt_uuid;
+	gpt_guid_t gpt_uuid;
 	uint8_t mbr_uuid;
 	char *name;
 	char *mount_type;
@@ -65,8 +65,8 @@ fail:
 			int fd = open(path, O_WRONLY);
 			if (fd < 0) break;
 
-			struct part_info info;
-			if (ioctl(fd, I_PART_GET_INFO, &info) < 0) {
+			part_info_t info;
+			if (ioctl(fd, PART_GET_INFO, &info) < 0) {
 				goto fail;
 			}
 			close(fd);

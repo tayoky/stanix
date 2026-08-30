@@ -48,7 +48,7 @@ const char *byte_amount(size_t amount) {
 	return buf;
 }
 
-static const char *gpt_guid2str(struct gpt_guid *guid) {
+static const char *gpt_guid2str(gpt_guid_t *guid) {
 	static char buf[256];
 	int ptr = sprintf(buf, "%08x-%04hx-%04hx-%04hx-", guid->e1, guid->e2, guid->e3, guid->e4);
 	for (int i = 0; i < 6; i++) {
@@ -78,8 +78,8 @@ int main(int argc, char **argv) {
 	}
 
 	// try to get partition info
-	struct part_info part_info;
-	if (ioctl(fd, I_PART_GET_INFO, &part_info) >= 0) {
+	part_info_t part_info;
+	if (ioctl(fd, PART_GET_INFO, &part_info) >= 0) {
 		switch (part_info.type) {
 		case PART_TYPE_MBR:
 			printf("part type  : MBR\n");
