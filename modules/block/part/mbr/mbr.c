@@ -7,7 +7,7 @@
 
 // module for MBR partions
 
-static int mbr_check(block_device_t *block_device) {
+static int mbr_probe(block_device_t *block_device) {
 	mbr_table_t mbr;
 	block_device_read(block_device, &mbr, 0, sizeof(mbr));
 

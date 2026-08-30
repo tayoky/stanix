@@ -2,6 +2,7 @@
 #define _MODULE_PART_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 typedef struct gpt_guid {
     uint32_t e1;
@@ -9,7 +10,7 @@ typedef struct gpt_guid {
     uint16_t e3;
     uint16_t e4;
     uint8_t  e5[6];
-} gpd_guid_t;
+} gpt_guid_t;
 
 typedef struct gpt_info {
     gpt_guid_t disk_uuid;

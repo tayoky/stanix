@@ -48,11 +48,13 @@ struct block_request {
 #define BLOCK_REQUEST_FLUSH 3
 
 struct block_partition {
+	list_node_t node;
 	device_t device;
 	char uuid[64];
 	block_device_t *block_device;
 	off_t offset;
 	size_t size;
+	size_t index;
 };
 
 struct block_partition_driver {

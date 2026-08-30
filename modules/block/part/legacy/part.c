@@ -71,7 +71,7 @@ static int part_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	case PART_GET_INFO:
 		return safe_copy_auto_to(arg, &partition->info);
 	case PART_OPEN_DISK:
-		return fd_add(vfs_dup(partition->dev));
+		return fd_add(vfs_dup(partition->dev), 0);
 	default:
 		return vfs_ioctl(partition->dev, req, arg);
 	}

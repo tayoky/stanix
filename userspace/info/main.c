@@ -112,9 +112,9 @@ int main(int argc, char **argv) {
 	if (ioctl(fd, BLOCK_GET_DISK_INFO, &disk_info) >= 0) {
 		if (disk_info.uuid[0]) printf("disk uuid  : %s\n", disk_info.uuid);
 		if (disk_info.partition_table_type[0]) printf("part type  : %s\n", disk_info.partition_table_type);
-		printf("block size : %s\n", byte_amount(disk_info.logicial_block_size));
+		printf("block size : %s\n", byte_amount(disk_info.logical_block_size));
 		printf("blocks     : %zu\n", disk_info.blocks_count);
-		printf("size       : %s\n", byte_amount(disk_info.logicial_block_size * disk_info.blocks_count));
+		printf("size       : %s\n", byte_amount(disk_info.logical_block_size * disk_info.blocks_count));
 	}
 
 	// try to get (modern) partition info

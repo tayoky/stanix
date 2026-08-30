@@ -162,11 +162,11 @@ static cache_ops_t block_cache_ops = {
 	.write = block_write_pages,
 };
 
-ssize_t block_device_read(block_device_t *block_device, void *buf, off_t offset, size_t count) {
+ssize_t block_device_read(block_device_t *block_device, void *buffer, off_t offset, size_t count) {
 	return cache_read(&block_device->cache, buffer, offset, count);
 }
 
-ssize_t block_device_write(block_device_t *block_device, const void *buf, off_t offset, size_t count) {
+ssize_t block_device_write(block_device_t *block_device, const void *buffer, off_t offset, size_t count) {
 	return cache_write(&block_device->cache, buffer, offset, count);
 }
 
@@ -181,7 +181,7 @@ int block_device_ioctl(block_device_t *block_device, long request, void *arg) {
 			.blocks_count       = block_device->sectors_count,
 		};
 		memcpy(disk_info.uuid, block_device->uuid, sizeof(disk_info.uuid));
-		memcpy(disk_info.partition_table_type, block_device->part_driver->name, sizeof(disk_info.partition_table_type));
+		if (block_device->part_driver) memcpy(disk_info.partition_table_type, block_device->part_driver->name, sizeof(disk_info.partition_table_type));
 		return safe_copy_auto_to(arg, &disk_info);
 	case BLOCK_RESCAN_PARTS:
 		// TODO : do we need some kind of permission ?
@@ -358,9 +358,9 @@ static int block_partition_ioctl(vfs_fd_t *fd, long request, void *arg) {
 		memcpy(part_info.uuid, partition->uuid, sizeof(part_info.uuid));
 		return safe_copy_auto_to(arg, &part_info);
 	case BLOCK_OPEN_DISK:;
-		vfs_fd_t *new_fd = device_open(&partition->block_device.device);
+		vfs_fd_t *new_fd = device_open(&partition->block_device->device, fd->flags);
 		if (IS_ERR(new_fd)) return PTR2ERR(new_fd);
-		return fd_add(new_fd);
+		return fd_add(new_fd, 0);
 	default:
 		return block_device_ioctl(partition->block_device, request, arg);
 	}
@@ -422,17 +422,17 @@ int block_device_add_partition(block_device_t *block_device, off_t offset, size_
 	block_partition_t *partition = slab_alloc(&block_partitions_slab);
 	if (!partition) return -ENOMEM;
 	partition->offset = offset;
-	partituon->size   = size;
+	partition->size   = size;
 	if (uuid) {
-		snprintf(partition->uuid, sizeof(partion->uuid), "%s", uuid);
+		snprintf(partition->uuid, sizeof(partition->uuid), "%s", uuid);
 	}
 	partition->index = block_device->partitions_count++;
 	partition->block_device = block_device;
-	partition->device.ops = block_partition_ops;
+	partition->device.ops = &block_partition_ops;
 	partition->device.type = DEVICE_BLOCK;
 	partition->device.destroy = block_partition_destroy;
 	partition->device.cleanup = block_partition_cleanup;
-	list_append(&block_device->partitions);
+	list_append(&block_device->partitions, &partition->node);
 
 	char name[64];
 	snprintf(name, sizeof(name), "%sp%%d", block_device->device.name);

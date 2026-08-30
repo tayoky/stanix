@@ -16,7 +16,7 @@ typedef struct gpt_guid {
     uint16_t e3;
     uint16_t e4;
     uint8_t  e5[6];
-} gpd_guid_t;
+} gpt_guid_t;
 
 typedef struct gpt {
 	char signature[8];
@@ -51,6 +51,7 @@ static void swap_guid(gpt_guid_t *guid) {
 }
 
 static void guid2str(gpt_guid_t *guid, char *buf, size_t buf_size) {
+	swap_guid(guid);
 	int ptr = snprintf(buf, buf_size, "%08x-%04hx-%04hx-%04hx-", guid->e1, guid->e2, guid->e3, guid->e4);
 	for (int i = 0; i < 6; i++) {
 		ptr += sprintf(buf + ptr, "%02hhx", guid->e5[i]);
@@ -59,7 +60,7 @@ static void guid2str(gpt_guid_t *guid, char *buf, size_t buf_size) {
 
 static int gpt_probe(block_device_t *block_device) {
 	mbr_table_t mbr;
-	vfs_read(source, &mbr, 0, sizeof(mbr));
+	block_device_read(block_device, &mbr, 0, sizeof(mbr));
 	if (mbr.signature != MBR_SIGNATURE) return 0;
 
 	// check the mbr
@@ -75,28 +76,29 @@ static int gpt_probe(block_device_t *block_device) {
 
 static int gpt_attach(block_device_t *block_device) {
 	gpt_header_t gpt;
-	vfs_read(dev, &gpt, block_device->sector_size, sizeof(gpt));
+	block_device_read(block_device, &gpt, block_device->sector_size, sizeof(gpt));
 	if (memcmp(gpt.signature, GPT_SIGNATURE, sizeof(gpt.signature))) {
 		return -EFTYPE;
 	}
 	//TODO : check the checksum
 	
-	swap_guid(&gpt.guid);
-	guid2str(block_device->uuid, sizeof(block_device->uuid), &gpt.guid);
+	gpt_guid_t guid;
+	guid = gpt.guid;
+	guid2str(&guid, block_device->uuid, sizeof(block_device->uuid));
 
-	off_t off = 2 * block_device->sector_size;
-	for (size_t i = 0; i < gpt.part_count; i++, off += gpt.part_ent_size) {
+	off_t offset = 2 * block_device->sector_size;
+	for (size_t i = 0; i < gpt.part_count; i++, offset += gpt.part_ent_size) {
 		gpt_entry_t entry;
-		vfs_read(dev, &entry, off, sizeof(entry));
+		block_device_read(block_device, &entry, offset, sizeof(entry));
 
 		// ignore empty partitions
 		gpt_guid_t zero;
 		memset(&zero, 0, sizeof(zero));
-		if (!memcmp(&entry.guid, &zero, sizeof(gpt_guid_t)))continue;
+		if (!memcmp(&entry.type, &zero, sizeof(gpt_guid_t)))continue;
 
 		char uuid[64];
-		swap_guid(&entry.guid);
-		guid2str(uuid, sizeof(uuid), &entry.guid);
+		gpt_guid_t guid = entry.guid;
+		guid2str(&guid, uuid, sizeof(uuid));
 
 		block_device_add_partition(block_device, entry.lba_start * block_device->sector_size, (entry.lba_end - entry.lba_start) * block_device->sector_size, uuid);
 	}
