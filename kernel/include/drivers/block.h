@@ -11,6 +11,8 @@
 typedef struct block_ops block_ops_t;
 typedef struct block_device block_device_t;
 typedef struct block_request block_request_t;
+typedef struct block_partition block_partition_t;
+typedef struct block_partition_driver block_partition_driver_t;
 
 struct block_ops {
 	int (*submit)(block_device_t *block_device, block_request_t *request);
@@ -21,7 +23,12 @@ struct block_ops {
 struct block_device {
 	device_t device;
 	cache_t cache;
+	char uuid[64];
 	block_ops_t *ops;
+	block_partition_driver_t *part_driver;
+	list_t partitions;
+	size_t partitions_count;
+	void *part_data;
 	size_t sector_size;
 	size_t sectors_count;
 };
@@ -32,6 +39,7 @@ struct block_request {
 	block_device_t *block_device;
 	size_t start_sector;
 	size_t sectors_count;
+	size_t index;
 	int type;
 };
 
@@ -39,7 +47,34 @@ struct block_request {
 #define BLOCK_REQUEST_WRITE 2
 #define BLOCK_REQUEST_FLUSH 3
 
+struct block_partition {
+	device_t device;
+	char uuid[64];
+	block_device_t *block_device;
+	off_t offset;
+	size_t size;
+};
+
+struct block_partition_driver {
+	list_node_t node;
+	const char *name;
+	int (*probe)(block_device_t *block_device);
+	int (*attach)(block_device_t *block_device);
+	void (*detach)(block_device_t *block_device);
+};
+
 void init_block(void);
+
 block_request_t *block_create_request(block_device_t *block_device, int type);
+
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number);
+ssize_t block_device_read(block_device_t *block_device, void *buf, off_t offset, size_t count);
+ssize_t block_device_write(block_device_t *block_device, const void *buf, off_t offset, size_t count);
+int block_device_ioctl(block_device_t *block_device, long request, void *arg);
+int block_device_flush(block_device_t *block_device, off_t offset, size_t count);
+int block_device_rescan_partitions(block_device_t *block_device);
+int block_device_add_partition(block_device_t *block_device, off_t offset, size_t size, const char *uuid);
+
+int block_partition_driver_register(block_partition_driver_t *driver);
+int block_partition_driver_unregister(block_partition_driver_t *driver);
 #endif

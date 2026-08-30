@@ -8,9 +8,16 @@
 #include <errno.h>
 
 static slab_cache_t block_requests_slab;
+static slab_cache_t block_partitions_slab;
+static int part_major;
+static list_t partition_drivers;
+
+static void block_device_free_partitions(block_device_t *block_device);
 
 void init_block(void) {
 	slab_init(&block_requests_slab, sizeof(block_request_t), "block-requests");
+	slab_init(&block_partitions_slab, sizeof(block_partition_t), "block-partitions");
+	part_major = device_allocate_major();
 }
 
 #define DATA_OFFSET 0
@@ -155,14 +162,51 @@ static cache_ops_t block_cache_ops = {
 	.write = block_write_pages,
 };
 
+ssize_t block_device_read(block_device_t *block_device, void *buf, off_t offset, size_t count) {
+	return cache_read(&block_device->cache, buffer, offset, count);
+}
+
+ssize_t block_device_write(block_device_t *block_device, const void *buf, off_t offset, size_t count) {
+	return cache_write(&block_device->cache, buffer, offset, count);
+}
+
+int block_device_ioctl(block_device_t *block_device, long request, void *arg) {
+	switch (request) {
+	case BLOCK_GET_SIZE:; // deprecated
+		size_t size = block_device->sectors_count * block_device->sector_size;
+		return safe_copy_auto_to(arg, &size);
+	case BLOCK_GET_DISK_INFO:;
+		block_disk_info_t disk_info = {
+			.logical_block_size = block_device->sector_size,
+			.blocks_count       = block_device->sectors_count,
+		};
+		memcpy(disk_info.uuid, block_device->uuid, sizeof(disk_info.uuid));
+		memcpy(disk_info.partition_table_type, block_device->part_driver->name, sizeof(disk_info.partition_table_type));
+		return safe_copy_auto_to(arg, &disk_info);
+	case BLOCK_RESCAN_PARTS:
+		// TODO : do we need some kind of permission ?
+		block_device_rescan_partitions(block_device);
+		return 0;
+	default:
+		if (block_device->ops->ioctl) {
+			return block_device->ops->ioctl(block_device, request, arg);
+		}
+		return -ENOTTY;
+	}
+}
+
+int block_device_flush(block_device_t *block_device, off_t offset, size_t count) {
+	return cache_flush(&block_device->cache, offset, count);
+}
+
 static ssize_t block_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
-	return cache_read(&block_device->cache, buffer, offset, count);
+	return block_device_read(block_device, buffer, offset, count);
 }
 
 static ssize_t block_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
-	return cache_write(&block_device->cache, buffer, offset, count);
+	return block_device_write(block_device, buffer, offset, count);
 }
 
 static off_t block_seek(vfs_fd_t *fd, off_t offset, int whence) {
@@ -189,21 +233,12 @@ static off_t block_seek(vfs_fd_t *fd, off_t offset, int whence) {
 
 static int block_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
-	switch (request) {
-	case BLOCK_GET_SIZE:;
-		size_t size = block_device->sectors_count * block_device->sector_size;
-		return safe_copy_auto_to(arg, &size);
-	default:
-		if (block_device->ops->ioctl) {
-			return block_device->ops->ioctl(block_device, request, arg);
-		}
-		return -ENOTTY;
-	}
+	return block_device_ioctl(block_device, request, arg);
 }
 
 static int block_flush(vfs_fd_t *fd, off_t offset, size_t count) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
-	return cache_flush(&block_device->cache, offset, count);
+	return block_device_flush(block_device, offset, count);
 }
 
 static vfs_fd_ops_t block_ops = {
@@ -256,7 +291,7 @@ block_request_t *block_create_request(block_device_t *block_device, int type) {
 
 static void block_destroy(device_t *device) {
 	block_device_t *block_device = container_of(device, block_device_t, device);
-	(void)block_device;
+	block_device_free_partitions(block_device);
 	// TODO : cancel every requests
 	free_cache(&block_device->cache);
 }
@@ -277,4 +312,138 @@ int block_device_register(block_device_t *block_device, const char *fmt, dev_t n
 	block_device->cache.ops      = &block_cache_ops;
 	block_device->cache.size     = block_device->sectors_count * block_device->sector_size;
 	return device_register(&block_device->device, fmt, number);
+}
+
+// partition stuff, TODO : move in another file
+
+static void block_partition_destroy(device_t *device) {
+		block_partition_t *partition = container_of(device, block_partition_t, device);
+		list_remove(&partition->block_device->partitions, &partition->node);
+}
+
+static void block_partition_cleanup(device_t *device) {
+		block_partition_t *partition = container_of(device, block_partition_t, device);
+		slab_free(partition);
+}
+
+static ssize_t block_partition_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
+	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
+	if (device_is_unplugged(&partition->device)) return -ENXIO;
+	if (offset > partition->size) return 0;
+	if (partition->size - offset < count) {
+		count = partition->size - offset;
+	}
+	return block_device_read(partition->block_device, buffer, offset, count);
+}
+
+static ssize_t block_partition_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
+	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
+	if (device_is_unplugged(&partition->device)) return -ENXIO;
+	if (offset > partition->size) return 0;
+	if (partition->size - offset < count) {
+		count = partition->size - offset;
+	}
+	return block_device_write(partition->block_device, buffer, offset, count);
+}
+
+static int block_partition_ioctl(vfs_fd_t *fd, long request, void *arg) {
+	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
+	if (device_is_unplugged(&partition->device)) return -ENXIO;
+	switch (request) {
+	case BLOCK_GET_PART_INFO:;
+		block_part_info_t part_info = {
+			.offset = partition->offset,
+			.size   = partition->size,
+		};
+		memcpy(part_info.uuid, partition->uuid, sizeof(part_info.uuid));
+		return safe_copy_auto_to(arg, &part_info);
+	case BLOCK_OPEN_DISK:;
+		vfs_fd_t *new_fd = device_open(&partition->block_device.device);
+		if (IS_ERR(new_fd)) return PTR2ERR(new_fd);
+		return fd_add(new_fd);
+	default:
+		return block_device_ioctl(partition->block_device, request, arg);
+	}
+}
+
+static int block_partition_flush(vfs_fd_t *fd, off_t offset, size_t count) {
+	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
+	if (device_is_unplugged(&partition->device)) return -ENXIO;
+	if (offset > partition->size) return 0;
+	if (partition->size - offset < count) {
+		count = partition->size - offset;
+	}
+	return block_device_flush(partition->block_device, offset, count);
+}
+
+static vfs_fd_ops_t block_partition_ops = {
+	.read  = block_partition_read,
+	.write = block_partition_write,
+	.ioctl = block_partition_ioctl,
+	.flush = block_partition_flush,
+};
+
+static void block_device_free_partitions(block_device_t *block_device) {
+	if (block_device->part_driver && block_device->part_driver->detach) {
+		block_device->part_driver->detach(block_device);
+	}
+	while (!list_is_empty(&block_device->partitions)) {
+		block_partition_t *partition = container_of(block_device->partitions.first_node, block_partition_t, node);
+		device_destroy(&partition->device);
+	}
+}
+
+int block_device_rescan_partitions(block_device_t *block_device) {
+	block_device_free_partitions(block_device);
+	block_device->part_driver = NULL;
+	block_device->partitions_count = 0;
+
+	block_partition_driver_t *best = NULL;
+	int best_score = 0;
+	foreach (node, &partition_drivers) {
+		block_partition_driver_t *driver = container_of(node, block_partition_driver_t, node);
+		if (!driver->check || !driver->attach) continue;
+		int score = driver->check(block_device);
+		if (score > best_score) {
+			best = driver;
+			best_score = score;
+		}
+	}
+	if (best) {
+		int ret = best->attach(block_device);
+		if (ret >= 0) block_device->part_driver = best;
+		return ret;
+	} else {
+		return -ENOTSUP;
+	}
+}
+
+int block_device_add_partition(block_device_t *block_device, off_t offset, size_t size, const char *uuid) {
+	block_partition_t *partition = slab_alloc(&block_partitions_slab);
+	if (!partition) return -ENOMEM;
+	partition->offset = offset;
+	partituon->size   = size;
+	if (uuid) {
+		snprintf(partition->uuid, sizeof(partion->uuid), "%s", uuid);
+	}
+	partition->index = block_device->partitions_count++;
+	partition->block_device = block_device;
+	partition->device.ops = block_partition_ops;
+	partition->device.type = DEVICE_BLOCK;
+	partition->device.destroy = block_partition_destroy;
+	partition->device.cleanup = block_partition_cleanup;
+	list_append(&block_device->partitions);
+
+	char name[64];
+	snprintf(name, sizeof(name), "%sp%%d", block_device->device.name);
+	device_register(&partition->device, name, makedev(part_major, 0));
+	return 0;
+}
+
+int block_partition_driver_register(block_partition_driver_t *driver) {
+	list_append(&partition_drivers, &driver->node);
+}
+
+int block_partition_driver_unregister(block_partition_driver_t *driver) {
+	list_remove(&partition_drivers, &driver->node);
 }
