@@ -650,13 +650,35 @@ static vfs_superblock_ops_t fat_superblock_ops = {
 	.flush_inode = fat_flush_inode,
 };
 
-int fat_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
+static int fat_probe(vfs_fd_t *source) {
+	fat_bpb_t bpb;
+	if (vfs_read(source, &bpb, 0, sizeof(bpb)) < (ssize_t)sizeof(bpb)) return 0;
+	if (bpb.extended.fat32.signature != 0xaa55) return 0;
+
+	if (!memcmp(bpb.extended.fat32.fs_type, "MSWIN   ", sizeof(bpb.extended.fat32.fs_type))) {
+		return 1;
+	} else if (!memcmp(bpb.extended.fat32.fs_type, "FAT32   ", sizeof(bpb.extended.fat32.fs_type))) {
+		return 1;
+	} else if (!memcmp(bpb.extended.fat16.fs_type, "MSDOS   ", sizeof(bpb.extended.fat16.fs_type))) {
+		return 1;
+	} else if (!memcmp(bpb.extended.fat16.fs_type, "FAT16   ", sizeof(bpb.extended.fat16.fs_type))) {
+		return 1;
+	} else if (!memcmp(bpb.extended.fat16.fs_type, "FAT12   ", sizeof(bpb.extended.fat16.fs_type))) {
+		return 1;
+	} else if (!memcmp(bpb.extended.fat16.fs_type, "FAT     ", sizeof(bpb.extended.fat16.fs_type))) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+static int fat_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
 	(void)flags;
 	(void)data;
 	(void)target;
 	fat_bpb_t bpb;
 	if (vfs_read(source, &bpb, 0, sizeof(bpb)) != sizeof(bpb)) {
-		return -EIO; // not sure this is the good error code
+		return -EFTYPE;
 	}
 	if (bpb.extended.fat32.signature != 0xaa55) {
 		kdebugf("invalid signature\n");
@@ -748,6 +770,7 @@ static vfs_inode_ops_t fat_inode_ops = {
 };
 
 static vfs_filesystem_t fat_fs = {
+	.probe = fat_probe,
 	.mount = fat_mount,
 	.name  = "fat",
 };

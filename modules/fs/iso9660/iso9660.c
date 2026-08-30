@@ -57,7 +57,6 @@ static void iso9660_extract_name(iso9660_dentry_t *dentry, char *buf, size_t buf
 	if (nm && nm->susp_entry.length < sizeof(iso9660_nm_entry_t)) nm = NULL;
 	if (nm && nm->version != ISO9660_NM_ENTRY_VERSION) nm = NULL;
 	if (nm) {
-		kdebugf("rock ridger\n");
 		// we have a rock ridger name
 		size_t ptr = 0;
 		for (;;) {
@@ -88,7 +87,6 @@ static void iso9660_extract_name(iso9660_dentry_t *dentry, char *buf, size_t buf
 			}
 		}
 		buf[ptr] = '\0';
-		kdebugf("got name %s\n", buf);
 		return;
 	}
 
@@ -392,6 +390,7 @@ static iso9660_inode_t *iso9660_entry2inode(iso9660_superblock_t *iso9660_superb
 	if (pn && pn->version != ISO9660_PN_ENTRY_VERSION) pn = NULL;
 
 	if (px) {
+		kdebugf("got px\n");
 		// TODO : use inode cache maybee
 		inode->vnode.mode   = le_uint32_to_uint32(&px->mode.le);
 		inode->vnode.uid    = le_uint32_to_uint32(&px->uid.le);
@@ -418,6 +417,17 @@ static iso9660_inode_t *iso9660_entry2inode(iso9660_superblock_t *iso9660_superb
 		}
 	}
 	return inode;
+}
+
+static int iso9660_probe(vfs_fd_t *source) {
+	iso9660_volume_descriptor_t volume_descriptor;
+	ssize_t ret = vfs_read(source, &volume_descriptor, 16 * 2048, sizeof(volume_descriptor));
+	if (ret < (ssize_t)sizeof(iso9660_volume_descriptor_t)) return 0;
+	if (memcmp(volume_descriptor.identifier, ISO9660_VOLUME_DESCRIPTOR_IDENTIFIER, sizeof(volume_descriptor.identifier))) return 0;
+	if (volume_descriptor.version != ISO9660_VOLUME_DESCRIPTOR_VERSION) return 0;
+
+	// use this over FAT
+	return 2;
 }
 
 static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
@@ -463,7 +473,7 @@ error:
 		}
 
 		// check if the version is valid
-		if (volume_descriptor.version != 0x01) {
+		if (volume_descriptor.version != ISO9660_VOLUME_DESCRIPTOR_VERSION) {
 			kwarningf("unsupported version %hhx\n", volume_descriptor.version);
 			ret = -ENOTSUP;
 			goto error;
@@ -506,6 +516,7 @@ error:
 }
 
 static vfs_filesystem_t iso9660_fs = {
+	.probe = iso9660_probe,
 	.mount = iso9660_mount,
 	.name  = "iso9660",
 };

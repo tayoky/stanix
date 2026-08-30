@@ -14,6 +14,20 @@
 
 int ret = 0;
 
+void attempt_mount(const char *prefix) {
+	char mnt_path[PATH_MAX];
+	snprintf(mnt_path, sizeof(mnt_path), MNT_PATH"/%s", prefix);
+	char dev_path[PATH_MAX];
+	snprintf(dev_path, sizeof(dev_path), DEV_PATH"/%s", prefix);
+
+	if (mkdir(mnt_path, 0777) < 0) return;
+
+	int ret = mount(dev_path, mnt_path, "auto", MS_AUTO, NULL);
+	if (ret < 0) {
+		rmdir(mnt_path);
+	}
+}
+
 void check(const char *prefix) {
 	char path[PATH_MAX];
 	for (char i = 0; i <= 20; i++) {
@@ -44,17 +58,19 @@ fail:
 			ret = 1;
 			continue;
 		}
+		
+		char dev_prefix[PATH_MAX];
+		snprintf(dev_prefix, sizeof(dev_prefix), "%s%d", prefix, i);
+		attempt_mount(dev_prefix);
 
 		for (int j = 0;; j++) {
+			struct stat buf;
 			sprintf(path, DEV_PATH "/%s%dp%d", prefix, i, j);
-			int fd = open(path, O_WRONLY);
-			if (fd < 0) break;
-
-			block_part_info_t info;
-			if (ioctl(fd, BLOCK_GET_PART_INFO, &info) < 0) {
-				goto fail;
-			}
-			close(fd);
+			if (stat(path, &buf) < 0) break;
+			
+			char part_prefix[PATH_MAX];
+			snprintf(part_prefix, sizeof(part_prefix), "%s%dp%d", prefix, i, j);
+			attempt_mount(part_prefix);
 		}
 
 
