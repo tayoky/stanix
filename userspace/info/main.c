@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
 		printf("device     : %u, %u\n", major(st.st_rdev), minor(st.st_rdev));
 	}
 
-	// try to get partition info
+	// try to get (legacy) partition info
 	part_info_t part_info;
 	if (ioctl(fd, PART_GET_INFO, &part_info) >= 0) {
 		switch (part_info.type) {
@@ -107,10 +107,22 @@ int main(int argc, char **argv) {
 		if (device_info.serial[0])   printf("serial     : %s\n", device_info.serial);
 	}
 
-	// try to get block size
-	size_t size;
-	if (ioctl(fd, BLOCK_GET_SIZE, &size) >= 0) {
-		printf("size       : %s\n", byte_amount(size));
+	// try to get block info
+	block_disk_info_t disk_info;
+	if (ioctl(fd, BLOCK_GET_DISK_INFO, &disk_info) >= 0) {
+		if (disk_info.uuid[0]) printf("disk uuid  : %s\n", disk_info.uuid);
+		if (disk_info.partition_table_type[0]) printf("part type  : %s\n", disk_info.partition_table_type);
+		printf("block size : %s\n", byte_amount(disk_info.logicial_block_size));
+		printf("blocks     : %zu\n", disk_info.blocks_count);
+		printf("size       : %s\n", byte_amount(disk_info.logicial_block_size * disk_info.blocks_count));
+	}
+
+	// try to get (modern) partition info
+	block_part_info_t block_part_info;
+	if (ioctl(fd, BLOCK_GET_PART_INFO, &block_part_info) >= 0) {
+		if (block_part_info.uuid[0]) printf("part uuid  : %s\n", block_part_info.uuid);
+		printf("offset     : %zd\n", block_part_info.offset);
+		printf("size       : %s\n", byte_amount(block_part_info.size));
 	}
 
 
