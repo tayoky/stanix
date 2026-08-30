@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <errno.h>
 
-// module for partions (mbr/gpt)
+// legacy module for partions (mbr/gpt)
 
 #define GPT_ID 0xEE 
 
