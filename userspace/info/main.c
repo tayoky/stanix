@@ -1,4 +1,3 @@
-#include <module/part.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
@@ -48,15 +47,6 @@ const char *byte_amount(size_t amount) {
 	return buf;
 }
 
-static const char *gpt_guid2str(gpt_guid_t *guid) {
-	static char buf[256];
-	int ptr = sprintf(buf, "%08x-%04hx-%04hx-%04hx-", guid->e1, guid->e2, guid->e3, guid->e4);
-	for (int i = 0; i < 6; i++) {
-		ptr += sprintf(buf + ptr, "%02hhx", guid->e5[i]);
-	}
-	return buf;
-}
-
 int main(int argc, char **argv) {
 	if (argc != 2) {
 		fprintf(stderr, "not enought argument\n");
@@ -75,27 +65,6 @@ int main(int argc, char **argv) {
 	struct stat st;
 	if (fstat(fd, &st) >= 0) {
 		printf("device     : %u, %u\n", major(st.st_rdev), minor(st.st_rdev));
-	}
-
-	// try to get (legacy) partition info
-	part_info_t part_info;
-	if (ioctl(fd, PART_GET_INFO, &part_info) >= 0) {
-		switch (part_info.type) {
-		case PART_TYPE_MBR:
-			printf("part type  : MBR\n");
-			printf("part uuid  : %08x\n", part_info.mbr.disk_uuid);
-			printf("part type  : %02hhx(MBR)\n", part_info.mbr.type);
-			break;
-		case PART_TYPE_GPT:
-			printf("part type  : GPT\n");
-			printf("disk uuid  : %s\n", gpt_guid2str(&part_info.gpt.disk_uuid));
-			printf("part uuid  : %s\n", gpt_guid2str(&part_info.gpt.part_uuid));
-			printf("part type  : %s\n", gpt_guid2str(&part_info.gpt.type));
-			break;
-		default:
-			printf("part type  : unknown\n");
-			break;
-		}
 	}
 
 	// try to get device info
@@ -117,12 +86,13 @@ int main(int argc, char **argv) {
 		printf("size       : %s\n", byte_amount(disk_info.logical_block_size * disk_info.blocks_count));
 	}
 
-	// try to get (modern) partition info
-	block_part_info_t block_part_info;
-	if (ioctl(fd, BLOCK_GET_PART_INFO, &block_part_info) >= 0) {
-		if (block_part_info.uuid[0]) printf("part uuid  : %s\n", block_part_info.uuid);
-		printf("offset     : %zd\n", block_part_info.offset);
-		printf("size       : %s\n", byte_amount(block_part_info.size));
+	// try to get partition info
+	block_part_info_t part_info;
+	if (ioctl(fd, BLOCK_GET_PART_INFO, &part_info) >= 0) {
+		if (part_info.uuid[0])    printf("part uuid  : %s\n", part_info.uuid);
+		if (part_info.fs_uuid[0]) printf("fs uuid    : %s\n", part_info.fs_uuid);
+		printf("offset     : %zd\n", part_info.offset);
+		printf("size       : %s\n", byte_amount(part_info.size));
 	}
 
 

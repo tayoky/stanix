@@ -333,7 +333,7 @@ static ssize_t block_partition_read(vfs_fd_t *fd, void *buffer, off_t offset, si
 	if (partition->size - offset < count) {
 		count = partition->size - offset;
 	}
-	return block_device_read(partition->block_device, buffer, offset, count);
+	return block_device_read(partition->block_device, buffer, offset + partition->offset, count);
 }
 
 static ssize_t block_partition_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
@@ -343,7 +343,7 @@ static ssize_t block_partition_write(vfs_fd_t *fd, const void *buffer, off_t off
 	if (partition->size - offset < count) {
 		count = partition->size - offset;
 	}
-	return block_device_write(partition->block_device, buffer, offset, count);
+	return block_device_write(partition->block_device, buffer, offset + partition->offset, count);
 }
 
 static int block_partition_ioctl(vfs_fd_t *fd, long request, void *arg) {
@@ -355,7 +355,8 @@ static int block_partition_ioctl(vfs_fd_t *fd, long request, void *arg) {
 			.offset = partition->offset,
 			.size   = partition->size,
 		};
-		memcpy(part_info.uuid, partition->uuid, sizeof(part_info.uuid));
+		memcpy(part_info.uuid,    partition->uuid,    sizeof(part_info.uuid));
+		memcpy(part_info.fs_uuid, partition->fs_uuid, sizeof(part_info.fs_uuid));
 		return safe_copy_auto_to(arg, &part_info);
 	case BLOCK_OPEN_DISK:;
 		vfs_fd_t *new_fd = device_open(&partition->block_device->device, fd->flags);
@@ -373,7 +374,7 @@ static int block_partition_flush(vfs_fd_t *fd, off_t offset, size_t count) {
 	if (partition->size - offset < count) {
 		count = partition->size - offset;
 	}
-	return block_device_flush(partition->block_device, offset, count);
+	return block_device_flush(partition->block_device, offset + partition->offset, count);
 }
 
 static vfs_fd_ops_t block_partition_ops = {
@@ -418,14 +419,14 @@ int block_device_rescan_partitions(block_device_t *block_device) {
 	}
 }
 
-int block_device_add_partition(block_device_t *block_device, off_t offset, size_t size, const char *uuid) {
+int block_device_add_partition(block_device_t *block_device, off_t offset, size_t size, const char *uuid, const char *fs_uuid) {
 	block_partition_t *partition = slab_alloc(&block_partitions_slab);
 	if (!partition) return -ENOMEM;
+	memset(partition, 0, sizeof(block_partition_t));
 	partition->offset = offset;
 	partition->size   = size;
-	if (uuid) {
-		snprintf(partition->uuid, sizeof(partition->uuid), "%s", uuid);
-	}
+	if (uuid)    snprintf(partition->uuid,    sizeof(partition->uuid),    "%s", uuid);
+	if (fs_uuid) snprintf(partition->fs_uuid, sizeof(partition->fs_uuid), "%s", fs_uuid);
 	partition->index = block_device->partitions_count++;
 	partition->block_device = block_device;
 	partition->device.ops = &block_partition_ops;

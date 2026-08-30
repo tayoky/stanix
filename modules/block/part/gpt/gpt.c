@@ -100,7 +100,11 @@ static int gpt_attach(block_device_t *block_device) {
 		gpt_guid_t guid = entry.guid;
 		guid2str(&guid, uuid, sizeof(uuid));
 
-		block_device_add_partition(block_device, entry.lba_start * block_device->sector_size, (entry.lba_end - entry.lba_start) * block_device->sector_size, uuid);
+		char fs_uuid[64];
+		gpt_guid_t fs_guid = entry.type;
+		guid2str(&fs_guid, fs_uuid, sizeof(fs_uuid));
+
+		block_device_add_partition(block_device, entry.lba_start * block_device->sector_size, (entry.lba_end - entry.lba_start) * block_device->sector_size, uuid, fs_uuid);
 	}
 
 	return 0;

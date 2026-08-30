@@ -22,7 +22,9 @@ static int mbr_attach(block_device_t *block_device) {
 
 	for (size_t i = 0; i < 4; i++) {
 		if (mbr.entries[i].sectors_count == 0) continue;
-		block_device_add_partition(block_device, mbr.entries[i].lba_start * block_device->sector_size, mbr.entries[i].sectors_count * block_device->sector_size, NULL);
+		char fs_uuid[8];
+		snprintf(fs_uuid, sizeof(fs_uuid), "%hhx", mbr.entries[i].type);
+		block_device_add_partition(block_device, mbr.entries[i].lba_start * block_device->sector_size, mbr.entries[i].sectors_count * block_device->sector_size, NULL, fs_uuid);
 	}
 
 	return 0;

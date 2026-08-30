@@ -1,6 +1,8 @@
 #ifndef MODULE_MBR_H
 #define MODULE_MBR_H
 
+#include <stdint.h>
+
 typedef struct mbr_entry {
 	uint8_t attribute;
 	char chs_start[3];
