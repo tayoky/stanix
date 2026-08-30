@@ -430,7 +430,7 @@ static int iso9660_mount(vfs_fd_t *source, const char *target, unsigned long fla
 
 	iso9660_superblock_t *iso9660_superblock = kmalloc(sizeof(iso9660_superblock_t));
 	if (!iso9660_superblock) return -ENOMEM;
-	memset(iso9660_superblock, 9, sizeof(iso9660_superblock_t));
+	memset(iso9660_superblock, 0, sizeof(iso9660_superblock_t));
 
 	// iterate through each volume descriptor
 	iso9660_volume_descriptor_t volume_descriptor = {0};

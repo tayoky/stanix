@@ -13,11 +13,11 @@ chmod 01777 /dev/shm
 chmod 0755 /dev
 echo "loading modules"
 
-for MODULE in test \
+for MODULE in \
 pci \
 libscsi scsi-mmc \
 libata ide ata atapi \
-part fat \
+mbr gpt fat iso9660 \
 libps2 i8042 ps2-kb ps2-mouse \
 isa \
 serial ; do
