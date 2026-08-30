@@ -174,6 +174,7 @@ typedef struct vfs_filesystem {
 	list_node_t node;
 	char name[16];
 	int (*mount)(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **mount_point);
+	int (*probe)(vfs_fd_t *source);
 } vfs_filesystem_t;
 
 typedef struct vfs_context {

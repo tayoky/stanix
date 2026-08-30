@@ -9,6 +9,7 @@
 #include <kernel/mutex.h>
 #include <kernel/string.h>
 #include <kernel/vfs.h>
+#include <sys/mount.h>
 #include <errno.h>
 #include <limits.h>
 #include <poll.h>
@@ -76,34 +77,49 @@ static void vfs_superblock_destroy(vfs_superblock_t *superblock) {
 
 int vfs_auto_mount(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data) {
 	vfs_superblock_t *superblock = NULL;
+
+	vfs_fd_t *src = source ? vfs_open(source, O_RDWR) : NULL;
+	if (IS_ERR(src)) return PTR2ERR(src);
+
+	vfs_filesystem_t *best = NULL;
+	int best_score = 0;
 	foreach (node, &fs_types) {
-		vfs_filesystem_t *fs = (vfs_filesystem_t *)node;
-		if (!strcmp(fs->name, filesystemtype)) {
-			if (!fs->mount) {
-				return -ENODEV;
+		vfs_filesystem_t *fs = container_of(node, vfs_filesystem_t, node);
+		if (mountflags & MS_AUTO) {
+			if (!fs->probe) continue;
+			int score = fs->probe(src);
+			if (score > best_score) {
+				best = fs;
+				best_score = score;
 			}
-			
-			vfs_fd_t *src = source ? vfs_open(source, O_RDWR) : NULL;
-			if (IS_ERR(src)) return PTR2ERR(src);
-
-			int ret = fs->mount(src, target, mountflags, data, &superblock);
-			if (ret < 0) {
-				vfs_close(src);
-				return ret;
+		} else {
+			if (!strcmp(fs->name, filesystemtype)) {
+				best = fs;
+				break;
 			}
-			if (!superblock) return ret;
-
-			// mount the superblock
-			ret                          = vfs_mount(target, mountflags, superblock);
-			superblock->root->superblock = superblock;
-			if (ret < 0) {
-				vfs_superblock_destroy(superblock);
-			}
-			return ret;
 		}
 	}
 
-	return -ENODEV;
+
+	if (!best || !best->mount) {
+		vfs_close(src);
+		return -ENODEV;
+	}
+
+	int ret = best->mount(src, target, mountflags, data, &superblock);
+	if (ret < 0) {
+		vfs_close(src);
+		return ret;
+	}
+	if (!superblock) return ret;
+
+	// mount the superblock
+	ret                          = vfs_mount(target, mountflags, superblock);
+	superblock->root->superblock = superblock;
+	if (ret < 0) {
+		vfs_superblock_destroy(superblock);
+	}
+	return ret;
 }
 
 static void vfs_dentry_acquire_mount_lock(vfs_dentry_t *dentry) {

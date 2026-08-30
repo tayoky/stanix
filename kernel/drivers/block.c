@@ -402,8 +402,8 @@ int block_device_rescan_partitions(block_device_t *block_device) {
 	int best_score = 0;
 	foreach (node, &partition_drivers) {
 		block_partition_driver_t *driver = container_of(node, block_partition_driver_t, node);
-		if (!driver->check || !driver->attach) continue;
-		int score = driver->check(block_device);
+		if (!driver->probe || !driver->attach) continue;
+		int score = driver->probe(block_device);
 		if (score > best_score) {
 			best = driver;
 			best_score = score;
