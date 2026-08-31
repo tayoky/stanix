@@ -34,6 +34,7 @@
 #include <kernel/process.h>
 #include <kernel/block.h>
 #include <kernel/workqueue.h>
+#include <kernel/cmdline.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -76,7 +77,8 @@ void spawn_init() {
 		NULL
 	};
 
-	if (exec(init_path, 1, arg, 1, env)) {
+
+	if (exec(init_path, 2, arg, 1, env)) {
 		kfail();
 		kinfof("can't spawn %s\n", init_path);
 	}
