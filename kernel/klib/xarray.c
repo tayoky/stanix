@@ -21,27 +21,27 @@ static inline uintptr_t xarray_entry_store(rcu_ptr_t *ptr, uintptr_t entry) {
 }
 
 static inline void *xarray_entry_get_value(uintptr_t xarray_entry) {
-	return (void *)(xarray_entry & ~0x1);
+	return (void *)xarray_entry;
 }
 
 static inline xarray_node_t *xarray_entry_get_node(uintptr_t xarray_entry) {
-	return (xarray_node_t *)xarray_entry;
-}
-
-static inline int xarray_entry_is_value(uintptr_t xarray_entry) {
-	return xarray_entry & 0x1;
+	return (xarray_node_t *)(xarray_entry & ~0x1);
 }
 
 static inline int xarray_entry_is_node(uintptr_t xarray_entry) {
-	return !xarray_entry_is_value(xarray_entry);
+	return xarray_entry & 0x1;
+}
+
+static inline int xarray_entry_is_value(uintptr_t xarray_entry) {
+	return !xarray_entry_is_node(xarray_entry);
 }
 
 static inline uintptr_t xarray_entry_from_value(void *value) {
-	return ((uintptr_t)value) | 0x1;
+	return ((uintptr_t)value);
 }
 
 static inline uintptr_t xarray_entry_from_node(xarray_node_t *node) {
-	return (uintptr_t)node;
+	return ((uintptr_t)node) | 0x1;
 }
 
 void xarray_init(xarray_t *xarray) {
