@@ -224,6 +224,7 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path);
 int vfs_rmdir_at(vfs_dentry_t *at, const char *path);
 int vfs_mount_at(vfs_dentry_t *at, const char *name, unsigned long flags, vfs_superblock_t *superblock);
 int vfs_unmount_at(vfs_dentry_t *at, const char *path);
+int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t *dest_at, const char *dest);
 
 static inline int vfs_create(const char *path, mode_t mode) {
 	return vfs_create_at(NULL, path, mode);
@@ -269,6 +270,10 @@ static inline int vfs_mount(const char *name, unsigned long flags, vfs_superbloc
 
 static inline int vfs_unmount(const char *path) {
 	return vfs_unmount_at(NULL, path);
+}
+
+static inline int vfs_move_mount(const char *source, const char *dest) {
+	return vfs_move_mount_at(NULL, source, NULL, dest);
 }
 
 vfs_node_t *vfs_get_node_at(vfs_dentry_t *at, const char *pathname, long flags, ...);
