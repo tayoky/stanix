@@ -156,6 +156,7 @@ int vfs_mount_on(vfs_dentry_t *mount_on, unsigned long flags, vfs_superblock_t *
 	root_dentry->inode     = vfs_node_ref(superblock->root);
 	root_dentry->ref_count = 0;
 	root_dentry->mount_point = mount_point;
+	root_dentry->flags       = VFS_DENTRY_MOUNT_POINT;
 
 	// setup refs to prevent dentries from being released
 	mount_point->shadow = vfs_dentry_ref(mount_on);
@@ -186,7 +187,7 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_acquire_mount_lock(root_dentry);
 
 	int ret = 0;
-	if (!root_dentry->mount_point)  {
+	if (!(root_dentry->flags & VFS_DENTRY_MOUNT_POINT))  {
 		// not even a mount point
 		ret = -EINVAL;
 		goto error;

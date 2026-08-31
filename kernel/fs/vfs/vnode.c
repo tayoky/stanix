@@ -58,6 +58,7 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 		vfs_dentry_release(dentry);
 		return -EACCES;
 	}
+	dentry->mount_point = parent->mount_point;
 	strcpy(dentry->name, vfs_basename(path));
 	dentry->ref_count = 1;
 
@@ -256,7 +257,12 @@ error:
 	}
 
 	vfs_dentry_t *child_entry = vfs_dentry_allocate();
+	if (!child_entry) {
+		ret = -ENOMEM;
+		goto error;
+	}
 	strcpy(child_entry->name, name);
+	child_entry->mount_point = entry->mount_point;
 	child_entry->ref_count = 1;
 
 	ret = entry->inode->ops->lookup(entry->inode, child_entry);
@@ -501,7 +507,7 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	vfs_node_acquire_write(parent_entry->inode);
 
 	// cannot unlink mount points
-	if (dentry->mount_point || dentry->shadow_mount_point) {
+	if ((dentry->flags & VFS_DENTRY_MOUNT_POINT) || dentry->shadow_mount_point) {
 		vfs_node_release_write(parent_entry->inode);
 		ret = -EBUSY;
 		goto error;
@@ -570,7 +576,7 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	vfs_node_acquire_write(parent_entry->inode);
 
 	// cannot rmdir mount points
-	if (dentry->mount_point || dentry->shadow_mount_point) {
+	if ((dentry->flags & VFS_DENTRY_MOUNT_POINT) || dentry->shadow_mount_point) {
 		vfs_node_release_write(parent_entry->inode);
 		ret = -EBUSY;
 		goto error;

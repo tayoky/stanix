@@ -82,13 +82,14 @@ struct vfs_dentry {
 	ino_t inode_number;
 	long flags;
 	vfs_dentry_t *parent;
-	vfs_mount_point_t *mount_point; // only used for mount points
+	vfs_mount_point_t *mount_point;
 	vfs_mount_point_t *shadow_mount_point; // the mount this is shadowed by
 	rculist_t children;
 	ref_count_t ref_count;
 };
 
-#define VFS_DENTRY_UNLINKED 0x02 // the dentry is unlinked
+#define VFS_DENTRY_MOUNT_POINT 0x01 // the dentry is a mmubt point
+#define VFS_DENTRY_UNLINKED    0x02 // the dentry is unlinked
 
 /**
  * @brief represent an open context with a file/dir/device
