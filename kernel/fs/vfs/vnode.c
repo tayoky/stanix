@@ -532,7 +532,7 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 
 	// unlink the the dentry that was already here
 	if (!vfs_dentry_is_negative(new_dentry)) {
-		vfs_unlink_dentry(old_dentry);
+		vfs_unlink_dentry(new_dentry);
 	}
 
 	// now we can move the dentry
