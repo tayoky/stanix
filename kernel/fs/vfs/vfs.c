@@ -74,7 +74,7 @@ static void vfs_superblock_destroy(vfs_superblock_t *superblock) {
 }
 
 int vfs_auto_mount(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data) {
-	if (mountflags) {
+	if (mountflags & MS_MOVE) {
 		return vfs_move_mount(source, target);
 	}
 
