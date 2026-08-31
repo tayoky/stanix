@@ -230,8 +230,8 @@ int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t 
 	vfs_dentry_t *root_dentry = vfs_get_dentry(at, path, O_NOFOLLOW);
 	if (IS_ERR(root_dentry)) return PTR2ERR(root_dentry);
 
-	vfs_dentry_t *dest_parent;
-	vfs_dentry_t *dest_dentry = vfs_get_dentry_and_parent_at(at, name, &dest_parent, O_NOFOLLOW);
+	char last[NAME_MAX];
+	vfs_dentry_t *dest_parent = vfs_get_dentry_parent_at(at, name, last, 0);
 	if (IS_ERR(dest_dentry)) {
 		vfs_dentry_release(root_dentry);
 		return PTR2ERR(dest_dentry);
@@ -250,16 +250,16 @@ int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t 
 	}
 
 	int ret = 0;
-	if (!(root_dentry & VFS_DENTRY_MOUNT_POINT)) {
-		// not even a mount point
-		ret = -EINVAL;
+
+	vfs_dentry_t *dest_dentry = vfs_lookup(dest_parent);
+	if (IS_ERR(dest_dentry)) {
+		ret = PTR2ERR(dest_dentry);
 		goto error;
 	}
 
-	if (dest_dentry->parent != dest_parent) {
-		// the dentry was moved
-		// FIXME : technically racy if this entry was replaced atomically using rename
-		ret = -ENOENT;
+	if (!(root_dentry & VFS_DENTRY_MOUNT_POINT)) {
+		// not even a mount point
+		ret = -EINVAL;
 		goto error;
 	}
 
@@ -271,9 +271,8 @@ int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t 
 
 	kassert(!dest_entry->shadow_mount_point);
 
-	vfs_dentry_t *real_dest = vfs_follow_mount_points(dest_entry);
-	mount_point->old = vfs_dentry_ref(real_dest);
-	real_dest->shadow_mount_point = mount_point;
+	mount_point->old = vfs_dentry_ref(dest_dentry);
+	dest_dentry->shadow_mount_point = mount_point;
 	
 	vfs_dentry_release(old_shadow);
 

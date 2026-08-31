@@ -67,6 +67,7 @@ void init_vfs_dentry(void) {
 }
 
 void vfs_dentry_release(vfs_dentry_t *dentry) {
+	if (IS_ERR(dentry)) return;
 	while (dentry) {
 		if (ref_count_dec(&dentry->ref_count) > 1) {
 			return;
@@ -105,7 +106,7 @@ vfs_dentry_t *vfs_dentry_follow_mount_points(vfs_dentry_t *dentry) {
 /**
  * @note consume a release to at
  */
-static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, vfs_dentry_t **_parent, long flags, long *loop_max, mode_t mode) {
+static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, char last[NAME_MAX], long flags, long *loop_max, mode_t mode) {
 	// we are going to modify it
 	char new_path[strlen(path) + 1];
 	strcpy(new_path, path);
@@ -130,18 +131,17 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 		}
 	}
 
-	// we handle O_PARENT here
-	if (flags & O_PARENT) {
+	if (last) {
 		// do we have a parent ?
+		if (path_depth > 0) {
+			snprintf(last, NAME_MAX, "%s", path_array[path_depth - 1]);
+		} else {
+			strcpy(last, "");
+		}
 		if (path_depth < 1) {
 			return NULL;
 		}
 		path_depth--;
-	}
-
-	vfs_dentry_t *parent = NULL;
-	if (path_depth == 1) {
-		if (_parent) parent = vfs_dentry_ref(at);
 	}
 
 	vfs_dentry_t *current_entry = at;
@@ -211,10 +211,6 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 			vfs_dentry_release(current_entry);
 			current_entry = next_entry;
 		}
-		if (_parent && i == path_depth - 2) {
-			// we found the parent
-			parent = vfs_dentry_ref(current_entry);
-		}
 	}
 
 	// at this point the current entry should be valid
@@ -225,16 +221,13 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 		goto error;
 	}
 
-	if (_parent) *_parent = parent;
-
 	return current_entry;
 error:
-	vfs_dentry_release(parent);
 	vfs_dentry_release(current_entry);
 	return ERR2PTR(ret);
 }
 
-vfs_dentry_t *vfs_get_dentry_and_parent_at(vfs_dentry_t *at, const char *path, vfs_dentry_t **parent, long flags, ...) {
+vfs_dentry_t *vfs_get_dentry_parent_at(vfs_dentry_t *at, const char *path, char last[NAME_MAX], long flags, ...);
 	long loop_max = SYMLOOP_MAX;
 	mode_t mode   = 0777;
 	if (flags & O_CREAT) {
@@ -258,7 +251,7 @@ vfs_dentry_t *vfs_get_dentry_and_parent_at(vfs_dentry_t *at, const char *path, v
 			at = vfs_dentry_ref(root);
 		}
 	}
-	return vfs_get_dentry_at_recur(at, path, parent, flags, &loop_max, mode);
+	return vfs_get_dentry_at_recur(at, path, last, flags, &loop_max, mode);
 }
 
 vfs_dentry_t *vfs_dentry_allocate(void) {

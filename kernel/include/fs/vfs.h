@@ -622,7 +622,7 @@ static vfs_dentry_t *vfs_dentry_ref(vfs_dentry_t *dentry) {
 	return dentry;
 }
 
-vfs_dentry_t *vfs_get_dentry_and_parent_at(vfs_dentry_t *at, const char *path, vfs_dentry_t **parent, long flags, ...);
+vfs_dentry_t *vfs_get_dentry_parent_at(vfs_dentry_t *at, const char *path, char last[NAME_MAX], long flags, ...);
 
 static inline vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, ...) {
 	mode_t mode = 0777;
@@ -632,7 +632,7 @@ static inline vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path
 		mode = va_arg(args, mode_t);
 		va_end(args);
 	}
-	return vfs_get_dentry_and_parent_at(at, path, NULL, flags, mode);
+	return vfs_get_dentry_parent_at(at, path, NULL, flags, mode);
 
 }
 
@@ -716,8 +716,5 @@ void vfs_dentry_remove(vfs_dentry_t *dentry);
 static inline int vfs_dentry_is_negative(vfs_dentry_t *dentry) {
 	return dentry->inode == NULL;
 }
-
-// flags
-#define O_PARENT 0x4000 // open the parent
 
 #endif

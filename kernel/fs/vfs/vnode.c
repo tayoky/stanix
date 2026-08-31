@@ -4,25 +4,16 @@
 #include <kernel/time.h>
 #include <kernel/vfs.h>
 
-// basename without modyfing anything
-static const char *vfs_basename(const char *path) {
-	const char *base = path + strlen(path) - 1;
-	// path of directory might finish with '/' like /tmp/dir/
-	if (*base == '/') base--;
-	while (*base != '/') {
-		base--;
-		if (base < path) {
-			break;
-		}
-	}
-	base++;
-	return base;
-}
-
 static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **_parent, vfs_dentry_t **_dentry) {
-	vfs_dentry_t *parent = vfs_get_dentry_at(at, path, O_PARENT);
+	char last[NAME_MAX];
+	vfs_dentry_t *parent = vfs_get_dentry_parent_at(at, path, last, 0);
 	if (IS_ERR(parent)) {
 		return PTR2ERR(parent);
+	}
+
+	if (!parent) {
+		// cannot create root
+		return -EEXIST;
 	}
 
 	if (!S_ISDIR(parent->inode->mode)) {
@@ -38,7 +29,7 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 
 	vfs_node_acquire_write(parent->inode);
 
-	vfs_dentry_t *exist = vfs_lookup(parent, vfs_basename(path));
+	vfs_dentry_t *exist = vfs_lookup(parent, last);
 	if ((IS_ERR(exist) && PTR2ERR(exist) != -ENOENT) || (!IS_ERR(exist) && exist)) {
 		int ret = -EEXIST;
 		if (IS_ERR(exist)) {
@@ -59,7 +50,7 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 		return -EACCES;
 	}
 	dentry->mount_point = parent->mount_point;
-	strcpy(dentry->name, vfs_basename(path));
+	strcpy(dentry->name, last);
 	dentry->ref_count = 1;
 
 	*_parent = parent;
@@ -504,127 +495,108 @@ static int vfs_can_delete(vfs_dentry_t *dentry) {
 }
 
 int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
-	vfs_dentry_t *parent_entry;
-	vfs_dentry_t *dentry = vfs_get_dentry_and_parent_at(at, path, &parent_entry, O_NOFOLLOW);
-	if (IS_ERR(dentry)) {
-		return PTR2ERR(dentry);
+	char last[NAME_MAX];
+	vfs_dentry_t *parent = vfs_get_dentry_parent_at(at, path, last, 0);
+	if (IS_ERR(parent)) return PTR2ERR(parent);
+
+	if (!parent) {
+		// as far as i know you cannot unlink root
+		return -EINVAL;
 	}
 
 	int ret = 0;
+	vfs_node_acquire_write(parent->inode);
+
+	vfs_dentry_t *dentry = vfs_lookup(parent, last);
+	if (IS_ERR(dentry)) {
+		ret = PTR2ERR(dentry);
+		goto error;
+	}
 
 	if (S_ISDIR(dentry->inode->mode)) {
 		ret = -EISDIR;
 		goto error;
 	}
 
-	if (!parent_entry) {
-		// as far as i know you cannot unlink root
-		ret = -EINVAL;
-		goto error;
-	}
-
-	vfs_node_acquire_write(parent_entry->inode);
-	
-	if (atomic_load(&dentry->parent) != parent_entry) {
-		// the dentry was moved in between
-		ret = -ENOENT;
-		vfs_node_release_write(parent_entry->inode);
-		goto error;
-	}
-
 	// cannot unlink mount points
 	if ((dentry->flags & VFS_DENTRY_MOUNT_POINT) || dentry->shadow_mount_point) {
-		vfs_node_release_write(parent_entry->inode);
 		ret = -EBUSY;
 		goto error;
 	}
 
 	// permission checking
 	if (!vfs_can_delete(dentry)) {
-		vfs_node_release_write(parent_entry->inode);
 		ret = -EACCES;
 		goto error;
 	}
 
 	// call unlink on the parent
-	vfs_node_t *parent = parent_entry->inode;
-	if (!parent->ops || !parent->ops->unlink) {
-		vfs_node_release_write(parent_entry->inode);
+	if (!parent->inode->ops || !parent->inode->ops->unlink) {
 		ret = -EOPNOTSUPP;
 		goto error;
 	}
-	ret = parent->ops->unlink(parent, dentry);
-	vfs_node_release_write(parent_entry->inode);
+	ret = parent->inode->ops->unlink(parent->inode, dentry);
 	if (ret < 0) goto error;
 
 	vfs_unlink_dentry(dentry);
 
 error:
+	vfs_node_release_write(parent->inode);
 	vfs_dentry_release(dentry);
-	vfs_dentry_release(parent_entry);
+	vfs_dentry_release(parent);
 	return ret;
 }
 
-
 int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
-	vfs_dentry_t *parent_entry;
-	vfs_dentry_t *dentry = vfs_get_dentry_and_parent_at(at, path, &parent_entry, O_NOFOLLOW);
-	if (IS_ERR(dentry)) {
-		return PTR2ERR(dentry);
+	char last[NAME_MAX];
+	vfs_dentry_t *parent = vfs_get_dentry_parent_at(at, path, last, 0);
+	if (IS_ERR(parent)) return PTR2ERR(parent);
+
+	if (!parent) {
+		// as far as i know you cannot rmdir root
+		return -EINVAL;
 	}
 
 	int ret = 0;
+	vfs_node_acquire_write(parent->inode);
 
-	if (!S_ISDIR(dentry->inode->mode)) {
-		ret = -ENOTDIR;
+	vfs_dentry_t *dentry = vfs_lookup(parent, last);
+	if (IS_ERR(dentry)) {
+		ret = PTR2ERR(dentry);
 		goto error;
 	}
 
-	if (!parent_entry) {
-		// as far as i know you cannot rmdir root
-		ret = -EINVAL;
-		goto error;
-	}
-
-	vfs_node_acquire_write(parent_entry->inode);
-
-	if (atomic_load(&dentry->parent) != parent_entry) {
-		// the dentry was moved in between
-		ret = -ENOENT;
-		vfs_node_release_write(parent_entry->inode);
+	if (S_ISDIR(dentry->inode->mode)) {
+		ret = -EISDIR;
 		goto error;
 	}
 
 	// cannot rmdir mount points
 	if ((dentry->flags & VFS_DENTRY_MOUNT_POINT) || dentry->shadow_mount_point) {
-		vfs_node_release_write(parent_entry->inode);
 		ret = -EBUSY;
 		goto error;
 	}
 
 	// permission checking
 	if (!vfs_can_delete(dentry)) {
-		vfs_node_release_write(parent_entry->inode);
 		ret = -EACCES;
 		goto error;
 	}
 
 	// call rmdir on the parent
-	vfs_node_t *parent = parent_entry->inode;
-	if (!parent->ops || !parent->ops->rmdir) {
-		vfs_node_release_write(parent_entry->inode);
+	if (!parent->inode->ops || !parent->inode->ops->rmdir) {
 		ret = -EOPNOTSUPP;
 		goto error;
 	}
-	ret = parent->ops->rmdir(parent, dentry);
-	vfs_node_release_write(parent_entry->inode);
+	ret = parent->inode->ops->rmdir(parent->inode, dentry);
 	if (ret < 0) goto error;
 
 	vfs_unlink_dentry(dentry);
 
 error:
+	vfs_node_release_write(parent->inode);
 	vfs_dentry_release(dentry);
-	vfs_dentry_release(parent_entry);
+	vfs_dentry_release(parent);
 	return ret;
 }
 

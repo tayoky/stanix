@@ -282,13 +282,7 @@ pid_t sys_fork(void) {
 int sys_mkdir(const char *path, mode_t mode) {
 	if (!CHECK_PTR(path)) return -EFAULT;
 
-	// remove slash at the end, as the vfs don't really like them
-	char *kpath = strdup(path);
-	for (char *ptr=kpath + strlen(kpath) - 1; ptr > kpath && *ptr == '/'; ptr--)*ptr = '\0';
-
-	int ret = vfs_mkdir(kpath, mode & ~get_current_proc()->umask);
-	kfree(kpath);
-	return ret;
+	return vfs_mkdir(path, mode & ~get_current_proc()->umask);
 }
 
 int sys_readdir(int fd, struct dirent *dirent, long int index) {
