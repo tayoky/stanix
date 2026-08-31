@@ -137,7 +137,7 @@ $(ISO_IMAGE) : $(ESP_FILES) build-all
 	@echo "GEN $@"
 	@rm -f $(ISO_IMAGE)
 	$(Q)xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
-        -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
+        -no-emul-boot -boot-load-size 4 -boot-info-table \
         -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
         -efi-boot-part --efi-boot-image --protective-msdos-label \
 		-V "STANIX" -copyright "/usr/share/doc/COPYING.txt" \
