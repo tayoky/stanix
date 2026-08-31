@@ -132,6 +132,11 @@ vfs_fd_t *vfs_open_node(vfs_node_t *node, vfs_dentry_t *dentry, long flags) {
 
 	int ret = 0;
 	if (S_ISBLK(st.st_mode) || S_ISCHR(st.st_mode)) {
+		// can we use devices from this mount??
+		if (dentry->mount_point->flags & MS_NODEV) {
+			ret = -EACCES;
+			goto error;
+		}
 		device_t *device = device_from_number(st.st_rdev);
 		if (!device) {
 			ret = -ENODEV;

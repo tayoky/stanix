@@ -56,6 +56,11 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 		goto error;
 	}
 
+	if (file->dentry->mount_point->flags & MS_NOEXEC) {
+		ret = -EACCES;
+		goto error;
+	}
+
 	// first read the header
 	Elf64_Ehdr header;
 	if (vfs_read(file, &header, 0, sizeof(header)) < 0) {
