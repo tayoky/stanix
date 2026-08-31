@@ -617,7 +617,19 @@ static vfs_dentry_t *vfs_dentry_ref(vfs_dentry_t *dentry) {
 	return dentry;
 }
 
-vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, ...);
+vfs_dentry_t *vfs_get_dentry_and_parent_at(vfs_dentry_t *at, const char *path, vfs_dentry_t **parent, long flags, ...);
+
+static inline vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, ...) {
+	mode_t mode = 0777;
+	if (flags & O_CREAT) {
+		va_list args;
+		va_start(args, flags);
+		mode = va_arg(args, mode_t);
+		va_end(args);
+	}
+	return vfs_get_dentry_and_parent_at(at, path, NULL, flags, mode);
+
+}
 
 static inline vfs_dentry_t *vfs_get_dentry(const char *path, long flags, ...) {
 	mode_t mode = 0777;

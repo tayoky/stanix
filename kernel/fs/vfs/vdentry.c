@@ -12,7 +12,7 @@ static slab_cache_t dentries_slab;
 
 void vfs_dentry_add(vfs_dentry_t *parent, vfs_dentry_t *child) {
 	// child hold a ref to the parent
-	child->parent = vfs_dentry_ref(parent);
+	atomic_store(&child->parent, vfs_dentry_ref(parent;
 	rculist_append(&parent->children, &child->children_node);
 }
 
@@ -21,7 +21,7 @@ void vfs_dentry_remove(vfs_dentry_t *dentry) {
 	rculist_remove(&dentry->parent->children, &dentry->children_node);
 	// child hold a ref to the parent
 	vfs_dentry_release(dentry->parent);
-	dentry->parent = NULL;
+	atomic_store(&dentry->parent, NULL);
 }
 
 static int dentry_constructor(slab_cache_t *cache, void *data) {
@@ -105,7 +105,7 @@ vfs_dentry_t *vfs_dentry_follow_mount_points(vfs_dentry_t *dentry) {
 /**
  * @note consume a release to at
  */
-static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, long flags, long *loop_max, mode_t mode) {
+static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path, vfs_dentry_t **_parent, long flags, long *loop_max, mode_t mode) {
 	// we are going to modify it
 	char new_path[strlen(path) + 1];
 	strcpy(new_path, path);
@@ -137,6 +137,11 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 			return NULL;
 		}
 		path_depth--;
+	}
+
+	vfs_dentry_t *parent = NULL;
+	if (path_depth == 1) {
+		if (_parent) parent = vfs_dentry_ref(at);
 	}
 
 	vfs_dentry_t *current_entry = at;
@@ -198,13 +203,17 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 				at = vfs_dentry_ref(current_entry->parent);
 				kassert(at);
 			}
-			next_entry = vfs_get_dentry_at_recur(at, target, flags, loop_max, mode);
+			next_entry = vfs_get_dentry_at_recur(at, target, NULL, flags, loop_max, mode);
 			if (IS_ERR(next_entry)) {
 				ret = PTR2ERR(next_entry);
 				goto error;
 			}
 			vfs_dentry_release(current_entry);
 			current_entry = next_entry;
+		}
+		if (_parent && i == path_depth - 2) {
+			// we found the parent
+			parent = vfs_dentry_ref(current_entry);
 		}
 	}
 
@@ -216,13 +225,16 @@ static vfs_dentry_t *vfs_get_dentry_at_recur(vfs_dentry_t *at, const char *path,
 		goto error;
 	}
 
+	if (_parent) *_parent = parent;
+
 	return current_entry;
 error:
+	vfs_dentry_release(parent);
 	vfs_dentry_release(current_entry);
 	return ERR2PTR(ret);
 }
 
-vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, ...) {
+vfs_dentry_t *vfs_get_dentry_and_parent_at(vfs_dentry_t *at, const char *path, vfs_dentry_t **parent, long flags, ...) {
 	long loop_max = SYMLOOP_MAX;
 	mode_t mode   = 0777;
 	if (flags & O_CREAT) {
@@ -246,7 +258,7 @@ vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, 
 			at = vfs_dentry_ref(root);
 		}
 	}
-	return vfs_get_dentry_at_recur(at, path, flags, &loop_max, mode);
+	return vfs_get_dentry_at_recur(at, path, parent, flags, &loop_max, mode);
 }
 
 vfs_dentry_t *vfs_dentry_allocate(void) {

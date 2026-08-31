@@ -484,8 +484,28 @@ error:
 	return ret;
 }
 
+static int vfs_can_delete(vfs_dentry_t *dentry) {
+	struct stat parent_st;
+	struct stat child_st;
+	vfs_getattr(dentry->parent->inode, &parent_st);
+	vfs_getattr(dentry->inode, &child_st);
+	if (parent_st.st_mode & S_ISVTX) {
+		// special case for sticky bit
+		if (parent_st.st_uid != get_current_euid() && child_st.st_uid != get_current_euid()) {
+			return 0;
+		}
+
+	} else {
+		if (!(vfs_perm(dentry->parent->inode) & PERM_WRITE)) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
-	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, O_NOFOLLOW);
+	vfs_dentry_t *parent_entry;
+	vfs_dentry_t *dentry = vfs_get_dentry_and_parent_at(at, path, &parent_entry, O_NOFOLLOW);
 	if (IS_ERR(dentry)) {
 		return PTR2ERR(dentry);
 	}
@@ -497,7 +517,6 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 		goto error;
 	}
 
-	vfs_dentry_t *parent_entry = dentry->parent;
 	if (!parent_entry) {
 		// as far as i know you cannot unlink root
 		ret = -EINVAL;
@@ -505,6 +524,13 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	}
 
 	vfs_node_acquire_write(parent_entry->inode);
+	
+	if (atomic_load(&dentry->parent) != parent_entry) {
+		// the dentry was moved in between
+		ret = -ENOENT;
+		vfs_node_release_write(parent_entry->inode);
+		goto error;
+	}
 
 	// cannot unlink mount points
 	if ((dentry->flags & VFS_DENTRY_MOUNT_POINT) || dentry->shadow_mount_point) {
@@ -514,24 +540,10 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	}
 
 	// permission checking
-	struct stat parent_st;
-	struct stat child_st;
-	vfs_getattr(parent_entry->inode, &parent_st);
-	vfs_getattr(dentry->inode, &child_st);
-	if (parent_st.st_mode & S_ISVTX) {
-		// special case for sticky bit
-		if (parent_st.st_uid != get_current_euid() && child_st.st_uid != get_current_euid()) {
-			vfs_node_release_write(parent_entry->inode);
-			ret = -EACCES;
-			goto error;
-		}
-
-	} else {
-		if (!(vfs_perm(parent_entry->inode) & PERM_WRITE)) {
-			vfs_node_release_write(parent_entry->inode);
-			ret = -EACCES;
-			goto error;
-		}
+	if (!vfs_can_delete(dentry)) {
+		vfs_node_release_write(parent_entry->inode);
+		ret = -EACCES;
+		goto error;
 	}
 
 	// call unlink on the parent
@@ -549,12 +561,14 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 
 error:
 	vfs_dentry_release(dentry);
+	vfs_dentry_release(parent_entry);
 	return ret;
 }
 
 
 int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
-	vfs_dentry_t *dentry = vfs_get_dentry_at(at, path, 0);
+	vfs_dentry_t *parent_entry;
+	vfs_dentry_t *dentry = vfs_get_dentry_and_parent_at(at, path, &parent_entry, O_NOFOLLOW);
 	if (IS_ERR(dentry)) {
 		return PTR2ERR(dentry);
 	}
@@ -566,7 +580,6 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 		goto error;
 	}
 
-	vfs_dentry_t *parent_entry = dentry->parent;
 	if (!parent_entry) {
 		// as far as i know you cannot rmdir root
 		ret = -EINVAL;
@@ -574,6 +587,13 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	}
 
 	vfs_node_acquire_write(parent_entry->inode);
+
+	if (atomic_load(&dentry->parent) != parent_entry) {
+		// the dentry was moved in between
+		ret = -ENOENT;
+		vfs_node_release_write(parent_entry->inode);
+		goto error;
+	}
 
 	// cannot rmdir mount points
 	if ((dentry->flags & VFS_DENTRY_MOUNT_POINT) || dentry->shadow_mount_point) {
@@ -583,24 +603,10 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	}
 
 	// permission checking
-	struct stat parent_st;
-	struct stat child_st;
-	vfs_getattr(parent_entry->inode, &parent_st);
-	vfs_getattr(dentry->inode, &child_st);
-	if (parent_st.st_mode & S_ISVTX) {
-		// special case for sticky bit
-		if (parent_st.st_uid != get_current_euid() && child_st.st_uid != get_current_euid()) {
-			vfs_node_release_write(parent_entry->inode);
-			ret = -EACCES;
-			goto error;
-		}
-
-	} else {
-		if (!(vfs_perm(parent_entry->inode) & PERM_WRITE)) {
-			vfs_node_release_write(parent_entry->inode);
-			ret = -EACCES;
-			goto error;
-		}
+	if (!vfs_can_delete(dentry)) {
+		vfs_node_release_write(parent_entry->inode);
+		ret = -EACCES;
+		goto error;
 	}
 
 	// call rmdir on the parent
@@ -618,6 +624,7 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 
 error:
 	vfs_dentry_release(dentry);
+	vfs_dentry_release(parent_entry);
 	return ret;
 }
 
