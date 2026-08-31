@@ -179,7 +179,7 @@ int vfs_mount_at(vfs_dentry_t *at, const char *name, unsigned long flags, vfs_su
 	vfs_dentry_acquire_mount_lock(mount_point);
 
 	int ret = vfs_mount_on(mount_point, flags, superblock);
-
+	kdebugf("mounted on %s ret %d\n", name, ret);
 	vfs_dentry_release_mount_lock(mount_point);
 	vfs_dentry_release(mount_point);
 	return ret;
@@ -227,14 +227,14 @@ error:
 }
 
 int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t *dest_at, const char *dest) {
-	vfs_dentry_t *root_dentry = vfs_get_dentry(at, path, O_NOFOLLOW);
+	vfs_dentry_t *root_dentry = vfs_get_dentry_at(source_at, source, O_NOFOLLOW);
 	if (IS_ERR(root_dentry)) return PTR2ERR(root_dentry);
 
 	char last[NAME_MAX];
-	vfs_dentry_t *dest_parent = vfs_get_dentry_parent_at(at, name, last, 0);
-	if (IS_ERR(dest_dentry)) {
+	vfs_dentry_t *dest_parent = vfs_get_dentry_parent_at(dest_at, dest, last, 0);
+	if (IS_ERR(dest_parent)) {
 		vfs_dentry_release(root_dentry);
-		return PTR2ERR(dest_dentry);
+		return PTR2ERR(dest_parent);
 	}
 
 	mutex_acquire(&mount_lock);
@@ -251,13 +251,13 @@ int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t 
 
 	int ret = 0;
 
-	vfs_dentry_t *dest_dentry = vfs_lookup(dest_parent);
+	vfs_dentry_t *dest_dentry = vfs_lookup(dest_parent, last);
 	if (IS_ERR(dest_dentry)) {
 		ret = PTR2ERR(dest_dentry);
 		goto error;
 	}
 
-	if (!(root_dentry & VFS_DENTRY_MOUNT_POINT)) {
+	if (!(root_dentry->flags & VFS_DENTRY_MOUNT_POINT)) {
 		// not even a mount point
 		ret = -EINVAL;
 		goto error;
@@ -269,9 +269,9 @@ int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t 
 	mount_point->shadow->shadow_mount_point = NULL;
 	vfs_dentry_t *old_shadow = mount_point->shadow;
 
-	kassert(!dest_entry->shadow_mount_point);
+	kassert(!dest_dentry->shadow_mount_point);
 
-	mount_point->old = vfs_dentry_ref(dest_dentry);
+	mount_point->shadow = vfs_dentry_ref(dest_dentry);
 	dest_dentry->shadow_mount_point = mount_point;
 	
 	vfs_dentry_release(old_shadow);

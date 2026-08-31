@@ -12,7 +12,7 @@ static slab_cache_t dentries_slab;
 
 void vfs_dentry_add(vfs_dentry_t *parent, vfs_dentry_t *child) {
 	// child hold a ref to the parent
-	atomic_store(&child->parent, vfs_dentry_ref(parent;
+	atomic_store(&child->parent, vfs_dentry_ref(parent));
 	rculist_append(&parent->children, &child->children_node);
 }
 
@@ -227,7 +227,7 @@ error:
 	return ERR2PTR(ret);
 }
 
-vfs_dentry_t *vfs_get_dentry_parent_at(vfs_dentry_t *at, const char *path, char last[NAME_MAX], long flags, ...);
+vfs_dentry_t *vfs_get_dentry_parent_at(vfs_dentry_t *at, const char *path, char last[NAME_MAX], long flags, ...) {
 	long loop_max = SYMLOOP_MAX;
 	mode_t mode   = 0777;
 	if (flags & O_CREAT) {

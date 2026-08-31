@@ -8,7 +8,7 @@ static vfs_dentry_t *vfs_create_child_dentry(vfs_dentry_t *parent, const char *n
 	vfs_dentry_t *dentry = vfs_dentry_allocate();
 	if (!dentry) return ERR2PTR(-ENOMEM);
 
-	vfs_dentry_t *exist = vfs_lookup(parent, last);
+	vfs_dentry_t *exist = vfs_lookup(parent, name);
 	if ((IS_ERR(exist) && PTR2ERR(exist) != -ENOENT) || (!IS_ERR(exist) && exist)) {
 		if (!IS_ERR(exist)) {
 			vfs_dentry_release(exist);
@@ -23,7 +23,7 @@ static vfs_dentry_t *vfs_create_child_dentry(vfs_dentry_t *parent, const char *n
 		return ERR2PTR(-EACCES);
 	}
 	dentry->mount_point = parent->mount_point;
-	strcpy(dentry->name, last);
+	strcpy(dentry->name, name);
 	dentry->ref_count = 1;
 	return dentry;
 }
@@ -43,12 +43,6 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 	if (!S_ISDIR(parent->inode->mode)) {
 		vfs_dentry_release(parent);
 		return -ENOTDIR;
-	}
-
-	vfs_dentry_t *dentry = vfs_dentry_allocate();
-	if (!dentry) {
-		vfs_dentry_release(parent);
-		return -ENOMEM;
 	}
 
 	vfs_node_acquire_write(parent->inode);
@@ -214,12 +208,13 @@ error:
 	}
 
 	// handle .. here so we can handle the parent of mount point
-	if ((!strcmp("..", name)) && entry->parent) {
+	if (!strcmp("..", name)) {
+		vfs_dentry_t *parent = atomic_load(&entry->parent);
 		vfs_node_release_read(entry->inode);
-		return vfs_dentry_ref(entry->parent);
+		return vfs_dentry_ref(parent ? parent : entry);
 	}
 
-	if ((!strcmp(".", name))) {
+	if (!strcmp(".", name)) {
 		vfs_node_release_read(entry->inode);
 		return vfs_dentry_ref(entry);
 	}
@@ -439,6 +434,25 @@ error:
 	return ret;
 }
 
+static int vfs_can_delete(vfs_dentry_t *dentry) {
+	struct stat parent_st;
+	struct stat child_st;
+	vfs_getattr(dentry->parent->inode, &parent_st);
+	vfs_getattr(dentry->inode, &child_st);
+	if (parent_st.st_mode & S_ISVTX) {
+		// special case for sticky bit
+		if (parent_st.st_uid != get_current_euid() && child_st.st_uid != get_current_euid()) {
+			return 0;
+		}
+
+	} else {
+		if (!(vfs_perm(dentry->parent->inode) & PERM_WRITE)) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags) {
 	char old_name[NAME_MAX];
 	vfs_dentry_t *old_parent = vfs_get_dentry_parent_at(old_at, old_path, old_name, 0);
@@ -449,11 +463,6 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 	if (IS_ERR(new_parent)) {
 		vfs_dentry_release(old_parent);
 		return PTR2ERR(new_parent);
-	}
-	
-	if (!(vfs_perm(parent->inode) & PERM_WRITE)) {
-		vfs_dentry_release(dentry);
-		return ERR2PTR(-EACCES);
 	}
 	
 	int ret = 0;
@@ -503,6 +512,16 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 		goto error;
 	}
 
+	if (!vfs_can_delete(old_dentry)) {
+		ret = -EACCES;
+		goto error;
+	}
+
+	if (!(vfs_perm(new_parent->inode) & PERM_WRITE)) {
+		ret = -EACCES;
+		goto error;
+	}
+
 	// call rename on the parent
 	if (!new_parent->inode->ops || !new_parent->inode->ops->rename) {
 		ret = -EOPNOTSUPP;
@@ -513,11 +532,11 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 
 	// unlink the the dentry that was already here
 	if (!vfs_dentry_is_negative(new_dentry)) {
-		vfs_unlink_dentry(dentry);
+		vfs_unlink_dentry(old_dentry);
 	}
 
 	// now we can move the dentry
-	vfs_dentry_remove(old_parent, old_dentry);
+	vfs_dentry_remove(old_dentry);
 	vfs_dentry_add(new_parent, old_dentry);
 
 error:
@@ -529,25 +548,6 @@ error_no_lock:
 	vfs_dentry_release(old_dentry);
 	vfs_dentry_release(new_dentry);
 	return ret;
-}
-
-static int vfs_can_delete(vfs_dentry_t *dentry) {
-	struct stat parent_st;
-	struct stat child_st;
-	vfs_getattr(dentry->parent->inode, &parent_st);
-	vfs_getattr(dentry->inode, &child_st);
-	if (parent_st.st_mode & S_ISVTX) {
-		// special case for sticky bit
-		if (parent_st.st_uid != get_current_euid() && child_st.st_uid != get_current_euid()) {
-			return 0;
-		}
-
-	} else {
-		if (!(vfs_perm(dentry->parent->inode) & PERM_WRITE)) {
-			return 0;
-		}
-	}
-	return 1;
 }
 
 int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
