@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 		}
 
 		for (int i = 1; i < argc; i++) {
-			if (strcmp(arg, argv[i])) {
+			if (!strcmp(arg, argv[i])) {
 				if (value) puts(value);
 				return 0;
 			}
