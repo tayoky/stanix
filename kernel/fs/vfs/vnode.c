@@ -4,6 +4,30 @@
 #include <kernel/time.h>
 #include <kernel/vfs.h>
 
+static vfs_dentry_t *vfs_create_child_dentry(vfs_dentry_t *parent, const char *name) {
+	vfs_dentry_t *dentry = vfs_dentry_allocate();
+	if (!dentry) return ERR2PTR(-ENOMEM);
+
+	vfs_dentry_t *exist = vfs_lookup(parent, last);
+	if ((IS_ERR(exist) && PTR2ERR(exist) != -ENOENT) || (!IS_ERR(exist) && exist)) {
+		if (!IS_ERR(exist)) {
+			vfs_dentry_release(exist);
+			exist = ERR2PTR(-EEXIST);
+		}
+		vfs_dentry_release(dentry);
+		return exist;
+	}
+
+	if (!(vfs_perm(parent->inode) & PERM_WRITE)) {
+		vfs_dentry_release(dentry);
+		return ERR2PTR(-EACCES);
+	}
+	dentry->mount_point = parent->mount_point;
+	strcpy(dentry->name, last);
+	dentry->ref_count = 1;
+	return dentry;
+}
+
 static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **_parent, vfs_dentry_t **_dentry) {
 	char last[NAME_MAX];
 	vfs_dentry_t *parent = vfs_get_dentry_parent_at(at, path, last, 0);
@@ -29,29 +53,12 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 
 	vfs_node_acquire_write(parent->inode);
 
-	vfs_dentry_t *exist = vfs_lookup(parent, last);
-	if ((IS_ERR(exist) && PTR2ERR(exist) != -ENOENT) || (!IS_ERR(exist) && exist)) {
-		int ret = -EEXIST;
-		if (IS_ERR(exist)) {
-			ret = PTR2ERR(exist);
-		} else {
-			vfs_dentry_release(exist);
-		}
+	vfs_dentry_t *dentry = vfs_create_child_dentry(parent, last);
+	if (IS_ERR(dentry)) {
 		vfs_node_release_write(parent->inode);
 		vfs_dentry_release(parent);
-		vfs_dentry_release(dentry);
-		return ret;
+		return PTR2ERR(dentry);
 	}
-
-	if (!(vfs_perm(parent->inode) & PERM_WRITE)) {
-		vfs_node_release_write(parent->inode);
-		vfs_dentry_release(parent);
-		vfs_dentry_release(dentry);
-		return -EACCES;
-	}
-	dentry->mount_point = parent->mount_point;
-	strcpy(dentry->name, last);
-	dentry->ref_count = 1;
 
 	*_parent = parent;
 	*_dentry = dentry;
@@ -433,24 +440,66 @@ error:
 }
 
 int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags) {
-	vfs_dentry_t *old_dentry = vfs_get_dentry_at(old_at, old_path, O_NOFOLLOW);
-	if (IS_ERR(old_dentry)) return PTR2ERR(old_dentry);
+	char old_name[NAME_MAX];
+	vfs_dentry_t *old_parent = vfs_get_dentry_parent_at(old_at, old_path, old_name, 0);
+	if (IS_ERR(old_parent)) return PTR2ERR(old_parent);
 
-	vfs_dentry_t *new_parent = NULL;
+	char new_name[NAME_MAX];
+	vfs_dentry_t *new_parent = vfs_get_dentry_parent_at(new_at, new_path, new_name, 0);
+	if (IS_ERR(new_parent)) {
+		vfs_dentry_release(old_parent);
+		return PTR2ERR(new_parent);
+	}
+	
+	if (!(vfs_perm(parent->inode) & PERM_WRITE)) {
+		vfs_dentry_release(dentry);
+		return ERR2PTR(-EACCES);
+	}
+	
+	int ret = 0;
+	vfs_dentry_t *old_dentry = NULL;
 	vfs_dentry_t *new_dentry = NULL;
-	int ret                  = vfs_create_dentry(new_at, new_path, &new_parent, &new_dentry);
-	if (ret < 0) goto error;
 
-	// rename cannot cross mount point boundaries
-	if (old_dentry->inode->superblock != new_parent->inode->superblock) {
-		ret = -EXDEV;
+	// cannot rename root
+	if (!old_parent || !new_parent) {
+		ret = -EINVAL;
 		goto error;
 	}
 
-	vfs_dentry_t *old_parent = old_dentry->parent;
-	if (!old_parent) {
-		// cannot rename root
-		ret = -EINVAL;
+	// rename cannot cross mount point boundaries
+	if (old_parent->inode->superblock != new_parent->inode->superblock) {
+		ret = -EXDEV;
+		goto error_no_lock;
+	}
+
+	// acquire both write lock
+	if (old_parent->inode < new_parent->inode) {
+		vfs_node_acquire_write(old_parent->inode);
+		vfs_node_acquire_write(new_parent->inode);
+	} else {
+		vfs_node_acquire_write(new_parent->inode);
+		vfs_node_acquire_write(old_parent->inode);
+	}
+
+	old_dentry = vfs_lookup(old_parent, old_name);
+	if (IS_ERR(old_dentry)) {
+		ret = PTR2ERR(old_dentry);
+		goto error;
+	}
+
+	new_dentry = vfs_lookup(new_parent, new_name);
+	if (IS_ERR(new_dentry) && PTR2ERR(new_dentry) == -ENOENT) {
+		// the destination do not exist yet
+		new_dentry = vfs_dentry_allocate();
+		if (!new_dentry) {
+			ret = -ENOMEM;
+			goto error;
+		}
+		new_dentry->mount_point = new_parent->mount_point;
+		strcpy(new_dentry->name, new_name);
+		new_dentry->ref_count = 1;
+	} else if (IS_ERR(new_dentry)) {
+		ret = PTR2ERR(new_dentry);
 		goto error;
 	}
 
@@ -462,15 +511,22 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 	ret = new_parent->inode->ops->rename(old_parent->inode, old_dentry, new_parent->inode, new_dentry, flags);
 	if (ret < 0) goto error;
 
-	// now we can link the dentry if the fs filled it
+	// unlink the the dentry that was already here
 	if (!vfs_dentry_is_negative(new_dentry)) {
-		vfs_dentry_add(new_parent, new_dentry);
+		vfs_unlink_dentry(dentry);
 	}
 
+	// now we can move the dentry
+	vfs_dentry_remove(old_parent, old_dentry);
+	vfs_dentry_add(new_parent, old_dentry);
+
 error:
+	vfs_node_release_write(old_parent->inode);
 	vfs_node_release_write(new_parent->inode);
-	vfs_dentry_release(old_dentry);
+error_no_lock:
+	vfs_dentry_release(old_parent);
 	vfs_dentry_release(new_parent);
+	vfs_dentry_release(old_dentry);
 	vfs_dentry_release(new_dentry);
 	return ret;
 }

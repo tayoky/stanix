@@ -241,7 +241,7 @@ int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t 
 
 	// acquire both write lock
 	vfs_dentry_t *root_parent = root_dentry->parent;
-	if (root_parent < dest_parent) {
+	if (root_parent->inode < dest_parent->inode) {
 		vfs_dentry_acquire_write_lock_on_parent(root_dentry);
 		if (dest_parent) vfs_node_acquire_write(dest_parent->inode);
 	} else {
