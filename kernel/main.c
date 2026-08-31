@@ -67,6 +67,7 @@ void spawn_init() {
 
 	const char *arg[] = {
 		init_path,
+		kcmdline_get(),
 		NULL
 	};
 
