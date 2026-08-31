@@ -622,8 +622,8 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 		goto error;
 	}
 
-	if (S_ISDIR(dentry->inode->mode)) {
-		ret = -EISDIR;
+	if (!S_ISDIR(dentry->inode->mode)) {
+		ret = -ENOTDIR;
 		goto error;
 	}
 
