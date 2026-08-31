@@ -27,6 +27,10 @@ static void *iso9660_get_susp_entry_start(iso9660_dentry_t *dentry, const char *
 	char *end = (char*)dentry + dentry->length;
 	while (ptr + sizeof(iso9660_susp_entry_t) <= end) {
 		iso9660_susp_entry_t *entry = (iso9660_susp_entry_t*)ptr;
+		if (entry->length < sizeof(iso9660_susp_entry_t)) {
+			// invalid entry
+			break;
+		}
 		if (!memcmp(entry->name, name, sizeof(entry->name))) {
 			return entry;
 		}
@@ -37,7 +41,7 @@ static void *iso9660_get_susp_entry_start(iso9660_dentry_t *dentry, const char *
 
 static void *iso9660_get_susp_entry(iso9660_dentry_t *dentry, const char *name) {
 	char *start = dentry->file_identifier + dentry->filename_length;
-	if (dentry->filename_length % 2 == 1) {
+	if (dentry->filename_length % 2 == 0) {
 		// skip the padding byte
 		start++;
 	}
