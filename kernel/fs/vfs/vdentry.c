@@ -299,7 +299,7 @@ char *vfs_dentry_path(vfs_dentry_t *dentry) {
 		path[--i] = '/';
 		dentry    = dentry->parent;
 	}
-	if (dentry != root) {
+	if (dentry != top) {
 unreachable:
 		return strdup("(unreachable)");
 	}
