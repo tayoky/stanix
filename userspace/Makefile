@@ -14,3 +14,5 @@ install-tash   : BINDIR=/bin
 install-tutils : BINDIR=/bin
 install-init   : BINDIR=/bin
 install-getty  : BINDIR=/bin
+install-initrd-init : BINDIR=/bin
+install-initrd-init : DESTDIR=$(INITRD)

@@ -7,7 +7,7 @@ HDD_IMAGE = stanix.hdd
 ISO_IMAGE = stanix.iso
 BUILDENV_SHELL = $(SHELL)
 
-INITRD = $(BUILDDIR)/initrd
+export INITRD = $(BUILDDIR)/initrd
 BASE_INITRD = $(CURDIR)/base/initrd
 BASE_SYSROOT = $(CURDIR)/base/sysroot
 BASE_INITRD_SRC = $(shell find $(BASE_INITRD) -type f)

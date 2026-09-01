@@ -1,5 +1,6 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/module.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
@@ -38,12 +39,32 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	// hardcoded list of module to insert
+	const char *modules[] = {
+		"/mod/pci.ko",
+		"/mod/libscsi.ko",
+		"/mod/scsi-mmc.ko",
+		"/mod/libata.ko",
+		"/mod/ide.ko",
+		"/mod/ata.ko",
+		"/mod/atapi.ko",
+		"/mod/iso9660.ko",
+		NULL,
+	};
+
+	for (const char **module = modules; *module; module++) {
+		const char *args[] = {
+			*module,
+			NULL,
+		};
+		insmod(*module, args);
+	}
+
 	mkdir("/mnt", 0777);
 	if (mount(root, "/mnt", "auto", MS_AUTO, NULL) < 0) {
 		fprintf(stderr, "initrd-init : failed to mount '%s' : %m\n", root);
 		return 1;
 	}
-
 
 	int fd = open("/mnt", O_DIRECTORY);
 	if (fd < 0) {
