@@ -183,15 +183,23 @@ static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t b
 	return 0;
 }
 
-static int iso9660_read_dentry(iso9660_superblock_t *iso9660_superblock, char *buf, size_t buf_size, off_t offset) {
-	ssize_t ret = vfs_read(iso9660_superblock->superblock.device, buf, offset, buf_size);
+static int iso9660_read_dentry(iso9660_superblock_t *iso9660_superblock, char *buf, size_t buf_size, off_t *offset) {
+	ssize_t ret = vfs_read(iso9660_superblock->superblock.device, buf, *offset, buf_size);
 	if (ret < 0) return ret;
 	if (ret < (ssize_t)sizeof(iso9660_dentry_t)) return -EIO;
-
+	
 	iso9660_dentry_t *dentry = (iso9660_dentry_t*)buf;
+	if (dentry->length == 0) {
+		// padding entry
+		// we need to jump to next sector
+		*offset += iso9660_superblock->block_size - (*offset % iso9660_superblock->block_size);
+		return 0;
+	}
+
 	if (dentry->length < (ssize_t)sizeof(iso9660_dentry_t)) return -EIO;
 	if (ret < dentry->length) return -EIO;
-	return 0;
+	*offset += dentry->length;
+	return ret;
 }
 
 static int iso9660_read_pages(cache_t *cache, off_t offset, size_t count) {
@@ -250,8 +258,9 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 
 	while (offset < end) {
 		char buf[256];
-		int ret = iso9660_read_dentry(iso9660_superblock, buf, sizeof(buf), offset);
+		int ret = iso9660_read_dentry(iso9660_superblock, buf, sizeof(buf), &offset);
 		if (ret < 0) return ret;
+		if (ret == 0) continue;
 		iso9660_dentry_t *dentry = (iso9660_dentry_t*)buf;
 		
 		if (index-- == 0) {
@@ -292,7 +301,6 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 			}
 			return 0;
 		}
-		offset += dentry->length;
 	}
 
 	return -ENOENT;
@@ -307,8 +315,9 @@ static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *vfs_dentry) {
 
 	while (offset < end) {
 		char buf[256];
-		int ret = iso9660_read_dentry(iso9660_superblock, buf, sizeof(buf), offset);
+		int ret = iso9660_read_dentry(iso9660_superblock, buf, sizeof(buf), &offset);
 		if (ret < 0) return ret;
+		if (ret == 0) continue;
 		iso9660_dentry_t *dentry = (iso9660_dentry_t*)buf;
 
 		char name[256];
@@ -320,7 +329,6 @@ static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *vfs_dentry) {
 			vfs_dentry->inode = &inode->vnode;
 			return 0;
 		}
-		offset += dentry->length;
 	}
 	return -ENOENT;
 }
@@ -504,6 +512,11 @@ error:
 
 		// setup the superblock
 		block_size = le_uint16_to_uint16(&volume_descriptor.primary.logical_block_size.le);
+		if (block_size < sizeof(iso9660_dentry_t)) {
+			kwarningf("invalid block_size\n");
+			ret = -EFTYPE;
+			goto error;
+		}
 		
 		iso9660_dentry_t *root_dentry = (iso9660_dentry_t*)volume_descriptor.primary.root_dentry;
 		if (root_dentry->length != sizeof(volume_descriptor.primary.root_dentry)) {
