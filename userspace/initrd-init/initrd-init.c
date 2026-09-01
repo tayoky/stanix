@@ -1,4 +1,5 @@
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
@@ -13,7 +14,7 @@ int main(int argc, char **argv) {
 	const char *root = NULL;
 	char *arg = strtok(argv[1], " ");
 	while (arg) {
-		const char *value = strchr(arg, '=');
+		char *value = strchr(arg, '=');
 		if (value) {
 			*value = '\0';
 			value++;
@@ -44,7 +45,7 @@ int main(int argc, char **argv) {
 	}
 
 
-	int fd = open("/mnt");
+	int fd = open("/mnt", O_DIRECTORY);
 	if (fd < 0) {
 		fprintf(stderr, "initrd-init : failed to open '/mnt': %m\n");
 		return 1;

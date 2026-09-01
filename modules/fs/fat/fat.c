@@ -6,6 +6,7 @@
 #include <kernel/string.h>
 #include <kernel/time.h>
 #include <kernel/unicode.h>
+#include <kernel/vmm.h>
 #include <kernel/vfs.h>
 #include <module/fat.h>
 #include <ctype.h>

@@ -329,7 +329,7 @@ static void block_partition_cleanup(device_t *device) {
 static ssize_t block_partition_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
 	if (device_is_unplugged(&partition->device)) return -ENXIO;
-	if (offset > partition->size) return 0;
+	if (offset > (off_t)partition->size) return 0;
 	if (partition->size - offset < count) {
 		count = partition->size - offset;
 	}
@@ -339,7 +339,7 @@ static ssize_t block_partition_read(vfs_fd_t *fd, void *buffer, off_t offset, si
 static ssize_t block_partition_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
 	if (device_is_unplugged(&partition->device)) return -ENXIO;
-	if (offset > partition->size) return 0;
+	if (offset > (off_t)partition->size) return 0;
 	if (partition->size - offset < count) {
 		count = partition->size - offset;
 	}
@@ -370,7 +370,7 @@ static int block_partition_ioctl(vfs_fd_t *fd, long request, void *arg) {
 static int block_partition_flush(vfs_fd_t *fd, off_t offset, size_t count) {
 	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
 	if (device_is_unplugged(&partition->device)) return -ENXIO;
-	if (offset > partition->size) return 0;
+	if (offset > (off_t)partition->size) return 0;
 	if (partition->size - offset < count) {
 		count = partition->size - offset;
 	}
@@ -443,8 +443,10 @@ int block_device_add_partition(block_device_t *block_device, off_t offset, size_
 
 int block_partition_driver_register(block_partition_driver_t *driver) {
 	list_append(&partition_drivers, &driver->node);
+	return 0;
 }
 
 int block_partition_driver_unregister(block_partition_driver_t *driver) {
 	list_remove(&partition_drivers, &driver->node);
+	return 0;
 }

@@ -23,7 +23,7 @@ typedef struct ide_channel {
 	void *irq_handler;
 	ata_device_t *master;
 	ata_device_t *slave;
-	volatile ata_command_t *current_command; // protected by lock
+	ata_command_t *volatile current_command; // protected by lock
 	volatile size_t bytes_transferred;
 	int ret;
 	uint8_t nIEN;

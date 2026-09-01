@@ -3,6 +3,7 @@
 #include <kernel/kheap.h>
 #include <kernel/slab.h>
 #include <kernel/time.h>
+#include <kernel/vmm.h>
 #include <kernel/vfs.h>
 #include <module/iso9660.h>
 

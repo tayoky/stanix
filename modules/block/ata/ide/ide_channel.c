@@ -168,7 +168,7 @@ static void ide_channel_send_packet(ide_channel_t *channel, ata_command_t *comma
 static void ide_channel_irq_handler(registers_t *registers, void *data) {
 	(void)registers;
 	ide_channel_t *channel = data;
-	ata_command_t *command = atomic_load(&channel->current_command);
+	ata_command_t *command = channel->current_command;
 
 	ide_channel_io_wait(channel);
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
