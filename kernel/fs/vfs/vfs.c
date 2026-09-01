@@ -241,7 +241,7 @@ int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t 
 
 	// acquire both write lock
 	vfs_dentry_t *root_parent = root_dentry->parent;
-	if (root_parent->inode < dest_parent->inode) {
+	if (root_parent->inode < (dest_parent ? dest_parent->inode : NULL)) {
 		vfs_dentry_acquire_write_lock_on_parent(root_dentry);
 		if (dest_parent) vfs_node_acquire_write(dest_parent->inode);
 	} else {
@@ -251,7 +251,7 @@ int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t 
 
 	int ret = 0;
 
-	vfs_dentry_t *dest_dentry = vfs_lookup(dest_parent, last);
+	vfs_dentry_t *dest_dentry = dest_parent ? vfs_lookup(dest_parent, last) : vfs_dentry_ref(vfs_dentry_follow_mount_points(vfs_get_root()));
 	if (IS_ERR(dest_dentry)) {
 		ret = PTR2ERR(dest_dentry);
 		goto error;
