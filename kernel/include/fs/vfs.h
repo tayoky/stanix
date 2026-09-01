@@ -191,6 +191,11 @@ void init_vfs_fd(void);
 
 int vfs_superblock_flush(vfs_superblock_t *superblock);
 
+vfs_superblock_t *vfs_superblock_ref(vfs_superblock_t *superblock) {
+	if (superblock) ref_count_inc(&superblock->ref_count);
+	return superblock;
+}
+
 // inode operations
 
 /**

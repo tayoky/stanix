@@ -764,9 +764,11 @@ static int fat_mount(vfs_fd_t *source, const char *target, unsigned long flags, 
 		local_root->ops        = &fat_inode_ops;
 		local_root->superblock = &fat_superblock->superblock;
 	}
-	local_root->ref_count           = 1;
-	fat_superblock->superblock.root = local_root;
-	*superblock_out                 = &fat_superblock->superblock;
+	local_root->ref_count             = 1;
+	fat_superblock->superblock.root   = local_root;
+	fat_superblock->superblock.device = vfs_dup(source);
+	fat_superblock->superblock.ref_count = 1;
+	*superblock_out                   = &fat_superblock->superblock;
 	return 0;
 }
 

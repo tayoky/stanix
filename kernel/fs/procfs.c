@@ -299,6 +299,7 @@ int proc_mount(vfs_fd_t *source, const char *target, unsigned long flags, const 
 	superblock->root = vnode;
 	superblock->flags |= VFS_SUPERBLOCK_NO_DCACHE;
 	superblock->device = source;
+	superblock->ref_count = 1;
 	vnode->superblock = superblock;
 
 	*superblock_out = superblock;

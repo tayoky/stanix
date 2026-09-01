@@ -84,12 +84,12 @@ static void tmpfs_remove_entry(tmpfs_inode_t *dir, tmpfs_dirent_t *entry) {
 }
 
 static int tmpfs_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
+	(void)source;
 	(void)data;
 	(void)flags;
 	(void)target;
 
 	*superblock_out = new_tmpfs();
-	(*superblock_out)->device = source;
 	return 0;
 }
 
@@ -114,6 +114,7 @@ vfs_superblock_t *new_tmpfs(void) {
 	root_inode->link_count      = 0; // so it get freed when the tmpfs is unmounted
 	superblock->root            = &root_inode->vnode;
 	superblock->root->ref_count = 1;
+	superblock->ref_count = 1;
 	return superblock;
 }
 

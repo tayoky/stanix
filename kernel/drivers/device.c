@@ -131,7 +131,7 @@ static int devfs_mount(vfs_fd_t *source, const char *target, unsigned long flags
 	(void)flags;
 	(void)target;
 
-	*superblock_out = devfs_superblock;
+	*superblock_out = vfs_superblock_ref(devfs_superblock);
 	return 0;
 }
 

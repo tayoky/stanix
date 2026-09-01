@@ -311,6 +311,7 @@ static vfs_fd_ops_t sysfs_fd_ops = {
 };
 
 static int sysfs_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **out_superblock) {
+	(void)source;
 	(void)target;
 	(void)flags;
 	(void)data;
@@ -321,7 +322,7 @@ static int sysfs_mount(vfs_fd_t *source, const char *target, unsigned long flags
 	root->vnode.ref_count = 1;
 	superblock->root      = &root->vnode;
 	superblock->flags  = VFS_SUPERBLOCK_NO_DCACHE;
-	superblock->device = source;
+	superblock->ref_count = 1;
 
 	*out_superblock = superblock;
 	return 0;

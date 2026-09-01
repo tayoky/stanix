@@ -523,8 +523,9 @@ error:
 	}
 
 	kdebugf("block size is %zu\n", block_size);
-	iso9660_superblock->superblock.device = source;
+	iso9660_superblock->superblock.device = vfs_dup(source);
 	iso9660_superblock->superblock.root   = &root->vnode;
+	iso9660_superblock->superblock.ref_count = 1;
 	iso9660_superblock->block_size = block_size;
 	*superblock_out = &iso9660_superblock->superblock;
 	return 0;

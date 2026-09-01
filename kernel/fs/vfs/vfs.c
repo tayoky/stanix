@@ -61,9 +61,12 @@ int vfs_superblock_flush(vfs_superblock_t *superblock) {
 	return 0;
 }
 
-static void vfs_superblock_destroy(vfs_superblock_t *superblock) {
+static void vfs_superblock_release(vfs_superblock_t *superblock) {
 	if (!superblock) return;
 	vfs_superblock_flush(superblock);
+	if (ref_count_dec(&superblock->ref_count) > 1) {
+		return;
+	}
 	if (superblock->ops && superblock->ops->destroy) {
 		superblock->ops->destroy(superblock);
 	} else {
@@ -109,17 +112,14 @@ int vfs_auto_mount(const char *source, const char *target, const char *filesyste
 	}
 
 	int ret = best->mount(src, target, mountflags, data, &superblock);
-	if (ret < 0) {
-		vfs_close(src);
-		return ret;
-	}
+	vfs_close(src);
 	if (!superblock) return ret;
 
 	// mount the superblock
 	ret                          = vfs_mount(target, mountflags, superblock);
 	superblock->root->superblock = superblock;
 	if (ret < 0) {
-		vfs_superblock_destroy(superblock);
+		vfs_superblock_release(superblock);
 	}
 	return ret;
 }
@@ -216,7 +216,7 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	vfs_dentry_release(mount_point->root);
 	vfs_dentry_release(mount_point->shadow);
 	slab_free(mount_point);
-	vfs_superblock_destroy(superblock);
+	vfs_superblock_release(superblock);
 
 	return 0;
 
