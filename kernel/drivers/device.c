@@ -12,7 +12,8 @@
 #define DYNAMIC_MAJOR_SIZE (DYNAMIC_MAJOR_MAX - DYNAMIC_MAJOR_MIN)
 static uint32_t major_bitmap[DYNAMIC_MAJOR_SIZE / 32];
 xarray_t devices;
-vfs_dentry_t *devfs_root;
+static vfs_dentry_t *devfs_root;
+static vfs_superblock_t *devfs_superblock;
 
 int device_allocate_major(void) {
 	for (size_t i=0; i<arraylen(major_bitmap); i++) {
@@ -125,11 +126,26 @@ vfs_fd_t *device_open(device_t *device, long flags) {
 	return fd;
 }
 
+static int devfs_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
+	(void)data;
+	(void)flags;
+	(void)target;
+
+	*superblock_out = devfs_superblock;
+	return 0;
+}
+
+static vfs_filesystem_t devfs = {
+	.name  = "devfs",
+	.mount = devfs_mount,
+};
+
 void init_devices(void) {
 	kstatusf("init devices ... ");
 	xarray_init(&devices);
+	vfs_register_fs(&devfs);
 
-	vfs_superblock_t *devfs_superblock = new_tmpfs();
+	devfs_superblock = new_tmpfs();
 	vfs_mount("/dev", 0, devfs_superblock);
 	devfs_root = vfs_get_dentry("/dev", 0);
 
