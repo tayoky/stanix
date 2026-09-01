@@ -155,15 +155,15 @@ static int iso9660_extract_symlink(iso9660_dentry_t *dentry, char *buf, size_t b
 				skip_slash = 0;
 			} else {
 				// raw data component
-				size_t data_length = component->length - sizeof(iso9660_sl_component_t);
-				if (ptr + data_length >= buf_size) return -ERANGE;
-				memcpy(&buf[ptr], component->data, data_length);
-				ptr += data_length;
+				if (ptr + component->length >= buf_size) return -ERANGE;
+				memcpy(&buf[ptr], component->data, component->length);
+				ptr += component->length;
+				offset += component->length;
 			}
 			if (component->flags & ISO9660_SL_COMPONENT_FLAG_CONTINUE) {
 				skip_slash = 1;
 			}
-			offset += component->length;
+			offset += sizeof(iso9660_sl_component_t);
 		}
 		if (sl->flags & ISO9660_SL_ENTRY_FLAG_CONTINUE) {
 			sl = iso9660_get_next_susp_entry(dentry, ISO9660_SL_ENTRY, sl);
