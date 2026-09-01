@@ -25,12 +25,6 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	// init std streams
-	open("/dev/null", O_RDONLY); // stdin
-	open("/dev/tty0", O_WRONLY); // stdout
-	open("/dev/tty0", O_WRONLY); // stderr
-
-
 	printf("starting stanix userspace ....\n");
 
 	struct timeval time;

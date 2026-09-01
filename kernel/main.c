@@ -77,6 +77,10 @@ void spawn_init() {
 		NULL
 	};
 
+	// TODO : open the console instead
+	fd_add(vfs_open("/dev/tty0", O_RDWR), 0);
+	fd_add(vfs_open("/dev/tty0", O_RDWR), 0);
+	fd_add(vfs_open("/dev/tty0", O_RDWR), 0);
 
 	if (exec(init_path, 2, arg, 1, env)) {
 		kfail();
