@@ -216,6 +216,7 @@ static cache_ops_t iso9660_cache_ops = {
 
 static ssize_t iso9660_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	iso9660_inode_t *inode = fd->private;
+	kassert(S_ISREG(inode->vnode.mode));
 	return cache_read(&inode->cache, buffer, offset, count);
 }
 
@@ -227,13 +228,21 @@ static ssize_t iso9660_write(vfs_fd_t *fd, const void *buffer, off_t offset, siz
 	return -EROFS;
 }
 
+static int iso9660_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
+	iso9660_inode_t *inode = fd->private;
+	kassert(S_ISREG(inode->vnode.mode));
+	return cache_mmap(&inode->cache, offset, seg);
+}
+
 static vfs_fd_ops_t iso9660_fd_ops = {
 	.read  = iso9660_read,
 	.write = iso9660_write,
+	.mmap  = iso9660_mmap,
 };
 
 static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
 	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
 	iso9660_superblock_t *iso9660_superblock = container_of(inode->vnode.superblock, iso9660_superblock_t, superblock);
 	off_t offset = inode->lba * iso9660_superblock->block_size;
 	off_t end = offset + inode->size;
@@ -290,6 +299,7 @@ static int iso9660_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 
 static int iso9660_lookup(vfs_node_t *vnode, vfs_dentry_t *vfs_dentry) {
 	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
 	iso9660_superblock_t *iso9660_superblock = container_of(inode->vnode.superblock, iso9660_superblock_t, superblock);
 	off_t offset = inode->lba * iso9660_superblock->block_size;
 	off_t end = offset + inode->size;
