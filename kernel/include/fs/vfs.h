@@ -559,7 +559,7 @@ static inline int vfs_flush_range(vfs_fd_t *fd, off_t offset, size_t count) {
 		int ret = vfs_node_data_flush(fd->inode);
 		if (ret < 0) return ret;
 	}
-	if (!fd->ops->flush) {
+	if (!fd->ops->flush || !(S_ISREG(fd->type) || S_ISBLK(fd->type))) {
 		// unlike a lot of ops we allow to not have flush
 		// it just mean the content is not buffered
 		return 0;

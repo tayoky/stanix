@@ -250,11 +250,13 @@ static vfs_node_t *fat_entry2node(off_t entry_offset, fat_entry_t *entry, fat_su
 
 static ssize_t fat_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	fat_inode_t *inode = fd->private;
+	kassert(S_ISREG(inode->vnode.mode));
 	return cache_read(&inode->cache, buffer, offset, count);
 }
 
 static ssize_t fat_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	fat_inode_t *inode = fd->private;
+	kassert(S_ISREG(inode->vnode.mode));
 	if (offset + count > inode->cache.size) {
 		int ret = vfs_truncate(fd->inode, offset + count);
 		if (ret < 0) return ret;
@@ -264,16 +266,24 @@ static ssize_t fat_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t 
 
 static int fat_flush(vfs_fd_t *fd, off_t offset, size_t count) {
 	fat_inode_t *inode = fd->private;
+	kassert(S_ISREG(inode->vnode.mode));
 	int ret = cache_flush(&inode->cache, offset, count);
 	if (ret < 0) return ret;
 	// TODO : maybe do not sync the whole disk
 	return vfs_flush(fd->inode->superblock->device);
 }
 
+static int fat_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
+	fat_inode_t *inode = fd->private;
+	kassert(S_ISREG(inode->vnode.mode));
+	return cache_mmap(&inode->cache, offset, seg);
+}
+
 static vfs_fd_ops_t fat_fd_ops = {
 	.read     = fat_read,
 	.write    = fat_write,
 	.flush    = fat_flush,
+	.mmap     = fat_mmap,
 };
 
 static int fat_open(vfs_fd_t *fd) {
