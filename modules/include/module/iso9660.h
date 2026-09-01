@@ -74,7 +74,8 @@ typedef struct iso9660_px_entry {
 } __attribute__((packed)) iso9660_px_entry_t;
 
 #define ISO9660_PX_ENTRY         "PX"
-#define ISO9660_PX_ENTRY_VERSION 0x01
+#define ISO9660_PX_ENTRY_VERSION    0x01
+#define ISO9660_PX_ENTRY_MIN_LENGTH 36
 
 typedef struct iso9660_pn_entry {
 	iso9660_susp_entry_t susp_entry;

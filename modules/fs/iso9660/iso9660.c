@@ -398,20 +398,22 @@ static iso9660_inode_t *iso9660_entry2inode(iso9660_superblock_t *iso9660_superb
 	inode->nlink       = 1;
 
 	iso9660_px_entry_t *px = iso9660_get_susp_entry(dentry, ISO9660_PX_ENTRY);
-	if (px && px->susp_entry.length != sizeof(iso9660_px_entry_t)) px = NULL;
+	if (px && px->susp_entry.length < ISO9660_PX_ENTRY_MIN_LENGTH) px = NULL;
 	if (px && px->version != ISO9660_PX_ENTRY_VERSION) px = NULL;
 
 	iso9660_pn_entry_t *pn = iso9660_get_susp_entry(dentry, ISO9660_PN_ENTRY);
-	if (pn && pn->susp_entry.length != sizeof(iso9660_pn_entry_t)) pn = NULL;
+	if (pn && pn->susp_entry.length < sizeof(iso9660_pn_entry_t)) pn = NULL;
 	if (pn && pn->version != ISO9660_PN_ENTRY_VERSION) pn = NULL;
 
 	if (px) {
-		kdebugf("got px\n");
 		// TODO : use inode cache maybee
 		inode->vnode.mode   = le_uint32_to_uint32(&px->mode.le);
 		inode->vnode.uid    = le_uint32_to_uint32(&px->uid.le);
 		inode->vnode.gid    = le_uint32_to_uint32(&px->gid.le);
-		inode->vnode.number = le_uint32_to_uint32(&px->inode.le);
+		if (px->susp_entry.length >= sizeof(iso9660_px_entry_t)) {
+			// the serial number is not always present
+			inode->vnode.number = le_uint32_to_uint32(&px->inode.le);
+		}
 		inode->nlink  = le_uint32_to_uint32(&px->nlink.le);
 		if (pn) {
 			inode->dev = ((uint64_t)le_uint32_to_uint32(&pn->dev_high.le) << 32) | le_uint32_to_uint32(&pn->dev_low.le);
