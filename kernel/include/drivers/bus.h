@@ -5,6 +5,7 @@
 #include <kernel/devclass.h>
 #include <kernel/interrupt.h>
 #include <kernel/resource.h>
+#include <kernel/mutex.h>
 #include <kernel/list.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -18,6 +19,7 @@ typedef struct devnode {
 	list_t resources;
 	list_t resource_descs;
 	list_t children;
+	mutex_t mutex;
 	struct devnode *parent;
 	struct device *device;
 	struct driver *driver;

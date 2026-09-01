@@ -44,9 +44,11 @@ static void device_attempt_attach_with(devnode_t *device, driver_t *driver) {
 	}
 
 	// only try if unattached
+	mutex_acquire(&device->mutex);
 	if (!device_has_attached_driver(device)) {
 		device_attach_driver(device, driver);
 	}
+	mutex_release(&device->mutex);
 }
 
 int driver_register(driver_t *driver) {
@@ -74,7 +76,9 @@ static void device_print_name(devnode_t *devnode, char *buf, size_t size) {
 }
 
 static void device_generate_cached_name(devnode_t *devnode) {
+	mutex_acquire(&devnode->mutex);
 	device_print_name(devnode, devnode->cached_name, sizeof(devnode->cached_name));
+	mutex_release(&devnode->mutex);
 }
 
 devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, int unit) {
@@ -84,6 +88,7 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 		if (!child) return NULL;
 	}
 
+	mutex_acquire(&child->mutex);
 	list_append(&bus->children, &child->node);
 	list_append(&devnodes, &child->list_node);
 	child->parent = bus;
@@ -96,6 +101,7 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 	}
 
 	kinfof("attached device %p(%s) child of %p(%s)\n", child, device_get_name(child), bus, device_get_name(bus));
+	mutex_release(&child->mutex);
 
 	// can we find a driver for this device ?
 	device_attach_driver_auto(child);
@@ -207,37 +213,53 @@ static int driver_support_bus(driver_t *driver, devclass_t *bus_type) {
 }
 
 int device_check_driver(devnode_t *device, driver_t *driver) {
+	mutex_acquire(&device->mutex);
 	if (device->flags & DEVNODE_FIXEDNAME) {
 		// the driver must have a matching devclass
 		if (device->devclass != driver->devclass) {
-			return -ENOTSUP;
+			goto notsup;
 		}
 	} else if (device->parent && !driver_support_bus(driver, device->parent->devclass)) {
-		return -ENOTSUP;
+		goto notsup;
 	}
 	if (!driver->probe) {
-		return -ENOTSUP;
+		goto notsup;
 	}
 
 	if (driver->check) {
-		if (!driver->check(device)) return -ENOTSUP;
+		if (!driver->check(device)) goto notsup;
 	} else {
 		// the driver uses fixed name
-		if (!(device->flags & DEVNODE_FIXEDNAME)) return -ENOTSUP;
+		if (!(device->flags & DEVNODE_FIXEDNAME)) goto notsup;
 	}
+	mutex_release(&device->mutex);
 	return 0;
+
+notsup:
+	mutex_release(&device->mutex);
+	return -ENOTSUP;
 }
 
 int device_attach_driver(devnode_t *device, driver_t *driver) {
-	if (!driver) return -EINVAL;
+	int ret = 0;
+	mutex_acquire(&device->mutex);
+	if (!driver) {
+		ret = -EINVAL;
+		goto error;
+	}
+
 	// does the driver support the device ?
-	if (device_check_driver(device, driver) < 0) return -ENOTSUP;
+	if (device_check_driver(device, driver) < 0) {
+		ret = -ENOTSUP;
+		goto error;
+	}
 	
 	if (device_has_attached_driver(device)) {
 		// a driver already control this device
 		if (device->driver->priority >= driver->priority) {
 			// the old driver is already better
-			return -EBUSY;
+			ret = -EBUSY;
+			goto error;
 		} else {
 			// replace the old driver
 			device_detach_driver(device);
@@ -257,18 +279,21 @@ int device_attach_driver(devnode_t *device, driver_t *driver) {
 
 	// the driver is compatible with the device
 	device->driver = driver;
-	int ret = driver->probe(device);
+	ret = driver->probe(device);
 	if (ret < 0) {
 		device->driver = NULL;
 	} else {
 		kinfof("attached driver %s to device %p(%s)\n", driver->name, device, device_get_name(device));
 	}
+error:
+	mutex_release(&device->mutex);
 	return ret;
 }
 
 int device_attach_driver_auto(devnode_t *device) {
 	driver_t *best = NULL;
 	int best_priority = 0;
+	mutex_acquire(&device->mutex);
 	foreach (node, &drivers) {
 		driver_t *driver = container_of(node, driver_t, node);
 		if (driver->priority >= best_priority && device_check_driver(device, driver) >= 0) {
@@ -277,6 +302,7 @@ int device_attach_driver_auto(devnode_t *device) {
 		}
 	}
 	device_attach_driver(device, best);
+	mutex_release(&device->mutex);
 	return 0;
 }
 
@@ -308,11 +334,13 @@ static void device_release_resources(devnode_t *device) {
 }
 
 int device_detach_driver(devnode_t *device) {
+	mutex_acquire(&device->mutex);
 	if (!device_has_attached_driver(device)) {
 		return 0;
 	}
 	if (!device->driver->detach) {
 		kwarningf("driver %s cannot be detached\n", device->driver->name);
+		mutex_release(&device->mutex);
 		return -ENOTSUP;
 	}
 	device->driver->detach(device);
@@ -327,13 +355,19 @@ int device_detach_driver(devnode_t *device) {
 	// cleanup resources the driver forgot
 	device_release_resources(device);
 	device->driver = NULL;
+	mutex_release(&device->mutex);
 	return 0;
 }
 
 int device_set_name(devnode_t *device, const char *name, int unit) {
+	mutex_acquire(&device->mutex);
 	devclass_t *devclass = devclass_get_or_create(name);
-	if (!devclass) return -ENOMEM;
+	if (!devclass) {
+		mutex_release(&device->mutex);
+		return -ENOMEM;
+	}
 	if (device->devclass == devclass && device->unit == unit) {
+		mutex_release(&device->mutex);
 		return 0;
 	}
 	// remove old devclass
@@ -342,6 +376,7 @@ int device_set_name(devnode_t *device, const char *name, int unit) {
 	device->unit = unit;
 	devclass_alloc_unit(devclass, device);
 	device_generate_cached_name(device);
+	mutex_release(&device->mutex);
 	return 0;
 }
 
