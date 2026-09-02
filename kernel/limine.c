@@ -142,9 +142,17 @@ void init_limine(void) {
 	}
 	if (kernel_file_request.response) {
 		struct limine_file *kernel_file = kernel_file_request.response->kernel_file;
+		static char disk_uuid[64];
 		if (kernel_file->gpt_disk_uuid.a) {
-
-			//kernel_file_request.response->kernel_file->gpt_disk_uuid.
+			size_t ptr = snprintf(disk_uuid, sizeof(disk_uuid), "%08x-%04hx-%04hx-%02hhx%02hhx-", 
+				kernel_file->gpt_disk_uuid.a, kernel_file->gpt_disk_uuid.b, kernel_file->gpt_disk_uuid.c,
+				kernel_file->gpt_disk_uuid.d[0], kernel_file->gpt_disk_uuid.d[1]);
+			for (int i = 2; i < 8; i++) {
+				ptr += sprintf(disk_uuid + ptr, "%02hhx", kernel_file->gpt_disk_uuid.d[i]);
+			}
+		} else if (kernel_file->mbr_disk_id) {
+			snprintf(disk_uuid, sizeof(disk_uuid), "%08x", kernel_file->mbr_disk_id);
 		}
+		limine_bootinfo.disk_uuid = disk_uuid;
 	}
 }

@@ -1,5 +1,6 @@
 #include <kernel/bus.h>
 #include <kernel/cmdline.h>
+#include <kernel/bootinfo.h>
 #include <kernel/device.h>
 #include <kernel/kheap.h>
 #include <kernel/pmm.h>
@@ -27,7 +28,8 @@ static vfs_fd_ops_t sysfs_fd_ops;
 #define INODE_RMAN_DIR         11
 #define INODE_RMAN             12
 #define INODE_KCMDLINE         13
-#define INODE_MEM              14
+#define INODE_KERNEL_FILE      14
+#define INODE_MEM              15
 
 typedef struct static_entry {
 	int type;
@@ -51,9 +53,10 @@ static static_entry_t devnode_entries[] = {
 };
 
 static static_entry_t kernel_entries[] = {
-	ENTRY(S_IFDIR, INODE_SLAB_DIR, "slab"),
-	ENTRY(S_IFDIR, INODE_RMAN_DIR, "rman"),
-	ENTRY(S_IFREG, INODE_KCMDLINE, "cmdline"),
+	ENTRY(S_IFDIR, INODE_SLAB_DIR,    "slab"),
+	ENTRY(S_IFDIR, INODE_RMAN_DIR,    "rman"),
+	ENTRY(S_IFREG, INODE_KCMDLINE,    "cmdline"),
+	ENTRY(S_IFREG, INODE_KERNEL_FILE, "file"),
 };
 
 static sysfs_inode_t *sysfs_new_inode(int type, void *ptr, mode_t mode) {
@@ -277,6 +280,10 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 		break;
 	case INODE_KCMDLINE:
 		strcpy(str, kcmdline_get());
+		break;
+	case INODE_KERNEL_FILE:
+		sprintf(str, "disk uuid : %s\n",
+				bootinfo_get_disk_uuid());
 		break;
 	case INODE_MEM:
 		sprintf(str, "total pages count : %zu\n"

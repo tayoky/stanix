@@ -25,6 +25,10 @@ bootinfo_initrd_t *bootinfo_get_initrd(void) {
 	return &bootinfo->initrd;
 }
 
+const char *bootinfo_get_disk_uuid(void) {
+	return bootinfo->disk_uuid;
+}
+
 size_t bootinfo_memmap_get_entries_count(void) {
 	return bootinfo->memmap_entries_count;
 }

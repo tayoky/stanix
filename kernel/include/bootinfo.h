@@ -39,6 +39,7 @@ void bootinfo_set(bootinfo_t *new_bootinfo);
 uintptr_t bootinfo_get_hhdm(void);
 uintptr_t bootinfo_get_kernel_paddr(void);
 bootinfo_initrd_t *bootinfo_get_initrd(void);
+const char *bootinfo_get_disk_uuid(void);
 size_t bootinfo_memmap_get_entries_count(void);
 void bootinfo_memmap_get_entry(size_t index, bootinfo_memmap_entry_t *entry);
 
