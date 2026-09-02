@@ -14,11 +14,32 @@ static long parse_long(const char *str, size_t line) {
 	return l;
 }
 
+static void load_defaults(void) {
+	if (!shell) {
+		shell = "/bin/sh";
+	}
+	if (!home) {
+		char default_home[PATH_MAX];
+		snprintf(default_home, sizeof(default_home), "/home/%s", name);
+		home = strdup(default_home);
+	}
+	if (!password) {
+		password = "";
+	}
+	if (!class) {
+		class = "default";
+	}
+	if (!comment) {
+		comment = "";
+	}
+}
+
 void load_conf(void) {
 	char conf_path[PATH_MAX];
 	snprintf(conf_path, sizeof(conf_path), "%s%s/etc/pw.conf", root, prefix);
 	FILE *conf = fopen(conf_path, "r");
 	if (!conf) {
+		load_defaults();
 		return;
 	}
 
@@ -53,23 +74,5 @@ void load_conf(void) {
 		// TODO : parse more
 	}
 	fclose(conf);
-
-	// defaults
-	if (!shell) {
-		shell = "/bin/sh";
-	}
-	if (!home) {
-		char default_home[PATH_MAX];
-		snprintf(default_home, sizeof(default_home), "/home/%s", name);
-		home = strdup(default_home);
-	}
-	if (!password) {
-		password = "";
-	}
-	if (!class) {
-		class = "default";
-	}
-	if (!comment) {
-		comment = "";
-	}
+	load_defaults();
 }
