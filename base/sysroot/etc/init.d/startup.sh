@@ -1,16 +1,23 @@
 #!/bin/tash
+echo "mounting /dev"
+mount -t devfs -S / -T /dev
+chmod 0755 /dev
+
 echo "mounting /tmp"
-mount -t tmpfs -S / -T /tmp
+mount -t tmpfs -S /dev/null -T /tmp
 chmod 01777 /tmp
+
 echo "mounting /proc"
 mount -t proc -S /dev/null -T /proc
+
 echo "mounting /sys"
 mount -t sysfs -S /dev/null -T /sys
+
 echo "mounting shmfs"
 mkdir -p /dev/shm
 mount -t tmpfs -S /dev/null -T /dev/shm
 chmod 01777 /dev/shm
-chmod 0755 /dev
+
 echo "loading modules"
 
 for MODULE in \
