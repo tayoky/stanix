@@ -15,23 +15,24 @@ A new stable release is made sometimes...
 ## Hardware
 List of all supported hardware.
 - serial port (only on `x86_64`)
-- ps2 keyboard (only on `x86_64`)
+- ps2 keyboard and mouse (only on `x86_64`)
 - cmos (only on `x86_64`)
 - framebuffer (with tty emulation)
-- ATA devices on ide controller
+- ATA and ATAPI devices on IDE controller
+- SCSI MMC drives
 - pci bus
 
 ## Goals
 Futures goals (once a goal is reached it is removed from the list).
 - a GUI (in progress)
 - nvme support
-- atapi support
-- better blockfs interface at kernel level
+- DMA on IDE support
 - ext2 support
-- fat write support
+- fat write support (in progress, no file creation/deletion support)
 - cirrus logic driver
 - automatic modesetting
 - better management of framebuffers
+- much better stability
 
 ## Recommended specs
 - at least 256 MB of ram (also run on 128 MB)
@@ -64,22 +65,28 @@ Futures goals (once a goal is reached it is removed from the list).
 - some ports (such as Doom, quake2, `binutils`, `make`, `SDL3`, ...)
 - dynamic linking
 - simple modesetting via TRM
+- an ATA stack
+- a simple SCSI stack
 
 ## Drivers list
 - 8042 (ps2 controller on most PC)
-- ATA
+- IDE
+- ATA disks
+- ATAPI
+- SCSI MMC
 - framebuffer
 - serial (early boot)
 - serial (complete driver)
 - pci bus
 - ps2 keyboard
 - partitions (GPT/MBR)
-- fat12/16/32 (read-only)
+- fat12/16/32 with LFN (no file creation/deletion)
+- iso9660 fs
 - vga
 - bga
 
 ## Subprojects
-**Stanix** is a big project and is split in multiple repos and subprojects.
+**Stanix** is a large project and is split across multiple repos and subprojects.
 - [Stanix's core](https://github.com/tayoky/stanix) contain the kernel, Stanix specific tool (terminal emulator, window manager, ...) and the base sysroot along docs.
 - [tlibc](https://github.com/tayoky/tlibc) a reimplementation of the standard libc for Stanix.
 - [tash](https://github.com/tayoky/tash) a homemade Posix shell used as the default one for Stanix.
