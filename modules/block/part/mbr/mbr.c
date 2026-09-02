@@ -18,13 +18,15 @@ static int mbr_attach(block_device_t *block_device) {
 	mbr_table_t mbr;
 	block_device_read(block_device, &mbr, 0, sizeof(mbr));
 
-	snprintf(block_device->uuid, sizeof(block_device->uuid), "%x", mbr.uuid);
+	snprintf(block_device->uuid, sizeof(block_device->uuid), "%08x", mbr.uuid);
 
 	for (size_t i = 0; i < 4; i++) {
 		if (mbr.entries[i].sectors_count == 0) continue;
 		char fs_uuid[8];
-		snprintf(fs_uuid, sizeof(fs_uuid), "%hhx", mbr.entries[i].type);
-		block_device_add_partition(block_device, mbr.entries[i].lba_start * block_device->sector_size, mbr.entries[i].sectors_count * block_device->sector_size, NULL, fs_uuid);
+		snprintf(fs_uuid, sizeof(fs_uuid), "%02hhx", mbr.entries[i].type);
+		char part_uuid[32];
+		snprintf(part_uuid, sizeof(part_uuid), "%08x-%02hhx", mbr.uuid, i);
+		block_device_add_partition(block_device, mbr.entries[i].lba_start * block_device->sector_size, mbr.entries[i].sectors_count * block_device->sector_size, part_uuid, fs_uuid);
 	}
 
 	return 0;
