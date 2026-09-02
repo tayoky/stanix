@@ -58,6 +58,15 @@ int tty_add_input(tty_t *tty, const char *buffer, size_t count);
 int tty_do_ioctl(tty_t *fd, long request, void *arg);
 int tty_register(tty_t *tty, const char *fmt, dev_t number);
 
+static inline tty_t *tty_ref(tty_t *tty) {
+	if (tty) device_ref(&tty->ref_count);
+	return tty;
+}
+
+static inline void tty_release(tty_t *tty) {
+	if (tty) device_release(&tty->device);
+}
+
 int new_pty(vfs_fd_t **master, vfs_fd_t **slave, tty_t **);
 
 void init_ptys(void);

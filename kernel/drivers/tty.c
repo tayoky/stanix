@@ -354,12 +354,52 @@ static int tty_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	return 0;
 }
 
+static int tty_raw_set_session(tty_t *tty, session_t *session) {
+	spinlock_assert_acquired(&proctree_lock);
+	spinlock_assert_acquired(&tty->lock);
+	if (tty->session == session) {
+		if (session) kassert(session->tty == tty);
+		// the tty already control this session
+		return 0;
+	}
+	if (session && session->tty) {
+		// the session already has a tty
+		return -EPERM;
+	}
+
+	session_t *old = tty->session;
+
+	tty->session = session;
+	if (session) {
+		spinlock_acquire(&session->lock);
+		session->tty = tty_ref(tty);
+		spinlock_release(&session->lock);
+	}
+
+	if (old) {
+		spinlock_acquire(&old->lock);
+		old->tty = NULL;
+		spinlock_release(&old->lock);
+		tty_release(tty);
+	}
+	
+	return 0;
+}
+
 static void tty_destroy(device_t *device) {
 	tty_t *tty = (tty_t *)device;
 
-	int irq_save = spinlock_acquire_irq(&tty->lock);
+	spinlock_acquire(&proctree_lock);
 
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	
 	// TODO : send SIGHUP
+
+	// dissociate any session
+	tty_raw_set_session(tty, NULL);
+
+	spinlock_release(&proctree_lock);
+
 	
 	process_group_release(tty->fg_group);
 	wakeup_queue(&tty->reader_queue, 0);
@@ -369,39 +409,6 @@ static void tty_destroy(device_t *device) {
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
 	ringbuffer_destroy(&tty->input_buffer);
-}
-
-// TODO
-static int tty_set_session(tty_t *tty, session_t *session, int steal) {
-	spinlock_acquire(&proctree_lock);
-	spinlock_acquire(&session->lock);
-	spinlock_acquire(&tty->lock);
-	if (tty->session && (!steal || get_current_euid() != EUID_ROOT)) {
-		goto error;
-	}
-	if (session->tty) {
-		// the session already has a tty
-		goto error;
-	}
-
-	session_t *old = tty->session;
-
-	tty->session = session_ref(session);
-
-	spinlock_acquire(&old->lock);
-	old->tty = NULL;
-	spinlock_release(&old->lock);
-	
-	spinlock_release(&tty->lock);
-	spinlock_release(&session->lock);
-	spinlock_release(&proctree_lock);
-	return 0;
-
-error:
-	spinlock_release(&tty->lock);
-	spinlock_release(&session->lock);
-	spinlock_release(&proctree_lock);
-	return -EPERM;
 }
 
 static int tty_termios_update(tty_t *tty, struct termios *new) {
@@ -464,6 +471,59 @@ static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) {
 		return 0;
 	case TIOCGWINSZ:
 		return safe_copy_auto_to(arg, &tty->size);
+	case TIOCSCTTY:
+		// we cannot acquire the proctree or a proc lock while holding a tty lock
+		spinlock_raw_release(&tty->lock);
+		spinlock_acquire(&proctree_lock);
+		spinlock_acquire(&get_current_proc()->lock);
+		spinlock_raw_acquire(&tty->lock);
+		if (tty->session != get_current_proc()->group->session) {
+tiocsctty_error:
+			spinlock_release(&get_current_proc()->lock);
+			spinlock_release(&proctree_lock);
+			return -EPERM;
+		}
+
+		if (get_current_proc()->pid != get_current_proc()->group->session->sid) {
+			// we are not a session leader
+			goto tiocsctty_error;
+		}
+
+		int steal = (int)(uintptr_t)arg;
+		if (tty->session && (!steal || get_current_euid() != EUID_ROOT)) {
+			// we cannot steal
+			goto tiocsctty_error;
+		}
+
+		int ret = tty_raw_set_session(tty, get_current_proc()->group->session);
+		spinlock_release(&get_current_proc()->lock);
+		spinlock_release(&proctree_lock);
+		return ret;
+	case TIOCNOTTY:
+		// we cannot acquire the proctree or a proc lock while holding a tty lock
+		spinlock_raw_release(&tty->lock);
+		spinlock_acquire(&proctree_lock);
+		spinlock_acquire(&get_current_proc()->lock);
+		if (tty->session != get_current_proc()->group->session) {
+			spinlock_release(&get_current_proc()->lock);
+			spinlock_release(&proctree_lock);
+			spinlock_raw_acquire(&tty->lock);
+			return -EPERM;
+		}
+		if (get_current_proc()->pid == get_current_proc()->group->session->sid) {
+			// cannot send signals while holding a proc lock
+			spinlock_release(&get_current_proc()->lock);
+			signal_send_group(tty->fg_group, SIGCONT);
+			signal_send_group(tty->fg_group, SIGHUP);
+			spinlock_acquire(&get_current_proc()->lock);
+		}
+		spinlock_raw_acquire(&tty->lock);
+
+		// dissociate
+		tty_raw_set_session(tty, NULL);
+
+		spinlock_release(&get_current_proc()->lock);
+		spinlock_release(&proctree_lock);
 	default:
 		if (tty->ops->ioctl) {
 			return tty->ops->ioctl(tty, request, arg);
