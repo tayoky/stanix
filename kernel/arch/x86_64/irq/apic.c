@@ -187,7 +187,7 @@ void init_apic(void) {
 	uint32_t apic_base_high;
 	rdmsr(IA32_APIC_BASE, &apic_base_low, &apic_base_high);
 	apic_base_low |= (1 << 11);
-	wrmsr(IA32_APIC_BASE, apic_base_high, apic_base_low);
+	wrmsr(IA32_APIC_BASE, apic_base_low, apic_base_high);
 
 	kinfof("local apic address is %p\n", local_apic_address);
 	local_apic = mmio_map(local_apic_address, 0x400);
