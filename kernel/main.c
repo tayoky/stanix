@@ -57,11 +57,11 @@ void print_license(void) {
 
 void spawn_init() {
 	kstatusf("try spawn init...\n");
-	//first get the path for the init program
-	char *init_path = ini_get_value(kernel->conf_file, "init", "init");
+	// first get the path for the init program
+	char *init_path = kcmdline_get_option("init");
 
 	if (!init_path) {
-		init_path = strdup("/init");
+		init_path = "/bin/init";
 	}
 
 	kinfof("try to exec %s\n", init_path);
@@ -84,10 +84,8 @@ void spawn_init() {
 
 	if (exec(init_path, 2, arg, 1, env)) {
 		kfail();
-		kinfof("can't spawn %s\n", init_path);
+		kinfof("cannot spawn %s\n", init_path);
 	}
-
-	kfree(init_path);
 
 	kinfof("halt because no init program can be executed\n");
 	halt();
