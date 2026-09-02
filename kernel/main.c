@@ -58,7 +58,7 @@ void print_license(void) {
 void spawn_init() {
 	kstatusf("try spawn init...\n");
 	// first get the path for the init program
-	char *init_path = kcmdline_get_option("init");
+	char *init_path = kcmdline_get_option("--init");
 
 	if (!init_path) {
 		init_path = "/bin/init";

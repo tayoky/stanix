@@ -7,56 +7,35 @@
 #include <kernel/print.h>
 #include <kernel/ini.h>
 
-void init_kout(){
-	//read the conf file,
-	//open all the scpefied file/dev
-	//and save it!
-	//simple right ?
-
+void init_kout(void) {
 	kstatusf("init kout... ");
+	const char *kout_option = kcmdline_get_option("--kout");
 
-	//first find the number of out
-	int kout_count = 0;
-	
-	for(;;){
-		char current_key[64];
-		sprintf(current_key,"kout%d",kout_count);
-		char *current_kout = ini_get_value(kernel->conf_file,"kout",current_key);
-		if(!current_kout){
-			break;
-		}
-		kfree(current_kout);
-		kout_count++;
-	}
-
-	if(!kout_count){
-		kfail();
-		kinfof("can't find any kout all kernel output will still be via serial\n");
-		return;
-	}
-
-	//now open and make the list
-	vfs_fd_t **outs = kmalloc(sizeof(vfs_fd_t *) * (kout_count + 1));
-	outs[kout_count] = NULL;
-
-	for (int index = 0; index < kout_count; index++){
-		char current_key[64];
-		sprintf(current_key,"kout%d",index);
-		char *current_kout = ini_get_value(kernel->conf_file,"kout",current_key);
-
-		vfs_fd_t *current_fd = vfs_open(current_kout,O_WRONLY);
-		if(IS_ERR(current_fd)){
-			kinfof("can't open %s \n",current_kout);
-			kfree(current_kout);
+	static vfs_fd_t *kouts[8];
+	size_t kouts_count = 0;
+	char *ptr;
+	char *kout = strtok_r(kout_option, ",", &ptr);
+	while (kout && kouts_count + 1 < arraylen(kouts)) {
+		device_t *device = device_from_name(kout);
+		if (!device) {
+			kwarningf("could not find device '%s'\n", kout);
 			continue;
 		}
-		outs[index] = current_fd;
-		kfree(current_kout);
+		vfs_fd_t *fd = device_open(device, O_WRONLY);
+		device_release(device);
+		if (IS_ERR(fd)) {
+			kwarningf("could not open device '%s'\n", kout);
+			continue;
+		}
+		kouts[kouts_count++] = fd;
+
+		kout = strtok_r(NULL, ",", &ptr);
 	}
+	kouts[kouts_count] = NULL;
 	
-	//now actually use it
-	kernel->outs = outs;
+	// now actually use it
+	kernel->outs = kouts;
 
 	kok();
-	kinfof("find %ld kouts\n",kout_count);
+	kinfof("found %ld kouts\n", kouts_count);
 }

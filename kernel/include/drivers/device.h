@@ -53,6 +53,13 @@ int device_destroy(device_t *device);
 device_t *device_from_number(dev_t dev);
 
 /**
+ * @brief get a device from its name
+ * @param name the name of the device
+ * @return a new ref to the device that must be released with \ref device_release
+ */
+device_t *device_from_name(const char *name);
+
+/**
  * @brief open a device without going through a path
  * @param device the device to open
  * @param flags flags to open the device with

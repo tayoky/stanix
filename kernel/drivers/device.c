@@ -111,6 +111,21 @@ device_t *device_from_number(dev_t dev) {
 	return device;
 }
 
+device_t *device_from_name(const char *name) {
+	rcu_acquire_read(&devices.rcu);
+	xarray_foreach (index, value, &devices) {
+		(void)index;
+		device_t *device = value;
+		if (!strcmp(device->name, name)) {
+			device_ref(device);
+			rcu_release_read(&devices.rcu);
+			return device;
+		}
+	}
+	rcu_release_read(&devices.rcu);
+	return NULL;
+}
+
 vfs_fd_t *device_open(device_t *device, long flags) {
 	vfs_fd_t *fd = vfs_fd_alloc();
 	fd->ops = device->ops;
