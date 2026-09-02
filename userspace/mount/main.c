@@ -1,84 +1,104 @@
 #include <sys/mount.h>
+#include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
+
+struct option options[] = {
+	{"type",    required_argument, NULL, 't'},
+	{"target",  required_argument, NULL, 'T'},
+	{"source",  required_argument, NULL, 's'},
+	{"options", required_argument, NULL, 'o'},
+	{"move",    no_argument      , NULL, 'M'},
+	{"help",    no_argument      , NULL, 'h'},
+	{0, 0, 0, 0},
+};
+
 void help(){
-	printf("mount -t TYPE [-s] SOURCE [-T] TARGET\n");
-	printf("-t/--type   : precise type\n");
-	printf("-s/--source : precise source/device to mount (can be a stub for tmpfs)\n");
-	printf("-T/--target : path to mount to\n");
+	printf("mount -t TYPE [OPYIONS] [-s] SOURCE [-T] TARGET\n");
+	printf("-t/--type    : precise type\n");
+	printf("-s/--source  : precise source/device to mount (can be a stub for tmpfs)\n");
+	printf("-T/--target  : path to mount to\n");
+	printf("-o/--options : options to mount with separated by comma (nodev/noexec/nosuid/rdonly/ro)\n");
+	printf("-M/--move    : move a move point from SOURCE to TARGET\n");
 }
 
 int main(int argc,char **argv){
 	char *type = NULL;
 	char *source = NULL;
 	char *target = NULL;
+	unsigned long flags = 0;
 
-	for (int i = 1; i < argc; i++){
-		if(!(strcmp(argv[i],"--target") && strcmp(argv[i],"-T"))){
-			i++;
-			if(!argv[i]){
-				fprintf(stderr,"expect path after --target\n");
-				return 1;
+	int opt;
+	while ((opt = getopt_long(argc, argv, "t:T:s:o:Mh", options, NULL)) != -1) {
+		switch (opt) {
+		case 't':
+			type = optarg;
+			break;
+		case 'T':
+			target = optarg;
+			break;
+		case 's':
+			source = optarg;
+			break;
+		case 'o':;
+			char *cur = strtok(optarg, ",");
+			while (cur) {
+				if (!strcmp(cur, "nodev")) {
+					flags |= MS_NODEV;
+				} else if (!strcmp(cur, "noexec")) {
+					flags |= MS_NOEXEC;
+				} else if (!strcmp(cur, "nosuid")) {
+					flags |= MS_NOSUID;
+				} else if (!strcmp(cur, "rdonly") || !strcmp(cur, "ro")) {
+					flags |= MS_RDONLY;
+				} else {
+					fprintf(stderr, "mount : unknown option '%s'\n", cur);
+					return 1;
+				}
+				cur = strtok(NULL, ",");
 			}
-			target = argv[i];
-			continue;
-		}
-		if(!(strcmp(argv[i],"--source") && strcmp(argv[i],"-S"))){
-			i++;
-			if(!argv[i]){
-				fprintf(stderr,"expect path after --source\n");
-				return 1;
-			}
-			source = argv[i];
-			continue;
-		}
-		if(!(strcmp(argv[i],"--type") && strcmp(argv[i],"-t"))){
-			i++;
-			if(!argv[i]){
-				fprintf(stderr,"expect type after --type\n");
-				return 1;
-			}
-			type = argv[i];
-			continue;
-		}
-		if(!strcmp(argv[i],"--help")){
+			break;
+		case 'M':
+			flags |= MS_MOVE;
+			break;
+		case 'h':
 			help();
 			return 0;
-		}
-		if(!source){
-			source = argv[i];
-			continue;
-		}
-		if(!target){
-			target = argv[i];
-			continue;
+		case '?':
+			return 1;
 		}
 	}
 	
-	int ret = 0;
-	if(!type){
-		fprintf(stderr,"mount : no type specified\n");
-		ret = 1;
+	if (!source && optind < argc) {
+		source = argv[optind++];
 	}
-	if(!source){
-		fprintf(stderr,"mount : no source specified\n");
-		ret = 1;
-	}
-	if(!target){
-		fprintf(stderr,"mount : no target specified\n");
-		ret = 1;
+	if (!target && optind < argc) {
+		target = argv[optind++];
 	}
 
-	if(ret){
-		return ret;
+	if (!type) {
+		if (flags & MS_MOVE) {
+			type = "";
+		} else {
+			fprintf(stderr, "mount : no type specified\n");
+			return 1;
+		}
+	}
+	if (!source) {
+		fprintf(stderr, "mount : no source specified\n");
+		return 1;
+	}
+	if (!target) {
+		fprintf(stderr, "mount : no target specified\n");
+		return 1;
 	}
 
-	printf("mount : mounting the device %s under %s , type : %s\n",source,target,type);
+	printf("mount : mounting the device %s under %s , type : %s\n", source, target, type);
 
-	ret = mount(source,target,type,0,NULL);
-	if(ret < 0){
+	int ret = mount(source, target, type, flags, NULL);
+	if (ret < 0) {
 		perror("mount");
 		return 1;
 	}
