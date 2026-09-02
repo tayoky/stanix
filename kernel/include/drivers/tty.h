@@ -59,7 +59,7 @@ int tty_do_ioctl(tty_t *fd, long request, void *arg);
 int tty_register(tty_t *tty, const char *fmt, dev_t number);
 
 static inline tty_t *tty_ref(tty_t *tty) {
-	if (tty) device_ref(&tty->ref_count);
+	if (tty) device_ref(&tty->device);
 	return tty;
 }
 

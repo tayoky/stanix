@@ -1,9 +1,11 @@
 #include <kernel/cmdline.h>
-#include <kernel/string.h>;
+#include <kernel/string.h>
+#include <kernel/macro.h>
+#include <kernel/print.h>
 
 static const char *kcmdline;
 static char dup[1024];
-static char **args[64];
+static const char *args[64];
 static size_t args_count = 0;
 
 void kcmdline_set(const char *cmdline) {

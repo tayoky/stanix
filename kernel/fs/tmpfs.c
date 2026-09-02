@@ -184,7 +184,7 @@ static ssize_t tmpfs_readlink(vfs_node_t *vnode, char *buf, size_t bufsize) {
 	if (bufsize > inode->link.buffer_size) bufsize = inode->link.buffer_size;
 
 	int ret = safe_copy_to(buf, inode->link.buffer, bufsize);
-	return ret < 0 ? ret : bufsize;
+	return ret < 0 ? ret : (ssize_t)bufsize;
 }
 
 static int tmpfs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {

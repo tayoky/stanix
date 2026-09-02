@@ -25,6 +25,7 @@ typedef struct bootinfo_initrd {
 
 typedef struct bootinfo {
     const char *name;
+    const char *disk_uuid;
     uintptr_t kernel_paddr;
     uintptr_t hhdm;
     bootinfo_initrd_t initrd;

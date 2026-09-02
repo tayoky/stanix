@@ -32,6 +32,10 @@ __attribute__((used, section(".limine_requests"))) volatile struct limine_execut
 	.id = LIMINE_EXECUTABLE_CMDLINE_REQUEST,
 };
 
+__attribute__((used, section(".limine_requests"))) volatile struct limine_kernel_file_request kernel_file_request = {
+	.id = LIMINE_KERNEL_FILE_REQUEST,
+};
+
 struct limine_internal_module initrd_request = {
 	.flags = LIMINE_INTERNAL_MODULE_REQUIRED,
 	.path = "initrd.tar",
@@ -135,5 +139,12 @@ void init_limine(void) {
 	}
 	if (cmdline_request.response) {
 		kcmdline_set(cmdline_request.response->cmdline);
+	}
+	if (kernel_file_request.response) {
+		struct limine_file *kernel_file = kernel_file_request.response->kernel_file;
+		if (kernel_file->gpt_disk_uuid.a) {
+
+			//kernel_file_request.response->kernel_file->gpt_disk_uuid.
+		}
 	}
 }

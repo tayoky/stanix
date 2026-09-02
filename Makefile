@@ -174,8 +174,9 @@ build-kernel : build-tlibc build-libraries header
 	@$(MAKE) -C kernel install-bin DESTDIR="$(ESP_ROOT)" BUILDDIR=$(BUILDDIR)/kernel
 
 build-modules : build-tlibc build-libraries header
-# we need to install modules in the initrd as they are required to load the sysroot
+# we need to install modules both in the initrd and the sysroot as they are required to load the sysroot
 	@$(MAKE) -C modules install DESTDIR="$(INITRD)" BUILDDIR=$(BUILDDIR)/modules
+	@$(MAKE) -C modules install DESTDIR="$(SYSROOT)" BUILDDIR=$(BUILDDIR)/modules
 
 build-libraries : build-tlibc
 	@$(MAKE) -C libraries install BUILDDIR=$(BUILDDIR)/libraries
@@ -183,7 +184,7 @@ build-libraries : build-tlibc
 build-userspace : build-tlibc build-libraries
 	@$(MAKE) -C userspace install BUILDDIR=$(BUILDDIR)/userspace
 
-build-sysroot : build-userspace
+build-sysroot : build-userspace build-modules
 	@mkdir -p $(SYSROOT)/dev $(SYSROOT)/tmp $(SYSROOT)/mnt $(SYSROOT)/proc $(SYSROOT)/sys
 	@cp -Pf -p -r $(BASE_SYSROOT)/* $(SYSROOT)/
 

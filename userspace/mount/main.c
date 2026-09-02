@@ -8,7 +8,7 @@
 struct option options[] = {
 	{"type",    required_argument, NULL, 't'},
 	{"target",  required_argument, NULL, 'T'},
-	{"source",  required_argument, NULL, 's'},
+	{"source",  required_argument, NULL, 'S'},
 	{"options", required_argument, NULL, 'o'},
 	{"move",    no_argument      , NULL, 'M'},
 	{"help",    no_argument      , NULL, 'h'},
@@ -16,9 +16,9 @@ struct option options[] = {
 };
 
 void help(){
-	printf("mount -t TYPE [OPYIONS] [-s] SOURCE [-T] TARGET\n");
+	printf("mount -t TYPE [OPTIONS] [-s] SOURCE [-T] TARGET\n");
 	printf("-t/--type    : precise type\n");
-	printf("-s/--source  : precise source/device to mount (can be a stub for tmpfs)\n");
+	printf("-S/--source  : precise source/device to mount (can be a stub for tmpfs)\n");
 	printf("-T/--target  : path to mount to\n");
 	printf("-o/--options : options to mount with separated by comma (nodev/noexec/nosuid/rdonly/ro)\n");
 	printf("-M/--move    : move a move point from SOURCE to TARGET\n");
@@ -31,7 +31,7 @@ int main(int argc,char **argv){
 	unsigned long flags = 0;
 
 	int opt;
-	while ((opt = getopt_long(argc, argv, "t:T:s:o:Mh", options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "t:T:S:o:Mh", options, NULL)) != -1) {
 		switch (opt) {
 		case 't':
 			type = optarg;
@@ -39,7 +39,7 @@ int main(int argc,char **argv){
 		case 'T':
 			target = optarg;
 			break;
-		case 's':
+		case 'S':
 			source = optarg;
 			break;
 		case 'o':;

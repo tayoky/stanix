@@ -142,6 +142,7 @@ vfs_fd_t *device_open(device_t *device, long flags) {
 }
 
 static int devfs_mount(vfs_fd_t *source, const char *target, unsigned long flags, const void *data, vfs_superblock_t **superblock_out) {
+	(void)source;
 	(void)data;
 	(void)flags;
 	(void)target;
