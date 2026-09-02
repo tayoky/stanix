@@ -24,14 +24,15 @@ typedef struct tty {
 	ringbuffer_t input_buffer;  // protected by lock
 	sleep_queue_t reader_queue; // protected by lock
 	sleep_queue_t writer_queue; // protected by lock
-	char canon_buf[512];       // protected by lock
+	char canon_buf[512];        // protected by lock
 	struct termios termios;     // protected by lock
 	struct winsize size;        // protected by lock
 	size_t column;              // protected by lock
 	tty_ops_t *ops;
 	size_t canon_index;         // protected by lock
 	process_group_t *fg_group;  // protected by lock
-	size_t lines_count;          // protected by lock
+	session_t *session;         // protected by lock
+	size_t lines_count;         // protected by lock
 	size_t lines[256];          // protected by lock
 	spinlock_t lock;
 } tty_t;

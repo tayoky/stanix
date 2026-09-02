@@ -38,13 +38,13 @@ int session_create(process_t *leader) {
 	}
 	process_group_set_session(group, session);
 	
-	spinlock_acquire(&leader->proc_lock);
 	spinlock_acquire(&proctree_lock);
+	spinlock_acquire(&leader->proc_lock);
 
 	int ret = proc_set_group(leader, group);
 
-	spinlock_release(&proctree_lock);
 	spinlock_release(&leader->proc_lock);
+	spinlock_release(&proctree_lock);
 	process_group_release(group);
 	return ret;
 }
@@ -85,8 +85,8 @@ void process_group_release(process_group_t *group) {
 }
 
 int proc_set_group(process_t *proc, process_group_t *group) {
-	spinlock_assert_acquired(&proc->proc_lock);
 	spinlock_assert_acquired(&proctree_lock);
+	spinlock_assert_acquired(&proc->proc_lock);
 	if (proc->group && proc->group->pgid == proc->pid) {
 		// already a process group leader
 		return -EPERM;
@@ -168,8 +168,8 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 		session_create(proc);
 	}
 
-	spinlock_acquire(&proc->proc_lock);
 	spinlock_acquire(&proctree_lock);
+	spinlock_acquire(&proc->proc_lock);
 
 	if (get_current_proc()) {
 		proc->parent = get_current_proc();
@@ -202,8 +202,8 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 	// note that the proc list only hold a weak ref
 	proc_register(proc);
 	
-	spinlock_release(&proctree_lock);
 	spinlock_release(&proc->proc_lock);
+	spinlock_release(&proctree_lock);
 
 	return proc;
 }
@@ -237,8 +237,8 @@ static void alert_parent(process_t *proc) {
 void do_proc_deletion(void) {
 	// all the childreen become orphelan
 	// the parent of orphelan is init
-	spinlock_acquire(&get_current_proc()->proc_lock);
 	spinlock_acquire(&proctree_lock);
+	spinlock_acquire(&get_current_proc()->proc_lock);
 	list_node_t *node = get_current_proc()->child.first_node;
 	while (node) {
 		process_t *child = container_of(node, process_t, child_list_node);
@@ -256,8 +256,8 @@ void do_proc_deletion(void) {
 
 	proc_set_state(get_current_proc(), PROC_STATE_ZOMBIE);
 
-	spinlock_release(&proctree_lock);
 	spinlock_release(&get_current_proc()->proc_lock);
+	spinlock_release(&proctree_lock);
 
 	// close every open fd
 	xarray_foreach (index, value, &get_current_proc()->fd_table) {

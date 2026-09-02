@@ -371,6 +371,39 @@ static void tty_destroy(device_t *device) {
 	ringbuffer_destroy(&tty->input_buffer);
 }
 
+// TODO
+static int tty_set_session(tty_t *tty, session_t *session, int steal) {
+	spinlock_acquire(&proctree_lock);
+	spinlock_acquire(&session->lock);
+	spinlock_acquire(&tty->lock);
+	if (tty->session && (!steal || get_current_euid() != EUID_ROOT)) {
+		goto error;
+	}
+	if (session->tty) {
+		// the session already has a tty
+		goto error;
+	}
+
+	session_t *old = tty->session;
+
+	tty->session = session_ref(session);
+
+	spinlock_acquire(&old->lock);
+	old->tty = NULL;
+	spinlock_release(&old->lock);
+	
+	spinlock_release(&tty->lock);
+	spinlock_release(&session->lock);
+	spinlock_release(&proctree_lock);
+	return 0;
+
+error:
+	spinlock_release(&tty->lock);
+	spinlock_release(&session->lock);
+	spinlock_release(&proctree_lock);
+	return -EPERM;
+}
+
 static int tty_termios_update(tty_t *tty, struct termios *new) {
 	if (tty->ops->update_termios) {
 		int ret = tty->ops->update_termios(tty, new);

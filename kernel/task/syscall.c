@@ -412,8 +412,8 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 	int ret = 0;
 	for (;;) {
 		// child list is protected by proctree lock 
-		spinlock_acquire(&get_current_proc()->proc_lock);
 		spinlock_acquire(&proctree_lock);
+		spinlock_acquire(&get_current_proc()->proc_lock);
 		ret = search_wait_proc(pid, &proc);
 		if (ret >= 0 && proc) {
 			// we found a proc
@@ -429,9 +429,9 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 		block_prepare_interruptible();
 		sleep_add_to_queue(&get_current_proc()->wait_queue);
 
-		spinlock_release(&proctree_lock);
 		spinlock_release(&get_current_proc()->proc_lock);
 
+		spinlock_release(&proctree_lock);
 		ret = block_task();
 		if (ret < 0) {
 			sleep_remove_from_queue(&get_current_proc()->wait_queue);
@@ -439,8 +439,8 @@ int sys_waitpid(pid_t pid, int *status, int options) {
 		}
 	}
 
-	spinlock_release(&proctree_lock);
 	spinlock_release(&get_current_proc()->proc_lock);
+	spinlock_release(&proctree_lock);
 	if (ret < 0 || !proc) return ret;
 
 	// get the exit status
@@ -1159,8 +1159,8 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 		group = process_group_from_pgid(pgid);
 	}
 	if (!group) return -EPERM;
-	spinlock_acquire(&proc->proc_lock);
 	spinlock_acquire(&proctree_lock);
+	spinlock_acquire(&proc->proc_lock);
 	if (!group->session) {
 		// we need to setup the session of the group
 		process_group_set_session(group, proc->group->session);
@@ -1175,8 +1175,8 @@ int sys_setpgid(pid_t pid, pid_t pgid) {
 	}
 	ret = proc_set_group(proc, group);
 err:
-	spinlock_release(&proctree_lock);
 	spinlock_release(&proc->proc_lock);
+	spinlock_release(&proctree_lock);
 	proc_release(proc);
 	process_group_release(group);
 	return ret;

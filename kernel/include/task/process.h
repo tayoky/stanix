@@ -19,7 +19,7 @@ typedef struct session {
 	rculist_t groups;
 	ref_count_t ref_count;
 	process_t *leader; // protected by lock
-	struct tty *tty;   // protected by lock
+	struct tty *tty;   // write protected by proctree lock and protected by lock
 	spinlock_t lock;
 	pid_t sid;
 } session_t;
@@ -54,7 +54,7 @@ struct process {
 	size_t threads_count;        // protected by proc lock
 	pid_t pid;
 	mode_t umask;
-	spinlock_t proc_lock;        // cannot be acquired if holding proctree lock
+	spinlock_t proc_lock;
 	task_t *main_thread;
 	int exit_status;             // write protected by proc lock
 	ATOMIC(int) state;           // write protected by proc lock and proctree lock
@@ -283,6 +283,6 @@ static inline vfs_fd_t *fd_value2fd(void *value, long *flags) {
 
 extern xarray_t procs;
 extern process_t *init;
-extern spinlock_t proctree_lock;
+extern spinlock_t proctree_lock; // cannot be acquired if holding a proc lock
 
 #endif
