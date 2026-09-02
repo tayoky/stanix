@@ -379,21 +379,57 @@ error:
 }
 
 int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path) {
-	vfs_dentry_t *old_dentry = vfs_get_dentry_at(old_at, old_path, O_NOFOLLOW);
-	if (IS_ERR(old_dentry)) return PTR2ERR(old_dentry);
+	char old_name[NAME_MAX];
+	vfs_dentry_t *old_parent = vfs_get_dentry_parent_at(old_at, old_path, old_name, 0);
+	if (IS_ERR(old_parent)) return PTR2ERR(old_parent);
 
-	vfs_dentry_t *new_parent = NULL;
+	char new_name[NAME_MAX];
+	vfs_dentry_t *new_parent = vfs_get_dentry_parent_at(new_at, new_path, new_name, 0);
+	if (IS_ERR(new_parent)) {
+		vfs_dentry_release(old_parent);
+		return PTR2ERR(new_parent);
+	}
+	
+	int ret = 0;
+	vfs_dentry_t *old_dentry = NULL;
 	vfs_dentry_t *new_dentry = NULL;
-	int ret                  = vfs_create_dentry(new_at, new_path, &new_parent, &new_dentry);
-	if (ret < 0) goto error;
+
+	// cannot link root
+	if (!new_parent || !new_parent) {
+		ret = -EISDIR;
+		goto error_no_lock;
+	}
 
 	// hardlink cannot cross mount point boundaries
-	if (old_dentry->inode->superblock != new_parent->inode->superblock) {
+	if (old_parent->inode->superblock != new_parent->inode->superblock) {
 		ret = -EXDEV;
+		goto error_no_lock;
+	}
+
+	// acquire the read and the write lock
+	// we cannot acquire write while holding read
+	// so if the two inodes are the same we must acquire write first
+	if (old_parent->inode < new_parent->inode) {
+		vfs_node_acquire_read(old_parent->inode);
+		vfs_node_acquire_write(new_parent->inode);
+	} else {
+		vfs_node_acquire_write(new_parent->inode);
+		vfs_node_acquire_read(old_parent->inode);
+	}
+
+	old_dentry = vfs_lookup(old_parent, old_name);
+	if (IS_ERR(old_dentry)) {
+		ret = PTR2ERR(old_dentry);
 		goto error;
 	}
 
-	// call link on the parents
+	new_dentry = vfs_create_child_dentry(new_parent, new_name);
+	if (IS_ERR(new_dentry)) {
+		ret = PTR2ERR(new_dentry);
+		goto error;
+	}
+
+	// call link on the parent
 	if (!new_parent->inode->ops || !new_parent->inode->ops->link) {
 		ret = -EOPNOTSUPP;
 		goto error;
@@ -407,9 +443,12 @@ int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at
 	}
 
 error:
+	vfs_node_release_read(old_parent->inode);
 	vfs_node_release_write(new_parent->inode);
-	vfs_dentry_release(old_dentry);
+error_no_lock:
+	vfs_dentry_release(old_parent);
 	vfs_dentry_release(new_parent);
+	vfs_dentry_release(old_dentry);
 	vfs_dentry_release(new_dentry);
 	return ret;
 }
@@ -472,7 +511,7 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 	// cannot rename root
 	if (!old_parent || !new_parent) {
 		ret = -EINVAL;
-		goto error;
+		goto error_no_lock;
 	}
 
 	// rename cannot cross mount point boundaries
