@@ -390,21 +390,25 @@ static void tty_destroy(device_t *device) {
 	tty_t *tty = (tty_t *)device;
 
 	spinlock_acquire(&proctree_lock);
+	if (tty->session) {
+		signal_send_proc(tty->session->leader, SIGHUP);
+	}
 
 	int irq_save = spinlock_acquire_irq(&tty->lock);
-	
-	// TODO : send SIGHUP
 
 	// dissociate any session
 	tty_raw_set_session(tty, NULL);
 
 	spinlock_release(&proctree_lock);
 
+	process_group_t *old_group = tty->fg_group;
+	tty->fg_group = NULL;
 	
-	process_group_release(tty->fg_group);
 	wakeup_queue(&tty->reader_queue, 0);
 	wakeup_queue(&tty->writer_queue, 0);
 	spinlock_release_irq(&tty->lock, irq_save);
+
+	process_group_release(old_group);
 
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 
@@ -443,6 +447,17 @@ static int tty_termios_update(tty_t *tty, struct termios *new) {
 	return 0;
 }
 
+static void tty_set_fg_group(tty_t *tty, process_group_t *group) {
+	process_group_t *old = tty->fg_group;
+	tty->fg_group = group;
+
+	if (old) {
+		spinlock_raw_release(&tty->lock);
+		process_group_release(old);
+		spinlock_raw_acquire(&tty->lock);
+	}
+}
+
 static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) {
 	switch (request) {
 	case TIOCGETA:
@@ -459,11 +474,11 @@ static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) {
 	case TIOCSPGRP:
 		pgid = 0;
 		if (safe_copy_auto_from(&pgid, arg) < 0) return -EFAULT;
+		// TODO : check if group is inside the session
 		process_group_t *group = process_group_from_pgid(pgid);
 		if (!group) return -ESRCH;
 		kdebugf("set fgpgrp to %ld\n", group->pgid);
-		process_group_release(tty->fg_group);
-		tty->fg_group = group;
+		tty_set_fg_group(tty, group);
 		return 0;
 	case TIOCSWINSZ:
 		if (safe_copy_auto_from(&tty->size, arg) < 0) return -EFAULT;
@@ -496,8 +511,11 @@ tiocsctty_error:
 		}
 
 		int ret = tty_raw_set_session(tty, get_current_proc()->group->session);
+		if (ret < 0) goto tiocsctty_error;
+		group = process_group_ref(get_current_proc()->group);
 		spinlock_release(&get_current_proc()->lock);
 		spinlock_release(&proctree_lock);
+		tty_set_fg_group(tty, group);
 		return ret;
 	case TIOCNOTTY:
 		// we cannot acquire the proctree or a proc lock while holding a tty lock
@@ -511,7 +529,7 @@ tiocsctty_error:
 			return -EPERM;
 		}
 		if (get_current_proc()->pid == get_current_proc()->group->session->sid) {
-			// cannot send signals while holding a proc lock
+			// cannot send signals while holding a proc lock or tty lock
 			spinlock_release(&get_current_proc()->lock);
 			signal_send_group(tty->fg_group, SIGCONT);
 			signal_send_group(tty->fg_group, SIGHUP);
