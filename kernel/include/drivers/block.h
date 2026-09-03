@@ -3,6 +3,7 @@
 
 #include <kernel/list.h>
 #include <kernel/device.h>
+#include <kernel/mutex.h>
 #include <kernel/assert.h>
 #include <kernel/cache.h>
 #include <kernel/ioreq.h>
@@ -23,6 +24,7 @@ struct block_ops {
 struct block_device {
 	device_t device;
 	cache_t cache;
+	mutex_t mutex;
 	char uuid[64];
 	block_ops_t *ops;
 	block_partition_driver_t *part_driver;

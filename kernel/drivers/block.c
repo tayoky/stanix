@@ -395,6 +395,7 @@ static void block_device_free_partitions(block_device_t *block_device) {
 }
 
 int block_device_rescan_partitions(block_device_t *block_device) {
+	mutex_acquire(&block_device->mutex);
 	block_device_free_partitions(block_device);
 	block_device->part_driver = NULL;
 	block_device->partitions_count = 0;
@@ -410,13 +411,16 @@ int block_device_rescan_partitions(block_device_t *block_device) {
 			best_score = score;
 		}
 	}
+
+	int ret;
 	if (best) {
 		int ret = best->attach(block_device);
 		if (ret >= 0) block_device->part_driver = best;
-		return ret;
 	} else {
-		return -ENOTSUP;
+		ret = -ENOTSUP;
 	}
+	mutex_release(&block_device->mutex);
+	return ret;
 }
 
 int block_device_add_partition(block_device_t *block_device, off_t offset, size_t size, const char *uuid, const char *fs_uuid) {
