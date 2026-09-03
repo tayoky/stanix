@@ -29,6 +29,10 @@ const char *bootinfo_get_disk_uuid(void) {
 	return bootinfo->disk_uuid;
 }
 
+const char *bootinfo_get_part_uuid(void) {
+	return bootinfo->part_uuid;
+}
+
 size_t bootinfo_memmap_get_entries_count(void) {
 	return bootinfo->memmap_entries_count;
 }

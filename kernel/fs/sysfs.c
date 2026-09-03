@@ -282,8 +282,10 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 		strcpy(str, kcmdline_get());
 		break;
 	case INODE_KERNEL_FILE:
-		sprintf(str, "disk uuid : %s\n",
-				bootinfo_get_disk_uuid());
+		sprintf(str, "disk uuid : %s\n"
+			         "part uuid : %s\n",
+				bootinfo_get_disk_uuid(),
+				bootinfo_get_part_uuid());
 		break;
 	case INODE_MEM:
 		sprintf(str, "total pages count : %zu\n"

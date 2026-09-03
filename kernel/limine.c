@@ -99,6 +99,14 @@ static bootinfo_t limine_bootinfo = {
 	.memmap_get_entry = limine_memmap_get_entry,
 };
 
+static void limine_uuid2str(char *str, struct limine_uuid *uuid) {
+	size_t ptr = sprintf(str, "%08x-%04hx-%04hx-%02hhx%02hhx-", 
+		uuid->a, uuid->b, uuid->c, uuid->d[0], uuid->d[1]);
+	for (int i = 2; i < 8; i++) {
+		ptr += sprintf(str + ptr, "%02hhx", uuid->d[i]);
+	}
+}
+
 void init_limine(void) {
 	kstatusf("getting limine response ...");
 
@@ -143,16 +151,15 @@ void init_limine(void) {
 	if (kernel_file_request.response) {
 		struct limine_file *kernel_file = kernel_file_request.response->kernel_file;
 		static char disk_uuid[64];
+		static char part_uuid[64];
 		if (kernel_file->gpt_disk_uuid.a) {
-			size_t ptr = snprintf(disk_uuid, sizeof(disk_uuid), "%08x-%04hx-%04hx-%02hhx%02hhx-", 
-				kernel_file->gpt_disk_uuid.a, kernel_file->gpt_disk_uuid.b, kernel_file->gpt_disk_uuid.c,
-				kernel_file->gpt_disk_uuid.d[0], kernel_file->gpt_disk_uuid.d[1]);
-			for (int i = 2; i < 8; i++) {
-				ptr += sprintf(disk_uuid + ptr, "%02hhx", kernel_file->gpt_disk_uuid.d[i]);
-			}
+			limine_uuid2str(disk_uuid, &kernel_file->gpt_disk_uuid);
+			limine_uuid2str(part_uuid, &kernel_file->gpt_part_uuid);
 		} else if (kernel_file->mbr_disk_id) {
 			snprintf(disk_uuid, sizeof(disk_uuid), "%08x", kernel_file->mbr_disk_id);
+			snprintf(part_uuid, sizeof(part_uuid), "%08x-%02hhx", kernel_file->mbr_disk_id, kernel_file->partition_index);
 		}
 		limine_bootinfo.disk_uuid = disk_uuid;
+		limine_bootinfo.part_uuid = part_uuid;
 	}
 }
