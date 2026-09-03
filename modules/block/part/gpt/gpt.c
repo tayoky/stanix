@@ -16,7 +16,7 @@ typedef struct gpt_guid {
     uint16_t e3;
     uint16_t e4;
     uint8_t  e5[6];
-} gpt_guid_t;
+} __attribute__((packed)) gpt_guid_t;
 
 typedef struct gpt {
 	char signature[8];
@@ -46,13 +46,8 @@ typedef struct gpt_entry {
 	char name[72];
 } __attribute__((packed)) gpt_entry_t;
 
-static void swap_guid(gpt_guid_t *guid) {
-	guid->e4 = ((guid->e4 & 0xff) << 8) | ((guid->e4 >> 8) & 0xff);
-}
-
 static void guid2str(gpt_guid_t *guid, char *buf, size_t buf_size) {
-	swap_guid(guid);
-	int ptr = snprintf(buf, buf_size, "%08x-%04hx-%04hx-%04hx-", guid->e1, guid->e2, guid->e3, guid->e4);
+	int ptr = snprintf(buf, buf_size, "%08x-%04hx-%04hx-%04hx-", guid->e1, guid->e2, guid->e3, ((guid->e4 & 0xff) << 8) | ((guid->e4 >> 8) & 0xff));
 	for (int i = 0; i < 6; i++) {
 		ptr += sprintf(buf + ptr, "%02hhx", guid->e5[i]);
 	}
