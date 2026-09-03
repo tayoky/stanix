@@ -296,10 +296,7 @@ static ata_device_t *ide_channel_create_child(ide_channel_t *channel, devnode_t 
 }
 
 static int ide_channel_probe(devnode_t *devnode) {
-	ide_channel_t *channel = kmalloc(sizeof(ide_channel_t));
-	if (!channel) return -ENOMEM;
-	memset(channel, 0, sizeof(ide_channel_t));
-	devnode->private = channel;
+	ide_channel_t *channel = devnode->private;
 
 	// get resources from the IDE controller
 	int ret = 0;
@@ -473,7 +470,8 @@ static int ide_channel_submit_ata_command(devnode_t *bus, ata_device_t *device, 
 ata_driver_t ide_channel_driver = {
 	.driver = {
 		.name = "IDE channel",
-		.device_name = "ide_channel",
+		.device_name  = "ide_channel",
+		.private_size = sizeof(ide_channel_t),
 		.probe = ide_channel_probe,
 		.detach = ide_channel_detach,
 	},

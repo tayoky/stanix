@@ -134,10 +134,7 @@ static void ide_controller_create_child(devnode_t *devnode, ide_controller_t *co
 }
 
 static int ide_controller_probe(devnode_t *devnode) {
-	ide_controller_t *controller = kmalloc(sizeof(ide_controller_t));
-	if (!controller) return -ENOMEM;
-	memset(controller, 0, sizeof(ide_controller_t));
-	devnode->private = controller;
+	ide_controller_t *controller = devnode->private;
 	int ret;
 	switch (devnode->type) {
 	case BUS_PCI:
@@ -150,10 +147,7 @@ static int ide_controller_probe(devnode_t *devnode) {
 		ret = -ENOTSUP;
 		break;
 	}
-	if (ret < 0) {
-		kfree(controller);
-		return ret;
-	}
+	if (ret < 0) return ret;
 
 	ide_controller_create_child(devnode, controller, 0);
 	ide_controller_create_child(devnode, controller, 1);
@@ -197,12 +191,13 @@ static int ide_controller_release_resource(devnode_t *bus, devnode_t *devnode, r
 }
 
 driver_t ide_controller_driver = {
-	.name        = "IDE controller",
-	.device_name = "ide",
-	.buses       = BUSES("isa", "pci"),
-	.check       = ide_controller_check,
-	.probe       = ide_controller_probe,
-	.detach      = ide_controller_detach,
+	.name         = "IDE controller",
+	.device_name  = "ide",
+	.buses        = BUSES("isa", "pci"),
+	.private_size = sizeof(ide_controller_t),
+	.check        = ide_controller_check,
+	.probe        = ide_controller_probe,
+	.detach       = ide_controller_detach,
 	.allocate_resource = ide_controller_allocate_resource,
 	.release_resource  = ide_controller_release_resource,
 };

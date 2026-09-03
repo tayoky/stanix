@@ -301,12 +301,11 @@ void init_fbcon(void) {
 	if (((PSF1_Header *)font)->magic != PSF1_FONT_MAGIC) {
 		kfail();
 		kinfof("font %s is not a psf1 file\n", font_path);
-		kfree(font_path);
 		return;
 	}
 
 	// init width height and the char buffer
-	vfs_ioctl(framebuffer_dev, IOCTL_GET_FB_INFO, &fbcon->fb_info);
+	vfs_ioctl(fbcon->framebuffer_dev, IOCTL_GET_FB_INFO, &fbcon->fb_info);
 	fbcon->tty.size.ws_col    = fbcon->fb_info.width / 8;
 	fbcon->tty.size.ws_row    = fbcon->fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
 	fbcon->tty.size.ws_xpixel = fbcon->fb_info.width;
@@ -337,5 +336,4 @@ void init_fbcon(void) {
 
 	kok();
 	kinfof("succefuly load font from file %s\n", font_path);
-	kfree(font_path);
 }

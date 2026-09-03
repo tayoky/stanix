@@ -37,6 +37,7 @@ typedef struct devnode {
 typedef struct driver {
 	list_node_t node;
 	list_node_t list_node;
+	size_t private_size;
 	const char *name;
 	const char *device_name;
 	devclass_t *devclass;

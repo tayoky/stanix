@@ -89,7 +89,7 @@ static inline block_device_t *block_device_ref(block_device_t *block_device) {
 }
 
 static inline void block_device_release(block_device_t *block_device) {
-	if (block_device) device_release(&block_device->release);
+	if (block_device) device_release(&block_device->device);
 }
 
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number);

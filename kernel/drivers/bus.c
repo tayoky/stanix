@@ -278,9 +278,22 @@ int device_attach_driver(devnode_t *device, driver_t *driver) {
 	}
 
 	// the driver is compatible with the device
+	device->private = NULL;
+	if (driver->private_size) {
+		// the driver want us to allocate it's private data
+		device->private = kmalloc(driver->private_size);
+		if (!device->private) {
+			ret = -ENOMEM;
+			goto error;
+		}
+		memset(device->private, 0, driver->private_size);
+	}
 	device->driver = driver;
 	ret = driver->probe(device);
 	if (ret < 0) {
+		if (driver->private_size) {
+			kfree(device->private);
+		}
 		device->driver = NULL;
 	} else {
 		kinfof("attached driver %s to device %p(%s)\n", driver->name, device, device_get_name(device));
@@ -344,6 +357,7 @@ int device_detach_driver(devnode_t *device) {
 		return -ENOTSUP;
 	}
 	device->driver->detach(device);
+
 	kinfof("detached driver %s from device %p(%s)\n", device->driver->name, device, device_get_name(device));
 
 	// detach device
@@ -352,8 +366,12 @@ int device_detach_driver(devnode_t *device) {
 		device->device = NULL;
 	}
 
-	// cleanup resources the driver forgot
+	// cleanup resources in case the driver forgot
 	device_release_resources(device);
+
+	if (device->driver->private_size) {
+		kfree(device->private);
+	}
 	device->driver = NULL;
 	mutex_release(&device->mutex);
 	return 0;
