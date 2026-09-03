@@ -27,13 +27,14 @@ struct block_device {
 	mutex_t mutex;
 	char uuid[64];
 	block_ops_t *ops;
-	block_partition_driver_t *part_driver;
-	list_t partitions;
-	size_t partitions_count;
+	block_partition_driver_t *part_driver; // protected by mutex
+	list_t partitions;       // protected by mutex
+	size_t partitions_count; // protected by mutex
 	void *part_data;
 	size_t sector_size;
 	size_t sectors_count;
-	int unplugged;
+	spinlock_t lock;
+	int unplugged;      // protected by lock and write protected by mutex
 };
 
 struct block_request {
@@ -59,7 +60,8 @@ struct block_partition {
 	off_t offset;
 	size_t size;
 	size_t index;
-	int unplugged;
+	int unplugged; // protected by lock
+	spinlock_t lock;
 };
 
 struct block_partition_driver {
@@ -75,7 +77,19 @@ void init_block(void);
 block_request_t *block_create_request(block_device_t *block_device, int type);
 
 static inline int block_device_is_unplugged(block_device_t *block_device) {
-	return block_device->unplugged;
+	spinlock_acquire(&block_device->lock);
+	int unplugged = block_device->unplugged;
+	spinlock_release(&block_device->lock);
+	return unplugged;
+}
+
+static inline block_device_t *block_device_ref(block_device_t *block_device) {
+	if (block_device) device_ref(&block_device->device);
+	return block_device;
+}
+
+static inline void block_device_release(block_device_t *block_device) {
+	if (block_device) device_release(&block_device->release);
 }
 
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number);
@@ -87,7 +101,10 @@ int block_device_rescan_partitions(block_device_t *block_device);
 int block_device_add_partition(block_device_t *block_device, off_t offset, size_t size, const char *uuid, const char *fs_uuid);
 
 static inline int block_partition_is_unplugged(block_partition_t *partition) {
-	return partition->unplugged;
+	spinlock_acquire(&partition->lock);
+	int unplugged = partition->unplugged;
+	spinlock_release(&partition->lock);
+	return unplugged;
 }
 
 int block_partition_driver_register(block_partition_driver_t *driver);

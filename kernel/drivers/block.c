@@ -212,6 +212,7 @@ static ssize_t block_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_
 static off_t block_seek(vfs_fd_t *fd, off_t offset, int whence) {
 	block_device_t *block_device = container_of(fd->private, block_device_t, device);
 
+	if (block_device_is_unplugged(block_device)) return -ENXIO;
 	off_t new_offset;
 	switch (whence) {
 	case SEEK_SET:
@@ -253,6 +254,8 @@ static int block_submit_request(ioreq_t *ioreq) {
 	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
 	kassert(request->block_device);
 	kassert(request->block_device->ops);
+
+	if (block_device_is_unplugged(request->block_device)) return -ENXIO;
 	if (!request->block_device->ops->submit) {
 		return -EIO;
 	}
@@ -269,6 +272,7 @@ static void block_cancel_request(ioreq_t *ioreq) {
 static void block_cleanup_request(ioreq_t *ioreq) {
 	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
 	iobuf_destroy(&request->iobuf);
+	block_device_release(request->block_device);
 	slab_free(request);
 }
 
@@ -284,17 +288,22 @@ block_request_t *block_create_request(block_device_t *block_device, int type) {
 	if (!request) return NULL;
 	memset(request, 0, sizeof(block_request_t));
 	request->ioreq.ops    = &block_request_ops;
-	request->block_device = block_device;
+	request->block_device = block_device_ref(block_device);
 	request->type         = type;
 	return request;
 }
 
 static void block_destroy(device_t *device) {
 	block_device_t *block_device = container_of(device, block_device_t, device);
+	mutex_acquire(&block_device->mutex);
+
+	spinlock_acquire(&block_device->lock);
 	block_device->unplugged = 1;
+	spinlock_release(&block_device->lock);
+
 	block_device_free_partitions(block_device);
+	mutex_release(&block_device->mutex);
 	// TODO : cancel every requests
-	free_cache(&block_device->cache);
 }
 
 static void block_cleanup(device_t *device) {
@@ -302,6 +311,7 @@ static void block_cleanup(device_t *device) {
 	if (block_device->ops->cleanup) {
 		block_device->ops->cleanup(block_device);
 	}
+	free_cache(&block_device->cache);
 }
 
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number) {
@@ -318,14 +328,21 @@ int block_device_register(block_device_t *block_device, const char *fmt, dev_t n
 // partition stuff, TODO : move in another file
 
 static void block_partition_destroy(device_t *device) {
-		block_partition_t *partition = container_of(device, block_partition_t, device);
-		partition->unplugged = 1;
-		list_remove(&partition->block_device->partitions, &partition->node);
+	block_partition_t *partition = container_of(device, block_partition_t, device);
+	spinlock_acquire(&partition->lock);
+	partition->unplugged = 1;
+	spinlock_release(&partition->lock);
+
+	block_device_t *block_device = partition->block_device;
+	mutex_acquire(&block_device->mutex);
+	list_remove(&block_device->partitions, &partition->node);
+	mutex_release(&block_device->mutex);
 }
 
 static void block_partition_cleanup(device_t *device) {
-		block_partition_t *partition = container_of(device, block_partition_t, device);
-		slab_free(partition);
+	block_partition_t *partition = container_of(device, block_partition_t, device);
+	block_device_release(partition->block_device);
+	slab_free(partition);
 }
 
 static ssize_t block_partition_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
@@ -387,6 +404,7 @@ static vfs_fd_ops_t block_partition_ops = {
 };
 
 static void block_device_free_partitions(block_device_t *block_device) {
+	mutex_acquire(&block_device->mutex);
 	if (block_device->part_driver && block_device->part_driver->detach) {
 		block_device->part_driver->detach(block_device);
 	}
@@ -394,10 +412,15 @@ static void block_device_free_partitions(block_device_t *block_device) {
 		block_partition_t *partition = container_of(block_device->partitions.first_node, block_partition_t, node);
 		device_destroy(&partition->device);
 	}
+	mutex_release(&block_device->mutex);
 }
 
 int block_device_rescan_partitions(block_device_t *block_device) {
 	mutex_acquire(&block_device->mutex);
+	if (block_device_is_unplugged(block_device)) {
+		mutex_release(&block_device->mutex);
+		return -ENXIO;
+	}
 	block_device_free_partitions(block_device);
 	block_device->part_driver = NULL;
 	block_device->partitions_count = 0;
@@ -434,7 +457,7 @@ int block_device_add_partition(block_device_t *block_device, off_t offset, size_
 	if (uuid)    snprintf(partition->uuid,    sizeof(partition->uuid),    "%s", uuid);
 	if (fs_uuid) snprintf(partition->fs_uuid, sizeof(partition->fs_uuid), "%s", fs_uuid);
 	partition->index = block_device->partitions_count++;
-	partition->block_device = block_device;
+	partition->block_device = block_device_ref(block_device);
 	partition->device.ops = &block_partition_ops;
 	partition->device.type = DEVICE_BLOCK;
 	partition->device.destroy = block_partition_destroy;
