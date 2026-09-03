@@ -10,7 +10,6 @@
 #include <kernel/tarfs.h>
 #include <kernel/device.h>
 #include <kernel/framebuffer.h>
-#include <kernel/ini.h>
 #include <kernel/fbcon.h>
 #include <kernel/tty.h>
 #include <kernel/kout.h>
@@ -123,7 +122,6 @@ void kmain() {
 	init_devices();
 	init_mem_devices();
 	init_liminefb();
-	read_main_conf_file();
 	init_fbcon();
 	init_sleep();
 	init_poll();
