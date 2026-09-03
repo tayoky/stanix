@@ -57,6 +57,7 @@ void init_pmm() {
 
 		pmm1_add_free_pages(start, pages_count);
 	}
+	private_pages = total_pages;
 	kok();
 }
 
@@ -238,6 +239,7 @@ static void pmm_zone_set_free_pages(int zone, uintptr_t start, int order) {
 	pmm_t *pmm = &pmms[zone];
 	spinlock_acquire(&pmm->lock);
 	used_pages -= ORDER2COUNT(order);
+	private_pages -= ORDER2COUNT(order);
 
 	// can we merge
 	while (order + 1 < ORDERS_COUNT) {
@@ -311,7 +313,6 @@ void pmm_release_page(uintptr_t page) {
 			return;
 		}
 	}
-	private_pages--;
 	pmm_set_free_page(page);
 }
 
