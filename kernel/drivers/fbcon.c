@@ -1,7 +1,7 @@
 #include <kernel/device.h>
 #include <kernel/fbcon.h>
 #include <kernel/framebuffer.h>
-#include <kernel/ini.h>
+#include <kernel/cmdline.h>
 #include <kernel/kernel.h>
 #include <kernel/kheap.h>
 #include <kernel/print.h>
@@ -242,49 +242,28 @@ static tty_ops_t fbcon_ops = {
 
 void init_fbcon(void) {
 	kstatusf("init terminal fbcon ...");
-	// not activated by default
-	char *activated_value = ini_get_value(kernel->conf_file, "terminal_emulator", "activate");
-	if (!activated_value) {
+
+
+	// find the framebuffer to use
+	const char *framebuffer_name = kcmdline_get_option("--fbcon");
+	if (!framebuffer_name) {
 		kfail();
-		kinfof("can't find terminal_emualtor.activate key in conf file");
+		kinfof("cannot find an frammebuffer to use on cmdline\n");
 		return;
 	}
-
-	if (strcmp(activated_value, "true")) {
-		kok();
-		kinfof("terminal_emulator not enable\n");
-		kinfof("actviate it by stetting the activate key in the conf file to true\n");
-		return;
-	}
-	kfree(activated_value);
-
-	// now find the framebuffer to use
-	char *framebuffer_path = ini_get_value(kernel->conf_file, "terminal_emulator", "framebuffer");
-	if (!framebuffer_path) {
+	
+	const char *font_path = kcmdline_get_option("--font");
+	if (!font_path) {
 		kfail();
-		kinfof("can't find an frammebuffer to use in conf file\n");
+		kinfof("cannot find an font to use on cmdline\n");
 		return;
 	}
 
 	// and open the frammebuffer
-	vfs_fd_t *framebuffer_dev = vfs_open(framebuffer_path, O_WRONLY);
-	if (IS_ERR(framebuffer_dev)) {
+	device_t *framebuffer_dev = device_from_name(framebuffer_name);
+	if (!framebuffer_dev) {
 		kfail();
-		kinfof("fail to open device : %s\n", framebuffer_path);
-		kfree(framebuffer_path);
-		return;
-	}
-	kfree(framebuffer_path);
-
-	char *font_path = ini_get_value(kernel->conf_file, "terminal_emulator", "font");
-	if (!font_path) {
-		font_path = ini_get_value(kernel->conf_file, "terminal_emulator", "font.path");
-	}
-
-	if (!font_path) {
-		// can't find the key
-		kfail();
-		kinfof("can't find font key in conf file\n");
+		kinfof("failed to open device : %s\n", framebuffer_name);
 		return;
 	}
 
@@ -292,8 +271,8 @@ void init_fbcon(void) {
 	vfs_fd_t *font_file = vfs_open(font_path, O_RDONLY);
 	if (IS_ERR(font_file)) {
 		kfail();
-		kinfof("fail to open file : %s\n", font_path);
-		kfree(font_path);
+		kinfof("failed to open file : '%s'\n", font_path);
+		device_release(framebuffer_dev);
 		return;
 	}
 
@@ -313,8 +292,9 @@ void init_fbcon(void) {
 	memset(fbcon, 0, sizeof(fbcon_t));
 	fbcon->tty.ops = &fbcon_ops;
 
-	// save the framebuffer context
-	fbcon->framebuffer_dev = framebuffer_dev;
+	// open the framebuffer context
+	fbcon->framebuffer_dev = device_open(framebuffer_dev, O_WRONLY);
+	device_release(framebuffer_dev);
 
 	// start by parsing the font
 	fbcon->header = font;
