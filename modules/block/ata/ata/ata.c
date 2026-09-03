@@ -76,7 +76,7 @@ static int ata_submit(block_device_t *block_device, block_request_t *request) {
 }
 
 static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
-	if (device_is_unplugged(&block_device->device)) {
+	if (block_device_is_unplugged(block_device)) {
 		return -ENXIO;
 	}
 	ata_disk_t *disk = container_of(block_device, ata_disk_t, block_device);

@@ -23,7 +23,6 @@ typedef struct device {
 
 #define DEVICE_CHAR      1
 #define DEVICE_BLOCK     2
-#define DEVICE_UNPLUGGED 3
 
 // dynamic major number management
 int device_allocate_major(void);
@@ -82,10 +81,6 @@ static inline device_t *device_ref(device_t *device) {
  * @param device the device to release
  */
 void device_release(device_t *device);
-
-static inline int device_is_unplugged(device_t *device) {
-	return device->type == DEVICE_UNPLUGGED;
-}
 
 void init_devices(void);
 void init_mem_devices(void);

@@ -219,7 +219,7 @@ int tty_add_input(tty_t *tty, const char *buffer, size_t count) {
 }
 
 static int tty_end_read_sleep(tty_t *tty) {
-	if (device_is_unplugged(&tty->device)) {
+	if (tty_raw_is_unplugged(tty)) {
 		return 1;
 	}
 	 
@@ -247,7 +247,7 @@ static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count, long flags) 
 	ssize_t ret = 0; 
 	if (tty->termios.c_lflag & ICANON) {
 		if (tty->lines_count <= 0) {
-			if (device_is_unplugged(&tty->device)) {
+			if (tty_raw_is_unplugged(tty)) {
 				return 0;
 			} else {
 				return -EAGAIN;
@@ -264,7 +264,7 @@ static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count, long flags) 
 		}
 	} else {
 		if (ringbuffer_read_available(&tty->input_buffer) < (size_t)tty->termios.c_cc[VMIN]) {
-			if (device_is_unplugged(&tty->device)) {
+			if (tty_raw_is_unplugged(tty)) {
 				return 0;
 			} else {
 				return -EAGAIN;
@@ -320,7 +320,7 @@ static int tty_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	tty_t *tty = (tty_t *)fd->private;
 	int irq_save = spinlock_acquire_irq(&tty->lock);
 	// cannot wait on disconnected ttys
-	if (!device_is_unplugged(&tty->device)) {
+	if (!tty_raw_is_unplugged(tty)) {
 		sleep_add_to_queue(&tty->reader_queue);
 	}
 	spinlock_release_irq(&tty->lock, irq_save);
@@ -339,7 +339,7 @@ static int tty_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 static int tty_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	tty_t *tty = (tty_t *)fd->private;
 	int irq_save = spinlock_acquire_irq(&tty->lock);
-	if (device_is_unplugged(&tty->device)) event->revents |= POLLHUP;
+	if (tty_raw_is_unplugged(tty)) event->revents |= POLLHUP;
 	if (tty->termios.c_lflag & ICANON) {
 		if (tty->lines_count > 0) event->revents |= POLLIN;
 	} else {
@@ -395,6 +395,7 @@ static void tty_destroy(device_t *device) {
 	}
 
 	int irq_save = spinlock_acquire_irq(&tty->lock);
+	tty->unplugged = 1;
 
 	// dissociate any session
 	tty_raw_set_session(tty, NULL);

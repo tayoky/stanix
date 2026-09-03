@@ -291,6 +291,7 @@ block_request_t *block_create_request(block_device_t *block_device, int type) {
 
 static void block_destroy(device_t *device) {
 	block_device_t *block_device = container_of(device, block_device_t, device);
+	block_device->unplugged = 1;
 	block_device_free_partitions(block_device);
 	// TODO : cancel every requests
 	free_cache(&block_device->cache);
@@ -318,6 +319,7 @@ int block_device_register(block_device_t *block_device, const char *fmt, dev_t n
 
 static void block_partition_destroy(device_t *device) {
 		block_partition_t *partition = container_of(device, block_partition_t, device);
+		partition->unplugged = 1;
 		list_remove(&partition->block_device->partitions, &partition->node);
 }
 
@@ -328,7 +330,7 @@ static void block_partition_cleanup(device_t *device) {
 
 static ssize_t block_partition_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
 	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
-	if (device_is_unplugged(&partition->device)) return -ENXIO;
+	if (block_partition_is_unplugged(partition)) return -ENXIO;
 	if (offset > (off_t)partition->size) return 0;
 	if (partition->size - offset < count) {
 		count = partition->size - offset;
@@ -338,7 +340,7 @@ static ssize_t block_partition_read(vfs_fd_t *fd, void *buffer, off_t offset, si
 
 static ssize_t block_partition_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
 	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
-	if (device_is_unplugged(&partition->device)) return -ENXIO;
+	if (block_partition_is_unplugged(partition)) return -ENXIO;
 	if (offset > (off_t)partition->size) return 0;
 	if (partition->size - offset < count) {
 		count = partition->size - offset;
@@ -348,7 +350,7 @@ static ssize_t block_partition_write(vfs_fd_t *fd, const void *buffer, off_t off
 
 static int block_partition_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
-	if (device_is_unplugged(&partition->device)) return -ENXIO;
+	if (block_partition_is_unplugged(partition)) return -ENXIO;
 	switch (request) {
 	case BLOCK_GET_PART_INFO:;
 		block_part_info_t part_info = {
@@ -369,7 +371,7 @@ static int block_partition_ioctl(vfs_fd_t *fd, long request, void *arg) {
 
 static int block_partition_flush(vfs_fd_t *fd, off_t offset, size_t count) {
 	block_partition_t *partition = container_of(fd->private, block_partition_t, device);
-	if (device_is_unplugged(&partition->device)) return -ENXIO;
+	if (block_partition_is_unplugged(partition)) return -ENXIO;
 	if (offset > (off_t)partition->size) return 0;
 	if (partition->size - offset < count) {
 		count = partition->size - offset;

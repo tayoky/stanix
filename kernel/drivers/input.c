@@ -24,7 +24,7 @@ static void input_device_drop_control(input_device_t *input_device) {
 
 static int input_device_raw_ioctl(input_device_t *input_device, vfs_fd_t *fd, long req, void *arg) {
 	int ret = -EINVAL;
-	if (device_is_unplugged(&input_device->device)) {
+	if (input_device_is_unplugged(input_device)) {
 		return -ENXIO;
 	}
 	switch (req) {
@@ -71,7 +71,7 @@ static ssize_t input_device_read(vfs_fd_t *fd, void *buffer, off_t offset, size_
 	count -= count % sizeof(struct input_event);
 
 	ssize_t ret = 0;
-	if (device_is_unplugged(&input_device->device)) {
+	if (input_device_is_unplugged(input_device)) {
 		ret = -ENXIO;
 		goto finish;
 	}
@@ -108,7 +108,7 @@ static int input_device_poll_add(vfs_fd_t *fd, poll_event_t *event) {
 	input_device_t *input_device = fd->private;
 	int irq_save = spinlock_acquire_irq(&input_device->lock);
 	// cannot wait on unplugged device
-	if (!device_is_unplugged(&input_device->device)) {
+	if (!input_device_is_unplugged(input_device)) {
 		sleep_add_to_queue(&input_device->sleep_queue);
 	}
 	spinlock_release_irq(&input_device->lock, irq_save);
@@ -127,7 +127,7 @@ static int input_device_poll_remove(vfs_fd_t *fd, poll_event_t *event) {
 static int input_device_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	input_device_t *input_device = fd->private;
 	int irq_save = spinlock_acquire_irq(&input_device->lock);
-	if (device_is_unplugged(&input_device->device)) {
+	if (input_device_is_unplugged(input_device)) {
 		event->revents |= POLLHUP;
 	} else if (input_device_check_control(input_device, fd)) {
 		if (ringbuffer_read_available(&input_device->events)) {
@@ -142,6 +142,7 @@ static int input_device_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 static void input_device_destroy(device_t *device) {
 	input_device_t *input_device = container_of(device, input_device_t, device);
 	int irq_save = spinlock_acquire_irq(&input_device->lock);
+	input_device->unplugged = 1;
 	if (input_device->ops && input_device->ops->destroy) {
 		input_device->ops->destroy(input_device);
 	}
@@ -168,7 +169,7 @@ static vfs_fd_ops_t input_ops = {
 
 int input_device_send_event(input_device_t *input_device, struct input_event *event) {
 	int irq_save = spinlock_acquire_irq(&input_device->lock);
-	if (device_is_unplugged(&input_device->device)) {
+	if (input_device_is_unplugged(input_device)) {
 		spinlock_release_irq(&input_device->lock, irq_save);
 		return -ENXIO;
 	}

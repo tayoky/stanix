@@ -33,6 +33,7 @@ struct block_device {
 	void *part_data;
 	size_t sector_size;
 	size_t sectors_count;
+	int unplugged;
 };
 
 struct block_request {
@@ -58,6 +59,7 @@ struct block_partition {
 	off_t offset;
 	size_t size;
 	size_t index;
+	int unplugged;
 };
 
 struct block_partition_driver {
@@ -72,6 +74,10 @@ void init_block(void);
 
 block_request_t *block_create_request(block_device_t *block_device, int type);
 
+static inline int block_device_is_unplugged(block_device_t *block_device) {
+	return block_device->unplugged;
+}
+
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number);
 ssize_t block_device_read(block_device_t *block_device, void *buf, off_t offset, size_t count);
 ssize_t block_device_write(block_device_t *block_device, const void *buf, off_t offset, size_t count);
@@ -79,6 +85,10 @@ int block_device_ioctl(block_device_t *block_device, long request, void *arg);
 int block_device_flush(block_device_t *block_device, off_t offset, size_t count);
 int block_device_rescan_partitions(block_device_t *block_device);
 int block_device_add_partition(block_device_t *block_device, off_t offset, size_t size, const char *uuid, const char *fs_uuid);
+
+static inline int block_partition_is_unplugged(block_partition_t *partition) {
+	return partition->unplugged;
+}
 
 int block_partition_driver_register(block_partition_driver_t *driver);
 int block_partition_driver_unregister(block_partition_driver_t *driver);

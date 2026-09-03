@@ -77,7 +77,7 @@ static int mmc_submit(block_device_t *block_device, block_request_t *request) {
 }
 
 static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
-	if (device_is_unplugged(&block_device->device)) {
+	if (block_device_is_unplugged(block_device)) {
 		return -ENXIO;
 	}
 	scsi_device_t *device = container_of(block_device->device.devnode, scsi_device_t, devnode);

@@ -96,7 +96,6 @@ void device_release(device_t *device) {
 
 int device_destroy(device_t *device) {
 	xarray_clear(&devices, device->number);
-	device->type = DEVICE_UNPLUGGED;
 	if (device->destroy) device->destroy(device);
 	vfs_unlink_at(devfs_root, device->name);
 	device_release(device);

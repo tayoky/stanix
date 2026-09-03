@@ -35,6 +35,7 @@ typedef struct tty {
 	size_t lines_count;         // protected by lock
 	size_t lines[256];          // protected by lock
 	spinlock_t lock;
+	int unplugged;              // protected by lock
 } tty_t;
 
 typedef struct pty pty_t;
@@ -65,6 +66,18 @@ static inline tty_t *tty_ref(tty_t *tty) {
 
 static inline void tty_release(tty_t *tty) {
 	if (tty) device_release(&tty->device);
+}
+
+static inline int tty_raw_is_unplugged(tty_t *tty) {
+	spinlock_assert_acquired(&tty->lock);
+	return tty->unplugged;
+}
+
+static inline int tty_is_unplugged(tty_t *tty) {
+	int irq_save = spinlock_acquire_irq(&tty->lock);
+	int unplugged = tty_raw_is_unplugged(tty);
+	spinlock_release_irq(&tty->lock, irq_save);
+	return unplugged;
 }
 
 int new_pty(vfs_fd_t **master, vfs_fd_t **slave, tty_t **);

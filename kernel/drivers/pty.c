@@ -23,14 +23,14 @@ static ssize_t pty_output(tty_t *tty, const char *buf, size_t count) {
 	spinlock_acquire(&pty->lock);
 	while (count > 0) {
 		spinlock_raw_release(&slave->tty.lock);
-		if (sleep_on_queue_lock_interruptible(&pty->writer_queue, &pty->lock, ringbuffer_write_available(&pty->output_buffer) > 0 || device_is_unplugged(&tty->device)) < 0) {
+		if (sleep_on_queue_lock_interruptible(&pty->writer_queue, &pty->lock, ringbuffer_write_available(&pty->output_buffer) > 0 || tty_is_unplugged(&slave->tty)) < 0) {
 			spinlock_raw_acquire(&slave->tty.lock);
 			ret = -EINTR;
 			break;
 		}
 		spinlock_raw_acquire(&slave->tty.lock);
 
-		if (device_is_unplugged(&tty->device)) {
+		if (tty_raw_is_unplugged(&slave->tty)) {
 			ret = -ENXIO;
 			break;
 		}

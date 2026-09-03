@@ -25,7 +25,13 @@ typedef struct input_device {
 	spinlock_t lock;
 	unsigned long class;
 	unsigned long subclass;
+	int unplugged;                  // protected by lock
 } input_device_t;
+
+static inline int input_device_is_unplugged(input_device_t *input_device) {
+	spinlock_assert_acquired(&input_device->lock);
+	return input_device->unplugged;
+}
 
 int input_device_register(input_device_t *input_device);
 int input_device_send_event(input_device_t *input_device, struct input_event *event);
