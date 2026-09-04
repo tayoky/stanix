@@ -17,15 +17,16 @@ typedef struct input_ops {
 
 typedef struct input_device {
 	device_t device;
-	vfs_fd_t *controlling_fd;       // protected by lock
-	input_ops_t *ops;
 	ringbuffer_t events;            // protected by lock
 	sleep_queue_t sleep_queue;      // protected by lock
 	char layout[INPUT_LAYOUT_SIZE]; // protected by lock
-	spinlock_t lock;
+	vfs_fd_t *controlling_fd;       // protected by lock
+	input_ops_t *ops;
+	void *private;
 	unsigned long class;
 	unsigned long subclass;
 	int unplugged;                  // protected by lock
+	spinlock_t lock;
 } input_device_t;
 
 static inline int input_device_is_unplugged(input_device_t *input_device) {
@@ -33,6 +34,12 @@ static inline int input_device_is_unplugged(input_device_t *input_device) {
 	return input_device->unplugged;
 }
 
+static inline void input_device_destroy(input_device_t *input_device_t *input_device) {
+	if (input_device) device_destroy(&input_device->device);
+}
+
+void init_input(void);
+input_device_t *input_device_allocate(void);
 int input_device_register(input_device_t *input_device);
 int input_device_send_event(input_device_t *input_device, struct input_event *event);
 

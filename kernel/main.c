@@ -21,6 +21,7 @@
 #include <kernel/procfs.h>
 #include <kernel/sysfs.h>
 #include <kernel/socket.h>
+#include <kernel/input.h>
 #include <kernel/futex.h>
 #include <kernel/signal.h>
 #include <kernel/xarray.h>
@@ -142,6 +143,7 @@ void kmain() {
 	init_sockets();
 	init_unix_socket();
 	init_block();
+	init_input();
 	init_futexes();
 
 	kstatusf("finish init kernel\n");

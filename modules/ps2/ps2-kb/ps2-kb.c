@@ -15,7 +15,7 @@
 #define PS2_KEYBOARD_SET_SCANCODE 0xF0
 
 typedef struct ps2_kb {
-	input_device_t input_device;
+	input_device_t *input_device;
 	resource_t *irq_resource;
 	void *handler_handle;
 	int extended;
@@ -24,7 +24,7 @@ typedef struct ps2_kb {
 static void ps2_kb_handler(registers_t *registers, void *data) {
 	(void)registers;
 	ps2_kb_t *keyboard = data;
-	ps2_dev_t *ps2_dev = container_of(keyboard->input_device.device.devnode, ps2_dev_t, devnode);
+	ps2_dev_t *ps2_dev = container_of(keyboard->input_device->device.devnode, ps2_dev_t, devnode);
 
 	uint8_t scancode = ps2_read(ps2_dev);
 
@@ -91,6 +91,7 @@ static int ps2_kb_check(devnode_t *devnode) {
 
 static int ps2_kb_probe(devnode_t *devnode) {
 	ps2_dev_t *ps2_dev   = container_of(devnode, ps2_dev_t, devnode);
+	ps2_kb_t *keyboard = devnode->private;
 
 	// reset the device
 	if (ps2_reset(ps2_dev) < 0) {
@@ -122,13 +123,13 @@ static int ps2_kb_probe(devnode_t *devnode) {
 		return -EIO;
 	}
 
-	ps2_kb_t *keyboard = kmalloc(sizeof(ps2_kb_t));
-	memset(keyboard, 0, sizeof(ps2_kb_t));
 	keyboard->irq_resource = device_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
-	keyboard->input_device.device.devnode = devnode;
-	keyboard->input_device.class          = IE_CLASS_KEYBOARD;
-	keyboard->input_device.subclass       = IE_SUBCLASS_PS2_KBD;
-	input_device_register(&keyboard->input_device);
+	keyboard->input_device = input_device_allocate();
+	keyboard->input_device->device.devnode = devnode;
+	keyboard->input_device->class          = IE_CLASS_KEYBOARD;
+	keyboard->input_device->subclass       = IE_SUBCLASS_PS2_KBD;
+	keyboard->input_device->private        = keyboard;
+	input_device_register(keyboard->input_device);
 
 	keyboard->handler_handle = resource_register_handler(keyboard->irq_resource, ps2_kb_handler, keyboard);
 	kdebugf("ps2 keyboard successfully initialized\n");
@@ -136,12 +137,22 @@ static int ps2_kb_probe(devnode_t *devnode) {
 	return 0;
 }
 
+static void ps2_kb_detach(devnode_t *devnode) {
+	ps2_kb_t *keyboard = devnode->private;
+	input_device_destroy(keyboard->input_device);
+	
+	resource_unregister_handler(keyboard->irq_resource, keyboard->handler_handle);
+	device_release_resource(devnode, keyboard->irq_resource);
+}
+
 static driver_t ps2_kb_driver = {
 	.name  = "ps2 keyboard",
 	.device_name = "kb",
 	.buses = BUSES("ps2"),
-	.check = ps2_kb_check,
-	.probe = ps2_kb_probe,
+	.private_size = sizeof(ps2_kb_t),
+	.check  = ps2_kb_check,
+	.probe  = ps2_kb_probe,
+	.detach = ps2_kb_detach,
 };
 
 static int init_ps2_kb(int argc, char **argv) {

@@ -3,8 +3,15 @@
 #include <kernel/process.h>
 #include <kernel/userspace.h>
 #include <kernel/poll.h>
+#include <kernel/slab.h>
 #include <sys/input.h>
 #include <poll.h>
+
+static slab_cache_t input_devices_slab;
+
+void init_input(void) {
+	slab_init(&input_devices_slab, sizeof(input_device_t), "input-devices");
+}
 
 static int input_device_check_control(input_device_t *input_device, vfs_fd_t *fd) {
 	spinlock_assert_acquired(&input_device->lock);
@@ -139,7 +146,7 @@ static int input_device_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	return 0;
 }
 
-static void input_device_destroy(device_t *device) {
+static void input_device_do_destroy(device_t *device) {
 	input_device_t *input_device = container_of(device, input_device_t, device);
 	int irq_save = spinlock_acquire_irq(&input_device->lock);
 	input_device->unplugged = 1;
@@ -156,6 +163,7 @@ static void input_device_cleanup(device_t *device) {
 	if (input_device->ops && input_device->ops->cleanup) {
 		input_device->ops->cleanup(input_device);
 	}
+	slab_free(input_device);
 }
 
 static vfs_fd_ops_t input_ops = {
@@ -182,10 +190,17 @@ int input_device_send_event(input_device_t *input_device, struct input_event *ev
 	return 0;
 }
 
+input_device_t *input_device_allocate(void) {
+	input_device_t *input_device = slab_alloc(&input_devices);
+	if (!input_device) return NULL;
+	memset(input_device, 0, sizeof(input_device_t));
+	return input_device;
+}
+
 int input_device_register(input_device_t *input_device) {
 	input_device->device.type    = DEVICE_CHAR;
 	input_device->device.ops     = &input_ops;
-	input_device->device.destroy = input_device_destroy;
+	input_device->device.destroy = input_device_do_destroy;
 	input_device->device.cleanup = input_device_cleanup;
 	ringbuffer_init(&input_device->events, sizeof(struct input_event) * 25);
 	return device_register(&input_device->device, NULL, 0);

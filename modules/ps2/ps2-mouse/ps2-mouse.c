@@ -14,7 +14,7 @@
 #define PS2_MOUSE_SET_RATE 0xF3
 
 typedef struct ps2_mouse {
-	input_device_t input_device;
+	input_device_t *input_device;
 	resource_t *irq_resource;
 	void *handler_handle;
 	int button;
@@ -33,7 +33,7 @@ static int ps2_mouse_set_rate(ps2_dev_t *ps2_dev, int rate) {
 static void ps2_mouse_handler(registers_t *registers, void *data) {
 	(void)registers;
 	ps2_mouse_t *mouse = data;
-	ps2_dev_t *ps2_dev = container_of(mouse->input_device.device.devnode, ps2_dev_t, devnode);
+	ps2_dev_t *ps2_dev = container_of(mouse->input_device->device.devnode, ps2_dev_t, devnode);
 	
 	uint8_t b = ps2_read(ps2_dev);
 	switch (mouse->packet++) {
@@ -112,15 +112,6 @@ static void ps2_mouse_handler(registers_t *registers, void *data) {
 	}
 }
 
-static void ps2_mouse_cleanup(input_device_t *input_device) {
-	ps2_mouse_t *mouse = container_of(input_device, ps2_mouse_t, input_device);
-	kfree(mouse);
-}
-
-static input_ops_t ps2_mouse_ops = {
-	.cleanup = ps2_mouse_cleanup,
-};
-
 static int ps2_mouse_check(devnode_t *devnode) {
 	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
 	if (devnode->type != BUS_PS2) return 0;
@@ -131,6 +122,7 @@ static int ps2_mouse_check(devnode_t *devnode) {
 
 static int ps2_mouse_probe(devnode_t *devnode) {
 	ps2_dev_t *ps2_dev = container_of(devnode, ps2_dev_t, devnode);
+	ps2_mouse_t *mouse = devnode->private;
 
 	// first do a reset
 	if (ps2_reset(ps2_dev) < 0) {
@@ -143,23 +135,20 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 		return -EIO;
 	}
 
-	ps2_mouse_t *mouse = kmalloc(sizeof(ps2_mouse_t));
-	memset(mouse, 0, sizeof(ps2_mouse_t));
 	mouse->irq_resource = device_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
+	mouse->input_device = input_device_allocate();
 	mouse->input_device.device.devnode = devnode;
 	mouse->input_device.class    = IE_CLASS_MOUSE;
 	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;
-	mouse->input_device.ops      = &ps2_mouse_ops;
-	input_device_register(&mouse->input_device);
+	mouse->input_device->private = mouse;
+	input_device_register(mouse->input_device);
 	mouse->handler_handle = resource_register_handler(mouse->irq_resource, ps2_mouse_handler, mouse);
 	return 0;
 }
 
 static void ps2_mouse_detach(devnode_t *devnode) {
-	// retrieve ps2_mouse_t
-	kassert(devnode->device);
-	ps2_mouse_t *mouse = container_of(devnode->device, ps2_mouse_t, input_device.device);
-	device_destroy(&mouse->input_device.device);
+	ps2_mouse_t *mouse = devnode->private;
+	input_device_destroy(mouse->input_device);
 
 	resource_unregister_handler(mouse->irq_resource, mouse->handler_handle);
 	device_release_resource(devnode, mouse->irq_resource);
@@ -169,8 +158,9 @@ static driver_t ps2_mouse_driver = {
 	.name = "ps2 mouse",
 	.device_name = "mouse",
 	.buses = BUSES("ps2"),
-	.check = ps2_mouse_check,
-	.probe = ps2_mouse_probe,
+	.private_size = sizeof(ps2_mouse_t),
+	.check  = ps2_mouse_check,
+	.probe  = ps2_mouse_probe,
 	.detach = ps2_mouse_detach,
 };
 
