@@ -4,21 +4,31 @@
 #include <kernel/vmm.h>
 #include <module/retrofs.h>
 
+// retrofs driver, see https://retrorocket.dev/retrofs.html
+
 static slab_cache_t retrofs_inodes_slab;
 
 static retrofs_inode_t *retrofs_entry2inode(retrofs_superblock_t *superblock, retrofs_directory_entry_t *entry, off_t offset);
 
-static int retrofs_init_iter(retrofs_superblock_t *retrofs_superblock, retrofs_directory_start_t *start_entry, size_t *start_sector, off_t *offset) {
+static int retrofs_read_directory_start(retrofs_superblock_t *retrofs_superblock, retrofs_directory_start_t *start_entry, size_t *start_sector, off_t *offset) {
 	*offset = *start_sector * RETROFS_SECTOR_SIZE;
 
 	ssize_t ret = vfs_read(retrofs_superblock->device, start_entry, *offset);
 	if (ret < 0) return ret;
 	if (ret < sizeof(retrofs_directory_start_t)) return -EIO;
+
+	// the first entry should have the DIR_START flag
+	if (!(start_entry->flags & RETROFS_FLAG_DIR_START)) {
+		// invalid
+		kwarningf("missing DIR_START flag on directory start entry\n");
+		return -EIO;
+	}
+
 	*offset += 256;
 	return 0;
 }
 
-static int retrofs_next_entry(retrofs_superblock_t *retrofs_superblock, retrofs_directory_start_t *start_entry, retrofs_directory_entry_t *entry, size_t *start_sector, off_t *offset) {
+static int retrofs_next_entry(retrofs_superblock_t *retrofs_superblock, retrofs_directory_start_t *start_entry, retrofs_directory_entry_t *entry, size_t *start_sector, off_t *offset, off_t *entry_offset) {
 	off_t end   = (*start_sector + start_entry->sectors) * RETROFS_SECTOR_SIZE;
 
 	if (offset >= end) {
@@ -28,16 +38,12 @@ static int retrofs_next_entry(retrofs_superblock_t *retrofs_superblock, retrofs_
 			return -ENOENT;
 		}
 		*start_sector = start_entry->continuation;
-		// TODO : read the continuation
-		*offset = *start_sector * RETROFS_SECTOR_SIZE;
-		
-		ssize_t ret = vfs_read(retrofs_superblock->device, start_entry, *offset);
+
+		int ret = retrofs_read_directory_start(retrofs_superblock, start_entry, start_sector, offset);
 		if (ret < 0) return ret;
-		if (ret < sizeof(retrofs_directory_start_t)) return -EIO;
-		*offset += 256;
-		return 0;
 	}
 
+	if (entry_offset) *entry_offset = *offset;
 	ssize_t ret = vfs_read(retrofs_superblock->device, entry, *offset);
 	if (ret < 0) return ret;
 	if (ret < sizeof(retrofs_directory_entry_t)) return -EIO;
@@ -131,6 +137,19 @@ static int retrofs_open(vfs_fd_t *fd) {
 	return 0;
 }
 
+static int retrofs_getattr(vfs_node_t *vnode, struct stat *buf) {
+	retrofs_inode_t *inode = container_of(vnode, retrofs_inode_t, vnode);
+
+	// retro fs does not have symlinks
+	buf->st_nlink = 1;
+	if (S_ISREG(inode->vnode.mode)) {
+		buf->st_size = inode->cache.size;
+	} else {
+		buf->st_size = 0;
+	}
+	return 0;
+}
+
 static int retrofs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
 	retrofs_inode_t *inode = container_of(vnode, retrofs_inode_t, vnode);
 	kassert(S_ISDIR(inode->vnode.mode));
@@ -138,11 +157,12 @@ static int retrofs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 	retrofs_directory_start_t start_entry;
 	size_t start_sector = inode->start_sector;
 	size_t offset;
-	retrofs_init_iter(retrofs_superblock, &start_entry, &start_sector, &offset);
+	int ret = retrofs_read_directory_start(retrofs_superblock, &start_entry, &start_sector, &offset);
+	if (ret < 0) return ret;
 
 	for (;;) {
 		retrofs_directory_entry_t entry;
-		int ret = retrofs_next_entry(retrofs_superblock, &start_entry, &entry, &start_sector, &offset);
+		ret = retrofs_next_entry(retrofs_superblock, &start_entry, &entry, &start_sector, &offset, NULL);
 		if (ret < 0) return ret;
 
 		if (entry->filename[0] == '\0') {
@@ -163,18 +183,20 @@ static int retrofs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent
 	return -ENOENT;
 }
 
-static int retrofs_lookup(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
+static int retrofs_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	retrofs_inode_t *inode = container_of(vnode, retrofs_inode_t, vnode);
 	kassert(S_ISDIR(inode->vnode.mode));
 	retrofs_superblock_t *retrofs_superblock = container_of(inode->vnode.superblock, retrofs_superblock_t, superblock);
 	retrofs_directory_start_t start_entry;
 	size_t start_sector = inode->start_sector;
 	size_t offset;
-	retrofs_init_iter(retrofs_superblock, &start_entry, &start_sector, &offset);
+	int ret = retrofs_read_directory_start(retrofs_superblock, &start_entry, &start_sector, &offset);
+	if (ret < 0) return ret;
 
 	for (;;) {
+		off_t entry_offset;
 		retrofs_directory_entry_t entry;
-		int ret = retrofs_next_entry(retrofs_superblock, &start_entry, &entry, &start_sector, &offset);
+		ret = retrofs_next_entry(retrofs_superblock, &start_entry, &entry, &start_sector, &offset, &entry_offset);
 		if (ret < 0) return ret;
 
 		if (entry->filename[0] == '\0') {
@@ -182,16 +204,31 @@ static int retrofs_lookup(vfs_node_t *vnode, unsigned long index, struct dirent 
 			continue;
 		}
 
-		// TODO
-		return -ENOSYS;
+		// TODO : use strcasecmp as recommanded by the spec
+		if (!strncmp(dentry->name, entry.filename, sizeof(entry.filename))) {
+			retrofs_inode_t *child_inode = retrofs_entry2inode(retrofs_superblock, &entry, entry_offset);
+			if (!child_inode) return -ENOMEM;
+			dentry->vnode = &child_inode->vnode;
+			return 0;
+		}
 	}
 	return -ENOENT;
 }
 
+static void retrofs_cleanup(vfs_node_t *vnode) {
+	retrofs_inode_t *inode = container_of(vnode, retrofs_inode_t, vnode);
+	if (S_ISREG(inode->vnode.mode)) {
+		free_cache(inode->cache);
+	}
+	slab_free(inode);
+}
+
 static vfs_inode_ops_t retrofs_inode_ops = {
-	.open = retrofs_open,
+	.open    = retrofs_open,
+	.getattr = retrofs_getattr,
 	.readdir = retrofs_readdir,
 	.lookup  = retrofs_lookup,
+	.cleanup = retrofs_cleanup,
 };
 
 static retrofs_inode_t *retrofs_entry2inode(retrofs_superblock_t *retrofs_superblock, retrofs_directory_entry_t *entry, off_t offset) {
