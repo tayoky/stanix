@@ -54,6 +54,10 @@ $(ESP_ROOT)/boot/limine/limine.conf \
 $(ESP_ROOT)/boot/initrd.tar \
 $(ESP_ROOT)/boot/stanix.elf
 
+QEMU_KVM ?= -cpu host -enable-kvm -smp 1
+QEMU_EXTRA ?=
+QEMU_OPTIONS = -m 512 -serial stdio
+
 all : build-all image-all
 
 # help targets
@@ -62,28 +66,30 @@ targets : help
 help :
 	@echo "Stanix's makefile"
 	@echo "======================== build targets ========================"
-	@echo "build-all or build : build every component of Stanix"
-	@echo "build-tlibc        : build tlibc"
-	@echo "build-kernel       : build the core kernel (not the modules)"
-	@echo "build-modules      : build the kernel modules"
-	@echo "build-libraries    : build the userspace libraries"
-	@echo "build-initrd       : build the initial ramdisk"
-	@echo "build-env          : launch a build env setup for cross compiling"
+	@echo "build-all or build  : build every component of Stanix"
+	@echo "build-tlibc         : build tlibc"
+	@echo "build-kernel        : build the core kernel (not the modules)"
+	@echo "build-modules       : build the kernel modules"
+	@echo "build-libraries     : build the userspace libraries"
+	@echo "build-initrd        : build the initial ramdisk"
+	@echo "build-env           : launch a build env setup for cross compiling"
 	@echo "======================== image targets ========================"
-	@echo "image-all          : build every image"
-	@echo "image-hdd          : build the hdd image($(HDD_IMAGE))"
-	@echo "image-iso          : build the iso image($(ISO_IMAGE))"
+	@echo "image-all           : build every image"
+	@echo "image-hdd           : build the hdd image($(HDD_IMAGE))"
+	@echo "image-iso           : build the iso image($(ISO_IMAGE))"
 	@echo "======================== tests targets ========================"
-	@echo "test-qemu          : test the hdd image in qemu"
-	@echo "test-qemu-kvm      : test the hdd image in qemu with kvm"
-	@echo "test-qemu-nvme     : test the hdd image in qemu with a nvme"
-	@echo "test-qemu-kvm-nvme : test the hdd image in qemu with a nvme and kvm"
-	@echo "test-qemu-ata      : test the hdd image in qemu with an ATA disk"
-	@echo "test-qemu-cdrom    : test the hdd image in qemu with an ATAPI cdrom"
+	@echo "test-qemu           : test the hdd image in qemu"
+	@echo "test-qemu-kvm       : test the hdd image in qemu with kvm"
+	@echo "test-qemu-nvme      : test the hdd image in qemu with a nvme"
+	@echo "test-qemu-kvm-nvme  : test the hdd image in qemu with a nvme and kvm"
+	@echo "test-qemu-ata       : test the hdd image in qemu with an ATA disk"
+	@echo "test-qemu-kvm-ata   : test the hdd image in qemu with an ATA disk and kvm"
+	@echo "test-qemu-cdrom     : test the hdd image in qemu with an ATAPI cdrom"
+	@echo "test-qemu-kvm-cdrom : test the hdd image in qemu with an ATAPI cdrom and kvm"
 	@echo "==================== miscellaneous targets ===================="
-	@echo "targets or help    : show this help"
-	@echo "header             : install kernel and libc headers in sysroot"
-	@echo "clean              : clean everything"
+	@echo "targets or help     : show this help"
+	@echo "header              : install kernel and libc headers in sysroot"
+	@echo "clean               : clean everything"
 
 # test targets
 
@@ -92,13 +98,13 @@ test-qemu-kvm : test-qemu-kvm-nvme
 
 test-qemu-nvme : image-hdd
 	qemu-system-$(ARCH) \
-	-drive file=$(HDD_IMAGE),format=raw,if=none,id=nvm -serial stdio \
-	-device nvme,serial=deadbeef,drive=nvm -m 512
+	-drive file=$(HDD_IMAGE),format=raw,if=none,id=nvm \
+	-device nvme,serial=deadbeef,drive=nvm $(QEMU_OPTIONS)
 
 test-qemu-kvm-nvme : image-hdd
 	qemu-system-$(ARCH) \
-	-drive file=$(HDD_IMAGE),format=raw,if=none,id=nvm -serial stdio \
-	-device nvme,serial=deadbeef,drive=nvm -m 1024 -cpu host -enable-kvm -smp 1
+	-drive file=$(HDD_IMAGE),format=raw,if=none,id=nvm \
+	-device nvme,serial=deadbeef,drive=nvm $(QEMU_OPTIONS) $(QEMU_KVM)
 
 test-qemu-ata : image-hdd
 # make a copy since qemu want one image for each disk 
@@ -106,15 +112,26 @@ test-qemu-ata : image-hdd
 	qemu-system-$(ARCH) \
 	-drive file=$(HDD_IMAGE),format=raw,if=none,id=nvm \
 	-device nvme,serial=deadbeef,drive=nvm,bootindex=1 \
-	-drive file=copy.hdd,format=raw,if=ide -serial stdio  -m 512
+	-drive file=copy.hdd,format=raw,if=ide $(QEMU_OPTIONS)
 #--trace "ide_*"
 
+test-qemu-kvm-ata : image-hdd
+# make a copy since qemu want one image for each disk 
+	cp $(HDD_IMAGE) copy.hdd
+	qemu-system-$(ARCH) \
+	-drive file=$(HDD_IMAGE),format=raw,if=none,id=nvm \
+	-device nvme,serial=deadbeef,drive=nvm,bootindex=1 \
+	-drive file=copy.hdd,format=raw,if=ide $(QEMU_OPTIONS) $(QEMU_KVM)
+
 test-qemu-cdrom : image-iso
-	qemu-system-$(ARCH) -cdrom stanix.iso -serial stdio -m 512 --no-shutdown --no-reboot
+	qemu-system-$(ARCH) -cdrom $(ISO_IMAGE) $(QEMU_OPTIONS)
+
+test-qemu-kvm-cdrom : image-iso
+	qemu-system-$(ARCH) -cdrom $(ISO_IMAGE) $(QEMU_OPTIONS) $(QEMU_KVM)
 
 test-qemu-debug : image-hdd
 	objdump -D $(ESP_ROOT)/boot/stanix.elf > kernel.dump
-	qemu-system-$(ARCH) -drive file=$(HDD_IMAGE)  -serial stdio -s -S
+	qemu-system-$(ARCH) -drive file=$(HDD_IMAGE) $(QEMU_OPTIONS) -s -S
 
 # images target
 
