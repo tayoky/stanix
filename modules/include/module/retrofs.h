@@ -18,7 +18,9 @@ typedef struct retrofs_description_block {
 
 #define RETROFS_IDENTIFIER "RetroFS1"
 
-#define RETROFS_FS_BITS_PER_SECTOR (512 / 8)
+#define RETROFS_SECTOR_SIZE 512
+
+#define RETROFS_FS_BITS_PER_SECTOR (RETROFS_SECTOR_SIZE / 8)
 typedef struct retrofs_free_space_map_entry {
 	uint64_t bits[RETROFS_FS_BITS_PER_SECTOR];
 } __attribute__((packed)) retrofs_free_space_map_entry_t;
@@ -58,6 +60,7 @@ typedef struct retrofs_inode {
 	vfs_node_t vnode;
 	cache_t cache;
 	off_t entry_offset;
+	size_t start_sector;
 } retrofs_inode_t;
 
 #endif
