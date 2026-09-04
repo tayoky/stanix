@@ -123,7 +123,8 @@ typedef struct fat_inode {
 	cache_t cache;
 	fat_entry_t entry;
 	uint32_t first_cluster;
-	off_t entry_offset;
+	off_t sfn_offset;
+	off_t lfn_offset;
 	
 	// used for fat16/12 root
 	int is_fat16_root;
