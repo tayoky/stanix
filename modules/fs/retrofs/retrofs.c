@@ -8,6 +8,43 @@ static slab_cache_t retrofs_inodes_slab;
 
 static retrofs_inode_t *retrofs_entry2inode(retrofs_superblock_t *superblock, retrofs_directory_entry_t *entry, off_t offset);
 
+static int retrofs_init_iter(retrofs_superblock_t *retrofs_superblock, retrofs_directory_start_t *start_entry, size_t *start_sector, off_t *offset) {
+	*offset = *start_sector * RETROFS_SECTOR_SIZE;
+
+	ssize_t ret = vfs_read(retrofs_superblock->device, start_entry, *offset);
+	if (ret < 0) return ret;
+	if (ret < sizeof(retrofs_directory_start_t)) return -EIO;
+	*offset += 256;
+	return 0;
+}
+
+static int retrofs_next_entry(retrofs_superblock_t *retrofs_superblock, retrofs_directory_start_t *start_entry, retrofs_directory_entry_t *entry, size_t *start_sector, off_t *offset) {
+	off_t end   = (*start_sector + start_entry->sectors) * RETROFS_SECTOR_SIZE;
+
+	if (offset >= end) {
+		// we need to go to the next continuation
+		if (start_entry->continuation == 0) {
+			// no more entries
+			return -ENOENT;
+		}
+		*start_sector = start_entry->continuation;
+		// TODO : read the continuation
+		*offset = *start_sector * RETROFS_SECTOR_SIZE;
+		
+		ssize_t ret = vfs_read(retrofs_superblock->device, start_entry, *offset);
+		if (ret < 0) return ret;
+		if (ret < sizeof(retrofs_directory_start_t)) return -EIO;
+		*offset += 256;
+		return 0;
+	}
+
+	ssize_t ret = vfs_read(retrofs_superblock->device, entry, *offset);
+	if (ret < 0) return ret;
+	if (ret < sizeof(retrofs_directory_entry_t)) return -EIO;
+	*offset += 256;
+	return 0;
+}
+
 static int retrofs_read_pages(cache_t *cache, off_t offset, size_t count) {
 	retrofs_inode_t *inode = container_of(cache, retrofs_inode_t, cache);
 	retrofs_superblock_t *retrofs_superblock = container_of(inode->vnode.superblock, retrofs_superblock_t, superblock);
@@ -94,8 +131,67 @@ static int retrofs_open(vfs_fd_t *fd) {
 	return 0;
 }
 
+static int retrofs_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
+	retrofs_inode_t *inode = container_of(vnode, retrofs_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
+	retrofs_superblock_t *retrofs_superblock = container_of(inode->vnode.superblock, retrofs_superblock_t, superblock);
+	retrofs_directory_start_t start_entry;
+	size_t start_sector = inode->start_sector;
+	size_t offset;
+	retrofs_init_iter(retrofs_superblock, &start_entry, &start_sector, &offset);
+
+	for (;;) {
+		retrofs_directory_entry_t entry;
+		int ret = retrofs_next_entry(retrofs_superblock, &start_entry, &entry, &start_sector, &offset);
+		if (ret < 0) return ret;
+
+		if (entry->filename[0] == '\0') {
+			// free entry
+			continue;
+		}
+
+		if (index-- > 0) continue;
+
+		if (entry->flags & RETROFS_FLAG_DIRECTORY) {
+			dirent->d_type = DT_DIR;
+		} else {
+			dirent->d_type = DT_REG;
+		}
+		snprintf(dirent->d_name, sizeof(dierent->d_name), "%.*s", (int)sizeof(entry->filename), entry->filename);
+		return 0;
+	}
+	return -ENOENT;
+}
+
+static int retrofs_lookup(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
+	retrofs_inode_t *inode = container_of(vnode, retrofs_inode_t, vnode);
+	kassert(S_ISDIR(inode->vnode.mode));
+	retrofs_superblock_t *retrofs_superblock = container_of(inode->vnode.superblock, retrofs_superblock_t, superblock);
+	retrofs_directory_start_t start_entry;
+	size_t start_sector = inode->start_sector;
+	size_t offset;
+	retrofs_init_iter(retrofs_superblock, &start_entry, &start_sector, &offset);
+
+	for (;;) {
+		retrofs_directory_entry_t entry;
+		int ret = retrofs_next_entry(retrofs_superblock, &start_entry, &entry, &start_sector, &offset);
+		if (ret < 0) return ret;
+
+		if (entry->filename[0] == '\0') {
+			// free entry
+			continue;
+		}
+
+		// TODO
+		return -ENOSYS;
+	}
+	return -ENOENT;
+}
+
 static vfs_inode_ops_t retrofs_inode_ops = {
 	.open = retrofs_open,
+	.readdir = retrofs_readdir,
+	.lookup  = retrofs_lookup,
 };
 
 static retrofs_inode_t *retrofs_entry2inode(retrofs_superblock_t *retrofs_superblock, retrofs_directory_entry_t *entry, off_t offset) {
