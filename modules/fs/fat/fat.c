@@ -154,6 +154,63 @@ static uint32_t fat_get_cluster(fat_superblock_t *fat_superblock, fat_inode_t *i
 	return cluster;
 }
 
+static int fat_set_cluster(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t number, uint32_t cluster) {
+	if (cluster > 0) {
+		uint32_t prev = fat_get_cluster(fat_superblock, inode, number - 1);
+		if (prev == FAT_EOF || prev == FAT_FREE) return -EIO;
+		int ret = fat_set_next_cluster(fat_superblock, prev, cluster);
+		if (ret < 0) return ret;
+	} else {
+		inode->first_cluster = cluster;
+	}
+	return 0;
+}
+
+static int fat_shrink(fat_superblock_t *fat_superblock, fat_inode_t *inode, size_t current_clusters_count, size_t new_clusters_count) {
+	kassert(new_clusters_count < current_clusters_count);
+
+	// free clusters
+	uint32_t cluster = fat_get_cluster(fat_superblock, inode, new_clusters_count);
+	for (size_t i = new_clusters_count; i < current_clusters_count; i++) {
+		// early EOF ?? weird but we don't care
+		if (cluster == FAT_EOF || cluster == FAT_FREE) break;
+		uint32_t next = fat_get_next_cluster(fat_superblock, cluster);
+		fat_free_cluster(fat_superblock, cluster);
+		cluster = next;
+	}
+	int ret = fat_set_cluster(fat_superblock, inode, new_clusters_count, FAT_EOF);
+	if (ret < 0) {
+		// TODO : restore ?? IDK
+		return ret;
+	}
+	return ret;
+}
+
+static int fat_grow(fat_superblock_t *fat_superblock, fat_inode_t *inode, size_t current_clusters_count, size_t new_clusters_count) {
+	kassert(new_clusters_count > current_clusters_count);
+	
+	// allocate clusters
+	uint32_t cluster = FAT_EOF;
+	mutex_acquire(&fat_superblock->write_lock);
+	for (size_t i = current_clusters_count; i < new_clusters_count; i++) {
+		uint32_t new_cluster = fat_allocate_cluster(fat_superblock);
+		if (new_cluster == FAT_EOF) {
+			// TODO : free already allocated clusters
+			mutex_release(&fat_superblock->write_lock);
+			return -ENOSPC;
+		}
+		fat_set_next_cluster(fat_superblock, new_cluster, cluster);
+		cluster = new_cluster;
+	}
+	mutex_release(&fat_superblock->write_lock);
+	int ret = fat_set_cluster(fat_superblock, inode, current_clusters_count, cluster);
+	if (ret < 0) {
+		// TODO : free already allocated clusters
+		return ret;
+	}
+	return 0;
+}
+
 static int fat_transfer_pages(cache_t *cache, off_t offset, size_t size, int write) {
 	fat_inode_t *inode               = container_of(cache, fat_inode_t, cache);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
@@ -578,18 +635,6 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	return -ENOENT;
 }
 
-static int fat_set_cluster(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t number, uint32_t cluster) {
-	if (cluster > 0) {
-		uint32_t prev = fat_get_cluster(fat_superblock, inode, number - 1);
-		if (prev == FAT_EOF || prev == FAT_FREE) return -EIO;
-		int ret = fat_set_next_cluster(fat_superblock, prev, cluster);
-		if (ret < 0) return ret;
-	} else {
-		inode->first_cluster = cluster;
-	}
-	return 0;
-}
-
 static int fat_truncate(vfs_node_t *vnode, size_t size) {
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
@@ -597,40 +642,9 @@ static int fat_truncate(vfs_node_t *vnode, size_t size) {
 	size_t new_clusters_count = (size + fat_superblock->cluster_size - 1) / fat_superblock->cluster_size;
 
 	if (new_clusters_count < current_clusters_count) {
-		// free clusters
-		uint32_t cluster = fat_get_cluster(fat_superblock, inode, new_clusters_count);
-		for (size_t i = new_clusters_count; i < current_clusters_count; i++) {
-			// early EOF ?? weird but we don't care
-			if (cluster == FAT_EOF) break;
-			uint32_t next = fat_get_next_cluster(fat_superblock, cluster);
-			fat_free_cluster(fat_superblock, cluster);
-			cluster = next;
-		}
-		int ret = fat_set_cluster(fat_superblock, inode, new_clusters_count, cluster);
-		if (ret < 0) {
-			// TODO : restore ?? IDK
-			return ret;
-		}
+		fat_shrink(fat_superblock, inode, current_clusters_count, new_clusters_count);
 	} else if (new_clusters_count > current_clusters_count) {
-		// allocate clusters
-		uint32_t cluster = FAT_EOF;
-		mutex_acquire(&fat_superblock->write_lock);
-		for (size_t i = current_clusters_count; i < new_clusters_count; i++) {
-			uint32_t new_cluster = fat_allocate_cluster(fat_superblock);
-			if (new_cluster == FAT_EOF) {
-				// TODO : free already allocated clusters
-				mutex_release(&fat_superblock->write_lock);
-				return -ENOSPC;
-			}
-			fat_set_next_cluster(fat_superblock, new_cluster, cluster);
-			cluster = new_cluster;
-		}
-		mutex_release(&fat_superblock->write_lock);
-		int ret = fat_set_cluster(fat_superblock, inode, current_clusters_count, cluster);
-		if (ret < 0) {
-			// TODO : free already allocated clusters
-			return ret;
-		}
+		fat_grow(fat_superblock, inode, current_clusters_count, new_clusters_count);
 	}
 
 	cache_truncate(&inode->cache, size);
