@@ -50,7 +50,7 @@ static void ps2_kb_handler(registers_t *registers, void *data) {
 	}
 
 	event.ie_key.scancode = keyboard->extended ? scancode + 0x80 : scancode;
-	input_device_send_event(&keyboard->input_device, &event);
+	input_device_send_event(keyboard->input_device, &event);
 	keyboard->extended = 0;
 }
 

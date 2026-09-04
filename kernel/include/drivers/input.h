@@ -34,7 +34,7 @@ static inline int input_device_is_unplugged(input_device_t *input_device) {
 	return input_device->unplugged;
 }
 
-static inline void input_device_destroy(input_device_t *input_device_t *input_device) {
+static inline void input_device_destroy(input_device_t *input_device) {
 	if (input_device) device_destroy(&input_device->device);
 }
 

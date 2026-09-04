@@ -83,7 +83,7 @@ static void ps2_mouse_handler(registers_t *registers, void *data) {
 			} else {
 				event.ie_key.flags = IE_KEY_RELEASE;
 			}
-			input_device_send_event((input_device_t *)mouse, &event);
+			input_device_send_event(mouse->input_device, &event);
 		}
 		mouse->button = mouse->flags & 0x7;
 	}
@@ -108,7 +108,7 @@ static void ps2_mouse_handler(registers_t *registers, void *data) {
 				.axis = 0,
 			},
 		};
-		input_device_send_event((input_device_t *)mouse, &event);
+		input_device_send_event(mouse->input_device, &event);
 	}
 }
 
@@ -137,9 +137,9 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 
 	mouse->irq_resource = device_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
 	mouse->input_device = input_device_allocate();
-	mouse->input_device.device.devnode = devnode;
-	mouse->input_device.class    = IE_CLASS_MOUSE;
-	mouse->input_device.subclass = IE_SUBCLASS_PS2_MOUSE;
+	mouse->input_device->device.devnode = devnode;
+	mouse->input_device->class    = IE_CLASS_MOUSE;
+	mouse->input_device->subclass = IE_SUBCLASS_PS2_MOUSE;
 	mouse->input_device->private = mouse;
 	input_device_register(mouse->input_device);
 	mouse->handler_handle = resource_register_handler(mouse->irq_resource, ps2_mouse_handler, mouse);

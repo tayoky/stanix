@@ -175,7 +175,7 @@ static int mmc_probe(devnode_t *devnode) {
 
 	disk->block_device = block_device_allocate();
 	if (!disk->block_device) return -ENOMEM;
-	disk->block_device.->ops = &mmc_ops;
+	disk->block_device->ops = &mmc_ops;
 	disk->block_device->sector_size    = sector_size;
 	disk->block_device->sectors_count  = sectors_count;
 	disk->block_device->device.devnode = devnode;

@@ -191,7 +191,7 @@ int input_device_send_event(input_device_t *input_device, struct input_event *ev
 }
 
 input_device_t *input_device_allocate(void) {
-	input_device_t *input_device = slab_alloc(&input_devices);
+	input_device_t *input_device = slab_alloc(&input_devices_slab);
 	if (!input_device) return NULL;
 	memset(input_device, 0, sizeof(input_device_t));
 	return input_device;
