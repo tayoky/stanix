@@ -11,7 +11,7 @@
 #define ATA_COMMAND_SETS_LBA48 (1U << 26)
 
 typedef struct mmc_disk {
-	block_device_t block_device;
+	block_device_t *block_device;
 	cdrom_toc_header_t toc;
 	size_t tracks_count;
 	cdrom_toc_entry_t *tracks;
@@ -45,7 +45,7 @@ static void mmc_finish_callback(ioreq_t *ioreq, void *data) {
 
 static int mmc_submit(block_device_t *block_device, block_request_t *request) {
 	scsi_device_t *device = container_of(block_device->device.devnode, scsi_device_t, devnode);
-	mmc_disk_t *disk      = container_of(block_device, mmc_disk_t, block_device);
+	mmc_disk_t *disk      = block_device->private;
 
 	// cannot write to a cdrom
 	if (request->type != BLOCK_REQUEST_READ) return -EOPNOTSUPP;
@@ -81,7 +81,7 @@ static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
 		return -ENXIO;
 	}
 	scsi_device_t *device = container_of(block_device->device.devnode, scsi_device_t, devnode);
-	mmc_disk_t *disk      = container_of(block_device, mmc_disk_t, block_device);
+	mmc_disk_t *disk      = block_device->private;
 	switch (req) {
 	case DEVICE_GET_INFO:
 		return safe_copy_auto_to(arg, &device->info);
@@ -103,15 +103,9 @@ static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
 	}
 }
 
-static void mmc_cleanup(block_device_t *block_device) {
-	mmc_disk_t *disk = container_of(block_device, mmc_disk_t, block_device);
-	kfree(disk);
-}
-
 static block_ops_t mmc_ops = {
 	.submit  = mmc_submit,
 	.ioctl   = mmc_ioctl,
-	.cleanup = mmc_cleanup,
 };
 
 static int mmc_check(devnode_t *devnode) {
@@ -121,6 +115,7 @@ static int mmc_check(devnode_t *devnode) {
 
 static int mmc_probe(devnode_t *devnode) {
 	scsi_device_t *device = container_of(devnode, scsi_device_t, devnode);
+	mmc_disk_t *disk = devnode->private;
 
 	// send READ TOC and see size of the cdrom
 	// TODO : support multi sessions disks
@@ -178,19 +173,19 @@ static int mmc_probe(devnode_t *devnode) {
 		sectors_count = scsi_data32_to_uint32(&read_capacity_data.max_lba);
 	}
 
-	mmc_disk_t *disk = kmalloc(sizeof(mmc_disk_t));
-	if (!disk) return -ENOMEM;
-	memset(disk, 0, sizeof(mmc_disk_t));
-	disk->block_device.ops = &mmc_ops;
-	disk->block_device.sector_size = sector_size;
-	disk->block_device.sectors_count = sectors_count;
-	disk->block_device.device.devnode = devnode;
+	disk->block_device = block_device_allocate();
+	if (!disk->block_device) return -ENOMEM;
+	disk->block_device.->ops = &mmc_ops;
+	disk->block_device->sector_size    = sector_size;
+	disk->block_device->sectors_count  = sectors_count;
+	disk->block_device->device.devnode = devnode;
+	disk->block_device->private        = disk;
 	disk->toc.first_track = read_toc_data.first_track;
 	disk->toc.last_track  = read_toc_data.last_track;
 	disk->tracks_count = tracks_count;
 	disk->tracks = kmalloc(sizeof(cdrom_toc_entry_t) * tracks_count);
 	if (!disk->tracks) {
-		kfree(disk);
+		block_device_release(disk->block_device);
 		return -ENOMEM;
 	}
 	memset(disk->tracks, 0, sizeof(cdrom_toc_entry_t) * tracks_count);
@@ -206,18 +201,20 @@ static int mmc_probe(devnode_t *devnode) {
 		disk->tracks[i].flags = flags;
 	}
 
-	block_device_register(&disk->block_device, NULL, 0);
+	block_device_register(disk->block_device, NULL, 0);
 	return 0;
 }
 
 static void mmc_detach(devnode_t *devnode) {
-	device_destroy(devnode->device);
+	mmc_disk_t *disk = devnode->private;
+	block_device_destroy(disk->block_device);
 }
 
 static driver_t mmc_driver = {
 	.name = "ATA disk",
 	.device_name = "cd",
 	.buses = BUSES("scsi_bus"),
+	.private_size = sizeof(mmc_disk_t),
 	.check  = mmc_check,
 	.probe  = mmc_probe,
 	.detach = mmc_detach,

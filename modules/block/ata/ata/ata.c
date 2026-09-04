@@ -11,8 +11,8 @@
 #define ATA_COMMAND_SETS_LBA48 (1U << 26)
 
 typedef struct ata_disk {
-	block_device_t block_device;
 	ata_common_ident_t common_ident; 
+	block_device_t *block_device;
 } ata_disk_t;
 
 static void ata_finish_callback(ioreq_t *ioreq, void *data) {
@@ -23,7 +23,7 @@ static void ata_finish_callback(ioreq_t *ioreq, void *data) {
 
 static int ata_submit(block_device_t *block_device, block_request_t *request) {
 	ata_device_t *device = container_of(block_device->device.devnode, ata_device_t, devnode);
-	ata_disk_t *disk     = container_of(block_device, ata_disk_t, block_device);
+	ata_disk_t *disk     = block_device->private;
 
 	if (request->type == BLOCK_REQUEST_FLUSH) {
 		ata_command_t *command = ata_create_command(device);
@@ -79,7 +79,7 @@ static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
 	if (block_device_is_unplugged(block_device)) {
 		return -ENXIO;
 	}
-	ata_disk_t *disk = container_of(block_device, ata_disk_t, block_device);
+	ata_disk_t *disk = block_device->private;
 	switch (req) {
 	case DEVICE_GET_INFO:;
 		device_info_t info = {0};
@@ -92,15 +92,9 @@ static int ata_ioctl(block_device_t *block_device, long req, void *arg) {
 	}
 }
 
-static void ata_cleanup(block_device_t *block_device) {
-	ata_disk_t *disk = container_of(block_device, ata_disk_t, block_device);
-	kfree(disk);
-}
-
 static block_ops_t ata_ops = {
 	.submit  = ata_submit,
 	.ioctl   = ata_ioctl,
-	.cleanup = ata_cleanup,
 };
 
 static int ata_check(devnode_t *devnode) {
@@ -110,9 +104,11 @@ static int ata_check(devnode_t *devnode) {
 
 static int ata_probe(devnode_t *devnode) {
 	ata_device_t *device = container_of(devnode, ata_device_t, devnode);
+	ata_disk_t *disk     = devnode->private;
 
 	ata_ident_t ident;
 	ata_command_t *identify = ata_create_command(device);
+	if (!identify) return -ENOMEM;
 	identify->regs.command = ATA_CMD_IDENTIFY;
 	identify->flags = ATA_CMD_READ_BUF;
 	iobuf_init_continuous(&identify->iobuf, &ident, sizeof(ident));
@@ -120,29 +116,30 @@ static int ata_probe(devnode_t *devnode) {
 	int ret = ioreq_submit_sync(&identify->ioreq);
 	if (ret < 0) return ret;
 
-	ata_disk_t *disk = kmalloc(sizeof(ata_disk_t));
-	if (!disk) return -ENOMEM;
-	memset(disk, 0, sizeof(ata_disk_t));
 	ata_parse_common_ident(&disk->common_ident, &ident);
-	disk->block_device.ops = &ata_ops;
-	disk->block_device.sector_size = 512;
-	disk->block_device.sectors_count = disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48 ? ident.sectors_lba48 : ident.sectors;
-	disk->block_device.device.devnode = devnode;
+	disk->block_device = block_device_allocate();
+	if (!disk->block_device) return -ENOMEM;
+	disk->block_device->ops = &ata_ops;
+	disk->block_device->sector_size = 512;
+	disk->block_device->sectors_count = disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48 ? ident.sectors_lba48 : ident.sectors;
+	disk->block_device->device.devnode = devnode;
 
 	kdebugf("model : %s command sets : %x support LBA48 : %s max LBA : %zu\n", disk->common_ident.model, disk->common_ident.command_sets, disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48 ? "true" : "false", disk->block_device.sectors_count);
 
-	block_device_register(&disk->block_device, NULL, 0);
+	block_device_register(disk->block_device, NULL, 0);
 	return 0;
 }
 
 static void ata_detach(devnode_t *devnode) {
-	device_destroy(devnode->device);
+	ata_disk_t *disk = devnode->private;
+	block_device_destroy(disk->block_device);
 }
 
 static driver_t ata_driver = {
 	.name = "ATA disk",
 	.device_name = "hd",
 	.buses = ATA_BUSES,
+	.private_size = sizeof(ata_disk_t),
 	.check  = ata_check,
 	.probe  = ata_probe,
 	.detach = ata_detach,

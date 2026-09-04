@@ -30,6 +30,7 @@ struct block_device {
 	block_partition_driver_t *part_driver; // protected by mutex
 	list_t partitions;       // protected by mutex
 	size_t partitions_count; // protected by mutex
+	void *private;
 	void *part_data;
 	size_t sector_size;
 	size_t sectors_count;
@@ -92,6 +93,11 @@ static inline void block_device_release(block_device_t *block_device) {
 	if (block_device) device_release(&block_device->device);
 }
 
+static inline void block_device_destroy(block_device_t *block_device) {
+	if (block_device) device_destroy(&block_device->device);
+}
+
+block_device_t *block_device_allocate(void);
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number);
 ssize_t block_device_read(block_device_t *block_device, void *buf, off_t offset, size_t count);
 ssize_t block_device_write(block_device_t *block_device, const void *buf, off_t offset, size_t count);

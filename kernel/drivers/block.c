@@ -9,6 +9,7 @@
 
 static slab_cache_t block_requests_slab;
 static slab_cache_t block_partitions_slab;
+static slab_cache_t block_devices_slab;
 static int part_major;
 static list_t partition_drivers;
 
@@ -17,6 +18,7 @@ static void block_device_free_partitions(block_device_t *block_device);
 void init_block(void) {
 	slab_init(&block_requests_slab, sizeof(block_request_t), "block-requests");
 	slab_init(&block_partitions_slab, sizeof(block_partition_t), "block-partitions");
+	slab_init(&block_devices_slab, sizeof(block_device_t), "block-devices");
 	part_major = device_allocate_major();
 }
 
@@ -303,7 +305,6 @@ static void block_destroy(device_t *device) {
 
 	block_device_free_partitions(block_device);
 	mutex_release(&block_device->mutex);
-	// TODO : cancel every requests
 }
 
 static void block_cleanup(device_t *device) {
@@ -312,6 +313,15 @@ static void block_cleanup(device_t *device) {
 		block_device->ops->cleanup(block_device);
 	}
 	free_cache(&block_device->cache);
+	slab_free(block_device);
+}
+
+block_device_t *block_device_allocate(void) {
+	block_device_t *block_device = slab_alloc(&block_devices_slab);
+	if (!block_device) return NULL;
+	memset(block_device, 0, sizeof(block_device_t));
+	init_cache(&block_device->cache);
+	return block_device;
 }
 
 int block_device_register(block_device_t *block_device, const char *fmt, dev_t number) {
@@ -319,7 +329,6 @@ int block_device_register(block_device_t *block_device, const char *fmt, dev_t n
 	block_device->device.ops     = &block_ops;
 	block_device->device.destroy = block_destroy;
 	block_device->device.cleanup = block_cleanup;
-	init_cache(&block_device->cache);
 	block_device->cache.ops      = &block_cache_ops;
 	block_device->cache.size     = block_device->sectors_count * block_device->sector_size;
 	return device_register(&block_device->device, fmt, number);
