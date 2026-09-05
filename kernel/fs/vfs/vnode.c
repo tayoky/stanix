@@ -493,6 +493,16 @@ static int vfs_can_delete(vfs_dentry_t *dentry) {
 	return 1;
 }
 
+static void vfs_node_acquire_both_write(vfs_node_t *node1, vfs_node_t *node2) {
+	if (node1 < node2) {
+		vfs_node_acquire_write(node1);
+		vfs_node_acquire_write(node2);
+	} else {
+		vfs_node_acquire_write(node2);
+		vfs_node_acquire_write(node1);
+	}
+}
+
 int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at, const char *new_path, unsigned int flags) {
 	char old_name[NAME_MAX];
 	vfs_dentry_t *old_parent = vfs_get_dentry_parent_at(old_at, old_path, old_name, 0);
@@ -521,14 +531,7 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 		goto error_no_lock;
 	}
 
-	// acquire both write lock
-	if (old_parent->inode < new_parent->inode) {
-		vfs_node_acquire_write(old_parent->inode);
-		vfs_node_acquire_write(new_parent->inode);
-	} else {
-		vfs_node_acquire_write(new_parent->inode);
-		vfs_node_acquire_write(old_parent->inode);
-	}
+	vfs_node_acquire_both_write(old_parent->inode < new_parent->inode);
 
 	old_dentry = vfs_lookup(old_parent, old_name);
 	if (IS_ERR(old_dentry)) {
@@ -653,14 +656,24 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 		return -EINVAL;
 	}
 
-	int ret = 0;
-	vfs_node_acquire_write(parent->inode);
-
 	vfs_dentry_t *dentry = vfs_lookup(parent, last);
 	if (IS_ERR(dentry)) {
-		ret = PTR2ERR(dentry);
+		vfs_dentry_release(parent);
+		return PTR2ERR(dentry);
+	}
+
+	int ret = 0;
+	vfs_node_acquire_both_write(parent->inode, dentry->inode);
+
+	// the dentry could have been unlinked in the meanwhile
+	// check if it's still here
+	vfs_dentry_t *check = vfs_lookup(parent, last);
+	if (IS_ERR(check)) {
+		ret = PTR2ERR(check);
 		goto error;
 	}
+	kassert(check == dentry);
+	vfs_dentry_release(check);
 
 	if (!S_ISDIR(dentry->inode->mode)) {
 		ret = -ENOTDIR;
@@ -691,6 +704,7 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 
 error:
 	vfs_node_release_write(parent->inode);
+	vfs_node_release_write(dentry->inode);
 	vfs_dentry_release(dentry);
 	vfs_dentry_release(parent);
 	return ret;
