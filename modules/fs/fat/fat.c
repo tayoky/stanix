@@ -331,7 +331,7 @@ static cache_ops_t fat_cache_ops = {
 	.write = fat_write_pages,
 };
 
-static vfs_node_t *fat_entry2node(off_t sfn_offset, off_t lfn_offset, fat_entry_t *entry, fat_superblock_t *fat_superblock) {
+static fat_inode_t *fat_entry2inode(off_t sfn_offset, off_t lfn_offset, fat_entry_t *entry, fat_superblock_t *fat_superblock) {
 	fat_inode_t *inode   = slab_alloc(&fat_inodes_slab);
 	inode->entry         = *entry;
 	inode->first_cluster = ((uint32_t)entry->cluster_higher << 16) | entry->cluster_lower;
@@ -356,7 +356,7 @@ static vfs_node_t *fat_entry2node(off_t sfn_offset, off_t lfn_offset, fat_entry_
 		inode->cache.ops  = &fat_cache_ops;
 		inode->cache.size = entry->file_size;
 	}
-	return &inode->vnode;
+	return inode;
 }
 
 static ssize_t fat_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) {
@@ -496,10 +496,10 @@ static int fat_allocate_entries(fat_superblock_t *fat_superblock, fat_inode_t *i
 		if (ret < 0) return ret;
 		prev_cluster = cluster;
 
-		if ((uint8_t)entry.name[0] == 0xe5 || everything_free) {
+		if (entry.base[0] == (char)0xe5 || everything_free) {
 			// it's free
 			free_count++;
-		} else if (entry.name[0] == 0x00) {
+		} else if (entry.base[0] == 0x00) {
 			// everything after is free
 			free_count++;
 			everything_free = 1;
@@ -542,7 +542,7 @@ static int fat_allocate_entries(fat_superblock_t *fat_superblock, fat_inode_t *i
 	if (everything_free) {
 		// we need to place another everything free entry
 		fat_entry_t free_entry = {
-			.name = {0x00},
+			.base = {0x00},
 		};
 		int ret = fat_write_next_entry(fat_superblock, inode, &cluster, &offset, &free_entry);
 		if (ret < 0 && ret != -ENOENT) return ret;
@@ -611,26 +611,26 @@ static int fat_parse_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *ino
  */
 static int fat_parse_sfn(fat_entry_t *entry, char name[512]) {
 	size_t j = 0;
-	for (int i = 0; i < 8; i++) {
-		if (entry->name[i] == ' ') break;
+	for (size_t i = 0; i < sizeof(entry->base); i++) {
+		if (entry->base[i] == ' ') break;
 		if (entry->nt_reserved & FAT_NT_CASE_LOWER_BASE) {
-			name[j++] = tolower(entry->name[i]);
+			name[j++] = tolower(entry->base[i]);
 		} else {
-			name[j++] = toupper(entry->name[i]);
+			name[j++] = toupper(entry->base[i]);
 		}
 	}
 
 	// don't add "." for directories/files without extension
-	if (entry->name[8] != ' ') {
+	if (entry->base[FAT_SFN_BASE_LENGTH] != ' ') {
 		name[j++] = '.';
 	}
 
-	for (int i = 8; i < 11; i++) {
-		if (entry->name[i] == ' ') break;
+	for (size_t i = 0; i < sizeof(entry->ext); i++) {
+		if (entry->ext[i] == ' ') break;
 		if (entry->nt_reserved & FAT_NT_CASE_LOWER_BASE) {
-			name[j++] = tolower(entry->name[i]);
+			name[j++] = tolower(entry->ext[i]);
 		} else {
-			name[j++] = toupper(entry->name[i]);
+			name[j++] = toupper(entry->ext[i]);
 		}
 	}
 	name[j] = '\0';
@@ -640,18 +640,18 @@ static int fat_parse_sfn(fat_entry_t *entry, char name[512]) {
 static int fat_sfn_match(fat_entry_t *entry, const char *name) {
 	// note that this matching function is case non sensitive
 	size_t j = 0;
-	for (int i = 0; i < 8; i++) {
-		if (entry->name[i] == ' ') break;
+	for (size_t i = 0; i < sizeof(entry->base); i++) {
+		if (entry->base[i] == ' ') break;
 		// broken entry check
-		if (entry->name[i] < 0x20) return 0;
-		if (toupper(name[j++]) != entry->name[i]) return 0;
+		if (entry->base[i] < 0x20) return 0;
+		if (toupper(name[j++]) != entry->base[i]) return 0;
 	}
 	if (name[j] == '.') j++;
-	for (int i = 8; i < 11; i++) {
-		if (entry->name[i] == ' ') break;
+	for (size_t i = 0; i < sizeof(entry->ext); i++) {
+		if (entry->ext[i] == ' ') break;
 		// broken entry check
-		if (entry->name[i] < 0x20) return 0;
-		if (toupper(name[j++]) != entry->name[i]) return 0;
+		if (entry->ext[i] < 0x20) return 0;
+		if (toupper(name[j++]) != entry->ext[i]) return 0;
 	}
 	if (name[j]) return 0;
 	return 1;
@@ -713,7 +713,7 @@ static int fat_is_long_name(const char *name) {
 	}
 
 	// check if the name fit the 8.3 format
-	if (chars_in_name > 8 || chars_in_extention > 3) {
+	if (chars_in_name > FAT_SFN_BASE_LENGTH || chars_in_extention > FAT_SFN_EXT_LENGTH) {
 		return 1;
 	}
 	return 0;
@@ -721,7 +721,8 @@ static int fat_is_long_name(const char *name) {
 
 static void fat_sfn_generate(fat_superblock_t *fat_superblock, fat_entry_t *entry, const char *name, uint8_t attributes) {
 	memset(entry, 0, sizeof(fat_entry_t));
-	memset(entry->name, ' ', sizeof(entry->name));
+	memset(entry->base, ' ', sizeof(entry->base));
+	memset(entry->ext,  ' ', sizeof(entry->ext));
 	
 	uint32_t cluster = fat_eof(fat_superblock);
 	entry->cluster_higher = cluster >> 16;
@@ -734,29 +735,29 @@ static void fat_sfn_generate(fat_superblock_t *fat_superblock, fat_entry_t *entr
 	if (extention) extention++;
 	if (is_long) {
 		size_t i = 0;
-		for (; i < 6 && *name && *name != '.'; i++) {
-			entry->name[i] = toupper(*name);
+		for (; i < sizeof(entry->base) - 2 && *name && *name != '.'; i++) {
+			entry->base[i] = fat_char_to_sfn_compatible(*name);
 			name++;
 		}
-		entry->name[i++] = '~';
-		entry->name[i++] = '1'; // TODO : auto increment this
+		entry->base[i++] = '~';
+		entry->base[i++] = '1'; // TODO : auto increment this
 	} else {
 		// we have a classic short name
-		kassert(strlen(name) <= 12);
+		kassert(strlen(name) <= sizeof(entry->base) + 1 + sizeof(entry->ext));
 
-		for (size_t i = 0; i < 8 && *name && *name != '.'; i++) {
-			if (islower(*name)) {
+		for (size_t i = 0; i < sizeof(entry->base) && *name && *name != '.'; i++) {
+			if (islower(*base)) {
 				entry->nt_reserved |= FAT_NT_CASE_LOWER_BASE;
 			}
-			entry->name[i] = fat_char_to_sfn_compatible(*name);
+			entry->base[i] = toupper(*name);
 			name++;
 		}
 	}
-	for (size_t i = 8; i < sizeof(entry->name) && extention && *extention; i++) {
+	for (size_t i = 0; i < sizeof(entry->ext) && extention && *extention; i++) {
 		if (islower(*extention)) {
 			entry->nt_reserved |= FAT_NT_CASE_LOWER_EXT;
 		}
-		entry->name[i] = fat_char_to_sfn_compatible(*extention);
+		entry->ext[i] = fat_char_to_sfn_compatible(*extention);
 		extention++;
 	}
 }
@@ -765,7 +766,7 @@ static void fat_sfn_generate(fat_superblock_t *fat_superblock, fat_entry_t *entr
  * @brief parse fat entries and make a directory entry from it
  */
 static int fat2dirent(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t cluster, off_t offset, fat_entry_t *entry, struct dirent *dirent) {
-	if (entry->name[0] == 0x00) {
+	if (entry->base[0] == 0x00) {
 		// everything is free after that
 		// we hit last
 		return -ENOENT;
@@ -805,12 +806,12 @@ static int fat_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *di
 		if (ret < 0) return ret;
 
 		// skip everything with VOLUME_ID attr or free
-		if (entry.name[0] == 0x00) {
+		if (entry.base[0] == 0x00) {
 			// everything is free after that
 			// we hit last
 			break;
 		}
-		if (entry.name[0] == (char)0xe5) {
+		if (entry.base[0] == (char)0xe5) {
 			// free entry
 			continue;
 		}
@@ -846,13 +847,13 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		int ret = fat_read_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
 		if (ret < 0) return ret;
 
-		if (entry.name[0] == 0x00) {
+		if (entry.base[0] == 0x00) {
 			// everything is free after that
 			// we hit last
 			break;
 		}
 
-		if (entry.name[0] == (char)0xe5) {
+		if (entry.base[0] == (char)0xe5) {
 			// free entry
 			continue;
 		}
@@ -864,7 +865,9 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 			if (ret < 0) return ret;
 			if (!strcmp(dentry->name, name)) {
 				// we found it
-				dentry->inode = fat_entry2node(sfn_offset, lfn_offset, &entry, fat_superblock);
+				fat_inode_t *child_inode = fat_entry2inode(sfn_offset, lfn_offset, &entry, fat_superblock);
+				if (!child_inode) return -ENOMEM;
+				dentry->inode = &child_inode->vnode;
 				// TODO : inode number
 				return 0;
 			}
@@ -875,7 +878,9 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 		if (fat_sfn_match(&entry, dentry->name)) {
 			// we found it
-			dentry->inode = fat_entry2node(sfn_offset, lfn_offset, &entry, fat_superblock);
+			fat_inode_t *child_inode = fat_entry2inode(sfn_offset, lfn_offset, &entry, fat_superblock);
+			if (!child_inode) return -ENOMEM;
+			dentry->inode = &child_inode->vnode;
 			// TODO : inode number
 			return 0;
 		}
@@ -892,19 +897,20 @@ static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
 
 	// TODO : lfn support
 	uint16_t utf16_name[512];
-	ssize_t ret = utf8_to_utf16((const uint8_t *)dentry->name, sizeof(dentry->name), utf16_name);
-	if (ret < 0) return ret;
+	ssize_t len = utf8_to_utf16((const uint8_t *)dentry->name, sizeof(dentry->name), utf16_name);
+	if (len < 0) return len;
+
+	size_t lfn_entries_count = (len + FAT_LFN_NAME_LENGTH - 1) / FAT_LFN_NAME_LENGTH;
 
 	uint32_t cluster;
 	off_t offset;
-	ret = fat_allocate_entries(fat_superblock, inode, 1, &cluster, &offset);
+	int ret = fat_allocate_entries(fat_superblock, inode, 1, &cluster, &offset);
 	if (ret < 0) return ret;
 
 	fat_entry_t sfn_entry;
 	fat_sfn_generate(fat_superblock, &sfn_entry, dentry->name, 0);
 
-	vfs_node_t *child_vnode = fat_entry2node(offset, offset, &sfn_entry, fat_superblock);
-	fat_inode_t *child_inode = container_of(child_vnode, fat_inode_t, vnode);
+	fat_inode_t *child_inode = fat_entry2inode(offset, offset, &sfn_entry, fat_superblock);
 	vfs_init_created_node(&child_inode->vnode);
 	child_inode->entry.creation_date = fat_time2date(child_inode->vnode.ctime);
 	dentry->inode = &child_inode->vnode;
@@ -929,7 +935,7 @@ static int fat_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 		while (offset <= child_inode->sfn_offset) { 
 			fat_entry_t empty = {
-				.name = {0xe5},
+				.base = {0xe5},
 			};
 			int ret = fat_write_next_entry(fat_superblock, inode, &cluster, &offset, &empty);
 			if (ret < 0) {
@@ -1118,7 +1124,7 @@ static int fat_mount(vfs_fd_t *source, const char *target, unsigned long flags, 
 	fat_superblock->fat_count         = bpb.fat_count;
 	mutex_init(&fat_superblock->write_lock);
 
-	vfs_node_t *local_root;
+	fat_inode_t *local_root;
 	if (fat_type == FAT32) {
 		// build a fake entry for root
 		fat_entry_t root_entry;
@@ -1127,22 +1133,21 @@ static int fat_mount(vfs_fd_t *source, const char *target, unsigned long flags, 
 		root_entry.cluster_lower  = bpb.extended.fat32.root_cluster & 0xffff;
 		root_entry.cluster_higher = (bpb.extended.fat32.root_cluster >> 16) & 0xffff;
 		// how do we get size ?
-		local_root = fat_entry2node(0, 0, &root_entry, fat_superblock);
+		local_root = fat_entry2inode(0, 0, &root_entry, fat_superblock);
 	} else {
 		// root of fat12/16 is really stupid
-		fat_inode_t *root   = slab_alloc(&fat_inodes_slab);
-		root->entries_count = bpb.root_entires_count;
-		root->start         = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector;
-		root->is_fat16_root = 1;
-		root->sfn_offset = 0;
+		local_root   = slab_alloc(&fat_inodes_slab);
+		local_root->entries_count = bpb.root_entires_count;
+		local_root->start         = (bpb.reserved_sectors + bpb.fat_count * sectors_per_fat) * bpb.byte_per_sector;
+		local_root->is_fat16_root = 1;
+		local_root->sfn_offset = 0;
 
-		local_root             = &root->vnode;
-		local_root->mode       = S_IFDIR | 0777;
-		local_root->ops        = &fat_inode_ops;
-		local_root->superblock = &fat_superblock->superblock;
+		local_root->vnode.mode       = S_IFDIR | 0777;
+		local_root->vnode.ops        = &fat_inode_ops;
+		local_root->vnode.superblock = &fat_superblock->superblock;
 	}
 	local_root->ref_count             = 1;
-	fat_superblock->superblock.root   = local_root;
+	fat_superblock->superblock.root   = &local_root->vnode;
 	fat_superblock->superblock.device = vfs_dup(source);
 	fat_superblock->superblock.ref_count = 1;
 	*superblock_out                   = &fat_superblock->superblock;

@@ -76,8 +76,11 @@ typedef struct fat_bpb {
 	} extended;
 } __attribute__((packed)) fat_bpb_t;
 
+#define FAT_SFN_BASE_LENGTH 8
+#define FAT_SFN_EXT_LENGTH  3
 typedef struct fat_entry {
-	char name[11];
+	char base[FAT_SFN_BASE_LENGTH];
+	char ext[FAT_SFN_EXT_LENGTH];
 	uint8_t attribute;
 	uint8_t nt_reserved;
 	uint8_t creation_time_tenth;
@@ -91,7 +94,6 @@ typedef struct fat_entry {
 	uint32_t file_size;
 } __attribute__((packed)) fat_entry_t;
 
-
 typedef struct fat_long_entry {
 	uint8_t ord;
 	uint16_t name1[5];
@@ -102,6 +104,7 @@ typedef struct fat_long_entry {
 	uint16_t first_cluster;
 	uint16_t name3[2];
 } __attribute__((packed)) fat_long_entry_t;
+#define FAT_LFN_NAME_LENGTH 13
 
 typedef struct fat_superblock {
 	vfs_superblock_t superblock;
