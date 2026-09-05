@@ -20,6 +20,22 @@ static vfs_inode_ops_t fat_inode_ops;
 static vfs_fd_ops_t fat_fd_ops;
 static slab_cache_t fat_inodes_slab;
 
+static time_t fat_date2time(uint16_t date, uint16_t time) {
+	int year  = ((date >> 9) & 0x7f) + 1980;
+	int month = (date >> 5) & 0xf;
+	int day   = date & 0x1f;
+	int hour    = (time >> 11) & 0x1f;
+	int minute  = (time >> 5) & 0x3f;
+	int second  = (time & 0x1f) * 2;
+	return date2time(year, month, day, hour, minute, second);
+}
+
+static uint16_t fat_time2date(time_t time) {
+	long year, month, day;
+	time2date(time, &year, &month, &day, NULL, NULL, NULL);
+	return (day & 0x1f) | ((month & 0xf) << 5) | (((year - 1980) & 0x7f) << 9);
+}
+
 static off_t fat_cluster2offset(fat_superblock_t *fat_superblock, uint32_t cluster) {
 	kassert(cluster >= 2);
 	return (cluster - 2) * fat_superblock->cluster_size + fat_superblock->data_start;
@@ -327,6 +343,11 @@ static vfs_node_t *fat_entry2node(off_t sfn_offset, off_t lfn_offset, fat_entry_
 	inode->vnode.ref_count  = 1;
 	inode->vnode.nlink      = 1;
 	inode->vnode.number     = inode->first_cluster;
+	inode->vnode.atime = fat_date2time(inode->entry.access_date, 0);
+	inode->vnode.mtime = fat_date2time(inode->entry.write_date, inode->entry.write_time);
+	// technically the ctime is not creation but change, but fat does not have ctime
+	inode->vnode.ctime = fat_date2time(inode->entry.creation_date, inode->entry.creation_time);
+
 	if (entry->attribute & ATTR_DIRECTORY) {
 		inode->vnode.mode = S_IFDIR | 0777;
 	} else {
@@ -383,23 +404,12 @@ static int fat_open(vfs_fd_t *fd) {
 	return 0;
 }
 
-static time_t fat_date2time(uint16_t data) {
-	int day   = data & 0x1f;
-	int month = (data >> 5) & 0xf;
-	int year  = ((data >> 9) & 0x7f) + 1980;
-	return date2time(year, month, day, 0, 0, 0);
-}
-
 static int fat_getattr(vfs_node_t *vnode, struct stat *st) {
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	// no meta data on root (emulated on fat 32 root)
 	if (inode->is_fat16_root) return 0;
 
 	st->st_size  = inode->entry.file_size;
-	st->st_atime = fat_date2time(inode->entry.access_date);
-	st->st_mtime = fat_date2time(inode->entry.write_date);
-	// technically the ctime is not creation but change, but fat does not have ctime
-	st->st_ctime = fat_date2time(inode->entry.creation_date);
 	return 0;
 }
 
@@ -892,7 +902,18 @@ static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
 
 	fat_entry_t sfn_entry;
 	fat_sfn_generate(fat_superblock, &sfn_entry, dentry->name, 0);
-	return fat_write_next_entry(fat_superblock, inode, &cluster, &offset, &sfn_entry);
+
+	vfs_node_t *child_vnode = fat_entry2node(offset, offset, &sfn_entry, fat_superblock);
+	fat_inode_t *child_inode = container_of(child_vnode, fat_inode_t, vnode);
+	vfs_init_created_node(&child_inode->vnode);
+	child_inode->entry.creation_date = fat_time2date(child_inode->vnode.ctime);
+	dentry->inode = &child_inode->vnode;
+
+	ret = fat_write_next_entry(fat_superblock, inode, &cluster, &offset, &child_inode->entry);
+	if (ret < 0) {
+		vfs_node_release(dentry->inode);
+	}
+	return ret;
 }
 
 static int fat_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
@@ -999,8 +1020,13 @@ static int fat_flush_inode(vfs_superblock_t *superblock, vfs_node_t *vnode) {
 	fat_superblock_t *fat_superblock = container_of(superblock, fat_superblock_t, superblock);
 	if (!inode->sfn_offset) return 0;
 	kdebugf("writing inode\n");
+
+	// update the entry with new metadata
 	inode->entry.cluster_lower = inode->first_cluster;
 	inode->entry.cluster_higher = inode->first_cluster >> 16;
+	inode->entry.access_date    = fat_time2date(inode->vnode.atime);
+	inode->entry.write_date     = fat_time2date(inode->vnode.mtime);
+
 	ssize_t ret = vfs_write(fat_superblock->superblock.device, &inode->entry, inode->sfn_offset, sizeof(fat_entry_t));
 	if (ret < 0) return ret;
 	if (ret < (ssize_t)sizeof(fat_entry_t)) return -EIO;

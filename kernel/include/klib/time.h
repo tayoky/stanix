@@ -8,6 +8,8 @@
  */
 time_t date2time(long year, long month, long day, long hour, long minute, long second);
 
+void time2date(time_t time, long *year, long *month, long *day, long *hour, long *minute, long *second);
+
 /**
  * @brief comapre two timespec
  */
