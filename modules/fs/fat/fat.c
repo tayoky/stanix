@@ -644,6 +644,21 @@ static int fat_sfn_match(fat_entry_t *entry, const char *name) {
 	return 1;
 }
 
+static int fat_is_char_sfn_compatible(char c) {
+	if (c == ' ' || c == '+' || c == ',' || c == ';' || c == '=' || c == '[' || c == ']' || c >= 0x80) {
+		return 0;
+	}
+	return 1;
+}
+
+static char fat_char_to_sfn_compatible(char c) {
+	if (fat_is_char_sfn_compatible(c)) {
+		return toupper(c);
+	} else {
+		return "_";
+	}
+}
+
 static int fat_is_long_name(const char *name) {
 	size_t chars_in_name = 0;
 	size_t chars_in_extention = 0;
@@ -664,7 +679,7 @@ static int fat_is_long_name(const char *name) {
 		chars_before_extention++;
 
 		// a few characters are long name only
-		if (*ptr == ' ' || *ptr == '+' || *ptr == ',' || *ptr == ';' || *ptr == '=' || *ptr == '[' || *ptr == ']' || *ptr >= 0x80) {
+		if (!fat_is_char_sfn_compatible(*ptr)) {
 			return 1;
 		}
 
@@ -716,7 +731,7 @@ static void fat_sfn_generate(fat_superblock_t *fat_superblock, fat_entry_t *entr
 			if (islower(*name)) {
 				entry->nt_reserved |= FAT_NT_CASE_LOWER_BASE;
 			}
-			entry->name[i] = toupper(*name);
+			entry->name[i] = fat_char_to_sfn_compatible(*name);
 			name++;
 		}
 	}
@@ -724,7 +739,7 @@ static void fat_sfn_generate(fat_superblock_t *fat_superblock, fat_entry_t *entr
 		if (islower(*extention)) {
 			entry->nt_reserved |= FAT_NT_CASE_LOWER_EXT;
 		}
-		entry->name[i] = toupper(*extention);
+		entry->name[i] = fat_char_to_sfn_compatible(*extention);
 		extention++;
 	}
 }
@@ -859,6 +874,9 @@ static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
 	kassert(S_ISDIR(inode->vnode.mode));
 
 	// TODO : lfn support
+	uint16_t utf16_name[512];
+	ssize_t ret = utf8_to_utf16(dentry->name, sizeof(dentry->name), utf16_name);
+	if (ret < 0) return ret;
 
 	uint32_t cluster;
 	off_t offset;

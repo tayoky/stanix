@@ -204,3 +204,21 @@ ssize_t utf16_to_utf8(const uint16_t *utf16, size_t count, uint8_t *utf8) {
 	}
 	return total;
 }
+
+ssize_t utf8_to_utf16(const uint8_t *utf8, size_t count, uint16_t *utf16) {
+	ssize_t total = 0;
+	while (count > 0) {
+		int codepoint;
+		int ret = utf8_decode_char(utf8, count, &codepoint);
+		if (ret < 0) return ret;
+		utf8 += ret;
+		count -= ret;
+
+		ret = utf16_encode_char(codepoint, utf16);
+		if (ret < 0) return ret;
+		utf16 += ret;
+		total += ret;
+		if (codepoint == 0) break;
+	}
+	return total;
+}
