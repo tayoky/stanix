@@ -77,7 +77,7 @@ static tmpfs_dirent_t *tmpfs_get_entry(tmpfs_inode_t *dir, vfs_dentry_t *dentry)
 
 static void tmpfs_remove_entry(tmpfs_inode_t *dir, tmpfs_dirent_t *entry) {
 	list_remove(&dir->directory.entries, &entry->node);
-	vfs_node_sub_nlink(&child->vnode);
+	vfs_node_dec_nlink(&entry->inode->vnode);
 	vfs_node_release(&entry->inode->vnode);
 	slab_free(entry);
 }
@@ -110,7 +110,6 @@ vfs_superblock_t *new_tmpfs(void) {
 	memset(superblock, 0, sizeof(vfs_superblock_t));
 
 	tmpfs_inode_t *root_inode   = new_inode(superblock, S_IFDIR | 0555);
-	root_inode->link_count      = 0; // so it get freed when the tmpfs is unmounted
 	superblock->root            = &root_inode->vnode;
 	superblock->root->ref_count = 1;
 	superblock->ref_count = 1;

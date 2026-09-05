@@ -531,7 +531,7 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 		goto error_no_lock;
 	}
 
-	vfs_node_acquire_both_write(old_parent->inode < new_parent->inode);
+	vfs_node_acquire_both_write(old_parent->inode, new_parent->inode);
 
 	old_dentry = vfs_lookup(old_parent, old_name);
 	if (IS_ERR(old_dentry)) {

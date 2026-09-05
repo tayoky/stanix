@@ -11,6 +11,7 @@ void *memset(void *pointer,int value,uint64_t count);
 
 int strcmp(const char *s1, const char *s2);
 char *strchr(const char *str, int c);
+char *strrchr(const char *str, int c);
 char *strstr(const char *s1, const char *s2);
 
 char *strdup(const char *str);
