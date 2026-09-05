@@ -551,6 +551,21 @@ static int fat_allocate_entries(fat_superblock_t *fat_superblock, fat_inode_t *i
 	return 0;
 }
 
+static uint8_t fat_right_rotation(uint8_t data) {
+	return (data & 0x01 ? 0x80 : 0x00) | (data >> 1);
+}
+
+static uint8_t fat_sfn_checksum(fat_entry_t *entry) {
+	uint8_t name[sizeof(entry->base) + sizeof(entry->ext)];
+	memcpy(name, entry->base, sizeof(entry->base));
+	memcpy(&name[sizeof(entry->base)], entry->ext, sizeof(entry->ext));
+	uint8_t checksum = 0;
+	for (size_t i = 0; i < sizeof(name); i++) {
+		checksum = fat_right_rotation(checksum) + name[i];
+	}
+	return checksum;
+}
+
 /**
  * @brief parse next lfn sequence
  */
@@ -581,11 +596,11 @@ static int fat_parse_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *ino
 		}
 
 		// append name
-		size_t i = (ord - 1) * 13;
+		size_t i = (ord - 1) * FAT_LFN_NAME_LENGTH;
 		memcpy(&utf16_name[i], long_entry.name1, sizeof(long_entry.name1));
 		memcpy(&utf16_name[i + 5], long_entry.name2, sizeof(long_entry.name2));
 		memcpy(&utf16_name[i + 11], long_entry.name3, sizeof(long_entry.name3));
-		name_len += 13;
+		name_len += FAT_LFN_NAME_LENGTH;
 
 		if (sfn_offset) *sfn_offset = *offset;
 		int ret = fat_read_next_entry(fat_superblock, inode, cluster, offset, (fat_entry_t *)&long_entry);
@@ -602,6 +617,46 @@ static int fat_parse_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *ino
 	if ((entry->attribute & ATTR_LONG_NAME) == ATTR_LONG_NAME) {
 		// the last is not sfn
 		return -EIO;
+	}
+	return 0;
+}
+
+static void fat_copy_lfn_chunck(uint16_t *dest, size_t size, const uint16_t *src, size_t len, size_t *index) {
+	for (size_t i = 0; i < size; i++, (*index)++) {
+		if (*index < len) {
+			dest[i] = src[*index];
+		} else if (*index == len) {
+			dest[i] = 0x0000;
+		} else {
+			dest[i] = 0xffff;
+		}
+	}
+}
+
+static int fat_write_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t *cluster, off_t *offset, fat_entry_t *sfn_entry, uint16_t *utf16_name, size_t utf16_len) {
+	uint8_t checksum = fat_sfn_checksum(sfn_entry);
+	size_t entries_count = (utf16_len + FAT_LFN_NAME_LENGTH - 1) / FAT_LFN_NAME_LENGTH;
+	
+	for (size_t ord = entries_count; ord > 0; ord--) {
+		fat_long_entry_t entry = {
+			.ord = ord,
+			.attribute = ATTR_LONG_NAME,
+			.checksum  = checksum,
+		};
+		if (ord == entries_count) {
+			// this is the last entry so it need a special flag
+			// note that since entries are reversed this is the first stored entry
+			entry.ord |= LAST_LONG_ENTRY;
+		}
+
+		// actually store the name
+		size_t i = (ord - 1) * FAT_LFN_NAME_LENGTH;
+		fat_copy_lfn_chunck(entry.name1, arraylen(entry.name1), utf16_name, utf16_len, &i);
+		fat_copy_lfn_chunck(entry.name2, arraylen(entry.name2), utf16_name, utf16_len, &i);
+		fat_copy_lfn_chunck(entry.name3, arraylen(entry.name3), utf16_name, utf16_len, &i);
+		
+		int ret = fat_write_next_entry(fat_superblock, inode, cluster, offset, &entry);
+		if (ret < 0) return ret;
 	}
 	return 0;
 }
@@ -728,7 +783,6 @@ static void fat_sfn_generate(fat_superblock_t *fat_superblock, fat_entry_t *entr
 	entry->cluster_higher = cluster >> 16;
 	entry->cluster_lower  = cluster;
 	entry->attribute = attributes;
-	// TODO : fill in time
 
 	int is_long = fat_is_long_name(name);
 	char *extention = strrchr(name, '.');
@@ -895,22 +949,30 @@ static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
 	kassert(S_ISDIR(inode->vnode.mode));
 
-	// TODO : lfn support
+	int is_long_name = fat_is_long_name(dentry->name):
 	uint16_t utf16_name[512];
-	ssize_t len = utf8_to_utf16((const uint8_t *)dentry->name, sizeof(dentry->name), utf16_name);
-	if (len < 0) return len;
-
-	size_t lfn_entries_count = (len + FAT_LFN_NAME_LENGTH - 1) / FAT_LFN_NAME_LENGTH;
+	ssize_t utf16_len = 0;
+	size_t lfn_entries_count = 0;
+	if (long_name) {
+		utf8_to_utf16((const uint8_t *)dentry->name, sizeof(dentry->name), utf16_name);
+		if (utf16_len < 0) return utf16_len;
+		lfn_entries_count = (len + FAT_LFN_NAME_LENGTH - 1) / FAT_LFN_NAME_LENGTH;
+	}
 
 	uint32_t cluster;
 	off_t offset;
-	int ret = fat_allocate_entries(fat_superblock, inode, 1, &cluster, &offset);
+	int ret = fat_allocate_entries(fat_superblock, inode, 1 + lfn_entries_count, &cluster, &offset);
 	if (ret < 0) return ret;
 
 	fat_entry_t sfn_entry;
 	fat_sfn_generate(fat_superblock, &sfn_entry, dentry->name, 0);
+	if (is_long_name) {
+		ret = fat_write_next_lfn(fat_superblock, inode, &cluster, &offset, &sfn_entry, utf16_name, utf16_len);
+		if (ret < 0) return ret;
+	}
 
 	fat_inode_t *child_inode = fat_entry2inode(offset, offset, &sfn_entry, fat_superblock);
+	if (!child_inode) return -ENOMEM;
 	vfs_init_created_node(&child_inode->vnode);
 	child_inode->entry.creation_date = fat_time2date(child_inode->vnode.ctime);
 	dentry->inode = &child_inode->vnode;
