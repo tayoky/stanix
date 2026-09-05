@@ -900,12 +900,11 @@ static int fat_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	fat_inode_t *child_inode = container_of(dentry->inode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
 	kassert(S_ISDIR(inode->vnode.mode));
-	kassert(S_ISREG(child_inode->vnode.mode));
 
 	// mark directory entries as free
 	if (child_inode->sfn_offset) {
 		off_t offset = child_inode->lfn_offset;
-		uint32_t cluster = fat_offset2cluster(fat_superblock, offset);
+		uint32_t cluster = inode->is_fat16_root ? 1 : fat_offset2cluster(fat_superblock, offset);
 
 		while (offset <= child_inode->sfn_offset) { 
 			fat_entry_t empty = {
@@ -1000,6 +999,8 @@ static int fat_flush_inode(vfs_superblock_t *superblock, vfs_node_t *vnode) {
 	fat_superblock_t *fat_superblock = container_of(superblock, fat_superblock_t, superblock);
 	if (!inode->sfn_offset) return 0;
 	kdebugf("writing inode\n");
+	inode->entry.cluster_lower = inode->first_cluster;
+	inode->entry.cluster_higher = inode->first_cluster >> 16;
 	ssize_t ret = vfs_write(fat_superblock->superblock.device, &inode->entry, inode->sfn_offset, sizeof(fat_entry_t));
 	if (ret < 0) return ret;
 	if (ret < (ssize_t)sizeof(fat_entry_t)) return -EIO;
