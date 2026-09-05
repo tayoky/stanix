@@ -719,6 +719,19 @@ static int fat_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	return 0;
 }
 
+static int fat_rmdir(vfs_node_t *vnode, vfs_dentry_t *dentry) {
+	kassert(S_ISREG(vnode->mode));
+	kassert(S_ISREG(dentry->inode.vnode));
+	
+	// just check if the directory is empty and unlink
+	struct dirent dirent;
+	int ret = vfs_readdir(dentry->inode, 2, &dirent);
+	if (ret < 0 && ret != -ENOENT) return ret;
+	if (ret >= 0) return -ENOTEMPTY;
+
+	return fat_unlink(vnode, dentry);
+}
+
 static int fat_truncate(vfs_node_t *vnode, size_t size) {
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
@@ -755,6 +768,7 @@ static vfs_inode_ops_t fat_inode_ops = {
 	.lookup   = fat_lookup,
 	.getattr  = fat_getattr,
 	.unlink   = fat_unlink,
+	.rmdir    = fat_rmdir,
 	.truncate = fat_truncate,
 	.cleanup  = fat_cleanup,
 	.open     = fat_open,
