@@ -64,6 +64,7 @@ static sysfs_inode_t *sysfs_new_inode(int type, void *ptr, mode_t mode) {
 	if (!inode) return NULL;
 	memset(inode, 0, sizeof(sysfs_inode_t));
 	inode->vnode.ref_count = 1;
+	inode->vnode.nlink     = 1;
 	inode->vnode.ops       = &sysfs_inode_ops;
 	inode->vnode.mode      = mode;
 	inode->type            = type;

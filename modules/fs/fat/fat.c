@@ -316,6 +316,7 @@ static vfs_node_t *fat_entry2node(off_t sfn_offset, off_t lfn_offset, fat_entry_
 	inode->vnode.ops        = &fat_inode_ops;
 	inode->vnode.superblock = &fat_superblock->superblock;
 	inode->vnode.ref_count  = 1;
+	inode->vnode.nlink      = 1;
 	inode->vnode.number     = inode->first_cluster;
 	if (entry->attribute & ATTR_DIRECTORY) {
 		inode->vnode.mode = S_IFDIR | 0777;
@@ -385,7 +386,6 @@ static int fat_getattr(vfs_node_t *vnode, struct stat *st) {
 	// no meta data on root (emulated on fat 32 root)
 	if (inode->is_fat16_root) return 0;
 
-	// TODO : parse times
 	st->st_size  = inode->entry.file_size;
 	st->st_atime = fat_date2time(inode->entry.access_date);
 	st->st_mtime = fat_date2time(inode->entry.write_date);
@@ -715,8 +715,7 @@ static int fat_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 		// TODO : group free entries at the end and shrink thr directory if possible
 	}
 
-	// TODO : delay until file is closed
-	fat_free_clusters(fat_superblock, child_inode);
+	vfs_node_dec_nlink(&child_inode->vnode);
 	return 0;
 }
 
@@ -741,6 +740,11 @@ static void fat_cleanup(vfs_node_t *vnode) {
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	if (S_ISREG(inode->vnode.mode)) {
 		free_cache(&inode->cache);
+	}
+
+	if (inode->vnode.nlink == 0) {
+		// the inode is unlinked we need to free clusters
+		fat_free_clusters(fat_superblock, inode);
 	}
 
 	slab_free(inode);

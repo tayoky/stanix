@@ -343,7 +343,6 @@ static ssize_t iso9660_readlink(vfs_node_t *vnode, char *buf, size_t bufsize) {
 
 static int iso9660_getattr(vfs_node_t *vnode, struct stat *buf) {
 	iso9660_inode_t *inode = container_of(vnode, iso9660_inode_t, vnode);
-	buf->st_nlink = inode->nlink;
 	buf->st_size  = inode->size;
 	return 0;
 }
@@ -401,9 +400,9 @@ static iso9660_inode_t *iso9660_entry2inode(iso9660_superblock_t *iso9660_superb
 	inode->vnode.mtime = time;
 	inode->vnode.ctime = time;
 	inode->vnode.mode  = 0777;
+	inode->vnode.nlink = 1;
 	inode->lba         = le_uint32_to_uint32(&dentry->lba.le);
 	inode->size        = le_uint32_to_uint32(&dentry->data_length.le);
-	inode->nlink       = 1;
 
 	iso9660_px_entry_t *px = iso9660_get_susp_entry(dentry, ISO9660_PX_ENTRY);
 	if (px && px->susp_entry.length < ISO9660_PX_ENTRY_MIN_LENGTH) px = NULL;
@@ -415,14 +414,14 @@ static iso9660_inode_t *iso9660_entry2inode(iso9660_superblock_t *iso9660_superb
 
 	if (px) {
 		// TODO : use inode cache maybee
-		inode->vnode.mode   = le_uint32_to_uint32(&px->mode.le);
-		inode->vnode.uid    = le_uint32_to_uint32(&px->uid.le);
-		inode->vnode.gid    = le_uint32_to_uint32(&px->gid.le);
+		inode->vnode.mode  = le_uint32_to_uint32(&px->mode.le);
+		inode->vnode.uid   = le_uint32_to_uint32(&px->uid.le);
+		inode->vnode.gid   = le_uint32_to_uint32(&px->gid.le);
 		if (px->susp_entry.length >= sizeof(iso9660_px_entry_t)) {
 			// the serial number is not always present
 			inode->vnode.number = le_uint32_to_uint32(&px->inode.le);
 		}
-		inode->nlink  = le_uint32_to_uint32(&px->nlink.le);
+		inode->vnode.nlink = le_uint32_to_uint32(&px->nlink.le);
 		if (pn) {
 			inode->dev = ((uint64_t)le_uint32_to_uint32(&pn->dev_high.le) << 32) | le_uint32_to_uint32(&pn->dev_low.le);
 		}

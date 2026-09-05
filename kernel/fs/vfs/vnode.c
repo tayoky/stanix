@@ -69,6 +69,7 @@ void vfs_init_created_node(vfs_node_t *node) {
 	node->uid   = get_current_euid();
 	node->gid   = get_current_egid();
 	node->atime = node->mtime = node->ctime = gettime_sec(CLOCK_REALTIME);
+	node->nlink = 1;
 }
 
 vfs_node_t *vfs_node_allocate(vfs_superblock_t *superblock) {
@@ -713,7 +714,6 @@ int vfs_readdir(vfs_node_t *node, unsigned long index, struct dirent *dirent) {
 int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	if (!node) return -EINVAL;
 	memset(st, 0, sizeof(struct stat));
-	st->st_nlink = 1; // in case a driver forgot to set :D
 	st->st_ino   = node->number;
 	st->st_mode  = atomic_load(&node->mode);
 	st->st_uid   = atomic_load(&node->uid);
@@ -721,6 +721,7 @@ int vfs_getattr(vfs_node_t *node, struct stat *st) {
 	st->st_atime = atomic_load(&node->atime);
 	st->st_mtime = atomic_load(&node->mtime);
 	st->st_ctime = atomic_load(&node->ctime);
+	st->st_nlink = atomic_load(&node->nlink);
 
 	// maybee the fs has a custom getattr
 	if (node->ops && node->ops->getattr) {

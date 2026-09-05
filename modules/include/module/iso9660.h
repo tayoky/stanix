@@ -208,7 +208,6 @@ typedef struct iso9660_inode {
 	};
 	size_t lba;
 	size_t size;
-	nlink_t nlink;
 	dev_t dev;
 } iso9660_inode_t;
 

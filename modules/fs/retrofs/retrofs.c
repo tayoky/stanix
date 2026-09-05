@@ -239,6 +239,7 @@ static retrofs_inode_t *retrofs_entry2inode(retrofs_superblock_t *retrofs_superb
 	inode->vnode.mtime  = entry->modification_time;
 	inode->vnode.ctime  = entry->creation_time;
 	inode->vnode.mode   = 0777;
+	inode->vnode.nlink  = 1;
 	inode->entry_offset = offset;
 	if (entry->flags & RETROFS_FLAG_DIRECTORY) {
 		inode->vnode.mode |= S_IFDIR;

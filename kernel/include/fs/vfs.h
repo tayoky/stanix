@@ -65,6 +65,7 @@ struct vfs_node {
 	ATOMIC(time_t) atime; // write protected by lock
 	ATOMIC(time_t) mtime; // write protected by lock
 	ATOMIC(time_t) ctime; // write protected by lock
+	ATOMIC(nlink_t) nlink;
 	spinlock_t lock;
 };
 
@@ -307,7 +308,7 @@ void vfs_node_mark_data_dirty(vfs_node_t *node);
  * @brief lock the rwsem of an inode for reading
  * @param node the inode to lock
  */
-static inline vfs_node_acquire_read(vfs_node_t *node) {
+static inline void vfs_node_acquire_read(vfs_node_t *node) {
 	if (node) rwsem_acquire_read(&node->rwsem);
 }
 
@@ -315,23 +316,39 @@ static inline vfs_node_acquire_read(vfs_node_t *node) {
  * @brief unlock a inode previously locked with \ref vfs_node_acquire_read
  * @param node the inode to unlock
  */
-static inline vfs_node_release_read(vfs_node_t *node) {
+static inline void vfs_node_release_read(vfs_node_t *node) {
 	if (node) rwsem_release_read(&node->rwsem);
 }
 /**
  * @brief lock the rwsem of an inode for writing
  * @param node the inode to lock
  */
-static inline vfs_node_acquire_write(vfs_node_t *node) {
+static inline void vfs_node_acquire_write(vfs_node_t *node) {
 	if (node) rwsem_acquire_write(&node->rwsem);
 }
 
 /**
- * @brief unlock a inode previously locked with \ref vfs_node_acquire_write
+ * @brief unlock an inode previously locked with \ref vfs_node_acquire_write
  * @param node the inode to unlock
  */
-static inline vfs_node_release_write(vfs_node_t *node) {
+static inline void vfs_node_release_write(vfs_node_t *node) {
 	if (node) rwsem_release_write(&node->rwsem);
+}
+
+/**
+ * @brief increment the ref count of an inode
+ * @param node the inode to increment the nlink of
+ */
+static inline void vfs_node_inc_nlink(vfs_node_t *node) {
+	if (node) atomic_fetch_add(&node->nlink, 1);
+}
+
+/**
+ * @brief decrement the ref count of an inode
+ * @param node the inode to decrement the nlink of
+ */
+static inline void vfs_node_dec_nlink(vfs_node_t *node) {
+	if (node) atomic_fetch_sub(&node->nlink, 1);
 }
 
 int vfs_getattr(vfs_node_t *node, struct stat *st);

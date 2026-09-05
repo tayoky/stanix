@@ -34,6 +34,7 @@ static vfs_node_t *proc_new_node(vfs_superblock_t *superblock, process_t *proc, 
 	inode->type = type;
 
 	inode->vnode.ref_count  = 1;
+	inode->vnode.nlink      = 1;
 	inode->vnode.ops        = &proc_inode_ops;
 	inode->vnode.superblock = superblock;
 	inode->vnode.number     = (((uintptr_t)inode->proc) << 4) | inode->type;

@@ -17,7 +17,6 @@ struct tmpfs_inode;
 typedef struct tmpfs_inode {
 	vfs_node_t vnode;
 	struct tmpfs_inode *parent;
-	size_t link_count;
 	union {
 		struct {
 			cache_t cache;

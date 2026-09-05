@@ -49,7 +49,6 @@ static tmpfs_inode_t *new_inode(vfs_superblock_t *superblock, mode_t mode) {
 		break;
 	}
 	inode->parent       = NULL;
-	inode->link_count   = 0;
 	inode->vnode.number = INODE_NUMBER(inode);
 
 	return inode;
@@ -57,7 +56,7 @@ static tmpfs_inode_t *new_inode(vfs_superblock_t *superblock, mode_t mode) {
 
 static int tmpfs_add_entry(tmpfs_inode_t *dir, tmpfs_inode_t *child, vfs_dentry_t *dentry) {
 	// create new entry
-	child->link_count++;
+	vfs_node_inc_nlink(&child->vnode);
 	vfs_node_ref(&child->vnode);
 	tmpfs_dirent_t *entry = slab_alloc(&tmpfs_entry_slab);
 	strcpy(entry->name, dentry->name);
@@ -78,7 +77,7 @@ static tmpfs_dirent_t *tmpfs_get_entry(tmpfs_inode_t *dir, vfs_dentry_t *dentry)
 
 static void tmpfs_remove_entry(tmpfs_inode_t *dir, tmpfs_dirent_t *entry) {
 	list_remove(&dir->directory.entries, &entry->node);
-	entry->inode->link_count--;
+	vfs_node_sub_nlink(&child->vnode);
 	vfs_node_release(&entry->inode->vnode);
 	slab_free(entry);
 }
@@ -320,6 +319,7 @@ static int tmpfs_rename(vfs_node_t *old_vnode, vfs_dentry_t *old_dentry, vfs_nod
 		tmpfs_remove_entry(new_parent, already);
 	}
 
+	// FIXME : for a small time, nlink is 2 is that an issue?
 	tmpfs_add_entry(new_parent, old_entry->inode, new_dentry);
 	tmpfs_remove_entry(old_parent, old_entry);
 
@@ -351,7 +351,7 @@ static int tmpfs_rmdir(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 
 	// check if the directory is empty
 	tmpfs_inode_t *child_inode = entry->inode;
-	if (child_inode->directory.entries.first_node) return -ENOTEMPTY;
+	if (!list_is_empty(&child_inode->directory.entries)) return -ENOTEMPTY;
 
 	tmpfs_remove_entry(inode, entry);
 
@@ -370,7 +370,6 @@ static int tmpfs_setattr(vfs_node_t *vnode, struct stat *st, int mask) {
 static int tmpfs_getattr(vfs_node_t *vnode, struct stat *st) {
 	tmpfs_inode_t *inode = container_of(vnode, tmpfs_inode_t, vnode);
 	st->st_size          = inode->file.cache.size;
-	st->st_nlink         = inode->link_count;
 	st->st_rdev          = inode->dev;
 
 	// a tmpfs block is a page
