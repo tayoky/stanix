@@ -30,6 +30,20 @@ static uint32_t fat_offset2cluster(fat_superblock_t *fat_supeblock, off_t offset
 	return (offset - fat_superblock->data_start) / fat_superblock->cluster_size + 2;
 }
 
+static uint32_t fat_eof(fat_superblock_t *fat_superblock) {
+	switch (fat_superblock->fat_type) {
+	case FAT12:
+		return 0xff8;
+	case FAT16:
+		return 0xfff8;
+	case FAT32:
+		return 0x0ffffff8;
+	default:
+		kassert(!"invalid fat type");
+		return FAT_EOF;
+	}
+}
+
 static uint32_t fat_get_next_cluster(fat_superblock_t *fat_superblock, uint32_t cluster) {
 	switch (fat_superblock->fat_type) {
 	case FAT12:;
@@ -630,6 +644,91 @@ static int fat_sfn_match(fat_entry_t *entry, const char *name) {
 	return 1;
 }
 
+static int fat_is_long_name(const char *name) {
+	size_t chars_in_name = 0;
+	size_t chars_in_extention = 0;
+	int current_case = 0;
+	int in_extention = 0;
+	for (const char *ptr = name; *ptr; ptr++) {
+		if (*ptr == '.') {
+			if (in_extention) {
+				// cannot have mutiple dots in short names
+				return 1;
+			} else {
+				in_extention = 1;
+				// we can use different case for extention and name
+				current_case = 0;
+			}
+			continue;
+		}
+		chars_before_extention++;
+
+		// a few characters are long name only
+		if (*ptr == ' ' || *ptr == '+' || *ptr == ',' || *ptr == ';' || *ptr == '=' || *ptr == '[' || *ptr == ']' || *ptr >= 0x80) {
+			return 1;
+		}
+
+		if (isalpha(*ptr)) {
+			// we cannot mix multiple cases
+			if (isupper(*ptr)) {
+				if (current_case == 'a') return 1;
+				if (!current_case) current_case = 'A';
+			} else {
+				if (current_case == 'A') return 1;
+				if (!current_case) current_case = 'a';
+			}
+		}
+	}
+
+	// check if the name fit the 8.3 format
+	if (chars_in_name > 8 || chars_in_extention > 3) {
+		return 1;
+	}
+	return 0;
+}
+
+static void fat_sfn_generate(fat_superblock_t *fat_superblock, fat_entry_t *entry, const char *name, uint8_t attributes) {
+	memset(entry, 0, sizeof(fat_entry_t));
+	memset(entry->name, ' ', sizeof(entry->name));
+	
+	uint32_t cluster = fat_eof(fat_superblock);
+	entry->cluster_higher = cluster >> 16;
+	entry->cluster_lower  = cluster;
+	entry->attributes = attributes;
+	// TODO : fill in time
+
+	int is_long = fat_is_long_name(name);
+	char *extention = strrchr(name, '.');
+	if (extention) extention++;
+	if (is_long) {
+		size_t i = 0;
+		for (size_t i = 0; i < 6 && *name && *name != '.'; i++) {
+			entry->name[i] = toupper(*name);
+			name++;
+		}
+		*i = '~';
+		*i = '1'; // TODO : auto increment this
+	} else {
+		// we have a classic short name
+		kassert(strlen(name) <= 12);
+
+		for (size_t i = 0; i < 8 && *name && *name != '.'; i++) {
+			if (islower(*name)) {
+				entry->nt_reserved |= FAT_NT_CASE_LOWER_BASE;
+			}
+			entry->name[i] = toupper(*name);
+			name++;
+		}
+	}
+	for (size_t i = 8; i < sizeof(entry->name) && extention && *extention; i++) {
+		if (islower(*extention)) {
+			entry->nt_reserved |= FAT_NT_CASE_LOWER_EXT;
+		}
+		entry->name[i] = toupper(*extention);
+		extention++;
+	}
+}
+
 /**
  * @brief parse fat entries and make a directory entry from it
  */
@@ -753,11 +852,29 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	return -ENOENT;
 }
 
+static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
+	(void)mode;
+	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
+	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
+	kassert(S_ISDIR(inode->vnode.mode));
+
+	// TODO : lfn support
+
+	uint32_t cluster;
+	off_t offset;
+	int ret = fat_allocate_entries(fat_superblock, inode, 1, &cluster, &offset);
+	if (ret < 0) return ret;
+
+	fat_entry_t sfn_entry;
+	fat_sfn_generate(fat_superblock, &entry, dentry->name, 0);
+	return fat_write_next_entry(fat_superblock, inode, &sfn_entry, &cluster, &offset);
+}
+
 static int fat_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	fat_inode_t *child_inode = container_of(dentry->inode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
-	kassert(S_ISREG(inode->vnode.mode));
+	kassert(S_ISDIR(inode->vnode.mode));
 	kassert(S_ISREG(child_inode->vnode.mode));
 
 	// mark directory entries as free
@@ -785,8 +902,8 @@ static int fat_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 }
 
 static int fat_rmdir(vfs_node_t *vnode, vfs_dentry_t *dentry) {
-	kassert(S_ISREG(vnode->mode));
-	kassert(S_ISREG(dentry->inode.vnode));
+	kassert(S_ISDIR(vnode->mode));
+	kassert(S_ISDIR(dentry->inode.vnode));
 	
 	// just check if the directory is empty and unlink
 	struct dirent dirent;
@@ -844,6 +961,7 @@ static vfs_inode_ops_t fat_inode_ops = {
 	.readdir  = fat_readdir,
 	.lookup   = fat_lookup,
 	.getattr  = fat_getattr,
+	.create   = fat_create,
 	.unlink   = fat_unlink,
 	.rmdir    = fat_rmdir,
 	.truncate = fat_truncate,
