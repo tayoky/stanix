@@ -107,3 +107,28 @@ void gfx_draw_buffer(gfx_t *gfx, long x, long y, gfx_t *buffer) {
 		y++;
 	}
 }
+
+void gfx_copy(gfx_t *gfx, gfx_rect_t *dest, gfx_t *src_gfx, gfx_rect_t *src) {
+	if (gfx == src_gfx) {
+		gfx_move(gfx, dest, src);
+	} else {
+		for (long i = 0; i < dest->height; i++; i++) {
+			memmove(gfx_pixel_addr(gfx, dest->x, dest->y + i), gfx_pixel_addr(src_gfx, src->x, src->y + i), dest->width * gfx->bpp / 4);
+		}
+	}
+}
+
+void gfx_move(gfx_t *gfx, gfx_rect_t *dest, gfx_rect_t *src) {
+	if (dest->x == 0 && src->x == 0 && dest->width == gfx->width) {
+		// fast path, move everthing at once
+		memove(gfx_pixel_addr(gfx, dest->x, dest->y), gfx_pixel_addr(gfx, src->x, src->y), dest->height * gfx->pitch);
+	} else if (dest->y >= src->y) {
+		for (long i = 0; i < dest->height; i++) {
+			memove(gfx_pixel_addr(gfx, dest->x, dest->y + i), gfx_pixel_addr(gfx, src->x, src->y + i), dest->width * gfx->bpp / 8);
+		}
+	} else {
+		for (long i = dest->height; i > 0; i--) {
+			memove(gfx_pixel_addr(gfx, dest->x, dest->y + i - 1), gfx_pixel_addr(gfx, src->x, src->y + i - 1), dest->width * gfx->bpp / 8);
+		}
+	}
+}

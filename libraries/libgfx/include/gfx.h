@@ -39,6 +39,13 @@ typedef struct gfx_texture {
 	color_t *bitmap;
 } texture_t;
 
+typedef struct gfx_rect {
+	long x;
+	long y;
+	long width;
+	long height;
+} gfx_rect_t;
+
 #define GFX_CORNER_TOP_LEFT     0x1
 #define GFX_CORNER_TOP_RIGHT    0x2
 #define GFX_CORNER_BOTTOM_LEFT  0x4
@@ -60,6 +67,8 @@ void gfx_draw_pixel(gfx_t *gfx, color_t color, long x, long y);
 void gfx_draw_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height);
 void gfx_draw_wire_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height, long border);
 void gfx_draw_rounded_rect(gfx_t *gfx, color_t color, long x, long y, long width, long height, char corners, long rayon);
+void gfx_copy(gfx_t *gfx, gfx_rect_t *dest, gfx_t *src_gfx, gfx_rect_t *src);
+void gfx_move(gfx_t *gfx, gfx_rect_t *dest, gfx_rect_t *src);
 void gfx_draw_buffer(gfx_t *gfx, long x, long y, gfx_t *buffer);
 void gfx_clear(gfx_t *gfx, color_t color);
 
