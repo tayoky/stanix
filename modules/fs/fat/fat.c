@@ -551,6 +551,28 @@ static int fat_allocate_entries(fat_superblock_t *fat_superblock, fat_inode_t *i
 	return 0;
 }
 
+static int fat_free_entries(fat_superblock_t *fat_superblock, fat_inode_t *inode, fat_inode_t *child_inode) {
+	if (child_inode->sfn_offset) {
+		off_t offset = child_inode->lfn_offset;
+		uint32_t cluster = inode->is_fat16_root ? 0 : fat_offset2cluster(fat_superblock, offset);
+
+		while (offset <= child_inode->sfn_offset) { 
+			fat_entry_t empty = {
+				.base = {0xe5},
+			};
+			int ret = fat_write_next_entry(fat_superblock, inode, &cluster, &offset, &empty);
+			if (ret < 0) {
+				// TODO : what do we do ?? restore
+				return ret;
+			}
+		}
+		child_inode->sfn_offset = 0;
+		child_inode->lfn_offset = 0;
+		// TODO : group free entries at the end and shrink thr directory if possible
+	}
+	return 0;
+}
+
 static uint8_t fat_right_rotation(uint8_t data) {
 	return (data & 0x01 ? 0x80 : 0x00) | (data >> 1);
 }
@@ -853,7 +875,6 @@ static int fat_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *di
 
 	off_t offset     = inode->is_fat16_root ? inode->start : fat_cluster2offset(fat_superblock, inode->first_cluster);
 	uint32_t cluster  = inode->first_cluster;
-	kdebugf("readdir on %s , first cluster is %lx\n", inode->is_fat16_root ? "root" : "not root", cluster);
 	for (;;) {
 		fat_entry_t entry;
 		int ret = fat_read_next_entry(fat_superblock, inode, &cluster, &offset, &entry);
@@ -943,36 +964,33 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	return -ENOENT;
 }
 
-static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
-	(void)mode;
-	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
-	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
-	kassert(S_ISDIR(inode->vnode.mode));
-
+static fat_inode_t *fat_create_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, vfs_dentry_t *dentry, uint8_t attributes) {
 	int is_long_name = fat_is_long_name(dentry->name):
 	uint16_t utf16_name[512];
 	ssize_t utf16_len = 0;
 	size_t lfn_entries_count = 0;
 	if (long_name) {
 		utf8_to_utf16((const uint8_t *)dentry->name, sizeof(dentry->name), utf16_name);
-		if (utf16_len < 0) return utf16_len;
+		if (utf16_len < 0) return ERR2PTR(utf16_len);
 		lfn_entries_count = (len + FAT_LFN_NAME_LENGTH - 1) / FAT_LFN_NAME_LENGTH;
 	}
 
 	uint32_t cluster;
 	off_t offset;
 	int ret = fat_allocate_entries(fat_superblock, inode, 1 + lfn_entries_count, &cluster, &offset);
-	if (ret < 0) return ret;
+	if (ret < 0) return ERR2PTR(ret);
 
 	fat_entry_t sfn_entry;
-	fat_sfn_generate(fat_superblock, &sfn_entry, dentry->name, 0);
+	fat_sfn_generate(fat_superblock, &sfn_entry, dentry->name, attributes);
+	off_t lfn_offset = offset;
 	if (is_long_name) {
 		ret = fat_write_next_lfn(fat_superblock, inode, &cluster, &offset, &sfn_entry, utf16_name, utf16_len);
-		if (ret < 0) return ret;
+		if (ret < 0) return ERR2PTR(ret);
 	}
 
-	fat_inode_t *child_inode = fat_entry2inode(offset, offset, &sfn_entry, fat_superblock);
-	if (!child_inode) return -ENOMEM;
+	off_t sfn_offset = offset;
+	fat_inode_t *child_inode = fat_entry2inode(sfn_offset, lfn_offset, &sfn_entry, fat_superblock);
+	if (!child_inode) return ERR2PTR(-ENOMEM);
 	vfs_init_created_node(&child_inode->vnode);
 	child_inode->entry.creation_date = fat_time2date(child_inode->vnode.ctime);
 	dentry->inode = &child_inode->vnode;
@@ -980,8 +998,61 @@ static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
 	ret = fat_write_next_entry(fat_superblock, inode, &cluster, &offset, &child_inode->entry);
 	if (ret < 0) {
 		vfs_node_release(dentry->inode);
+		return ERR2PTR(ret);
 	}
-	return ret;
+}
+
+static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
+	(void)mode;
+	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
+	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
+	kassert(S_ISDIR(inode->vnode.mode));
+	
+	fat_inode_t *child_inode = fat_create_entry(fat_superblock, inode, dentry, 0);
+	if (IS_ERR(child_inode)) return PTR2ERR(child_inode);
+	return 0;
+}
+
+static int fat_mkdir(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
+	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
+	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
+	kassert(S_ISDIR(inode->vnode.mode));
+	
+	fat_inode_t *child_inode = fat_create_entry(fat_superblock, inode, dentry, ATTR_DIRECTORY);
+	if (IS_ERR(child_inode)) return PTR2ERR(child_inode);
+
+	int ret = fat_grow(fat_superblock, child_inode, 0, 1);
+	if (ret < 0) {
+error:
+		fat_free_entries(fat_superblock, inode, child_inode);
+		fat_free_clusters(fat_superblock, child_inode);
+		vfs_node_release(dentry->inode);
+		return ret;
+	}
+	uint32_t cluster = child_inode->first_cluster;
+	off_t offset     = fat_cluster2offset(fat_superblock, cluster);
+
+	// create "." and ".." entries
+	fat_entry_t dot = {
+		.base = ".       ",
+		.ext  = "   ",
+		.attribute = ATTR_DIRECTORY,
+		.cluster_lower  = child_inode->first_cluster,
+		.cluster_higher = child_inode->first_cluster >> 16,
+	};
+	ret = fat_write_next_entry(fat_superblock, child_inode, &cluster, &offset, &dot);
+	if (ret < 0) goto error;
+
+	fat_entry_t dotdot = {
+		.base = "..      ",
+		.ext  = "   ",
+		.attribute = ATTR_DIRECTORY,
+		.cluster_lower  = inode->first_cluster,
+		.cluster_higher = inode->first_cluster >> 16,
+	};
+	ret = fat_write_next_entry(fat_superblock, child_inode, &cluster, &offset, &dotdot);
+	if (ret < 0) goto error;
+	return 0;
 }
 
 static int fat_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
@@ -990,25 +1061,8 @@ static int fat_unlink(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
 	kassert(S_ISDIR(inode->vnode.mode));
 
-	// mark directory entries as free
-	if (child_inode->sfn_offset) {
-		off_t offset = child_inode->lfn_offset;
-		uint32_t cluster = inode->is_fat16_root ? 1 : fat_offset2cluster(fat_superblock, offset);
-
-		while (offset <= child_inode->sfn_offset) { 
-			fat_entry_t empty = {
-				.base = {0xe5},
-			};
-			int ret = fat_write_next_entry(fat_superblock, inode, &cluster, &offset, &empty);
-			if (ret < 0) {
-				// TODO : what do we do ?? restore
-				return ret;
-			}
-		}
-		child_inode->sfn_offset = 0;
-		child_inode->lfn_offset = 0;
-		// TODO : group free entries at the end and shrink thr directory if possible
-	}
+	int ret = fat_free_entries(fat_superblock, inode, child_inode);
+	if (ret < 0) return ret;
 
 	vfs_node_dec_nlink(&child_inode->vnode);
 	return 0;
@@ -1076,6 +1130,7 @@ static vfs_inode_ops_t fat_inode_ops = {
 	.lookup   = fat_lookup,
 	.getattr  = fat_getattr,
 	.create   = fat_create,
+	.mkdir    = fat_mkdir,
 	.unlink   = fat_unlink,
 	.rmdir    = fat_rmdir,
 	.truncate = fat_truncate,
