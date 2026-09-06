@@ -188,6 +188,8 @@ static uint32_t fat_get_cluster(fat_superblock_t *fat_superblock, fat_inode_t *i
 static int fat_set_cluster(fat_superblock_t *fat_superblock, fat_inode_t *inode, uint32_t prev, uint32_t cluster) {
 	if (prev == 0) {
 		inode->first_cluster = cluster;
+		// the first cluster is an entry metadata
+		vfs_node_mark_data_dirty(&inode->vnode);
 	} else {
 		if (prev == fat_eof(fat_superblock) || prev == FAT_FREE) return -EIO;
 		int ret = fat_set_next_cluster(fat_superblock, prev, cluster);
