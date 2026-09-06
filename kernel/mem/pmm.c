@@ -178,7 +178,7 @@ int pmm_get_zone(uintptr_t page) {
 }
 
 static int pmm_is_free(page_t *page_info) {
-	return atomic_load(&page_info->ref_count) == 0;
+	return atomic_load(&page_info->ref_count) == 0 && !(atomic_load(&page_info->flags) & PAGE_FLAG_RESERVED);
 }
 
 static uintptr_t pmm_raw_helper_allocate_pages(pmm_t *pmm, int order) {

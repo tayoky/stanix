@@ -673,11 +673,17 @@ static int fat_write_next_lfn(fat_superblock_t *fat_superblock, fat_inode_t *ino
 
 		// actually store the name
 		size_t i = (ord - 1) * FAT_LFN_NAME_LENGTH;
-		fat_copy_lfn_chunck(entry.name1, arraylen(entry.name1), utf16_name, utf16_len, &i);
-		fat_copy_lfn_chunck(entry.name2, arraylen(entry.name2), utf16_name, utf16_len, &i);
-		fat_copy_lfn_chunck(entry.name3, arraylen(entry.name3), utf16_name, utf16_len, &i);
+		uint16_t name1[arraylen(entry.name1)];
+		uint16_t name2[arraylen(entry.name2)];
+		uint16_t name3[arraylen(entry.name3)];
+		fat_copy_lfn_chunck(name1, arraylen(name1), utf16_name, utf16_len, &i);
+		fat_copy_lfn_chunck(name2, arraylen(name2), utf16_name, utf16_len, &i);
+		fat_copy_lfn_chunck(name3, arraylen(name3), utf16_name, utf16_len, &i);
+		memcpy(entry.name1, name1, sizeof(entry.name1));
+		memcpy(entry.name2, name2, sizeof(entry.name2));
+		memcpy(entry.name3, name3, sizeof(entry.name3));
 		
-		int ret = fat_write_next_entry(fat_superblock, inode, cluster, offset, &entry);
+		int ret = fat_write_next_entry(fat_superblock, inode, cluster, offset, (fat_entry_t*)&entry);
 		if (ret < 0) return ret;
 	}
 	return 0;
@@ -698,7 +704,7 @@ static int fat_parse_sfn(fat_entry_t *entry, char name[512]) {
 	}
 
 	// don't add "." for directories/files without extension
-	if (entry->base[FAT_SFN_BASE_LENGTH] != ' ') {
+	if (entry->ext[0] != ' ') {
 		name[j++] = '.';
 	}
 
@@ -822,7 +828,7 @@ static void fat_sfn_generate(fat_superblock_t *fat_superblock, fat_entry_t *entr
 		kassert(strlen(name) <= sizeof(entry->base) + 1 + sizeof(entry->ext));
 
 		for (size_t i = 0; i < sizeof(entry->base) && *name && *name != '.'; i++) {
-			if (islower(*base)) {
+			if (islower(*name)) {
 				entry->nt_reserved |= FAT_NT_CASE_LOWER_BASE;
 			}
 			entry->base[i] = toupper(*name);
@@ -965,14 +971,14 @@ static int fat_lookup(vfs_node_t *vnode, vfs_dentry_t *dentry) {
 }
 
 static fat_inode_t *fat_create_entry(fat_superblock_t *fat_superblock, fat_inode_t *inode, vfs_dentry_t *dentry, uint8_t attributes) {
-	int is_long_name = fat_is_long_name(dentry->name):
+	int is_long_name = fat_is_long_name(dentry->name);
 	uint16_t utf16_name[512];
 	ssize_t utf16_len = 0;
 	size_t lfn_entries_count = 0;
-	if (long_name) {
+	if (is_long_name) {
 		utf8_to_utf16((const uint8_t *)dentry->name, sizeof(dentry->name), utf16_name);
 		if (utf16_len < 0) return ERR2PTR(utf16_len);
-		lfn_entries_count = (len + FAT_LFN_NAME_LENGTH - 1) / FAT_LFN_NAME_LENGTH;
+		lfn_entries_count = (utf16_len + FAT_LFN_NAME_LENGTH - 1) / FAT_LFN_NAME_LENGTH;
 	}
 
 	uint32_t cluster;
@@ -1000,6 +1006,7 @@ static fat_inode_t *fat_create_entry(fat_superblock_t *fat_superblock, fat_inode
 		vfs_node_release(dentry->inode);
 		return ERR2PTR(ret);
 	}
+	return child_inode;
 }
 
 static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
@@ -1014,6 +1021,7 @@ static int fat_create(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
 }
 
 static int fat_mkdir(vfs_node_t *vnode, vfs_dentry_t *dentry, mode_t mode) {
+	(void)mode;
 	fat_inode_t *inode = container_of(vnode, fat_inode_t, vnode);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
 	kassert(S_ISDIR(inode->vnode.mode));
@@ -1263,7 +1271,7 @@ static int fat_mount(vfs_fd_t *source, const char *target, unsigned long flags, 
 		local_root->vnode.ops        = &fat_inode_ops;
 		local_root->vnode.superblock = &fat_superblock->superblock;
 	}
-	local_root->ref_count             = 1;
+	local_root->vnode.ref_count       = 1;
 	fat_superblock->superblock.root   = &local_root->vnode;
 	fat_superblock->superblock.device = vfs_dup(source);
 	fat_superblock->superblock.ref_count = 1;

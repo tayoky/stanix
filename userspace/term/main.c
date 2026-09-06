@@ -136,21 +136,22 @@ void clear(term_t *term, term_rect_t *rect) {
 }
 
 void move(term_t *term, term_rect_t *dest, term_rect_t *src) {
+	(void)term;
 	gfx_rect_t gfx_dest = {
 		.x      = dest->x      * c_width,
-		.y      = dest->y      * c_height
+		.y      = dest->y      * c_height,
 		.width  = dest->width  * c_width,
 		.height = dest->height * c_height,
 	};
 	gfx_rect_t gfx_src = {
 		.x      = src->x      * c_width,
-		.y      = src->y      * c_height
+		.y      = src->y      * c_height,
 		.width  = src->width  * c_width,
 		.height = src->height * c_height,
 	};
 
-	gfx_move(gfx, &gfx_dest, &gfx_src);
-	gfx_push_rect(gfx, gfx_dest.x, gfx_dest.y, gfx_dest.width, gfx_dest.height);
+	gfx_move(get_gfx(), &gfx_dest, &gfx_src);
+	gfx_push_rect(get_gfx(), gfx_dest.x, gfx_dest.y, gfx_dest.width, gfx_dest.height);
 }
 
 term_ops_t term_ops = {
