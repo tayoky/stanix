@@ -978,7 +978,7 @@ static fat_inode_t *fat_create_entry(fat_superblock_t *fat_superblock, fat_inode
 	ssize_t utf16_len = 0;
 	size_t lfn_entries_count = 0;
 	if (is_long_name) {
-		utf8_to_utf16((const uint8_t *)dentry->name, sizeof(dentry->name), utf16_name);
+		utf16_len = utf8_to_utf16((const uint8_t *)dentry->name, sizeof(dentry->name), utf16_name);
 		if (utf16_len < 0) return ERR2PTR(utf16_len);
 		lfn_entries_count = (utf16_len + FAT_LFN_NAME_LENGTH - 1) / FAT_LFN_NAME_LENGTH;
 	}
