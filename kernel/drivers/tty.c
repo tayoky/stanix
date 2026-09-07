@@ -43,8 +43,7 @@ static int tty_output(tty_t *tty, char c) {
 	} else {
 		tty->column++;
 	}
-	tty->ops->out(tty, &c, 1);
-	return 0;
+	return tty->ops->out(tty, &c, 1);
 }
 
 static int tty_max_bell(tty_t *tty) {
@@ -290,19 +289,22 @@ static ssize_t tty_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) 
 
 static ssize_t tty_raw_write(tty_t *tty, const char *buffer, size_t count) {
 	ssize_t total = 0;
+	int ret = 0;
 	while (count > 0) {	
 		char kbuf[128];
 		size_t w = sizeof(kbuf) < count ? sizeof(kbuf) : count;
-		int ret = safe_copy_from(kbuf, buffer, w);
-		if (ret < 0) return total > 0 ? total : ret;
+		ret = safe_copy_from(kbuf, buffer, w);
+		if (ret < 0) break;
 
 		for (size_t i=0; i<w; i++) {
-			tty_output(tty, kbuf[i]);
+			ret = tty_output(tty, kbuf[i]);
+			if (ret < 0) break;
 		}
 		count -= w;
 		buffer += w;
 		total += w;
 	}
+	if (ret < 0 && total == 0) return ret;
 	return total;
 }
 
