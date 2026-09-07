@@ -14,7 +14,7 @@ static int pty_is_disconnected(pty_t *pty) {
 	return atomic_load(&pty->slave->tty.device.ref_count) == 1;
 }
 
-static int pty_output_sleep_end(pty_t *pty, pty_slave_t *slave) {
+static int pty_slave_output_sleep_end(pty_t *pty, pty_slave_t *slave) {
 	if (tty_is_unplugged(&slave->tty)) {
 		return 1;
 	}
@@ -24,7 +24,7 @@ static int pty_output_sleep_end(pty_t *pty, pty_slave_t *slave) {
 	return 0;
 }
 
-static ssize_t pty_output(tty_t *tty, const char *buf, size_t count) {
+static ssize_t pty_slave_output(tty_t *tty, const char *buf, size_t count) {
 	pty_slave_t *slave = container_of(tty, pty_slave_t, tty);
 	pty_t *pty = slave->pty;
 	
@@ -59,6 +59,11 @@ static ssize_t pty_output(tty_t *tty, const char *buf, size_t count) {
 	}
 	if (ret < 0 && total == 0) return ret;
 	return total;
+}
+
+static void pty_slave_cleanup(tty_t *tty) {
+	pty_slave_t *slave = container_of(tty, pty_slave_t, tty);
+	kfree(slave);
 }
 
 static void pty_cleanup(pty_t *pty) {
@@ -225,7 +230,8 @@ static vfs_fd_ops_t pty_master_ops = {
 };
 
 static tty_ops_t pty_slave_ops = {
-	.out = pty_output,
+	.out     = pty_slave_output,
+	.cleanup = pty_slave_cleanup,
 };
 
 static int pty_major = 0;

@@ -411,9 +411,9 @@ static void tty_destroy(device_t *device) {
 
 	process_group_release(old_group);
 
-	if (tty->ops->cleanup) tty->ops->cleanup(tty);
-
 	ringbuffer_destroy(&tty->input_buffer);
+	
+	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 }
 
 static int tty_termios_update(tty_t *tty, struct termios *new) {
