@@ -14,16 +14,25 @@ static int pty_is_disconnected(pty_t *pty) {
 	return atomic_load(&pty->slave->tty.device.ref_count) == 1;
 }
 
+static int pty_output_sleep_end(pty_t *pty, pty_slave_t *slave) {
+	if (tty_is_unplugged(&slave->tty)) {
+		return 1;
+	}
+	spinlock_acquire(&pty->lock);
+	if (ringbuffer_write_available(&pty->output_buffer) > 0) return 1;
+	spinlock_release(&pty->lock);
+	return 0;
+}
+
 static ssize_t pty_output(tty_t *tty, const char *buf, size_t count) {
 	pty_slave_t *slave = container_of(tty, pty_slave_t, tty);
 	pty_t *pty = slave->pty;
 	
 	ssize_t total = 0;
 	ssize_t ret = 0;
-	spinlock_acquire(&pty->lock);
 	while (count > 0) {
 		spinlock_raw_release(&slave->tty.lock);
-		if (sleep_on_queue_lock_interruptible(&pty->writer_queue, &pty->lock, ringbuffer_write_available(&pty->output_buffer) > 0 || tty_is_unplugged(&slave->tty)) < 0) {
+		if (sleep_on_queue_condition_interruptible(&pty->writer_queue, pty_output_sleep_end(pty, slave)) < 0) {
 			spinlock_raw_acquire(&slave->tty.lock);
 			ret = -EINTR;
 			break;
@@ -36,14 +45,18 @@ static ssize_t pty_output(tty_t *tty, const char *buf, size_t count) {
 		}
 
 		ret = ringbuffer_write(&pty->output_buffer, buf, count);
-		if (ret < 0) break;
+		if (ret < 0) {
+			spinlock_release(&pty->lock);
+			break;
+		}
 
 		wakeup_queue(&pty->reader_queue, 0);
+		spinlock_release(&pty->lock);
 		
 		count -= ret;
 		buf += ret;
+		total += ret;
 	}
-	spinlock_release(&pty->lock);
 	if (ret < 0 && total == 0) return ret;
 	return total;
 }
