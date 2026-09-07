@@ -3,7 +3,7 @@ FROM ubuntu:22.04 AS toolchain-builder
 ENV TOOLCHAIN_PREFIX=/opt/toolchain
 ENV SYSROOT=/opt/sysroot
 
-RUN apt update && apt install -y build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf
+RUN apt update && apt install -y build-essential bison flex texinfo libmpc-dev libgmp-dev libmpfr-dev automake autoconf wget
 
 # copy Stanix's source code
 WORKDIR /src
