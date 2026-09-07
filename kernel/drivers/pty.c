@@ -197,7 +197,7 @@ void pty_master_close(vfs_fd_t *fd) {
 	pty_t *pty = fd->private;
 
 	// the master close so remove the slave
-	device_destroy((device_t *)pty->slave);
+	device_destroy(&pty->slave->tty.device);
 	pty_cleanup(pty);
 }
 

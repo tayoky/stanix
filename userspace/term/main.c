@@ -151,7 +151,7 @@ void move(term_t *term, term_rect_t *dest, term_rect_t *src) {
 	};
 
 	gfx_move(get_gfx(), &gfx_dest, &gfx_src);
-	gfx_push_rect(get_gfx(), gfx_dest.x, gfx_dest.y, gfx_dest.width, gfx_dest.height);
+	push_rect(gfx_dest.x, gfx_dest.y, gfx_dest.width, gfx_dest.height);
 }
 
 term_ops_t term_ops = {
