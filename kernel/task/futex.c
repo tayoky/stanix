@@ -6,32 +6,14 @@
 #include <errno.h>
 #include <stdint.h>
 
-static hashmap_t futexes;
-static spinlock_t futexes_lock;
+static sleep_queue_t futexes[128];
 
 static sleep_queue_t *futex_from_addr(long *addr) {
 	uintptr_t phys = mmu_virt2phys(addr);
 	if (phys == PAGE_INVALID) return NULL;
-	return hashmap_get(&futexes, phys);
-}
 
-static sleep_queue_t *new_futex_for_addr(long *addr) {
-	uintptr_t phys = mmu_virt2phys(addr);
-	if (phys == PAGE_INVALID) return NULL;
-
-	// make a new sleep queue
-	sleep_queue_t *new_queue = kmalloc(sizeof(sleep_queue_t));
-	memset(new_queue, 0, sizeof(sleep_queue_t));
-
-	hashmap_add(&futexes, phys, new_queue);
-	return new_queue;
-}
-
-static void destroy_futex_for_addr(long *addr) {
-	uintptr_t phys = mmu_virt2phys(addr);
-	if (phys == PAGE_INVALID) return;
-	kfree(hashmap_get(&futexes, phys));
-	hashmap_remove(&futexes, phys);
+	// TODO : use a hash
+	return &futexes[phys % arraylen(futexes)];
 }
 
 static int futex_wake(long *addr, long val) {
@@ -41,43 +23,29 @@ static int futex_wake(long *addr, long val) {
 	// while wakeup_queue take 0 to wakeup all
 	if (val == LONG_MAX) val = 0;
 
-	spinlock_acquire(&futexes_lock);
-
 	sleep_queue_t *queue = futex_from_addr(addr);
-	if (!queue) {
-		spinlock_release(&futexes_lock);
-		return 0;
-	}
+	if (!queue) return -EFAULT;
+
 	wakeup_queue(queue, val);
-	if (list_is_empty(&queue->waiters)) {
-		// the futex is empty
-		destroy_futex_for_addr(addr);
-	}
-	spinlock_release(&futexes_lock);
 	return 0;
 }
 
 static int futex_wait(long *addr, long val) {
-	kdebugf("futex wait\n");
+	sleep_queue_t *queue = futex_from_addr(addr);
+	if (!queue) return -EFAULT;
+
 	block_prepare_interruptible();
 	if (*addr != val) {
 		block_cancel();
 		return -EAGAIN;
 	}
-	spinlock_acquire(&futexes_lock);
-	sleep_queue_t *queue = futex_from_addr(addr);
-	if (!queue) {
-		queue = new_futex_for_addr(addr);
-	}
 
 	sleep_add_to_queue(queue);
 	if (*addr != val) {
-		spinlock_release(&futexes_lock);
 		sleep_remove_from_queue(queue);
 		block_cancel();
 		return -EAGAIN;
 	}
-	spinlock_release(&futexes_lock);
 	int ret = block_task();
 	if (ret == -EINTR) {
 		sleep_remove_from_queue(queue);
@@ -97,5 +65,4 @@ int do_futex(long *addr, int op, long val) {
 }
 
 void init_futexes(void) {
-	hashmap_init(&futexes, 256);
 }
