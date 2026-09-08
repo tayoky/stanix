@@ -238,7 +238,6 @@ void do_proc_deletion(void) {
 	// all the childreen become orphelan
 	// the parent of orphelan is init
 	spinlock_acquire(&proctree_lock);
-	spinlock_acquire(&get_current_proc()->proc_lock);
 	list_node_t *node = get_current_proc()->child.first_node;
 	while (node) {
 		process_t *child = container_of(node, process_t, child_list_node);
@@ -249,8 +248,9 @@ void do_proc_deletion(void) {
 		if (proc_get_state(child) == PROC_STATE_ZOMBIE) alert_parent(child);
 	}
 	list_destroy(&get_current_proc()->child);
-
+	
 	// release session / group / cred
+	spinlock_acquire(&get_current_proc()->proc_lock);
 	proc_set_group(get_current_proc(), NULL);
 	cred_release(get_current_cred());
 
