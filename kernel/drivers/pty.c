@@ -32,7 +32,7 @@ static ssize_t pty_slave_output(tty_t *tty, const char *buf, size_t count) {
 	ssize_t ret = 0;
 	while (count > 0) {
 		spinlock_raw_release(&slave->tty.lock);
-		if (sleep_on_queue_condition_interruptible(&pty->writer_queue, pty_output_sleep_end(pty, slave)) < 0) {
+		if (sleep_on_queue_condition_interruptible(&pty->writer_queue, pty_slave_output_sleep_end(pty, slave)) < 0) {
 			spinlock_raw_acquire(&slave->tty.lock);
 			ret = -EINTR;
 			break;

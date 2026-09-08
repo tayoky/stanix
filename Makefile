@@ -56,7 +56,8 @@ $(ESP_ROOT)/boot/stanix.elf
 
 QEMU_KVM ?= -cpu host -enable-kvm -smp 1
 QEMU_EXTRA ?=
-QEMU_OPTIONS = -m 512 -serial stdio
+QEMU_MEMORY = 512
+QEMU_OPTIONS = -m $(QEMU_MEMORY) -serial stdio
 
 all : build-all image-all
 
