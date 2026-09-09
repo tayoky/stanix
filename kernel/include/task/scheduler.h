@@ -62,7 +62,7 @@ typedef struct task {
 #define TASK_STATUS_INTERRUPTIBLE 4 // is the task blocked and interruptible ?
 #define TASK_STATUS_STOPPED       5
 
-#define TASK_FLAG_WAIT  0x02
+#define TASK_FLAG_FPU   0x02 // fpu is enabled for this thread
 #define TASK_FLAG_SLEEP 0x04
 
 #define WAKEUP_TIMEOUT 0
@@ -85,6 +85,10 @@ task_t *new_kernel_task(void (*func)(void *arg), void *arg);
  * @return a pointer to the new task
  */
 task_t *task_new(struct process *proc, void (*func)(void *arg), void *arg);
+
+int task_get_current_flags(void) {
+	return atomic_load(&get_current_task()->flags);
+}
 
 /**
  * @brief kill the current task

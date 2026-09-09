@@ -290,7 +290,11 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 		signal_frame_t frame = {0};
 		frame.ucontext.uc_sigmask = get_current_task()->sig_mask;
 		acontext_t *saved_context = (acontext_t *)&frame.ucontext.uc_mcontext;
-		arch_fpu_save(&saved_context->fpu);
+		if (task_get_current_flags() & TASK_FLAG_FPU) {
+			arch_fpu_save(&saved_context->fpu);
+		} else {
+			arch_fpu_init(&saved_context->fpu);
+		}
 		saved_context->tls_base = get_current_task()->context.tls_base;
 		saved_context->frame = *registers;
 		frame.siginfo = *siginfo;
@@ -363,6 +367,8 @@ void signal_restore_handler(registers_t *registers) {
 	}
 
 	arch_set_tls(old_context->tls_base);
-	arch_fpu_load(&old_context->fpu);
+	if (task_get_current_flags() & TASK_FLAG_FPU) {
+		arch_fpu_load(&old_context->fpu);
+	}
 	arch_registers_load(old_context);
 }

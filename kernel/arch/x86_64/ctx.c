@@ -8,10 +8,10 @@
 extern uint64_t p_kernel_end[];
 
 void arch_registers_dump(registers_t *registers) {
-	static acontext_t current_context;
+	registers_t current_registers;
 	if (!registers) {
-		arch_save_context(&current_context);
-		registers = &current_context.frame;
+		arch_registers_save(&current_registers);
+		registers = &current_registers;
 	}
     kprintf("==================== REGISTERS DUMP ====================\n");
 	kprintf("rax : 0x%p\tr8  : 0x%p\n", registers->rax, registers->r8);

@@ -348,9 +348,11 @@ error:
 	kdebugf("exec entry : %p\n", header.e_entry);
 
 	// reset the fpu and tls to avoid leaking the old state
-	arch_fpu_t new_fpu;
-	arch_fpu_init(&new_fpu);
-	arch_fpu_load(&new_fpu);
+	if (task_get_current_flags() & TASK_FLAG_FPU) {
+		arch_fpu_t new_fpu;
+		arch_fpu_init(&new_fpu);
+		arch_fpu_load(&new_fpu);
+	}
 	get_current_task()->context.tls_base = 0;
 	arch_set_tls(0);
 

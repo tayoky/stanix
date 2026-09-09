@@ -57,8 +57,8 @@ static void page_fault_info(registers_t *fault) {
 	if (fault->err_code & 0x04)
 		kprintf("user");
 	else
-		kprintf("OS");
-	kprintf(" has trying to ");
+		kprintf("kernel");
+	kprintf(" tryied to ");
 	if (fault->err_code & 0x10)
 		kprintf("execute");
 	else if (fault->err_code & 0x02)
@@ -117,7 +117,7 @@ void isr_handler(registers_t *registers) {
 	if (registers->err_type < 32) {
 		if (registers->err_type == 14) {
 			if (page_fault_handler(registers)) return;
-		} else if (registers->err_type == 19) {
+		} else if (registers->err_type == 7) {
 			if (fpu_fault_handler(registers)) return;
 		}
 			

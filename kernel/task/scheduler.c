@@ -232,10 +232,14 @@ task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 	spinlock_release(&proc->proc_lock);
 	xarray_set(&tasks_list, task->tid, task);
 
-	// inherit sigmask, fpu state and tls base
+	// inherit sigmask and tls base
 	if (get_current_task()) {
 		task->sig_mask         = get_current_task()->sig_mask;
 		task->context.tls_base = get_current_task()->context.tls_base;
+	}
+
+	// also inherit fpu state if possible
+	if (get_current_task() && (atomic_load(&get_current_task()->flags) & TASK_FLAG_FPU)) {
 		arch_fpu_save(&task->context.fpu);
 	} else {
 		arch_fpu_init(&task->context.fpu);
@@ -304,8 +308,10 @@ void yield(int preempt) {
 		atomic_fetch_add(&old->voluntary_context_switches, 1);
 	}
 
-	arch_fpu_save(&old->context.fpu);
-	if (arch_save_context(&old->context)) {
+	if (task_get_current_flags() & TASK_FLAG_FPU) {
+		arch_fpu_save(&old->context.fpu);
+	}
+	if (arch_registers_save(&old->context.fault)) {
 		finish_yield();
 		if (prev_int) enable_interrupt();
 		return;
@@ -321,8 +327,17 @@ void yield(int preempt) {
 
 	arch_set_kernel_stack(KSTACK_TOP(new->kernel_stack));
 	arch_set_tls(new->context.tls_base);
-	arch_fpu_load(&new->context.fpu);
-	arch_load_context(&new->context);
+	if (task_get_current_flags() & TASK_FLAG_FPU) {
+		if (!(atomic_load(&old->flags) & TASK_FLAG_FPU)) {
+			arch_fpu_enable();
+		}
+		arch_fpu_load(&new->context.fpu);
+	} else {
+		if (atomic_load(&old->flags) & TASK_FLAG_FPU) {
+			arch_fpu_disable();
+		}
+	}
+	arch_registers(&new->context.fault);
 }
 
 task_t *get_current_task(void) {

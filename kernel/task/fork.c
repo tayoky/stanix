@@ -8,24 +8,23 @@
 #include <kernel/vmm.h>
 
 static void fork_trampoline(void *arg) {
-	acontext_t context = *(acontext_t*)arg;
+	registers_t registers = *(registers_t*)arg;
 	kfree(arg);
-	arch_load_context(&context);
+	arch_registers_load(&registers);
 }
 
 pid_t fork(void) {
 	// setup new context for child
 	// and return 0 to the child
-	acontext_t *new_context = kmalloc(sizeof(acontext_t));
-	if (!new_context) return -ENOMEM;
-	arch_save_context(new_context);
-	new_context->frame = *get_current_task()->syscall_frame;
-	RET_REG(new_context->frame) = 0;
+	registers_t *new_registers = kmalloc(sizeof(registers_t));
+	if (!new_registers) return -ENOMEM;
+	*new_registers = *get_current_task()->syscall_frame;
+	RET_REG(new_registers->frame) = 0;
 
 	process_t *parent = get_current_proc();
-	process_t *child = proc_new(fork_trampoline, new_context);
+	process_t *child = proc_new(fork_trampoline, new_registers);
 	if (!child) {
-		kfree(new_context);
+		kfree(new_registers);
 		return -ENOMEM;
 	}
 
