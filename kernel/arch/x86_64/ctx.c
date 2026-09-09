@@ -114,8 +114,6 @@ void arch_registers_init(registers_t *registers, void *stack, void *start, int u
 	context->frame.es    = data_seg;
 	context->frame.gs    = data_seg;
 	context->frame.fs    = data_seg;
-	context->fpu.fcw     = 0x037f;
-	context->fpu.mxcsr   = 0x1F80;
 }
 
 int arch_registers_is_userspace(registers_t *registers) {

@@ -70,13 +70,14 @@ typedef struct fpu_regs {
 typedef struct acontext {
 	arch_fpu_t fpu;
 	registers_t frame;
-	uint64_t fs_base;
+	uint64_t tls_base;
 } __attribute__((aligned(16))) acontext_t;
 
 // arch specific functions
 void arch_set_kernel_stack(uintptr_t stack);
-int arch_save_context(acontext_t *acontext);
-void arch_load_context(acontext_t *acontext);
+void arch_set_tls(void *tls);
+int arch_registers_save(regusters_t *registers);
+void arch_registers_load(registers_t *registers);
 void arch_registers_dump(registers_t *registers);
 void arch_registers_stacktrace(registers_t *registers);
 
@@ -128,7 +129,6 @@ int arch_registers_is_userspace(registers_t *registers);
 void init_root_bus(void);
 void init_timer(void);
 void init_arch_irq();
-void arch_set_tls(void *tls);
 void enable_sse(void);
 int arch_shutdown(int flags);
 

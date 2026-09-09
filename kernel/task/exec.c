@@ -347,14 +347,16 @@ error:
 	// now jump into the program !!
 	kdebugf("exec entry : %p\n", header.e_entry);
 
-	// reset the fpu to avoid leaking the old state
+	// reset the fpu and tls to avoid leaking the old state
 	arch_fpu_t new_fpu;
 	arch_fpu_init(&new_fpu);
 	arch_fpu_load(&new_fpu);
+	get_current_task()->context.tls_base = 0;
+	arch_set_tls(0);
 
-	acontext_t context = {0};
-	arch_registers_init(&context.fault, sp, (void *)(header.e_entry + base), 1);
-	arch_load_context(&context);
+	registers_t context = {0};
+	arch_registers_init(&context, sp, (void *)(header.e_entry + base), 1);
+	arch_registers_load(&context);
 	return 0;
 }
 

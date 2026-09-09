@@ -232,9 +232,10 @@ task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 	spinlock_release(&proc->proc_lock);
 	xarray_set(&tasks_list, task->tid, task);
 
-	// inherit sigmask and fpu state
+	// inherit sigmask, fpu state and tls base
 	if (get_current_task()) {
-		task->sig_mask   = get_current_task()->sig_mask;
+		task->sig_mask         = get_current_task()->sig_mask;
+		task->context.tls_base = get_current_task()->context.tls_base;
 		arch_fpu_save(&task->context.fpu);
 	} else {
 		arch_fpu_init(&task->context.fpu);
@@ -319,6 +320,7 @@ void yield(int preempt) {
 	}
 
 	arch_set_kernel_stack(KSTACK_TOP(new->kernel_stack));
+	arch_set_tls(new->context.tls_base);
 	arch_fpu_load(&new->context.fpu);
 	arch_load_context(&new->context);
 }
