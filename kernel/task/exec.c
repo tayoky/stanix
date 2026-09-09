@@ -292,17 +292,17 @@ error:
 
 	// calculate the amount of space taken by envp and argv
 	// no need to calculate auxilary or NULL pointer because
-	// auxiliary is alaways align (multiple of 2 ling)
-	// the NULL of auxiliary go with argc
+	// auxiliary is alaways aligned (multiple of 2 long)
 	// the NULL of envp go with the NULL of argv
-	// so always a multiple of 8 bytes
-	if ((argc + envc) % 2) {
+	// so always a multiple of 16 bytes
+	// and then argc take 8
+	if (((argc + envc) % 2) != 1) {
 		// we must add a padding long so the stack is 16 byte aligned at the end
 		push_long(&sp, 0);
 	}
 
 	// push auxiliary vector
-	push_long(&sp, 0);
+	push_auxv(&sp, AT_NULL, 0);
 	push_auxv(&sp, AT_BASE, base);
 	push_auxv(&sp, AT_UID, get_current_uid());
 	push_auxv(&sp, AT_EUID, get_current_euid());
