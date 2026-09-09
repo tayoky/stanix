@@ -99,21 +99,21 @@ long arch_fault_get_prot(registers_t *fault) {
 
 void arch_registers_init(registers_t *registers, void *stack, void *start, int userspace) {
 	// reset most registers
-	memset(context, 0, sizeof(acontext_t));
+	memset(registers, 0, sizeof(registers_t));
 
 	int flags    = userspace ? 0x202 : 0x002;
 	int code_seg = userspace ? 0x1b  : 0x08;
 	int data_seg = userspace ? 0x23  : 0x10;
 
-	context->frame.flags = flags;
-	context->frame.rsp   = (uintptr_t)stack;
-	context->frame.rip   = (uintptr_t)start;
-	context->frame.cs    = code_seg;
-	context->frame.ss    = data_seg;
-	context->frame.ds    = data_seg;
-	context->frame.es    = data_seg;
-	context->frame.gs    = data_seg;
-	context->frame.fs    = data_seg;
+	registers->flags = flags;
+	registers->rsp   = (uintptr_t)stack;
+	registers->rip   = (uintptr_t)start;
+	registers->cs    = code_seg;
+	registers->ss    = data_seg;
+	registers->ds    = data_seg;
+	registers->es    = data_seg;
+	registers->gs    = data_seg;
+	registers->fs    = data_seg;
 }
 
 int arch_registers_is_userspace(registers_t *registers) {

@@ -12,6 +12,7 @@
 #include <kernel/pit.h>
 #include <kernel/port.h>
 #include <kernel/serial.h>
+#include <kernel/string.h>
 #include <kernel/tss.h>
 #include <sys/shutdown.h>
 #include <stdint.h>
@@ -70,13 +71,13 @@ typedef struct fpu_regs {
 typedef struct acontext {
 	arch_fpu_t fpu;
 	registers_t frame;
-	uint64_t tls_base;
+	void *tls_base;
 } __attribute__((aligned(16))) acontext_t;
 
 // arch specific functions
 void arch_set_kernel_stack(uintptr_t stack);
 void arch_set_tls(void *tls);
-int arch_registers_save(regusters_t *registers);
+int arch_registers_save(registers_t *registers);
 void arch_registers_load(registers_t *registers);
 void arch_registers_dump(registers_t *registers);
 void arch_registers_stacktrace(registers_t *registers);
@@ -88,23 +89,23 @@ static inline uintptr_t arch_fault_get_addr(registers_t *fault) {
 long arch_fault_get_prot(registers_t *fault);
 
 static inline void arch_fpu_save(arch_fpu_t *fpu) {
-	asm volatile("fxsave64 %0" : "=m" (fpu));
+	asm volatile("fxsave64 %0" : "=m" (*fpu));
 }
 static inline void arch_fpu_load(arch_fpu_t *fpu) {
-	asm volatile("fxrstor64 %0" : : "m" (fpu));
+	asm volatile("fxrstor64 %0" : : "m" (*fpu));
 }
 
-void arch_fpu_init(arch_fpu_t *fpu) {
+static inline void arch_fpu_init(arch_fpu_t *fpu) {
 	memset(fpu, 0, sizeof(arch_fpu_t));
 	fpu->fcw     = 0x037f;
 	fpu->mxcsr   = 0x1F80;
 }
 
-void arch_fpu_enable(void) {
+static inline void arch_fpu_enable(void) {
 	asm volatile("clts");
 }
 
-void arch_fpu_disable(void) {
+static inline void arch_fpu_disable(void) {
 	asm volatile("movq %%cr0, %%rax\n"
 			"or $0x8, %%rax\n"
 			"movq %%rax, %%cr0" : : : "rax", "memory");

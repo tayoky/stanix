@@ -1373,6 +1373,7 @@ pid_t sys_gettid(void) {
 }
 
 int sys_settls(void *tls) {
+	get_current_task()->context.tls_base = tls;
 	arch_set_tls(tls);
 	return 0;
 }

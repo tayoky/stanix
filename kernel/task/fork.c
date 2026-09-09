@@ -19,7 +19,7 @@ pid_t fork(void) {
 	registers_t *new_registers = kmalloc(sizeof(registers_t));
 	if (!new_registers) return -ENOMEM;
 	*new_registers = *get_current_task()->syscall_frame;
-	RET_REG(new_registers->frame) = 0;
+	RET_REG(*new_registers) = 0;
 
 	process_t *parent = get_current_proc();
 	process_t *child = proc_new(fork_trampoline, new_registers);

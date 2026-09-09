@@ -59,9 +59,11 @@ int fpu_fault_handler(registers_t *frame) {
 	(void)frame;
 	if (!(task_get_current_flags() & TASK_FLAG_FPU)) {
 		// we need to enable the fpu (lazy fpu init)
+		preempt_disable();
 		atomic_fetch_or(&get_current_task()->flags, TASK_FLAG_FPU);
 		arch_fpu_enable();
 		arch_fpu_load(&get_current_task()->context.fpu);
+		preempt_enable();
 		return 1;
 	}
 	return 0;

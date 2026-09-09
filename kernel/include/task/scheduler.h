@@ -86,7 +86,7 @@ task_t *new_kernel_task(void (*func)(void *arg), void *arg);
  */
 task_t *task_new(struct process *proc, void (*func)(void *arg), void *arg);
 
-int task_get_current_flags(void) {
+static inline int task_get_current_flags(void) {
 	return atomic_load(&get_current_task()->flags);
 }
 

@@ -370,5 +370,5 @@ void signal_restore_handler(registers_t *registers) {
 	if (task_get_current_flags() & TASK_FLAG_FPU) {
 		arch_fpu_load(&old_context->fpu);
 	}
-	arch_registers_load(old_context);
+	arch_registers_load(&old_context->frame);
 }

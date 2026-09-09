@@ -239,14 +239,14 @@ task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 	}
 
 	// also inherit fpu state if possible
-	if (get_current_task() && (atomic_load(&get_current_task()->flags) & TASK_FLAG_FPU)) {
+	if (get_current_task() && (task_get_current_flags() & TASK_FLAG_FPU)) {
 		arch_fpu_save(&task->context.fpu);
 	} else {
 		arch_fpu_init(&task->context.fpu);
 	}
 
 	// setup registers
-	arch_registers_init(&task->context.fault, (void*)(KSTACK_TOP(task->kernel_stack) - 8), task_new_trampoline, 0);
+	arch_registers_init(&task->context.frame, (void*)(KSTACK_TOP(task->kernel_stack) - 8), task_new_trampoline, 0);
 	ARG1_REG(task->context.frame) = (uintptr_t)func;
 	ARG2_REG(task->context.frame) = (uintptr_t)arg;
 
@@ -311,7 +311,7 @@ void yield(int preempt) {
 	if (task_get_current_flags() & TASK_FLAG_FPU) {
 		arch_fpu_save(&old->context.fpu);
 	}
-	if (arch_registers_save(&old->context.fault)) {
+	if (arch_registers_save(&old->context.frame)) {
 		finish_yield();
 		if (prev_int) enable_interrupt();
 		return;
@@ -337,7 +337,7 @@ void yield(int preempt) {
 			arch_fpu_disable();
 		}
 	}
-	arch_registers(&new->context.fault);
+	arch_registers_load(&new->context.frame);
 }
 
 task_t *get_current_task(void) {

@@ -61,7 +61,7 @@ arch_registers_load:
 	mov r15, [rdi + 8 * 20]
 
 	mov rsp, rdi
-	add rsp, 512 + 8 * 23
+	add rsp, 8 * 23
 
 	mov gs, [rdi + 8 * 0]
 	mov es, [rdi + 8 * 2]
