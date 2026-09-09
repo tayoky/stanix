@@ -5,6 +5,7 @@
 #include <kernel/string.h>
 #include <kernel/sys.h>
 #include <kernel/userspace.h>
+#include <kernel/arch.h>
 #include <kernel/vmm.h>
 #include <elf.h>
 #include <errno.h>
@@ -346,8 +347,9 @@ error:
 	// now jump into the program !!
 	kdebugf("exec entry : %p\n", header.e_entry);
 
-	jump_userspace((void *)(header.e_entry + base), sp, 0, 0, 0, 0);
-
+	acontext_t context;
+	arch_context_init(&context, sp, (void *)(header.e_entry + base), 1);
+	arch_load_context(&context);
 	return 0;
 }
 
