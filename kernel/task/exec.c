@@ -347,8 +347,13 @@ error:
 	// now jump into the program !!
 	kdebugf("exec entry : %p\n", header.e_entry);
 
-	acontext_t context;
-	arch_context_init(&context, sp, (void *)(header.e_entry + base), 1);
+	// reset the fpu to avoid leaking the old state
+	arch_fpu_t new_fpu;
+	arch_fpu_init(&new_fpu);
+	arch_fpu_load(&new_fpu);
+
+	acontext_t context = {0};
+	arch_registers_init(&context.fault, sp, (void *)(header.e_entry + base), 1);
 	arch_load_context(&context);
 	return 0;
 }

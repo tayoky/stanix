@@ -65,31 +65,58 @@ typedef struct fpu_regs {
 	stmm_t stmms[8];
 	xmm_t xmms[16];
 	uint8_t reserved2[96];
-} __attribute__((packed, aligned(16))) fpu_regs_t;
+} __attribute__((packed, aligned(16))) arch_fpu_t;
 
 typedef struct acontext {
-	fpu_regs_t fpu;
+	arch_fpu_t fpu;
 	registers_t frame;
 	uint64_t fs_base;
 } __attribute__((aligned(16))) acontext_t;
 
 // arch specific functions
 void arch_set_kernel_stack(uintptr_t stack);
-int arch_save_context(acontext_t *context);
-void arch_load_context(acontext_t *context);
+int arch_save_context(acontext_t *acontext);
+void arch_load_context(acontext_t *acontext);
 void arch_registers_dump(registers_t *registers);
 void arch_registers_stacktrace(registers_t *registers);
-uintptr_t arch_fault_get_addr(registers_t *fault);
+
+static inline uintptr_t arch_fault_get_addr(registers_t *fault) {
+	return fault->cr2;
+}
+
 long arch_fault_get_prot(registers_t *fault);
 
+static inline void arch_fpu_save(arch_fpu_t *fpu) {
+	asm volatile("fxsave64 %0" : "=m" (fpu));
+}
+static inline void arch_fpu_load(arch_fpu_t *fpu) {
+	asm volatile("fxrstor64 %0" : : "m" (fpu));
+}
+
+void arch_fpu_init(arch_fpu_t *fpu) {
+	memset(fpu, 0, sizeof(arch_fpu_t));
+	fpu->fcw     = 0x037f;
+	fpu->mxcsr   = 0x1F80;
+}
+
+void arch_fpu_enable(void) {
+	asm volatile("clts");
+}
+
+void arch_fpu_disable(void) {
+	asm volatile("movq %%cr0, %%rax\n"
+			"or $0x8, %%rax\n"
+			"movq %%rax, %%cr0" : : : "rax", "memory");
+}
+
 /**
- * @brief initalize an arch context with sane values
- * @param context the context to initalize
- * @param stack_top the top of the stack for this context
- * @param start the start of execution for this context
+ * @brief initalize registers with sane values
+ * @param registers theregisters to initalize
+ * @param stack the top of the stack
+ * @param start the start of execution
  * @param userspace is this context a userspace one
  */
-void arch_context_init(acontext_t *context, void *stack_top, void *start, int userspace);
+void arch_registers_init(registers_t *registers, void *stack, void *start, int userspace);
 
 /**
  * @brief check if a specfied context is in userspace

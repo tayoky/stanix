@@ -35,8 +35,6 @@ arch_save_context:
 	mov [rdi + 512 + 8 * 25], rax
 	mov [rdi + 512 + 8 * 27], ss
 
-	fxsave [rdi]
-
 	;save fs base
 	mov rcx, 0xc0000100
 	rdmsr
@@ -56,8 +54,6 @@ arch_load_context:
 	mov rcx, 0xc0000100
 	wrmsr
 
-	fxrstor [rdi]
-	
 	mov rax, [rdi + 512 + 8 * 4 ]
 	mov cr2, rax
 	mov rax, [rdi + 512 + 8 * 6 ]

@@ -91,17 +91,13 @@ void arch_registers_stacktrace(registers_t *registers) {
 	kprintf("older call\n");
 }
 
-uintptr_t arch_fault_get_addr(registers_t *fault) {
-	return fault->cr2;
-}
-
 long arch_fault_get_prot(registers_t *fault) {
 	if (fault->err_code & 0x10) return MMU_FLAG_EXEC;
 	if (fault->err_code & 0x02) return MMU_FLAG_WRITE;
 	return MMU_FLAG_READ;
 }
 
-void arch_context_init(acontext_t *context, void *stack_top, void *start, int userspace) {
+void arch_registers_init(registers_t *registers, void *stack, void *start, int userspace) {
 	// reset most registers
 	memset(context, 0, sizeof(acontext_t));
 
@@ -110,7 +106,7 @@ void arch_context_init(acontext_t *context, void *stack_top, void *start, int us
 	int data_seg = userspace ? 0x23  : 0x10;
 
 	context->frame.flags = flags;
-	context->frame.rsp   = (uintptr_t)stack_top;
+	context->frame.rsp   = (uintptr_t)stack;
 	context->frame.rip   = (uintptr_t)start;
 	context->frame.cs    = code_seg;
 	context->frame.ss    = data_seg;

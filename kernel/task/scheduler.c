@@ -232,13 +232,16 @@ task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 	spinlock_release(&proc->proc_lock);
 	xarray_set(&tasks_list, task->tid, task);
 
-	// inherit sigmask
+	// inherit sigmask and fpu state
 	if (get_current_task()) {
 		task->sig_mask   = get_current_task()->sig_mask;
+		arch_fpu_save(&task->context.fpu);
+	} else {
+		arch_fpu_init(&task->context.fpu);
 	}
 
 	// setup registers
-	arch_context_init(&task->context, (void*)(KSTACK_TOP(task->kernel_stack) - 8), task_new_trampoline, 0);
+	arch_registers_init(&task->context.fault, (void*)(KSTACK_TOP(task->kernel_stack) - 8), task_new_trampoline, 0);
 	ARG1_REG(task->context.frame) = (uintptr_t)func;
 	ARG2_REG(task->context.frame) = (uintptr_t)arg;
 
@@ -300,6 +303,7 @@ void yield(int preempt) {
 		atomic_fetch_add(&old->voluntary_context_switches, 1);
 	}
 
+	arch_fpu_save(&old->context.fpu);
 	if (arch_save_context(&old->context)) {
 		finish_yield();
 		if (prev_int) enable_interrupt();
@@ -315,6 +319,7 @@ void yield(int preempt) {
 	}
 
 	arch_set_kernel_stack(KSTACK_TOP(new->kernel_stack));
+	arch_fpu_load(&new->context.fpu);
 	arch_load_context(&new->context);
 }
 
