@@ -74,6 +74,8 @@ typedef struct acontext {
 	void *tls_base;
 } __attribute__((aligned(16))) acontext_t;
 
+#if defined(__KERNEL__) || defined(__MODULE__)
+
 // arch specific functions
 void arch_set_kernel_stack(uintptr_t stack);
 void arch_set_tls(void *tls);
@@ -132,6 +134,8 @@ void init_timer(void);
 void init_arch_irq();
 void enable_sse(void);
 int arch_shutdown(int flags);
+#endif
+
 
 #define ARG0_REG(registers) (registers).rax
 #define ARG1_REG(registers) (registers).rdi
