@@ -47,10 +47,10 @@ tinx_select_package () {
 
 tinx_install_dependencies () {
 	for DEP in $BUILD_DEPENDENCIES ; do
-		"$TINX" --build-package install "$DEP"
+		"$TINX" --build-package install "$DEP" || return 1
 	done
 	for DEP in $DEPENDENCIES ; do
-		"$TINX" --host-package install "$DEP"
+		"$TINX" --host-package install "$DEP" || return 1
 	done
 }
 
@@ -89,14 +89,14 @@ tinx_unpack () {
 }
 
 tinx_clone_commit () {
-	if test "$#" != 2 ; then
+	if test "$#" != 3 ; then
 		tinx_error "usage : tinx_clone_commit GIT COMMIT OUT"
 		return 1
 	fi
-	tinx_log "clone $GIT#$COMMIT..."
+	tinx_log "clone $1#$2..."
 	git clone --depth 1 "$1" "$3" || return 1
-	git -C "$3" fetch "$2" || return 1
-	git -C "$3" checkout "$2"
+	git -C "$3" fetch --depth=1 origin "$2" || return 1
+	git -C "$3" checkout --detach  "$2"
 }
 
 tinx_apply_patches () {
@@ -127,7 +127,10 @@ tinx_get_source () {
 		tinx_unpack "$TAR_FILE" "$SOURCE_DIR" || return 1
 	elif test -n "$GIT" ; then
 		GIT_NAME="${GIT##*/}"
-		SOURCE_DIR="$BUILDDIR/tar/$GIT_NAME-$VERSION"
+		SOURCE_DIR="$BUILDDIR/git/$GIT_NAME-$VERSION"
+		if test -d "$SOURCE_DIR" ; then
+			return 0
+		fi
 		tinx_clone_commit "$GIT" "$COMMIT" "$SOURCE_DIR" || return 1
 	elif test -n "$DIR" ; then
 		SOURCE_DIR="$DIR"
@@ -185,14 +188,16 @@ cd "$(dirname "$0")"
 : ${CURL:="curl"}
 : ${PARALLELISM:="$(nproc || echo 1)"}
 : ${DRY_RUN:="no"}
-: ${HOST:=""}
+: ${HOST:="$(uname -m)-stanix"}
+: ${CFLAGS:="-Wall -Wextra -O2"}
+: "${TMPDIR:=${TMP:=${TEMP:-/tmp}}}"
 
 # add build tools to env
 export PATH="$BUILD_PREFIX/bin:/$PATH"
 
 export CONFIG_SUB="$PWD/config.sub"
 
-export BUILDDIR SYSROOT BUILD_PREFIX
+export BUILDDIR SYSROOT BUILD_PREFIX CFLAGS CXXFLAGS="$CFLAGS"
 export GNU_MIRROR CURL
 export PARALLELISM DRY_RUN
 export HOST
