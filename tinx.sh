@@ -125,6 +125,7 @@ tinx_get_source () {
 
 tinx_configure () {
 	tinx_install_dependencies || return 1
+	test -z "$SOURCE" && return 0
 	tinx_get_source "$SOURCE" || return 1
 	BUILD_DIR="$BUILDDIR/$PACKAGE_TYPE-packages/$PACKAGE"
 	if (! test -f "$BUILD_DIR/.tinx-configured") || test "$RECONFIGURE" = "yes" ; then
@@ -138,6 +139,7 @@ tinx_configure () {
 
 tinx_build () {
 	tinx_configure || return 1
+	test -z "$SOURCE" && return 0
 	if (! test -f "$BUILD_DIR/.tinx-built") || test "$REBUILD" = "yes" ; then
 		tinx_log "build $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
@@ -148,6 +150,7 @@ tinx_build () {
 
 tinx_install () {
 	tinx_build || return 1
+	test -z "$SOURCE" && return 0
 	if (! test -f "$BUILD_DIR/.tinx-installed") || test "$REINSTALL" = "yes" ; then
 		tinx_log "install $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
@@ -238,7 +241,7 @@ shift
 
 if test -z "$1" ; then
 	# by default build the base package
-	set -- "base"
+	set -- "stanix-base"
 fi
 
 for PACKAGE in "$@" ; do
