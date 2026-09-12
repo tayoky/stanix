@@ -1,0 +1,4 @@
+VERSION="0.0.1"
+SOURCE="tvi"
+BUILD_DEPENDENCIES="tlibc"
+. "$TOP/scripts/tconf-package.sh"
