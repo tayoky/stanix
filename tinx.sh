@@ -88,6 +88,17 @@ tinx_unpack () {
 	return 0
 }
 
+tinx_clone_commit () {
+	if test "$#" != 2 ; then
+		tinx_error "usage : tinx_clone_commit GIT COMMIT OUT"
+		return 1
+	fi
+	tinx_log "clone $GIT#$COMMIT..."
+	git clone --depth 1 "$1" "$3" || return 1
+	git -C "$3" fetch "$2" || return 1
+	git -C "$3" checkout "$2"
+}
+
 tinx_apply_patches () {
 	if test -f "sources/$1/patches"/*.patch ; then
 		for PATCH in "$TOP/sources/$1/patches"/*.patch ; do
@@ -114,10 +125,14 @@ tinx_get_source () {
 			tinx_download "$TAR" "$TAR_FILE" || return 1
 		fi
 		tinx_unpack "$TAR_FILE" "$SOURCE_DIR" || return 1
+	elif test -n "$GIT" ; then
+		GIT_NAME="${GIT##*/}"
+		SOURCE_DIR="$BUILDDIR/tar/$GIT_NAME-$VERSION"
+		tinx_clone_commit "$GIT" "$COMMIT" "$SOURCE_DIR" || return 1
 	elif test -n "$DIR" ; then
 		SOURCE_DIR="$DIR"
 	else
-		tinx_error "no TAR or DIR specified for source $1"
+		tinx_error "no TAR GIT or DIR specified for source $1"
 	fi
 	tinx_apply_patches "$1" || return 1
 	prepare
@@ -166,6 +181,7 @@ cd "$(dirname "$0")"
 : ${SYSROOT:="$BUILDDIR/sysroot"}
 : ${BUILD_PREFIX:="$BUILDDIR/build-env"}
 : ${GNU_MIRROR:="https://ftp.gnu.org"}
+: ${STANIX_MIRROR:="https://github.com/tayoky"}
 : ${CURL:="curl"}
 : ${PARALLELISM:="$(nproc || echo 1)"}
 : ${DRY_RUN:="no"}

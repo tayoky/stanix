@@ -1,7 +1,7 @@
 VERSION=2.44
 SOURCE=binutils
 WEBSITE=https://www.gnu.org/software/binutils/
-DEPENDENCIES="base"
+DEPENDENCIES="stanix-base"
 
 configure() {
 	"$SOURCE_DIR/configure" --host="$HOST" \
