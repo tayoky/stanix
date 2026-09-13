@@ -1,0 +1,9 @@
+diff --git a/.gitignore b/.gitignore
+index 1aaf1a3..03345a9 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -9,4 +9,3 @@
+ Debug/
+ Release/
+ Build/
+-doomgeneric
