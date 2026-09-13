@@ -6,5 +6,5 @@ PREFIX="/usr"
 
 install () {
 	# install in /bin
-	make install BUILDDIR="$BUILD_DIR" DESTDIR="$DESTDIR" BINDIR="/bin"
+	make -C "$SOURCE_DIR" install BUILDDIR="$BUILD_DIR" DESTDIR="$DESTDIR" BINDIR="/bin"
 }
