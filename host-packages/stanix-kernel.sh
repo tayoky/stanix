@@ -1,8 +1,6 @@
-. "$TOP/host-packages/stanix-base.sh"
 SOURCE="stanix-kernel"
 BUILD_DEPENDENCIES="binutils gcc libgcc"
 DEPENDENCIES="tlibc stanix-kernel-headers"
-PREFIX=/usr
 . "$TOP/scripts/stanix-package.sh"
 
 build () {

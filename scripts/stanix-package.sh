@@ -1,4 +1,9 @@
 # helper script to build stanix package
+WEBSITE="https://tayoky.github.io/stanix"
+VERSION="0.2.1-indev"
+
+# first party packages go into /usr
+PREFIX="/usr"
 
 configure () {
 	true

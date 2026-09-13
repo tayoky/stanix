@@ -1,19 +1,17 @@
-VERSION="0.2.1-indev"
+SOURCE="stanix-base"
 DEPENDENCIES="stanix-kernel tlibc tash tutils tvi stanix-modules stanix-libraries stanix-userspace"
+. "$TOP/host-packages/stanix-base.sh"
 
-# first party packages go into /usr
-PREFIX="/usr"
+configure () {
+	true
+}
 
-if test "$PACKAGE" = "stanix-base" ; then
-	configure () {
-		true
-	}
+build () {
+	true
+}
 
-	build () {
-		true
-	}
-
-	install () {
-		true
-	}
-fi
+install () {
+	# install base sysroot
+	mkdir -p "$DESTDIR"
+	cp -Pf -rp "$SOURCE_DIR"/* "$DESTDIR/"
+}
