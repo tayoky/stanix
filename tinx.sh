@@ -192,12 +192,14 @@ cd "$(dirname "$0")"
 : ${CFLAGS:="-Wall -Wextra -O2"}
 : "${TMPDIR:=${TMP:=${TEMP:-/tmp}}}"
 
+PREFIX="/usr/local"
+
 # add build tools to env
 export PATH="$BUILD_PREFIX/bin:/$PATH"
 
 export CONFIG_SUB="$PWD/config.sub"
 
-export BUILDDIR SYSROOT BUILD_PREFIX CFLAGS CXXFLAGS="$CFLAGS"
+export BUILDDIR SYSROOT BUILD_PREFIX CFLAGS CXXFLAGS="$CFLAGS" PREFIX
 export GNU_MIRROR CURL
 export PARALLELISM DRY_RUN
 export HOST
