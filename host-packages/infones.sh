@@ -1,4 +1,5 @@
 SOURCE="infones"
+BUILD_DEPENDENCIES="cmake"
 DEPENDENCIES="sdl12-compat"
 
 configure () {

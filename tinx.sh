@@ -27,6 +27,7 @@ tinx_setup_environ () {
 }
 
 tinx_select_package () {
+	VERSION="unknown"
 	configure () {
 		true
 	}
