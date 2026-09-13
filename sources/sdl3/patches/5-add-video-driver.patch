@@ -1,0 +1,1051 @@
+diff --git a/src/video/SDL_sysvideo.h b/src/video/SDL_sysvideo.h
+index 1fdc5bf..89594e9 100644
+--- a/src/video/SDL_sysvideo.h
++++ b/src/video/SDL_sysvideo.h
+@@ -533,6 +533,7 @@ extern VideoBootStrap PS2_bootstrap;
+ extern VideoBootStrap PSP_bootstrap;
+ extern VideoBootStrap VITA_bootstrap;
+ extern VideoBootStrap RISCOS_bootstrap;
++extern VideoBootStrap STANIX_bootstrap;
+ extern VideoBootStrap N3DS_bootstrap;
+ extern VideoBootStrap NGAGE_bootstrap;
+ extern VideoBootStrap RPI_bootstrap;
+diff --git a/src/video/SDL_video.c b/src/video/SDL_video.c
+index 48ed85a..6d65f0e 100644
+--- a/src/video/SDL_video.c
++++ b/src/video/SDL_video.c
+@@ -137,6 +137,9 @@ static VideoBootStrap *bootstrap[] = {
+ #ifdef SDL_VIDEO_DRIVER_RISCOS
+     &RISCOS_bootstrap,
+ #endif
++#ifdef SDL_VIDEO_DRIVER_STANIX
++    &STANIX_bootstrap,
++#endif
+ #ifdef SDL_VIDEO_DRIVER_RPI
+     &RPI_bootstrap,
+ #endif
+diff --git a/src/video/stanix/SDL_stanixevents.c b/src/video/stanix/SDL_stanixevents.c
+new file mode 100644
+index 0000000..20e005a
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixevents.c
+@@ -0,0 +1,444 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++#include "SDL_internal.h"
++
++#ifdef SDL_VIDEO_DRIVER_STANIX
++
++#include "../../events/SDL_events_c.h"
++
++#include "SDL_stanixvideo.h"
++#include "SDL_stanixevents.h"
++#include "SDL_stanixwindow.h"
++#include <input.h>
++#include <twm.h>
++
++static SDL_Keycode translate_keycode(long stanix_key) {
++    switch (stanix_key) {
++    case INPUT_KEY_ESC:
++		return SDLK_ESCAPE;
++	case INPUT_KEY_TAB:
++		return SDLK_TAB;
++	case INPUT_KEY_BACKSPACE:
++		return SDLK_BACKSPACE;
++	case INPUT_KEY_ENTER:
++		return SDLK_RETURN;
++	case INPUT_KEY_DELETE:
++		return SDLK_DELETE;
++	case INPUT_KEY_INSERT:
++		return SDLK_INSERT;
++	case INPUT_KEY_HOME:
++		return SDLK_HOME;
++	case INPUT_KEY_END:
++		return SDLK_END;
++	case INPUT_KEY_ARROW_UP:
++		return SDLK_UP;
++	case INPUT_KEY_ARROW_DOWN:
++		return SDLK_DOWN;
++	case INPUT_KEY_ARROW_LEFT:
++		return SDLK_LEFT;
++	case INPUT_KEY_ARROW_RIGHT:
++		return SDLK_RIGHT;
++	case INPUT_KEY_PAGE_UP:
++		return SDLK_PAGEUP;
++	case INPUT_KEY_PAGE_DOWN:
++		return SDLK_PAGEDOWN;
++	case INPUT_KEY_LSHIFT:
++		return SDLK_LSHIFT;
++	case INPUT_KEY_RSHIFT:
++		return SDLK_RSHIFT;
++	case INPUT_KEY_LCTRL:
++		return SDLK_LCTRL;
++	case INPUT_KEY_RCTRL:
++		return SDLK_RCTRL;
++	case INPUT_KEY_LALT:
++		return SDLK_LALT;
++	case INPUT_KEY_RALT:
++	case INPUT_KEY_ALTGR:
++		return SDLK_RALT;
++	case INPUT_KEY_NUM_LOCK:
++		return SDLK_NUMLOCKCLEAR;
++	case INPUT_KEY_SCROLL_LOCK:
++		return SDLK_SCROLLLOCK;
++	case INPUT_KEY_CAPS_LOCK:
++		return SDLK_CAPSLOCK;
++	case INPUT_KEY_F1:
++		return SDLK_F1;
++	case INPUT_KEY_F2:
++		return SDLK_F2;
++	case INPUT_KEY_F3:
++		return SDLK_F3;
++	case INPUT_KEY_F4:
++		return SDLK_F4;
++	case INPUT_KEY_F5:
++		return SDLK_F5;
++	case INPUT_KEY_F6:
++		return SDLK_F6;
++	case INPUT_KEY_F7:
++		return SDLK_F7;
++	case INPUT_KEY_F8:
++		return SDLK_F8;
++	case INPUT_KEY_F9:
++		return SDLK_F9;
++	case INPUT_KEY_F10:
++		return SDLK_F10;
++	case INPUT_KEY_F11:
++		return SDLK_F11;
++	case INPUT_KEY_F12:
++		return SDLK_F12;
++	case INPUT_KEY_GUI:
++		return SDLK_LGUI;
++	case INPUT_KEY_VOLUME_UP:
++		return SDLK_VOLUMEUP;
++	case INPUT_KEY_VOLUME_DOWN:
++		return SDLK_VOLUMEDOWN;
++    default:
++        return stanix_key;
++    }
++}
++
++
++static SDL_Scancode translate_scancode(long stanix_scancode) {
++    switch (stanix_scancode) {
++    case 0x01:
++        return SDL_SCANCODE_ESCAPE;
++    case 0x02:
++        return SDL_SCANCODE_1;
++    case 0x03:
++        return SDL_SCANCODE_2;
++    case 0x04:
++        return SDL_SCANCODE_3;
++    case 0x05:
++        return SDL_SCANCODE_4;
++    case 0x06:
++        return SDL_SCANCODE_5;
++    case 0x07:
++        return SDL_SCANCODE_6;
++    case 0x08:
++        return SDL_SCANCODE_7;
++    case 0x09:
++        return SDL_SCANCODE_8;
++    case 0x0a:
++        return SDL_SCANCODE_9;
++    case 0x0b:
++        return SDL_SCANCODE_0;
++    case 0x0c:
++        return SDL_SCANCODE_MINUS;
++    case 0x0d:
++        return SDL_SCANCODE_EQUALS;
++    case 0x0e:
++        return SDL_SCANCODE_BACKSPACE;
++    case 0x10:
++        return SDL_SCANCODE_Q;
++    case 0x11:
++        return SDL_SCANCODE_W;
++    case 0x12:
++        return SDL_SCANCODE_E;
++    case 0x13:
++        return SDL_SCANCODE_R;
++    case 0x14:
++        return SDL_SCANCODE_T;
++    case 0x15:
++        return SDL_SCANCODE_Y;
++    case 0x16:
++        return SDL_SCANCODE_U;
++    case 0x17:
++        return SDL_SCANCODE_I;
++    case 0x18:
++        return SDL_SCANCODE_O;
++    case 0x19:
++        return SDL_SCANCODE_P;
++    case 0x1a:
++        return SDL_SCANCODE_LEFTBRACKET;
++    case 0x1b:
++        return SDL_SCANCODE_RIGHTBRACKET;
++    case 0x1c:
++        return SDL_SCANCODE_RETURN;
++    case 0x1d:
++        return SDL_SCANCODE_LCTRL;
++    case 0x1e:
++        return SDL_SCANCODE_A;
++    case 0x1f:
++        return SDL_SCANCODE_S;
++    case 0x20:
++        return SDL_SCANCODE_D;
++    case 0x21:
++        return SDL_SCANCODE_F;
++    case 0x22:
++        return SDL_SCANCODE_G;
++    case 0x23:
++        return SDL_SCANCODE_H;
++    case 0x24:
++        return SDL_SCANCODE_J;
++    case 0x25:
++        return SDL_SCANCODE_K;
++    case 0x26:
++        return SDL_SCANCODE_L;
++    case 0x27:
++        return SDL_SCANCODE_SEMICOLON;
++    // no quote/backtick ???
++    case 0x2a:
++        return SDL_SCANCODE_LSHIFT;
++    case 0x2c:
++        return SDL_SCANCODE_Z;
++    case 0x2d:
++        return SDL_SCANCODE_X;
++    case 0x2e:
++        return SDL_SCANCODE_C;
++    case 0x2f:
++        return SDL_SCANCODE_V;
++    case 0x30:
++        return SDL_SCANCODE_B;
++    case 0x31:
++        return SDL_SCANCODE_N;
++    case 0x32:
++        return SDL_SCANCODE_M;
++    case 0x33:
++        return SDL_SCANCODE_COMMA;
++    case 0x34:
++        return SDL_SCANCODE_PERIOD;
++    case 0x35:
++        return SDL_SCANCODE_SLASH;
++    case 0x36:
++        return SDL_SCANCODE_RSHIFT;
++    case 0x37:
++        return SDL_SCANCODE_KP_MULTIPLY;
++    case 0x38:
++        return SDL_SCANCODE_LALT;
++    case 0x39:
++        return SDL_SCANCODE_SPACE;
++    case 0x3a:
++        return SDL_SCANCODE_CAPSLOCK;
++    case 0x3b:
++        return SDL_SCANCODE_F1;
++    case 0x3c:
++        return SDL_SCANCODE_F2;
++    case 0x3d:
++        return SDL_SCANCODE_F3;
++    case 0x3e:
++        return SDL_SCANCODE_F4;
++    case 0x3f:
++        return SDL_SCANCODE_F5;
++    case 0x40:
++        return SDL_SCANCODE_F6;
++    case 0x41:
++        return SDL_SCANCODE_F7;
++    case 0x42:
++        return SDL_SCANCODE_F8;
++    case 0x43:
++        return SDL_SCANCODE_F9;
++    case 0x44:
++        return SDL_SCANCODE_F10;
++    case 0x45:
++        return SDL_SCANCODE_NUMLOCKCLEAR;
++    case 0x46:
++        return SDL_SCANCODE_SCROLLLOCK;
++    case 0x47:
++        return SDL_SCANCODE_KP_7;
++    case 0x48:
++        return SDL_SCANCODE_KP_8;
++    case 0x49:
++        return SDL_SCANCODE_KP_9;
++    case 0x4a:
++        return SDL_SCANCODE_KP_MINUS;
++    case 0x4b:
++        return SDL_SCANCODE_KP_4;
++    case 0x4c:
++        return SDL_SCANCODE_KP_5;
++    case 0x4d:
++        return SDL_SCANCODE_KP_6;
++    case 0x4e:
++        return SDL_SCANCODE_KP_PLUS;
++    case 0x4f:
++        return SDL_SCANCODE_KP_1;
++    case 0x50:
++        return SDL_SCANCODE_KP_2;
++    case 0x51:
++        return SDL_SCANCODE_KP_3;
++    case 0x52:
++        return SDL_SCANCODE_KP_0;
++    case 0x53:
++        return SDL_SCANCODE_KP_PERIOD;
++    case 0x57:
++        return SDL_SCANCODE_F11;
++    case 0x58:
++        return SDL_SCANCODE_F12;
++
++    // extended
++    case 0x9c:
++        return SDL_SCANCODE_RETURN2;
++    case 0x9d:
++        return SDL_SCANCODE_RCTRL;
++    case 0xae:
++        return SDL_SCANCODE_VOLUMEDOWN;
++    case 0xb0:
++        return SDL_SCANCODE_VOLUMEUP;
++    case 0xb8:
++        return SDL_SCANCODE_RALT;
++    case 0xc7:
++        return SDL_SCANCODE_HOME;
++    case 0xc8:
++        return SDL_SCANCODE_UP;
++    case 0xc9:
++        return SDL_SCANCODE_PAGEUP;
++    case 0xcb:
++        return SDL_SCANCODE_LEFT;
++    case 0xcd:
++        return SDL_SCANCODE_RIGHT;
++    case 0xcf:
++        return SDL_SCANCODE_END;
++    case 0xd0:
++        return SDL_SCANCODE_DOWN;
++    case 0xd1:
++        return SDL_SCANCODE_PAGEDOWN;
++    case 0xd2:
++        return SDL_SCANCODE_INSERT;
++    case 0xd3:
++        return SDL_SCANCODE_DELETE;
++    case 0xdb:
++        return SDL_SCANCODE_LGUI;
++    case 0xdc:
++        return SDL_SCANCODE_RGUI;
++    default:
++        return SDL_SCANCODE_UNKNOWN;
++    }
++}
++
++static uint8_t translate_mouse_button(long stanix_button) {
++    switch (stanix_button) {
++    case INPUT_KEY_MOUSE_LEFT:
++    default:
++        return SDL_BUTTON_LEFT;
++    case INPUT_KEY_MOUSE_MIDDLE:
++        return SDL_BUTTON_MIDDLE;
++    case INPUT_KEY_MOUSE_RIGHT:
++        return SDL_BUTTON_RIGHT;
++    }
++}
++
++static bool is_mouse_key(long key) {
++    if (key == INPUT_KEY_MOUSE_LEFT
++        || key == INPUT_KEY_MOUSE_MIDDLE
++        || key == INPUT_KEY_MOUSE_RIGHT) {
++        return true;
++    }
++    return false;
++}
++
++static SDL_Window *get_window(twm_window_t twm_window) {
++    int count;
++    SDL_Window **windows = SDL_GetWindows(&count);
++    for (int i=0; i<count; i++) {
++        SDL_Window *window = windows[i];
++        SDL_WindowData *data = (struct SDL_WindowData *)window->internal;
++        if (data->window == twm_window) {
++            return window;
++        }
++    }
++    return NULL;
++}
++
++static void handle_input_event(twm_event_input_t *event) {
++    switch (event->type) {
++    case TWM_INPUT_KEY:
++        if (is_mouse_key(event->key.key)) {
++            SDL_Mouse *mouse = SDL_GetMouse();
++            SDL_SendMouseButton(0, mouse->focus, SDL_DEFAULT_MOUSE_ID, translate_mouse_button(event->key.key), event->key.flags & TWM_INPUT_PRESS);
++        } else {
++            // TODO : focus the correct window
++            SDL_SendKeyboardKeyAndKeycode(0, SDL_DEFAULT_KEYBOARD_ID, event->key.scancode, translate_scancode(event->key.scancode), translate_keycode(event->key.key), event->key.flags & TWM_INPUT_PRESS);
++            if (event->key.flags & TWM_INPUT_PRESS && event->key.key < INPUT_KEY_FIRST) {
++	            char buf[MB_CUR_MAX + 1];
++	            wctomb(buf, event->key.key);
++                SDL_SendKeyboardText(buf);
++            }
++        }
++        break;
++    case TWM_INPUT_MOVE:
++        //SDL_SendMouseMotion(0, mouse->focus, SDL_DEFAULT_MOUSE_ID, false, (float)x, (float)y);
++        break;
++    }
++}
++
++static void handle_window_event(twm_event_window_t *event) {
++    SDL_Window *window = get_window(event->window);
++    if (!window) return;
++
++    SDL_EventType type = 0;
++    switch (event->base.type) {
++    case TWM_EVENT_WINDOW_CLOSED:
++        type = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
++        break;
++    case TWM_EVENT_WINDOW_RESIZED:
++        type = SDL_EVENT_WINDOW_RESIZED;
++        // TODO : send new size
++        break;
++    case TWM_EVENT_WINDOW_MAXIMIZED:
++        type = SDL_EVENT_WINDOW_MAXIMIZED;
++        break;
++    case TWM_EVENT_WINDOW_MINIMIZED:
++        type = SDL_EVENT_WINDOW_MINIMIZED;
++        break;
++    case TWM_EVENT_WINDOW_UNMAXIMIZED:
++    case TWM_EVENT_WINDOW_RESTORED:
++        type = SDL_EVENT_WINDOW_RESTORED;
++        break;
++    }
++
++    SDL_SendWindowEvent(window, type, event->a, event->b);
++}
++
++void STANIX_PumpEvents(SDL_VideoDevice *_this)
++{
++    twm_event_t *event;
++    while ((event = twm_peek_event())) {
++        switch (event->type) {
++        case TWM_EVENT_INPUT:
++            handle_input_event((twm_event_input_t*)event);
++            break;
++        case TWM_EVENT_WINDOW_CLOSED:
++        case TWM_EVENT_WINDOW_RESIZED:
++        case TWM_EVENT_WINDOW_MAXIMIZED:
++        case TWM_EVENT_WINDOW_UNMAXIMIZED:
++        case TWM_EVENT_WINDOW_MINIMIZED:
++        case TWM_EVENT_WINDOW_RESTORED:
++            handle_window_event((twm_event_window_t*)event);
++            break;
++        case TWM_EVENT_WINDOW_FOCUS:;
++            twm_event_window_t *window_event = (twm_event_window_t*)event;
++            SDL_Window *window = get_window(window_event->window);
++            if (!window) break;
++            SDL_SendWindowEvent(window, SDL_EVENT_WINDOW_FOCUS_GAINED, 0, 0);
++            SDL_SetMouseFocus(window);
++            SDL_SetKeyboardFocus(window);
++            break;
++        case TWM_EVENT_WINDOW_UNFOCUS:
++            window_event = (twm_event_window_t*)event;
++            window = get_window(window_event->window);
++            SDL_SendWindowEvent(window, SDL_EVENT_WINDOW_FOCUS_LOST, 0, 0);
++            SDL_SetMouseFocus(NULL);
++            SDL_SetKeyboardFocus(NULL);
++            break;
++        }
++        free(event);
++    }
++}
++
++#endif // SDL_VIDEO_DRIVER_STANIX
+diff --git a/src/video/stanix/SDL_stanixevents.h b/src/video/stanix/SDL_stanixevents.h
+new file mode 100644
+index 0000000..441ac5a
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixevents.h
+@@ -0,0 +1,28 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++#include "SDL_internal.h"
++
++#ifndef SDL_stanixevents_h_
++#define SDL_stanixevents_h_
++
++extern void STANIX_PumpEvents(SDL_VideoDevice *_this);
++
++#endif // SDL_stanixevents_h_
+diff --git a/src/video/stanix/SDL_stanixframebuffer.c b/src/video/stanix/SDL_stanixframebuffer.c
+new file mode 100644
+index 0000000..6f42fee
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixframebuffer.c
+@@ -0,0 +1,82 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++#include "SDL_internal.h"
++
++#ifdef SDL_VIDEO_DRIVER_STANIX
++
++#include "../SDL_sysvideo.h"
++#include "SDL_stanixframebuffer.h"
++#include "SDL_stanixvideo.h"
++#include "SDL_stanixwindow.h"
++#include <unistd.h>
++#include <sys/mman.h>
++#include <twm.h>
++
++bool STANIX_CreateWindowFramebuffer(SDL_VideoDevice *_this, SDL_Window *window, SDL_PixelFormat *format, void **pixels, int *pitch)
++{
++    SDL_WindowData *data = window->internal;
++    const SDL_DisplayMode *mode;
++
++    // destroy any already created framebuffer
++    STANIX_DestroyWindowFramebuffer(_this, window);
++
++    int fd;
++    if (twm_get_window_fb(data->window, &fd, &data->fb_info) < 0) {
++        SDL_SetError("Failed to fetch framebuffer");
++        return false;
++    }
++
++    data->framebuffer = mmap(NULL, data->fb_info.pitch * data->fb_info.height, PROT_WRITE, MAP_SHARED, fd, 0);
++    data->backbuffer  = SDL_malloc(data->fb_info.pitch * data->fb_info.height);
++    close(fd);
++
++    mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(window));
++    *format = mode->format;
++    *pixels = data->backbuffer;
++    *pitch = data->fb_info.pitch;
++
++    return true;
++}
++
++bool STANIX_UpdateWindowFramebuffer(SDL_VideoDevice *_this, SDL_Window *window, const SDL_Rect *rects, int numrects)
++{
++    SDL_WindowData *data = window->internal;
++    // TODO : respect rects
++    (void)rects;
++    (void)numrects;
++    memcpy(data->framebuffer, data->backbuffer, data->fb_info.pitch * data->fb_info.height);
++    return twm_redraw_window(data->window, 0, 0, TWM_WHOLE_WIDTH, TWM_WHOLE_HEIGHT) >= 0;
++}
++
++void STANIX_DestroyWindowFramebuffer(SDL_VideoDevice *_this, SDL_Window *window)
++{
++    SDL_WindowData *data = window->internal;
++    if (data->framebuffer) {
++        munmap(data->framebuffer, data->fb_info.pitch * data->fb_info.height);
++        data->framebuffer = NULL;
++    }
++    if (data->backbuffer) {
++        free(data->backbuffer);
++        data->backbuffer = NULL;
++    }
++}
++
++#endif // SDL_VIDEO_DRIVER_STANIX
+diff --git a/src/video/stanix/SDL_stanixframebuffer.h b/src/video/stanix/SDL_stanixframebuffer.h
+new file mode 100644
+index 0000000..a157411
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixframebuffer.h
+@@ -0,0 +1,31 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++
++#ifndef SDL_stanixframebuffer_h_
++#define SDL_stanixframebuffer_h_
++
++#include "SDL_internal.h"
++
++extern bool STANIX_CreateWindowFramebuffer(SDL_VideoDevice *_this, SDL_Window *window, SDL_PixelFormat *format, void **pixels, int *pitch);
++extern bool STANIX_UpdateWindowFramebuffer(SDL_VideoDevice *_this, SDL_Window *window, const SDL_Rect *rects, int numrects);
++extern void STANIX_DestroyWindowFramebuffer(SDL_VideoDevice *_this, SDL_Window *window);
++
++#endif // SDL_stanixframebuffer_h_
+diff --git a/src/video/stanix/SDL_stanixmodes.c b/src/video/stanix/SDL_stanixmodes.c
+new file mode 100644
+index 0000000..f351e03
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixmodes.c
+@@ -0,0 +1,59 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++#include "SDL_internal.h"
++
++#ifdef SDL_VIDEO_DRIVER_STANIX
++
++#include "../SDL_sysvideo.h"
++#include "../../events/SDL_mouse_c.h"
++
++#include "SDL_stanixvideo.h"
++#include "SDL_stanixmodes.h"
++
++#include <twm.h>
++
++bool STANIX_InitModes(SDL_VideoDevice *_this)
++{
++    // TODO : remove this hack
++    SDL_DisplayMode mode = {
++		.format = SDL_PIXELFORMAT_XRGB8888,
++		.w = 1000,
++		.h = 800,
++		.refresh_rate = 60,
++	};
++
++    if (SDL_AddBasicVideoDisplay(&mode) == 0) {
++        return false;
++    }
++    return true;
++}
++
++bool STANIX_GetDisplayModes(SDL_VideoDevice *_this, SDL_VideoDisplay *display)
++{
++    return true;
++}
++
++bool STANIX_SetDisplayMode(SDL_VideoDevice *_this, SDL_VideoDisplay *display, SDL_DisplayMode *mode)
++{
++    return true;
++}
++
++#endif // SDL_VIDEO_DRIVER_STANIX
+diff --git a/src/video/stanix/SDL_stanixmodes.h b/src/video/stanix/SDL_stanixmodes.h
+new file mode 100644
+index 0000000..b7aa06e
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixmodes.h
+@@ -0,0 +1,30 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++#include "SDL_internal.h"
++
++#ifndef SDL_stanixmodes_h_
++#define SDL_stanixmodes_h_
++
++extern bool STANIX_InitModes(SDL_VideoDevice *_this);
++extern bool STANIX_GetDisplayModes(SDL_VideoDevice *_this, SDL_VideoDisplay *display);
++extern bool STANIX_SetDisplayMode(SDL_VideoDevice *_this, SDL_VideoDisplay *display, SDL_DisplayMode *mode);
++
++#endif // SDL_stanixmodes_h_
+diff --git a/src/video/stanix/SDL_stanixvideo.c b/src/video/stanix/SDL_stanixvideo.c
+new file mode 100644
+index 0000000..2824e20
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixvideo.c
+@@ -0,0 +1,117 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++#include "SDL_internal.h"
++
++#ifdef SDL_VIDEO_DRIVER_STANIX
++
++#include <unistd.h> // For getpid() and readlink()
++
++#include "../../core/linux/SDL_system_theme.h"
++#include "../../core/linux/SDL_progressbar.h"
++#include "../../events/SDL_keyboard_c.h"
++#include "../../events/SDL_mouse_c.h"
++#include "../SDL_pixels_c.h"
++#include "../SDL_sysvideo.h"
++
++#include "SDL_stanixvideo.h"
++#include "SDL_stanixwindow.h"
++#include "SDL_stanixmodes.h"
++#include "SDL_stanixevents.h"
++#include "SDL_stanixframebuffer.h"
++#include "twm.h"
++
++// Initialization/Query functions
++static bool STANIX_VideoInit(SDL_VideoDevice *_this);
++static void STANIX_VideoQuit(SDL_VideoDevice *_this);
++
++static void STANIX_DeleteDevice(SDL_VideoDevice *device)
++{
++    SDL_VideoData *data = device->internal;
++    SDL_free(data);
++    SDL_free(device);
++}
++
++static SDL_VideoDevice *STANIX_CreateDevice(void)
++{
++    SDL_VideoDevice *device;
++    SDL_VideoData *data;
++
++    // Initialize all variables that we clean on shutdown
++    device = (SDL_VideoDevice *)SDL_calloc(1, sizeof(SDL_VideoDevice));
++    if (!device) {
++        return NULL;
++    }
++    data = (struct SDL_VideoData *)SDL_calloc(1, sizeof(SDL_VideoData));
++    if (!data) {
++        SDL_free(device);
++        return NULL;
++    }
++    device->internal  = data;
++    device->VideoInit = STANIX_VideoInit;
++    device->VideoQuit = STANIX_VideoQuit;
++    device->free      = STANIX_DeleteDevice;
++
++    device->PumpEvents         = STANIX_PumpEvents;
++    device->CreateSDLWindow    = STANIX_CreateWindow;
++    device->DestroyWindow      = STANIX_DestroyWindow;
++    device->SetWindowTitle     = STANIX_SetWindowTitle;
++	device->SetWindowPosition  = STANIX_SetWindowPosition;
++	device->SetWindowSize      = STANIX_SetWindowSize;
++	device->SetWindowBordered  = STANIX_SetWindowBordered;
++	device->SetWindowResizable = STANIX_SetWindowResizable;
++    device->CreateWindowFramebuffer  = STANIX_CreateWindowFramebuffer;
++    device->UpdateWindowFramebuffer  = STANIX_UpdateWindowFramebuffer;
++    device->DestroyWindowFramebuffer = STANIX_DestroyWindowFramebuffer;
++
++    return device;
++}
++
++VideoBootStrap STANIX_bootstrap = {
++    "stanix", "SDL Stanix twm video driver",
++    STANIX_CreateDevice,
++    NULL, // no message box
++    false
++};
++
++
++static bool STANIX_VideoInit(SDL_VideoDevice *_this)
++{
++    (void)_this;
++    if (twm_init(NULL) < 0) {
++        SDL_SetError("Failed to connect to the twm server");
++        SDL_LogDebug(SDL_LOG_CATEGORY_VIDEO, "Failed to connect to the twm server");
++        return false;
++    }
++    
++    if (!STANIX_InitModes(_this)) {
++        twm_fini();
++        return false;
++    }
++    return true;
++}
++
++void STANIX_VideoQuit(SDL_VideoDevice *_this)
++{
++    (void)_this;
++    twm_fini();
++}
++
++#endif // SDL_VIDEO_DRIVER_STANIX
+diff --git a/src/video/stanix/SDL_stanixvideo.h b/src/video/stanix/SDL_stanixvideo.h
+new file mode 100644
+index 0000000..b033126
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixvideo.h
+@@ -0,0 +1,40 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam  <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++#include "SDL_internal.h"
++
++#ifndef SDL_stanixvideo_h_
++#define SDL_stanixvideo_h_
++
++#include "../SDL_sysvideo.h"
++#include "../../events/SDL_keymap_c.h"
++
++#include "../../core/linux/SDL_dbus.h"
++#include "../../core/linux/SDL_ime.h"
++#include <twm.h>
++
++// Private display data
++
++struct SDL_VideoData
++{
++    int stub;
++};
++
++#endif // SDL_x11video_h_
+diff --git a/src/video/stanix/SDL_stanixwindow.c b/src/video/stanix/SDL_stanixwindow.c
+new file mode 100644
+index 0000000..2dd1030
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixwindow.c
+@@ -0,0 +1,90 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++#include "SDL_internal.h"
++
++#ifdef SDL_VIDEO_DRIVER_STANIX
++
++#include "../SDL_sysvideo.h"
++#include "../SDL_pixels_c.h"
++#include "../../events/SDL_keyboard_c.h"
++#include "../../events/SDL_mouse_c.h"
++#include "../../events/SDL_events_c.h"
++#include "../../core/unix/SDL_appid.h"
++
++#include "SDL_stanixvideo.h"
++#include "SDL_stanixwindow.h"
++#include <twm.h>
++
++extern bool STANIX_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_PropertiesID create_props)
++{
++    SDL_WindowData *data = (struct SDL_WindowData *)SDL_calloc(1, sizeof(SDL_WindowData));
++    data->window = twm_create_window("sdl window", window->w, window->h, TWM_NULL);
++    if (data->window == TWM_NULL) {
++        SDL_free(data);
++        return false;
++    }
++    window->internal = data;
++
++    // TODO : do various flags here
++    if (window->flags & SDL_WINDOW_BORDERLESS) {
++    }
++    return true;
++}
++
++extern void STANIX_DestroyWindow(SDL_VideoDevice *_this, SDL_Window *window)
++{
++    SDL_WindowData *data = (struct SDL_WindowData *)window->internal;
++    twm_destroy_window(data->window);
++    SDL_free(data);
++    window->internal = NULL;
++}
++
++void STANIX_SetWindowTitle(SDL_VideoDevice *_this, SDL_Window *window)
++{
++    SDL_WindowData *data = (struct SDL_WindowData *)window->internal;
++    twm_set_window_title(data->window, window->title);
++}
++
++bool STANIX_SetWindowPosition(SDL_VideoDevice *_this, SDL_Window *window)
++{
++    SDL_WindowData *data = (struct SDL_WindowData *)window->internal;
++    return twm_window_move(data->window, window->x, window->y) >= 0;
++}
++
++void STANIX_SetWindowSize(SDL_VideoDevice *_this, SDL_Window *window)
++{
++    SDL_WindowData *data = (struct SDL_WindowData *)window->internal;
++    twm_window_resize(data->window, window->w, window->h);
++}
++
++void STANIX_SetWindowBordered(SDL_VideoDevice *_this, SDL_Window *window, bool bordered)
++{
++    SDL_WindowData *data = (struct SDL_WindowData *)window->internal;
++    twm_set_window_attr(data->window, bordered ? TWM_ADD_ATTR : TWM_REMOVE_ATTR, TWM_ATTR_DECORED);
++}
++
++void STANIX_SetWindowResizable(SDL_VideoDevice *_this, SDL_Window *window, bool resizable)
++{
++    SDL_WindowData *data = (struct SDL_WindowData *)window->internal;
++    twm_set_window_attr(data->window, resizable ? TWM_ADD_ATTR : TWM_REMOVE_ATTR, TWM_ATTR_RESIZABLE);
++}
++
++#endif // SDL_VIDEO_DRIVER_STANIX
+diff --git a/src/video/stanix/SDL_stanixwindow.h b/src/video/stanix/SDL_stanixwindow.h
+new file mode 100644
+index 0000000..48670b9
+--- /dev/null
++++ b/src/video/stanix/SDL_stanixwindow.h
+@@ -0,0 +1,44 @@
++/*
++  Simple DirectMedia Layer
++  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
++
++  This software is provided 'as-is', without any express or implied
++  warranty.  In no event will the authors be held liable for any damages
++  arising from the use of this software.
++
++  Permission is granted to anyone to use this software for any purpose,
++  including commercial applications, and to alter it and redistribute it
++  freely, subject to the following restrictions:
++
++  1. The origin of this software must not be misrepresented; you must not
++     claim that you wrote the original software. If you use this software
++     in a product, an acknowledgment in the product documentation would be
++     appreciated but is not required.
++  2. Altered source versions must be plainly marked as such, and must not be
++     misrepresented as being the original software.
++  3. This notice may not be removed or altered from any source distribution.
++*/
++#include "SDL_internal.h"
++
++#ifndef SDL_stanixwindow_h_
++#define SDL_stanixwindow_h_
++
++#include <twm.h>
++
++struct SDL_WindowData
++{
++    twm_window_t window;
++    twm_fb_info_t fb_info;
++    void *framebuffer;
++    void *backbuffer;
++};
++
++extern bool STANIX_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_PropertiesID create_props);
++extern void STANIX_DestroyWindow(SDL_VideoDevice *_this, SDL_Window *window);
++extern void STANIX_SetWindowTitle(SDL_VideoDevice *_this, SDL_Window *window);
++extern bool STANIX_SetWindowPosition(SDL_VideoDevice *_this, SDL_Window *window);
++extern void STANIX_SetWindowSize(SDL_VideoDevice *_this, SDL_Window *window);
++extern void STANIX_SetWindowBordered(SDL_VideoDevice *_this, SDL_Window *window, bool bordered);
++extern void STANIX_SetWindowResizable(SDL_VideoDevice *_this, SDL_Window *window, bool resizable);
++
++#endif // SDL_x11window_h_

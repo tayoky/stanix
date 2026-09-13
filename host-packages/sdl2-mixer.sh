@@ -1,0 +1,13 @@
+VERSION="2.8.2"
+SOURCE="sdl2-mixer"
+WEBSITE="https://libsdl.org/"
+DEPENDENCIES="sdl2-compat"
+
+configure () {
+	cmake_configure \
+		-DSDL2MIXER_DEPS_SHARED=OFF \
+		-DSDL2MIXER_MIDI_FLUIDSYNTH=OFF \
+		-DSDL2MIXER_WAVPACK=OFF \
+		-DSDL2MIXER_OPUS=OFF \
+		-DSDL2MIXER_MOD=OFF
+}

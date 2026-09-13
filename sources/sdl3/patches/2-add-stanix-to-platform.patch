@@ -1,0 +1,19 @@
+diff --git a/include/SDL3/SDL_platform_defines.h b/include/SDL3/SDL_platform_defines.h
+index 79631491d..fc2d6b6cd 100644
+--- a/include/SDL3/SDL_platform_defines.h
++++ b/include/SDL3/SDL_platform_defines.h
+@@ -494,4 +494,14 @@
+ #define SDL_PLATFORM_HURD 1
+ #endif
+ 
++#if defined(__stanix__)
++
++/**
++ * A preprocessor macro that is only defined if compiling for Stanix.
++ *
++ * \since This macro is available since SDL 3.4.10.
++ */
++#define SDL_PLATFORM_STANIX 1
++#endif
++
+ #endif /* SDL_platform_defines_h_ */

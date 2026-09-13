@@ -1,0 +1,13 @@
+diff --git a/src/SDL.c b/src/SDL.c
+index 3e61b8a..c6b9a43 100644
+--- a/src/SDL.c
++++ b/src/SDL.c
+@@ -717,7 +717,7 @@ void SDL_Quit(void)
+     SDL_DBus_Quit();
+ #endif
+ 
+-#if defined(SDL_PLATFORM_UNIX) && !defined(SDL_PLATFORM_ANDROID) && !defined(SDL_PLATFORM_EMSCRIPTEN) && !defined(SDL_PLATFORM_PRIVATE)
++#if defined(SDL_PLATFORM_UNIX) && !defined(SDL_PLATFORM_ANDROID) && !defined(SDL_PLATFORM_EMSCRIPTEN) && !defined(SDL_PLATFORM_PRIVATE) && !defined(SDL_PLATFORM_STANIX)
+     SDL_Gtk_Quit();
+ #endif
+ 
