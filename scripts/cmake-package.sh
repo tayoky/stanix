@@ -1,8 +1,8 @@
 # helper script to build cmake packages
 
+BUILD_DEPENDENCIES="$BUILD_DEPENDENCIES cross-files cmake"
 cmake_configure () {
-	# TODO : pass toolchain
-	cmake -B "$BUILD_DIR" -S "$SOURCE_DIR" -DCMAKE_INSTALL_PREFIX="$PREFIX" "$@"
+	cmake -B "$BUILD_DIR" -S "$SOURCE_DIR" --toolchain"$BUILD_PREFIX/lib/cross-files/$HOST.cmake" -DCMAKE_INSTALL_PREFIX="$PREFIX" "$@"
 }
 
 cmake_build () {

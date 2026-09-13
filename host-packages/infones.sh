@@ -1,5 +1,4 @@
 SOURCE="infones"
-BUILD_DEPENDENCIES="cmake"
 DEPENDENCIES="sdl12-compat"
 . "$TOP/scripts/cmake-package.sh"
 

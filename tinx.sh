@@ -144,8 +144,9 @@ tinx_get_source () {
 
 tinx_configure () {
 	tinx_install_dependencies || return 1
-	test -z "$SOURCE" && return 0
-	tinx_get_source "$SOURCE" || return 1
+	if test -n "$SOURCE" ; then
+		tinx_get_source "$SOURCE" || return 1
+	fi
 	BUILD_DIR="$BUILDDIR/$PACKAGE_TYPE-packages/$PACKAGE"
 	if (! test -f "$BUILD_DIR/.tinx-configured") || test "$RECONFIGURE" = "yes" ; then
 		tinx_log "configure $PACKAGE..."
@@ -158,7 +159,6 @@ tinx_configure () {
 
 tinx_build () {
 	tinx_configure || return 1
-	test -z "$SOURCE" && return 0
 	if (! test -f "$BUILD_DIR/.tinx-built") || test "$REBUILD" = "yes" ; then
 		tinx_log "build $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
@@ -169,7 +169,6 @@ tinx_build () {
 
 tinx_install () {
 	tinx_build || return 1
-	test -z "$SOURCE" && return 0
 	if (! test -f "$BUILD_DIR/.tinx-installed") || test "$REINSTALL" = "yes" ; then
 		tinx_log "install $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0

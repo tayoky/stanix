@@ -3,3 +3,17 @@ DEPENDENCIES="stanix-kernel tlibc tash tutils tvi stanix-modules stanix-librarie
 
 # first party packages go into /usr
 PREFIX="/usr"
+
+if test "$PACKAGE" = "stanix-base" ; then
+	configure () {
+		true
+	}
+
+	build () {
+		true
+	}
+
+	install () {
+		true
+	}
+fi
