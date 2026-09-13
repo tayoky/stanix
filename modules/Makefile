@@ -6,6 +6,8 @@ SUBDIRS = $(patsubst %/,%,$(dir $(wildcard */Makefile)))
 
 include $(TMAKE_DIR)/tmake-subdir.mk
 
+CFLAGS += -I$(CURDIR)/include
+
 # install headers
 INCS = $(wildcard include/module/*.h)
 INCSDIR := $(INCSDIR)/module

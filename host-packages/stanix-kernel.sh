@@ -6,7 +6,7 @@ PREFIX=/usr
 . "$TOP/scripts/stanix-package.sh"
 
 build () {
-	make -C "$SOURCE_DIR" CC="$HOST-gcc" NASM="nasm" BUILDDIR="$BUILD_DIR" V=1
+	make -C "$SOURCE_DIR" CC="$HOST-gcc" NASM="nasm" BUILDDIR="$BUILD_DIR"
 }
 
 install () {

@@ -8,6 +8,7 @@ CFLAGS += -D__MODULE__=1
 SRCS ?= $(wildcard *.[cs])
 OBJS += $(SRCS:%=$(BUILDDIR)/%.o)
 MOD_KO = $(MOD).ko
+MODDIR ?= $(PREFIX)/mod
 
 all : $(BUILDDIR)/$(MOD_KO)
 
@@ -19,13 +20,13 @@ $(BUILDDIR)/$(MOD_KO) : $(OBJS)
 	$(Q)$(CC) $(CFLAGS) -r -nostdlib -o $@ $^ $(LDFLAGS)
 
 install : all
-	@mkdir -p "$(DESTDIR)$(PREFIX)/mod"
+	@mkdir -p "$(DESTDIR)$(MODDIR)"
 	@echo "INSTALL $(MOD_KO)"
-	$(Q)cp "$(BUILDDIR)/$(MOD_KO)" "$(DESTDIR)$(PREFIX)/mod/"
+	$(Q)cp "$(BUILDDIR)/$(MOD_KO)" "$(DESTDIR)$(MODDIR)/"
 
 uninstall :
 	@echo "UNINSTALL $(MOD_KO)"
-	$(Q)rm -f "$(DESTDIR)$(PREFIX)/mod/$(MOD_KO)"
+	$(Q)rm -f "$(DESTDIR)$(MODDIR)/$(MOD_KO)"
 
 clean :
 	@echo "CLEAN $(BUILDDIR)"
