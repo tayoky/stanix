@@ -11,8 +11,9 @@ tinx_help () {
 	echo "--reinstall     : reinstall the package"
 	echo "actions :"
 	echo "get-source : download and prepare the source for a package"
-	echo "build      : build a package"
-	echo "install    : install a package (by default to sysroot/build-env)"
+	echo "build       : build a package"
+	echo "install     : install a package (by default to sysroot/build-env)"
+	echo "clean-build : clean the build directory for a package"
 }
 
 tinx_error () {
@@ -30,6 +31,7 @@ tinx_setup_environ () {
 	elif test "$PACKAGE_TYPE" = "host" ; then
 		export DESTDIR="${SYSROOT:-"$DESTDIR"}"
 	fi
+	BUILD_DIR="$BUILDDIR/$PACKAGE_TYPE-packages/$PACKAGE"
 }
 
 tinx_select_package () {
@@ -156,7 +158,6 @@ tinx_configure () {
 	if test -n "$SOURCE" ; then
 		tinx_get_source "$SOURCE" || return 1
 	fi
-	BUILD_DIR="$BUILDDIR/$PACKAGE_TYPE-packages/$PACKAGE"
 	if (! test -f "$BUILD_DIR/.tinx-configured") || test "$RECONFIGURE" = "yes" ; then
 		tinx_log "configure $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
@@ -184,6 +185,10 @@ tinx_install () {
 		(cd "$BUILD_DIR" && install) || return 1
 		touch "$BUILD_DIR/.tinx-installed"
 	fi
+}
+
+tinx_clean_build () {
+	rm -fr "$BUILD_DIR"
 }
 
 TINX="$(realpath "$0")"
@@ -311,6 +316,9 @@ for PACKAGE in "$@" ; do
 			;;
 		install)
 			tinx_install || exit 1
+			;;
+		clean|clean-build)
+			tinx_clean_build || exit 1
 			;;
 		*)
 			tinx_error "unknown action '$ACTION'"
