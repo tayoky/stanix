@@ -3,6 +3,12 @@ tinx_help () {
 	echo "options :"
 	echo "--build-package : select a build tool package"
 	echo "--host-package  : select a host tool package"
+	echo "--redownload    : force redownload archive"
+	echo "--reunpack      : force reunpack"
+	echo "--reclone       : force recloning"
+	echo "--reconfigure   : reconfigure the package"
+	echo "--rebuild       : rebuild the package"
+	echo "--reinstall     : reinstall the package"
 	echo "actions :"
 	echo "get-source : download and prepare the source for a package"
 	echo "build      : build a package"
@@ -83,6 +89,7 @@ tinx_unpack () {
 	tar xf "$ARCHIVE" -C "$TMPDIR/$ARCHIVE" || return 1
 
 	# move the child dir to main one
+	rm -fr "$OUT" || return 1
 	mv -T "$TMPDIR/$ARCHIVE"/*/ "$OUT" || return 1
 	rm -fr "$TMPDIR/$ARCHIVE" || return 1
 
@@ -95,6 +102,8 @@ tinx_clone_commit () {
 		return 1
 	fi
 	tinx_log "clone $1#$2..."
+	test "$DRY_RUN" = "yes" && return 0
+	rm -fr "$3" | return 1
 	git clone --depth 1 "$1" "$3" || return 1
 	git -C "$3" fetch --depth=1 origin "$2" || return 1
 	git -C "$3" checkout --detach  "$2"
@@ -119,17 +128,17 @@ tinx_get_source () {
 		TAR_NAME="${TAR##*/}"
 		TAR_FILE="$BUILDDIR/tar/$TAR_NAME"
 		SOURCE_DIR="$BUILDDIR/tar/${TAR_NAME%%.tar.*}"
-		if test -d "$SOURCE_DIR" ; then
+		if test -d "$SOURCE_DIR" && test "$REUNPACK" = "no" ; then
 			return 0
 		fi
-		if ! test -f "$TAR_FILE" ; then
+		if (! test -f "$TAR_FILE") || test "$REDOWNLOAD" = "yes" ; then
 			tinx_download "$TAR" "$TAR_FILE" || return 1
 		fi
 		tinx_unpack "$TAR_FILE" "$SOURCE_DIR" || return 1
 	elif test -n "$GIT" ; then
 		GIT_NAME="${GIT##*/}"
 		SOURCE_DIR="$BUILDDIR/git/$GIT_NAME-$VERSION"
-		if test -d "$SOURCE_DIR" ; then
+		if test -d "$SOURCE_DIR" && test "$REDOWNLOAD" = "no" ; then
 			return 0
 		fi
 		tinx_clone_commit "$GIT" "$COMMIT" "$SOURCE_DIR" || return 1
@@ -205,6 +214,8 @@ export PARALLELISM DRY_RUN
 export HOST
 export TOP="$PWD"
 
+REDOWNLOAD="no"
+REUNPACK="no"
 RECONFIGURE="no"
 REBUILD="no"-
 REINSTALL="no"
@@ -212,6 +223,24 @@ PACKAGE_TYPE="host"
 
 for I in "$@" ; do
 	case "$I" in
+		--redownload|--reclone)
+			REDOWNLOAD=yes
+			REUNPACK=yes
+			RECONFIGURE=yes
+			REBUILD=yes
+			REINSTALL=yes
+			;;
+		--reunpack)
+			REUNPACK=yes
+			RECONFIGURE=yes
+			REBUILD=yes
+			REINSTALL=yes
+			;;
+		--reconfigure)
+			RECONFIGURE=yes
+			REBUILD=yes
+			REINSTALL=yes
+			;;
 		--reconfigure)
 			RECONFIGURE=yes
 			REBUILD=yes
