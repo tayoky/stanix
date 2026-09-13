@@ -1,0 +1,13 @@
+diff --git a/src/job.c b/src/job.c
+index ea88561..c8db1f9 100644
+--- a/src/job.c
++++ b/src/job.c
+@@ -144,7 +144,7 @@ extern int wait3 ();
+ # include "findprog.h"
+ #endif
+ 
+-#if !defined (wait) && !defined (POSIX)
++#if !defined (wait) && !defined (POSIX) && !defined(__stanix__)
+ int wait ();
+ #endif
+ 

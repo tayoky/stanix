@@ -1,0 +1,13 @@
+diff --git a/src/makeint.h b/src/makeint.h
+index db89631..21f59e5 100644
+--- a/src/makeint.h
++++ b/src/makeint.h
+@@ -680,7 +680,7 @@ void dbg (const char *fmt, ...);
+ /* We omit these declarations on non-POSIX systems which define _POSIX_VERSION,
+    because such systems often declare them in header files anyway.  */
+ 
+-#if !defined (__GNU_LIBRARY__) && !defined (POSIX) && !defined (_POSIX_VERSION) && !defined(WINDOWS32)
++#if !defined (__GNU_LIBRARY__) && !defined (POSIX) && !defined (_POSIX_VERSION) && !defined(WINDOWS32) && !defined(__stanix__)
+ 
+ # ifndef VMS
+ long int lseek ();

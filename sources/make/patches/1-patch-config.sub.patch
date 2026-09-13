@@ -1,0 +1,13 @@
+diff --git a/build-aux/config.sub b/build-aux/config.sub
+index de4259e..0577b45 100755
+--- a/build-aux/config.sub
++++ b/build-aux/config.sub
+@@ -1735,7 +1735,7 @@ case $os in
+ 	     | os9* | macos* | osx* | ios* \
+ 	     | mpw* | magic* | mmixware* | mon960* | lnews* \
+ 	     | amigaos* | amigados* | msdos* | newsos* | unicos* | aof* \
+-	     | aos* | aros* | cloudabi* | sortix* | twizzler* \
++	     | aos* | aros* | cloudabi* | sortix* | stanix* | twizzler* \
+ 	     | nindy* | vxsim* | vxworks* | ebmon* | hms* | mvs* \
+ 	     | clix* | riscos* | uniplus* | iris* | isc* | rtu* | xenix* \
+ 	     | mirbsd* | netbsd* | dicos* | openedition* | ose* \
