@@ -1,10 +1,18 @@
 . "$TOP/host-packages/stanix-base.sh"
-SOURCE="stanix-libraries"
+SOURCE="stanix-kernel"
 BUILD_DEPENDENCIES="binutils gcc libgcc"
 DEPENDENCIES="tlibc"
 PREFIX=/usr
 . "$TOP/scripts/stanix-package.sh"
 
 configure () {
-	(cd "$SOURCE_DIR/libtgui" && ./configure --prefix="$PREFIX" --host="$HOST" --builddir="$BUILD_DIR/libtgui")
+	true
+}
+
+build () {
+	true
+}
+
+install () {
+	make -C "$SOURCE_DIR" install-incs DESTDIR="$DESTDIR" BUILDDIR="$BUILD_DIR"
 }

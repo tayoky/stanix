@@ -1,7 +1,7 @@
 # helper script to build tconf packages
 
 tconf_configure () {
-	(cd "$SOURCE_DIR" && ./configure --builddir="$BUILD_DIR" --host="$HOST" --prefix="$PREFIX" "$CONFIGURE_ARGS")
+	(cd "$SOURCE_DIR" && ./configure --builddir="$BUILD_DIR" --host="$HOST" --prefix="$PREFIX" "$@")
 }
 
 tconf_build () {

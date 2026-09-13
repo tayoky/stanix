@@ -5,6 +5,8 @@ include $(TMAKE_DIR)/tmake-init.mk
 PROG = stanix.elf
 KLIBC ?= $(SYSROOT)/usr/lib/libk.a
 
+ARCH = $(word 1,$(subst -, ,$(HOST)))
+
 # we need to install in /boot
 BINDIR = /boot
 

@@ -9,10 +9,8 @@ configure () {
 
 build () {
 	make all-gcc -j"$PARALLELISM"
-	make all-target-libgcc -j"$PARALLELISM"
 }
 
 install () {
 	make install-strip-gcc
-	make install-target-libgcc
 }
