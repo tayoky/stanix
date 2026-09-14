@@ -65,32 +65,27 @@ tinx_build_dependencies_list_recur () {
 	esac
 	VISITING="$VISITING $1"
 
-	LOCAL_DEPENDENCIES="$(tinx_select_package "$1" && echo "$DEPENDENCIES")" || return 1
-	FULL_DEPENDENCIES="$FULL_DEPENDENCIES $LOCAL_DEPENDENCIES"
-	for DEP in $LOCAL_DEPENDENCIES ; do
-		tinx_build_dependencies_list_recur "host-packages/$DEP" || return 1
-	done
 	LOCAL_BUILD_DEPENDENCIES="$(tinx_select_package "$1" && echo "$BUILD_DEPENDENCIES")" || return 1
-	FULL_BUILD_DEPENDENCIES="$FULL_BUILD_DEPENDENCIES $LOCAL_BUILD_DEPENDENCIES"
 	for DEP in $LOCAL_BUILD_DEPENDENCIES ; do
 		tinx_build_dependencies_list_recur "build-packages/$DEP" || return 1
 	done
+	LOCAL_DEPENDENCIES="$(tinx_select_package "$1" && echo "$DEPENDENCIES")" || return 1
+	for DEP in $LOCAL_DEPENDENCIES ; do
+		tinx_build_dependencies_list_recur "host-packages/$DEP" || return 1
+	done
+
+	PACKAGES_TO_DO="$PACKAGES_TO_DO $1"
 	VISITED="$VISITED $1"
 }
 
 tinx_build_dependencies_list () {
-	FULL_DEPENDENCIES=""
-	FULL_BUILD_DEPENDENCIES=""
+	PACKAGES_TO_DO=""
 	VISITING=""
 	VISITED=""
 
 	for PACKAGE in "$@" ; do
 		tinx_build_dependencies_list_recur "$PACKAGE_TYPE-packages/$PACKAGE"
 	done
-
-	# simplify list
-	FULL_DEPENDENCIES="$(echo $(for I in $FULL_DEPENDENCIES ; do echo "$I" ; done | sort -u))"
-	FULL_BUILD_DEPENDENCIES="$(echo $(for I in $FULL_BUILD_DEPENDENCIES ; do echo "$I" ; done | sort -u))"
 }
 
 tinx_build_package_cache () {
@@ -155,15 +150,6 @@ tinx_select_package () {
 	fi
 }
 
-tinx_install_dependencies () {
-	for DEP in $BUILD_DEPENDENCIES ; do
-		"$TINX" --build-package install "$DEP" || return 1
-	done
-	for DEP in $DEPENDENCIES ; do
-		"$TINX" --host-package install "$DEP" || return 1
-	done
-}
-
 tinx_download () {
 	if test "$#" != 2 ; then
 		tinx_error "usage : tinx_download URL OUT"
@@ -216,6 +202,7 @@ tinx_apply_patches () {
 	if test -f "sources/$1/patches"/*.patch ; then
 		for PATCH in "$TOP/sources/$1/patches"/*.patch ; do
 			tinx_log "apply $PATCH..."
+			test "$DRY_RUN" = "yes" && continue
 			patch -d "$SOURCE_DIR" -ruN -f -p1 -i "$PATCH" || return 1
 		done
 	fi
@@ -254,11 +241,11 @@ tinx_get_source () {
 		tinx_error "no TAR GIT or DIR specified for source $1"
 	fi
 	tinx_apply_patches "$1" || return 1
+	test "$DRY_RUN" = "yes" && return 0
 	prepare
 }
 
 tinx_configure () {
-	tinx_install_dependencies || return 1
 	if test -n "$SOURCE" ; then
 		tinx_get_source "$SOURCE" || return 1
 	fi
@@ -413,14 +400,9 @@ fi
 
 tinx_build_dependencies_list "$@" || exit 1
 
-echo "FULL_DEPENDENCIES=$FULL_DEPENDENCIES"
-echo "FULL_BUILD_DEPENDENCIES=$FULL_BUILD_DEPENDENCIES"
-exit 0
-
-for PACKAGE in "$@" ; do
-	PACKAGE_PATH="$PACKAGE_TYPE-packages/$PACKAGE"
+for PACKAGE_PATH in $PACKAGES_TO_DO ; do
+	PACKAGE="${PACKAGE_PATH##*-packages/}"
 	tinx_select_package "$PACKAGE_PATH" || exit 1
-	tinx_build_dependencies_list || exit 1
 
 	case "$ACTION" in
 		build-cache)
