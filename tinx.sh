@@ -49,6 +49,43 @@ CACHED_DIR=\"$DIR\"
 " > "$CACHE/$SOURCE.sh"
 }
 
+tinx_build_dependencies_list_recur () {
+	case " $TINX_VISITED " in
+		*" $1 "*)
+			# already visited
+			continue
+			;;
+	esac
+	case " $VISITING " in
+		*" $1 "*)
+			# circular dependency
+			tinx_error "circular dependency with $1"
+			return 1
+			;;
+	esac
+	VISITING="$VISITING $1"
+
+	LOCAL_DEPENDENCIES="$(tinx_select_package "$1" && echo "$DEPENDENCIES")" || return 1
+	FULL_DEPENDENCIES="$FULL_DEPENDENCIES $LOCAL_DEPENDENCIES"
+	for DEP in $LOCAL_DEPENDENCIES ; do
+		tinx_build_dependencies_list_recur "host-packages/$DEP" || return 1
+	done
+	LOCAL_BUILD_DEPENDENCIES="$(tinx_select_package "$1" && echo "$BUILD_DEPENDENCIES")" || return 1
+	FULL_BUILD_DEPENDENCIES="$FULL_BUILD_DEPENDENCIES $LOCAL_BUILD_DEPENDENCIES"
+	for DEP in $LOCAL_BUILD_DEPENDENCIES ; do
+		tinx_build_dependencies_list_recur "build-packages/$DEP" || return 1
+	done
+	VISITED="$VISITED $1"
+}
+
+tinx_build_dependencies_list () {
+	FULL_DEPENDENCIES=""
+	FULL_BUILD_DEPENDENCIES=""
+	VISITING=""
+	VISITED=""
+	tinx_build_dependencies_list_recur "$PACKAGE_PATH"
+}
+
 tinx_build_dependencies_caches () {
 	for DEP in $BUILD_DEPENDENCIES ; do
 		"$TINX" --build-package build-cache "$DEP" || return 1
@@ -405,21 +442,10 @@ fi
 
 for PACKAGE in "$@" ; do
 	PACKAGE_PATH="$PACKAGE_TYPE-packages/$PACKAGE"
-	case " $TINX_VISITED " in
-		*" $PACKAGE_PATH "*)
-			# already visited
-			continue
-			;;
-	esac
-	case " $TINX_VISITING " in
-		*" $PACKAGE_PATH "*)
-			# circular dependency
-			tinx_error "circular dependency with $PACKAGE_TYPE-package $PACKAGE"
-			exit 1
-			;;
-	esac
-	TINX_VISITING="$TINX_VISITING $PACKAGE_PATH"
 	tinx_select_package "$PACKAGE_PATH" || exit 1
+	tinx_build_dependencies_list
+	echo "FULL_DEPENDENCIES=$FULL_DEPENDENCIES"
+	echo "FULL_BUILD_DEPENDENCIES=$FULL_BUILD_DEPENDENCIES"
 
 	case "$ACTION" in
 		build-cache)
@@ -446,5 +472,4 @@ for PACKAGE in "$@" ; do
 			exit 1
 			;;
 	esac
-	TINX_VISITED="$TINX_VISITED $PACKAGE_PATH"
 done
