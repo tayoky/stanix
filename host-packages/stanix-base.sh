@@ -1,6 +1,6 @@
 SOURCE="stanix-base"
 DEPENDENCIES="stanix-kernel tlibc tash tutils tvi stanix-modules stanix-libraries stanix-userspace"
-. "$TOP/host-packages/stanix-base.sh"
+. "$TOP/scripts/stanix-package.sh"
 
 configure () {
 	true

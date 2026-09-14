@@ -126,14 +126,14 @@ tinx_get_source () {
 	}
 	. "sources/$1/$1.sh"
 	if test -n "$TAR" ; then
-		mkdir -p "$BUILDDIR/tar"
 		TAR_NAME="${TAR##*/}"
 		TAR_FILE="$BUILDDIR/tar/$TAR_NAME"
 		SOURCE_DIR="$BUILDDIR/tar/${TAR_NAME%%.tar.*}"
 		if test -d "$SOURCE_DIR" && test "$REUNPACK" = "no" ; then
 			return 0
 		fi
-		if (! test -f "$TAR_FILE") || test "$REDOWNLOAD" = "yes" ; then
+		mkdir -p "$BUILDDIR/tar"
+		if ! test -f "$TAR_FILE" || test "$REDOWNLOAD" = "yes" ; then
 			tinx_download "$TAR" "$TAR_FILE" || return 1
 		fi
 		tinx_unpack "$TAR_FILE" "$SOURCE_DIR" || return 1
@@ -143,6 +143,7 @@ tinx_get_source () {
 		if test -d "$SOURCE_DIR" && test "$REDOWNLOAD" = "no" ; then
 			return 0
 		fi
+		mkdir -p "$BUILDDIR/git"
 		tinx_clone_commit "$GIT" "$COMMIT" "$SOURCE_DIR" || return 1
 	elif test -n "$DIR" ; then
 		SOURCE_DIR="$DIR"
@@ -158,7 +159,7 @@ tinx_configure () {
 	if test -n "$SOURCE" ; then
 		tinx_get_source "$SOURCE" || return 1
 	fi
-	if (! test -f "$BUILD_DIR/.tinx-configured") || test "$RECONFIGURE" = "yes" ; then
+	if ! test -f "$BUILD_DIR/.tinx-configured" || test "$RECONFIGURE" = "yes" ; then
 		tinx_log "configure $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
 		mkdir -p "$BUILD_DIR"
@@ -169,7 +170,7 @@ tinx_configure () {
 
 tinx_build () {
 	tinx_configure || return 1
-	if (! test -f "$BUILD_DIR/.tinx-built") || test "$REBUILD" = "yes" ; then
+	if ! test -f "$BUILD_DIR/.tinx-built" || test "$REBUILD" = "yes" ; then
 		tinx_log "build $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
 		(cd "$BUILD_DIR" && build) || return 1
@@ -179,7 +180,7 @@ tinx_build () {
 
 tinx_install () {
 	tinx_build || return 1
-	if (! test -f "$BUILD_DIR/.tinx-installed") || test "$REINSTALL" = "yes" ; then
+	if ! test -f "$BUILD_DIR/.tinx-installed" || test "$REINSTALL" = "yes" ; then
 		tinx_log "install $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
 		(cd "$BUILD_DIR" && install) || return 1
@@ -191,9 +192,8 @@ tinx_clean_build () {
 	rm -fr "$BUILD_DIR"
 }
 
-TINX="$(realpath "$0")"
-cd "$(dirname "$0")"
 
+: ${TINX:="$(realpath "$0")"}
 : ${BUILDDIR:="$PWD/build"}
 : ${SYSROOT:="$BUILDDIR/sysroot"}
 : ${BUILD_PREFIX:="$BUILDDIR/build-env"}
@@ -204,7 +204,8 @@ cd "$(dirname "$0")"
 : ${DRY_RUN:="no"}
 : ${HOST:="$(uname -m)-stanix"}
 : ${CFLAGS:="-Wall -Wextra -O2"}
-: "${TMPDIR:=${TMP:=${TEMP:-/tmp}}}"
+: ${TMPDIR:=${TMP:=${TEMP:-/tmp}}}
+: ${TOP:="$(dirname "$(realpath "$0")")"}
 
 PREFIX="/usr/local"
 
@@ -213,11 +214,11 @@ export PATH="$BUILD_PREFIX/bin:/$PATH"
 
 export CONFIG_SUB="$PWD/config.sub"
 
-export BUILDDIR SYSROOT BUILD_PREFIX CFLAGS CXXFLAGS="$CFLAGS" PREFIX
+export TINX BUILDDIR SYSROOT BUILD_PREFIX CFLAGS CXXFLAGS="$CFLAGS" PREFIX
 export GNU_MIRROR CURL
 export PARALLELISM DRY_RUN
 export HOST
-export TOP="$PWD"
+export TOP
 
 REDOWNLOAD="no"
 REUNPACK="no"
