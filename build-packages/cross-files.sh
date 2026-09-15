@@ -1,3 +1,5 @@
+BUILD_DEPENDENCIES="pkgconf"
+
 configure () {
 	true
 }
