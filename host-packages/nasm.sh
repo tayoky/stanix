@@ -5,5 +5,5 @@ DEPENDENCIES="stanix-base"
 
 configure () {
 	# thanks bananymous for the --disable-gdb
-	./configure --host="$HOST" --prefix="$PREFIX" --disable-gdb
+	"$SOURCE_DIR/configure" --host="$HOST" --prefix="$PREFIX" --disable-gdb
 }

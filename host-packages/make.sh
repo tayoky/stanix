@@ -4,5 +4,5 @@ WEBSITE="https://www.gnu.org/software/make"
 DEPENDENCIES="stanix-base"
 
 configure () {
-	./configure --host="$HOST" --prefix="$PREFIX"  --without-guile --disable-job-server --disable-thread --disable-nls --disable-posix-spawn --enable-year-2038
+	gnu_configure --without-guile --disable-job-server --disable-thread --disable-nls --disable-posix-spawn --enable-year-2038
 }
