@@ -1,7 +1,8 @@
 VERSION="1.2.76"
 SOURCE="sdl12-compat"
-WEBSITE="https://libsdl.org/"
 DEPENDENCIES="sdl2-compat"
+. "$TOP/scripts/cmake-package.sh"
+WEBSITE="https://libsdl.org/"
 
 configure () {
 	cmake_configure -DSDL12TESTS=OFF

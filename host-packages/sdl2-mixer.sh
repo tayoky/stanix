@@ -1,7 +1,8 @@
 VERSION="2.8.2"
 SOURCE="sdl2-mixer"
-WEBSITE="https://libsdl.org/"
 DEPENDENCIES="sdl2-compat"
+. "$TOP/scripts/cmake-package.sh"
+WEBSITE="https://libsdl.org/"
 
 configure () {
 	cmake_configure \

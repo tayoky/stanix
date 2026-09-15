@@ -1,7 +1,8 @@
 VERSION="3.4.10"
 SOURCE="sdl3"
-WEBSITE="https://libsdl.org/"
 DEPENDENCIES="stanix-base"
+. "$TOP/scripts/cmake-package.sh"
+WEBSITE="https://libsdl.org/"
 
 configure () {
 	cmake_configure \

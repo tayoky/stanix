@@ -1,7 +1,8 @@
 VERSION="2.32.70"
 SOURCE="sdl2-compat"
-WEBSITE="https://libsdl.org/"
 DEPENDENCIES="sdl3"
+. "$TOP/scripts/cmake-package.sh"
+WEBSITE="https://libsdl.org/"
 
 configure () {
 	cmake_configure \
