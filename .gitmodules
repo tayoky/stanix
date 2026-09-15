@@ -14,15 +14,6 @@
 [submodule "libraries/libtgui"]
 	path = libraries/libtgui
 	url = https://github.com/tayoky/tgui
-[submodule "userspace/tutils"]
-	path = userspace/tutils
-	url = https://github.com/tayoky/tutils
-[submodule "userspace/tash"]
-	path = userspace/tash
-	url = https://github.com/tayoky/tash
-[submodule "userspace/tvi"]
-	path = userspace/tvi
-	url = https://github.com/tayoky/tvi
 [submodule "userspace/tgui-apps"]
 	path = userspace/tgui-apps
 	url = https://github.com/tayoky/tgui-apps

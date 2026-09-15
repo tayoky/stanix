@@ -10,9 +10,13 @@ configure () {
 }
 
 build () {
-	make -C "$SOURCE_DIR" CC="$HOST-gcc" BUILDDIR="$BUILD_DIR"
+	CC="$HOST-gcc" \
+	AR="$HOST-ar" \
+	make -C "$SOURCE_DIR"  BUILDDIR="$BUILD_DIR"
 }
 
 install () {
-	make -C "$SOURCE_DIR" install CC="$HOST-gcc" DESTDIR="$DESTDIR" BUILDDIR="$BUILD_DIR"
+	CC="$HOST-gcc" \
+	AR="$HOST-ar" \
+	make -C "$SOURCE_DIR" install DESTDIR="$DESTDIR" BUILDDIR="$BUILD_DIR"
 }

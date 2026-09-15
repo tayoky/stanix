@@ -1,6 +1,6 @@
 SOURCE="stanix-kernel"
 BUILD_DEPENDENCIES="binutils gcc libgcc"
-DEPENDENCIES="tlibc stanix-kernel-headers"
+DEPENDENCIES="tlibc stanix-kernel-headers stanix-libraries"
 . "$TOP/scripts/stanix-package.sh"
 
 build () {
