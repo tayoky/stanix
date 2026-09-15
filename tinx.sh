@@ -25,13 +25,20 @@ tinx_log () {
 }
 
 tinx_setup_environ () {
-	if test "$PACKAGE_TYPE" = "build" ; then
-		export PREFIX="$BUILD_PREFIX"
-		export TARGET="$HOST"
-	elif test "$PACKAGE_TYPE" = "host" ; then
-		export DESTDIR="${SYSROOT:-"$DESTDIR"}"
-	fi
-	BUILD_DIR="$BUILDDIR/$PACKAGE_TYPE-packages/$PACKAGE"
+	case "${1%%-packages/*}" in
+		"build")
+			export PREFIX="$BUILD_PREFIX"
+			export TARGET="$HOST"
+			;;
+		"host")
+			export DESTDIR="${SYSROOT:-"$DESTDIR"}"
+			;;
+		*)
+			tinx_error "invalid package type ${1%%-packages/*}"
+			return 1
+			;;
+	esac
+	BUILD_DIR="$BUILDDIR/$1"
 }
 
 tinx_build_source_cache () {
@@ -89,7 +96,7 @@ tinx_build_dependencies_list () {
 }
 
 tinx_build_package_cache () {
-	CACHE="$TINX_CACHE/$PACKAGE_TYPE-packages"
+	CACHE="$TINX_CACHE/$(dirname "$1")"
 	if ! test -d "$CACHE" ; then
 		mkdir -p "$CACHE" || return 1
 	fi
@@ -100,14 +107,14 @@ CACHED_VERSION=\"$VERSION\"
 CACHED_REVISION=\"$REVISION\"
 CACHED_SOURCE=\"$SOURCE\"
 CACHED_BUILD_DEPENDENCIES=\"$BUILD_DEPENDENCIES\"
-CACHED_DEPENDENCIES=\"$DEPENDENCIES\"" > "$CACHE/$PACKAGE.sh"
+CACHED_DEPENDENCIES=\"$DEPENDENCIES\"" > "$TINX_CACHE/$1.sh"
 }
 
 tinx_is_package_cache_old () {
 	if test "$REBUILD_CACHE" = "yes" ; then
 		return 0
 	fi
-	. "$TINX_CACHE/$PACKAGE_TYPE-packages/$PACKAGE.sh" 2>/dev/null || return 0
+	. "$TINX_CACHE/$1.sh" 2>/dev/null || return 0
 	if test "$CACHED_TINX_VERSION" != "$TINX_VERSION" ||
 	test "$CACHED_VERSION" != "$VERSION" ||
 	test "$CACHED_REVISION" != "$REVISION" ||
@@ -135,16 +142,16 @@ tinx_select_package () {
 	install () {
 		make install DESTDIR="$DESTDIR"
 	}
-	tinx_setup_environ
+	tinx_setup_environ "$1" || return 1
 	if test -f "$1.sh" ; then
 		. "$1.sh"
 	else
 		tinx_error "unknown package $1"
 		return 1
 	fi
-	if tinx_is_package_cache_old ; then
+	if tinx_is_package_cache_old "$1" ; then
 		PACKAGE_CACHE_OLD="yes"
-		tinx_build_package_cache
+		tinx_build_package_cache "$1" || return 1
 	else
 		PACKAGE_CACHE_OLD="no"
 	fi
@@ -312,48 +319,48 @@ export PARALLELISM DRY_RUN
 export HOST
 export TOP
 
-: ${REDOWNLOAD:="no"}
-: ${REUNPACK:="no"}
-: ${RECONFIGURE:="no"}
-: ${REBUILD:="no"}
-: ${REINSTALL:="no"}
-: ${REBUILD_CACHE:="no"}
+: ${CMDLINE_REDOWNLOAD:="no"}
+: ${CMDLINE_REUNPACK:="no"}
+: ${CMDLINE_RECONFIGURE:="no"}
+: ${CMDLINE_REBUILD:="no"}
+: ${CMDLINE_REINSTALL:="no"}
+: ${CMDLINE_REBUILD_CACHE:="no"}
 PACKAGE_TYPE="host"
 
 for I in "$@" ; do
 	case "$I" in
 		--redownload|--reclone)
-			REDOWNLOAD=yes
-			REUNPACK=yes
-			RECONFIGURE=yes
-			REBUILD=yes
-			REINSTALL=yes
+			CMDLINE_REDOWNLOAD=yes
+			CMDLINE_REUNPACK=yes
+			CMDLINE_RECONFIGURE=yes
+			CMDLINE_REBUILD=yes
+			CMDLINE_REINSTALL=yes
 			;;
 		--reunpack)
-			REUNPACK=yes
-			RECONFIGURE=yes
-			REBUILD=yes
-			REINSTALL=yes
+			CMDLINE_REUNPACK=yes
+			CMDLINE_RECONFIGURE=yes
+			CMDLINE_REBUILD=yes
+			CMDLINE_REINSTALL=yes
 			;;
 		--reconfigure)
-			RECONFIGURE=yes
-			REBUILD=yes
-			REINSTALL=yes
+			CMDLINE_RECONFIGURE=yes
+			CMDLINE_REBUILD=yes
+			CMDLINE_REINSTALL=yes
 			;;
 		--reconfigure)
-			RECONFIGURE=yes
-			REBUILD=yes
-			REINSTALL=yes
+			CMDLINE_RECONFIGURE=yes
+			CMDLINE_REBUILD=yes
+			CMDLINE_REINSTALL=yes
 			;;
 		--rebuild)
-			REBUILD=yes
-			REINSTALL=yes
+			CMDLINE_REBUILD=yes
+			CMDLINE_REINSTALL=yes
 			;;
 		--reinstall)
-			REINSTALL=yes
+			CMDLINE_REINSTALL=yes
 			;;
 		--rebuild-cache)
-			REBUILD_CACHE=yes
+			CMDLINE_REBUILD_CACHE=yes
 			;;
 		--dry-run)
 			DRY_RUN=yes
@@ -398,10 +405,30 @@ if test -z "$1" ; then
 	set -- "stanix-base"
 fi
 
-tinx_build_dependencies_list "$@" || exit 1
+CMDLINE_PACKAGES="$@"
+
+tinx_build_dependencies_list $CMDLINE_PACKAGES || exit 1
 
 for PACKAGE_PATH in $PACKAGES_TO_DO ; do
 	PACKAGE="${PACKAGE_PATH##*-packages/}"
+	case " $CMDLINE_PACKAGES " in
+		*" $PACKAGE "*)
+			REDOWNLOAD="$CMDLINE_REDOWNLOAD"
+			REUNPACK="$CMDLINE_REUNPACK"
+			RECONFIGURE="$CMDLINE_RECONFIGURE"
+			REBUILD="$CMDLINE_REBUILD"
+			REINSTALL="$CMDLINE_REINSTALL"
+			REBUILD_CACHE="$CMDLINE_REBUILD_CACHE"
+			;;
+		*)
+			REDOWNLOAD="no"
+			REUNPACK="no"
+			RECONFIGURE="no"
+			REBUILD="no"
+			REINSTALL="no"
+			REBUILD_CACHE="no"
+			;;
+	esac
 	tinx_select_package "$PACKAGE_PATH" || exit 1
 
 	case "$ACTION" in
