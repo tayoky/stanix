@@ -29,9 +29,12 @@ tinx_setup_environ () {
 		"build")
 			export PREFIX="$BUILD_PREFIX"
 			export TARGET="$HOST"
+			export DESTDIR=""
 			;;
 		"host")
-			export DESTDIR="${SYSROOT:-"$DESTDIR"}"
+			export PREFIX="$HOST_PREFIX"
+			export TARGET="$HOST"
+			export DESTDIR="$SYSROOT"
 			;;
 		*)
 			tinx_error "invalid package type ${1%%-packages/*}"
@@ -220,6 +223,11 @@ tinx_get_source () {
 		true
 	}
 	SOURCE_REVISION="0"
+	TAR=""
+	GIT=""
+	COMMIT=""
+	TAG=""
+	DIR=""
 	. "sources/$1/$1.sh"
 	tinx_build_source_cache
 	if test -n "$TAR" ; then
