@@ -1,8 +1,8 @@
 VERSION="2.44"
 SOURCE="binutils"
-WEBSITE="https://www.gnu.org/software/binutils/"
 DEPENDENCIES="stanix-base"
 . "$TOP/scripts/gnu-package.sh"
+WEBSITE="https://www.gnu.org/software/binutils/"
 
 configure () {
 	gnu_configure --target="$HOST" \

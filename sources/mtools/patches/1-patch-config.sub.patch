@@ -1,0 +1,10 @@
+--- a/config.sub
++++ b/config.sub
+@@ -2109,6 +2109,7 @@ case $os in
+ 	| solaris* \
+ 	| solidbsd* \
+ 	| sortix* \
++	| stanix* \
+ 	| storm-chaos* \
+ 	| sunos \
+ 	| sunos[34]* \
