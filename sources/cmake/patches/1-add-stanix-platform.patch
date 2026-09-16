@@ -4,7 +4,7 @@ index 00000000..544419f5
 --- /dev/null
 +++ b/Modules/Platform/Stanix-GNU-ASM.cmake
 @@ -0,0 +1,2 @@
-+include(Platform/stanix-GNU)
++include(Platform/Stanix-GNU)
 +__stanix_compiler_gnu(ASM)
 diff --git a/Modules/Platform/Stanix-GNU-C.cmake b/Modules/Platform/Stanix-GNU-C.cmake
 new file mode 100644
@@ -12,7 +12,7 @@ index 00000000..e74c8986
 --- /dev/null
 +++ b/Modules/Platform/Stanix-GNU-C.cmake
 @@ -0,0 +1,2 @@
-+include(Platform/stanix-GNU)
++include(Platform/Stanix-GNU)
 +__stanix_compiler_gnu(C)
 diff --git a/Modules/Platform/Stanix-GNU-CXX.cmake b/Modules/Platform/Stanix-GNU-CXX.cmake
 new file mode 100644
@@ -20,7 +20,7 @@ index 00000000..5df446ac
 --- /dev/null
 +++ b/Modules/Platform/Stanix-GNU-CXX.cmake
 @@ -0,0 +1,2 @@
-+include(Platform/stanix-GNU)
++include(Platform/Stanix-GNU)
 +__stanix_compiler_gnu(CXX)
 diff --git a/Modules/Platform/Stanix-GNU.cmake b/Modules/Platform/Stanix-GNU.cmake
 new file mode 100644

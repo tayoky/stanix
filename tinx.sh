@@ -213,6 +213,19 @@ tinx_clone_commit () {
 	git -C "$3" checkout --detach  "$2"
 }
 
+tinx_clone_tag () {
+	if test "$#" != 3 ; then
+		tinx_error "usage : tinx_clone_commit GIT TAG OUT"
+		return 1
+	fi
+	tinx_log "clone $1#$2..."
+	test "$DRY_RUN" = "yes" && return 0
+	rm -fr "$3" | return 1
+	git clone --depth 1 "$1" "$3" || return 1
+	git -C "$3" fetch --depth=1 origin refs/tags/"$2":refs/tags/"$2" || return 1
+	git -C "$3" checkout --detach "$2"
+}
+
 tinx_apply_patches () {
 	if test -d "sources/$1/patches" ; then
 		for PATCH in "$TOP/sources/$1/patches"/*.patch ; do
@@ -254,11 +267,19 @@ tinx_get_source () {
 			return 0
 		fi
 		mkdir -p "$BUILDDIR/git"
-		tinx_clone_commit "$GIT" "$COMMIT" "$SOURCE_DIR" || return 1
+		if test -n "$COMMIT" ; then
+			tinx_clone_commit "$GIT" "$COMMIT" "$SOURCE_DIR" || return 1
+		elif test -n "$TAG" ; then
+			tinx_clone_tag "$GIT" "$TAG" "$SOURCE_DIR" || return 1
+		else
+			tinx_error "no COMMIT or TAG specified for git $GIT of source $1"
+			return 1
+		fi
 	elif test -n "$DIR" ; then
 		SOURCE_DIR="$DIR"
 	else
 		tinx_error "no TAR GIT or DIR specified for source $1"
+		return 1
 	fi
 	tinx_apply_patches "$1" || return 1
 	test "$DRY_RUN" = "yes" && return 0

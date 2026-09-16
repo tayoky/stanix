@@ -32,8 +32,12 @@ sys_root = '$SYSROOT'
 " > "$CROSSDIR/$TARGET.meson"
 
 # now cmake cross file
+BASE_SYSTEM_NAME="${TARGET#*-}"
+BASE_SYSTEM_NAME_FIRST="$(echo "$BASE_SYSTEM_NAME" | cut -c1)"
+BASE_SYSTEM_NAME_REST="$(echo "$BASE_SYSTEM_NAME" | cut -c2-)"
+SYSTEM_NAME="$(echo "$BASE_SYSTEM_NAME_FIRST" | tr a-z A-Z)$BASE_SYSTEM_NAME_REST"
 echo "# generated automatically by $(basename "$0")
-set(CMAKE_SYSTEM_NAME ${TARGET#*-})
+set(CMAKE_SYSTEM_NAME \"$SYSTEM_NAME\")
 
 set(CMAKE_C_COMPILER   $CC)
 set(CMAKE_CXX_COMPILER $CXX)
