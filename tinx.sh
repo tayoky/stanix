@@ -209,7 +209,7 @@ tinx_clone_commit () {
 }
 
 tinx_apply_patches () {
-	if test -f "sources/$1/patches"/*.patch ; then
+	if test -d "sources/$1/patches" ; then
 		for PATCH in "$TOP/sources/$1/patches"/*.patch ; do
 			tinx_log "apply $PATCH..."
 			test "$DRY_RUN" = "yes" && continue

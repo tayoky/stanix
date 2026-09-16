@@ -1,4 +1,4 @@
-VERSION=8.1.2
+VERSION="8.1.2"
 SOURCE="ffmpeg"
 WEBSITE="https://www.ffmpeg.org/"
 DEPENDENCIES="sdl2-compat zlib"
