@@ -330,6 +330,7 @@ TINX_VERSION="v0.0.2"
 : ${TINX_CACHE:="$BUILDDIR/tinx-cache"}
 : ${SYSROOT:="$BUILDDIR/sysroot"}
 : ${BUILD_PREFIX:="$BUILDDIR/build-env"}
+: ${HOST_PREFIX:="/usr/local"}
 : ${GNU_MIRROR:="https://ftp.gnu.org"}
 : ${STANIX_MIRROR:="https://github.com/tayoky"}
 : ${CURL:="curl"}
@@ -339,8 +340,6 @@ TINX_VERSION="v0.0.2"
 : ${CFLAGS:="-Wall -Wextra -O2"}
 : ${TMPDIR:=${TMP:=${TEMP:-/tmp}}}
 : ${TOP:="$(dirname "$(realpath "$0")")"}
-
-PREFIX="/usr/local"
 
 # add build tools to env
 export PATH="$BUILD_PREFIX/bin:/$PATH"
