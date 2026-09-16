@@ -1,0 +1,212 @@
+diff --git a/configure b/configure
+index cc55ab2..879806a 100755
+--- a/configure
++++ b/configure
+@@ -373,6 +373,9 @@ case $targetos in
+   DragonFly|OpenBSD|FreeBSD|NetBSD)
+     confvars_set BSD ldl=no
+     ;;
++  stanix)
++    confvars_set stanix ldl=no pthread=no
++    ;;
+   Android|Termux)
+     if test "$targetos" = "Termux"; then
+       targetos=Android
+@@ -658,6 +661,7 @@ for v in $cpu $confvars ; do
+     CONFIG_WIN32=yes)       print_num TCC_TARGET_PE 1 ;;
+     CONFIG_OSX=yes)         print_num TCC_TARGET_MACHO 1 ;;
+     CONFIG_Android=yes)     print_num TARGETOS_ANDROID 1 ;;
++    CONFIG_stanix=yes)      print_num TARGETOS_STANIX 1 ;;
+     CONFIG_BSD=yes)         print_num TARGETOS_$targetos 1
+       case "$targetos" in
+         FreeBSD)    default tcc_elfinterp "/libexec/ld-elf.so.1";;
+diff --git a/tcc.c b/tcc.c
+index 3221ed4..690cecf 100644
+--- a/tcc.c
++++ b/tcc.c
+@@ -200,6 +200,8 @@ static const char version[] =
+         " OpenBSD"
+ #elif TARGETOS_NetBSD
+         " NetBSD"
++#elif TARGETOS_STANIX
++        " stanix"
+ #else
+         " Linux"
+ #endif
+diff --git a/tcc.h b/tcc.h
+index 452a723..6031d54 100644
+--- a/tcc.h
++++ b/tcc.h
+@@ -2000,3 +2000,8 @@ PUB_FUNC void tcc_exit_state(TCCState *s1);
+ # define TCC_SET_STATE(fn) (tcc_enter_state(s1),fn)
+ # define _tcc_error use_tcc_error_noabort
+ #endif
++
++#ifdef __stanix__
++typedef long ucontext_t[1];
++#endif
++extern char **environ;
+diff --git a/tccpp.c b/tccpp.c
+index d5c01fe..103501f 100644
+--- a/tccpp.c
++++ b/tccpp.c
+@@ -3597,6 +3597,9 @@ static const char * const target_os_defs =
+     "__NetBSD__\0"
+ # elif TARGETOS_OpenBSD
+     "__OpenBSD__\0"
++# elif TARGETOS_STANIX
++    "__stanix__\0"
++    "__stanix\0"
+ # else
+     "__linux__\0"
+     "__linux\0"
+diff --git a/tccrun.c b/tccrun.c
+index 37e6c9b..ce33f6c 100644
+--- a/tccrun.c
++++ b/tccrun.c
+@@ -75,7 +75,7 @@ static void rt_exit(rt_frame *f, int code);
+ /* defined when included from lib/bt-exe.c */
+ #ifndef CONFIG_TCC_BACKTRACE_ONLY
+ 
+-#ifndef _WIN32
++#if !defined(_WIN32) && !defined(__stanix__)
+ # include <sys/mman.h>
+ #endif
+ 
+@@ -437,7 +437,7 @@ redo:
+ 
+ static int protect_pages(void *ptr, unsigned long length, int mode)
+ {
+-#ifdef _WIN32
++    #ifdef _WIN32
+     static const unsigned char protect[] = {
+         PAGE_EXECUTE_READ,
+         PAGE_READONLY,
+@@ -448,14 +448,14 @@ static int protect_pages(void *ptr, unsigned long length, int mode)
+     if (!VirtualProtect(ptr, length, protect[mode], &old))
+         return -1;
+ #else
+-    static const unsigned char protect[] = {
++    /*static const unsigned char protect[] = {
+         PROT_READ | PROT_EXEC,
+         PROT_READ,
+         PROT_READ | PROT_WRITE,
+         PROT_READ | PROT_WRITE | PROT_EXEC
+         };
+     if (mprotect(ptr, length, protect[mode]))
+-        return -1;
++        return -1;*/
+ /* XXX: BSD sometimes dump core with bad system call */
+ # if (defined TCC_TARGET_ARM && !TARGETOS_BSD) || defined TCC_TARGET_ARM64
+     if (mode == 0 || mode == 3) {
+@@ -464,7 +464,9 @@ static int protect_pages(void *ptr, unsigned long length, int mode)
+     }
+ # endif
+ #endif
+-    return 0;
++    fprintf(stderr,"TODO : mmap\n");
++    errno = ENOSYS;
++    return 1;
+ }
+ 
+ #ifdef _WIN64
+@@ -1173,7 +1175,7 @@ static int rt_error(rt_frame *f, const char *fmt, ...)
+ 
+ #ifndef _WIN32
+ # include <signal.h>
+-# ifndef __OpenBSD__
++# if !defined(__OpenBSD__) && !defined(__stanix__)
+ #  include <sys/ucontext.h>
+ # endif
+ #else
+@@ -1182,7 +1184,7 @@ static int rt_error(rt_frame *f, const char *fmt, ...)
+ 
+ /* translate from ucontext_t* to internal rt_context * */
+ static void rt_getcontext(ucontext_t *uc, rt_frame *rc)
+-{
++{/*
+ #if defined _WIN64
+     rc->ip = uc->Rip;
+     rc->fp = uc->Rbp;
+@@ -1207,7 +1209,7 @@ static void rt_getcontext(ucontext_t *uc, rt_frame *rc)
+ # elif defined(__OpenBSD__)
+     rc->ip = uc->sc_eip;
+     rc->fp = uc->sc_ebp;
+-# elif !defined REG_EIP && defined EIP /* fix for glibc 2.1 */
++# elif !defined REG_EIP && defined EIP 
+     rc->ip = uc->uc_mcontext.gregs[EIP];
+     rc->fp = uc->uc_mcontext.gregs[EBP];
+ # else
+@@ -1249,7 +1251,7 @@ static void rt_getcontext(ucontext_t *uc, rt_frame *rc)
+     rc->ip = uc->uc_mcontext->__ss.__pc;
+     rc->fp = uc->uc_mcontext->__ss.__fp;
+ #elif defined(__aarch64__) && defined(__FreeBSD__)
+-    rc->ip = uc->uc_mcontext.mc_gpregs.gp_elr; /* aka REG_PC */
++    rc->ip = uc->uc_mcontext.mc_gpregs.gp_elr; 
+     rc->fp = uc->uc_mcontext.mc_gpregs.gp_x[29];
+ #elif defined(__aarch64__) && defined(__NetBSD__)
+     rc->ip = uc->uc_mcontext.__gregs[_REG_PC];
+@@ -1267,6 +1269,7 @@ static void rt_getcontext(ucontext_t *uc, rt_frame *rc)
+     rc->ip = uc->uc_mcontext.__gregs[REG_PC];
+     rc->fp = uc->uc_mcontext.__gregs[REG_S0];
+ #endif
++*/
+ }
+ 
+ /* ------------------------------------------------------------- */
+@@ -1274,6 +1277,7 @@ static void rt_getcontext(ucontext_t *uc, rt_frame *rc)
+ /* signal handler for fatal errors */
+ static void sig_error(int signum, siginfo_t *siginf, void *puc)
+ {
++    /*
+     rt_frame f;
+     rt_getcontext(puc, &f);
+ 
+@@ -1309,7 +1313,7 @@ static void sig_error(int signum, siginfo_t *siginf, void *puc)
+         sigaddset(&s, signum);
+         sigprocmask(SIG_UNBLOCK, &s, NULL);
+     }
+-    rt_exit(&f, 255);
++    rt_exit(&f, 255);*/
+ }
+ 
+ #ifndef SA_SIGINFO
+@@ -1318,23 +1322,22 @@ static void sig_error(int signum, siginfo_t *siginf, void *puc)
+ 
+ /* Generate a stack backtrace when a CPU exception occurs. */
+ static void set_exception_handler(void)
+-{
++{/*
+     struct sigaction sigact;
+-    /* install TCC signal handlers to print debug info on fatal
+-       runtime errors */
++    
+     sigemptyset (&sigact.sa_mask);
+     sigact.sa_flags = SA_SIGINFO; //| SA_RESETHAND;
+-#if 0//def SIGSTKSZ // this causes signals not to work at all on some (older) linuxes
++//#if 0//def SIGSTKSZ // this causes signals not to work at all on some (older) linuxes
+     sigact.sa_flags |= SA_ONSTACK;
+-#endif
++//#endif
+     sigact.sa_sigaction = sig_error;
+     sigaction(SIGFPE, &sigact, NULL);
+     sigaction(SIGILL, &sigact, NULL);
+     sigaction(SIGSEGV, &sigact, NULL);
+     sigaction(SIGBUS, &sigact, NULL);
+     sigaction(SIGABRT, &sigact, NULL);
+-#if 0//def SIGSTKSZ
+-    /* This allows stack overflow to be reported instead of a SEGV */
++//#if 0//def SIGSTKSZ
++    
+     {
+         stack_t ss;
+         static unsigned char stack[SIGSTKSZ] __attribute__((aligned(16)));
+@@ -1344,7 +1347,7 @@ static void set_exception_handler(void)
+         ss.ss_flags = 0;
+         sigaltstack(&ss, NULL);
+     }
+-#endif
++//#endif*/
+ }
+ 
+ #else /* WIN32 */

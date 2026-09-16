@@ -1,0 +1,14 @@
+diff --git a/tccelf.c b/tccelf.c
+index b994494..1f2be80 100644
+--- a/tccelf.c
++++ b/tccelf.c
+@@ -1742,6 +1742,9 @@ ST_FUNC void tccelf_add_crtbegin(TCCState *s1)
+         tcc_add_crt(s1, "crtbegin_so.o");
+     else
+         tcc_add_crt(s1, "crtbegin_dynamic.o");
++#elif TARGETOS_STANIX
++    tcc_add_crt(s1, "crt0.o");
++    tcc_add_crt(s1, "crti.o");
+ #else
+     if (s1->output_type != TCC_OUTPUT_DLL)
+         tcc_add_crt(s1, "crt1.o");
