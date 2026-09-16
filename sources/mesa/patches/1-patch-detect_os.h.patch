@@ -1,0 +1,24 @@
+diff --git a/src/util/detect_os.h b/src/util/detect_os.h
+index 86286df..18f9955 100644
+--- a/src/util/detect_os.h
++++ b/src/util/detect_os.h
+@@ -91,6 +91,10 @@
+ #define DETECT_OS_POSIX 1
+ #endif
+ 
++#if defined(__stanix__)
++#define DETECT_OS_STANIX 1
++#define DETECT_OS_POSIX 1
++#endif
+ 
+ /*
+  * Make sure DETECT_OS_* are always defined, so that they can be used with #if
+@@ -146,5 +150,8 @@
+ #ifndef DETECT_OS_MANAGARM
+ #define DETECT_OS_MANAGARM 0
+ #endif
++#ifndef DETECT_OS_STANIX
++#define DETECT_OS_STANIX 0
++#endif
+ 
+ #endif /* DETECT_OS_H */
