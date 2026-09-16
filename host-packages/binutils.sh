@@ -1,6 +1,6 @@
-VERSION=2.44
-SOURCE=binutils
-WEBSITE=https://www.gnu.org/software/binutils/
+VERSION="2.44"
+SOURCE="binutils"
+WEBSITE="https://www.gnu.org/software/binutils/"
 DEPENDENCIES="stanix-base"
 . "$TOP/scripts/gnu-package.sh"
 
