@@ -1,5 +1,6 @@
 tinx_help () {
 	echo "tinx [OPTIONS] ACTIONS [PACKAGES...]"
+	echo "or tinx [OPTIONS] run SCRIPT [ARGUMENTS]"
 	echo "options :"
 	echo "--build-package : select a build tool package"
 	echo "--host-package  : select a host tool package"
@@ -9,11 +10,15 @@ tinx_help () {
 	echo "--reconfigure   : reconfigure the package"
 	echo "--rebuild       : rebuild the package"
 	echo "--reinstall     : reinstall the package"
+	echo "--help          : print this help and exit"
+	echo "--version       : print tinx version"
 	echo "actions :"
-	echo "get-source : download and prepare the source for a package"
-	echo "build       : build a package"
-	echo "install     : install a package (by default to sysroot/build-env)"
-	echo "clean-build : clean the build directory for a package"
+	echo "update-cache : update tinx's cache"
+	echo "get-source   : download and prepare the source for a package"
+	echo "build        : build a package"
+	echo "install      : install a package (by default to sysroot/build-env)"
+	echo "clean-build  : clean the build directory for a package"
+	echo "run          : run a command inside the tinx environement"
 }
 
 tinx_error () {
@@ -297,7 +302,7 @@ tinx_clean_build () {
 	rm -fr "$BUILD_DIR"
 }
 
-TINX_VERSION="0.0.1-9"
+TINX_VERSION="v0.0.2"
 
 : ${TINX:="$(realpath "$0")"}
 : ${BUILDDIR:="$PWD/build"}
@@ -389,6 +394,11 @@ for I in "$@" ; do
 			tinx_help
 			exit 0
 			;;
+		--version)
+			echo "tinx $TINX_VERSION"
+			echo "Copyright (C) 2026 Tayoky"
+			exit 0
+			;;
 		--*)
 			tinx_error "unkown option '$I'"
 			exit 1
@@ -407,6 +417,16 @@ fi
 
 ACTION="$1"
 shift
+
+if test "$ACTION" = "run" ; then
+	# for compatibility with tash
+	if test -n "$TASH" ; then
+		"$@"
+	else
+		exec "$@"
+	fi
+	exit 1
+fi
 
 if test -z "$1" ; then
 	# by default build the base package
@@ -440,8 +460,8 @@ for PACKAGE_PATH in $PACKAGES_TO_DO ; do
 	tinx_select_package "$PACKAGE_PATH" || exit 1
 
 	case "$ACTION" in
-		build-cache)
-			# cache already built by tinx_select_package
+		update-cache)
+			# cache already updated by tinx_select_package
 			true
 			;;
 		get-source)
