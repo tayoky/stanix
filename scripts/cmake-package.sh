@@ -10,7 +10,7 @@ cmake_build () {
 }
 
 cmake_install () {
-	cmake --install "$BUILD_DIR" --destdir="$DESTDIR"
+	DESTDIR="$DESTDIR" cmake --install "$BUILD_DIR"
 }
 
 configure () {
