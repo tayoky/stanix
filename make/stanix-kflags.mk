@@ -1,5 +1,7 @@
 # makefile include to provide kflags
 
+ARCH ?= $(word 1,$(subst -, ,$(HOST)))
+
 KFLAGS = \
     -Wextra \
     -std=gnu11 \
