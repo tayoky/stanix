@@ -10,5 +10,5 @@ configure () {
 	--with-build-sysroot=$SYSROOT \
 	--disable-nls --disable-werror \
 	--enable-shared \
-	CFLAGS="-D_Thread_local=$CFLAGS" #stupid tls workaround
+	CFLAGS="-D_Thread_local=$CFLAGS" # stupid tls workaround
 }
