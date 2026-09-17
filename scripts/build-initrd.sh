@@ -5,8 +5,11 @@ set -e
 INITRD="$BUILDDIR/initrd"
 BASE_INITRD="$TOP/base/initrd"
 
-mkdir -p "$INITRD/dev" "$INITRD/tmp" "$INITRD/mnt"
+mkdir -p "$INITRD/dev" "$INITRD/tmp" "$INITRD/mnt" "$INITRD/proc" "$INITRD/sys"
 cp -Pf -p -r "$BASE_INITRD"/* "$INITRD/"
 cp -Pf -p -r "$SYSROOT/mod" "$INITRD"
 # temporary until real sysroot, copy sysroot to initrd
 cp -Pf -p -r "$SYSROOT"/* "$INITRD/"
+
+
+cd "$BUILDDIR/initrd" && tar -cf "$BUILDDIR/initrd.tar" *

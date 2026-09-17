@@ -1,5 +1,5 @@
 SOURCE="stanix-base"
-DEPENDENCIES="stanix-kernel tlibc tash tutils tvi stanix-modules stanix-libraries stanix-userspace"
+DEPENDENCIES="stanix-kernel tlibc tash tutils tvi stanix-modules stanix-libraries stanix-userspace limine-files"
 . "$TOP/scripts/stanix-package.sh"
 
 configure () {

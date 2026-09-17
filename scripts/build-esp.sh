@@ -13,8 +13,6 @@ done
 
 # copy boot files
 cp -Pf -p -r "$SYSROOT/boot" "$ESP_ROOT"
-cp "$TOP/limine.conf" "$ESP_ROOT/boot"
 
 "$TOP/scripts/build-initrd.sh"
-cd "$BUILDDIR/initrd" && tar -cf "$ESP_ROOT/boot/initrd.tar" *
-
+cp "$BUILDDIR/initrd.tar" "$ESP_ROOT/boot"
