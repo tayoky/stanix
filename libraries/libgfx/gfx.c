@@ -9,17 +9,17 @@
 #include <gfx.h>
 
 gfx_t *gfx_open_framebuffer(const char *path) {
-	if (!path)path = getenv("FB");
+	if (!path) path = getenv("FB");
 	int fb = open(path, O_WRONLY);
 	if (fb < 0)return NULL;
 
 	//get framebuffer info
 	struct fb fb_info;
-	if (ioctl(fb, IOCTL_GET_FB_INFO, &fb_info) < 0)return NULL;
+	if (ioctl(fb, IOCTL_GET_FB_INFO, &fb_info) < 0) return NULL;
 
 	//map framebuffer
 	void *framebuffrer = mmap(NULL, fb_info.pitch * fb_info.height, PROT_WRITE, MAP_SHARED, fb, 0);
-	if (framebuffrer == map_failed)return NULL;
+	if (framebuffrer == MAP_FAILED) return NULL;
 
 	gfx_t *gfx = gfx_create(framebuffrer, &fb_info);
 	close(fb);
@@ -29,7 +29,7 @@ gfx_t *gfx_open_framebuffer(const char *path) {
 
 gfx_t *gfx_create(void *framebuffer, struct fb *fb_info) {
 	gfx_t *gfx = malloc(sizeof(gfx_t));
-	if (!gfx)return NULL;
+	if (!gfx) return NULL;
 
 	gfx->backbuffer = malloc(fb_info->height * fb_info->pitch);
 	gfx->buffer = gfx->backbuffer;

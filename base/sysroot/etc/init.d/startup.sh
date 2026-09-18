@@ -38,6 +38,8 @@ done
 echo "mount partitions"
 automount
 
+export LD_PRELOAD="libgcc_s.so"
+
 # setup font and frambuffer path
 export FONT="/usr/share/fonts/zap-light16.psf"
 export FB="/dev/fb0"
