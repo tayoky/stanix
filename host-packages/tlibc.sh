@@ -1,6 +1,6 @@
 VERSION="0.0.1"
 SOURCE="tlibc"
-BUILD_DEPENDENCIES="gcc binutils"
+BUILD_DEPENDENCIES="stanix-toolchain"
 . "$TOP/scripts/tconf-package.sh"
 PREFIX="/usr"
 

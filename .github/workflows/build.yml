@@ -16,20 +16,39 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: true
+
+    - name: Install build tools
+      run: sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo nasm -y
     
-    - name: Build packages cache
-      uses: actions/cache@v4
+    - name: Calculate toolchain hash
+      id: toolchain-hash
+      run: |
+        HASH="$(./tinx.sh --build-package get-hash stanix-toolchain)"
+        echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+    
+    - name: Restore toolchain cache
+      id: toolchain-cache
+      uses: actions/cache/restore@v4
       with:
         path: |
           ./build/build-packages/*/.tinx-*
           ./build/build-env
           ./build/tinx-cache
-        key: ${{ runner.os }}-build-v2
-        restore-keys: |
-          ${{ runner.os }}-build-
+        key: ${{ runner.os }}-toolchain-${{ steps.toolchain-hash.outputs.hash }}
 
-    - name: Install build tools
-      run: sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo nasm -y
+    - name: Build toolchain
+      if: steps.toolchain-cache.outputs.cache-hit != 'true'
+      run: ./tinx.sh --build-package install stanix-toolchain
+
+    - name: Save toolchain cache
+      if: steps.toolchain-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ./build/build-packages/*/.tinx-*
+          ./build/build-env
+          ./build/tinx-cache
+        key: ${{ runner.os }}-toolchain-${{ steps.toolchain-hash.outputs.hash }}
 
     - name: Build
       run: ./tinx.sh install
