@@ -21,10 +21,10 @@ jobs:
       uses: actions/cache@v4
       with:
         path: |
-          ./build/build-packages
+          ./build/build-packages/*/.tinx-*
           ./build/build-env
           ./build/tinx-cache
-        key: ${{ runner.os }}-build-v1
+        key: ${{ runner.os }}-build-v2
         restore-keys: |
           ${{ runner.os }}-build-
 
