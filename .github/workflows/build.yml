@@ -29,7 +29,7 @@ jobs:
           ${{ runner.os }}-build-
 
     - name: install build tools
-      run: sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo -y
+      run: sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo nasm -y
 
     - name: build
       run: ./tinx.sh install
