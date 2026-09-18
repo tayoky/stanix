@@ -12,12 +12,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: checkout
+    - name: Checkout
       uses: actions/checkout@v4
       with:
         submodules: true
     
-    - name: build packages cache
+    - name: Build packages cache
       uses: actions/cache@v4
       with:
         path: |
@@ -28,8 +28,8 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-build-
 
-    - name: install build tools
+    - name: Install build tools
       run: sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo nasm -y
 
-    - name: build
+    - name: Build
       run: ./tinx.sh install
