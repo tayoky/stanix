@@ -458,10 +458,18 @@ CMDLINE_PACKAGES="$@"
 
 tinx_build_dependencies_list $CMDLINE_PACKAGES || exit 1
 
-if test "$ACTION" = "get-packages" ; then
-	echo $PACKAGES_TO_DO
-	exit 0
-fi
+case "$ACTION" in
+	get-packages)
+		echo $PACKAGES_TO_DO
+		exit 0
+		;;
+	get-hash)
+		for PACKAGE_PATH in $PACKAGES_TO_DO ; do
+			sha256sum "$TINX_CACHE/$PACKAGE_PATH.sh"
+		done | sha256sum | cut -d' ' -f1
+		exit 1
+		;;
+esac
 
 for PACKAGE_PATH in $PACKAGES_TO_DO ; do
 	PACKAGE="${PACKAGE_PATH##*-packages/}"
