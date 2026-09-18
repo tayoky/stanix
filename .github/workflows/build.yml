@@ -1,0 +1,33 @@
+name: run test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+    
+    - name: restore build packages cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ./build/build-packages
+          ./build/build-env
+          ./build/tinx-cache
+        key: ${{ runner.os }}-build-v1
+        restore-keys: |
+          ${{ runner.os }}-build-
+
+    - name: install build tools
+      run: sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo -y
+
+    - name: build
+      run: ./tinx.sh install
