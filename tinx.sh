@@ -119,12 +119,8 @@ CACHED_DEPENDENCIES=\"$DEPENDENCIES\"" > "$TINX_CACHE/$1.sh"
 }
 
 tinx_is_package_cache_old () {
-	if test "$REBUILD_CACHE" = "yes" ; then
-		return 0
-	fi
 	. "$TINX_CACHE/$1.sh" 2>/dev/null || return 0
-	if test "$CACHED_TINX_VERSION" != "$TINX_VERSION" ||
-	test "$CACHED_VERSION" != "$VERSION" ||
+	if test "$CACHED_VERSION" != "$VERSION" ||
 	test "$CACHED_REVISION" != "$REVISION" ||
 	test "$CACHED_SOURCE" != "$SOURCE" ||
 	test "$CACHED_BUILD_DEPENDENCIES" != "$BUILD_DEPENDENCIES" ||
@@ -158,10 +154,14 @@ tinx_select_package () {
 		return 1
 	fi
 	if tinx_is_package_cache_old "$1" ; then
-		PACKAGE_CACHE_OLD="yes"
+		# things have changed
+		# some stuff need to be redone
+		rm -f "$BUILD_DIR/.tinx-configured"
+		rm -f "$BUILD_DIR/.tinx-built"
+		rm -f "$BUILD_DIR/.tinx-installed"
 		tinx_build_package_cache "$1" || return 1
-	else
-		PACKAGE_CACHE_OLD="no"
+	elif test "$REBUILD_CACHE" = "yes" ; then
+		tinx_build_package_cache "$1" || return 1
 	fi
 }
 
