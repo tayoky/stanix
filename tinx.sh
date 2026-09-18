@@ -19,6 +19,7 @@ tinx_help () {
 	echo "install      : install a package (by default to sysroot/build-env)"
 	echo "clean-build  : clean the build directory for a package"
 	echo "run          : run a command inside the tinx environement"
+	echo "get-packages : get a list of packages to build for the specified packages"
 }
 
 tinx_error () {
@@ -456,6 +457,11 @@ fi
 CMDLINE_PACKAGES="$@"
 
 tinx_build_dependencies_list $CMDLINE_PACKAGES || exit 1
+
+if test "$ACTION" = "get-packages" ; then
+	echo $PACKAGES_TO_DO
+	exit 0
+fi
 
 for PACKAGE_PATH in $PACKAGES_TO_DO ; do
 	PACKAGE="${PACKAGE_PATH##*-packages/}"
