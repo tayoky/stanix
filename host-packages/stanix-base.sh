@@ -14,4 +14,7 @@ install () {
 	# install base sysroot
 	mkdir -p "$DESTDIR"
 	cp -Pf -rp "$SOURCE_DIR"/* "$DESTDIR/"
+
+	# install os release
+	"$TOP/scripts/generate-os-release.sh" > "$DESTDIR/etc/os-release"
 }
