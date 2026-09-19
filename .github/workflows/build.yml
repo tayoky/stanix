@@ -2,9 +2,10 @@ name: run test
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+      - dev
+  # TODO : run on pull requests ??
 
 jobs:
   build:
@@ -22,6 +23,7 @@ jobs:
     
     - name: Calculate toolchain hash
       id: toolchain-hash
+
       run: |
         HASH="$(./tinx.sh --build-package get-hash stanix-toolchain)"
         echo "hash=$HASH" >> "$GITHUB_OUTPUT"
@@ -61,3 +63,16 @@ jobs:
       with:
         name: iso-image
         path: build/images/stanix.iso
+
+    - name: Select packages repo
+      if: github.event_name == 'push'
+      run: |
+        if test "${{ github.ref_name }}" = "main" ; then
+          echo "UPLOAD_RELEASE=stable" >> "$GITHUB_ENV"
+        elif test "${{ github.ref_name }}" = "dev" ; then
+          echo "UPLOAD_RELEASE=nightly" >> "$GITHUB_ENV"
+        fi
+
+    - name: Upload packages to repo
+      if: github.event_name == 'push' && env.UPLOAD_RELEASE != ''
+      run: ./tinx.sh run scripts/upload-packages.sh stanix-kernel stanix-userspace stanix-libraries stanix-modules stanix-kernel-headers tlibc tash tutils tvi
