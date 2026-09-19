@@ -10,6 +10,7 @@ tinx_help () {
 	echo "--reconfigure   : reconfigure the package"
 	echo "--rebuild       : rebuild the package"
 	echo "--reinstall     : reinstall the package"
+	echo "--no-deps       : ignore dependencies"
 	echo "--help          : print this help and exit"
 	echo "--version       : print tinx version"
 	echo "actions :"
@@ -357,8 +358,8 @@ tinx_configure () {
 }
 
 tinx_build () {
+	tinx_configure || return 1
 	if ! test -f "$BUILD_DIR/.tinx-built" || test "$REBUILD" = "yes" ; then
-		tinx_configure || return 1
 		tinx_log "build $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
 		(cd "$BUILD_DIR" && build) || return 1
@@ -367,8 +368,8 @@ tinx_build () {
 }
 
 tinx_install () {
+	tinx_build || return 1
 	if ! test -f "$BUILD_DIR/.tinx-installed" || test "$REINSTALL" = "yes" ; then
-		tinx_build || return 1
 		tinx_log "install $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
 		(cd "$BUILD_DIR" && install) || return 1
@@ -380,7 +381,7 @@ tinx_clean_build () {
 	rm -fr "$BUILD_DIR"
 }
 
-TINX_VERSION="0.0.2"
+TINX_VERSION="0.0.3"
 
 : ${TINX:="$(realpath "$0")"}
 : ${BUILDDIR:="$PWD/build"}
@@ -415,6 +416,7 @@ export TOP
 : ${CMDLINE_REBUILD:="no"}
 : ${CMDLINE_REINSTALL:="no"}
 : ${CMDLINE_REBUILD_CACHE:="no"}
+: ${CMDLINE_NO_DEPS:="no"}
 PACKAGE_TYPE="host"
 
 for I in "$@" ; do
@@ -451,6 +453,9 @@ for I in "$@" ; do
 			;;
 		--rebuild-cache)
 			CMDLINE_REBUILD_CACHE=yes
+			;;
+		--no-deps)
+			CMDLINE_NO_DEPS=yes
 			;;
 		--dry-run)
 			DRY_RUN=yes
@@ -541,6 +546,9 @@ for PACKAGE_PATH in $PACKAGES_TO_DO ; do
 			REBUILD_CACHE="$CMDLINE_REBUILD_CACHE"
 			;;
 		*)
+			if test "$CMDLINE_NO_DEPS" = "yes" ; then
+				continue
+			fi
 			REDOWNLOAD="no"
 			REUNPACK="no"
 			RECONFIGURE="no"
