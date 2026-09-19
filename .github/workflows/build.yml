@@ -75,4 +75,6 @@ jobs:
 
     - name: Upload packages to repo
       if: github.event_name == 'push' && env.UPLOAD_RELEASE != ''
+      env:
+        GH_TOKEN: ${{ secrets.PACKAGES_REPO_TOKEN }}
       run: ./tinx.sh run scripts/upload-packages.sh stanix-kernel stanix-userspace stanix-libraries stanix-modules stanix-kernel-headers tlibc tash tutils tvi
