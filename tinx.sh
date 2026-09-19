@@ -36,12 +36,12 @@ tinx_setup_environ () {
 		"build")
 			export PREFIX="$BUILD_PREFIX"
 			export TARGET="$HOST"
-			export DESTDIR=""
+			export DESTDIR="${CMDLINE_DESTDIR:-""}"
 			;;
 		"host")
 			export PREFIX="$HOST_PREFIX"
 			export TARGET="$HOST"
-			export DESTDIR="$SYSROOT"
+			export DESTDIR="${CMDLINE_DESTDIR:-"$SYSROOT"}"
 			;;
 		*)
 			tinx_error "invalid package type ${1%%-packages/*}"
@@ -410,6 +410,7 @@ export PARALLELISM DRY_RUN
 export HOST
 export TOP
 
+: ${CMDLINE_DESTDIR:="$DESTDIR"}
 : ${CMDLINE_REDOWNLOAD:="no"}
 : ${CMDLINE_REUNPACK:="no"}
 : ${CMDLINE_RECONFIGURE:="no"}
