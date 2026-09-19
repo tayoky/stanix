@@ -1,5 +1,5 @@
 SOURCE="stanix-kernel"
-BUILD_DEPENDENCIES="binutils gcc libgcc"
+BUILD_DEPENDENCIES="stanix-toolchain"
 DEPENDENCIES="tlibc limine-files"
 . "$TOP/scripts/stanix-package.sh"
 

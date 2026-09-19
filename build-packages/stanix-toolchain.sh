@@ -1,4 +1,4 @@
-BUILD_DEPENDENCIES="autoconf automake binutils gcc"
+BUILD_DEPENDENCIES="autoconf automake binutils gcc libgcc"
 
 configure () {
     true
