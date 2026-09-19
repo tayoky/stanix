@@ -52,3 +52,12 @@ jobs:
 
     - name: Build
       run: ./tinx.sh install
+
+    - name: Make iso image
+      run: ./tinx.sh run scripts/build-iso-image.sh
+
+    - name: Upload iso image
+      uses: actions/upload-atrifact@v4
+      with:
+        name: iso-image
+        path: build/images/stanix.iso
