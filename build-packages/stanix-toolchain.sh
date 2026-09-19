@@ -1,13 +1,2 @@
 BUILD_DEPENDENCIES="autoconf automake binutils gcc libgcc"
-
-configure () {
-    true
-}
-
-build () {
-    true
-}
-
-install () {
-    true
-}
+. "$TOP/scripts/meta-package.sh"
