@@ -38,12 +38,15 @@ done
 echo "mount partitions"
 automount
 
+export LD_PRELOAD="libgcc_s.so"
+
 # setup font and frambuffer path
 export FONT="/usr/share/fonts/zap-light16.psf"
 export FB="/dev/fb0"
 
-# change this to change the keyboard layout
-set-layout /dev/kb0 azerty
+# setup keyboard layout
+LAYOUT="$(kcmdline --layout)"
+set-layout /dev/kb0 "${LAYOUT:-"azerty"}"
 
 # we don't have an audio driver so setup sdl to use dummy audio
 export SDL_AUDIODRIVER="dummy"

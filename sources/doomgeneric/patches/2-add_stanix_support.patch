@@ -1,0 +1,183 @@
+diff --git a/doomgeneric/Makefile.stanix b/doomgeneric/Makefile.stanix
+new file mode 100644
+index 0000000..036f4f4
+--- /dev/null
++++ b/doomgeneric/Makefile.stanix
+@@ -0,0 +1,18 @@
++
++OBJ = dummy.o am_map.o doomdef.o doomstat.o dstrings.o d_event.o d_items.o d_iwad.o d_loop.o d_main.o d_mode.o d_net.o f_finale.o f_wipe.o g_game.o hu_lib.o hu_stuff.o info.o i_cdmus.o i_endoom.o i_joystick.o i_scale.o i_sound.o i_system.o i_timer.o memio.o m_argv.o m_bbox.o m_cheat.o m_config.o m_controls.o m_fixed.o m_menu.o m_misc.o m_random.o p_ceilng.o p_doors.o p_enemy.o p_floor.o p_inter.o p_lights.o p_map.o p_maputl.o p_mobj.o p_plats.o p_pspr.o p_saveg.o p_setup.o p_sight.o p_spec.o p_switch.o p_telept.o p_tick.o p_user.o r_bsp.o r_data.o r_draw.o r_main.o r_plane.o r_segs.o r_sky.o r_things.o sha1.o sounds.o statdump.o st_lib.o st_stuff.o s_sound.o tables.o v_video.o wi_stuff.o w_checksum.o w_file.o w_main.o w_wad.o z_zone.o w_file_stdc.o i_input.o i_video.o doomgeneric.o doomgeneric_stanix.o
++
++OUT = doom
++
++
++#cc flags
++CFLAGS += -Wimplicit-function-declaration
++CFLAGS += -I ./
++
++all : ${OUT}
++
++${OUT} : ${OBJ}
++	${CC} ${LDFLAGS} -lm -ltwm -o ${OUT} ${OBJ}
++
++%.o : %.c
++	${CC} ${CFLAGS} -o $@ -g -c $^
++
+diff --git a/doomgeneric/doomgeneric_stanix.c b/doomgeneric/doomgeneric_stanix.c
+new file mode 100644
+index 0000000..ccb03a2
+--- /dev/null
++++ b/doomgeneric/doomgeneric_stanix.c
+@@ -0,0 +1,153 @@
++#include <errno.h>
++#include <fcntl.h>
++#include <input.h>  
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/time.h>
++#include <sys/fb.h>
++#include <twm.h>
++#include <sys/mman.h>
++#include <sys/ioctl.h>
++#include <unistd.h>
++
++#include "doomgeneric.h"
++#include "doomkeys.h"
++#include "i_system.h"
++
++
++char *framebuffer;
++twm_fb_info_t fb_info;
++twm_window_t window;
++
++// keep track of when the game started
++uint64_t start_ms;
++
++// convert an timeval to ms
++uint64_t timeval2ms(struct timeval *time) {
++	return time->tv_sec * 1000 + time->tv_usec / 1000;
++}
++
++void DG_Quit(void) {
++	twm_destroy_window(window);
++}
++
++void DG_Init() {
++
++   	// open twm context
++   	puts("open twm context");
++   	if (twm_init(NULL) < 0) {
++		puts("fail to init twm context");
++		abort();
++	}
++
++	
++	puts("create and map window");
++	window = twm_create_window("doom", DOOMGENERIC_RESX, DOOMGENERIC_RESY, TWM_NULL);
++	twm_set_window_attr(window, TWM_REMOVE_ATTR, TWM_ATTR_RESIZABLE);
++
++	// mmap the window
++	int window_fd;
++	twm_get_window_fb(window, &window_fd, &fb_info);
++	framebuffer = mmap(NULL, fb_info.pitch * fb_info.height, PROT_WRITE, MAP_SHARED, window_fd, 0);
++	if (framebuffer == MAP_FAILED) {
++		close(window_fd);
++		perror("mmap window");
++		abort();
++	}
++	close(window_fd);
++
++	// get the time
++	struct timeval current_time;
++	gettimeofday(&current_time, NULL);
++	start_ms = timeval2ms(&current_time);
++
++	atexit(DG_Quit);
++}
++
++void DG_SleepMs(uint32_t ms) { usleep(ms * 1000); }
++
++// i don't like the fact that it is an uint32_t
++// should be an uint64_t instead
++uint32_t DG_GetTicksMs() {
++	// get the time
++	struct timeval current_time;
++	gettimeofday(&current_time, NULL);
++	uint64_t ms = timeval2ms(&current_time) - start_ms;
++	return (uint32_t)ms;
++}
++
++int DG_GetKey(int *pressed, unsigned char *key) {
++	twm_event_input_t *event = (twm_event_input_t*)twm_peek_event();
++	if (!event) return 0;
++
++	// ignore not key event
++	if (event->base.type != TWM_EVENT_INPUT || event->type != TWM_INPUT_KEY) {
++		return 0;
++	}
++
++	*pressed = event->key.flags & IE_KEY_PRESS;
++
++	switch (event->key.scancode) {
++	case 0x01:
++		*key = KEY_ESCAPE;
++		return 1;
++	case 0x1C:
++		*key = KEY_ENTER;
++		return 1;
++	case 0x2A:
++	case 0x36:
++		*key = KEY_RSHIFT;
++		return 1;
++	case 0x1D:
++		*key = KEY_FIRE;
++		return 1;
++	case 0x80 + 0x48:
++	case 0x11:
++		*key = KEY_UPARROW;
++		return 1;
++	case 0x80 + 0x4B:
++	case 0x1E:
++		*key = KEY_LEFTARROW;
++		return 1;
++	case 0x80 + 0x50:
++	case 0x1F:
++		*key = KEY_DOWNARROW;
++		return 1;
++	case 0x80 + 0x4D:
++	case 0x20:
++		*key = KEY_RIGHTARROW;
++		return 1;
++	case 0x39:
++		*key = KEY_USE;
++		return 1;
++	}
++	*key = event->key.key;
++	return 1;
++}
++
++void DG_DrawFrame() {
++	// copy to the window framebuffer
++	for (size_t y = 0; y < DOOMGENERIC_RESY; y++) {
++		memcpy(framebuffer + y * fb_info.pitch, DG_ScreenBuffer + y * DOOMGENERIC_RESX, DOOMGENERIC_RESX * sizeof(pixel_t));
++	}
++
++	// send redraw request
++	twm_redraw_window(window, 0, 0, DOOMGENERIC_RESX, DOOMGENERIC_RESY);
++}
++
++void DG_SetWindowTitle(const char *title) {
++	twm_set_window_title(window, title);
++}
++
++int main(int argc, char **argv) {
++	printf("launching doom...\n");
++
++	doomgeneric_Create(argc, argv);
++
++	for (;;) {
++		doomgeneric_Tick();
++	}
++	return 0;
++}

@@ -1,0 +1,89 @@
+diff --git a/cmake/macros.cmake b/cmake/macros.cmake
+index 038dd98..6620c67 100644
+--- a/cmake/macros.cmake
++++ b/cmake/macros.cmake
+@@ -409,7 +409,7 @@ function(SDL_PrintSummary)
+     message(STATUS "")
+   endif()
+ 
+-  if(UNIX AND NOT (ANDROID OR APPLE OR EMSCRIPTEN OR HAIKU OR RISCOS))
++  if(UNIX AND NOT (ANDROID OR APPLE OR EMSCRIPTEN OR HAIKU OR RISCOS OR STANIX))
+     if(NOT (HAVE_X11 OR HAVE_WAYLAND))
+       if(NOT SDL_UNIX_CONSOLE_BUILD)
+         message(FATAL_ERROR
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index faf6d90..d599e06 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1771,7 +1771,7 @@ elseif(EMSCRIPTEN)
+   CheckPTHREAD()
+   CheckLibUnwind()
+ 
+-elseif(UNIX AND NOT APPLE AND NOT RISCOS AND NOT HAIKU)
++elseif(UNIX AND NOT APPLE AND NOT RISCOS AND NOT HAIKU AND NOT STANIX)
+ 
+   set(SDL_DISABLE_DLOPEN_NOTES TRUE)
+   if(SDL_DLOPEN_NOTES)
+@@ -2915,6 +2915,50 @@ elseif(RISCOS)
+   if(SDL_AUDIO)
+     CheckOSS()
+   endif()
++  
++elseif(STANIX)
++  sdl_glob_sources("${SDL3_SOURCE_DIR}/src/misc/stanix/*.c")
++  set(HAVE_SDL_MISC TRUE)
++
++  if(SDL_VIDEO)
++    set(SDL_VIDEO_DRIVER_STANIX 1)
++    sdl_glob_sources(
++      "${SDL3_SOURCE_DIR}/src/video/stanix/*.c"
++      "${SDL3_SOURCE_DIR}/src/video/stanix/*.h"
++    )
++    set(HAVE_SDL_VIDEO TRUE)
++
++    # we need to link with libtwm
++   sdl_link_dependency(stanix_video LIBS twm)
++  endif()
++  
++  set(HAVE_SDL_FILESYSTEM TRUE)
++
++  set(SDL_FSOPS_POSIX 1)
++  sdl_sources("${SDL3_SOURCE_DIR}/src/filesystem/posix/SDL_sysfsops.c")
++  set(HAVE_SDL_FSOPS TRUE)
++
++  set(SDL_FILESYSTEM_UNIX 1)
++  sdl_glob_sources("${SDL3_SOURCE_DIR}/src/filesystem/unix/*.c")
++
++  set(SDL_TIME_UNIX 1)
++  sdl_glob_sources("${SDL3_SOURCE_DIR}/src/time/unix/*.c")
++  set(HAVE_SDL_TIME TRUE)
++
++  set(SDL_TIMER_UNIX 1)
++  sdl_glob_sources("${SDL3_SOURCE_DIR}/src/timer/unix/*.c")
++  set(HAVE_SDL_TIMERS TRUE)
++
++  if(SDL_CLOCK_GETTIME)
++    set(HAVE_CLOCK_GETTIME 1)
++  endif()
++
++  CheckPTHREAD()
++
++  if(SDL_AUDIO)
++    CheckOSS()
++  endif()
++
+ 
+ elseif(VITA)
+   # SDL_spinlock.c Needs to be compiled in ARM mode.
+diff --git a/include/build_config/SDL_build_config.h.cmake b/include/build_config/SDL_build_config.h.cmake
+index 17cb8f2..549fc2d 100644
+--- a/include/build_config/SDL_build_config.h.cmake
++++ b/include/build_config/SDL_build_config.h.cmake
+@@ -409,6 +409,7 @@
+ #cmakedefine SDL_VIDEO_DRIVER_PS2 1
+ #cmakedefine SDL_VIDEO_DRIVER_PSP 1
+ #cmakedefine SDL_VIDEO_DRIVER_RISCOS 1
++#cmakedefine SDL_VIDEO_DRIVER_STANIX 1
+ #cmakedefine SDL_VIDEO_DRIVER_ROCKCHIP 1
+ #cmakedefine SDL_VIDEO_DRIVER_RPI 1
+ #cmakedefine SDL_VIDEO_DRIVER_UIKIT 1

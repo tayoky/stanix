@@ -1,10 +1,3 @@
-[submodule "limine"]
-	path = limine
-	url = https://github.com/limine-bootloader/limine.git
-	branch = v8.x-binary
-[submodule "tlibc"]
-	path = tlibc
-	url = https://github.com/tayoky/tlibc.git
 [submodule "ports"]
 	path = ports
 	url = https://github.com/tayoky/ports
@@ -14,15 +7,6 @@
 [submodule "libraries/libtgui"]
 	path = libraries/libtgui
 	url = https://github.com/tayoky/tgui
-[submodule "userspace/tutils"]
-	path = userspace/tutils
-	url = https://github.com/tayoky/tutils
-[submodule "userspace/tash"]
-	path = userspace/tash
-	url = https://github.com/tayoky/tash
-[submodule "userspace/tvi"]
-	path = userspace/tvi
-	url = https://github.com/tayoky/tvi
 [submodule "userspace/tgui-apps"]
 	path = userspace/tgui-apps
 	url = https://github.com/tayoky/tgui-apps

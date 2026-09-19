@@ -1,0 +1,73 @@
+diff --git a/Modules/Platform/Stanix-GNU-ASM.cmake b/Modules/Platform/Stanix-GNU-ASM.cmake
+new file mode 100644
+index 00000000..544419f5
+--- /dev/null
++++ b/Modules/Platform/Stanix-GNU-ASM.cmake
+@@ -0,0 +1,2 @@
++include(Platform/Stanix-GNU)
++__stanix_compiler_gnu(ASM)
+diff --git a/Modules/Platform/Stanix-GNU-C.cmake b/Modules/Platform/Stanix-GNU-C.cmake
+new file mode 100644
+index 00000000..e74c8986
+--- /dev/null
++++ b/Modules/Platform/Stanix-GNU-C.cmake
+@@ -0,0 +1,2 @@
++include(Platform/Stanix-GNU)
++__stanix_compiler_gnu(C)
+diff --git a/Modules/Platform/Stanix-GNU-CXX.cmake b/Modules/Platform/Stanix-GNU-CXX.cmake
+new file mode 100644
+index 00000000..5df446ac
+--- /dev/null
++++ b/Modules/Platform/Stanix-GNU-CXX.cmake
+@@ -0,0 +1,2 @@
++include(Platform/Stanix-GNU)
++__stanix_compiler_gnu(CXX)
+diff --git a/Modules/Platform/Stanix-GNU.cmake b/Modules/Platform/Stanix-GNU.cmake
+new file mode 100644
+index 00000000..ce15709d
+--- /dev/null
++++ b/Modules/Platform/Stanix-GNU.cmake
+@@ -0,0 +1,20 @@
++# This module is shared by multiple languages; use include blocker.
++include_guard()
++
++macro(__stanix_compiler_gnu lang)
++  set(CMAKE_SHARED_LIBRARY_RUNTIME_${lang}_FLAG "-Wl,-rpath,")
++  set(CMAKE_SHARED_LIBRARY_RUNTIME_${lang}_FLAG_SEP ":")
++  set(CMAKE_SHARED_LIBRARY_RPATH_LINK_${lang}_FLAG "-Wl,-rpath-link,")
++  set(CMAKE_SHARED_LIBRARY_SONAME_${lang}_FLAG "-Wl,-soname,")
++  set(CMAKE_EXE_EXPORTS_${lang}_FLAG "-Wl,--export-dynamic")
++
++  # Initialize link type selection flags.  These flags are used when
++  # building a shared library, shared module, or executable that links
++  # to other libraries to select whether to use the static or shared
++  # versions of the libraries.
++  foreach(type SHARED_LIBRARY SHARED_MODULE EXE)
++    set(CMAKE_${type}_LINK_STATIC_${lang}_FLAGS "-Wl,-Bstatic")
++    set(CMAKE_${type}_LINK_DYNAMIC_${lang}_FLAGS "-Wl,-Bdynamic")
++  endforeach()
++
++endmacro()
+diff --git a/Modules/Platform/Stanix-Initialize.cmake b/Modules/Platform/Stanix-Initialize.cmake
+new file mode 100644
+index 00000000..6c8c4926
+--- /dev/null
++++ b/Modules/Platform/Stanix-Initialize.cmake
+@@ -0,0 +1,2 @@
++set(STANIX 1)
++set(UNIX 1)
+diff --git a/Modules/Platform/Stanix.cmake b/Modules/Platform/Stanix.cmake
+new file mode 100644
+index 00000000..fa3d3ce2
+--- /dev/null
++++ b/Modules/Platform/Stanix.cmake
+@@ -0,0 +1,9 @@
++set(CMAKE_DL_LIBS "")
++set(CMAKE_SHARED_LIBRARY_RPATH_ORIGIN_TOKEN "\$ORIGIN")
++set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
++
++# Shared libraries with no builtin soname may not be linked safely by
++# specifying the file path.
++set(CMAKE_PLATFORM_USES_PATH_WHEN_NO_SONAME 1)
++
++include(Platform/UnixPaths)

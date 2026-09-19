@@ -1,0 +1,1 @@
+TAR="https://www.nasm.us/pub/nasm/releasebuilds/$VERSION/nasm-$VERSION.tar.xz"

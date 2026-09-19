@@ -1,0 +1,23 @@
+diff --git a/Makefile b/Makefile
+index 7162633..e641d75 100644
+--- a/Makefile
++++ b/Makefile
+@@ -118,6 +118,9 @@ DEF-c67            = -DTCC_TARGET_C67 -w # disable warnigs
+ DEF-x86_64-FreeBSD = $(DEF-x86_64) -DTARGETOS_FreeBSD
+ DEF-x86_64-NetBSD  = $(DEF-x86_64) -DTARGETOS_NetBSD
+ DEF-x86_64-OpenBSD = $(DEF-x86_64) -DTARGETOS_OpenBSD
++DEF-x86_64-stanix  = $(DEF-x86_64) -DTARGETOS_STANIX
++DEF-i386-stanix    = $(DEF-i386)   -DTARGETOS_STANIX
++DEF-arm64-stanix   = $(DEF-arm64)  -DTARGETOS_STANIX
+ 
+ ifeq ($(INCLUDED),no)
+ # --------------------------------------------------------------------------
+@@ -256,7 +259,7 @@ endif
+ 	$S./c2str.exe $< $@
+ 
+ c2str.exe : conftest.c
+-	$S$(CC) -DC2STR $< -o $@
++	gcc -DC2STR $< -o $@
+ 
+ # target specific object rule
+ $(X)%.o : %.c $(LIBTCC_INC)

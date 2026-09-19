@@ -1,0 +1,2 @@
+GIT="$STANIX_MIRROR/tash"
+COMMIT="5f24b8ad335fde6af88dfe543aa8eb91bf412d3d"

@@ -5,6 +5,8 @@ include $(TMAKE_DIR)/tmake-init.mk
 PROG = stanix.elf
 KLIBC ?= $(SYSROOT)/usr/lib/libk.a
 
+ARCH = $(word 1,$(subst -, ,$(HOST)))
+
 # we need to install in /boot
 BINDIR = /boot
 
@@ -30,7 +32,7 @@ LDFLAGS += \
 # arch specific flags
 -include arch/$(ARCH)/arch.mk
 
-INCS = $(wildcard include/*.h include/*/*.h include/arch/$(ARCH)/*.h) ../limine/limine.h
+INCS = $(wildcard include/*.h include/*/*.h include/arch/$(ARCH)/*.h)
 INCSDIR := $(INCSDIR)/kernel
 DIRS = drivers fs klib mem task arch/$(ARCH)
 SRCS = $(wildcard *.c) $(foreach DIR,$(DIRS), $(wildcard $(DIR)/*.[cs] $(DIR)/*/*.[cs])) sym.c

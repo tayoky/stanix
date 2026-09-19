@@ -1,0 +1,1006 @@
+diff --git a/Makefile-stanix b/Makefile-stanix
+new file mode 100644
+index 0000000..f5a5955
+--- /dev/null
++++ b/Makefile-stanix
+@@ -0,0 +1,690 @@
++
++
++MOUNT_DIR=.
++
++BUILDDIR=build
++CLIENT_DIR=$(MOUNT_DIR)/client
++SERVER_DIR=$(MOUNT_DIR)/server
++REF_SOFT_DIR=$(MOUNT_DIR)/ref_soft
++REF_GL_DIR=$(MOUNT_DIR)/ref_gl
++COMMON_DIR=$(MOUNT_DIR)/qcommon
++OTHER_DIR=$(MOUNT_DIR)/other
++NET_DIR=$(MOUNT_DIR)/net
++SOUND_DIR=$(MOUNT_DIR)/sound
++NULL_DIR=$(MOUNT_DIR)/null
++GAME_DIR=$(MOUNT_DIR)/game
++CTF_DIR=$(MOUNT_DIR)/ctf
++XATRIX_DIR=$(MOUNT_DIR)/xatrix
++
++BASE_CFLAGS=-Dstricmp=strcasecmp -O2
++
++
++RELEASE_CFLAGS=$(BASE_CFLAGS) -O3 -ffast-math -funroll-loops \
++	-fomit-frame-pointer -malign-loops=2 \
++	-malign-jumps=2 -malign-functions=2
++
++DEBUG_CFLAGS=$(BASE_CFLAGS) -g
++LDFLAGS=-ldl -lm -ltwm -lgfx
++
++
++SHLIBEXT=so
++
++SHLIBCFLAGS=-fPIC
++SHLIBLDFLAGS=-shared
++
++DO_CC=$(CC) $(CFLAGS) -o $@ -c $<
++DO_SHLIB_CC=$(CC) $(CFLAGS) $(SHLIBCFLAGS) -o $@ -c $<
++DO_GL_SHLIB_CC=$(CC) $(CFLAGS) $(SHLIBCFLAGS) $(XCFLAGS) -o $@ -c $<
++
++#############################################################################
++# SETUP AND BUILD
++#############################################################################
++
++
++.PHONY: clean createdirs
++
++
++build_debug: CFLAGS=$(DEBUG_CFLAGS)
++build_debug: createdirs TARGETS
++
++build_release: CFLAGS=$(RELEASE_CFLAGS)
++build_release: createdirs TARGETS
++
++createdirs:
++	@-mkdir -p $(BUILDDIR) \
++		$(BUILDDIR)/client \
++		$(BUILDDIR)/ref_soft \
++		$(BUILDDIR)/ref_softsdl \
++		$(BUILDDIR)/ref_gl \
++		$(BUILDDIR)/net \
++		$(BUILDDIR)/sound \
++		$(BUILDDIR)/game
++
++
++TARGETS: $(BUILDDIR)/quake2
++
++#############################################################################
++# CLIENT/SERVER
++#############################################################################
++
++QUAKE2_OBJS = \
++	$(BUILDDIR)/client/cl_cin.o \
++	$(BUILDDIR)/client/cl_ents.o \
++	$(BUILDDIR)/client/cl_fx.o \
++	$(BUILDDIR)/client/cl_newfx.o \
++	$(BUILDDIR)/client/cl_input.o \
++	$(BUILDDIR)/client/cl_inv.o \
++	$(BUILDDIR)/client/cl_main.o \
++	$(BUILDDIR)/client/cl_parse.o \
++	$(BUILDDIR)/client/cl_pred.o \
++	$(BUILDDIR)/client/cl_tent.o \
++	$(BUILDDIR)/client/cl_scrn.o \
++	$(BUILDDIR)/client/cl_view.o \
++	$(BUILDDIR)/client/console.o \
++	$(BUILDDIR)/client/keys.o \
++	$(BUILDDIR)/client/menu.o \
++	$(BUILDDIR)/client/snd_dma.o \
++	$(BUILDDIR)/client/snd_mem.o \
++	$(BUILDDIR)/client/snd_mix.o \
++	$(BUILDDIR)/client/qmenu.o \
++	\
++	$(BUILDDIR)/client/cmd.o \
++	$(BUILDDIR)/client/cmodel.o \
++	$(BUILDDIR)/client/common.o \
++	$(BUILDDIR)/client/crc.o \
++	$(BUILDDIR)/client/cvar.o \
++	$(BUILDDIR)/client/files.o \
++	$(BUILDDIR)/client/md4.o \
++	$(BUILDDIR)/client/net_chan.o \
++	\
++	$(BUILDDIR)/client/sv_ccmds.o \
++	$(BUILDDIR)/client/sv_ents.o \
++	$(BUILDDIR)/client/sv_game.o \
++	$(BUILDDIR)/client/sv_init.o \
++	$(BUILDDIR)/client/sv_main.o \
++	$(BUILDDIR)/client/sv_send.o \
++	$(BUILDDIR)/client/sv_user.o \
++	$(BUILDDIR)/client/sv_world.o \
++	\
++	$(BUILDDIR)/client/cd_null.o \
++	$(BUILDDIR)/client/q_hunk.o \
++	$(BUILDDIR)/client/vid_menu.o \
++	$(BUILDDIR)/client/vid_lib.o \
++	$(BUILDDIR)/client/q_system.o \
++	$(BUILDDIR)/client/glob.o \
++	\
++	$(BUILDDIR)/client/pmove.o \
++	\
++	$(BUILDDIR)/net/net_loopback.o \
++	\
++	$(BUILDDIR)/sound/snddma_null.o \
++	\
++	$(BUILDDIR)/port_platform_unix.o
++
++
++GAME_OBJS = \
++	$(BUILDDIR)/game/g_ai.o \
++	$(BUILDDIR)/game/p_client.o \
++	$(BUILDDIR)/game/g_cmds.o \
++	$(BUILDDIR)/game/g_svcmds.o \
++	$(BUILDDIR)/game/g_combat.o \
++	$(BUILDDIR)/game/g_func.o \
++	$(BUILDDIR)/game/g_items.o \
++	$(BUILDDIR)/game/g_main.o \
++	$(BUILDDIR)/game/g_misc.o \
++	$(BUILDDIR)/game/g_monster.o \
++	$(BUILDDIR)/game/g_phys.o \
++	$(BUILDDIR)/game/g_save.o \
++	$(BUILDDIR)/game/g_spawn.o \
++	$(BUILDDIR)/game/g_target.o \
++	$(BUILDDIR)/game/g_trigger.o \
++	$(BUILDDIR)/game/g_turret.o \
++	$(BUILDDIR)/game/g_utils.o \
++	$(BUILDDIR)/game/g_weapon.o \
++	$(BUILDDIR)/game/m_actor.o \
++	$(BUILDDIR)/game/m_berserk.o \
++	$(BUILDDIR)/game/m_boss2.o \
++	$(BUILDDIR)/game/m_boss3.o \
++	$(BUILDDIR)/game/m_boss31.o \
++	$(BUILDDIR)/game/m_boss32.o \
++	$(BUILDDIR)/game/m_brain.o \
++	$(BUILDDIR)/game/m_chick.o \
++	$(BUILDDIR)/game/m_flipper.o \
++	$(BUILDDIR)/game/m_float.o \
++	$(BUILDDIR)/game/m_flyer.o \
++	$(BUILDDIR)/game/m_gladiator.o \
++	$(BUILDDIR)/game/m_gunner.o \
++	$(BUILDDIR)/game/m_hover.o \
++	$(BUILDDIR)/game/m_infantry.o \
++	$(BUILDDIR)/game/m_insane.o \
++	$(BUILDDIR)/game/m_medic.o \
++	$(BUILDDIR)/game/m_move.o \
++	$(BUILDDIR)/game/m_mutant.o \
++	$(BUILDDIR)/game/m_parasite.o \
++	$(BUILDDIR)/game/m_soldier.o \
++	$(BUILDDIR)/game/m_supertank.o \
++	$(BUILDDIR)/game/m_tank.o \
++	$(BUILDDIR)/game/p_hud.o \
++	$(BUILDDIR)/game/p_trail.o \
++	$(BUILDDIR)/game/p_view.o \
++	$(BUILDDIR)/game/p_weapon.o \
++	$(BUILDDIR)/game/q_shared.o \
++	$(BUILDDIR)/game/g_chase.o \
++	$(BUILDDIR)/game/m_flash.o
++
++#############################################################################
++# REF_SOFT
++#############################################################################
++
++REF_SOFT_OBJS = \
++	$(BUILDDIR)/ref_soft/r_aclip.o \
++	$(BUILDDIR)/ref_soft/r_alias.o \
++	$(BUILDDIR)/ref_soft/r_bsp.o \
++	$(BUILDDIR)/ref_soft/r_draw.o \
++	$(BUILDDIR)/ref_soft/r_edge.o \
++	$(BUILDDIR)/ref_soft/r_image.o \
++	$(BUILDDIR)/ref_soft/r_light.o \
++	$(BUILDDIR)/ref_soft/r_main.o \
++	$(BUILDDIR)/ref_soft/r_misc.o \
++	$(BUILDDIR)/ref_soft/r_model.o \
++	$(BUILDDIR)/ref_soft/r_part.o \
++	$(BUILDDIR)/ref_soft/r_poly.o \
++	$(BUILDDIR)/ref_soft/r_polyse.o \
++	$(BUILDDIR)/ref_soft/r_rast.o \
++	$(BUILDDIR)/ref_soft/r_scan.o \
++	$(BUILDDIR)/ref_soft/r_sprite.o \
++	$(BUILDDIR)/ref_soft/r_surf.o
++
++
++REF_SOFT_SDL_OBJS = \
++	$(BUILDDIR)/ref_soft/port_soft_stanix.o
++
++
++#############################################################################
++# REF_GL
++#############################################################################
++
++
++
++$(BUILDDIR)/quake2 : $(QUAKE2_OBJS) $(GAME_OBJS) $(REF_SOFT_OBJS) $(REF_SOFT_SDL_OBJS)
++	$(CC) $(CFLAGS) -o $@ $(QUAKE2_OBJS) $(GAME_OBJS) $(REF_SOFT_OBJS) $(REF_SOFT_SDL_OBJS) $(LDFLAGS)
++
++
++$(BUILDDIR)/client/cl_cin.o :     $(CLIENT_DIR)/cl_cin.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_ents.o :    $(CLIENT_DIR)/cl_ents.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_fx.o :      $(CLIENT_DIR)/cl_fx.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_newfx.o :      $(CLIENT_DIR)/cl_newfx.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_input.o :   $(CLIENT_DIR)/cl_input.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_inv.o :     $(CLIENT_DIR)/cl_inv.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_main.o :    $(CLIENT_DIR)/cl_main.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_parse.o :   $(CLIENT_DIR)/cl_parse.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_pred.o :    $(CLIENT_DIR)/cl_pred.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_tent.o :    $(CLIENT_DIR)/cl_tent.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_scrn.o :    $(CLIENT_DIR)/cl_scrn.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cl_view.o :    $(CLIENT_DIR)/cl_view.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/console.o :    $(CLIENT_DIR)/console.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/keys.o :       $(CLIENT_DIR)/keys.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/menu.o :       $(CLIENT_DIR)/menu.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/snd_dma.o :    $(CLIENT_DIR)/snd_dma.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/snd_mem.o :    $(CLIENT_DIR)/snd_mem.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/snd_mix.o :    $(CLIENT_DIR)/snd_mix.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/qmenu.o :      $(CLIENT_DIR)/qmenu.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cmd.o :        $(COMMON_DIR)/cmd.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cmodel.o :     $(COMMON_DIR)/cmodel.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/common.o :     $(COMMON_DIR)/common.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/crc.o :        $(COMMON_DIR)/crc.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cvar.o :       $(COMMON_DIR)/cvar.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/files.o :      $(COMMON_DIR)/files.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/md4.o :        $(COMMON_DIR)/md4.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/net_chan.o :   $(COMMON_DIR)/net_chan.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/pmove.o :      $(COMMON_DIR)/pmove.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/sv_ccmds.o :   $(SERVER_DIR)/sv_ccmds.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/sv_ents.o :    $(SERVER_DIR)/sv_ents.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/sv_game.o :    $(SERVER_DIR)/sv_game.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/sv_init.o :    $(SERVER_DIR)/sv_init.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/sv_main.o :    $(SERVER_DIR)/sv_main.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/sv_send.o :    $(SERVER_DIR)/sv_send.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/sv_user.o :    $(SERVER_DIR)/sv_user.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/sv_world.o :   $(SERVER_DIR)/sv_world.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/cd_null.o :   $(NULL_DIR)/cd_null.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/q_hunk.o :  $(OTHER_DIR)/q_hunk.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/vid_menu.o :   $(OTHER_DIR)/vid_menu.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/vid_lib.o :     $(OTHER_DIR)/vid_lib.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/snddma_null.o :  $(NULL_DIR)/snddma_null.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/q_system.o :  $(OTHER_DIR)/q_system.c
++	$(DO_CC)
++
++$(BUILDDIR)/client/glob.o :       $(OTHER_DIR)/glob.c
++	$(DO_CC)
++
++$(BUILDDIR)/net/net_loopback.o :    $(NET_DIR)/net_loopback.c
++	$(DO_CC)
++
++$(BUILDDIR)/port_platform_unix.o :    $(MOUNT_DIR)/port_platform_unix.c
++	$(DO_CC)
++
++$(BUILDDIR)/sound/snddma_null.o :    $(SOUND_DIR)/snddma_null.c
++	$(DO_GL_SHLIB_CC)
++
++
++### GAME
++
++$(BUILDDIR)/game/g_ai.o :        $(GAME_DIR)/g_ai.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/p_client.o :    $(GAME_DIR)/p_client.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_cmds.o :      $(GAME_DIR)/g_cmds.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_svcmds.o :    $(GAME_DIR)/g_svcmds.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_combat.o :    $(GAME_DIR)/g_combat.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_func.o :      $(GAME_DIR)/g_func.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_items.o :     $(GAME_DIR)/g_items.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_main.o :      $(GAME_DIR)/g_main.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_misc.o :      $(GAME_DIR)/g_misc.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_monster.o :   $(GAME_DIR)/g_monster.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_phys.o :      $(GAME_DIR)/g_phys.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_save.o :      $(GAME_DIR)/g_save.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_spawn.o :     $(GAME_DIR)/g_spawn.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_target.o :    $(GAME_DIR)/g_target.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_trigger.o :   $(GAME_DIR)/g_trigger.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_turret.o :    $(GAME_DIR)/g_turret.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_utils.o :     $(GAME_DIR)/g_utils.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_weapon.o :    $(GAME_DIR)/g_weapon.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_actor.o :     $(GAME_DIR)/m_actor.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_berserk.o :   $(GAME_DIR)/m_berserk.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_boss2.o :     $(GAME_DIR)/m_boss2.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_boss3.o :     $(GAME_DIR)/m_boss3.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_boss31.o :     $(GAME_DIR)/m_boss31.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_boss32.o :     $(GAME_DIR)/m_boss32.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_brain.o :     $(GAME_DIR)/m_brain.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_chick.o :     $(GAME_DIR)/m_chick.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_flipper.o :   $(GAME_DIR)/m_flipper.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_float.o :     $(GAME_DIR)/m_float.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_flyer.o :     $(GAME_DIR)/m_flyer.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_gladiator.o : $(GAME_DIR)/m_gladiator.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_gunner.o :    $(GAME_DIR)/m_gunner.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_hover.o :     $(GAME_DIR)/m_hover.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_infantry.o :  $(GAME_DIR)/m_infantry.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_insane.o :    $(GAME_DIR)/m_insane.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_medic.o :     $(GAME_DIR)/m_medic.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_move.o :      $(GAME_DIR)/m_move.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_mutant.o :    $(GAME_DIR)/m_mutant.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_parasite.o :  $(GAME_DIR)/m_parasite.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_soldier.o :   $(GAME_DIR)/m_soldier.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_supertank.o : $(GAME_DIR)/m_supertank.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_tank.o :      $(GAME_DIR)/m_tank.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/p_hud.o :       $(GAME_DIR)/p_hud.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/p_trail.o :     $(GAME_DIR)/p_trail.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/p_view.o :      $(GAME_DIR)/p_view.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/p_weapon.o :    $(GAME_DIR)/p_weapon.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/q_shared.o :    $(GAME_DIR)/q_shared.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/g_chase.o :    $(GAME_DIR)/g_chase.c
++	$(DO_CC)
++
++$(BUILDDIR)/game/m_flash.o :     $(GAME_DIR)/m_flash.c
++	$(DO_CC)
++
++#############################################################################
++# CTF
++#############################################################################
++
++CTF_OBJS = \
++	$(BUILDDIR)/ctf/g_ai.o \
++	$(BUILDDIR)/ctf/g_chase.o \
++	$(BUILDDIR)/ctf/g_cmds.o \
++	$(BUILDDIR)/ctf/g_combat.o \
++	$(BUILDDIR)/ctf/g_ctf.o \
++	$(BUILDDIR)/ctf/g_func.o \
++	$(BUILDDIR)/ctf/g_items.o \
++	$(BUILDDIR)/ctf/g_main.o \
++	$(BUILDDIR)/ctf/g_misc.o \
++	$(BUILDDIR)/ctf/g_monster.o \
++	$(BUILDDIR)/ctf/g_phys.o \
++	$(BUILDDIR)/ctf/g_save.o \
++	$(BUILDDIR)/ctf/g_spawn.o \
++	$(BUILDDIR)/ctf/g_svcmds.o \
++	$(BUILDDIR)/ctf/g_target.o \
++	$(BUILDDIR)/ctf/g_trigger.o \
++	$(BUILDDIR)/ctf/g_utils.o \
++	$(BUILDDIR)/ctf/g_weapon.o \
++	$(BUILDDIR)/ctf/m_move.o \
++	$(BUILDDIR)/ctf/p_client.o \
++	$(BUILDDIR)/ctf/p_hud.o \
++	$(BUILDDIR)/ctf/p_menu.o \
++	$(BUILDDIR)/ctf/p_trail.o \
++	$(BUILDDIR)/ctf/p_view.o \
++	$(BUILDDIR)/ctf/p_weapon.o \
++	$(BUILDDIR)/ctf/q_shared.o
++
++$(BUILDDIR)/ctf/game.$(SHLIBEXT) : $(CTF_OBJS)
++	$(CC) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(CTF_OBJS)
++
++$(BUILDDIR)/ctf/g_ai.o :       $(CTF_DIR)/g_ai.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_chase.o :    $(CTF_DIR)/g_chase.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_cmds.o :     $(CTF_DIR)/g_cmds.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_combat.o :   $(CTF_DIR)/g_combat.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_ctf.o :      $(CTF_DIR)/g_ctf.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_func.o :     $(CTF_DIR)/g_func.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_items.o :    $(CTF_DIR)/g_items.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_main.o :     $(CTF_DIR)/g_main.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_misc.o :     $(CTF_DIR)/g_misc.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_monster.o :  $(CTF_DIR)/g_monster.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_phys.o :     $(CTF_DIR)/g_phys.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_save.o :     $(CTF_DIR)/g_save.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_spawn.o :    $(CTF_DIR)/g_spawn.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_svcmds.o :   $(CTF_DIR)/g_svcmds.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_target.o :   $(CTF_DIR)/g_target.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_trigger.o :  $(CTF_DIR)/g_trigger.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_utils.o :    $(CTF_DIR)/g_utils.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/g_weapon.o :   $(CTF_DIR)/g_weapon.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/m_move.o :     $(CTF_DIR)/m_move.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/p_client.o :   $(CTF_DIR)/p_client.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/p_hud.o :      $(CTF_DIR)/p_hud.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/p_menu.o :     $(CTF_DIR)/p_menu.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/p_trail.o :    $(CTF_DIR)/p_trail.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/p_view.o :     $(CTF_DIR)/p_view.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/p_weapon.o :   $(CTF_DIR)/p_weapon.c
++	$(DO_SHLIB_CC)
++
++$(BUILDDIR)/ctf/q_shared.o :   $(CTF_DIR)/q_shared.c
++	$(DO_SHLIB_CC)
++
++
++
++#############################################################################
++# REF_SOFT
++#############################################################################
++
++
++$(BUILDDIR)/ref_soft/r_aclip.o :      $(REF_SOFT_DIR)/r_aclip.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_alias.o :      $(REF_SOFT_DIR)/r_alias.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_bsp.o :        $(REF_SOFT_DIR)/r_bsp.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_draw.o :       $(REF_SOFT_DIR)/r_draw.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_edge.o :       $(REF_SOFT_DIR)/r_edge.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_image.o :      $(REF_SOFT_DIR)/r_image.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_light.o :      $(REF_SOFT_DIR)/r_light.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_main.o :       $(REF_SOFT_DIR)/r_main.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_misc.o :       $(REF_SOFT_DIR)/r_misc.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_model.o :      $(REF_SOFT_DIR)/r_model.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_part.o :       $(REF_SOFT_DIR)/r_part.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_poly.o :       $(REF_SOFT_DIR)/r_poly.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_polyse.o :     $(REF_SOFT_DIR)/r_polyse.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_rast.o :       $(REF_SOFT_DIR)/r_rast.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_scan.o :       $(REF_SOFT_DIR)/r_scan.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_sprite.o :     $(REF_SOFT_DIR)/r_sprite.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/r_surf.o :       $(REF_SOFT_DIR)/r_surf.c
++	$(DO_GL_SHLIB_CC)
++
++$(BUILDDIR)/ref_soft/port_soft_stanix.o :       $(MOUNT_DIR)/port_soft_stanix.c
++	$(DO_GL_SHLIB_CC)
++
++
++#############################################################################
++# MISC
++#############################################################################
++
++clean:
++	-rm -rf \
++	$(BUILDDIR)/client \
++	$(BUILDDIR)/ref_soft \
++	$(BUILDDIR)/ref_softsdl \
++	$(BUILDDIR)/ref_gl \
++	$(BUILDDIR)/game \
++	$(BUILDDIR)/net \
++	$(BUILDDIR)/sound \
++	$(BUILDDIR)/ctf
++	-rm $(BUILDDIR)/quake2*
++	-rm $(BUILDDIR)/game*
++	-rm $(BUILDDIR)/ref*
++	-rm $(BUILDDIR)/*.o
+diff --git a/port_soft_stanix.c b/port_soft_stanix.c
+new file mode 100644
+index 0000000..20e1738
+--- /dev/null
++++ b/port_soft_stanix.c
+@@ -0,0 +1,303 @@
++
++#include <stdio.h>
++
++#include "ref_soft/r_local.h"
++#include "client/keys.h"
++
++#include "quake2.h"
++
++
++#include <stdio.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <string.h>
++#include <stdint.h>
++
++#include <sys/ioctl.h>
++#include <sys/mman.h>
++#include <sys/time.h>
++#include <twm.h>
++#include <input.h>
++#include <gfx.h>
++
++#include <termios.h>
++
++static color_t colors[256];
++
++int _old_mouse_buttonstate = 0;
++
++static int _width = 640;
++static int _height = 480;
++
++static gfx_t *gfx;
++static twm_window_t window;
++static char * s_ScreenMemory = NULL;
++
++static unsigned int s_PositionX = 0;
++static unsigned int s_PositionY = 0;
++
++static unsigned int s_ScreenWidth = 0;
++static unsigned int s_ScreenHeight = 0;
++
++
++static void setupWindow()
++{
++	if (s_ScreenMemory)
++	{
++		free(s_ScreenMemory);
++		s_ScreenMemory = NULL;
++	}
++
++	s_ScreenMemory = malloc(_width * _height);
++
++	vid.rowbytes = _width;
++	vid.buffer = s_ScreenMemory;
++}
++
++
++rserr_t SWimp_SetMode( int *pwidth, int *pheight, int mode, qboolean fullscreen )
++{
++	int width = 0;
++	int height = 0;
++
++	ri.Con_Printf( PRINT_ALL, "Initializing display\n");
++
++	ri.Con_Printf (PRINT_ALL, "...setting mode %d:", mode );
++
++	if ( !ri.Vid_GetModeInfo( &width, &height, mode ) )
++	{
++		ri.Con_Printf( PRINT_ALL, " invalid mode\n" );
++		return rserr_invalid_mode;
++	}
++
++	ri.Con_Printf( PRINT_ALL, " %d %d\n", width, height );
++
++
++	_width = width;
++	_height = height;
++
++	*pwidth = width;
++	*pheight = height;
++
++	twm_window_resize(window, width, height);
++	gfx = twm_get_window_gfx(window);
++	s_ScreenWidth = gfx->width;
++	s_ScreenHeight = gfx->height;
++
++	setupWindow();	
++
++	// let the sound and input subsystems know about the new window
++	ri.Vid_NewWindow (width, height);
++
++	return rserr_ok;
++}
++
++void SWimp_Shutdown( void )
++{
++	if (s_ScreenMemory)
++	{
++		free(s_ScreenMemory);
++		s_ScreenMemory = NULL;
++	}
++
++	exit(0);
++}
++
++
++int SWimp_Init( void *hInstance, void *wndProc )
++{
++	if (twm_init(NULL) < 0) {
++		fprintf(stderr, "failed to init twm\n");
++		return false;
++	}
++	window = twm_create_window("Quake2", 640, 480, TWM_NULL);
++	gfx = twm_get_window_gfx(window);
++
++	s_ScreenWidth = gfx->width;
++	s_ScreenHeight = gfx->height;
++	printf("got screen of size %ux%u\n", s_ScreenWidth, s_ScreenHeight);
++
++	setupWindow(false);
++
++	return true;
++}
++
++static qboolean SWimp_InitGraphics( qboolean fullscreen )
++{
++	setupWindow();
++
++	return rserr_ok;
++}
++
++void SWimp_SetPalette( const unsigned char *palette )
++{
++	for (int i=0; i<256; ++i) {
++		uint8_t r = *palette++;
++		uint8_t g = *palette++;
++		uint8_t b = *palette++;
++		uint8_t a = 255;
++		palette++;
++		colors[i] = gfx_color(gfx, r, g, b);
++	}
++}
++
++void SWimp_BeginFrame( float camera_seperation )
++{
++	
++}
++
++
++/*
++** GLimp_EndFrame
++** 
++** Responsible for doing a swapbuffers and possibly for other stuff
++** as yet to be determined.  Probably better not to make this a GLimp
++** function and instead do a call to GLimp_SwapBuffers.
++*/
++void SWimp_EndFrame (void)
++{
++	uint8_t *colorPtr = s_ScreenMemory;
++	for (int y = 0; y < _height; ++y)
++	{
++ 		uintptr_t ptr = gfx_pixel_addr(gfx, 0, y);
++		for (int x = 0; x < _width; ++x)
++		{
++			uint8_t colorIndex = *(colorPtr++);
++			*(color_t *)ptr = colors[colorIndex];
++			ptr += gfx->bpp / 8;
++		}
++	}
++	gfx_push_buffer(gfx);
++	twm_redraw_window(window, 0, 0, _width, _height);
++}
++
++
++void SWimp_AppActivate( qboolean active )
++{
++
++}
++
++
++#define KEY(key) case INPUT_KEY_ ## key:\
++	return K_ ## key;
++static unsigned char ConvertToQuakeKey(twm_event_input_t *event)
++{
++	switch (event->key.key) {
++	KEY(TAB)
++	KEY(ENTER)
++	case INPUT_KEY_ESC:
++		return K_ESCAPE;
++	KEY(SPACE)
++	KEY(BACKSPACE)
++	case INPUT_KEY_ARROW_UP:
++		return K_UPARROW;
++	case INPUT_KEY_ARROW_LEFT:
++		return K_LEFTARROW;
++	case INPUT_KEY_ARROW_DOWN:
++		return K_DOWNARROW;
++	case INPUT_KEY_ARROW_RIGHT:
++		return K_RIGHTARROW;
++	case INPUT_KEY_LALT:
++	case INPUT_KEY_RALT:
++		return K_ALT;
++	case INPUT_KEY_LCRTL:
++	case INPUT_KEY_RCRTL:
++		return K_CTRL;
++	case INPUT_KEY_LSHIFT:
++	case INPUT_KEY_RSHIFT:
++		return K_SHIFT;
++	KEY(F1)
++	KEY(F2)
++	KEY(F3)
++	KEY(F4)
++	KEY(F5)
++	KEY(F6)
++	KEY(F7)
++	KEY(F8)
++	KEY(F9)
++	KEY(F10)
++	KEY(F11)
++	KEY(F12)
++	KEY(HOME)
++	KEY(END)
++	case INPUT_KEY_INSERT:
++		return K_INS;
++	case INPUT_KEY_DELETE:
++		return K_DEL;
++	case INPUT_KEY_PAGE_DOWN:
++		return K_PGDN;
++	case INPUT_KEY_PAGE_UP:
++		return K_PGUP;
++	default:
++		return event->key.key;
++	}     
++}
++
++static void HandleInputEvent(twm_event_input_t *event)
++{
++	if (event->type != TWM_INPUT_KEY) return;
++	Quake2_SendKey(ConvertToQuakeKey(event), event->key.flags & TWM_INPUT_PRESS);
++}
++
++void HandleEvents(void)
++{
++	// handle events
++	twm_event_t *event;
++	while ((event = twm_peek_event())) {
++		switch (event->type) {
++		case TWM_EVENT_INPUT:
++			HandleInputEvent((twm_event_input_t*)event);
++			break;
++		}
++	}
++}
++
++
++int QG_Milliseconds(void)
++{	
++	struct timeval  tp;
++	struct timezone tzp;
++
++	gettimeofday(&tp, &tzp);
++
++	return (tp.tv_sec * 1000) + (tp.tv_usec / 1000); /* return milliseconds */
++}
++
++void QG_GetMouseDiff(int* dx, int* dy)
++{
++	//SDL_GetRelativeMouseState(dx, dy);
++}
++
++void QG_CaptureMouse(void)
++{
++	//SDL_SetRelativeMouseMode(SDL_TRUE);
++}
++
++void QG_ReleaseMouse(void)
++{
++	//SDL_SetRelativeMouseMode(SDL_FALSE);
++}
++
++int main(int argc, char **argv)
++{
++	int time, oldtime, newtime;
++
++	Quake2_Init(argc, argv);
++
++		oldtime = Quake2_Milliseconds ();
++		while (1)
++		{
++			HandleEvents();
++			
++			do {
++				newtime = Quake2_Milliseconds ();
++				time = newtime - oldtime;
++			} while (time < 1);
++
++			Quake2_Frame(time);
++			
++			oldtime = newtime;
++		}
++
++		return 0;
++}
+\ No newline at end of file
