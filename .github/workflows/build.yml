@@ -18,7 +18,7 @@ jobs:
         submodules: true
 
     - name: Install build tools
-      run: sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo nasm -y
+      run: sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo nasm xorriso mtools -y
     
     - name: Calculate toolchain hash
       id: toolchain-hash
