@@ -162,6 +162,17 @@ tinx_is_package_cache_old () {
 	fi
 }
 
+tinx_clear_source () {
+	if test -n "$TAR" ; then
+		TAR_NAME="${TAR##*/}"
+		TAR_FILE="$BUILDDIR/tar/$TAR_NAME"
+		rm -fr "$TAR_FILE" "$BUILDDIR/tar/${TAR_NAME%%.tar.*}"
+	elif test -n "$GIT" ; then
+		GIT_NAME="${GIT##*/}"
+		rm -fr "$BUILDDIR/git/$GIT_NAME-$VERSION"
+	fi
+}
+
 tinx_select_package () {
 	VERSION="unknown"
 	REVISION="0"
@@ -192,6 +203,7 @@ tinx_select_package () {
 	COMMIT=""
 	TAG=""
 	DIR=""
+	SOURCE_HASH=""
 	prepare () {
 		true
 	}
@@ -200,28 +212,29 @@ tinx_select_package () {
 			tinx_error "unknown source $SOURCE"
 			return 1
 		fi
-	fi
 
-	DIR_HASH=""
-	PATCHES_HASH=""
-	if test -n "$DIR" ; then
-		DIR_HASH="$(tinx_get_directory_hash "$DIR")" || return 1
-	fi
-	if test -d "sources/$SOURCE/patches" ; then
-		PATCHES_HASH="$(tinx_get_directory_hash "sources/$SOURCE/patches")" || return 1
-	fi
+		DIR_HASH=""
+		PATCHES_HASH=""
+		if test -n "$DIR" ; then
+			DIR_HASH="$(tinx_get_directory_hash "$DIR")" || return 1
+		fi
+		if test -d "sources/$SOURCE/patches" ; then
+			PATCHES_HASH="$(tinx_get_directory_hash "sources/$SOURCE/patches")" || return 1
+		fi
 
-	if tinx_is_source_cache_old "$SOURCE" ; then
-		# things have changed
-		# some stuff need to be redone
-		rm -f "$BUILD_DIR/.tinx-configured"
-		rm -f "$BUILD_DIR/.tinx-built"
-		rm -f "$BUILD_DIR/.tinx-installed"
-		tinx_build_source_cache "$SOURCE" || return 1
-	elif test "$REBUILD_CACHE" = "yes" ; then
-		tinx_build_source_cache "$SOURCE" || return 1
+		if tinx_is_source_cache_old "$SOURCE" ; then
+			# things have changed
+			# some stuff need to be redone
+			rm -f "$BUILD_DIR/.tinx-configured"
+			rm -f "$BUILD_DIR/.tinx-built"
+			rm -f "$BUILD_DIR/.tinx-installed"
+			tinx_clear_source | return 1
+			tinx_build_source_cache "$SOURCE" || return 1
+		elif test "$REBUILD_CACHE" = "yes" ; then
+			tinx_build_source_cache "$SOURCE" || return 1
+		fi
+		SOURCE_HASH="$(sha256sum "$TINX_CACHE/sources/$SOURCE.sh" | cut -d' ' -f1)" || return 1
 	fi
-	SOURCE_HASH="$(sha256sum "$TINX_CACHE/sources/$SOURCE.sh" | cut -d' ' -f1)" || return 1
 
 	if tinx_is_package_cache_old "$1" ; then
 		# things have changed
