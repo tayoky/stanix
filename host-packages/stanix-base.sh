@@ -13,6 +13,7 @@ build () {
 install () {
 	# install base sysroot
 	mkdir -p "$DESTDIR"
+	mkdir -p "$DESTDIR/dev" "$DESTDIR/tmp" "$DESTDIR/mnt" "$DESTDIR/proc" "$DESTDIR/sys"
 	cp -Pf -rp "$SOURCE_DIR"/* "$DESTDIR/"
 
 	# install os release
