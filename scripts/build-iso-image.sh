@@ -1,5 +1,5 @@
+#!/bin/sh
 # build an iso image from a sysroot
-
 
 set -e
 LIMINE_DIR="$BUILD_PREFIX/share/limine"
