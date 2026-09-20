@@ -1,7 +1,8 @@
 tinx_help () {
-	echo "tinx [OPTIONS] ACTIONS [PACKAGES...]"
-	echo "or tinx [OPTIONS] run SCRIPT [ARGUMENTS]"
+	echo "$0 [OPTIONS] ACTIONS [PACKAGES...]"
+	echo "or $0 [OPTIONS] run SCRIPT [ARGUMENTS]"
 	echo "options :"
+	echo "--host=HOST     : specify host"
 	echo "--build-package : select a build tool package"
 	echo "--host-package  : select a host tool package"
 	echo "--redownload    : force redownload archive"
