@@ -130,20 +130,6 @@ static inline void set_task_status(int status) {
 }
 
 /**
- * @brief prepare the current task to sleep
- */
-static inline void block_prepare(void) {
-	set_task_status(TASK_STATUS_BLOCKED);
-}
-
-/**
- * @brief prepare the current task to sleep but can be interrupted by signals
- */
-static inline void block_prepare_interruptible(void) {
-	set_task_status(TASK_STATUS_INTERRUPTIBLE);
-}
-
-/**
  * @brief cancel a preparation to sleep
  */
 static inline void block_cancel(void) {
@@ -181,6 +167,23 @@ int block_task(void);
  */
 int unblock_task_reason(task_t *task, int reason);
 
+/**
+ * @brief prepare the current task to sleep
+ */
+static inline void block_prepare(void) {
+	set_task_status(TASK_STATUS_BLOCKED);
+}
+
+/**
+ * @brief prepare the current task to sleep but can be interrupted by signals
+ */
+static inline void block_prepare_interruptible(void) {
+	set_task_status(TASK_STATUS_INTERRUPTIBLE);
+	if (signal_get_unhandled_mask()) {
+		// we already have unhandled signals waiting
+		unblock_task_reason(get_current_task(), WAKEUP_SIGNAL);
+	}
+}
 
 /**
  * @brief unblock a task
