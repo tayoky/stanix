@@ -1,0 +1,5 @@
+VERSION="1.4.21"
+SOURCE="m4"
+DEPENDENCIES="stanix-base"
+. "$TOP/scripts/gnu-package.sh"
+WEBSITE="http://www.gnu.org/software/m4/"

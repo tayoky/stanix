@@ -1,1 +1,1 @@
-TAR="$GNU_MIRROR/mpfr/mpfr-$VERSION.tar.xz"
+TAR="$GNU_MIRROR/gnu/mpfr/mpfr-$VERSION.tar.xz"

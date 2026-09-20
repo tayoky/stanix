@@ -1,1 +1,1 @@
-TAR="$GNU_MIRROR/mpc/mpc-$VERSION.tar.xz"
+TAR="$GNU_MIRROR/gnu/mpc/mpc-$VERSION.tar.xz"

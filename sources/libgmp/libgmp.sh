@@ -1,1 +1,1 @@
-TAR="$GNU_MIRROR/gmp/gmp-$VERSION.tar.xz"
+TAR="$GNU_MIRROR/gnu/gmp/gmp-$VERSION.tar.xz"
