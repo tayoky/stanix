@@ -20,7 +20,7 @@ error () {
 	echo "qemu.sh : $@" >&2
 }
 
-add_option () {
+add_options () {
 	INTERNAL_OPTIONS="$INTERNAL_OPTIONS $@"
 }
 
@@ -101,4 +101,4 @@ esac
 add_options -m "$MEMORY"
 add_options $EXTRA_OPTIONS
 
-"$QEMU" "$INTERNAL_OPTIONS"
+"$QEMU" $INTERNAL_OPTIONS
