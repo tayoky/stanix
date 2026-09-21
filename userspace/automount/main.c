@@ -75,7 +75,6 @@ fail:
 
 
 		fprintf(stderr, "\rtry to mount device " DEV_PATH "/%s%d : [ok]\n", prefix, i);
-cont:
 		continue;
 	}
 }

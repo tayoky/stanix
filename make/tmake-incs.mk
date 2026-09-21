@@ -1,6 +1,6 @@
 # makefile include to install includes
 
-INCS ?= $(wildcard include/*)
+INCS ?= 
 FILESGROUPS += INCS
 
 include $(TMAKE_DIR)/tmake-files.mk

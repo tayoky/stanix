@@ -2,8 +2,10 @@
 
 PROG ?= $(PACKAGE)
 SRCS ?= $(wildcard *.[cs])
-OBJS += $(SRCS:%=$(BUILDDIR)/%.o)
-CFLAGS := -std=c99 -I ./ $(CFLAGS)
+SRCNAMES = $(notdir $(SRCS))
+SRCDIRS += $(dir $(SRCS))
+OBJS += $(SRCNAMES:%=$(BUILDDIR)/%.o)
+CFLAGS := -I ./ $(CFLAGS)
 
 BIN += $(BUILDDIR)/$(PROG)
 BINCLEANFILES += $(BUILDDIR)/$(PROG) $(OBJS)

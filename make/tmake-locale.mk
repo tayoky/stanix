@@ -1,9 +1,12 @@
 # makefile include to manage .mo/.po/.pot files
 
-LOCALES ?= $(wildcard locale/*.po)
+LOCALES ?= $(wildcard $(SRCDIR)/locale/*.po)
+LOCALE_NAMES = $(notdir $(LOCALES))
 TEMPLATE_POT ?= $(BUILDDIR)/locale/template.pot
-LOCALES_MO ?= $(LOCALES:%.po=$(BUILDDIR)/%.mo)
+LOCALES_MO ?= $(LOCALE_NAMES:%.po=$(BUILDDIR)/%.mo)
 DOMAIN ?= $(PACKAGE)
+
+vpath %.po $(dir $(LOCALES))
 
 ifneq ($(MULTI_LANGUAGES),no)
 ifneq ($(strip $(LOCALES_MO)),)

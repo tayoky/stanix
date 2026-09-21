@@ -3,6 +3,7 @@
 MAKEFLAGS += --no-builtin-rules
 
 TOP ?= $(CURDIR)
+SRCDIR ?= $(CURDIR)
 -include $(TOP)/config.mk
 
 CC ?= cc
@@ -26,9 +27,7 @@ TMAKE_DIR ?= $(TOP)/make
 STAMP     ?= $(BUILDDIR)/.stamp
 
 ifeq ($(BUILDDIR),)
-	BUILDDIR  ?= $(TOP)/build$(CURDIR:$(abspath $(TOP))%=%)
-else
-	BUILDDIR  := $(BUILDDIR)$(CURDIR:$(abspath $(TOP))%=%)
+	BUILDDIR  ?= $(TOP)/build$(SRCDIR:$(abspath $(TOP))%=%)
 endif
 
 TMAKE_CFLAGS += -DPREFIX='"$(PREFIX)"' -DLOCALEDIR='"$(LOCALEDIR)"'
