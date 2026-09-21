@@ -6,6 +6,7 @@
 #include <kernel/bus.h>
 #include <kernel/resource.h>
 #include <kernel/workqueue.h>
+#include <kernel/atomic.h>
 #include <module/ata.h>
 
 #define IDE_RID_BASE  1
@@ -23,7 +24,7 @@ typedef struct ide_channel {
 	void *irq_handler;
 	ata_device_t *master;
 	ata_device_t *slave;
-	ata_command_t *volatile current_command; // protected by lock
+	ATOMIC(ata_command_t *) current_command; // write protected by lock
 	volatile size_t bytes_transferred;
 	int ret;
 	uint8_t nIEN;

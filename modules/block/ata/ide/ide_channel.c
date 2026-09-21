@@ -168,7 +168,11 @@ static void ide_channel_send_packet(ide_channel_t *channel, ata_command_t *comma
 static void ide_channel_irq_handler(registers_t *registers, void *data) {
 	(void)registers;
 	ide_channel_t *channel = data;
-	ata_command_t *command = channel->current_command;
+	ata_command_t *command = atomic_load(&channel->current_command);
+	if (!command) {
+		// spurious wakeup
+		return;
+	}
 
 	ide_channel_io_wait(channel);
 	uint8_t status = ide_channel_read(channel, IDE_REG_STATUS);
@@ -230,7 +234,7 @@ error:
 static void ide_channel_command_finished(ide_channel_t *channel) {
 	spinlock_acquire(&channel->lock);
 	kassert(channel->current_command);
-	channel->current_command = NULL;
+	atomic_store(&channel->current_command, NULL);
 	spinlock_release(&channel->lock);
 
 	ioreq_queue_submit_pending(&channel->queue);
@@ -242,7 +246,7 @@ static void ide_channel_command_finished(ide_channel_t *channel) {
  */
 static void ide_channel_work(work_t *work) {
 	ide_channel_t *channel = container_of(work, ide_channel_t, work);
-	ata_command_t *command = channel->current_command;
+	ata_command_t *command = atomic_load(&channel->current_command);
 
 	ide_channel_command_finished(channel);
 	ioreq_finish(&command->ioreq, channel->ret);
@@ -458,7 +462,7 @@ static int ide_channel_submit_ata_command(devnode_t *bus, ata_device_t *device, 
 		spinlock_release(&channel->lock);
 		return 0;
 	}
-	channel->current_command = command;
+	atomic_store(&channel->current_command, command);
 	spinlock_release(&channel->lock);
 	int ret = ide_channel_raw_send_ata_command(channel, device, command);
 	if (ret < 0) {
