@@ -1,23 +1,23 @@
-#include <kernel/spinlock.h>
-#include <kernel/kernel.h>
-#include <kernel/sleep.h>
-#include <kernel/string.h>
-#include <kernel/bootinfo.h>
 #include <kernel/assert.h>
-#include <kernel/print.h>
-#include <kernel/panic.h>
+#include <kernel/bootinfo.h>
+#include <kernel/kernel.h>
 #include <kernel/page.h>
+#include <kernel/panic.h>
 #include <kernel/pmm.h>
+#include <kernel/print.h>
+#include <kernel/sleep.h>
+#include <kernel/spinlock.h>
+#include <kernel/string.h>
 
 // inspired by linux's buddy allocator
 
 #define PAGES_PER_SECTION (1UL << 14)
 static page_t **page_info_sections = NULL;
-static size_t used_pages = 0;
-static size_t total_pages = 0;
+static size_t used_pages           = 0;
+static size_t total_pages          = 0;
 static size_t private_pages;
 static size_t shared_pages;
-static uintptr_t zero_page = PAGE_INVALID;
+static uintptr_t zero_page    = PAGE_INVALID;
 static uintptr_t highest_page = 0;
 static pmm_t pmms[ZONES_COUNT];
 static int is_stage2 = 0;
@@ -36,8 +36,8 @@ void init_pmm() {
 		}
 
 		// find start and end and page align it
-		uintptr_t start =  PAGE_ALIGN_UP(entry.start);
-		uintptr_t end = PAGE_ALIGN_DOWN(entry.start + entry.size);
+		uintptr_t start = PAGE_ALIGN_UP(entry.start);
+		uintptr_t end   = PAGE_ALIGN_DOWN(entry.start + entry.size);
 
 		// when we page align it might become empty
 		if (start >= end) {
@@ -50,7 +50,7 @@ void init_pmm() {
 
 		size_t pages_count = (end - start) / PAGE_SIZE;
 		total_pages += pages_count;
-		used_pages  += pages_count;
+		used_pages += pages_count;
 		if (entry.type != MEMMAP_USABLE) {
 			continue;
 		}
@@ -68,11 +68,19 @@ static page_t **pmm_page_section(uintptr_t addr) {
 
 static page_t *pmm_allocate_page_section(uintptr_t *map_addr) {
 	// we need to map new pages
-	page_t *pages_info = (page_t*)*map_addr;
-	for (size_t size=0; size<PAGES_PER_SECTION * sizeof(page_t); size+= PAGE_SIZE) {
+	page_t *pages_info = (page_t *)*map_addr;
+	for (size_t size = 0; size < PAGES_PER_SECTION * sizeof(page_t); size += PAGE_SIZE) {
 		uintptr_t page = pmm_allocate_page();
+		kassert(page != PAGE_INVALID && "early OOM");
 		mmu_map_page(mmu_get_addr_space(), page, *map_addr, PAGES_INFO_MMU_FLAGS);
 		*map_addr += PAGE_SIZE;
+	}
+
+	// setup flags and ref count
+	page_t *pages_end = pages_info + PAGES_PER_SECTION;
+	for (page_t *page = pages_info; page < pages_end; page++) {
+		page->flags     = PAGE_FLAG_RESERVED;
+		page->ref_count = 1;
 	}
 	return pages_info;
 }
@@ -80,15 +88,15 @@ static page_t *pmm_allocate_page_section(uintptr_t *map_addr) {
 void init_second_stage_pmm(void) {
 	// allocate memory for sections array
 	uintptr_t sections_start = MEM_PAGES_START;
-	uintptr_t sections_end   = PAGE_ALIGN_UP  (MEM_PAGES_START + highest_page / PAGE_SIZE / PAGES_PER_SECTION * sizeof(page_t *)) + PAGE_SIZE;
-	for (uintptr_t addr=sections_start; addr<sections_end; addr+= PAGE_SIZE) {
+	uintptr_t sections_end   = PAGE_ALIGN_UP(MEM_PAGES_START + highest_page / PAGE_SIZE / PAGES_PER_SECTION * sizeof(page_t *)) + PAGE_SIZE;
+	for (uintptr_t addr = sections_start; addr < sections_end; addr += PAGE_SIZE) {
 		// we need to map a new page
 		uintptr_t page = pmm_allocate_page();
-		kassert(page != PAGE_INVALID);
+		kassert(page != PAGE_INVALID && "early OOM");
 		mmu_map_page(mmu_get_addr_space(), page, addr, PAGES_INFO_MMU_FLAGS);
 	}
-	page_info_sections = (page_t**)MEM_PAGES_START;
-	memset((void*)sections_start, 0, sections_end - sections_start);
+	memset((void *)sections_start, 0, sections_end - sections_start);
+	page_info_sections = (page_t **)sections_start;
 	uintptr_t map_addr = sections_end;
 
 	for (size_t i = 0; i < bootinfo_memmap_get_entries_count(); i++) {
@@ -99,8 +107,8 @@ void init_second_stage_pmm(void) {
 		}
 
 		// find start and end and page align it
-		uintptr_t start =  PAGE_ALIGN_UP(entry.start);
-		uintptr_t end = PAGE_ALIGN_DOWN(entry.start + entry.size);
+		uintptr_t start = PAGE_ALIGN_UP(entry.start);
+		uintptr_t end   = PAGE_ALIGN_DOWN(entry.start + entry.size);
 
 		// when we page align it might become empty
 		if (start >= end) {
@@ -109,7 +117,7 @@ void init_second_stage_pmm(void) {
 
 		// now allocate memory for the struct pages
 		uintptr_t section_start = start / (PAGES_PER_SECTION * PAGE_SIZE) * (PAGES_PER_SECTION * PAGE_SIZE);
-		for (uintptr_t addr=section_start; addr<end; addr+= PAGES_PER_SECTION * PAGE_SIZE) {
+		for (uintptr_t addr = section_start; addr < end; addr += PAGES_PER_SECTION * PAGE_SIZE) {
 			page_t **current = pmm_page_section(addr);
 			if (*current) {
 				// already allocated
@@ -118,22 +126,15 @@ void init_second_stage_pmm(void) {
 			*current = pmm_allocate_page_section(&map_addr);
 			kdebugf("allocate section for %p at %p\n", addr, *current);
 		}
-
-		// setup flags and ref count
-		for (uintptr_t addr=start; addr<end; addr += PAGE_SIZE) {
-			page_t *page_info = pmm_page_info(addr);
-			page_info->flags = PAGE_FLAG_RESERVED;
-			page_info->ref_count = 1;
-		}
 	}
 
 	// now setup flags and ref count of free pages
 	uintptr_t start;
 	size_t count;
 	while (pmm1_get_free_pages(&start, &count)) {
-		for (size_t i=0; i<count; i++) {
+		for (size_t i = 0; i < count; i++) {
 			page_t *page_info = pmm_page_info(start + i * PAGE_SIZE);
-			page_info->flags = PAGE_FLAG_USABLE;
+			page_info->flags  = PAGE_FLAG_USABLE;
 		}
 		pmm_set_free_pages_range(start, count);
 	}
@@ -161,7 +162,7 @@ page_t *pmm_page_info(uintptr_t addr) {
 	if (!page_info_sections) return NULL;
 
 	uintptr_t page_index = addr / PAGE_SIZE;
-	page_t *pages_info = page_info_sections[page_index / PAGES_PER_SECTION];
+	page_t *pages_info   = page_info_sections[page_index / PAGES_PER_SECTION];
 	if (!pages_info) return NULL;
 	return &pages_info[page_index % PAGES_PER_SECTION];
 }
@@ -193,11 +194,11 @@ static uintptr_t pmm_raw_helper_allocate_pages(pmm_t *pmm, int order) {
 		uintptr_t pages = pmm_raw_helper_allocate_pages(pmm, order + 1);
 		if (pages == PAGE_INVALID) return PAGE_INVALID;
 		// put back unused pages
-		uintptr_t unused = pages + ORDER2COUNT(order) * PAGE_SIZE;
+		uintptr_t unused    = pages + ORDER2COUNT(order) * PAGE_SIZE;
 		page_t *unused_info = pmm_page_info(unused);
 		kassert(unused_info);
 		unused_info->pmm.order = order;
-		node = mmu_phys2virt(unused);
+		node                   = mmu_phys2virt(unused);
 		list_append(&pmm->entries[order], node);
 		return pages;
 	}
@@ -209,7 +210,7 @@ static uintptr_t pmm_helper_allocate_pages(pmm_t *pmm, int order) {
 	if (pages != PAGE_INVALID) {
 		used_pages += ORDER2COUNT(order);
 		private_pages += ORDER2COUNT(order);
-		for (size_t i=0; i<ORDER2COUNT(order); i++) {
+		for (size_t i = 0; i < ORDER2COUNT(order); i++) {
 			page_t *page_info = pmm_page_info(pages + i * PAGE_SIZE);
 			kassert(page_info);
 			atomic_store(&page_info->ref_count, 1);
@@ -227,7 +228,7 @@ uintptr_t pmm_zone_allocate_pages(int zone, int order) {
 		return pmm1_allocate_page();
 	}
 
-	while (zone >= 0){
+	while (zone >= 0) {
 		uintptr_t page = pmm_helper_allocate_pages(&pmms[zone], order);
 		if (page != PAGE_INVALID) return page;
 		zone--;
@@ -243,7 +244,7 @@ static void pmm_zone_set_free_pages(int zone, uintptr_t start, int order) {
 
 	// can we merge
 	while (order + 1 < ORDERS_COUNT) {
-		uintptr_t merging_page = start ^ (ORDER2COUNT(order) * PAGE_SIZE);
+		uintptr_t merging_page    = start ^ (ORDER2COUNT(order) * PAGE_SIZE);
 		page_t *merging_page_info = pmm_page_info(merging_page);
 		if (!merging_page_info || !pmm_is_free(merging_page_info) || merging_page_info->pmm.order != order) {
 			break;
@@ -252,17 +253,16 @@ static void pmm_zone_set_free_pages(int zone, uintptr_t start, int order) {
 		// remove from list
 		list_node_t *node = mmu_phys2virt(merging_page);
 		list_remove(&pmm->entries[order], node);
-		
+
 		if (merging_page < start) {
 			start = merging_page;
 		}
 		order++;
-
 	}
 	list_node_t *node = mmu_phys2virt(start);
 	list_append(&pmm->entries[order], node);
 
-	page_t *page_info = pmm_page_info(start);
+	page_t *page_info    = pmm_page_info(start);
 	page_info->pmm.order = order;
 
 	spinlock_release(&pmm->lock);
@@ -273,7 +273,7 @@ void pmm_set_free_pages(uintptr_t start, size_t order) {
 	kassert(start % (ORDER2COUNT(order) * PAGE_SIZE) == 0);
 
 	// mark as free
-	for (uintptr_t page=start; page<start+ORDER2COUNT(order)*PAGE_SIZE; page += PAGE_SIZE) {
+	for (uintptr_t page = start; page < start + ORDER2COUNT(order) * PAGE_SIZE; page += PAGE_SIZE) {
 		page_t *page_info = pmm_page_info(page);
 		if (page_info) atomic_store(&page_info->ref_count, 0);
 	}
@@ -286,7 +286,7 @@ void pmm_set_free_pages_range(uintptr_t start, size_t count) {
 	kassert(start != PAGE_INVALID);
 	kassert(start % PAGE_SIZE == 0);
 	while (count > 0) {
-		for (int order=ORDERS_COUNT-1; order>=0; order--) {
+		for (int order = ORDERS_COUNT - 1; order >= 0; order--) {
 			if (count < ORDER2COUNT(order)) continue;
 			if (start % (ORDER2COUNT(order) * PAGE_SIZE)) continue;
 			pmm_set_free_pages(start, order);
@@ -351,10 +351,10 @@ static sleep_queue_t *pmm_get_queue(uintptr_t page) {
 }
 
 int pmm_wait_get(uintptr_t page, unsigned int mask, unsigned int value, unsigned int *flags) {
-	sleep_queue_t *queue = pmm_get_queue(page);
-	page_t *page_info = pmm_page_info(page);
+	sleep_queue_t *queue       = pmm_get_queue(page);
+	page_t *page_info          = pmm_page_info(page);
 	unsigned int current_flags = 0;
-	int ret = sleep_on_queue_condition_interruptible(queue, ((current_flags = atomic_load(&page_info->flags)) & mask) == value);
+	int ret                    = sleep_on_queue_condition_interruptible(queue, ((current_flags = atomic_load(&page_info->flags)) & mask) == value);
 	if (ret < 0) return ret;
 	if (flags) *flags = current_flags;
 	return 0;
