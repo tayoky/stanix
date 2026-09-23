@@ -7,7 +7,7 @@ configure () {
 }
 
 build () {
-	unzip -f -q "$QUAKE_EXE" -d "quake_dir" || return 1
+	unzip -q "$QUAKE_EXE" -d "quake_dir" || return 1
 
 	# fix permissions
 	chmod 0644 $(find "quake_dir/Install" -type f)

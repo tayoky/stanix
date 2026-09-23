@@ -41,7 +41,6 @@ static void fbcon_handle_c0(fbcon_t *fbcon, char c) {
 	case '\v':
 	case '\f':
 		fbcon->y++;
-		fbcon->x = 0;
 		// TODO : scrolling
 		break;
 	case '\t':
