@@ -12,4 +12,4 @@ build() {
 
 install() {
 	make -C "$SOURCE_DIR" install INSTALL_TOP="$DESTDIR$PREFIX"
-
+}
