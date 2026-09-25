@@ -155,23 +155,8 @@ static int mmc_probe(devnode_t *devnode) {
 	}
 
 	// try read capacity (only supported on data disks)
-	scsi_read_capacity10_data_t read_capacity_data = {0};
-	scsi_read_capacity10_t read_capacity_cmd = {
-		.opcode = SCSI_READ_CAPACITY10_OPCODE,
-	};
-	command = scsi_create_command(device, &read_capacity_cmd, sizeof(read_capacity_cmd));
-	if (!command) return -ENOMEM;
-	iobuf_init_continuous(&command->iobuf, &read_capacity_data, sizeof(read_capacity_data));
-
-	ret = ioreq_submit_sync(&command->ioreq);
-	if (ret >= 0) {
-		// TODO : if max lba is 0xffffffff we need to try READ CAPACITY(16)
-		// TODO : move read capacity stuff to libscsi
-		// the drive support read capacity
-		// we can get drive info from it
-		sector_size   = scsi_data32_to_uint32(&read_capacity_data.block_length);
-		sectors_count = scsi_data32_to_uint32(&read_capacity_data.max_lba);
-	}
+	ret = scsi_read_capacity(device, &sector_size, &sectors_count);
+	if (ret == -ENOMEM) return ret;
 
 	disk->block_device = block_device_allocate();
 	if (!disk->block_device) return -ENOMEM;

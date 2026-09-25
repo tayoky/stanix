@@ -215,6 +215,9 @@ typedef struct scsi_read12 {
 
 #define SCSI_READ12_OPCODE 0xa8
 
+#define SCSI_SERVICE_ACTION_IN  0x9e
+#define SCSI_SERVICE_ACTION_OUT 0x9f
+
 // READ CAPACITY(16) command
 typedef struct scsi_read_capacity16 {
 	uint8_t opcode;
@@ -225,7 +228,8 @@ typedef struct scsi_read_capacity16 {
 	uint8_t control;
 } __attribute__((packed)) scsi_read_capacity16_t;
 
-#define SCSI_READ_CAPACITY16_OPCODE 0x9e
+#define SCSI_READ_CAPACITY16_OPCODE         SCSI_SERVICE_ACTION_IN
+#define SCSI_READ_CAPACITY16_SERVICE_ACTION 0x10
 
 typedef struct scsi_read_capacity16_data {
 	scsi_data64_t max_lba;
@@ -263,6 +267,7 @@ typedef struct scsi_driver {
 
 scsi_command_t *scsi_create_command(scsi_device_t *device, void *data, size_t size);
 scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size_t transfer_length, uint8_t flags);
+int scsi_read_capacity(scsi_device_t *device, size_t *sector_size, size_t *sectors_count);
 void scsi_print_command(scsi_command_t *command);
 
 scsi_device_t *scsi_create_device(devnode_t *bus);

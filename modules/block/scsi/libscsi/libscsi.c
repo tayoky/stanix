@@ -71,6 +71,47 @@ scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size
 	return command;
 }
 
+int scsi_read_capacity(scsi_device_t *device, size_t *sector_size, size_t *sectors_count) {
+	// first try READ CAPACITY(10)
+	scsi_read_capacity10_data_t read_capacity10_data = {0};
+	scsi_read_capacity10_t read_capacity10_cmd = {
+		.opcode = SCSI_READ_CAPACITY10_OPCODE,
+	};
+	scsi_command_t *command = scsi_create_command(device, &read_capacity10_cmd, sizeof(read_capacity10_cmd));
+	if (!command) return -ENOMEM;
+	iobuf_init_continuous(&command->iobuf, &read_capacity10_data, sizeof(read_capacity10_data));
+
+	int ret = ioreq_submit_sync(&command->ioreq);
+	if (ret < 0) return ret;
+	
+	size_t block_length = scsi_data32_to_uint32(&read_capacity10_data.block_length);
+	size_t max_lba      = scsi_data32_to_uint32(&read_capacity10_data.max_lba);
+
+	if (max_lba == 0xffffffff) {
+		// if max lba is 0xffffffff we need to try READ CAPACITY(16)
+		// the drive support READ CAPACITY(16)
+		// we can get more drive info from it
+		scsi_read_capacity16_data_t read_capacity16_data;
+		scsi_read_capacity16_t read_capacity16_cmd = {
+			.opcode            = SCSI_READ_CAPACITY16_OPCODE,
+			.service_action    = SCSI_READ_CAPACITY16_SERVICE_ACTION,
+			.allocation_length = scsi_uint32_to_data32(sizeof(read_capacity16_data)),
+		};
+		command = scsi_create_command(device, &read_capacity16_cmd, sizeof(read_capacity16_cmd));
+		iobuf_init_continuous(&command->iobuf, &read_capacity16_data, sizeof(read_capacity16_data));
+		if (!command) return -ENOMEM;
+
+		ret = ioreq_submit_sync(&command->ioreq);
+		if (ret < 0) return ret;
+
+		block_length = scsi_data32_to_uint32(&read_capacity16_data.block_length);
+		max_lba      = scsi_data64_to_uint64(&read_capacity16_data.max_lba);
+	}
+	if (sector_size)   *sector_size = block_length;
+	if (sectors_count) *sectors_count = max_lba + 1;
+	return 0;
+}
+
 static const char *scsi_opcode2str(uint8_t command) {
 #define COMMAND(opcode) case SCSI_ ## opcode ## _OPCODE: return #opcode;
 	switch (command) {
@@ -198,6 +239,7 @@ int libscsi_init(int argc, char **argv) {
 	slab_init(&scsi_commands_slab, sizeof(scsi_command_t), "scsi-commands");
 	EXPORT(scsi_create_command);
 	EXPORT(scsi_create_read_command);
+	EXPORT(scsi_read_capacity);
 	EXPORT(scsi_print_command);
 	EXPORT(scsi_create_device);
 	return 0;
@@ -207,6 +249,7 @@ int libscsi_fini(void) {
 	slab_destroy(&scsi_commands_slab);
 	UNEXPORT(scsi_create_command);
 	UNEXPORT(scsi_create_read_command);
+	UNEXPORT(scsi_read_capacity);
 	UNEXPORT(scsi_print_command);
 	UNEXPORT(scsi_create_device);
 	return 0;
