@@ -1,1 +1,1 @@
-TAR="$GNU_MIRROR/mtools/mtools-$VERSION.tar.gz"
+TAR="$GNU_MIRROR/gnu/mtools/mtools-$VERSION.tar.gz"

@@ -8,3 +8,7 @@ configure () {
 	# tlibc's iconv.h is kind of broken
 	gnu_configure CFLAGS=-Wno-error ac_cv_header_iconv_h=no
 }
+
+install () {
+	make install DESTDIR="$DESTDIR"
+}
