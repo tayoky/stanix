@@ -553,6 +553,7 @@ for PACKAGE_PATH in $PACKAGES_TO_DO ; do
 	PACKAGE="${PACKAGE_PATH##*-packages/}"
 	case " $CMDLINE_PACKAGES " in
 		*" $PACKAGE "*)
+			IS_CMDLINE="yes"
 			REDOWNLOAD="$CMDLINE_REDOWNLOAD"
 			REUNPACK="$CMDLINE_REUNPACK"
 			RECONFIGURE="$CMDLINE_RECONFIGURE"
@@ -564,6 +565,7 @@ for PACKAGE_PATH in $PACKAGES_TO_DO ; do
 			if test "$CMDLINE_NO_DEPS" = "yes" ; then
 				continue
 			fi
+			IS_CMDLINE="no"
 			REDOWNLOAD="no"
 			REUNPACK="no"
 			RECONFIGURE="no"
@@ -592,7 +594,9 @@ for PACKAGE_PATH in $PACKAGES_TO_DO ; do
 			tinx_install || exit 1
 			;;
 		clean|clean-build)
-			tinx_clean_build || exit 1
+			if test "$IS_CMDLINE" = "yes" ; then
+				tinx_clean_build || exit 1
+			fi
 			;;
 		*)
 			tinx_error "unknown action '$ACTION'"
