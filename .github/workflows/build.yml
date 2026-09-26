@@ -71,6 +71,14 @@ jobs:
         DIRTY_PACKAGES="$(./tinx.sh run scripts/get-dirty-host-packages.sh stanix-base)"
         echo "dirty=$DIRTY_PACKAGES" >> "$GITHUB_OUTPUT"
 
+    - name: Select packages repo
+      run: |
+        if test "${{ github.ref_name }}" = "main" ; then
+          echo "REPO_RELEASE=stable" >> "$GITHUB_ENV"
+        elif test "${{ github.ref_name }}" = "dev" ; then
+          echo "REPO_RELEASE=nightly" >> "$GITHUB_ENV"
+        fi
+
     - name: Download ready packages
       run: ./tinx.sh run scripts/download-packages.sh ${{ steps.select-packages.outputs.ready }}
 
@@ -95,17 +103,8 @@ jobs:
         name: iso-image
         path: build/images/stanix.iso
 
-    - name: Select packages repo
-      if: github.event_name == 'push'
-      run: |
-        if test "${{ github.ref_name }}" = "main" ; then
-          echo "UPLOAD_RELEASE=stable" >> "$GITHUB_ENV"
-        elif test "${{ github.ref_name }}" = "dev" ; then
-          echo "UPLOAD_RELEASE=nightly" >> "$GITHUB_ENV"
-        fi
-
     - name: Upload packages to repo
-      if: github.event_name == 'push' && env.UPLOAD_RELEASE != ''
+      if: github.event_name == 'push' && env.REPO_RELEASE != ''
       env:
         GH_TOKEN: ${{ secrets.PACKAGES_REPO_TOKEN }}
       run: ./tinx.sh run scripts/upload-packages.sh ${{ steps.select-packages.outputs.dirty }}

@@ -5,5 +5,5 @@ set -e
 PACKAGES_DIR="$BUILDDIR/packages"
 
 for PACKAGE in "$@" ; do
-	gh release upload "${UPLOAD_RELEASE:-"nightly"}" --repo "tayoky/packages" --clobber "$PACKAGES_DIR/$PACKAGE.tar.gz"
+	gh release upload "${REPO_RELEASE:-"nightly"}" --repo "tayoky/packages" --clobber "$PACKAGES_DIR/$PACKAGE.tar.gz"
 done
