@@ -1,4 +1,4 @@
-name: run test
+name: Build
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
         submodules: true
 
     - name: Install build tools
-      run: sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo nasm xorriso mtools -y
+      run: sudo apt update && sudo apt install gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo nasm xorriso mtools -y
     
     - name: Calculate toolchain hash
       id: toolchain-hash
@@ -52,8 +52,39 @@ jobs:
           ./build/tinx-cache
         key: ${{ runner.os }}-toolchain-${{ steps.toolchain-hash.outputs.hash }}
 
+    - name: Restore tinx cache
+      id: tinx-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ./build/host-packages/*/.tinx-*
+          ./build/tinx-cache
+        key: tinx-cache-${{ github.ref_name }}-${{ github.sha }}
+        restore-keys: |
+          tinx-cache-${{ github.ref_name }}-
+
+    - name: Select packages
+      id: select-packages
+      run: |
+        READY_PACKAGES="$(./tinx.sh run scripts/get-ready-host-packages.sh stanix-base)"
+        echo "ready=$READY_PACKAGES" >> "$GITHUB_OUTPUT"
+        DIRTY_PACKAGES="$(./tinx.sh run scripts/get-dirty-host-packages.sh stanix-base)"
+        echo "dirty=$DIRTY_PACKAGES" >> "$GITHUB_OUTPUT"
+
+    - name: Download ready packages
+      run: ./tinx.sh run scripts/download-packages.sh ${{ steps.select-packages.outputs.ready }}
+
     - name: Build
-      run: ./tinx.sh install
+      run: ./tinx.sh install stanix-base
+
+    - name: Save tinx cache
+      if: github.event_name == 'push'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ./build/host-packages/*/.tinx-*
+          ./build/tinx-cache
+        key: tinx-cache-${{ github.ref_name }}-${{ github.sha }}
 
     - name: Make iso image
       run: ./tinx.sh run scripts/build-iso-image.sh
@@ -77,4 +108,4 @@ jobs:
       if: github.event_name == 'push' && env.UPLOAD_RELEASE != ''
       env:
         GH_TOKEN: ${{ secrets.PACKAGES_REPO_TOKEN }}
-      run: ./tinx.sh run scripts/upload-packages.sh stanix-kernel stanix-userspace stanix-libraries stanix-modules stanix-kernel-headers tlibc tash tutils tvi
+      run: ./tinx.sh run scripts/upload-packages.sh ${{ steps.select-packages.outputs.dirty }}

@@ -1,3 +1,5 @@
+#!/bin/sh
+
 tinx_help () {
 	echo "$0 [OPTIONS] ACTIONS [PACKAGES...]"
 	echo "or $0 [OPTIONS] run SCRIPT [ARGUMENTS]"
@@ -230,7 +232,7 @@ tinx_select_package () {
 			rm -f "$BUILD_DIR/.tinx-configured"
 			rm -f "$BUILD_DIR/.tinx-built"
 			rm -f "$BUILD_DIR/.tinx-installed"
-			tinx_clear_source | return 1
+			tinx_clear_source || return 1
 			tinx_build_source_cache "$SOURCE" || return 1
 		elif test "$REBUILD_CACHE" = "yes" ; then
 			tinx_build_source_cache "$SOURCE" || return 1
@@ -292,7 +294,7 @@ tinx_clone_commit () {
 	fi
 	tinx_log "clone $1#$2..."
 	test "$DRY_RUN" = "yes" && return 0
-	rm -fr "$3" | return 1
+	rm -fr "$3" || return 1
 	git clone --depth 1 "$1" "$3" || return 1
 	git -C "$3" fetch --depth=1 origin "$2" || return 1
 	git -C "$3" checkout --detach  "$2"
@@ -305,7 +307,7 @@ tinx_clone_tag () {
 	fi
 	tinx_log "clone $1#$2..."
 	test "$DRY_RUN" = "yes" && return 0
-	rm -fr "$3" | return 1
+	rm -fr "$3" || return 1
 	git clone --depth 1 "$1" "$3" || return 1
 	git -C "$3" fetch --depth=1 origin refs/tags/"$2":refs/tags/"$2" || return 1
 	git -C "$3" checkout --detach "$2"
