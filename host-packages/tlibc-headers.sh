@@ -16,5 +16,5 @@ build () {
 }
 
 install () {
-	make install-include DESTDIR="$SYSROOT"
+	make install-include DESTDIR="$DESTDIR"
 }
