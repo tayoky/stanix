@@ -22,6 +22,8 @@ tinx_help () {
 	echo "clean-build  : clean the build directory for a package"
 	echo "run          : run a command inside the tinx environement"
 	echo "get-packages : get a list of packages to build for the specified packages"
+	echo "get-dirty    : get a list of dirty packages to rebuild for the specified packages"
+	echo "get-ready    : get a list of already built packages for the specified packages"
 }
 
 tinx_error () {
@@ -545,6 +547,26 @@ case "$ACTION" in
 				sha256sum "$PACKAGE_PATH.sh"
 			done
 		) | sha256sum | cut -d' ' -f1
+		exit 0
+		;;
+	get-dirty)
+		DIRTY_PACKAGES=""
+		for PACKAGE_PATH in $PACKAGES_TO_DO ; do
+			if ! test -f "$BUILDDIR/$PACKAGE_PATH/.tinx-built" || ! test -f "$BUILDDIR/$PACKAGE_PATH/.tinx-installed" ; then
+				DIRTY_PACKAGES="$DIRTY_PACKAGES $PACKAGE_PATH"
+			fi
+		done
+		echo "$DIRTY_PACKAGES"
+		exit 0
+		;;
+	get-ready)
+		READY_PACKAGES=""
+		for PACKAGE_PATH in $PACKAGES_TO_DO ; do
+			if test -f "$BUILDDIR/$PACKAGE_PATH/.tinx-built" && test -f "$BUILDDIR/$PACKAGE_PATH/.tinx-installed" ; then
+				READY_PACKAGES="$READY_PACKAGES $PACKAGE_PATH"
+			fi
+		done
+		echo "$READY_PACKAGES"
 		exit 0
 		;;
 esac
