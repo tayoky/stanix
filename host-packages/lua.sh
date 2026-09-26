@@ -7,9 +7,11 @@ configure() {
 }
 
 build() {
-	make -C "$SOURCE_DIR" -j$NPROC
+	make -C "$SOURCE_DIR" -j$NPROC \
+		CC="$HOST-gcc" AR="$HOST-ar rcu"
 }
 
 install() {
-	make -C "$SOURCE_DIR" install INSTALL_TOP="$DESTDIR$PREFIX"
+	make -C "$SOURCE_DIR" install INSTALL_TOP="$DESTDIR$PREFIX" \
+		CC="$HOST-gcc" AR="$HOST-ar rcu"
 }
