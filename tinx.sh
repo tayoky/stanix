@@ -121,6 +121,7 @@ CACHED_PATCHES_HASH=\"$PATCHES_HASH\"" > "$CACHE/$1.sh"
 }
 
 tinx_is_source_cache_old () {
+	test -f "$TINX_CACHE/sources/$1.sh" || return 0
 	. "$TINX_CACHE/sources/$1.sh" 2>/dev/null || return 0
 	if test "$CACHED_VERSION" != "$VERSION" ||
 	test "$CACHED_SOURCE_REVISION" != "$SOURCE_REVISION" ||
@@ -153,6 +154,7 @@ CACHED_SOURCE_HASH=\"$SOURCE_HASH\"" > "$TINX_CACHE/$1.sh"
 }
 
 tinx_is_package_cache_old () {
+	test -f "$TINX_CACHE/$1.sh" || return 0
 	. "$TINX_CACHE/$1.sh" 2>/dev/null || return 0
 	if test "$CACHED_VERSION" != "$VERSION" ||
 	test "$CACHED_REVISION" != "$REVISION" ||
@@ -199,6 +201,7 @@ tinx_select_package () {
 		tinx_error "unknown package $1"
 		return 1
 	fi
+
 
 	# get the source
 	SOURCE_REVISION="0"
