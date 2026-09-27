@@ -7,9 +7,11 @@ on:
       - dev
   # TODO : run on pull requests ??
 
+env:
+  MAIN_PACKAGES: stanix-base binutils make nasm
+
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -66,9 +68,9 @@ jobs:
     - name: Select packages
       id: select-packages
       run: |
-        READY_PACKAGES="$(./tinx.sh run scripts/get-ready-host-packages.sh stanix-base)"
+        READY_PACKAGES="$(./tinx.sh run scripts/get-ready-host-packages.sh $MAIN_PACKAGES)"
         echo "ready=$READY_PACKAGES" >> "$GITHUB_OUTPUT"
-        DIRTY_PACKAGES="$(./tinx.sh run scripts/get-dirty-host-packages.sh stanix-base)"
+        DIRTY_PACKAGES="$(./tinx.sh run scripts/get-dirty-host-packages.sh $MAIN_PACKAGES)"
         echo "dirty=$DIRTY_PACKAGES" >> "$GITHUB_OUTPUT"
 
     - name: Select packages repo
@@ -83,7 +85,7 @@ jobs:
       run: ./tinx.sh run scripts/download-packages.sh ${{ steps.select-packages.outputs.ready }}
 
     - name: Build
-      run: ./tinx.sh install stanix-base
+      run: ./tinx.sh install $MAIN_PACKAGES
 
     - name: Save tinx cache
       if: github.event_name == 'push' && steps.select-packages.outputs.dirty != ''
