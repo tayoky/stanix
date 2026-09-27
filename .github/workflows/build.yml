@@ -8,7 +8,7 @@ on:
   # TODO : run on pull requests ??
 
 env:
-  MAIN_PACKAGES: stanix-base binutils make nasm
+  MAIN_PACKAGES: stanix-base lua make nasm
 
 jobs:
   build:
