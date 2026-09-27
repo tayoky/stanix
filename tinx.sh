@@ -394,6 +394,11 @@ tinx_install () {
 		tinx_log "install $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
 		(cd "$BUILD_DIR" && install) || return 1
+
+		# delete .la files
+		if find "$DESTDIR$PREFIX/lib" -name '*.la' 2>/dev/null ; then
+			 find "$DESTDIR$PREFIX/lib" -name '*.la' -delete || return 1
+		fi
 		touch "$BUILD_DIR/.tinx-installed"
 	fi
 }
