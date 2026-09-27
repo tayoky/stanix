@@ -15,5 +15,5 @@ configure () {
 		--enable-shared \
 		--with-pic \
 		--enable-threads=posix \
-		CFLAGS="-D_Thread_local=$CFLAGS" #stupid tls workaround
+		CFLAGS="-D_Thread_local= $CFLAGS" #stupid tls workaround
 }

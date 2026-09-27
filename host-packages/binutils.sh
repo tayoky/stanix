@@ -7,8 +7,8 @@ WEBSITE="https://www.gnu.org/software/binutils/"
 configure () {
 	gnu_configure --target="$HOST" \
 	--with-sysroot=/ \
-	--with-build-sysroot=$SYSROOT \
+	--with-build-sysroot="$SYSROOT" \
 	--disable-nls --disable-werror \
 	--enable-shared \
-	CFLAGS="-D_Thread_local=$CFLAGS" # stupid tls workaround
+	CFLAGS="-D_Thread_local= $CFLAGS" # stupid tls workaround
 }
