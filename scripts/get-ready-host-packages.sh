@@ -12,4 +12,4 @@ for PACKAGE_PATH in $READY_PACKAGES ; do
 	esac
 done
 
-echo "$READY_HOST_PACKAGES"
+echo $READY_HOST_PACKAGES

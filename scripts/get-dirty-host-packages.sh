@@ -12,4 +12,4 @@ for PACKAGE_PATH in $DIRTY_PACKAGES ; do
 	esac
 done
 
-echo "$DIRTY_HOST_PACKAGES"
+echo $DIRTY_HOST_PACKAGES

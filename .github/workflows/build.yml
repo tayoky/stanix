@@ -104,7 +104,7 @@ jobs:
         path: build/images/stanix.iso
 
     - name: Upload packages to repo
-      if: github.event_name == 'push' && env.REPO_RELEASE != ''
+      if: github.event_name == 'push' && env.REPO_RELEASE != '' && steps.select-packages.outputs.dirty != ''
       env:
         GH_TOKEN: ${{ secrets.PACKAGES_REPO_TOKEN }}
       run: ./tinx.sh run scripts/upload-packages.sh ${{ steps.select-packages.outputs.dirty }}
