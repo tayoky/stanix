@@ -389,8 +389,8 @@ tinx_build () {
 }
 
 tinx_install () {
-	tinx_build || return 1
 	if ! test -f "$BUILD_DIR/.tinx-installed" || test "$REINSTALL" = "yes" ; then
+		tinx_build || return 1
 		tinx_log "install $PACKAGE..."
 		test "$DRY_RUN" = "yes" && return 0
 		(cd "$BUILD_DIR" && install) || return 1
