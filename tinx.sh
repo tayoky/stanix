@@ -396,7 +396,7 @@ tinx_install () {
 		(cd "$BUILD_DIR" && install) || return 1
 
 		# delete .la files
-		if find "$DESTDIR$PREFIX/lib" -name '*.la' 2>/dev/null ; then
+		if find "$DESTDIR$PREFIX/lib" -name '*.la' >/dev/null  2>/dev/null ; then
 			 find "$DESTDIR$PREFIX/lib" -name '*.la' -delete || return 1
 		fi
 		touch "$BUILD_DIR/.tinx-installed"

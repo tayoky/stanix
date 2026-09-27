@@ -16,7 +16,7 @@ for PACKAGE in "$@" ; do
 
 	# make the tar
 
-	if test -e "$PACKAGE_DIR"/* ; then
+	if test -n "$(ls "$PACKAGE_DIR"/*)" ; then
 		(cd "$PACKAGE_DIR" && tar -cz * -f "../$PACKAGE.tar.gz")
 	else
 		tar -cz -f "$PACKAGES_DIR/$PACKAGE.tar.gz" --files-from=/dev/null
