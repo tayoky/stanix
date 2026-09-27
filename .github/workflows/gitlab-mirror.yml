@@ -1,0 +1,21 @@
+name: Mirror to GitLab
+
+on:
+  push:
+    branches:
+      - '**'
+  delete:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone repository
+        run:
+          git clone --mirror "https://github.com/${{ github.repository }}.git"
+      - name: Push mirror to GitLab
+        run: |
+          cd "${{ github.event.repository.name }}.git"
+          git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab.com/stanix/${{ github.event.repository.name }}.git
+          git push --mirror gitlab
