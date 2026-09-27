@@ -86,7 +86,7 @@ jobs:
       run: ./tinx.sh install stanix-base
 
     - name: Save tinx cache
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && steps.select-packages.outputs.dirty != ''
       uses: actions/cache/save@v4
       with:
         path: |
