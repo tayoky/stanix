@@ -1,7 +1,7 @@
 #include <kernel/bus.h>
 #include <kernel/kheap.h>
 #include <module/pci.h>
-#include <module/isa.h>
+#include <module/pnpdevice.h>
 #include <ide.h>
 
 #define PROG_IF_CHANNEL1_NATIVE         (1U << 0)
@@ -80,23 +80,25 @@ static int ide_controller_pci_probe(devnode_t *devnode) {
 	return 0;
 }
 
-static int ide_controller_isa_check(devnode_t *devnode) {
+static int ide_controller_pnp_check(devnode_t *devnode) {
 	(void)devnode;
-	// the ISA bus is hardcoded
-	// which mean we only get called on the ISA IDE device
+	pnp_device_t *pnp_device = container_of(devnode, pnp_device_t, devnode);
+	if (!strcmp(pnp_device->pnp_id, "PNP0600") || !strcmp(pnp_device->pnp_id, "PNP0601")) {
+		return 1;
+	}
+	
 	return 1;
 }
 
-static int ide_controller_isa_probe(devnode_t *devnode) {
-	// since the ISA bus is hardcoded, resources are always here
-	// no need to check anything
+static int ide_controller_pnp_probe(devnode_t *devnode) {
 	ide_controller_t *controller = devnode->private;
-	controller->channel_res[0].base = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT0);
-	controller->channel_res[0].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT1);
-	controller->channel_res[1].base = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT2);
-	controller->channel_res[1].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IOPORT3);
-	controller->channel_res[0].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IRQ(0));
-	controller->channel_res[1].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, ISA_RID_IRQ(1));
+	controller->channel_res[0].base = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PNP_RID_IOPORT(0));
+	controller->channel_res[0].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PNP_RID_IOPORT(1));
+	controller->channel_res[1].base = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PNP_RID_IOPORT(2));
+	controller->channel_res[1].ctrl = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PNP_RID_IOPORT(3));
+	controller->bmide               = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PNP_RID_IOPORT(4));
+	controller->channel_res[0].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PNP_RID_IRQ(0));
+	controller->channel_res[1].irq  = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, PNP_RID_IRQ(1));
 	return 0;
 }
 
@@ -105,7 +107,7 @@ static int ide_controller_check(devnode_t *devnode) {
 	case BUS_PCI:
 		return ide_controller_pci_check(devnode);
 	case BUS_ISA:
-		return ide_controller_isa_check(devnode);
+		return ide_controller_pnp_check(devnode);
 	default:
 		return 0;
 	}
@@ -141,7 +143,7 @@ static int ide_controller_probe(devnode_t *devnode) {
 		ret = ide_controller_pci_probe(devnode);
 		break;
 	case BUS_ISA:
-		ret = ide_controller_isa_probe(devnode);
+		ret = ide_controller_pnp_probe(devnode);
 		break;
 	default:
 		ret = -ENOTSUP;

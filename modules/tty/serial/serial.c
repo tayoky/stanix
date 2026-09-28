@@ -9,7 +9,7 @@
 #include <kernel/arch.h>
 #include <kernel/port.h>
 #include <kernel/tty.h>
-#include <module/isa.h>
+#include <module/pnpdevice.h>
 #include <module/pci.h>
 #include <errno.h>
 
@@ -79,7 +79,14 @@ static int serial_check(devnode_t *devnode) {
 			// wrong pci device
 			return 0;
 		}
+	} else {
+		pnp_device_t *pnp_device = container_of(devnode, pnp_device_t, devnode);
+		if (strcmp(pnp_device->pnp_id, "PNP0500") && strcmp(pnp_device->pnp_id, "PNP0501")) {
+			// wrong pnp device
+			return 0;
+		}
 	}
+
 	// we need resource for our test
 	// TODO : MMIO support
 	resource_t *io_res = device_allocate_simple_resource(devnode, RESOURCE_IOPORT, RID_ANY);
