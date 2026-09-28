@@ -1,2 +1,2 @@
 GIT="$STANIX_MIRROR/tlibc"
-COMMIT="f880f4daccecdfa1f7639c6ad21c68c26ca6e2c8"
+COMMIT="5bf86a47453d620b87af0caf502f8ae9bfda83b0"
