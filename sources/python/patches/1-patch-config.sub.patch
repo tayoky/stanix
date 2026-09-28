@@ -1,0 +1,13 @@
+diff --git a/config.sub b/config.sub
+index 1bb6a05..9cb4131 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1746,7 +1746,7 @@ case $os in
+ 	     | os9* | macos* | osx* | ios* | tvos* | watchos* \
+ 	     | mpw* | magic* | mmixware* | mon960* | lnews* \
+ 	     | amigaos* | amigados* | msdos* | newsos* | unicos* | aof* \
+-	     | aos* | aros* | cloudabi* | sortix* | twizzler* \
++	     | aos* | aros* | cloudabi* | sortix* | stanix* | twizzler* \
+ 	     | nindy* | vxsim* | vxworks* | ebmon* | hms* | mvs* \
+ 	     | clix* | riscos* | uniplus* | iris* | isc* | rtu* | xenix* \
+ 	     | mirbsd* | netbsd* | dicos* | openedition* | ose* \
