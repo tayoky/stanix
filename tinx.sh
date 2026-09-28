@@ -36,6 +36,10 @@ tinx_log () {
 	echo "tinx :" "$@" >&2
 }
 
+tinx_warning () {
+	echo "tinx warning :" "$@" >&2
+}
+
 tinx_setup_environ () {
 	case "${1%%-packages/*}" in
 		"build")
@@ -100,6 +104,13 @@ tinx_get_directory_hash () {
 		tinx_error "usage : tinx_get_directory_hash DIRECTORY"
 	fi
 	sha256sum $(find "$1" -type f) | sha256sum | cut -d' ' -f1
+}
+
+tinx_get_file_hash () {
+	if test "$#" != 1 ; then
+		tinx_error "usage : tinx_get_file_hash FILE"
+	fi
+	sha256sum "$1" | cut -d' ' -f1
 }
 
 tinx_build_source_cache () {
@@ -206,6 +217,7 @@ tinx_select_package () {
 	# get the source
 	SOURCE_REVISION="0"
 	TAR=""
+	TAR_HASH=""
 	GIT=""
 	COMMIT=""
 	TAG=""
@@ -337,6 +349,15 @@ tinx_get_source () {
 		mkdir -p "$BUILDDIR/tar"
 		if ! test -f "$TAR_FILE" || test "$REDOWNLOAD" = "yes" ; then
 			tinx_download "$TAR" "$TAR_FILE" || return 1
+		fi
+		if test "$DRY_RUN" != "yes" ; then
+			ACTUAL_TAR_HASH="$(tinx_get_file_hash "$TAR_FILE")"
+			if test -z "$TAR_HASH" ; then
+				tinx_warning "unspecified hash for $TAR hash is $ACTUAL_TAR_HASH"
+			elif test "$TAR_HASH" != "$ACTUAL_TAR_HASH" ; then
+				tinx_error "hash for $TAR did not match, got $ACTUAL_TAR_HASH"
+				return 1
+			fi
 		fi
 		tinx_unpack "$TAR_FILE" "$SOURCE_DIR" || return 1
 	elif test -n "$GIT" ; then

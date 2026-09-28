@@ -1,1 +1,2 @@
 TAR="$GNU_MIRROR/gnu/automake/automake-$VERSION.tar.gz"
+TAR_HASH="988e32527abe052307d21c8ca000aa238b914df363a617e38f4fb89f5abf6260"
