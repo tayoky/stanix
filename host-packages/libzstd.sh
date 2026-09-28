@@ -7,9 +7,9 @@ configure () {
 }
 
 build () {
-	make default -j"$PARALLELISM"
+	make -C "$SOURCE_DIR" default -j"$PARALLELISM"
 }
 
 install () {
-	make install DESTDIR="$DESTDIR"
+	make -C "$SOURCE_DIR" install DESTDIR="$DESTDIR"
 }
