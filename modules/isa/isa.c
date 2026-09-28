@@ -1,5 +1,6 @@
 #include <kernel/module.h>
 #include <kernel/print.h>
+#include <kernel/kheap.h>
 #include <kernel/bus.h>
 #include <kernel/irq.h>
 #include <module/pci.h>
@@ -15,6 +16,8 @@ typedef struct isa_ioport {
 
 typedef hwirq_t isa_irq_t;
 #define ISA_IRQ(x) x
+#define ISA_MAX_IOPORT 10
+#define ISA_MAX_IRQ    10
 
 typedef struct isa_probe {
 	const char *pnp_id;

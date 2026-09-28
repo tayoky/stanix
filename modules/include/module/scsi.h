@@ -26,7 +26,7 @@ typedef struct scsi_data ## x { \
 \
 static inline scsi_data ## x ## _t scsi_uint ## x ## _to_data ## x(uint ## x ## _t data) { \
 	scsi_data ## x ## _t scsi_data = {0};\
-	for (int i = 0; i < sizeof(scsi_data.data); i++) {\
+	for (size_t i = 0; i < sizeof(scsi_data.data); i++) {\
 		scsi_data.data[i] = (uint8_t)(data >> (sizeof(scsi_data.data) - 1 - i) * 8);\
 	}\
 	return scsi_data;\
@@ -34,7 +34,7 @@ static inline scsi_data ## x ## _t scsi_uint ## x ## _to_data ## x(uint ## x ## 
 \
 static inline uint ## x ## _t scsi_data ## x ## _to_uint ## x(scsi_data ## x ## _t *scsi_data) { \
 	uint ## x ## _t data = 0; \
-	for (int i = 0; i < sizeof(scsi_data->data); i++) {\
+	for (size_t i = 0; i < sizeof(scsi_data->data); i++) {\
 		data |= (uint ## x ##_t)scsi_data->data[i] << ((sizeof(scsi_data->data) - 1 - i) * 8);\
 	}\
 	return data; \
