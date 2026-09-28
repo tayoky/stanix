@@ -1,12 +1,12 @@
-diff -ru python-3.14.7/configure python-3.14.7-banan_os/configure
+diff -ru python-3.14.7/configure python-3.14.7-stanix/configure
 --- python-3.14.7/configure	2026-08-05 13:29:49.000000000 +0300
-+++ python-3.14.7-banan_os/configure	2026-08-25 12:39:57.212768646 +0300
++++ python-3.14.7-stanix/configure	2026-08-25 12:39:57.212768646 +0300
 @@ -4112,6 +4112,9 @@
  	*-*-linux*)
  		ac_sys_system=Linux
  		;;
-+	*-*-banan_os*)
-+	    ac_sys_system=banan_os
++	*-*-stanix*)
++	    ac_sys_system=stanix
 +	    ;;
  	*-*-cygwin*)
  		ac_sys_system=Cygwin
@@ -15,7 +15,7 @@ diff -ru python-3.14.7/configure python-3.14.7-banan_os/configure
  			_host_ident=$host_cpu
  		esac
  		;;
-+	*-*-banan_os*)
++	*-*-stanix*)
 +		_host_ident=$host_cpu
 +		;;
  	*-*-cygwin*)
@@ -25,7 +25,7 @@ diff -ru python-3.14.7/configure python-3.14.7-banan_os/configure
          PY3LIBRARY=libpython3.so
        fi
        ;;
-+    banan_os*)
++    stanix*)
 +      LDLIBRARY='libpython$(LDVERSION).so'
 +      BLDLIBRARY='-L. -lpython$(LDVERSION)'
 +      RUNSHARED=LD_LIBRARY_PATH=`pwd`${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
@@ -38,7 +38,7 @@ diff -ru python-3.14.7/configure python-3.14.7-banan_os/configure
  		LDSHARED='$(CC) -shared'
  		LDCXXSHARED='$(CXX) -shared';;
 -	Linux*|GNU*|QNX*|VxWorks*|Haiku*)
-+	Linux*|GNU*|QNX*|VxWorks*|Haiku*|banan_os*)
++	Linux*|GNU*|QNX*|VxWorks*|Haiku*|stanix*)
  		LDSHARED='$(CC) -shared'
  		LDCXXSHARED='$(CXX) -shared';;
  	FreeBSD*)
@@ -47,8 +47,7 @@ diff -ru python-3.14.7/configure python-3.14.7-banan_os/configure
  		 else CCSHARED="+z";
  		 fi;;
 -	Linux*|GNU*) CCSHARED="-fPIC";;
-+	Linux*|GNU*|banan_os*) CCSHARED="-fPIC";;
++	Linux*|GNU*|stanix*) CCSHARED="-fPIC";;
  	Emscripten*|WASI*)
  		if test "x$enable_wasm_dynamic_linking" = xyes
  then :
- 
