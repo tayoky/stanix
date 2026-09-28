@@ -1,4 +1,4 @@
-VERSION="5.4.7"
+VERSION="5.5.1"
 SOURCE="lua"
 DEPENDENCIES="stanix-base"
 
