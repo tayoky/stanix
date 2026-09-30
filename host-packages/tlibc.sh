@@ -5,5 +5,5 @@ BUILD_DEPENDENCIES="binutils gcc"
 PREFIX="/usr"
 
 configure () {
-	tconf_configure --enable-shared
+	tconf_configure --enable-shared --enable-libk
 }
