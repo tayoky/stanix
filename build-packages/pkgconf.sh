@@ -17,7 +17,7 @@ install () {
 	mkdir -p "$DESTDIR$PREFIX/share/pkgconfig/personality.d"
 	echo "Triplet: $TARGET
 SysrootDir: $SYSROOT
-DefaultSearchPaths: $SYSROOT/usr/lib/pkgconfig:$SYSROOT/usr/share/pkgconfig: $SYSROOT/usr/local/lib/pkgconfig:$SYSROOT/usr/local/share/pkgconfig
+DefaultSearchPaths: $SYSROOT/usr/lib/pkgconfig:$SYSROOT/usr/share/pkgconfig:$SYSROOT/usr/local/lib/pkgconfig:$SYSROOT/usr/local/share/pkgconfig
 SystemIncludePaths: $SYSROOT/usr/include:$SYSROOT/usr/local/include
 SystemLibraryPaths: $SYSROOT/usr/lib:$SYSROOT/usr/local/lib" > "$DESTDIR$PREFIX/share/pkgconfig/personality.d/$TARGET.personality"
 }
