@@ -447,8 +447,8 @@ TINX_VERSION="0.0.3"
 : ${TOP:="$(dirname "$(realpath "$0")")"}
 
 # add build tools to env
-export PATH="$BUILD_PREFIX/bin:/$PATH"
-export LD_LIBRARY_PATH="$BUILD_PREFIX/lib:/$LD_LIBRARY_PATHPATH"
+export PATH="$BUILD_PREFIX/bin:$PATH"
+export LD_LIBRARY_PATH="$BUILD_PREFIX/lib:$LD_LIBRARY_PATHPATH"
 
 export CONFIG_SUB="$PWD/config.sub"
 
