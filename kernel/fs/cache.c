@@ -7,6 +7,7 @@
 #include <kernel/signal.h>
 #include <kernel/string.h>
 #include <kernel/userspace.h>
+#include <kernel/mutex.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
 #include <kernel/xarray.h>
@@ -16,28 +17,48 @@ typedef struct page_lru_list {
 	uintptr_t last;
 } page_lru_list_t;
 
-static page_lru_list_t lru_active = {PAGE_INVALID, PAGE_INVALID};
-static page_lru_list_t lru_inactive = {PAGE_INVALID, PAGE_INVALID};
+#define GENERATIONS_COUNT 4
+
+size_t base_generation = 0;
+size_t current_generation = 3;
+static page_lru_list_t generations[GENERATIONS_COUNT] = {
+	{PAGE_INVALID, PAGE_INVALID},
+	{PAGE_INVALID, PAGE_INVALID},
+	{PAGE_INVALID, PAGE_INVALID},
+	{PAGE_INVALID, PAGE_INVALID},
+};
 static spinlock_t lru_lock;
 static spinlock_t dirty_lock;
+static mutex_t generations_lock;
 static list_t caches;
 static list_t dirty_caches;
 
-// TODO : implement difference between dirty and not dirty
+static size_t cached_page_get_gen(page_t *page_info) {
+	return (atomic_load(&page_info->flags) & PAGE_FLAG_GEN_SHIFT) >> PAGE_FLAG_GEN_SHIFT;
+}
+
+static void cached_page_set_gen(page_t *page_info, size_t gen) {
+	spinlock_assert_acquired(&lru_lock);
+	atomic_store(&page_info->flags, (gen << PAGE_FLAG_GEN_SHIFT) & PAGE_FLAG_GEN_SHIFT);
+}
 
 static uintptr_t cached_page_get_lru_prev(page_t *page_info) {
+	spinlock_assert_acquired(&lru_lock);
 	return PFN2PAGE(page_info->cached.lru_prev);
 }
 
 static uintptr_t cached_page_get_lru_next(page_t *page_info) {
+	spinlock_assert_acquired(&lru_lock);
 	return PFN2PAGE(page_info->cached.lru_next);
 }
 
 static void cached_page_set_lru_prev(page_t *page_info, uintptr_t prev) {
+	spinlock_assert_acquired(&lru_lock);
 	page_info->cached.lru_prev = PAGE2PFN(prev);
 }
 
 static void cached_page_set_lru_next(page_t *page_info, uintptr_t next) {
+	spinlock_assert_acquired(&lru_lock);
 	page_info->cached.lru_next = PAGE2PFN(next);
 }
 
@@ -45,21 +66,14 @@ static uintptr_t cached_page_get_offset(page_t *page_info) {
 	return PFN2PAGE(page_info->cached.offset);
 }
 
-static int cached_page_is_active(page_t *page_info) {
-	return atomic_load(&page_info->ref_count) > 1;
-}
-
 static int cached_page_is_dirty(page_t *page_info) {
 	return atomic_load(&page_info->flags) & PAGE_FLAG_DIRTY;
 }
 
-static page_lru_list_t *get_lru_list(page_t *page_info) {
-	(void)page_info;
-	return &lru_inactive;
-}
-
-static void cached_page_remove_lru(page_t *page_info) {
-	page_lru_list_t *lru_list = get_lru_list(page_info);
+static void cached_page_remove_from_gen(page_t *page_info) {
+	spinlock_assert_acquired(&lru_lock);
+	size_t gen = cached_page_get_gen(page_info);
+	page_lru_list_t *lru_list = &generations[gen];
 	uintptr_t prev            = cached_page_get_lru_prev(page_info);
 	uintptr_t next            = cached_page_get_lru_next(page_info);
 	if (prev != PAGE_INVALID) {
@@ -76,8 +90,10 @@ static void cached_page_remove_lru(page_t *page_info) {
 	}
 }
 
-static void cached_page_add_lru(uintptr_t page, page_t *page_info) {
-	page_lru_list_t *lru_list = get_lru_list(page_info);
+static void cached_page_add_to_gen(uintptr_t page, page_t *page_info, size_t gen) {
+	spinlock_assert_acquired(&lru_lock);
+	page_lru_list_t *lru_list = &generations[gen];
+	cached_page_set_gen(page_info, gen);
 	cached_page_set_lru_prev(page_info, PAGE_INVALID);
 	cached_page_set_lru_next(page_info, lru_list->first);
 	if (lru_list->first != PAGE_INVALID) {
@@ -118,7 +134,7 @@ static int cache_clear_page_dirty(cache_t *cache, uintptr_t page) {
 static void cached_page_free(uintptr_t page) {
 	page_t *page_info = pmm_page_info(page);
 	spinlock_acquire(&lru_lock);
-	cached_page_remove_lru(page_info);
+	cached_page_remove_from_gen(page_info);
 	spinlock_release(&lru_lock);
 	pmm_release_page(page);
 }
@@ -179,11 +195,6 @@ static uintptr_t cache_compare_and_set_page(cache_t *cache, off_t offset, uintpt
 	return value2page(xarray_cmpxchg(&cache->pages, PAGE2PFN(offset), expected_value, value));
 }
 
-uintptr_t cache_evict(void) {
-	// TODO
-	return PAGE_INVALID;
-}
-
 static void cached_page_set_error(page_t *page_info, int ret) {
 	atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_ERROR);
 	atomic_fetch_or(&page_info->flags, ((uint16_t)-ret) << PAGE_FLAG_ERROR_SHIFT);
@@ -209,7 +220,7 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 		// FIXME RACE : the page could get freed
 		if (ret >= 0) {
 			spinlock_acquire(&lru_lock);
-			cached_page_add_lru(page, page_info);
+			cached_page_add_to_gen(page, page_info, current_generation);
 			spinlock_release(&lru_lock);
 		}
 	}
@@ -304,6 +315,43 @@ void free_cache(cache_t *cache) {
 	xarray_destroy(&cache->pages);
 }
 
+size_t cache_cycle(void) {
+	mutex_acquire(&generations_lock);
+
+	size_t evicted_pages = 0;
+
+	// TODO : evict the base generation
+	spinlock_acquire(&lru_lock);
+	for (uintptr_t next = PFN2PAGE(generations[base_generation].first); next != PAGE_INVALID;) {
+		uintptr_t page = next;
+		page_t *page_info = pmm_page_info(page);
+		next = cached_page_get_lru_next(page_info);
+
+		if (atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_ACTIVE) & PAGE_FLAG_ACTIVE) {
+			// this is an active page, keep it
+			continue;
+		} else {
+			// this is a cold page, TODO : evict it
+			// this is some pseudo code, is not functional and is unsafe
+			cache_t *cache = page_info->private;
+			off_t offset = cached_page_get_offset(page_info);
+			cache_free_pages(cache, offset, PAGE_SIZE);
+			evicted_pages++;
+		}
+	}
+
+	base_generation    = (base_generation + 1) % GENERATIONS_COUNT;
+	current_generation = (current_generation + 1) % GENERATIONS_COUNT;
+	spinlock_release(&lru_lock);
+	mutex_release(&generations_lock);
+	return evicted_pages;
+}
+
+uintptr_t cache_evict(void) {
+	// TODO
+	return PAGE_INVALID;
+}
+
 int cache_flush_whole_async(cache_t *cache) {
 	return cache_flush_async(cache, 0, cache->size);
 }
@@ -349,6 +397,9 @@ int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 	if (need_read) {
 		// we need to load the page
 		ret = cache_read_pages(cache, PAGE_ALIGN_DOWN(offset), PAGE_SIZE);
+	} else {
+		// mark the page was accessed so the evicter know about it
+		atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_ACTIVE);
 	}
 	if (ret >= 0) {
 		ret = cache_wait_page_ready(page);
