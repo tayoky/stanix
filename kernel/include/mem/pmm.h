@@ -46,9 +46,11 @@ typedef struct page {
 #define PAGE_FLAG_DIRTY    0x01
 #define PAGE_FLAG_USABLE   0x04 // the page is usable memory
 #define PAGE_FLAG_RESERVED 0x08 // the page is reserved memory
-#define PAGE_FLAG_READING  0x10 // page is currently being loaded into memory
-#define PAGE_FLAG_WRITING  0x20 // page is currently being written back
-#define PAGE_FLAG_ACTIVE   0x40 // was the page accessed
+#define PAGE_FLAG_READING  0x10 // the page is currently being loaded into memory
+#define PAGE_FLAG_WRITING  0x20 // the page is currently being written back
+#define PAGE_FLAG_EVICTING 0x40 // the page is currently being evicted
+#define PAGE_FLAG_EVICTED  0x80 // the page was evicted
+#define PAGE_FLAG_ACTIVE   0x100 // was the page accessed
 #define PAGE_FLAG_GEN       0xf000 // current generation of the page
 #define PAGE_FLAG_GEN_SHIFT 12
 #define PAGE_FLAG_ERROR       0xffff0000

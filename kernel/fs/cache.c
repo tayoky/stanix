@@ -19,17 +19,16 @@ typedef struct page_lru_list {
 
 #define GENERATIONS_COUNT 4
 
-size_t base_generation = 0;
-size_t current_generation = 3;
+size_t base_generation = 0;    // protected by lru_lock
+size_t current_generation = 3; // protected by lru_lock
 static page_lru_list_t generations[GENERATIONS_COUNT] = {
 	{PAGE_INVALID, PAGE_INVALID},
 	{PAGE_INVALID, PAGE_INVALID},
 	{PAGE_INVALID, PAGE_INVALID},
 	{PAGE_INVALID, PAGE_INVALID},
-};
+}; // protected by lru_lock
 static spinlock_t lru_lock;
 static spinlock_t dirty_lock;
-static mutex_t generations_lock;
 static list_t caches;
 static list_t dirty_caches;
 
@@ -70,23 +69,32 @@ static int cached_page_is_dirty(page_t *page_info) {
 	return atomic_load(&page_info->flags) & PAGE_FLAG_DIRTY;
 }
 
-static void cached_page_remove_from_gen(page_t *page_info) {
-	spinlock_assert_acquired(&lru_lock);
-	size_t gen = cached_page_get_gen(page_info);
-	page_lru_list_t *lru_list = &generations[gen];
-	uintptr_t prev            = cached_page_get_lru_prev(page_info);
-	uintptr_t next            = cached_page_get_lru_next(page_info);
+static void cached_page_add_to_list(lru_list_t *list, uintptr_t page, page_t page_info) {
+	cached_page_set_lru_prev(page_info, PAGE_INVALID);
+	cached_page_set_lru_next(page_info, list->first);
+	if (lru_list->first != PAGE_INVALID) {
+		page_t *next_info = pmm_page_info(list->first);
+		cached_page_set_lru_prev(next_info, page);
+	} else {
+		list->last = page;
+	}
+	list->first = page;
+}
+
+static void cached_page_remove_from_list(lru_list_t *list, page_t *page_info) {
+	uintptr_t prev = cached_page_get_lru_prev(page_info);
+	uintptr_t next = cached_page_get_lru_next(page_info);
 	if (prev != PAGE_INVALID) {
 		page_t *prev_info = pmm_page_info(prev);
 		cached_page_set_lru_next(prev_info, next);
 	} else {
-		lru_list->first = next;
+		list->first = next;
 	}
 	if (next != PAGE_INVALID) {
 		page_t *next_info = pmm_page_info(next);
 		cached_page_set_lru_prev(next_info, prev);
 	} else {
-		lru_list->last = prev;
+		list->last = prev;
 	}
 }
 
@@ -94,15 +102,19 @@ static void cached_page_add_to_gen(uintptr_t page, page_t *page_info, size_t gen
 	spinlock_assert_acquired(&lru_lock);
 	page_lru_list_t *lru_list = &generations[gen];
 	cached_page_set_gen(page_info, gen);
-	cached_page_set_lru_prev(page_info, PAGE_INVALID);
-	cached_page_set_lru_next(page_info, lru_list->first);
-	if (lru_list->first != PAGE_INVALID) {
-		page_t *next_info = pmm_page_info(lru_list->first);
-		cached_page_set_lru_prev(next_info, page);
-	} else {
-		lru_list->last = page;
-	}
-	lru_list->first = page;
+	cached_page_add_to_list(lru_list, page_info);
+}
+
+static void cached_page_remove_from_gen(page_t *page_info) {
+	spinlock_assert_acquired(&lru_lock);
+	size_t gen = cached_page_get_gen(page_info);
+	page_lru_list_t *lru_list = &generations[gen];
+	cached_page_remove_from_list(lru_list, page_info);
+}
+
+static void cached_page_move_to_gen(uintptr_t page, page_t *page_info, size_t gen) {
+	cached_page_remove_from_gen(page_info);
+	cached_page_add_to_gen(page, page_info, gen);
 }
 
 static void cache_mark_page_dirty(cache_t *cache, uintptr_t page) {
@@ -169,7 +181,7 @@ static int cache_wait_page_written(uintptr_t page) {
 
 static int cache_wait_page_no_io(uintptr_t page) {
 	unsigned int flags;
-	int ret = pmm_wait_get(page, PAGE_FLAG_WRITING | PAGE_FLAG_READING, 0, &flags);
+	int ret = pmm_wait_get(page, PAGE_FLAG_WRITING | PAGE_FLAG_READING | PAGE_FLAG_EVICTING, 0, &flags);
 	if (ret < 0) return ret;
 	ret = -((flags & PAGE_FLAG_ERROR) >> PAGE_FLAG_ERROR_SHIFT);
 	return ret;
@@ -249,7 +261,7 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 	if (page == PAGE_INVALID) return PAGE_INVALID;
 	
 	page_t *page_info = pmm_page_info(page);
-	page_info->flags &= ~(PAGE_FLAG_DIRTY);
+	page_info->flags &= ~(PAGE_FLAG_DIRTY | PAGE_FLAG_ACTIVE);
 	page_info->flags |= PAGE_FLAG_READING;
 	page_info->private       = cache;
 	page_info->cached.offset = PAGE2PFN(offset);
@@ -257,6 +269,11 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 	uintptr_t new_page = cache_compare_and_set_page(cache, offset, PAGE_INVALID, page);
 	if (new_page == PAGE_INVALID) {
 		*raced = 0;
+		// add to the current generation since 
+		// this page is freshly new
+		spinlock_acquire(&lru_lock);
+		cached_page_add_to_gen(page, page_info, current_generation);
+		spinlock_release(&lru_lock);
 		return page;
 	} else {
 		// we lost a race
@@ -315,41 +332,83 @@ void free_cache(cache_t *cache) {
 	xarray_destroy(&cache->pages);
 }
 
-size_t cache_cycle(void) {
-	mutex_acquire(&generations_lock);
-
+size_t cache_evict(size_t to_evict) {
 	size_t evicted_pages = 0;
 
-	// TODO : evict the base generation
+	// evict the base generation
+	// we use a 2 stage approach
+	// - 1 grab every page we can evict and put them on a local list
+	// - 2 actually evict them
+
+	// build the list
 	spinlock_acquire(&lru_lock);
-	for (uintptr_t next = PFN2PAGE(generations[base_generation].first); next != PAGE_INVALID;) {
+	lru_list_t list = {PAGE_INVALID, PAGE_INVALID};
+	uintptr_t next = 0;
+	for (next = generations[base_generation].first; next != PAGE_INVALID && to_evict > 0;) {
 		uintptr_t page = next;
 		page_t *page_info = pmm_page_info(page);
 		next = cached_page_get_lru_next(page_info);
 
 		if (atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_ACTIVE) & PAGE_FLAG_ACTIVE) {
-			// this is an active page, keep it
+			// this is an active page, place it in the current generation
+			cached_page_move_to_gen(page, page_info, current_generation);
 			continue;
-		} else {
-			// this is a cold page, TODO : evict it
-			// this is some pseudo code, is not functional and is unsafe
-			cache_t *cache = page_info->private;
-			off_t offset = cached_page_get_offset(page_info);
-			cache_free_pages(cache, offset, PAGE_SIZE);
-			evicted_pages++;
 		}
+		
+		// this is a cold page, evict it
+		if (atomic_fetch_or(&page_info->flags, ~PAGE_FLAG_EVICTING) & PAGE_FLAG_EVICTING) {
+			// somebody else is already evicting it
+			continue;
+		}
+		cached_page_remove_from_gen(page_info);
+		cached_page_add_to_list(&list, page, page_info);
+		to_evict--;
+	}
+	
+	// if we evicted a whole generation, age generations
+	if (next == PAGE_INVALID) {
+		base_generation    = (base_generation + 1) % GENERATIONS_COUNT;
+		current_generation = (current_generation + 1) % GENERATIONS_COUNT;
 	}
 
-	base_generation    = (base_generation + 1) % GENERATIONS_COUNT;
-	current_generation = (current_generation + 1) % GENERATIONS_COUNT;
 	spinlock_release(&lru_lock);
-	mutex_release(&generations_lock);
-	return evicted_pages;
-}
 
-uintptr_t cache_evict(void) {
-	// TODO
-	return PAGE_INVALID;
+	for (uintptr_t next = list.first; next != PAGE_INVALID;) {
+		uintptr_t page = next;
+		page_t *page_info = pmm_page_info(page);
+		next = cached_page_get_lru_next(page_info);
+		// this is some pseudo code, is not functional and is unsafe
+		cache_t *cache = page_info->private;
+		off_t offset = cached_page_get_offset(page_info);
+		if (cache_flush(cache, offset, PAGE_SIZE) < 0 || cached_page_is_dirty(page_info)) {
+			// we failed to evict this page
+			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
+			pmm_wakeup(page);
+			continue;
+		}
+
+		cache_compare_and_set_page(cache, offset, page, PAGE_INVALID);
+		cached_page_remove_from_list(&list, page_info);
+		atomic_fetch_or(&page_info->flags, PAGE_FLAG_EVICTED);
+		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
+		pmm_wakeup(page);
+		pmm_release(page);
+		evicted_pages++;
+	}
+
+	// put back pages we were not able to evict
+	if (list.first != PAGE_INVALID) {
+		spinlock_acquire(&lru_lock);
+		for (uintptr_t next = PFN2PAGE(list.first); next != PAGE_INVALID;) {
+			uintptr_t page = next;
+			page_t *page_info = pmm_page_info(page);
+			next = cached_page_get_lru_next(page_info);
+
+			cached_page_add_to_gen(page, page_info, base_generation);
+		}
+		spinlock_release(&lru_lock);
+	}
+	return evicted_pages;
 }
 
 int cache_flush_whole_async(cache_t *cache) {
@@ -408,7 +467,6 @@ int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 		pmm_release_page(page);
 		return ret;
 	}
-	// TODO : put at the head of lru
 	*page_ret = page;
 	return 0;
 }
@@ -479,6 +537,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 		}
 
 		if (!cache_clear_page_dirty(cache, page)) {
+batch_end:
 			if (batch_start != PAGE_INVALID && batch_end != addr) {
 				// we reached end of the batch
 				rcu_release_read(&cache->pages.rcu);
@@ -492,12 +551,18 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 		}
 
 		page_t *page_info = pmm_page_info(page);
+		cache_wait_page_no_io(page);
 		while (atomic_fetch_or(&page_info->flags, PAGE_FLAG_WRITING) & PAGE_FLAG_WRITING) {
 			// already writing
 			// wait until write complete
 			rcu_release_read(&cache->pages.rcu);
-			cache_wait_page_written(page);
+			cache_wait_page_no_io(page);
 			rcu_acquire_read(&cache->pages.rcu);
+		}
+		if (atomic_load(&page_info->flags) & PAGE_FLAG_EVICTED) {
+			atomic_fetch_and(&page_info->flahd, ~PAGE_FLAG_WRITING);
+			pmm_wakeup(page);
+			goto batch_end;
 		}
 
 		if (batch_start == PAGE_INVALID) batch_start = addr;
