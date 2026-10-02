@@ -24,5 +24,6 @@ build () {
 
 install () {
     # TOP causes issues with tcc's makefile
-	(unset TOP && make install DESTDIR="$DESTDIR" XTCC=gcc XAR="$HOST-ar")
+	(unset TOP && make install DESTDIR="$DESTDIR" XTCC=gcc XAR="$HOST-ar") || return 1
+    ln -sf "${HOST%%-*}-tcc" "$DESTDIR$PREFIX/bin/tcc"
 }
