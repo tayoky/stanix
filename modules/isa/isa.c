@@ -80,7 +80,7 @@ static int isa_probe(devnode_t *isa_bus) {
 		pnp_device_t *device = kmalloc(sizeof(pnp_device_t));
 		if (!device) return -ENOMEM;
 		memset(device, 0, sizeof(pnp_device_t));
-		device->pnp_id       = probe->pnp_id;
+		device->pnp_id       = (char*)probe->pnp_id;
 		device->devnode.type = BUS_ISA;
 		
 		// add ioports

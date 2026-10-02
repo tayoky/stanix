@@ -87,7 +87,7 @@ static int ide_controller_pnp_check(devnode_t *devnode) {
 		return 1;
 	}
 	
-	return 1;
+	return 0;
 }
 
 static int ide_controller_pnp_probe(devnode_t *devnode) {
