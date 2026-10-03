@@ -12,16 +12,16 @@
 #include <kernel/vmm.h>
 #include <kernel/xarray.h>
 
-typedef struct page_lru_list {
+typedef struct page_list {
 	uintptr_t first;
 	uintptr_t last;
-} page_lru_list_t;
+} page_list_t;
 
 #define GENERATIONS_COUNT 4
 
 size_t base_generation = 0;    // protected by lru_lock
 size_t current_generation = 3; // protected by lru_lock
-static page_lru_list_t generations[GENERATIONS_COUNT] = {
+static page_list_t generations[GENERATIONS_COUNT] = {
 	{PAGE_INVALID, PAGE_INVALID},
 	{PAGE_INVALID, PAGE_INVALID},
 	{PAGE_INVALID, PAGE_INVALID},
@@ -41,24 +41,22 @@ static void cached_page_set_gen(page_t *page_info, size_t gen) {
 	atomic_store(&page_info->flags, (gen << PAGE_FLAG_GEN_SHIFT) & PAGE_FLAG_GEN_SHIFT);
 }
 
-static uintptr_t cached_page_get_lru_prev(page_t *page_info) {
+static uintptr_t cached_page_get_prev(page_t *page_info) {
 	spinlock_assert_acquired(&lru_lock);
-	return PFN2PAGE(page_info->cached.lru_prev);
+	return PFN2PAGE(page_info->cached.prev);
 }
 
-static uintptr_t cached_page_get_lru_next(page_t *page_info) {
+static uintptr_t cached_page_get_next(page_t *page_info) {
 	spinlock_assert_acquired(&lru_lock);
-	return PFN2PAGE(page_info->cached.lru_next);
+	return PFN2PAGE(page_info->cached.next);
 }
 
-static void cached_page_set_lru_prev(page_t *page_info, uintptr_t prev) {
-	spinlock_assert_acquired(&lru_lock);
-	page_info->cached.lru_prev = PAGE2PFN(prev);
+static void cached_page_set_prev(page_t *page_info, uintptr_t prev) {
+	page_info->cached.prev = PAGE2PFN(prev);
 }
 
-static void cached_page_set_lru_next(page_t *page_info, uintptr_t next) {
-	spinlock_assert_acquired(&lru_lock);
-	page_info->cached.lru_next = PAGE2PFN(next);
+static void cached_page_set_next(page_t *page_info, uintptr_t next) {
+	page_info->cached.next = PAGE2PFN(next);
 }
 
 static uintptr_t cached_page_get_offset(page_t *page_info) {
@@ -69,30 +67,30 @@ static int cached_page_is_dirty(page_t *page_info) {
 	return atomic_load(&page_info->flags) & PAGE_FLAG_DIRTY;
 }
 
-static void cached_page_add_to_list(lru_list_t *list, uintptr_t page, page_t page_info) {
-	cached_page_set_lru_prev(page_info, PAGE_INVALID);
-	cached_page_set_lru_next(page_info, list->first);
-	if (lru_list->first != PAGE_INVALID) {
+static void cached_page_add_to_list(page_list_t *list, uintptr_t page, page_t page_info) {
+	cached_page_set_prev(page_info, PAGE_INVALID);
+	cached_page_set_next(page_info, list->first);
+	if (list->first != PAGE_INVALID) {
 		page_t *next_info = pmm_page_info(list->first);
-		cached_page_set_lru_prev(next_info, page);
+		cached_page_set_prev(next_info, page);
 	} else {
 		list->last = page;
 	}
 	list->first = page;
 }
 
-static void cached_page_remove_from_list(lru_list_t *list, page_t *page_info) {
-	uintptr_t prev = cached_page_get_lru_prev(page_info);
-	uintptr_t next = cached_page_get_lru_next(page_info);
+static void cached_page_remove_from_list(page_list_t *list, page_t *page_info) {
+	uintptr_t prev = cached_page_get_prev(page_info);
+	uintptr_t next = cached_page_get_next(page_info);
 	if (prev != PAGE_INVALID) {
 		page_t *prev_info = pmm_page_info(prev);
-		cached_page_set_lru_next(prev_info, next);
+		cached_page_set_next(prev_info, next);
 	} else {
 		list->first = next;
 	}
 	if (next != PAGE_INVALID) {
 		page_t *next_info = pmm_page_info(next);
-		cached_page_set_lru_prev(next_info, prev);
+		cached_page_set_prev(next_info, prev);
 	} else {
 		list->last = prev;
 	}
@@ -100,19 +98,20 @@ static void cached_page_remove_from_list(lru_list_t *list, page_t *page_info) {
 
 static void cached_page_add_to_gen(uintptr_t page, page_t *page_info, size_t gen) {
 	spinlock_assert_acquired(&lru_lock);
-	page_lru_list_t *lru_list = &generations[gen];
+	page_list_t *lru_list = &generations[gen];
 	cached_page_set_gen(page_info, gen);
-	cached_page_add_to_list(lru_list, page_info);
+	cached_page_add_to_list(lru_list, page, page_info);
 }
 
 static void cached_page_remove_from_gen(page_t *page_info) {
 	spinlock_assert_acquired(&lru_lock);
 	size_t gen = cached_page_get_gen(page_info);
-	page_lru_list_t *lru_list = &generations[gen];
+	page_list_t *lru_list = &generations[gen];
 	cached_page_remove_from_list(lru_list, page_info);
 }
 
 static void cached_page_move_to_gen(uintptr_t page, page_t *page_info, size_t gen) {
+	spinlock_assert_acquired(&lru_lock);
 	cached_page_remove_from_gen(page_info);
 	cached_page_add_to_gen(page, page_info, gen);
 }
@@ -127,6 +126,11 @@ static void cache_mark_page_dirty(cache_t *cache, uintptr_t page) {
 		}
 		spinlock_release(&dirty_lock);
 	}
+}
+
+static void cache_mark_page_active(cache_t *cache, uintptr_t page) {
+	(void)cache;
+	atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_ACTIVE);
 }
 
 static int cache_clear_page_dirty(cache_t *cache, uintptr_t page) {
@@ -221,20 +225,15 @@ void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 		cached_page_set_error(page_info, ret);
 		
 		if (ret < 0) {
-			// the read fail, remove the pages
+			// the read failed, remove the pages
+			// FIXME : the page could have been replaced in the cache
 			cache_lookup_and_clear_page(cache, addr);
 			pmm_release_page(page);
 		}
 
+		// FIXME RACE : the page could get freed
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_READING);
 		pmm_wakeup(page);
-	
-		// FIXME RACE : the page could get freed
-		if (ret >= 0) {
-			spinlock_acquire(&lru_lock);
-			cached_page_add_to_gen(page, page_info, current_generation);
-			spinlock_release(&lru_lock);
-		}
 	}
 }
 
@@ -342,12 +341,12 @@ size_t cache_evict(size_t to_evict) {
 
 	// build the list
 	spinlock_acquire(&lru_lock);
-	lru_list_t list = {PAGE_INVALID, PAGE_INVALID};
+	page_list_t list = {PAGE_INVALID, PAGE_INVALID};
 	uintptr_t next = 0;
 	for (next = generations[base_generation].first; next != PAGE_INVALID && to_evict > 0;) {
 		uintptr_t page = next;
 		page_t *page_info = pmm_page_info(page);
-		next = cached_page_get_lru_next(page_info);
+		next = cached_page_get_next(page_info);
 
 		if (atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_ACTIVE) & PAGE_FLAG_ACTIVE) {
 			// this is an active page, place it in the current generation
@@ -376,7 +375,7 @@ size_t cache_evict(size_t to_evict) {
 	for (uintptr_t next = list.first; next != PAGE_INVALID;) {
 		uintptr_t page = next;
 		page_t *page_info = pmm_page_info(page);
-		next = cached_page_get_lru_next(page_info);
+		next = cached_page_get_next(page_info);
 		// this is some pseudo code, is not functional and is unsafe
 		cache_t *cache = page_info->private;
 		off_t offset = cached_page_get_offset(page_info);
@@ -402,7 +401,7 @@ size_t cache_evict(size_t to_evict) {
 		for (uintptr_t next = PFN2PAGE(list.first); next != PAGE_INVALID;) {
 			uintptr_t page = next;
 			page_t *page_info = pmm_page_info(page);
-			next = cached_page_get_lru_next(page_info);
+			next = cached_page_get_next(page_info);
 
 			cached_page_add_to_gen(page, page_info, base_generation);
 		}
@@ -458,7 +457,7 @@ int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 		ret = cache_read_pages(cache, PAGE_ALIGN_DOWN(offset), PAGE_SIZE);
 	} else {
 		// mark the page was accessed so the evicter know about it
-		atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_ACTIVE);
+		cache_mark_page_active(cache, page);
 	}
 	if (ret >= 0) {
 		ret = cache_wait_page_ready(page);
@@ -560,7 +559,7 @@ batch_end:
 			rcu_acquire_read(&cache->pages.rcu);
 		}
 		if (atomic_load(&page_info->flags) & PAGE_FLAG_EVICTED) {
-			atomic_fetch_and(&page_info->flahd, ~PAGE_FLAG_WRITING);
+			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
 			pmm_wakeup(page);
 			goto batch_end;
 		}
@@ -603,10 +602,18 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = mmu_virt2phys((void *)addr);
-		long mmu_flags = mmu_get_flags(get_current_proc()->vmm_space.addrspace, addr);
+		long old_mmu_flags = mmu_get_flags(get_current_proc()->vmm_space.addrspace, addr);
+		long mmu_flags = old_mmu_flags;
 		if (mmu_flags & MMU_FLAG_DIRTY) {
-			mmu_set_flags(get_current_proc()->vmm_space.addrspace, addr, mmu_flags & ~MMU_FLAG_DIRTY);
+			mmu_flags &= ~MMU_FLAG_DIRTY;
 			cache_mark_page_dirty(cache, page);
+		}
+		if (mmu_flags & MMU_FLAG_ACCESS) {
+			mmu_flags &= ~MMU_FLAG_ACCESS;
+			cache_mark_page_active(cache, page);
+		}
+		if (mmu_flags != old_mmu_flags) {
+			mmu_set_flags(get_current_proc()->vmm_space.addrspace, addr, mmu_flags);
 		}
 	}
 

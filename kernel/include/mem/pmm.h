@@ -32,9 +32,9 @@ typedef struct page {
 	union {
 		struct {
 			// TODO : support 32 bits arch
-			uint64_t lru_prev : 42;
+			uint64_t prev : 42;
 			uint64_t offset : 42;
-			uint64_t lru_next : 42;
+			uint64_t next : 42;
 			uint64_t reserved : 2;
 		} __attribute__((packed)) cached;
 		struct {
