@@ -49,7 +49,6 @@ typedef struct page {
 #define PAGE_FLAG_READING  0x10 // the page is currently being loaded into memory
 #define PAGE_FLAG_WRITING  0x20 // the page is currently being written back
 #define PAGE_FLAG_EVICTING 0x40 // the page is currently being evicted
-#define PAGE_FLAG_EVICTED  0x80 // the page was evicted
 #define PAGE_FLAG_ACTIVE   0x100 // was the page accessed
 #define PAGE_FLAG_LOCKED   0x200 // the page is locked
 #define PAGE_FLAG_GEN       0xf000 // current generation of the page
@@ -255,5 +254,7 @@ static inline void pmm_release_page_lock(uintptr_t page) {
 	kassert(previous_flags & PAGE_FLAG_LOCKED);
 	pmm_wakeup(page);
 }
+
+#define pmm_assert_page_lock_acquired(page) kassert((atomic_load(&pmm_page_info(page)->flags) & PAGE_FLAG_LOCKED) && "page lock acquired")
 
 #endif

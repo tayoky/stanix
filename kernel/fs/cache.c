@@ -12,6 +12,14 @@
 #include <kernel/vmm.h>
 #include <kernel/xarray.h>
 
+// a list of TODOes
+// - 1 use page batches that hold refs instead of simple ranges
+// for read/write
+// - 2 implement flushing in eviction
+// - 3 implement page tiers
+// - 4 implement a periodic scanner of ptes
+// - 5 fix any other races
+
 typedef struct page_list {
 	uintptr_t first;
 	uintptr_t last;
@@ -65,6 +73,10 @@ static uintptr_t cached_page_get_offset(page_t *page_info) {
 
 static int cached_page_is_dirty(page_t *page_info) {
 	return atomic_load(&page_info->flags) & PAGE_FLAG_DIRTY;
+}
+
+static int cached_page_is_evicted(page_t *page_info) {
+	return page_info->private == NULL;
 }
 
 static void cached_page_add_to_list(page_list_t *list, uintptr_t page, page_t page_info) {
@@ -147,14 +159,6 @@ static int cache_clear_page_dirty(cache_t *cache, uintptr_t page) {
 	return ret;
 }
 
-static void cached_page_free(uintptr_t page) {
-	page_t *page_info = pmm_page_info(page);
-	spinlock_acquire(&lru_lock);
-	cached_page_remove_from_gen(page_info);
-	spinlock_release(&lru_lock);
-	pmm_release_page(page);
-}
-
 static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t *start, uintptr_t *end) {
 	if (cache->size >= (size_t)offset && cache->size - offset < size) {
 		size = cache->size - offset;
@@ -214,6 +218,21 @@ static uintptr_t cache_compare_and_set_page(cache_t *cache, off_t offset, uintpt
 static void cached_page_set_error(page_t *page_info, int ret) {
 	atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_ERROR);
 	atomic_fetch_or(&page_info->flags, ((uint16_t)-ret) << PAGE_FLAG_ERROR_SHIFT);
+}
+
+static int cached_page_remove(uintptr_t page) {
+	pmm_assert_page_lock_acquired(page);
+	page_t *page_info = pmm_page_info(page);
+	if (cached_page_is_evicted(page_info)) {
+		// already evicted
+		return 0;
+	}
+	cache_t *cache = page_info->private;
+	off_t offset = cached_page_get_offset(page_info);
+	page_info->private = NULL;
+	cache_lookup_and_clear_page(cache, offset);
+	pmm_release_page(page);
+	return 1;
 }
 
 void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
@@ -286,14 +305,29 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
  * @note before calling this make sure no new I/O can be done on the pages
  */
 static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
+	rcu_acquire_read(&cache->pages.rcu);
 	cache_foreach_range(addr, page, cache, offset, offset + size) {
-		// wait until no I/O is done
-		int ret = cache_wait_page_no_io(page);
-		if (ret < 0) return ret;
+		pmm_acquire_page_lock(page);
+		int removed_it = cached_page_remove(page);
+		pmm_release_page_lock(page);
 
-		page = cache_lookup_and_clear_page(cache, addr);
-		cached_page_free(page);
+		if (removed_it) {
+			page_t *page_info = pmm_page_info(page);
+
+			// wait until no I/O is done
+			rcu_release_read(&cache->pages.rcu);
+			int ret = cache_wait_page_no_io(page);
+			if (ret < 0) return ret;
+			rcu_acquire_read(&cache->pages.rcu);
+
+			spinlock_acquire(&lru_lock);
+			cached_page_remove_from_gen(page_info);
+			spinlock_release(&lru_lock);
+
+			pmm_release(page);
+		}
 	}
+	rcu_release_read(&cache->pages.rcu);
 	return 0;
 }
 
@@ -355,11 +389,12 @@ size_t cache_evict(size_t to_evict) {
 		}
 		
 		// this is a cold page, evict it
-		if (!pmm_try_acquire_page_lock(page)) {
-			// somebody else is using it we cannot evict it
+		if (atomic_fetch_or(&page_info->flags, PAGE_FLAG_EVICTING) & PAGE_FLAG_EVICTING) {
+			// somebody else is evicting it we cannot evict it
 			continue;
 		}
-		atomic_fetch_or(&page_info->flags, PAGE_FLAG_EVICTING);
+
+		pmm_retain(page);
 		cached_page_remove_from_gen(page_info);
 		cached_page_add_to_list(&list, page, page_info);
 		to_evict--;
@@ -377,19 +412,36 @@ size_t cache_evict(size_t to_evict) {
 		uintptr_t page = next;
 		page_t *page_info = pmm_page_info(page);
 		next = cached_page_get_next(page_info);
-		// this is some pseudo code, is not functional and is unsafe
-		cache_t *cache = page_info->private;
-		off_t offset = cached_page_get_offset(page_info);
-		if (cache_flush(cache, offset, PAGE_SIZE) < 0 || cached_page_is_dirty(page_info)) {
-			// we failed to evict this page
+		// this is some pseudo code, is not functional and is probably unsafe
+	
+		pmm_acquire_page_lock(page);
+		if (cached_page_is_evicted(page_info)) {
+			// already evicted, we have nothing to do
+			cached_page_remove_from_list(&list, page_info);
 			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
 			pmm_release_page_lock(page);
+			pmm_release(page);
 			continue;
 		}
 
-		cache_compare_and_set_page(cache, offset, page, PAGE_INVALID);
+		cache_t *cache = page_info->private;
+		off_t offset = cached_page_get_offset(page_info);
+
+		if (cached_page_is_dirty(page)) {
+			// TODO : flush
+			pmm_release_page_lock(page);
+			kassert ("TODO : flush");
+			// cache_flush(cache, offset, PAGE_SIZE);
+			pmm_acquire_page_lock(page);
+		}
+
 		cached_page_remove_from_list(&list, page_info);
-		atomic_fetch_or(&page_info->flags, PAGE_FLAG_EVICTED);
+
+		// FIXME : as far as i know it's not possible that somebody else freed it because of the EVICTING bit
+		// but we should check that ??
+		int removed_it = cached_page_remove(page);
+		(void)removed_it;
+		kassert(removed_it);
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
 		pmm_release_page_lock(page);
 		pmm_release(page);
@@ -405,6 +457,9 @@ size_t cache_evict(size_t to_evict) {
 			next = cached_page_get_next(page_info);
 
 			cached_page_add_to_gen(page, page_info, base_generation);
+			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
+			pmm_wakeup(page);
+			pmm_release(page);
 		}
 		spinlock_release(&lru_lock);
 	}
@@ -559,11 +614,13 @@ batch_end:
 			cache_wait_page_no_io(page);
 		}
 		rcu_acquire_read(&cache->pages.rcu);
-		if (atomic_load(&page_info->flags) & PAGE_FLAG_EVICTED) {
+		pmm_acquire_page_lock(page);
+		if (cached_page_is_evicted(page_info)) {
 			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
-			pmm_wakeup(page);
+			pmm_release_page_lock(page);
 			goto batch_end;
 		}
+		pmm_release_page_lock(page);
 
 		if (batch_start == PAGE_INVALID) batch_start = addr;
 		batch_end = addr + PAGE_SIZE;
