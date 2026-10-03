@@ -51,6 +51,7 @@ typedef struct page {
 #define PAGE_FLAG_EVICTING 0x40 // the page is currently being evicted
 #define PAGE_FLAG_EVICTED  0x80 // the page was evicted
 #define PAGE_FLAG_ACTIVE   0x100 // was the page accessed
+#define PAGE_FLAG_LOCKED   0x200 // the page is locked
 #define PAGE_FLAG_GEN       0xf000 // current generation of the page
 #define PAGE_FLAG_GEN_SHIFT 12
 #define PAGE_FLAG_ERROR       0xffff0000
@@ -218,5 +219,41 @@ static inline int pmm_wait(uintptr_t page, unsigned int mask, unsigned int value
  * @param page the page to wakeup the sleepers of
  */
 void pmm_wakeup(uintptr_t page);
+
+/**
+ * @brief try to acquire the lock of a page
+ * @param page the page to acquire the lock of
+ * @return 1 on success or 0 if the page could not be locked
+ */
+static inline int pmm_try_acquire_page_lock(uintptr_t page) {
+	int previous_flags = atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_LOCKED);
+	return !(previous_flags & PAGE_FLAG_LOCKED);
+}
+
+/**
+ * @brief acquire the lock of a page
+ * @param page the page to acquire the lock of
+ * @return -EINTR if interrupted else 0
+ * @note can block
+ */
+static inline int pmm_acquire_page_lock(uintptr_t page) {
+	page_t *page_info = pmm_page_info(page);
+	while (atomic_fetch_or(&page_info->flags, PAGE_FLAG_LOCKED) & PAGE_FLAG_LOCKED) {
+		int ret = pmm_wait(page, PAGE_FLAG_LOCKED, 0);
+		if (ret < 0) return ret;
+	}
+	return 0;
+}
+
+/**
+ * @brief release the lock of a page
+ * @param page the page to release the lock of
+ */
+static inline void pmm_release_page_lock(uintptr_t page) {
+	int previous_flags = atomic_fetch_and(&pmm_page_info(page)->flags, ~PAGE_FLAG_LOCKED);
+	(void)previous_flags;
+	kassert(previous_flags & PAGE_FLAG_LOCKED);
+	pmm_wakeup(page);
+}
 
 #endif

@@ -355,10 +355,11 @@ size_t cache_evict(size_t to_evict) {
 		}
 		
 		// this is a cold page, evict it
-		if (atomic_fetch_or(&page_info->flags, ~PAGE_FLAG_EVICTING) & PAGE_FLAG_EVICTING) {
-			// somebody else is already evicting it
+		if (!pmm_try_acquire_page_lock(page)) {
+			// somebody else is using it we cannot evict it
 			continue;
 		}
+		atomic_fetch_or(&page_info->flags, PAGE_FLAG_EVICTING);
 		cached_page_remove_from_gen(page_info);
 		cached_page_add_to_list(&list, page, page_info);
 		to_evict--;
@@ -382,7 +383,7 @@ size_t cache_evict(size_t to_evict) {
 		if (cache_flush(cache, offset, PAGE_SIZE) < 0 || cached_page_is_dirty(page_info)) {
 			// we failed to evict this page
 			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
-			pmm_wakeup(page);
+			pmm_release_page_lock(page);
 			continue;
 		}
 
@@ -390,7 +391,7 @@ size_t cache_evict(size_t to_evict) {
 		cached_page_remove_from_list(&list, page_info);
 		atomic_fetch_or(&page_info->flags, PAGE_FLAG_EVICTED);
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
-		pmm_wakeup(page);
+		pmm_release_page_lock(page);
 		pmm_release(page);
 		evicted_pages++;
 	}
@@ -550,14 +551,14 @@ batch_end:
 		}
 
 		page_t *page_info = pmm_page_info(page);
+		rcu_release_read(&cache->pages.rcu);
 		cache_wait_page_no_io(page);
 		while (atomic_fetch_or(&page_info->flags, PAGE_FLAG_WRITING) & PAGE_FLAG_WRITING) {
 			// already writing
 			// wait until write complete
-			rcu_release_read(&cache->pages.rcu);
 			cache_wait_page_no_io(page);
-			rcu_acquire_read(&cache->pages.rcu);
 		}
+		rcu_acquire_read(&cache->pages.rcu);
 		if (atomic_load(&page_info->flags) & PAGE_FLAG_EVICTED) {
 			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
 			pmm_wakeup(page);
