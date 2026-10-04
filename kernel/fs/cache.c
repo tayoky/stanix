@@ -13,12 +13,9 @@
 #include <kernel/xarray.h>
 
 // a list of TODOes
-// - 1 use page batches that hold refs instead of simple ranges
-// for read/write
-// - 2 implement flushing in eviction
-// - 3 implement page tiers
-// - 4 implement a periodic scanner of ptes
-// - 5 fix any other races
+// - 1 implement page tiers
+// - 2 implement a periodic scanner of ptes
+// - 3 fix any other races
 
 typedef struct page_list {
 	uintptr_t first;
@@ -79,7 +76,7 @@ static int cached_page_is_evicted(page_t *page_info) {
 	return page_info->private == NULL;
 }
 
-static void cached_page_add_to_list(page_list_t *list, uintptr_t page, page_t page_info) {
+static void cached_page_add_to_list(page_list_t *list, uintptr_t page, page_t *page_info) {
 	cached_page_set_prev(page_info, PAGE_INVALID);
 	cached_page_set_next(page_info, list->first);
 	if (list->first != PAGE_INVALID) {
@@ -455,10 +452,19 @@ size_t cache_evict(size_t to_evict) {
 		off_t offset = cached_page_get_offset(page_info);
 
 		if (cached_page_is_dirty(page)) {
-			// TODO : flush
 			pmm_release_page_lock(page);
-			kassert ("TODO : flush");
-			// cache_flush(cache, offset, PAGE_SIZE);
+
+			// TODO : maybee don't flush one page at time
+			while (atomic_fetch_or(&page_info->flags, PAGE_FLAG_WRITING) & PAGE_FLAG_WRITING) {
+				// already writing
+				// wait until write complete
+				cache_wait_page_written(page);
+			}
+			pages_batch_t pages_batch;
+			pages_batch_from_page(page);
+			if (cache_write_pages(cache, &pages_batch) < 0) continue;
+			if (cache_wait_page_written(page) < 0) continue;
+
 			pmm_acquire_page_lock(page);
 		}
 
@@ -621,6 +627,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
 			pmm_release_page_lock(page);
 			rcu_acquire_read(&cache->pages.rcu);
+			pmm_release_page(page);
 			continue;
 		}
 		pmm_release_page_lock(page);
@@ -859,7 +866,7 @@ int cache_truncate(cache_t *cache, size_t size) {
 			char *vaddr = mmu_phys2virt(page);
 			size_t partial_size = cache->size % PAGE_SIZE;
 			memset(vaddr + partial_size, 0, PAGE_SIZE - partial_size);
-			cached_page_mark_dirty(page);
+			cache_mark_page_dirty(cache, page);
 		}
 		rcu_release_read(&cache->pages.rcu);
 	}
