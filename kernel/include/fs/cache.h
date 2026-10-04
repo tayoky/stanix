@@ -4,6 +4,7 @@
 #include <kernel/rwlock.h>
 #include <kernel/xarray.h>
 #include <kernel/pagesbatch.h>
+#include <kernel/mutex.h>
 
 struct cache;
 struct vmm_seg;
@@ -20,6 +21,7 @@ typedef struct cache {
 	list_node_t dirty_node; // protected by dirty_lock
 	size_t dirty_count;     // protected by dirty_lock
 	xarray_t pages;
+	mutex_t mutex;
 	cache_ops_t *ops;
 	size_t size;
 } cache_t;

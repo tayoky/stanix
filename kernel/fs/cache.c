@@ -380,6 +380,7 @@ static int cache_write_pages(cache_t *cache, pages_batch_t *pages_batch) {
 void init_cache(cache_t *cache) {
 	memset(cache, 0, sizeof(cache_t));
 	xarray_init(&cache->pages);
+	mutex_init(&cache->mutex);
 	list_append(&caches, &cache->node);
 }
 
@@ -845,13 +846,25 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 }
 
 int cache_truncate(cache_t *cache, size_t size) {
-	// FIXME : we might need a lock for this
+	mutex_acquire(&cache->mutex);
 	if (size < cache->size) {
 		uintptr_t start = PAGE_ALIGN_UP(size);
 		uintptr_t end   = PAGE_ALIGN_UP(cache->size);
 		cache_free_pages(cache, start, end - start);
+	} else if (size > cache->size && cache->size % PAGE_SIZE != 0) {
+		// we need to zero the last page
+		rcu_acquire_read(&cache->pages.rcu);
+		uintptr_t page = cache_lookup(cache, PAGE_ALIGN_DOWN(cache->size));
+		if (page != PAGE_INVALID) {
+			char *vaddr = mmu_phys2virt(page);
+			size_t partial_size = cache->size % PAGE_SIZE;
+			memset(vaddr + partial_size, 0, PAGE_SIZE - partial_size);
+			cached_page_mark_dirty(page);
+		}
+		rcu_release_read(&cache->pages.rcu);
 	}
 	cache->size = size;
+	mutex_release(&cache->mutex);
 	return 0;
 }
 
