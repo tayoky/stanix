@@ -237,6 +237,7 @@ static int cached_page_remove(uintptr_t page) {
 }
 
 void cache_read_terminate(cache_t *cache, pages_batch_t *pages_batch, int ret) {
+	(void)cache;
 	pages_batch_foreach (page, pages_batch) {
 		page_t *page_info = pmm_page_info(page);
 		cached_page_set_error(page_info, ret);
@@ -319,6 +320,8 @@ static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 	cache_foreach_range(addr, page, cache, offset, offset + size) {
 		pmm_retain(page);
 		rcu_release_read(&cache->pages.rcu);
+
+		page_t *page_info = pmm_page_info(page);
 		
 		// we need to make sure the page is not being written back/evicted when we remove it
 		pmm_acquire_page_lock(page);
@@ -331,7 +334,7 @@ static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 			}
 			pmm_acquire_page_lock(page);
 		}
-		if (cached_page_is_evicted(page)) {
+		if (cached_page_is_evicted(page_info)) {
 			pmm_release_page_lock(page);
 			pmm_release_page(page);
 			rcu_acquire_read(&cache->pages.rcu);
@@ -340,8 +343,6 @@ static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 		int removed_it = cached_page_remove(page);
 		(void)removed_it;
 		kassert(removed_it);
-
-		page_t *page_info = pmm_page_info(page);
 
 		spinlock_acquire(&lru_lock);
 		cached_page_remove_from_gen(page_info);
@@ -448,10 +449,8 @@ size_t cache_evict(size_t to_evict) {
 			continue;
 		}
 
-		cache_t *cache = page_info->private;
-		off_t offset = cached_page_get_offset(page_info);
-
-		if (cached_page_is_dirty(page)) {
+		if (cached_page_is_dirty(page_info)) {
+			cache_t *cache = page_info->private;
 			pmm_release_page_lock(page);
 
 			// TODO : maybee don't flush one page at time
@@ -461,7 +460,7 @@ size_t cache_evict(size_t to_evict) {
 				cache_wait_page_written(page);
 			}
 			pages_batch_t pages_batch;
-			pages_batch_from_page(page);
+			pages_batch_from_page(&pages_batch, page);
 			if (cache_write_pages(cache, &pages_batch) < 0) continue;
 			if (cache_wait_page_written(page) < 0) continue;
 
@@ -539,7 +538,7 @@ int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 		pmm_retain(page);
 		pages_batch_t pages_batch;
 		pages_batch_from_page(&pages_batch, page);
-		ret = cache_read_pages(cache, pages_batch);
+		ret = cache_read_pages(cache, &pages_batch);
 	} else {
 		// mark the page was accessed so the evicter know about it
 		cache_mark_page_active(cache, page);
@@ -861,7 +860,7 @@ int cache_truncate(cache_t *cache, size_t size) {
 	} else if (size > cache->size && cache->size % PAGE_SIZE != 0) {
 		// we need to zero the last page
 		rcu_acquire_read(&cache->pages.rcu);
-		uintptr_t page = cache_lookup(cache, PAGE_ALIGN_DOWN(cache->size));
+		uintptr_t page = cache_lookup_page(cache, PAGE_ALIGN_DOWN(cache->size));
 		if (page != PAGE_INVALID) {
 			char *vaddr = mmu_phys2virt(page);
 			size_t partial_size = cache->size % PAGE_SIZE;
