@@ -145,7 +145,8 @@ static int block_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
 
 	kassert(batch->requests_count > 0);
 
-	for (size_t i = 0; i < batch->requests_count; i++) {
+	size_t requests_count = batch->requests_count;
+	for (size_t i = 0; i < requests_count; i++) {
 		int ret = ioreq_submit(&requests[i]->ioreq);
 		if (ret < 0) block_read_pages_callback(&requests[i]->ioreq, batch);
 	}
@@ -196,6 +197,7 @@ static int block_write_continuous_pages(block_device_t *block_device, off_t offs
 		uintptr_t page = pages[i];
 		kassert(page != PAGE_INVALID);
 		void *vaddr = mmu_phys2virt(page);
+		// FIXME : if this is last page we might need to copy less
 		memcpy(ptr, vaddr, PAGE_SIZE);
 		ptr += PAGE_SIZE;
 	}
@@ -217,7 +219,7 @@ error:
 
 	// we need to flush
 	block_request_t *flush_request = block_create_request(block_device, BLOCK_REQUEST_FLUSH);
-	if (!flush_request)
+	if (!flush_request) return -ENOMEM;
 	flush_request->start_sector = start_sector;
 	flush_request->sectors_count = sectors_count;
 	return ioreq_submit_sync_interruptible(&flush_request->ioreq);
@@ -402,6 +404,8 @@ block_device_t *block_device_allocate(void) {
 	if (!block_device) return NULL;
 	memset(block_device, 0, sizeof(block_device_t));
 	init_cache(&block_device->cache);
+	mutex_init(&block_device->mutex);
+	list_init(&block_device->partitions);
 	return block_device;
 }
 
