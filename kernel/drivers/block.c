@@ -10,6 +10,7 @@
 static slab_cache_t block_requests_slab;
 static slab_cache_t block_partitions_slab;
 static slab_cache_t block_devices_slab;
+static slab_cache_t block_batches_slab;
 static int part_major;
 static list_t partition_drivers;
 
@@ -19,6 +20,7 @@ void init_block(void) {
 	slab_init(&block_requests_slab, sizeof(block_request_t), "block-requests");
 	slab_init(&block_partitions_slab, sizeof(block_partition_t), "block-partitions");
 	slab_init(&block_devices_slab, sizeof(block_device_t), "block-devices");
+	slab_init(&block_batches_slab, sizeof(block_batch_t), "block-batches");
 	part_major = device_allocate_major();
 }
 
@@ -41,24 +43,27 @@ static int block_fill_iobuf(block_device_t *block_device, block_request_t *reque
 	return 0;
 }
 
-static void block_read_pages_callback(ioreq_t *ioreq, void *data) {
-	(void)data;
-	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
-	block_device_t *block_device = request->block_device;
-	off_t offset = ioreq->data2[DATA_OFFSET];
-	size_t count = ioreq->data2[DATA_COUNT];
-
-	cache_read_terminate(&block_device->cache, offset, count, ioreq->ret);
+static void block_batch_set_ret(block_batch_t *batch, int ret) {
+	int expected = 0;
+	atomic_compare_exchange_strong(&batch->ret, &expected, ret);
 }
 
+static void block_read_pages_callback(ioreq_t *ioreq, void *data) {
+	block_request_t *request = container_of(ioreq, block_request_t, ioreq);
+	block_device_t *block_device = request->block_device;
 
-// TODO : update this to use pages batch
-static int block_read_pages(cache_t *cache, off_t offset, size_t count) {
-	block_device_t *block_device = container_of(cache, block_device_t, cache);
+	block_batch_t *batch = data;
+	block_batch_set_ret(batch, ioreq->ret);
+	if (atomic_fetch_add(&batch->finished_requests_count) + 1 == batch->requests_count) {
+		cache_read_terminate(&block_device->cache, batch, batch->ret);
+		slab_free(batch);
+	}
+}
 
+static block_request_t *block_make_read_request_from_pages(block_device_t *block_device, block_batch_t *batch, uintptr_t *pages, size_t pages_count, off_t offset) {
 	// determinate the bounds of the read
 	size_t start = offset;
-	size_t end   = offset + count;
+	size_t end   = offset + pages_count * PAGE_SIZE;
 	size_t start_sector = start / block_device->sector_size;
 	size_t end_sector   = (end + block_device->sector_size - 1) / block_device->sector_size;
 	if (end_sector > block_device->sectors_count) {
@@ -68,23 +73,78 @@ static int block_read_pages(cache_t *cache, off_t offset, size_t count) {
 	size_t sectors_count = end_sector - start_sector;
 
 	block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
-	if (!request) return -ENOMEM;
+	if (!request) return NULL;
 	request->start_sector = start_sector;
 	request->sectors_count = sectors_count;
 
 	int ret = block_fill_iobuf(block_device, request, offset, count);
 	if (ret < 0) {
 		ioreq_release(&request->ioreq);
-		return ret;
+		return NULL;
 	}
 
-	request->ioreq.data2[DATA_OFFSET] = offset;
-	request->ioreq.data2[DATA_COUNT]   = count;
-	ioreq_set_callback(&request->ioreq, block_read_pages_callback, NULL);
-	return ioreq_submit(&request->ioreq);
+	ioreq_set_callback(&request->ioreq, block_read_pages_callback, batch);
+	return request;
 }
 
-// TODO : make this async
+static int block_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
+	block_device_t *block_device = container_of(cache, block_device_t, cache);
+
+	block_batch_t *batch = slab_alloc(&block_batches);
+	if (!batch) return -ENOMEM;
+	memset(batch, 0, sizeof(block_batch_t));
+
+	// in worse case we have a request per page
+	block_request_t *requests[PAGES_PER_BATCH];
+
+	off_t next_offset = -1;
+	size_t pages_count = 0;
+	pages_batch_foreach (page, pages_batch) {
+		off_t offset = cache_get_page_offset(page);
+		if (offset == next_offset) {
+			// extend current request
+			pages_count++;
+		} else {
+			if (pages_count > 0) {
+				block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
+				if (!request) {
+					for (size_t i=0; i<batch->requests_count; i++) {
+						ioreq_release(&requests[i]->ioreq);
+					}
+					slab_free(batch);
+					return -ENOMEM;
+				}
+				requests[batch->requests_count++] = request;
+			}
+
+			// create new request
+			pages_count = 1;
+		}
+		next_offset = offset + PAGE_SIZE;
+	}
+	if (pages_count > 0) {
+		block_request_t *request = block_create_request(block_device, BLOCK_REQUEST_READ);
+		if (!request) {
+			for (size_t i=0; i<batch->requests_count; i++) {
+				ioreq_release(&requests[i]->ioreq);
+			}
+			slab_free(batch);
+			return -ENOMEM;
+		}
+		requests[batch->requests_count++] = request;
+	}
+
+	kassert(batch->requests_count > 0);
+
+	for (size_t i = 0; i < batch->requests_count; i++) {
+		int ret = ioreq_submit(&batch->requests[i]->ioreq);
+		if (ret < 0) block_read_pages_callback(&batch->requests[i]->ioreq, batch);
+	}
+
+	return 0;
+}
+
+// TODO : make this async and use new batching API
 static int block_write_pages(cache_t *cache, off_t offset, size_t count) {
 	block_device_t *block_device = container_of(cache, block_device_t, cache);
 

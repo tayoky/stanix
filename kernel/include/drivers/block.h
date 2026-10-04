@@ -14,6 +14,7 @@ typedef struct block_device block_device_t;
 typedef struct block_request block_request_t;
 typedef struct block_partition block_partition_t;
 typedef struct block_partition_driver block_partition_driver_t;
+typedef struct block_batch block_batch_t;
 
 struct block_ops {
 	int (*submit)(block_device_t *block_device, block_request_t *request);
@@ -71,6 +72,13 @@ struct block_partition_driver {
 	int (*probe)(block_device_t *block_device);
 	int (*attach)(block_device_t *block_device);
 	void (*detach)(block_device_t *block_device);
+};
+
+struct block_batch {
+	size_t requests_count;
+	ATOMIC(size_t) finished_requests_count;
+	pages_batch_t pages_batch;
+	int ret;
 };
 
 void init_block(void);
