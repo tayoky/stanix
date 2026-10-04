@@ -187,6 +187,10 @@ static int cache_wait_page_written(uintptr_t page) {
 	return ret;
 }
 
+static int cached_page_is_doing_io(uintptr_t page) {
+	return atomic_load(&pmm_page_info(page)->flags) & (PAGE_FLAG_WRITING | PAGE_FLAG_READING | PAGE_FLAG_EVICTING);
+}
+
 static int cache_wait_page_no_io(uintptr_t page) {
 	unsigned int flags;
 	int ret = pmm_wait_get(page, PAGE_FLAG_WRITING | PAGE_FLAG_READING | PAGE_FLAG_EVICTING, 0, &flags);
@@ -313,32 +317,41 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 	}
 }
 
-/**
- * @note before calling this make sure no new I/O can be done on the pages
- */
 static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 	rcu_acquire_read(&cache->pages.rcu);
 	cache_foreach_range(addr, page, cache, offset, offset + size) {
-		// FIXME : we need to make sure the page is not being written back when we remove it
+		pmm_retain(page);
+		rcu_release_read(&cache->pages.rcu);
+		
+		// we need to make sure the page is not being written back/evicted when we remove it
 		pmm_acquire_page_lock(page);
-		int removed_it = cached_page_remove(page);
-		pmm_release_page_lock(page);
-
-		if (removed_it) {
-			page_t *page_info = pmm_page_info(page);
-
-			// wait until no I/O is done
-			rcu_release_read(&cache->pages.rcu);
+		while (cached_page_is_doing_io(page)) {
+			pmm_release_page_lock(page);
 			int ret = cache_wait_page_no_io(page);
-			if (ret < 0) return ret;
-			rcu_acquire_read(&cache->pages.rcu);
-
-			spinlock_acquire(&lru_lock);
-			cached_page_remove_from_gen(page_info);
-			spinlock_release(&lru_lock);
-
-			pmm_release_page(page);
+			if (ret < 0) {
+				pmm_release_page(page);
+				return ret;
+			}
+			pmm_acquire_page_lock(page);
 		}
+		if (cached_page_is_evicted(page)) {
+			pmm_release_page_lock(page);
+			pmm_release_page(page);
+			rcu_acquire_read(&cache->pages.rcu);
+			continue;
+		}
+		int removed_it = cached_page_remove(page);
+		(void)removed_it;
+		kassert(removed_it);
+
+		page_t *page_info = pmm_page_info(page);
+
+		spinlock_acquire(&lru_lock);
+		cached_page_remove_from_gen(page_info);
+		spinlock_release(&lru_lock);
+
+		pmm_release_page(page); // the ref we created
+		pmm_release_page(page); // the from from the cache
 	}
 	rcu_release_read(&cache->pages.rcu);
 	return 0;
@@ -450,8 +463,7 @@ size_t cache_evict(size_t to_evict) {
 
 		cached_page_remove_from_list(&list, page_info);
 
-		// FIXME : as far as i know it's not possible that somebody else freed it because of the EVICTING bit
-		// but we should check that ??
+		// it's not possible that somebody else freed it because of the EVICTING bit
 		int removed_it = cached_page_remove(page);
 		(void)removed_it;
 		kassert(removed_it);
@@ -564,7 +576,7 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 			return -ENOMEM;
 		}
 		if (raced) {
-			pmm_release(page);
+			pmm_release_page(page);
 			continue;
 		}
 
