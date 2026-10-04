@@ -263,23 +263,20 @@ static int fat_transfer_pages(cache_t *cache, pages_batch_t *pages_batch, int wr
 	fat_inode_t *inode               = container_of(cache, fat_inode_t, cache);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
 	// cluster size is always driver or multiple of page size
-
-	// start by going to the first cluster
-	uint32_t cluster = fat_get_cluster(fat_superblock, inode, offset / fat_superblock->cluster_size);
-	if (cluster == fat_eof(fat_superblock)) {
-		// early EOF ??? probably corrupted fat fs
-		return -EIO;
-	}
-
-	// we got the first cluster
-	// read page per page
-	size_t cluster_offset = offset % fat_superblock->cluster_size; // offset within the current cluster
 																pages_batch_foreach (page, pages_batch) {
 		kassert(page != PAGE_INVALID);
 		char *vaddr = mmu_phys2virt(page);
 		off_t offset = cache_get_page_offset(page);
 
-		// TODO : make sure to to to offset
+		// start by going to the first cluster
+		uint32_t cluster = fat_get_cluster(fat_superblock, inode, offset / fat_superblock->cluster_size);
+		if (cluster == fat_eof(fat_superblock)) {
+			// early EOF ??? probably corrupted fat fs
+			return -EIO;
+		}
+
+		// we got the first cluster
+		size_t cluster_offset = offset % fat_superblock->cluster_size; // offset within the current cluster
 
 		for (size_t count = 0; count < PAGE_SIZE;) {
 			size_t chunk_size = min(PAGE_SIZE, fat_superblock->cluster_size - cluster_offset);
