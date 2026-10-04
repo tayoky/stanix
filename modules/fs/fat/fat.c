@@ -259,7 +259,7 @@ static int fat_free_clusters(fat_superblock_t *fat_superblock, fat_inode_t *inod
 	return 0;
 }
 
-static int fat_transfer_pages(cache_t *cache, off_t offset, size_t size, int write) {
+static int fat_transfer_pages(cache_t *cache, pages_batch_t *pages_batch, int write) {
 	fat_inode_t *inode               = container_of(cache, fat_inode_t, cache);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
 	// cluster size is always driver or multiple of page size
@@ -274,10 +274,13 @@ static int fat_transfer_pages(cache_t *cache, off_t offset, size_t size, int wri
 	// we got the first cluster
 	// read page per page
 	size_t cluster_offset = offset % fat_superblock->cluster_size; // offset within the current cluster
-	for (uintptr_t addr = offset; addr < offset + size; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page(cache, addr);
+																pages_batch_foreach (page, pages_batch) {
 		kassert(page != PAGE_INVALID);
 		char *vaddr = mmu_phys2virt(page);
+		off_t offset = cache_get_page_offset(page);
+
+		// TODO : make sure to to to offset
+
 		for (size_t count = 0; count < PAGE_SIZE;) {
 			size_t chunk_size = min(PAGE_SIZE, fat_superblock->cluster_size - cluster_offset);
 
@@ -313,18 +316,18 @@ static int fat_transfer_pages(cache_t *cache, off_t offset, size_t size, int wri
 	return 0;
 }
 
-static int fat_read_pages(cache_t *cache, off_t offset, size_t size) {
-	int ret = fat_transfer_pages(cache, offset, size, 0);
+static int fat_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
+	int ret = fat_transfer_pages(cache, pages_batch, 0);
 	if (ret < 0) return 0;
-	cache_read_terminate(cache, offset, size, 0);
+	cache_read_terminate(cache, pages_batch, 0);
 	return 0;
 }
 
-static int fat_write_pages(cache_t *cache, off_t offset, size_t size) {
+static int fat_write_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	kdebugf("writing pages\n");
-	int ret = fat_transfer_pages(cache, offset, size, 1);
+	int ret = fat_transfer_pages(cache, pages_batch, 1);
 	if (ret < 0) return 0;
-	cache_write_terminate(cache, offset, size, 0);
+	cache_write_terminate(cache, pages_batch, 0);
 	return 0;
 }
 

@@ -18,13 +18,11 @@ static vfs_inode_ops_t tmpfs_inode_ops;
 #define INODE_NUMBER(inode) ((ino_t)((uintptr_t)inode) - (uintptr_t)mmu_phys2virt(0))
 
 // page cache ops
-static int tmpfs_cache_read(cache_t *cache, off_t offset, size_t size) {
-	uintptr_t end = offset + size;
-	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page(cache, addr);
+static int tmpfs_cache_read(cache_t *cache, pages_batch_t *pages_batch) {
+	pages_batch_foreach (page, pages_batch) {
 		memset(mmu_phys2virt(page), 0, PAGE_SIZE);
 	}
-	cache_read_terminate(cache, offset, size, 0);
+	cache_read_terminate(cache, pages_batch, 0);
 	return 0;
 }
 

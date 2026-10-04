@@ -51,43 +51,43 @@ static int retrofs_next_entry(retrofs_superblock_t *retrofs_superblock, retrofs_
 	return 0;
 }
 
-static int retrofs_read_pages(cache_t *cache, off_t offset, size_t count) {
+static int retrofs_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	retrofs_inode_t *inode = container_of(cache, retrofs_inode_t, cache);
 	retrofs_superblock_t *retrofs_superblock = container_of(inode->vnode.superblock, retrofs_superblock_t, superblock);
 
 	// TODO : we need a way to pass the pages direcly
 	off_t start_offset = inode->start_sector * RETROFS_SECTOE_SIZE;
-	for (uintptr_t addr = offset; addr < offset + count; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page(&inode->cache, addr);
+	pages_batch_foreach (page, pages_batch) {
 		kassert(page != PAGE_INVALID);
+		off_t offset = cache_get_page_offset(page);
 
 		ssize_t remaining = inode->cache.size;
 		ssize_t size = remaining < PAGE_SIZE ? remaining : PAGE_SIZE;
-		ssize_t ret = vfs_read(retrofs_superblock->superblock.device, mmu_phys2virt(page), start_offset + addr, size);
+		ssize_t ret = vfs_read(retrofs_superblock->superblock.device, mmu_phys2virt(page), start_offset + offset, size);
 		if (ret < 0) return ret;
 		if (ret < size) return -EIO;
 	}
-	cache_read_terminate(cache, offset, count, 0);
+	cache_read_terminate(cache, pages_batch, 0);
 	return 0;
 }
 
-static int retrofs_write_pages(cache_t *cache, off_t offset, size_t count) {
+static int retrofs_write_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	retrofs_inode_t *inode = container_of(cache, retrofs_inode_t, cache);
 	retrofs_superblock_t *retrofs_superblock = container_of(inode->vnode.superblock, retrofs_superblock_t, superblock);
 
 	// TODO : we need a way to pass the pages direcly
 	off_t start_offset = inode->start_sector * RETROFS_SECTOE_SIZE;
-	for (uintptr_t addr = offset; addr < offset + count; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page(&inode->cache, addr);
+	pages_batch_foreach (page, pages_batch) {
 		kassert(page != PAGE_INVALID);
+		off_t offset = cache_get_page_offset(page);
 
 		ssize_t remaining = inode->cache.size;
 		ssize_t size = remaining < PAGE_SIZE ? remaining : PAGE_SIZE;
-		ssize_t ret = vfs_write(retrofs_superblock->superblock.device, mmu_phys2virt(page), start_offset + addr, size);
+		ssize_t ret = vfs_write(retrofs_superblock->superblock.device, mmu_phys2virt(page), start_offset + offset, size);
 		if (ret < 0) return ret;
 		if (ret < size) return -EIO;
 	}
-	cache_read_terminate(cache, offset, count, 0);
+	cache_read_terminate(cache, pages_batch, 0);
 	return 0;
 }
 

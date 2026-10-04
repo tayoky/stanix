@@ -235,32 +235,24 @@ static int cached_page_remove(uintptr_t page) {
 	return 1;
 }
 
-void cache_read_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
-	uintptr_t end = offset + size;
-	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page    = cache_lookup_page(cache, addr);
-		kassert(page != PAGE_INVALID);
+void cache_read_terminate(cache_t *cache, pages_batch_t *pages_batch, int ret) {
+	pages_batch_foreach (page, pages_batch) {
 		page_t *page_info = pmm_page_info(page);
 		cached_page_set_error(page_info, ret);
 		
 		if (ret < 0) {
 			// the read failed, remove the pages
-			// FIXME : the page could have been replaced in the cache
-			cache_lookup_and_clear_page(cache, addr);
-			pmm_release_page(page);
+			cached_page_remove(page);
 		}
 
-		// FIXME RACE : the page could get freed
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_READING);
 		pmm_wakeup(page);
+		pmm_release_page(page);
 	}
 }
 
-void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
-	uintptr_t end = offset + size;
-	for (uintptr_t addr = offset; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page(cache, addr);
-		kassert(page != PAGE_INVALID);
+void cache_write_terminate(cache_t *cache, pages_batch_t *pages_batch, int ret) {
+	pages_batch_foreach (page, pages_batch) {
 		page_t *page_info = pmm_page_info(page);
 		cached_page_set_error(page_info, ret);
 
@@ -271,12 +263,21 @@ void cache_write_terminate(cache_t *cache, off_t offset, size_t size, int ret) {
 
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
 		pmm_wakeup(page);
+		pmm_release_page(page);
 	}
 }
 
+/**
+ * @brief setup a new page in a cache
+ * @param cache the cache to setup the new page in
+ * @param offset the offset of the page to setup
+ * @param raced set to 1 if the page was already present
+ * @return a new ref to the page
+ */
 static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 	uintptr_t page = pmm_allocate_page();
 	if (page == PAGE_INVALID) return PAGE_INVALID;
+
 	
 	page_t *page_info = pmm_page_info(page);
 	page_info->flags &= ~(PAGE_FLAG_DIRTY | PAGE_FLAG_ACTIVE);
@@ -284,19 +285,30 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 	page_info->private       = cache;
 	page_info->cached.offset = PAGE2PFN(offset);
 
+	pmm_acquire_page_lock(page);
+	rcu_acquire_read(&cache->pages.rcu);
 	uintptr_t new_page = cache_compare_and_set_page(cache, offset, PAGE_INVALID, page);
+
 	if (new_page == PAGE_INVALID) {
 		*raced = 0;
+		pmm_retain(page);
+		rcu_release_read(&cache->pages.rcu);
+
 		// add to the current generation since 
 		// this page is freshly new
 		spinlock_acquire(&lru_lock);
 		cached_page_add_to_gen(page, page_info, current_generation);
 		spinlock_release(&lru_lock);
+		pmm_release_page_lock(page);
 		return page;
 	} else {
 		// we lost a race
-		pmm_release_page(page);
 		*raced = 1;
+		pmm_retain(new_page);
+		rcu_release_read(&cache->pages.rcu);
+
+		pmm_release_page_lock(page);
+		pmm_release_page(page);
 		return new_page;
 	}
 }
@@ -307,6 +319,7 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 	rcu_acquire_read(&cache->pages.rcu);
 	cache_foreach_range(addr, page, cache, offset, offset + size) {
+		// FIXME : we need to make sure the page is not being written back when we remove it
 		pmm_acquire_page_lock(page);
 		int removed_it = cached_page_remove(page);
 		pmm_release_page_lock(page);
@@ -324,29 +337,29 @@ static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 			cached_page_remove_from_gen(page_info);
 			spinlock_release(&lru_lock);
 
-			pmm_release(page);
+			pmm_release_page(page);
 		}
 	}
 	rcu_release_read(&cache->pages.rcu);
 	return 0;
 }
 
-static int cache_read_pages(cache_t *cache, off_t offset, size_t size) {
+static int cache_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	if (!cache->ops || !cache->ops->read) return -EOPNOTSUPP;
-	int ret = cache->ops->read(cache, offset, size);
+	int ret = cache->ops->read(cache, pages_batch);
 	if (ret < 0) {
 		// syncronous error
-		cache_read_terminate(cache, offset, size, ret);
+		cache_read_terminate(cache, pages_batch, ret);
 	}
 	return ret;
 }
 
-static int cache_write_pages(cache_t *cache, off_t offset, size_t size) {
+static int cache_write_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	if (!cache->ops || !cache->ops->write) return -EOPNOTSUPP;
-	int ret = cache->ops->write(cache, offset, size);
+	int ret = cache->ops->write(cache, pages_batch);
 	if (ret < 0) {
 		// syncronous error
-		cache_write_terminate(cache, offset, size, ret);
+		cache_write_terminate(cache, pages_batch, ret);
 	}
 	return ret;
 }
@@ -420,7 +433,7 @@ size_t cache_evict(size_t to_evict) {
 			cached_page_remove_from_list(&list, page_info);
 			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
 			pmm_release_page_lock(page);
-			pmm_release(page);
+			pmm_release_page(page);
 			continue;
 		}
 
@@ -444,7 +457,7 @@ size_t cache_evict(size_t to_evict) {
 		kassert(removed_it);
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
 		pmm_release_page_lock(page);
-		pmm_release(page);
+		pmm_release_page(page);
 		evicted_pages++;
 	}
 
@@ -459,7 +472,7 @@ size_t cache_evict(size_t to_evict) {
 			cached_page_add_to_gen(page, page_info, base_generation);
 			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
 			pmm_wakeup(page);
-			pmm_release(page);
+			pmm_release_page(page);
 		}
 		spinlock_release(&lru_lock);
 	}
@@ -491,26 +504,23 @@ void cache_flush_all(void) {
 }
 
 int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
-	rcu_acquire_read(&cache->pages.rcu);
-	uintptr_t page = cache_lookup_page(cache, offset);
+	uintptr_t page = cache_lookup_and_ref_page(cache, offset);
 	int need_read = 0;
 	int ret = 0;
 	if (page == PAGE_INVALID) {
 		int raced;
 		page = cache_setup_page(cache, offset, &raced);
-		if (page == PAGE_INVALID) {
-			rcu_release_read(&cache->pages.rcu);
-			return -ENOMEM;
-		}	
-		if (!raced) {
-			need_read = 1;
-		}
+		if (page == PAGE_INVALID) return -ENOMEM;
+		if (!raced) need_read = 1;
 	}
-	pmm_retain(page);
-	rcu_release_read(&cache->pages.rcu);
+
 	if (need_read) {
 		// we need to load the page
-		ret = cache_read_pages(cache, PAGE_ALIGN_DOWN(offset), PAGE_SIZE);
+		// cache_read_pages is going to consume a ref
+		pmm_retain(page);
+		pages_batch_t pages_batch;
+		pages_batch_from_page(&pages_batch, page);
+		ret = cache_read_pages(cache, pages_batch);
 	} else {
 		// mark the page was accessed so the evicter know about it
 		cache_mark_page_active(cache, page);
@@ -532,43 +542,40 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t start, end;
 	cache_get_range(cache, offset, size, &start, &end);
 
-	uintptr_t batch_start = start;
+	pages_batch_t pages_batch;
+	pages_batch_init(&pages_batch);
 	int ret = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_page(cache, addr);
 		// fast path
 		if (page != PAGE_INVALID) {
-already_cached:
 			// the page is already cached
 			// there is nothing to load
-			if (batch_start != addr) {
-				ret = cache_read_pages(cache, batch_start, addr - batch_start);
-				if (ret < 0) return ret;
-			}
-			batch_start = addr + PAGE_SIZE;
 			continue;
 		}
 
 		int raced;
 		page = cache_setup_page(cache, addr, &raced);
 		if (page == PAGE_INVALID) {
-			if (batch_start != addr) {
-				ret = cache_read_pages(cache, batch_start, addr - batch_start);
+			if (!pages_batch_is_empty(&pages_batch)) {
+				ret = cache_read_pages(cache, &pages_batch);
 				if (ret < 0) return ret;
 			}
 			return -ENOMEM;
 		}
 		if (raced) {
-			goto already_cached;
+			pmm_release(page);
+			continue;
 		}
+
+		pages_batch_add(&pages_batch, page);
 	}
 
-	if (batch_start != end) {
-		ret = cache_read_pages(cache, batch_start, end - batch_start);
-		if (ret < 0) return ret;
+	if (!pages_batch_is_empty(&pages_batch)) {
+		return cache_read_pages(cache, &pages_batch);
 	}
 
-	return 0;
+	return ret;
 }
 
 int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
@@ -577,33 +584,16 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 	uintptr_t start, end;
 	cache_get_range(cache, offset, size, &start, &end);
 
-	uintptr_t batch_start = PAGE_INVALID;
-	uintptr_t batch_end   = PAGE_INVALID;
+	pages_batch_t batch;
+	pages_batch_init(&batch);
+
 	rcu_acquire_read(&cache->pages.rcu);
 	cache_foreach_range(addr, page, cache, start, end) {
-		if (batch_start != PAGE_INVALID && batch_end != addr) {
-			// we reached end of the batch
-			rcu_release_read(&cache->pages.rcu);
-			int ret = cache_write_pages(cache, batch_start, batch_end - batch_start);
-			if (ret < 0) return ret;
-			rcu_acquire_read(&cache->pages.rcu);
-			batch_start = PAGE_INVALID;
-			batch_end = PAGE_INVALID;
-		}
-
 		if (!cache_clear_page_dirty(cache, page)) {
-batch_end:
-			if (batch_start != PAGE_INVALID && batch_end != addr) {
-				// we reached end of the batch
-				rcu_release_read(&cache->pages.rcu);
-				int ret = cache_write_pages(cache, batch_start, batch_end - batch_start);
-				if (ret < 0) return ret;
-				rcu_acquire_read(&cache->pages.rcu);
-				batch_start = PAGE_INVALID;
-				batch_end = PAGE_INVALID;
-			}
 			continue;
 		}
+
+		pmm_retain(page);
 
 		page_t *page_info = pmm_page_info(page);
 		rcu_release_read(&cache->pages.rcu);
@@ -613,23 +603,28 @@ batch_end:
 			// wait until write complete
 			cache_wait_page_no_io(page);
 		}
-		rcu_acquire_read(&cache->pages.rcu);
 		pmm_acquire_page_lock(page);
 		if (cached_page_is_evicted(page_info)) {
 			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
 			pmm_release_page_lock(page);
-			goto batch_end;
+			rcu_acquire_read(&cache->pages.rcu);
+			continue;
 		}
 		pmm_release_page_lock(page);
 
-		if (batch_start == PAGE_INVALID) batch_start = addr;
-		batch_end = addr + PAGE_SIZE;
+		if (pages_batch_is_full(&batch)) {
+			int ret = cache_write_pages(cache, &batch);
+			if (ret < 0) return ret;
+			pages_batch_init(&batch);
+		}
+
+		pages_batch_add(&batch, page);
+		rcu_acquire_read(&cache->pages.rcu);
 	}
 	rcu_release_read(&cache->pages.rcu);
 
-	if (batch_start != PAGE_INVALID) {
-		int ret = cache_write_pages(cache, batch_start, batch_end - batch_start);
-		if (ret < 0) return ret;
+	if (!pages_batch_is_empty(&batch)) {
+		return cache_write_pages(cache, &batch);
 	}
 	return 0;
 }
@@ -686,7 +681,7 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	if (!(prot & seg->prot)) return 0;
 
 	if (mmu_virt2phys((void *)addr) != PAGE_INVALID) {
-		// the page is already mapped it's not out job
+		// the page is already mapped it's not our job
 		return 0;
 	}
 

@@ -51,6 +51,8 @@ static void block_read_pages_callback(ioreq_t *ioreq, void *data) {
 	cache_read_terminate(&block_device->cache, offset, count, ioreq->ret);
 }
 
+
+// TODO : update this to use pages batch
 static int block_read_pages(cache_t *cache, off_t offset, size_t count) {
 	block_device_t *block_device = container_of(cache, block_device_t, cache);
 

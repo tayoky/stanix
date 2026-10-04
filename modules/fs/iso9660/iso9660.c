@@ -202,20 +202,20 @@ static int iso9660_read_dentry(iso9660_superblock_t *iso9660_superblock, char *b
 	return ret;
 }
 
-static int iso9660_read_pages(cache_t *cache, off_t offset, size_t count) {
+static int iso9660_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	iso9660_inode_t *inode = container_of(cache, iso9660_inode_t, cache);
 	iso9660_superblock_t *iso9660_superblock = container_of(inode->vnode.superblock, iso9660_superblock_t, superblock);
 
 	// TODO : we need a way to pass the pages direcly
 	off_t start_offset = inode->lba * iso9660_superblock->block_size;
-	for (uintptr_t addr = offset; addr < offset + count; addr += PAGE_SIZE) {
-		uintptr_t page = cache_lookup_page(&inode->cache, addr);
+	pages_batch_foreach (page, pages_batch) {
 		kassert(page != PAGE_INVALID);
-		ssize_t ret = vfs_read(iso9660_superblock->superblock.device, mmu_phys2virt(page), start_offset + addr, PAGE_SIZE);
+		off_t offset = cache_get_page_offset(page);
+		ssize_t ret = vfs_read(iso9660_superblock->superblock.device, mmu_phys2virt(page), start_offset + offset, PAGE_SIZE);
 		if (ret < 0) return ret;
 		if (ret < PAGE_SIZE) return -EIO;
 	}
-	cache_read_terminate(cache, offset, count, 0);
+	cache_read_terminate(cache, pages_batch, 0);
 	return 0;
 }
 
