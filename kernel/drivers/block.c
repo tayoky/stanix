@@ -122,6 +122,7 @@ static int block_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	block_batch_t *batch = slab_alloc(&block_batches_slab);
 	if (!batch) return -ENOMEM;
 	memset(batch, 0, sizeof(block_batch_t));
+	memcpy(&batch->pages_batch, pages_batch, sizeof(pages_batch_t));
 
 	// in worse case we have a request per page
 	block_request_t *requests[PAGES_PER_BATCH];

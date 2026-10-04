@@ -38,12 +38,13 @@ static list_t caches;
 static list_t dirty_caches;
 
 static size_t cached_page_get_gen(page_t *page_info) {
-	return (atomic_load(&page_info->flags) & PAGE_FLAG_GEN_SHIFT) >> PAGE_FLAG_GEN_SHIFT;
+	return (atomic_load(&page_info->flags) & PAGE_FLAG_GEN) >> PAGE_FLAG_GEN_SHIFT;
 }
 
 static void cached_page_set_gen(page_t *page_info, size_t gen) {
 	spinlock_assert_acquired(&lru_lock);
-	atomic_store(&page_info->flags, (gen << PAGE_FLAG_GEN_SHIFT) & PAGE_FLAG_GEN_SHIFT);
+	atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_GEN);
+	atomic_fetch_or(&page_info->flags, (gen << PAGE_FLAG_GEN_SHIFT) & PAGE_FLAG_GEN);
 }
 
 static uintptr_t cached_page_get_prev(page_t *page_info) {
@@ -238,6 +239,7 @@ static int cached_page_remove(uintptr_t page) {
 
 void cache_read_terminate(cache_t *cache, pages_batch_t *pages_batch, int ret) {
 	(void)cache;
+	kdebugf("terminate read\n");
 	pages_batch_foreach (page, pages_batch) {
 		page_t *page_info = pmm_page_info(page);
 		cached_page_set_error(page_info, ret);
@@ -279,10 +281,9 @@ void cache_write_terminate(cache_t *cache, pages_batch_t *pages_batch, int ret) 
 static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 	uintptr_t page = pmm_allocate_page();
 	if (page == PAGE_INVALID) return PAGE_INVALID;
-
 	
 	page_t *page_info = pmm_page_info(page);
-	page_info->flags &= ~(PAGE_FLAG_DIRTY | PAGE_FLAG_ACTIVE);
+	page_info->flags &= ~(PAGE_FLAG_DIRTY | PAGE_FLAG_ACTIVE | PAGE_FLAG_WRITING | PAGE_FLAG_EVICTING | PAGE_FLAG_LOCKED);
 	page_info->flags |= PAGE_FLAG_READING;
 	page_info->private       = cache;
 	page_info->cached.offset = PAGE2PFN(offset);
@@ -295,7 +296,7 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 		*raced = 0;
 		pmm_retain(page);
 		rcu_release_read(&cache->pages.rcu);
-
+		
 		// add to the current generation since 
 		// this page is freshly new
 		spinlock_acquire(&lru_lock);
@@ -356,10 +357,11 @@ static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 }
 
 static int cache_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
+	kdebugf("read pages\n");
 	if (!cache->ops || !cache->ops->read) return -EOPNOTSUPP;
 	int ret = cache->ops->read(cache, pages_batch);
 	if (ret < 0) {
-		// syncronous error
+		// synchronous error
 		cache_read_terminate(cache, pages_batch, ret);
 	}
 	return ret;
@@ -369,7 +371,7 @@ static int cache_write_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	if (!cache->ops || !cache->ops->write) return -EOPNOTSUPP;
 	int ret = cache->ops->write(cache, pages_batch);
 	if (ret < 0) {
-		// syncronous error
+		// synchronous error
 		cache_write_terminate(cache, pages_batch, ret);
 	}
 	return ret;

@@ -15,7 +15,7 @@ static inline void pages_batch_init(pages_batch_t *pages_batch) {
 }
 
 static inline pages_batch_is_empty(pages_batch_t *pages_batch) {
-	return pages_batch->pages_count != 0;
+	return pages_batch->pages_count == 0;
 }
 
 static inline pages_batch_is_full(pages_batch_t *pages_batch) {
