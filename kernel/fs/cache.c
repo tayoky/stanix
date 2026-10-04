@@ -239,7 +239,6 @@ static int cached_page_remove(uintptr_t page) {
 
 void cache_read_terminate(cache_t *cache, pages_batch_t *pages_batch, int ret) {
 	(void)cache;
-	kdebugf("terminate read\n");
 	pages_batch_foreach (page, pages_batch) {
 		page_t *page_info = pmm_page_info(page);
 		cached_page_set_error(page_info, ret);
@@ -357,7 +356,6 @@ static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 }
 
 static int cache_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
-	kdebugf("read pages\n");
 	if (!cache->ops || !cache->ops->read) return -EOPNOTSUPP;
 	int ret = cache->ops->read(cache, pages_batch);
 	if (ret < 0) {
@@ -564,7 +562,6 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 
 	pages_batch_t pages_batch;
 	pages_batch_init(&pages_batch);
-	int ret = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_page(cache, addr);
 		// fast path
@@ -578,7 +575,7 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 		page = cache_setup_page(cache, addr, &raced);
 		if (page == PAGE_INVALID) {
 			if (!pages_batch_is_empty(&pages_batch)) {
-				ret = cache_read_pages(cache, &pages_batch);
+				int ret = cache_read_pages(cache, &pages_batch);
 				if (ret < 0) return ret;
 			}
 			return -ENOMEM;
@@ -588,14 +585,22 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 			continue;
 		}
 
+		if (pages_batch_is_full(&pages_batch)) {
+			int ret = cache_read_pages(cache, &pages_batch);
+			if (ret < 0) {
+				pmm_release_page(page);
+				return ret;
+			}
+			pages_batch_init(&pages_batch);
+		}
+
 		pages_batch_add(&pages_batch, page);
 	}
 
 	if (!pages_batch_is_empty(&pages_batch)) {
 		return cache_read_pages(cache, &pages_batch);
 	}
-
-	return ret;
+	return 0;
 }
 
 int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
@@ -635,7 +640,10 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 
 		if (pages_batch_is_full(&batch)) {
 			int ret = cache_write_pages(cache, &batch);
-			if (ret < 0) return ret;
+			if (ret < 0) {
+				pmm_release_page(page);
+				return ret;
+			}
 			pages_batch_init(&batch);
 		}
 
