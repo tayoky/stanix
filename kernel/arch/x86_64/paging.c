@@ -69,13 +69,13 @@ static long paging2mmu_flags(uint64_t paging_flags) {
 	return flags;
 }
 
-addrspace_t mmu_get_addr_space() {
+mmu_space_t mmu_get_addr_space() {
 	uint64_t cr3;
 	asm("mov %%cr3, %%rax" : "=a"(cr3));
-	return (addrspace_t)mmu_phys2virt(cr3);
+	return (mmu_space_t)mmu_phys2virt(cr3);
 }
 
-void mmu_set_addr_space(addrspace_t new_addrspace) {
+void mmu_set_addr_space(mmu_space_t new_addrspace) {
 	asm volatile("movq %0, %%cr3" : : "r"(mmu_hhdm2phys(new_addrspace)));
 }
 
@@ -90,7 +90,7 @@ void init_mmu(void) {
 		memset(mmu_phys2virt(shared_PML4_entries[i] & PAGING_ENTRY_ADDRESS), 0, PAGE_SIZE);
 	}
 
-	addrspace_t PML4 = mmu_create_addr_space();
+	mmu_space_t PML4 = mmu_space_init();
 
 	// map kernel in it
 	mmu_map_kernel(PML4);
@@ -107,7 +107,7 @@ void init_mmu(void) {
 	kok();
 }
 
-addrspace_t mmu_create_addr_space() {
+mmu_space_t mmu_space_init(void) {
 	uint64_t *PML4 = mmu_phys2virt(pmm_allocate_page());
 
 	// set every entry to 0
@@ -120,7 +120,7 @@ addrspace_t mmu_create_addr_space() {
 	return PML4;
 }
 
-void mmu_delete_addr_space(addrspace_t PML4) {
+void mmu_space_destroy(mmu_space_t PML4) {
 	// recusively free everythings
 	// EXCEPT THE SHARED PML4 entries
 	kdebugf("free addrspace %p\n", PML4);
@@ -153,7 +153,7 @@ uintptr_t mmu_virt2phys(void *address) {
 	return mmu_space_virt2phys(mmu_get_addr_space(), address);
 }
 
-uintptr_t mmu_space_virt2phys(addrspace_t PML4, void *address) {
+uintptr_t mmu_space_virt2phys(mmu_space_t PML4, void *address) {
 	uint64_t PML4i = ((uint64_t)address >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)address >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)address >> 21) & 0x1FF;
@@ -184,7 +184,7 @@ void mmu_set_hhdm(uintptr_t hhdm) {
 	hhdm_base = hhdm;
 }
 
-void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t vaddr, long mmu_flags) {
+void mmu_map_page(mmu_space_t PML4, uintptr_t physical_page, uintptr_t vaddr, long mmu_flags) {
 	uint64_t flags = mmu2paging_flags(mmu_flags);
 	uint64_t PML4i = ((uint64_t)vaddr >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)vaddr >> 30) & 0x1FF;
@@ -214,7 +214,7 @@ void mmu_map_page(addrspace_t PML4, uintptr_t physical_page, uintptr_t vaddr, lo
 	asm volatile("invlpg (%0)" ::"r"(vaddr) : "memory");
 }
 
-static uint64_t *mmu_get_entry(addrspace_t PML4, uintptr_t vaddr) {
+mmu_entry_t *mmu_get_entry(mmu_space_t PML4, uintptr_t vaddr) {
 	uint64_t PML4i = ((uint64_t)vaddr >> 39) & 0x1FF;
 	uint64_t PDPi  = ((uint64_t)vaddr >> 30) & 0x1FF;
 	uint64_t PDi   = ((uint64_t)vaddr >> 21) & 0x1FF;
@@ -224,17 +224,17 @@ static uint64_t *mmu_get_entry(addrspace_t PML4, uintptr_t vaddr) {
 		return NULL;
 	}
 
-	uint64_t *PDP = mmu_phys2virt(PML4[PML4i] & PAGING_ENTRY_ADDRESS);
+	mmu_entry_t *PDP = mmu_phys2virt(PML4[PML4i] & PAGING_ENTRY_ADDRESS);
 	if (!(PDP[PDPi] & 1)) {
 		return NULL;
 	}
 
-	uint64_t *PD = mmu_phys2virt(PDP[PDPi] & PAGING_ENTRY_ADDRESS);
+	mmu_entry_t *PD = mmu_phys2virt(PDP[PDPi] & PAGING_ENTRY_ADDRESS);
 	if (!(PD[PDi] & 1)) {
 		return NULL;
 	}
 
-	uint64_t *PT = mmu_phys2virt(PD[PDi] & PAGING_ENTRY_ADDRESS);
+	mmu_entry_t *PT = mmu_phys2virt(PD[PDi] & PAGING_ENTRY_ADDRESS);
 	if (!(PT[PTi] & 1)) {
 		return NULL;
 	}
@@ -242,30 +242,60 @@ static uint64_t *mmu_get_entry(addrspace_t PML4, uintptr_t vaddr) {
 	return &PT[PTi];
 }
 
-long mmu_get_flags(addrspace_t PML4, uintptr_t vaddr) {
-	uint64_t *entry = mmu_get_entry(PML4, vaddr);
+long mmu_get_flags(mmu_space_t PML4, uintptr_t vaddr) {
+	mmu_entry_t *entry = mmu_get_entry(PML4, vaddr);
 	if (!entry) return 0;
-	if (*entry & PAGING_FLAG_PRESENT) {
-		return paging2mmu_flags(*entry);
+	mmu_entry_t value = atomic_load(entry);
+	if (value & PAGING_FLAG_PRESENT) {
+		return paging2mmu_flags(value);
 	} else {
 		return 0;
 	}
 }
 
-int mmu_set_flags(addrspace_t PML4, uintptr_t vaddr, long flags) {
-	uint64_t *entry = mmu_get_entry(PML4, vaddr);
+int mmu_set_flags(mmu_space_t PML4, uintptr_t vaddr, long flags) {
+	mmu_entry_t *entry = mmu_get_entry(PML4, vaddr);
 	if (!entry) return -EFAULT;
-	uint64_t paging_flags = mmu2paging_flags(flags);
+	mmu_entry_t paging_flags = mmu2paging_flags(flags);
 	*entry                = (*entry & PAGING_ENTRY_ADDRESS) | paging_flags;
 	return 0;
 }
 
-void mmu_unmap_page(addrspace_t PML4, uintptr_t vaddr) {
-	uint64_t *entry = mmu_get_entry(PML4, vaddr);
+int mmu_or_flags(mmu_space_t PML4, uintptr_t vaddr, long flags) {
+	mmu_entry_t *entry = mmu_get_entry(PML4, vaddr);
+	if (!entry) return -EFAULT;
+	mmu_entry_t paging_flags = mmu2paging_flags(flags);
+	atomic_fetch_or(entry, paging_flags);
+	return 0;
+}
+
+long mmu_get_and_clear_flags(mmu_space_t PML4, uintptr_t vaddr, long flags) {
+	mmu_entry_t *entry = mmu_get_entry(PML4, vaddr);
+	if (!entry) return 0;
+	mmu_entry_t paging_flags = mmu2paging_flags(flags);
+	mmu_entry_t old = atomic_fetch_and(entry, ~paging_flags);
+	return paging2mmu_flags(old & paging_flags);
+}
+
+void mmu_unmap_page(mmu_space_t PML4, uintptr_t vaddr) {
+	mmu_entry_t *entry = mmu_get_entry(PML4, vaddr);
 	if (!entry) return;
 	*entry = 0;
 
 	if (mmu_get_addr_space() == PML4) asm volatile("invlpg (%0)" ::"r"(vaddr) : "memory");
+}
+
+mmu_entry_t *mmu_get_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t vaddr) {
+	mmu_entry_t *entry = mmu_get_entry(PML4, vaddr);
+	if (!entry) return NULL;
+	uintptr_t page = PAGE_ALIGN_DOWN(mmu_hhdm2phys(entry));
+	pmm_acquire_page_lock(page);
+	return entry;
+}
+
+void mmu_entry_release_lock(mmu_entry_t *entry) {
+	uintptr_t page = PAGE_ALIGN_DOWN(mmu_hhdm2phys(entry));
+	pmm_release_page_lock(page);
 }
 
 void mmu_map_kernel(uint64_t *PML4) {

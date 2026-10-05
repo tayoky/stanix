@@ -41,7 +41,7 @@ static void change_kheap_size(ssize_t offset) {
 	intptr_t offset_page = offset / PAGE_SIZE;
 
 	// get the addr space
-	addrspace_t addr_space = mmu_get_addr_space();
+	mmu_space_t addr_space = mmu_get_addr_space();
 
 	if (offset < 0) {
 		// make kheap smaller

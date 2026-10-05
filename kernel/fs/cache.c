@@ -684,18 +684,13 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page = mmu_virt2phys((void *)addr);
-		long old_mmu_flags = mmu_get_flags(get_current_proc()->vmm_space.addrspace, addr);
-		long mmu_flags = old_mmu_flags;
+		if (page == PAGE_INVALID) continue;
+		long mmu_flags = mmu_get_and_clear_flags(get_current_proc()->vmm_space.addrspace, addr, MMU_FLAG_DIRTY | MMU_FLAG_ACCESS);
 		if (mmu_flags & MMU_FLAG_DIRTY) {
-			mmu_flags &= ~MMU_FLAG_DIRTY;
 			cache_mark_page_dirty(cache, page);
 		}
 		if (mmu_flags & MMU_FLAG_ACCESS) {
-			mmu_flags &= ~MMU_FLAG_ACCESS;
 			cache_mark_page_active(cache, page);
-		}
-		if (mmu_flags != old_mmu_flags) {
-			mmu_set_flags(get_current_proc()->vmm_space.addrspace, addr, mmu_flags);
 		}
 	}
 

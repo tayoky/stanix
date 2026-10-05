@@ -2,9 +2,11 @@
 #define KERNEL_PAGING_H
 
 #include <kernel/page.h>
+#include <kernel/atomic.h>
 #include <stdint.h>
 
-typedef uint64_t *addrspace_t;
+typedef uint64_t *mmu_space_t;
+typedef ATOMIC(uint64_t) mmu_entry_t;
 
 #define PAGING_ENTRY_ADDRESS ((~(uint64_t)0XFFF)&(~(((uint64_t)0xFFF)<<52)))
 

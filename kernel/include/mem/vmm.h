@@ -43,7 +43,7 @@ typedef struct vmm_seg {
 #define VMM_FLAG_ASYNC 0x2
 
 typedef struct vmm_space {
-	addrspace_t addrspace;
+	mmu_space_t addrspace;
 	list_t segs;
 	rwlock_t lock;
 	size_t total_size;
