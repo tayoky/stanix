@@ -29,7 +29,7 @@ index 3221ed4..690cecf 100644
  #elif TARGETOS_NetBSD
          " NetBSD"
 +#elif TARGETOS_STANIX
-+        " stanix"
++        " Stanix"
  #else
          " Linux"
  #endif
