@@ -14,7 +14,7 @@
 #include <stdint.h>
 
 #undef min
-#define min(a, b) (a < b ? a : b)
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 static vfs_inode_ops_t fat_inode_ops;
 static vfs_fd_ops_t fat_fd_ops;
@@ -95,9 +95,9 @@ static uint32_t fat_get_next_cluster(fat_superblock_t *fat_superblock, uint32_t 
 static int fat_raw_set_next_cluster(fat_superblock_t *fat_superblock, off_t offset, uint32_t cluster, uint32_t next) {
 	switch (fat_superblock->fat_type) {
 	case FAT12:
-		off_t offset12 = fat_superblock->reserved_sectors * fat_superblock->sector_size + (cluster * 3) / 2;
+		off_t offset12 = offset + (cluster * 3) / 2;
 		uint8_t ent12[3];
-		ssize_t ret = vfs_read(fat_superblock->superblock.device, &ent12, offset + offset12, sizeof(ent12));
+		ssize_t ret = vfs_read(fat_superblock->superblock.device, &ent12, offset12, sizeof(ent12));
 		if (ret < 0) return ret;
 		if (ret < (ssize_t)sizeof(ent12)) return -EIO;
 		if (cluster % 2) {
@@ -107,21 +107,21 @@ static int fat_raw_set_next_cluster(fat_superblock_t *fat_superblock, off_t offs
 			ent12[0] = (uint8_t)next;
 			ent12[1] = (ent12[1] & 0xF0U) | ((next >> 8) & 0x0FU);
 		}
-		ret = vfs_write(fat_superblock->superblock.device, &ent12, offset + offset12, sizeof(ent12));
+		ret = vfs_write(fat_superblock->superblock.device, &ent12, offset12, sizeof(ent12));
 		if (ret < 0) return ret;
 		if (ret < (ssize_t)sizeof(ent12)) return -EIO;
 		return 0;
 	case FAT16:
 		uint16_t ent16 = (uint16_t)next;
-		off_t offset16 = fat_superblock->reserved_sectors * fat_superblock->sector_size + cluster * 2;
-		ret = vfs_write(fat_superblock->superblock.device, &ent16, offset + offset16, sizeof(ent16));
+		off_t offset16 = offset + cluster * 2;
+		ret = vfs_write(fat_superblock->superblock.device, &ent16, offset16, sizeof(ent16));
 		if (ret < 0) return ret;
 		if (ret < (ssize_t)sizeof(ent16)) return -EIO;
 		return 0;
 	case FAT32:
 		uint32_t ent32 = next & 0x0FFFFFFF;
-		off_t offset32 = fat_superblock->reserved_sectors * fat_superblock->sector_size + cluster * 4;
-		ret = vfs_write(fat_superblock->superblock.device, &ent32, offset + offset32, sizeof(ent32));
+		off_t offset32 = offset + cluster * 4;
+		ret = vfs_write(fat_superblock->superblock.device, &ent32, offset32, sizeof(ent32));
 		if (ret < 0) return ret;
 		if (ret < (ssize_t)sizeof(ent32)) return -EIO;
 		return 0;
@@ -263,7 +263,7 @@ static int fat_transfer_pages(cache_t *cache, pages_batch_t *pages_batch, int wr
 	fat_inode_t *inode               = container_of(cache, fat_inode_t, cache);
 	fat_superblock_t *fat_superblock = container_of(inode->vnode.superblock, fat_superblock_t, superblock);
 	// cluster size is always driver or multiple of page size
-																pages_batch_foreach (page, pages_batch) {
+	pages_batch_foreach (page, pages_batch) {
 		kassert(page != PAGE_INVALID);
 		char *vaddr = mmu_phys2virt(page);
 		off_t offset = cache_get_page_offset(page);
@@ -279,8 +279,7 @@ static int fat_transfer_pages(cache_t *cache, pages_batch_t *pages_batch, int wr
 		size_t cluster_offset = offset % fat_superblock->cluster_size; // offset within the current cluster
 
 		for (size_t count = 0; count < PAGE_SIZE;) {
-			size_t chunk_size = min(PAGE_SIZE, fat_superblock->cluster_size - cluster_offset);
-
+			size_t chunk_size = min(PAGE_SIZE - count, fat_superblock->cluster_size - cluster_offset);
 			if (cluster == fat_eof(fat_superblock)) {
 				if (offset + PAGE_SIZE > inode->entry.file_size) {
 					// we are on the last page, early EOF is normal
@@ -315,7 +314,7 @@ static int fat_transfer_pages(cache_t *cache, pages_batch_t *pages_batch, int wr
 
 static int fat_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	int ret = fat_transfer_pages(cache, pages_batch, 0);
-	if (ret < 0) return 0;
+	if (ret < 0) return ret;
 	cache_read_terminate(cache, pages_batch, 0);
 	return 0;
 }
@@ -323,7 +322,7 @@ static int fat_read_pages(cache_t *cache, pages_batch_t *pages_batch) {
 static int fat_write_pages(cache_t *cache, pages_batch_t *pages_batch) {
 	kdebugf("writing pages\n");
 	int ret = fat_transfer_pages(cache, pages_batch, 1);
-	if (ret < 0) return 0;
+	if (ret < 0) return ret;
 	cache_write_terminate(cache, pages_batch, 0);
 	return 0;
 }
