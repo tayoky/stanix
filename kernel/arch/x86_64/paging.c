@@ -257,7 +257,8 @@ int mmu_set_flags(mmu_space_t PML4, uintptr_t vaddr, long flags) {
 	mmu_entry_t *entry = mmu_get_entry(PML4, vaddr);
 	if (!entry) return -EFAULT;
 	mmu_entry_t paging_flags = mmu2paging_flags(flags);
-	*entry                = (*entry & PAGING_ENTRY_ADDRESS) | paging_flags;
+	mmu_entry_t old = atomic_load(entry);
+	atomic_store(entry, (old & PAGING_ENTRY_ADDRESS) | paging_flags);
 	return 0;
 }
 
