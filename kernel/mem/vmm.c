@@ -58,12 +58,12 @@ static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
 }
 
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
-	spinlock_acquire(&seg->lock);
+	mutex_acquire(&seg->lock);
 	uintptr_t vpage = PAGE_ALIGN_DOWN((uintptr_t)addr);
 
 	if (seg->ops && seg->ops->fault) {
 		if (seg->ops->fault(seg, addr, prot)) {
-			spinlock_release(&seg->lock);
+			mutex_release(&seg->lock);
 			return 1;
 		}
 	}
@@ -75,17 +75,16 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 		if (vpage + PAGE_SIZE < seg->end) {
 			vmm_cow(seg, vpage + PAGE_SIZE, addr);
 		}
-		spinlock_release(&seg->lock);
+		mutex_release(&seg->lock);
 		return 1;
 	}
-	spinlock_release(&seg->lock);
+	mutex_release(&seg->lock);
 	return 0;
 }
 
 int vmm_fault_report(uintptr_t addr, int prot) {
 	if (!get_current_proc()) return 0;
-	int interrupt_save;
-	rwlock_acquire_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	rwsem_acquire_read(&get_current_proc()->vmm_space.lock);
 	atomic_fetch_add(&get_current_proc()->vmm_space.page_faults, 1);
 	foreach (node, &get_current_proc()->vmm_space.segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
@@ -93,11 +92,11 @@ int vmm_fault_report(uintptr_t addr, int prot) {
 		if (seg->end > addr) {
 			// we found a seg to report to
 			int ret = vmm_handle_fault(seg, addr, prot);
-			rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+			rwsem_release_read(&get_current_proc()->vmm_space.lock);
 			return ret;
 		}
 	}
-	rwlock_release_read(&get_current_proc()->vmm_space.lock, &interrupt_save);
+	rwsem_release_read(&get_current_proc()->vmm_space.lock);
 	return 0;
 }
 
@@ -117,15 +116,15 @@ vmm_space_t *vmm_get_current_space(void) {
 }
 
 int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
-	spinlock_acquire(&seg->lock);
+	mutex_acquire(&seg->lock);
 	if (cut <= seg->start || cut >= seg->end) {
-		spinlock_release(&seg->lock);
+		mutex_release(&seg->lock);
 		return -EINVAL;
 	}
 	if (seg->ops && seg->ops->can_split) {
 		int ret = seg->ops->can_split(seg, cut);
 		if (ret < 0) {
-			spinlock_release(&seg->lock);
+			mutex_release(&seg->lock);
 			return ret;
 		}
 	}
@@ -148,7 +147,7 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 	list_add_after(&space->segs, &seg->node, &new_seg->node);
 
 	if (out_seg) *out_seg = new_seg;
-	spinlock_release(&seg->lock);
+	mutex_release(&seg->lock);
 	return 0;
 }
 
@@ -211,7 +210,7 @@ static vmm_seg_t *vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address
 	new_seg->end       = address + size;
 	new_seg->prot      = prot;
 	new_seg->flags     = flags;
-	spinlock_acquire(&new_seg->lock);
+	mutex_acquire(&new_seg->lock);
 
 	list_add_after(&space->segs, prev ? &prev->node : NULL, &new_seg->node);
 
@@ -255,7 +254,7 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 	if (ret < 0) {
 error:
 		list_remove(&space->segs, &new_seg->node);
-		spinlock_release(&new_seg->lock);
+		mutex_release(&new_seg->lock);
 		slab_free(new_seg);
 		return ERR2PTR(ret);
 	}
@@ -276,24 +275,23 @@ error:
 	if (space->total_size > space->peak_size) {
 		space->peak_size = space->total_size;
 	}
-	spinlock_release(&new_seg->lock);
+	mutex_release(&new_seg->lock);
 	return new_seg;
 }
 
 vmm_seg_t *vmm_space_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, struct vfs_fd *fd, off_t offset) {
-	int interrupt_save;
-	rwlock_acquire_write(&space->lock, &interrupt_save);
+	rwsem_acquire_write(&space->lock);
 	vmm_seg_t *new_seg = vmm_space_raw_map(space, address, size, prot, flags, fd, offset);
-	rwlock_release_write(&space->lock, &interrupt_save);
+	rwsem_release_write(&space->lock);
 	return new_seg;
 }
 
 int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {
-	spinlock_acquire(&seg->lock);
+	mutex_acquire(&seg->lock);
 	if (seg->ops && seg->ops->can_mprotect) {
 		int ret = seg->ops->can_mprotect(seg, prot);
 		if (ret < 0) {
-			spinlock_release(&seg->lock);
+			mutex_release(&seg->lock);
 			return ret;
 		}
 	}
@@ -308,7 +306,7 @@ int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {
 			mmu_set_flags(space->addrspace, addr, prot);
 		}
 	}
-	spinlock_release(&seg->lock);
+	mutex_release(&seg->lock);
 	return 0;
 }
 
@@ -336,17 +334,17 @@ static int vmm_space_raw_chprot_range(vmm_space_t *space, uintptr_t start, uintp
 }
 
 int vmm_space_chprot_range(vmm_space_t *space, uintptr_t start, uintptr_t end, long prot) {
-	int interrupt_save;
-	rwlock_acquire_read(&space->lock, &interrupt_save);
+	// FIXME : we might need to acquire write lock since chrprot_range can split
+	rwsem_acquire_read(&space->lock);
 	int ret = vmm_space_raw_chprot_range(space, start, end, prot);
-	rwlock_release_read(&space->lock, &interrupt_save);
+	rwsem_release_read(&space->lock);
 	return ret;
 }
 
 static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
-	spinlock_acquire(&seg->lock);
+	mutex_acquire(&seg->lock);
 	list_remove(&space->segs, &seg->node);
-	spinlock_release(&seg->lock);
+	mutex_release(&seg->lock);
 	space->total_size -= VMM_SIZE(seg);
 	if (seg->fd) {
 		space->file_size -= VMM_SIZE(seg);
@@ -383,10 +381,9 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 }
 
 void vmm_space_unmap(vmm_space_t *space, vmm_seg_t *seg) {
-	int interrupt_save;
-	rwlock_acquire_write(&space->lock, &interrupt_save);
+	rwsem_acquire_write(&space->lock);
 	vmm_space_raw_unmap(space, seg);
-	rwlock_release_write(&space->lock, &interrupt_save);
+	rwsem_release_write(&space->lock);
 }
 
 static int vmm_space_raw_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end) {
@@ -417,38 +414,36 @@ static int vmm_space_raw_unmap_range(vmm_space_t *space, uintptr_t start, uintpt
 }
 
 int vmm_space_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end) {
-	int interrupt_save;
-	rwlock_acquire_write(&space->lock, &interrupt_save);
+	rwsem_acquire_write(&space->lock);
 	int ret = vmm_space_raw_unmap_range(space, start, end);
-	rwlock_release_write(&space->lock, &interrupt_save);
+	rwsem_release_write(&space->lock);
 	return ret;
 }
 
 void vmm_space_unmap_all(vmm_space_t *space) {
-	int interrupt_save;
-	rwlock_acquire_write(&space->lock, &interrupt_save);
+	rwsem_acquire_write(&space->lock);
 	vmm_seg_t *current = container_of(space->segs.first_node, vmm_seg_t, node);
 	while (current) {
 		vmm_seg_t *next = container_of(current->node.next, vmm_seg_t, node);
 		vmm_space_raw_unmap(space, current);
 		current = next;
 	}
-	rwlock_release_write(&space->lock, &interrupt_save);
+	rwsem_release_write(&space->lock);
 }
 
 int vmm_space_sync(vmm_space_t *space, vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
 	// TODO : pass the adddress space to the driver
 	(void)space;
-	spinlock_acquire(&seg->lock);
+	mutex_acquire(&seg->lock);
 	if (!seg->ops || !seg->ops->msync) {
-		spinlock_release(&seg->lock);
+		mutex_release(&seg->lock);
 		return 0;
 	}
 	// cap start/end
 	if (start < seg->start) start = seg->start;
 	if (end > seg->end) end = seg->end;
 	int ret = seg->ops->msync(seg, start, end, flags);
-	spinlock_release(&seg->lock);
+	mutex_release(&seg->lock);
 	return ret;
 }
 
@@ -465,15 +460,14 @@ static int vmm_space_raw_sync_range(vmm_space_t *space, uintptr_t start, uintptr
 }
 
 int vmm_space_sync_range(vmm_space_t *space, uintptr_t start, uintptr_t end, int flags) {
-	int interrupt_save;
-	rwlock_acquire_read(&space->lock, &interrupt_save);
+	rwsem_acquire_read(&space->lock);
 	int ret = vmm_space_raw_sync_range(space, start, end, flags);
-	rwlock_release_read(&space->lock, &interrupt_save);
+	rwsem_release_read(&space->lock);
 	return ret;
 }
 
 static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg) {
-	spinlock_acquire(&seg->lock);
+	mutex_acquire(&seg->lock);
 	vmm_seg_t *new_seg    = slab_alloc(&vmm_seg_slab);
 	new_seg->prot         = seg->prot;
 	new_seg->flags        = seg->flags;
@@ -518,7 +512,7 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 	if (seg->ops && seg->ops->open) {
 		seg->ops->open(new_seg);
 	}
-	spinlock_release(&seg->lock);
+	mutex_release(&seg->lock);
 }
 
 int vmm_clone(vmm_space_t *parent, vmm_space_t *child) {
@@ -528,12 +522,11 @@ int vmm_clone(vmm_space_t *parent, vmm_space_t *child) {
 	child->shared_size  = parent->shared_size;
 	child->file_size    = parent->file_size;
 	child->anon_size    = parent->anon_size;
-	int interrupt_save;
-	rwlock_acquire_read(&parent->lock, &interrupt_save);
+	rwsem_acquire_read(&parent->lock);
 	foreach (node, &parent->segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		vmm_clone_seg(parent, child, seg);
 	}
-	rwlock_release_read(&parent->lock, &interrupt_save);
+	rwsem_release_read(&parent->lock);
 	return 0;
 }

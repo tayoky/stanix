@@ -2,58 +2,62 @@
 #define KERNEL_VMM_H
 
 #include <kernel/spinlock.h>
-#include <kernel/rwlock.h>
+#include <kernel/rwsem.h>
+#include <kernel/mutex.h>
 #include <kernel/list.h>
 #include <kernel/mmu.h>
 #include <stdint.h>
 #include <stddef.h>
 
 struct vfs_fd;
-struct vmm_seg;
 struct process;
 
-typedef struct vmm_ops {
-	void (*open)(struct vmm_seg *seg);
-	void (*close)(struct vmm_seg *seg);
-	int (*can_mprotect)(struct vmm_seg *seg, long prot);
-	int (*can_split)(struct vmm_seg *seg, uintptr_t cut);
-	int (*msync)(struct vmm_seg *seg, uintptr_t start, uintptr_t end, int flags);
-	int (*fault)(struct vmm_seg *seg, uintptr_t addr, long prot);
-} vmm_ops_t;
+typedef struct vmm_ops vmm_ops_t;
+typedef struct vmm_seg vmm_seg_t;
+typedef struct vmm_space vmm_space_t;
 
-typedef struct vmm_seg {
-	list_node_t node;
-	uintptr_t start;
-	uintptr_t end;
-	long prot;
-	long flags;
-	struct vfs_fd *fd;
+struct vmm_ops {
+	void (*open)(vmm_seg_t *seg);
+	void (*close)(vmm_seg_t *seg);
+	int (*can_mprotect)(vmm_seg_t *seg, long prot);
+	int (*can_split)(vmm_seg_t *seg, uintptr_t cut);
+	int (*msync)(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags);
+	int (*fault)(vmm_seg_t *seg, uintptr_t addr, long prot);
+};
+
+struct vmm_seg {
+	list_node_t node;  // protected by the space lock
+	uintptr_t start;   // protected by lock and write proctected by the space lock
+	uintptr_t end;     // protected by lock and write proctected by the space lock
+	long prot;         // protected by lock
+	long flags;        // constant
+	struct vfs_fd *fd; // constant
 	void *private_data;
-	vmm_ops_t *ops;
-	off_t offset;
-	spinlock_t lock;
-} vmm_seg_t;
+	vmm_ops_t *ops;    // constant
+	off_t offset;      // constant
+	mutex_t lock;
+};
 
 #define VMM_FLAG_ANONYMOUS 0x01
 #define VMM_FLAG_PRIVATE   0x02
 #define VMM_FLAG_SHARED    0x04
 #define VMM_FLAG_IO        0x08
-#define VMM_SIZE(seg) (seg->end - seg->start)
+#define VMM_SIZE(seg) ((seg)->end - (seg)->start)
 #define VMM_FLAG_SYNC  0x1
 #define VMM_FLAG_ASYNC 0x2
 
-typedef struct vmm_space {
+struct vmm_space {
 	mmu_space_t addrspace;
-	list_t segs;
-	rwlock_t lock;
-	size_t total_size;
-	size_t peak_size;
-	size_t private_size;
-	size_t shared_size;
-	size_t file_size;
-	size_t anon_size;
+	list_t segs;         // protected by lock
+	rwsem_t lock;
+	size_t total_size;   // protected by lock
+	size_t peak_size;    // protected by lock
+	size_t private_size; // protected by lock
+	size_t shared_size;  // protected by lock
+	size_t file_size;    // protected by lock
+	size_t anon_size;    // protected by lock
 	atomic_size_t page_faults;
-} vmm_space_t;
+};
 
 /**
  * @brief report a seg fault to vmm_seg
