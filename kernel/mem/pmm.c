@@ -8,6 +8,7 @@
 #include <kernel/sleep.h>
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
+#include <kernel/fsthreads.h>
 
 // inspired by linux's buddy allocator
 
@@ -230,7 +231,13 @@ uintptr_t pmm_zone_allocate_pages(int zone, int order) {
 
 	while (zone >= 0) {
 		uintptr_t page = pmm_helper_allocate_pages(&pmms[zone], order);
-		if (page != PAGE_INVALID) return page;
+		if (page != PAGE_INVALID) {
+			if (pmm_get_free_pages() < pmm_get_emergency_pages()) {
+				// we need to evict some pages
+				fsthreads_wakeup_evicter();
+			}
+			return page;
+		}
 		zone--;
 	}
 	return PAGE_INVALID;
@@ -383,4 +390,10 @@ size_t pmm_get_private_pages(void) {
 
 size_t pmm_get_shared_pages(void) {
 	return shared_pages;
+}
+
+size_t pmm_get_emergency_pages(void) {
+	// TODO make this configurable
+	// reserve 3 MB of memory
+	return 3 * 1000000 / PAGE_SIZE;
 }

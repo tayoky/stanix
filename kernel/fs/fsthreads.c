@@ -13,9 +13,8 @@ static void writeback_thread() {
 }
 
 static void evicter_thread() {
-    // we want at least 3MB of memory free
-    size_t target = pmm_get_total_pages() - 3 * 1000000 / PAGE_SIZE;
     for (;;) {
+        size_t target = pmm_get_total_pages() - pmm_get_emergency_pages();
         size_t used = pmm_get_used_pages();
         while (used < target) {
             block_prepare();

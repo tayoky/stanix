@@ -150,27 +150,41 @@ int pmm_is_page_usable(uintptr_t page);
 
 /**
  * @brief get the amount of currently used physical pages
- * @return count of currently used pages
+ * @return number of currently used pages
  */
 size_t pmm_get_used_pages(void);
 
 /**
  * @brief get the amount of total physical pages
- * @return count of physical pages
+ * @return number of physical pages
  */
 size_t pmm_get_total_pages(void);
 
 /**
- * @brief get the count of private pages
- * @return the count of private pages
+ * @brief get the number of private pages
+ * @return the number of private pages
  */
 size_t pmm_get_private_pages(void);
 
 /**
- * @brief get the count of shared pages
- * @return the count of shared pages
+ * @brief get the number of shared pages
+ * @return the number of shared pages
  */
 size_t pmm_get_shared_pages(void);
+
+/**
+ * @brief get the number of emergency pages
+ * @return the number of emergency pages
+ */
+size_t pmm_get_emergency_pages(void);
+
+/**
+ * @brief get the number of free pages
+ * @return the number of free pages
+ */
+static inline size_t pmm_get_free_pages(void) {
+	return pmm_get_total_pages() - pmm_get_used_pages();
+}
 
 /**
  * @brief duplicate a page
