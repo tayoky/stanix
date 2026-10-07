@@ -257,9 +257,6 @@ ssize_t block_device_write(block_device_t *block_device, const void *buffer, off
 
 int block_device_ioctl(block_device_t *block_device, long request, void *arg) {
 	switch (request) {
-	case BLOCK_GET_SIZE:; // deprecated
-		size_t size = block_device->sectors_count * block_device->sector_size;
-		return safe_copy_auto_to(arg, &size);
 	case BLOCK_GET_DISK_INFO:;
 		block_disk_info_t disk_info = {
 			.logical_block_size = block_device->sector_size,
@@ -269,7 +266,7 @@ int block_device_ioctl(block_device_t *block_device, long request, void *arg) {
 		if (block_device->part_driver) memcpy(disk_info.partition_table_type, block_device->part_driver->name, sizeof(disk_info.partition_table_type));
 		return safe_copy_auto_to(arg, &disk_info);
 	case BLOCK_RESCAN_PARTS:
-		// TODO : do we need some kind of permission ?
+		if (get_current_euid() != EUID_ROOT) return -EPERM;
 		block_device_rescan_partitions(block_device);
 		return 0;
 	default:
