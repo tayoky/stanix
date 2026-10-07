@@ -42,6 +42,7 @@ int cache_open(cache_t *cache, struct vfs_fd *fd);
 void cache_read_terminate(cache_t *cache, pages_batch_t *pages_batch, int ret);
 void cache_write_terminate(cache_t *cache, pages_batch_t *pages_batch, int ret);
 void cache_flush_all(void);
+size_t cache_evict(size_t to_evict);
 
 static inline uintptr_t cache_lookup_page(cache_t *cache, off_t offset) {
 	uintptr_t page = (uintptr_t)xarray_get(&cache->pages, PAGE2PFN(offset));

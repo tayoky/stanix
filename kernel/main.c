@@ -35,6 +35,7 @@
 #include <kernel/block.h>
 #include <kernel/workqueue.h>
 #include <kernel/cmdline.h>
+#include <kernel/fsthreads.h>
 #include <sys/time.h>
 
 kernel_table master_kernel_table;
@@ -145,6 +146,7 @@ void kmain() {
 	init_block();
 	init_input();
 	init_futexes();
+	init_fsthreads();
 
 	kstatusf("finish init kernel\n");
 	spawn_init();
