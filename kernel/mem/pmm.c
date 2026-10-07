@@ -174,7 +174,6 @@ int pmm_get_zone(uintptr_t page) {
 	} else if (page < ZONE_DMA32_END) {
 		return ZONE_DMA32;
 	} else {
-		// TODO : ZONE_EMERGENCY
 		return ZONE_NORMAL;
 	}
 }
@@ -232,7 +231,7 @@ uintptr_t pmm_zone_allocate_pages(int zone, int order) {
 	while (zone >= 0) {
 		uintptr_t page = pmm_helper_allocate_pages(&pmms[zone], order);
 		if (page != PAGE_INVALID) {
-			if (pmm_get_free_pages() < pmm_get_emergency_pages()) {
+			if (pmm_get_free_pages() < pmm_get_free_pages_threshold()) {
 				// we need to evict some pages
 				fsthreads_wakeup_evicter();
 			}
@@ -396,4 +395,10 @@ size_t pmm_get_emergency_pages(void) {
 	// TODO make this configurable
 	// reserve 3 MB of memory
 	return 3 * 1000000 / PAGE_SIZE;
+}
+
+size_t pmm_get_free_pages_threshold(void) {
+	// TODO make this configurable
+	// try to have 4 MB of memory
+	return 4 * 1000000 / PAGE_SIZE;
 }

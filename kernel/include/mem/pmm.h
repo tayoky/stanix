@@ -60,8 +60,7 @@ typedef struct page {
 #define ZONE_DMA24     0
 #define ZONE_DMA32     1
 #define ZONE_NORMAL    2
-#define ZONE_EMERGENCY 3
-#define ZONES_COUNT    4
+#define ZONES_COUNT    3
 
 #define ZONE_DMA24_END (1ULL << 16)
 #define ZONE_DMA32_END (1ULL << 32)
@@ -177,6 +176,12 @@ size_t pmm_get_shared_pages(void);
  * @return the number of emergency pages
  */
 size_t pmm_get_emergency_pages(void);
+
+/**
+ * @brief get the number of emergency pages
+ * @return the number of emergency pages
+ */
+size_t pmm_get_free_pages_threshold(void);
 
 /**
  * @brief get the number of free pages
