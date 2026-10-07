@@ -39,6 +39,13 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	// we are going to need /sys
+	mkdir("/sys", 0777);
+	if (mount("/dev/null", "/sys", "sysfs", 0, NULL) < 0) {
+		fprintf(stderr, "initrd-init : failed to mount sysfs : %m\n", root);
+		return 1;
+	}
+
 	// hardcoded list of module to insert
 	const char *modules[] = {
 		"/mod/pci.ko",
