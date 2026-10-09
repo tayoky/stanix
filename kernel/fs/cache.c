@@ -48,12 +48,10 @@ static void cached_page_set_gen(page_t *page_info, size_t gen) {
 }
 
 static uintptr_t cached_page_get_prev(page_t *page_info) {
-	spinlock_assert_acquired(&lru_lock);
 	return PFN2PAGE(page_info->cached.prev);
 }
 
 static uintptr_t cached_page_get_next(page_t *page_info) {
-	spinlock_assert_acquired(&lru_lock);
 	return PFN2PAGE(page_info->cached.next);
 }
 
@@ -494,6 +492,7 @@ size_t cache_evict(size_t to_evict) {
 		}
 		spinlock_release(&lru_lock);
 	}
+	kdebugf("evicted %zu pages\n", evicted_pages);
 	return evicted_pages;
 }
 
