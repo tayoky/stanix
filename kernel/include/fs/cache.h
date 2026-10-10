@@ -44,6 +44,10 @@ void cache_write_terminate(cache_t *cache, pages_batch_t *pages_batch, int ret);
 void cache_flush_all(void);
 size_t cache_evict(size_t to_evict);
 
+size_t cache_get_dirty_pages(void);
+size_t cache_get_clean_pages(void);
+size_t cache_get_clean_pages_threshold(void);
+
 static inline uintptr_t cache_lookup_page(cache_t *cache, off_t offset) {
 	uintptr_t page = (uintptr_t)xarray_get(&cache->pages, PAGE2PFN(offset));
 	if (!page) return PAGE_INVALID;

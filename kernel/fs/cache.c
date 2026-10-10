@@ -36,6 +36,7 @@ static spinlock_t lru_lock;
 static spinlock_t dirty_lock;
 static list_t caches;
 static list_t dirty_caches;
+static ATOMIC(ssize_t) dirty_pages;
 
 static size_t cached_page_get_gen(page_t *page_info) {
 	return (atomic_load(&page_info->flags) & PAGE_FLAG_GEN) >> PAGE_FLAG_GEN_SHIFT;
@@ -127,6 +128,7 @@ static void cached_page_move_to_gen(uintptr_t page, page_t *page_info, size_t ge
 static void cache_mark_page_dirty(cache_t *cache, uintptr_t page) {
 	page_t *page_info = pmm_page_info(page);
 	if (!(atomic_fetch_or(&page_info->flags, PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY)) {
+		atomic_fetch_add(&dirty_pages, 1);
 		spinlock_acquire(&dirty_lock);
 		if (cache->dirty_count++ == 0) {
 			// this is the first dirty page
@@ -145,6 +147,7 @@ static int cache_clear_page_dirty(cache_t *cache, uintptr_t page) {
 	page_t *page_info = pmm_page_info(page);
 	int ret = atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY;
 	if (ret) {
+		atomic_fetch_sub(&dirty_pages, 1);
 		spinlock_acquire(&dirty_lock);
 		if (cache->dirty_count-- == 1) {
 			// this was the last dirty page
@@ -494,6 +497,25 @@ size_t cache_evict(size_t to_evict) {
 	}
 	kdebugf("evicted %zu pages\n", evicted_pages);
 	return evicted_pages;
+}
+
+size_t cache_get_dirty_pages(void) {
+	ssize_t ret = atomic_load(&dirty_pages);
+	if (ret < 0) {
+		// the dirty pages counter didn't keep up
+		// it's just 0 and the counter will catch up soon or late
+		return 0;
+	}
+	return ret;
+}
+
+size_t cache_get_clean_pages(void) {
+	return pmm_get_usable_pages() - cache_get_dirty_pages();
+}
+
+size_t cache_get_clean_pages_threshold(void) {
+	// TODO : make this configurable
+	return 10 * 1000000 / PAGE_SIZE;
 }
 
 int cache_flush_whole_async(cache_t *cache) {

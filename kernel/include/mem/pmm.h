@@ -160,6 +160,12 @@ size_t pmm_get_used_pages(void);
 size_t pmm_get_total_pages(void);
 
 /**
+ * @brief get the amount of total usable pages
+ * @return number of usable pages
+ */
+size_t pmm_get_usable_pages(void);
+
+/**
  * @brief get the number of private pages
  * @return the number of private pages
  */

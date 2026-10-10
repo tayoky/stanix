@@ -16,6 +16,7 @@
 static page_t **page_info_sections = NULL;
 static size_t used_pages           = 0;
 static size_t total_pages          = 0;
+static size_t usable_pages          = 0;
 static size_t private_pages;
 static size_t shared_pages;
 static uintptr_t zero_page    = PAGE_INVALID;
@@ -133,6 +134,7 @@ void init_second_stage_pmm(void) {
 	uintptr_t start;
 	size_t count;
 	while (pmm1_get_free_pages(&start, &count)) {
+		usable_pages += count;
 		for (size_t i = 0; i < count; i++) {
 			page_t *page_info = pmm_page_info(start + i * PAGE_SIZE);
 			page_info->flags  = PAGE_FLAG_USABLE;
@@ -381,6 +383,10 @@ size_t pmm_get_used_pages(void) {
 
 size_t pmm_get_total_pages(void) {
 	return total_pages;
+}
+
+size_t pmm_get_usable_pages(void) {
+	return usable_pages;
 }
 
 size_t pmm_get_private_pages(void) {

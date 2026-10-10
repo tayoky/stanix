@@ -4,6 +4,7 @@
 #include <kernel/device.h>
 #include <kernel/kheap.h>
 #include <kernel/pmm.h>
+#include <kernel/cache.h>
 #include <kernel/print.h>
 #include <kernel/slab.h>
 #include <kernel/string.h>
@@ -290,14 +291,19 @@ static ssize_t sysfs_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 		break;
 	case INODE_MEM:
 		sprintf(str, "total pages count : %zu\n"
+					 "usable pages count : %zu\n"
 					 "used pages count : %zu\n"
+					 "free pages count : %zu\n"
 					 "private pages count : %zu\n"
 					 "shared pages count : %zu\n"
-					 "counter count : 4\n",
+					 "dirty pages count : %zu\n",
 				pmm_get_total_pages(),
+				pmm_get_usable_pages(),
 				pmm_get_used_pages(),
+				pmm_get_free_pages(),
 				pmm_get_private_pages(),
-				pmm_get_shared_pages());
+				pmm_get_shared_pages(),
+				cache_get_dirty_pages());
 		break;
 	default:
 		return -ENOSYS;
