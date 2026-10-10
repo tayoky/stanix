@@ -85,23 +85,28 @@ vfs_node_t *vfs_node_allocate(vfs_superblock_t *superblock) {
 vfs_node_t *vfs_node_get(vfs_superblock_t *superblock, ino_t inode_number) {
 	rcu_acquire_read(&superblock->inodes.rcu);
 	vfs_node_t *node = xarray_get(&superblock->inodes, inode_number);
-	if (node) return node;
+	if (node && vfs_node_ref_if_not_zero(node)) {
+		rcu_release_read(&superblock->inodes.rcu);
+		// fast path
+		return node;
+	}
 	rcu_release_read(&superblock->inodes.rcu);
 
 	// the node is not cached, create it
 	node = vfs_node_allocate(superblock);
 	if (!node) return NULL;
 
-	// FIXME RACE : fix when we get xarray_raw_cmpxchg
-	vfs_node_t *old_node = xarray_cmpxchg(&superblock->inodes, inode_number, NULL, node);
-	if (old_node) {
+	rcu_acquire_write(&superblock->inodes.rcu);
+	vfs_node_t *old_node = xarray_raw_cmpxchg(&superblock->inodes, inode_number, NULL, node);
+	if (old_node && vfs_node_ref_if_not_zero(old_node)) {
 		// we raced
-		vfs_node_ref(old_node);
+		rcu_release_write(&superblock->inodes.rcu);
 		vfs_node_release(node);
 		return old_node;
 	}
 
-	vfs_node_acquire_write(node);	
+	rcu_release_write(&superblock->inodes.rcu);
+	vfs_node_acquire_write(node);
 	return node;
 }
 
@@ -285,7 +290,6 @@ void vfs_node_release(vfs_node_t *node) {
 	vfs_node_flush(node);
 
 	// remove from the cache
-	// FIXME : we have a race if someone get a new ref while le we clear
 	xarray_clear(&node->superblock->inodes, node->number);
 
 	// we can cleanup

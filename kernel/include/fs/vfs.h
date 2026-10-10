@@ -299,6 +299,11 @@ static inline vfs_node_t *vfs_node_ref(vfs_node_t *node) {
 	return node;
 }
 
+static inline int vfs_node_ref_if_not_zero(vfs_node_t *node) {
+	if (node && ref_count_inc_if_not_zero(&node->ref_count)) return node;
+	return NULL;
+}
+
 void vfs_node_release(vfs_node_t *node);
 
 void vfs_node_mark_dirty(vfs_node_t *node);
