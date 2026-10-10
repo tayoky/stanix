@@ -402,41 +402,45 @@ size_t cache_evict(size_t to_evict) {
 	// build the list
 	spinlock_acquire(&lru_lock);
 	page_list_t list = {PAGE_INVALID, PAGE_INVALID};
-	uintptr_t next = 0;
-	for (next = generations[base_generation].first; next != PAGE_INVALID && to_evict > 0;) {
-		uintptr_t page = next;
-		page_t *page_info = pmm_page_info(page);
-		next = cached_page_get_next(page_info);
+	for (size_t i = 0; i < GENERATIONS_COUNT && to_evict > 0; i++) {
+		uintptr_t next = 0;
+		for (next = generations[base_generation].first; next != PAGE_INVALID && to_evict > 0;) {
+			uintptr_t page = next;
+			page_t *page_info = pmm_page_info(page);
+			kassert(page_info);
+			next = cached_page_get_next(page_info);
 
-		if (atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_ACTIVE) & PAGE_FLAG_ACTIVE) {
-			// this is an active page, place it in the current generation
-			cached_page_move_to_gen(page, page_info, current_generation);
-			continue;
+			if (atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_ACTIVE) & PAGE_FLAG_ACTIVE) {
+				// this is an active page, place it in the current generation
+				cached_page_move_to_gen(page, page_info, current_generation);
+				continue;
+			}
+			
+			// this is a cold page, evict it
+			if (atomic_fetch_or(&page_info->flags, PAGE_FLAG_EVICTING) & PAGE_FLAG_EVICTING) {
+				// somebody else is evicting it we cannot evict it
+				continue;
+			}
+
+			pmm_retain(page);
+			cached_page_remove_from_gen(page_info);
+			cached_page_add_to_list(&list, page, page_info);
+			to_evict--;
 		}
 		
-		// this is a cold page, evict it
-		if (atomic_fetch_or(&page_info->flags, PAGE_FLAG_EVICTING) & PAGE_FLAG_EVICTING) {
-			// somebody else is evicting it we cannot evict it
-			continue;
+		// if we evicted a whole generation, age generations
+		if (next == PAGE_INVALID) {
+			base_generation    = (base_generation + 1) % GENERATIONS_COUNT;
+			current_generation = (current_generation + 1) % GENERATIONS_COUNT;
+			kdebugf("age\n");
 		}
-
-		pmm_retain(page);
-		cached_page_remove_from_gen(page_info);
-		cached_page_add_to_list(&list, page, page_info);
-		to_evict--;
 	}
-	
-	// if we evicted a whole generation, age generations
-	if (next == PAGE_INVALID) {
-		base_generation    = (base_generation + 1) % GENERATIONS_COUNT;
-		current_generation = (current_generation + 1) % GENERATIONS_COUNT;
-	}
-
 	spinlock_release(&lru_lock);
 
 	for (uintptr_t next = list.first; next != PAGE_INVALID;) {
 		uintptr_t page = next;
 		page_t *page_info = pmm_page_info(page);
+		kassert(page_info);
 		next = cached_page_get_next(page_info);
 		// this is some pseudo code, is not functional and is probably unsafe
 	
@@ -483,9 +487,10 @@ size_t cache_evict(size_t to_evict) {
 	// put back pages we were not able to evict
 	if (list.first != PAGE_INVALID) {
 		spinlock_acquire(&lru_lock);
-		for (uintptr_t next = PFN2PAGE(list.first); next != PAGE_INVALID;) {
+		for (uintptr_t next = list.first; next != PAGE_INVALID;) {
 			uintptr_t page = next;
 			page_t *page_info = pmm_page_info(page);
+			kassert(page_info);
 			next = cached_page_get_next(page_info);
 
 			cached_page_add_to_gen(page, page_info, base_generation);
