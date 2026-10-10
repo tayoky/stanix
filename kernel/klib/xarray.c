@@ -117,7 +117,8 @@ void *xarray_get(xarray_t *xarray, size_t index) {
 	return ret;
 }
 
-static void *xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
+void *xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
+	kassert((((uintptr_t)value) & 0x1) == 0);
 	rcu_ptr_t *current_entry = &xarray->rcu.ptr;
 
 	uintptr_t current_entry_value = xarray_entry_fetch(current_entry);
@@ -219,7 +220,8 @@ void *xarray_set(xarray_t *xarray, size_t index, void *value) {
 	return ret;
 }
 
-static void *xarray_raw_cmpxchg(xarray_t *xarray, size_t index, void *expected, void *value) {
+void *xarray_raw_cmpxchg(xarray_t *xarray, size_t index, void *expected, void *value) {
+	kassert((((uintptr_t)value) & 0x1) == 0);
 	// TODO : optimize this without going throught the tree twice
 	void *old = xarray_raw_get(xarray, index);
 	if (old != expected) return old;

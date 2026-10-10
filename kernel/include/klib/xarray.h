@@ -48,8 +48,29 @@ void *xarray_get(xarray_t *xarray, size_t index);
  * @param index the index of the value to set
  * @param value the new value, must be 2 bytes aligned
  * @return the previous value at this index
+ * @note require the rcu write lock to be acquired
+ */
+void *xarray_raw_set(xarray_t *xarray, size_t index, void *value);
+
+/**
+ * @brief set a value in a xarray by index
+ * @param xarray the xarray in which to set the value
+ * @param index the index of the value to set
+ * @param value the new value, must be 2 bytes aligned
+ * @return the previous value at this index
  */
 void *xarray_set(xarray_t *xarray, size_t index, void *value);
+
+/**
+ * @brief compare and set a value in a xarray by index atomicly
+ * @param xarray the xarray in which to set the value
+ * @param index the index of the value to compare and set
+ * @param expected the value to test against
+ * @param value the new value that will be set if the comaraison is equal, must be 2 bytes aligned
+ * @return the previous value at this index, if equal to expected, the value was set
+ * @note require the rcu write lock to be acquired
+ */
+void *xarray_raw_cmpxchg(xarray_t *xarray, size_t index, void *expected, void *value);
 
 /**
  * @brief compare and set a value in a xarray by index atomicly
@@ -78,6 +99,17 @@ size_t xarray_allocate_from(xarray_t *xarray, size_t start, void *value);
  */
 static inline size_t xarray_allocate(xarray_t *xarray, void *value) {
 	return xarray_allocate_from(xarray, 0, value);
+}
+
+/**
+ * @brief clear a value in a xarray by index
+ * @param xarray the xarray in which to clear the value
+ * @param index the index of the value to clear
+ * @return the previous value at this index
+ * @note require the rcu write lock to be acquired
+ */
+static inline void *xarray_raw_clear(xarray_t *xarray, size_t index) {
+	return xarray_raw_set(xarray, index, NULL);
 }
 
 /**
