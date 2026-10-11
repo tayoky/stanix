@@ -344,7 +344,7 @@ task_t *get_current_task(void) {
 	return get_run_queue()->current;
 }
 
-void task_exit(void) {
+ATTR_NORETURN void task_exit(void) {
 	preempt_disable();
 
 	spinlock_acquire(&get_current_proc()->proc_lock);

@@ -10,7 +10,7 @@
 
 static ATOMIC(int) panic_count = 0;
 
-void panic(const char *error, registers_t *fault) {
+ATTR_NORETURN void panic(const char *error, registers_t *fault) {
 	disable_interrupt();
 	if (atomic_fetch_add(&panic_count, 1) > 0) {
 		earlycon_output_str("\nkernel panic panicked\n");
@@ -38,4 +38,5 @@ void panic(const char *error, registers_t *fault) {
 
 	kprintf(COLOR_RESET);
 	halt();
+	__builtin_unreachable();
 }

@@ -7,6 +7,7 @@
 #include <kernel/scheduler.h>
 #include <kernel/sleep.h>
 #include <kernel/xarray.h>
+#include <kernel/attributes.h>
 #include <kernel/cred.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>

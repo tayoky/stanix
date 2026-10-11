@@ -8,6 +8,7 @@
 #include <kernel/rwsem.h>
 #include <kernel/refcount.h>
 #include <kernel/spinlock.h>
+#include <kernel/attributes.h>
 #include <kernel/time.h>
 #include <kernel/xarray.h>
 #include <sys/stat.h>
@@ -733,7 +734,7 @@ static inline void vfs_context_set_root(vfs_context_t *context, vfs_dentry_t *ro
 }
 
 vfs_dentry_t *vfs_dentry_allocate(void);
-vfs_dentry_t *vfs_get_root(void);
+ATTR_RETURN_NONNULL vfs_dentry_t *vfs_get_root(void);
 void vfs_set_root(vfs_dentry_t *dentry);
 void dentry_add_lru(vfs_dentry_t *dentry);
 void vfs_dentry_remove_lru(vfs_dentry_t *dentry);

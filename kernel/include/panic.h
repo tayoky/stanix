@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <kernel/arch.h>
+#include <kernel/attributes.h>
 
-void panic(const char *error, registers_t *fault);
+ATTR_NORETURN void panic(const char *error, registers_t *fault);
 
 #endif

@@ -104,6 +104,9 @@ static int unix_accept(socket_t *sock, struct sockaddr *addr, socklen_t *addr_le
 	// we can now connect to the socket
 	*new_sock = unix_create(sock->type, sock->protocol);
 
+	// UNSAFE : TODO handle memory failure
+	kassert(*new_sock);
+
 	unix_pair(container_of(*new_sock, unix_socket_t, socket), peer);
 	if (addr_len) *addr_len = sizeof(struct sockaddr_un);
 	// UNSAFE

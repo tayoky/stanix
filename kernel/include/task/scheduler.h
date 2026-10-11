@@ -93,7 +93,7 @@ static inline int task_get_current_flags(void) {
 /**
  * @brief kill the current task
  */
-void task_exit(void);
+ATTR_NORETURN void task_exit(void);
 
 /**
  * @brief get a task from its tid

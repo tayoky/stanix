@@ -262,10 +262,9 @@ void vfs_set_root(vfs_dentry_t *dentry) {
     root = dentry;
 }
 
-vfs_dentry_t *vfs_get_root(void) {
+ATTR_RETURN_NONNULL vfs_dentry_t *vfs_get_root(void) {
     return root;
 }
-
 
 int vfs_chroot(vfs_dentry_t *new_root) {
 	vfs_set_root(new_root);

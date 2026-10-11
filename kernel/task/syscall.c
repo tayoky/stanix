@@ -1704,7 +1704,7 @@ int sys_getgroups(int size, gid_t *list) {
 
 	int ret = cred->groups->count;
 	if (size != 0) {
-		if (size < cred->groups->count) {
+		if (size < (int)cred->groups->count) {
 			ret = -EINVAL;
 		} else if (user_copy_to(list, cred->groups->groups, cred->groups->count * sizeof(gid_t)) < 0) {
 			ret = -EFAULT;

@@ -256,6 +256,7 @@ int vfs_move_mount_at(vfs_dentry_t *source_at, const char *source, vfs_dentry_t 
 		ret = PTR2ERR(dest_dentry);
 		goto error;
 	}
+	kassert(dest_dentry);
 
 	if (!(root_dentry->flags & VFS_DENTRY_MOUNT_POINT)) {
 		// not even a mount point

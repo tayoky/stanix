@@ -72,7 +72,8 @@ static void show_memsegs(void) {
 	}
 }
 
-void *malloc(size_t amount) {
+void *kmalloc_flags(size_t amount, int flags) {
+	(void)flags;
 	// make amount aligned
 	if (amount & 0b1111) {
 		amount += 16 - (amount % 16);
@@ -129,7 +130,7 @@ void *malloc(size_t amount) {
 	return (char *)current_seg + sizeof(heap_segment_t);
 }
 
-void free(void *ptr) {
+void kfree(void *ptr) {
 	if (!ptr) return;
 
 	spinlock_acquire(&kheap_lock);
@@ -176,16 +177,8 @@ void free(void *ptr) {
 	spinlock_release(&kheap_lock);
 }
 
-void *kmalloc(size_t amount) {
-	return malloc(amount);
-}
-
-void kfree(void *ptr) {
-	return free(ptr);
-}
-
-
-void *krealloc(void *ptr, size_t new_size) {
+void *krealloc_flags(void *ptr, size_t new_size, int flags) {
+	(void)flags;
 	if (!ptr) {
 		return kmalloc(new_size);
 	}

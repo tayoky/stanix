@@ -44,7 +44,7 @@ void cred_copy(cred_t *dest, cred_t *src) {
 cred_t *cred_dup(cred_t *cred) {
 	cred_t *new_cred = cred_new();
 	if (!new_cred) return NULL;
-	cred_copy(new_cred, get_current_cred());
+	cred_copy(new_cred, cred);
 	return new_cred;
 }
 

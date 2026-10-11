@@ -67,6 +67,7 @@ static tmpfs_dirent_t *tmpfs_get_entry(tmpfs_inode_t *dir, vfs_dentry_t *dentry)
 	foreach (node, &dir->directory.entries) {
 		tmpfs_dirent_t *current_entry = container_of(node, tmpfs_dirent_t, node);
 		if (!strcmp(current_entry->name, dentry->name)) {
+			kassert(current_entry->inode);
 			return current_entry;
 		}
 	}
@@ -310,6 +311,7 @@ static int tmpfs_rename(vfs_node_t *old_vnode, vfs_dentry_t *old_dentry, vfs_nod
 	tmpfs_inode_t *new_parent = container_of(new_vnode, tmpfs_inode_t, vnode);
 	kassert(S_ISDIR(new_parent->vnode.mode));
 	tmpfs_dirent_t *old_entry = tmpfs_get_entry(old_parent, old_dentry);
+	kassert(old_entry);
 
 	tmpfs_dirent_t *already = tmpfs_get_entry(new_parent, new_dentry);
 	if (already) {
