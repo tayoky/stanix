@@ -347,11 +347,14 @@ task_t *get_current_task(void) {
 ATTR_NORETURN void task_exit(void) {
 	preempt_disable();
 
-	spinlock_acquire(&get_current_proc()->proc_lock);
-	get_current_proc()->threads_count--;
-	list_remove(&get_current_proc()->threads, &get_current_task()->thread_list_node);
-	int is_last = (get_current_proc()->threads_count == 0);
-	spinlock_release(&get_current_proc()->proc_lock);
+	process_t *proc = get_current_proc();
+	kassert(proc);
+
+	spinlock_acquire(&proc->proc_lock);
+	proc->threads_count--;
+	list_remove(&proc->threads, &get_current_task()->thread_list_node);
+	int is_last = (proc->threads_count == 0);
+	spinlock_release(&proc->proc_lock);
 
 	if (is_last) {
 		// we are the last thread, we need to kill the whole proc

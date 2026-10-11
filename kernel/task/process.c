@@ -107,11 +107,6 @@ int proc_set_group(process_t *proc, process_group_t *group) {
 }
 
 process_t *proc_from_pid(pid_t pid) {
-	// is it ourself ?
-	if (get_current_proc()->pid == pid) {
-		return proc_ref(get_current_proc());
-	}
-
 	rcu_acquire_read(&procs.rcu);
 	process_t *proc = xarray_get(&procs, pid);
 	proc_ref(proc);
@@ -171,17 +166,18 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 	spinlock_acquire(&proctree_lock);
 	spinlock_acquire(&proc->proc_lock);
 
-	if (get_current_proc()) {
-		proc->parent = get_current_proc();
-		proc_set_group(proc, get_current_proc()->group);
+	process_t *current_proc = get_current_proc();
+	if (current_proc) {
+		proc->parent = current_proc;
+		proc_set_group(proc, current_proc->group);
 		rcu_acquire_read(NULL);
 		proc_set_cred(proc, get_current_cred());
 		rcu_release_read(NULL);
-		proc->umask       = get_current_proc()->umask;
-		proc->cmdline     = strdup(get_current_proc()->cmdline);
-		proc->vfs_context.root = vfs_context_get_root(&get_current_proc()->vfs_context);
-		proc->vfs_context.cwd  = vfs_context_get_cwd(&get_current_proc()->vfs_context);
-		proc->exe         = vfs_dentry_ref(get_current_proc()->exe);
+		proc->umask       = current_proc->umask;
+		proc->cmdline     = strdup(current_proc->cmdline);
+		proc->vfs_context.root = vfs_context_get_root(&current_proc->vfs_context);
+		proc->vfs_context.cwd  = vfs_context_get_cwd(&current_proc->vfs_context);
+		proc->exe         = vfs_dentry_ref(current_proc->exe);
 
 		// add it the the list of the children of the parent
 		// note that the parent hold a ref
@@ -209,16 +205,18 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 }
 
 void proc_exit(int status) {
-	spinlock_acquire(&get_current_proc()->proc_lock);
-	get_current_proc()->exit_status = status;
+	process_t *proc = get_current_proc();
+	spinlock_acquire(&proc->proc_lock);
+	kassert(proc);
+	proc->exit_status = status;
 	// mark the process as killed
-	atomic_fetch_or(&get_current_proc()->flags, PROC_FLAG_KILLED);
+	atomic_fetch_or(&proc->flags, PROC_FLAG_KILLED);
 	// interrupt every thread
-	foreach (node, &get_current_proc()->threads) {
+	foreach (node, &proc->threads) {
 		task_t *task = container_of(node, task_t, thread_list_node);
 		unblock_task_reason(task, WAKEUP_SIGNAL);
 	}
-	spinlock_release(&get_current_proc()->proc_lock);
+	spinlock_release(&proc->proc_lock);
 	task_exit();
 }
 
@@ -235,10 +233,13 @@ static void alert_parent(process_t *proc) {
 }
 
 void do_proc_deletion(void) {
+	process_t *proc = get_current_proc();
+	kassert(proc);
+	
 	// all the childreen become orphelan
 	// the parent of orphelan is init
 	spinlock_acquire(&proctree_lock);
-	list_node_t *node = get_current_proc()->child.first_node;
+	list_node_t *node = proc->child.first_node;
 	while (node) {
 		process_t *child = container_of(node, process_t, child_list_node);
 		node = node->next;
@@ -247,35 +248,35 @@ void do_proc_deletion(void) {
 		list_append(&init->child, &child->child_list_node);
 		if (proc_get_state(child) == PROC_STATE_ZOMBIE) alert_parent(child);
 	}
-	list_destroy(&get_current_proc()->child);
+	list_destroy(&proc->child);
 	
 	// release session / group / cred
-	spinlock_acquire(&get_current_proc()->proc_lock);
-	proc_set_group(get_current_proc(), NULL);
+	spinlock_acquire(&proc->proc_lock);
+	proc_set_group(proc, NULL);
 	cred_release(get_current_cred());
 
-	proc_set_state(get_current_proc(), PROC_STATE_ZOMBIE);
+	proc_set_state(proc, PROC_STATE_ZOMBIE);
 
-	spinlock_release(&get_current_proc()->proc_lock);
+	spinlock_release(&proc->proc_lock);
 	spinlock_release(&proctree_lock);
 
 	// close every open fd
-	xarray_foreach (index, value, &get_current_proc()->fd_table) {
+	xarray_foreach (index, value, &proc->fd_table) {
 		(void)index;
 		vfs_fd_t *fd = fd_value2fd(value, NULL);
 		vfs_close(fd);
 	}
-	xarray_destroy(&get_current_proc()->fd_table);
+	xarray_destroy(&proc->fd_table);
 
 	// release dentries
-	vfs_dentry_release(get_current_proc()->vfs_context.root);
-	vfs_dentry_release(get_current_proc()->vfs_context.cwd);
-	vfs_dentry_release(get_current_proc()->exe);
+	vfs_dentry_release(proc->vfs_context.root);
+	vfs_dentry_release(proc->vfs_context.cwd);
+	vfs_dentry_release(proc->exe);
 
 	vmm_unmap_all();
 
-	list_destroy(&get_current_proc()->threads);
-	alert_parent(get_current_proc());
+	list_destroy(&proc->threads);
+	alert_parent(proc);
 }
 
 void proc_zombie_cleanup(process_t *proc) {

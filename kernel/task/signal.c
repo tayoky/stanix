@@ -62,7 +62,9 @@ static signal_pending_t *signal_create_pending(siginfo_t *siginfo) {
 	if (!signal_pending) return NULL;
 	signal_pending->siginfo = *siginfo;
 	if (!signal_pending->siginfo.si_pid) {
-		signal_pending->siginfo.si_pid = get_current_proc()->pid;
+		process_t *current_proc = get_current_proc();
+		kassert(current_proc);
+		signal_pending->siginfo.si_pid = current_proc->pid;
 		signal_pending->siginfo.si_uid = get_current_uid();
 	}
 	return signal_pending;
