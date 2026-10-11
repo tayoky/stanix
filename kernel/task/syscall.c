@@ -1653,6 +1653,55 @@ int sys_fchroot(int fd) {
 	return 0;
 }
 
+int sys_setgroups(size_t size, const gid_t *list) {
+	cred_groups_t *groups = cred_groups_new(size);
+	if (!groups) return -ENOMEM;
+	if (user_copy_from(groups->groups, list, sizeof(gid_t) * size) < 0) {
+		cred_groups_release(groups);
+		return -EFAULT;
+	}
+
+	cred_t *new_cred = cred_new();
+	if (!new_cred) {
+		cred_groups_release(groups);
+		return -ENOMEM;
+	}
+
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	if (get_current_cred()->euid != EUID_ROOT) {
+		spinlock_release(&get_current_proc()->proc_lock);
+		cred_groups_release(groups);
+		return -EPERM;
+	}
+	cred_copy(new_cred, get_current_cred());
+	cred_groups_release(new_cred->groups);
+	new_cred->groups = groups;
+	set_current_cred(new_cred);
+
+	cred_release(new_cred);
+	spinlock_release(&get_current_proc()->proc_lock);
+	return 0;
+}
+
+int sys_getgroups(int size, gid_t *list) {
+	rcu_acquire_read(NULL);
+	cred_t *cred = get_current_cred();
+	cred_ref(cred);
+	rcu_release_read(NULL);
+
+	int ret = cred->groups->count;
+	if (size != 0) {
+		if (size < cred->groups->count) {
+			ret = -EINVAL;
+		} else if (user_copy_to(list, cred->groups->groups, cred->groups->count * sizeof(gid_t)) < 0) {
+			ret = -EFAULT;
+		}
+	}
+
+	cred_release(cred);
+	return ret;
+}
+
 int sys_stub(void) {
 	return -ENOSYS;
 }
@@ -1766,6 +1815,8 @@ void *syscall_table[] = {
 	(void *)sys_sync,
 	(void *)sys_chroot,
 	(void *)sys_fchroot,
+	(void *)sys_setgroups,
+	(void *)sys_getgroups,
 };
 
 uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
