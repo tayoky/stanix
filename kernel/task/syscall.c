@@ -1340,11 +1340,16 @@ typedef struct new_thread_data {
 	void (*fn)(void *);
 	void *stack;
 	void *arg;
+	int kill;
 } new_thread_data_t;
 
 static void sys_new_thread_trampoline(void *arg) {
 	new_thread_data_t data = *(new_thread_data_t*)arg;
 	kfree(arg);
+	
+	if (data.kill) {
+		task_exit();
+	}
 	jump_userspace(data.fn, data.stack, (uintptr_t)data.arg, 0, 0, 0);
 }
 
@@ -1355,15 +1360,23 @@ int sys_new_thread(void (*fn)(void *), void *stack, int flags, void *arg, pid_t 
 	(void)flags;
 
 	new_thread_data_t *data = kmalloc(sizeof(new_thread_data_t));
+	if (!data) return -ENOMEM;
 	data->stack = stack;
 	data->fn    = fn;
 	data->arg   = arg;
+	data->kill  = 0;
 
 	task_t *new_thread = task_new(get_current_proc(), sys_new_thread_trampoline, data);
+	if (!new_thread) return -ENOMEM;
 
-	if (child_tid)*child_tid = new_thread->tid;
+	if (child_tid && user_copy_auto_to(child_tid, &new_thread->tid) < 0) {
+		// kill the task
+		data->kill = 1;
+		unblock_task(new_thread);
+		return -EFAULT;
+	}
+
 	unblock_task(new_thread);
-
 	return 0;
 }
 
