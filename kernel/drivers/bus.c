@@ -82,10 +82,12 @@ static void device_generate_cached_name(devnode_t *devnode) {
 }
 
 devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, int unit) {
+	int is_allocated = 0;
 	if (!child) {
 		// allocate one ourself
 		child = device_allocate();
 		if (!child) return NULL;
+		is_allocated = 1;
 	}
 
 	mutex_acquire(&child->mutex);
@@ -94,6 +96,14 @@ devnode_t *bus_attach_child(devnode_t *bus, devnode_t *child, const char *name, 
 	child->parent = bus;
 	if (name) {
 		child->devclass = devclass_get_or_create(name);
+		if (!child->devclass) {
+			list_remove(&bus->children, &child->node);
+			list_remove(&devnodes, &child->list_node);
+			child->parent = NULL;
+			mutex_release(&child->mutex);
+			if (is_allocated) slab_free(child);
+			return NULL;
+		}
 		child->unit = unit;
 		devclass_alloc_unit(child->devclass, child);
 		child->flags |= DEVNODE_FIXEDNAME;
