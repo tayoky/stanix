@@ -968,7 +968,7 @@ int sys_msync(void *addr, size_t length, int flags) {
 }
 
 int sys_setuid(uid_t uid) {
-	cred_t *new_cred = cred_dup(get_current_cred());
+	cred_t *new_cred = cred_new();
 	if (!new_cred) return -ENOMEM;
 	spinlock_acquire(&get_current_proc()->proc_lock);
 	int ret = 0;
@@ -978,6 +978,7 @@ int sys_setuid(uid_t uid) {
 		ret = -EPERM;
 		goto error;
 	}
+	cred_copy(new_cred, get_current_cred());
 	new_cred->euid = uid;
 	if (get_current_cred()->euid == EUID_ROOT) {
 		new_cred->uid = uid;
@@ -991,7 +992,7 @@ error:
 }
 
 int sys_seteuid(uid_t uid) {
-	cred_t *new_cred = cred_dup(get_current_cred());
+	cred_t *new_cred = cred_new();
 	if (!new_cred) return -ENOMEM;
 	spinlock_acquire(&get_current_proc()->proc_lock);
 	int ret = 0;
@@ -1001,6 +1002,7 @@ int sys_seteuid(uid_t uid) {
 		ret = -EPERM;
 		goto error;
 	}
+	cred_copy(new_cred, get_current_cred());
 	new_cred->euid = uid;
 	set_current_cred(new_cred);
 error:
@@ -1018,7 +1020,7 @@ uid_t sys_geteuid(void) {
 }
 
 int sys_setgid(gid_t gid) {
-	cred_t *new_cred = cred_dup(get_current_cred());
+	cred_t *new_cred = cred_new();
 	if (!new_cred) return -ENOMEM;
 	spinlock_acquire(&get_current_proc()->proc_lock);
 	int ret = 0;
@@ -1028,6 +1030,7 @@ int sys_setgid(gid_t gid) {
 		ret = -EPERM;
 		goto error;
 	}
+	cred_copy(new_cred, get_current_cred());
 	new_cred->egid = gid;
 	if (get_current_cred()->euid == EUID_ROOT) {
 		new_cred->gid = gid;
@@ -1041,7 +1044,7 @@ error:
 }
 
 int sys_setegid(gid_t gid) {
-	cred_t *new_cred = cred_dup(get_current_cred());
+	cred_t *new_cred = cred_new();
 	if (!new_cred) return -ENOMEM;
 	spinlock_acquire(&get_current_proc()->proc_lock);
 	int ret = 0;
@@ -1051,6 +1054,7 @@ int sys_setegid(gid_t gid) {
 		ret = -EPERM;
 		goto error;
 	}
+	cred_copy(new_cred, get_current_cred());
 	new_cred->egid = gid;
 	set_current_cred(new_cred);
 error:
