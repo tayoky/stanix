@@ -24,6 +24,7 @@ static uintptr_t highest_page = 0;
 static pmm_t pmms[ZONES_COUNT];
 static int is_stage2 = 0;
 static sleep_queue_t sleep_queues[64];
+static int bootstrap_flags = 0;
 
 #define PAGES_INFO_MMU_FLAGS MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL
 
@@ -222,21 +223,47 @@ static uintptr_t pmm_helper_allocate_pages(pmm_t *pmm, int order) {
 	return pages;
 }
 
+int pmm_set_flags(int flags) {
+	task_t *task = get_current_task();
+	if (task) {
+		int old_flags = task->alloc_flags;
+		task->alloc_flags = flags;
+		return old_flags;
+	} else {
+		int old_flags = bootstrap_flags;
+		bootstrap_flags = flags;
+		kdebugf("set %x\n", bootstrap_flags);
+		return old_flags;
+	}
+}
+
+int pmm_get_flags(void) {
+	task_t *task = get_current_task();
+	if (task) {
+		return task->alloc_flags;
+	} else {
+		return bootstrap_flags;
+	}
+}
+
 ATTR_NORETURN void pmm_oom(void) {
 	panic("out of memory", NULL);
 }
 
 uintptr_t pmm_zone_allocate_pages_flags(int zone, int order, int flags) {
+	flags |= pmm_get_flags();
 	if (zone == ZONE_DEFAULT) zone = ZONE_NORMAL;
 	if (!is_stage2) {
 		// we can only allocate individual pages
 		kassert(order == ORDER_SIZE1);
-		return pmm1_allocate_page();
+		uintptr_t page = pmm1_allocate_page();
+		if (page == PAGE_INVALID) goto oom;
+		return page;
 	}
 
 	if (!(flags & ALLOC_FLAG_EMERGENCY) && pmm_get_free_pages() < pmm_get_emergency_pages() + ORDER2COUNT(order)) {
 		// we cannot use the emergency pages
-		return PAGE_INVALID;
+		goto oom;
 	}
 
 	while (zone >= 0) {
@@ -250,6 +277,8 @@ uintptr_t pmm_zone_allocate_pages_flags(int zone, int order, int flags) {
 		}
 		zone--;
 	}
+
+oom:
 	if (flags & ALLOC_FLAG_OOM) {
 		pmm_oom();
 	}

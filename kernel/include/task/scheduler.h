@@ -46,12 +46,13 @@ typedef struct task {
 	atomic_int flags;
 	int status;                      // protected by state_lock
 	int wakeup_reason;
+	int alloc_flags; // only the thread itself can read/write
 	uintptr_t kernel_stack;
 
-	struct registers *syscall_frame;
+	struct registers *syscall_frame; // only the thread itself can read/write
 	spinlock_t state_lock;
 	ATOMIC(run_queue_t *) run_queue;
-	size_t preempt_disable;
+	size_t preempt_disable; // only the thread itself can read/write
 	atomic_size_t preempt_context_switches;
 	atomic_size_t voluntary_context_switches;
 } task_t;

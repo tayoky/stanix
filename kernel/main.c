@@ -108,6 +108,10 @@ void kmain() {
 	kprintf("██║  ██╗███████╗██║  ██║██║ ╚████║███████╗███████╗\n");
 	kprintf("╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝\n");
 	print_license();
+
+	// memory failure during early boot is OOM
+	pmm_set_flags(ALLOC_FLAG_OOM);
+
 	init_bootinfo();
 	init_pmm();
 	kprintf("used pages: 0x%lx\n", pmm_get_used_pages());
@@ -134,6 +138,10 @@ void kmain() {
 	init_proc();
 	init_signal();
 	init_task();
+
+	// init_task reset the flags	
+	pmm_set_flags(ALLOC_FLAG_OOM);
+
 	init_workqueue();
 	init_bus();
 	init_root_bus();
@@ -147,6 +155,10 @@ void kmain() {
 	init_input();
 	init_futexes();
 	init_fsthreads();
+
+	// from now on, handle memory failure gracefully
+	pmm_set_flags(0);
+	
 
 	kstatusf("finish init kernel\n");
 	spawn_init();

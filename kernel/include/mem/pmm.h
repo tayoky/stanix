@@ -87,6 +87,20 @@ int pmm_get_zone(uintptr_t page);
 ATTR_NORETURN void pmm_oom(void);
 
 /**
+ * @brief set the global allocation flags used for this thread
+ * @param flags the new flags to set
+ * @return the old flags
+ */
+int pmm_set_flags(int flags);
+
+
+/**
+ * @brief get the global allocation flags used for this thread
+ * @return the current allocation flags
+ */
+int pmm_get_flags(void);
+
+/**
  * @brief init the PMM
  */
 void init_pmm();
