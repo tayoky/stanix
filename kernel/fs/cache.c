@@ -437,12 +437,16 @@ size_t cache_evict(size_t to_evict) {
 	}
 	spinlock_release(&lru_lock);
 
+
+	// during eviction we cannot wait for memory to be ready
+	// but we can use the emergency reserve
+	int old_pmm_flags = pmm_set_flags(ALLOC_FLAG_ATOMIC | ALLOC_FLAG_EMERGENCY);
+
 	for (uintptr_t next = list.first; next != PAGE_INVALID;) {
 		uintptr_t page = next;
 		page_t *page_info = pmm_page_info(page);
 		kassert(page_info);
 		next = cached_page_get_next(page_info);
-		// this is some pseudo code, is not functional and is probably unsafe
 	
 		pmm_acquire_page_lock(page);
 		if (cached_page_is_evicted(page_info)) {
@@ -483,6 +487,8 @@ size_t cache_evict(size_t to_evict) {
 		pmm_release_page(page);
 		evicted_pages++;
 	}
+
+	pmm_set_flags(old_pmm_flags);
 
 	// put back pages we were not able to evict
 	if (list.first != PAGE_INVALID) {
