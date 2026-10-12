@@ -30,9 +30,9 @@ void init_vmm(void) {
 	kok();
 }
 
-static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
+static int vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
 	mmu_entry_t *entry = mmu_get_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
-	if (!entry) return;
+	if (!entry) return 0;
 	uintptr_t phys = mmu_virt2phys((void *)vpage);
 	if (atomic_load(&pmm_page_info(phys)->ref_count) <= 1) {
 		// other processes already copied
@@ -52,13 +52,13 @@ static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
 				// we lose some information (like address) but at least the process get killed
 				signal_send_siginfo_lightweight_task(get_current_task(), SIGBUS);
 			}
-			return;
+			return -ENOMEM;
 		}
 		pmm_release_page(phys);
 		mmu_map_page(get_current_proc()->vmm_space.addrspace, new_page, vpage, seg->prot);
 	}
 	mmu_entry_release_lock(entry);
-	return;
+	return 0;
 }
 
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
@@ -75,8 +75,8 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	if ((seg->flags & VMM_FLAG_PRIVATE) && (seg->prot & MMU_FLAG_WRITE) && prot == MMU_FLAG_WRITE) {
 		// we failed a write but we have write perm
 		// it's CoW
-		vmm_cow(seg, vpage, addr);
-		if (vpage + PAGE_SIZE < seg->end) {
+		int ret = vmm_cow(seg, vpage, addr);
+		if (ret > 0 && vpage + PAGE_SIZE < seg->end) {
 			vmm_cow(seg, vpage + PAGE_SIZE, addr);
 		}
 		mutex_release(&seg->lock);
