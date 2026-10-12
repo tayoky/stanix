@@ -22,6 +22,7 @@ typedef struct signal_context {
 
 void init_signal(void);
 int signal_send_siginfo_task(struct task *task, siginfo_t *siginfo);
+int signal_send_siginfo_lightweight_task(struct task *task, int signum);
 int signal_send_siginfo_proc(struct process *proc, siginfo_t *siginfo);
 int signal_send_siginfo_group(struct process_group *group, siginfo_t *siginfo);
 

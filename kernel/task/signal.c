@@ -93,6 +93,25 @@ static int signal_add_pending(signal_context_t *signal_context, process_t *proc,
 	return 1;
 }
 
+static int signal_add_lightweight_pending(signal_context_t *signal_context, process_t *proc, int signum) {
+	spinlock_assert_acquired(&signal_context->lock);
+	if (signal_context->pending_mask & sigmask(signum)) {
+		// already pending
+		return 0;
+	}
+	
+	spinlock_acquire(&proc->proc_lock);
+	if (proc->sig_handlers[signum].sa_handler == SIG_IGN || (proc->sig_handlers[signum].sa_handler == SIG_DFL && default_handling[signum] == IGN)) {
+		spinlock_release(&proc->proc_lock);
+		// ignored
+		return 0;
+	}
+	spinlock_release(&proc->proc_lock);
+
+	signal_context->pending_mask |= sigmask(signum);
+	return 1;
+}
+
 int signal_send_siginfo_group(process_group_t *group, siginfo_t *siginfo) {
 	if (siginfo->si_signo == 0) return 0;
 	if (!group) return -ESRCH;
@@ -155,6 +174,24 @@ int signal_send_siginfo_task(task_t *thread, siginfo_t *siginfo) {
 	return 0;
 }
 
+int signal_send_siginfo_lightweight_task(task_t *thread, int signum) {
+	if (signum == 0) return 0;
+	kdebugf("send lightweight signal %d to task %ld\n", signum, thread->tid);
+
+	spinlock_acquire(&thread->signal_context.lock);
+	if (signal_add_lightweight_pending(&thread->signal_context, thread->process, signum)) {
+		// if the sig is unblocked interrupt
+		if (thread->sig_mask & sigmask(signum)) {
+			unblock_task_reason(thread, WAKEUP_SIGNAL);
+			return 0;
+		}
+		spinlock_release(&thread->signal_context.lock);
+	} else {
+		spinlock_release(&thread->signal_context.lock);
+	}
+	return 0;
+}
+
 void signal_context_destroy(signal_context_t *signal_context) {
 	spinlock_acquire(&signal_context->lock);
 	list_node_t *node = signal_context->pendings.first_node;
@@ -165,7 +202,6 @@ void signal_context_destroy(signal_context_t *signal_context) {
 	}
 	spinlock_release(&signal_context->lock);
 }
-
 
 static int signal_dequeue_context(signal_context_t *signal_context, sigset_t mask, siginfo_t *siginfo) {
 	spinlock_acquire(&signal_context->lock);
@@ -191,13 +227,38 @@ static int signal_dequeue_context(signal_context_t *signal_context, sigset_t mas
 			return ret;
 		}
 
-		if (!(sigmask(signal->siginfo.si_signo) & get_current_task()->sig_mask)) {
+		if (sigmask(signal->siginfo.si_signo) & ~get_current_task()->sig_mask) {
 			
 			// a signal not in mask was recived and is unblocked
 			ret = -EINTR;
 			break;
 		}
 	}
+
+	if (ret == 0 && (signal_context->pending_mask & mask)) {
+		// we got lightweight signals pending
+		for (int signum = 1; signum < NSIG; signum++) {
+			if (signal_context->pending_mask & sigmask(signum) & mask) {
+				// we found a lightweight signal we can handle
+				
+				// clear the pending bit
+				signal_context->pending_mask &= ~sigmask(signum);
+
+				spinlock_release(&signal_context->lock);
+				if (siginfo) {
+					memset(siginfo, 0, sizeof(siginfo_t));
+					siginfo->si_signo = signum;
+				}
+				return signum;
+			}
+		}
+	}
+
+	if (ret == 0 && (signal_context->pending_mask & ~get_current_task()->sig_mask)) {
+		// a lightweight signal not in mask was recived and is unblocked
+		ret = -EINTR;
+	}
+
 	spinlock_release(&signal_context->lock);
 	return ret;
 }
@@ -227,11 +288,6 @@ sigset_t signal_get_pending_mask(void) {
 
 sigset_t signal_get_unhandled_mask(void) {
 	return signal_get_pending_mask() & ~get_current_task()->sig_mask;
-}
-
-static inline void proc_sigexit(int signum) {
-	kdebugf("proc killed by signal %d\n", signum);
-	proc_exit((1U << 17) | signum);
 }
 
 static void handle_default(int signum) {

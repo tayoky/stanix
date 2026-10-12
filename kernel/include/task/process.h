@@ -172,6 +172,12 @@ process_t *proc_new(void (*func)(void *arg), void *arg);
 void proc_exit(int status);
 
 /**
+ * @brief kill the current process with signal status
+ * @param signum the signal to exit with
+ */
+void proc_sigexit(int signum);
+
+/**
  * @brief get a process from its pid
  * @param pid the pid of the process
  * @return the process with the specfied pid

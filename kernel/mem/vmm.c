@@ -47,7 +47,11 @@ static void vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
 				.si_signo = SIGBUS,
 				.si_addr  = (void*)addr,
 			};
-			signal_send_siginfo_task(get_current_task(), &siginfo);
+			if (signal_send_siginfo_task(get_current_task(), &siginfo) < 0) {
+				// retry with a lightweight signal
+				// we lose some information (like address) but at least the process get killed
+				signal_send_siginfo_lightweight_task(get_current_task(), SIGBUS);
+			}
 			return;
 		}
 		pmm_release_page(phys);

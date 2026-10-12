@@ -220,6 +220,11 @@ void proc_exit(int status) {
 	task_exit();
 }
 
+void proc_sigexit(int signum) {
+	kdebugf("proc killed by signal %d\n", signum);
+	proc_exit((1U << 17) | signum);
+}
+
 static void alert_parent(process_t *proc) {
 	if (!proc->parent) return;
 	siginfo_t siginfo = {
