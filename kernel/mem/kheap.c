@@ -36,7 +36,7 @@ void init_kheap(void) {
 	kok();
 }
 
-static void change_kheap_size(ssize_t offset) {
+static void change_kheap_size(ssize_t offset, int flags) {
 	if (!offset) return;
 	intptr_t offset_page = offset / PAGE_SIZE;
 
@@ -55,7 +55,7 @@ static void change_kheap_size(ssize_t offset) {
 		// make kheap bigger
 		for (intptr_t i = 0; i < offset_page; i++) {
 			uintptr_t virt_page = kheap_start + kheap_length + i * PAGE_SIZE;
-			mmu_map_page(addr_space, pmm_allocate_page(), virt_page, KHEAP_MMU_FLAGS);
+			mmu_map_page(addr_space, pmm_allocate_page_flags(flags), virt_page, KHEAP_MMU_FLAGS);
 		}
 	}
 	kheap_length += offset_page * PAGE_SIZE;
@@ -73,7 +73,6 @@ static void show_memsegs(void) {
 }
 
 void *kmalloc_flags(size_t amount, int flags) {
-	(void)flags;
 	// make amount aligned
 	if (amount & 0b1111) {
 		amount += 16 - (amount % 16);
@@ -87,10 +86,10 @@ void *kmalloc_flags(size_t amount, int flags) {
 
 			// if last is free make it bigger else create a new seg from scratch
 			if (current_seg->magic == HEAP_SEG_MAGIC_FREE) {
-				change_kheap_size(PAGE_ALIGN_UP(amount - current_seg->length + sizeof(heap_segment_t) + 16));
+				change_kheap_size(PAGE_ALIGN_UP(amount - current_seg->length + sizeof(heap_segment_t) + 16), flags);
 				current_seg->length += PAGE_ALIGN_UP(amount - current_seg->length + sizeof(heap_segment_t) + 16);
 			} else {
-				change_kheap_size(PAGE_ALIGN_UP(amount + sizeof(heap_segment_t) * 2 + 16));
+				change_kheap_size(PAGE_ALIGN_UP(amount + sizeof(heap_segment_t) * 2 + 16), flags);
 				heap_segment_t *new_seg = (heap_segment_t *)((uintptr_t)current_seg + current_seg->length + sizeof(heap_segment_t));
 				new_seg->length         = PAGE_ALIGN_UP(amount + sizeof(heap_segment_t) * 2 + 16) - sizeof(heap_segment_t);
 				new_seg->magic          = HEAP_SEG_MAGIC_FREE;

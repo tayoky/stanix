@@ -4,6 +4,7 @@
 #include <kernel/mmu.h>
 #include <kernel/page.h>
 #include <kernel/assert.h>
+#include <kernel/allocflags.h>
 #include <kernel/list.h>
 #include <sys/types.h>
 #include <limits.h>
@@ -81,11 +82,20 @@ page_t *pmm_page_info(uintptr_t page);
 int pmm_get_zone(uintptr_t page);
 
 /**
+ * @brief trigger a out of memory panic
+ */
+ATTR_NORETURN void pmm_oom(void);
+
+/**
  * @brief init the PMM
  */
 void init_pmm();
 
-uintptr_t pmm_zone_allocate_pages(int zone, int order);
+uintptr_t pmm_zone_allocate_pages_flags(int zone, int order, int flags);
+
+static inline uintptr_t pmm_zone_allocate_pages(int zone, int order) {
+	return pmm_zone_allocate_pages_flags(zone, order, 0);
+}
 
 static inline uintptr_t pmm_allocate_pages(int order) {
 	return pmm_zone_allocate_pages(ZONE_DEFAULT, order);
@@ -93,6 +103,15 @@ static inline uintptr_t pmm_allocate_pages(int order) {
 
 static inline uintptr_t pmm_zone_allocate_page(int zone){
 	return pmm_zone_allocate_pages(zone, ORDER_SIZE1);
+}
+
+/**
+ * @brief find an free page and allocate it
+ * @param flags flags to allocate with
+ * @return the physical address of the page
+ */
+static inline uintptr_t pmm_allocate_page_flags(int flags) {
+	return pmm_zone_allocate_pages_flags(ZONE_DEFAULT, ORDER_SIZE1, flags);
 }
 
 /**

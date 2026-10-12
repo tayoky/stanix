@@ -10,7 +10,8 @@ static pmm1_entry_t *head = NULL;
 
 // stage 1 allocator
 uintptr_t pmm1_allocate_page(void) {
-	if (head == NULL) return PAGE_INVALID;
+	// we don't handle oom during stage1
+	if (head == NULL) pmm_oom();
 
 	pmm1_entry_t *entry = head;
 	uintptr_t page;

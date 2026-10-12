@@ -222,12 +222,21 @@ static uintptr_t pmm_helper_allocate_pages(pmm_t *pmm, int order) {
 	return pages;
 }
 
-uintptr_t pmm_zone_allocate_pages(int zone, int order) {
+ATTR_NORETURN void pmm_oom(void) {
+	panic("out of memory", NULL);
+}
+
+uintptr_t pmm_zone_allocate_pages_flags(int zone, int order, int flags) {
 	if (zone == ZONE_DEFAULT) zone = ZONE_NORMAL;
 	if (!is_stage2) {
 		// we can only allocate individual pages
-		if (order != ORDER_SIZE1) return PAGE_INVALID;
+		kassert(order == ORDER_SIZE1);
 		return pmm1_allocate_page();
+	}
+
+	if (!(flags & ALLOC_FLAG_EMERGENCY) && pmm_get_free_pages() < pmm_get_emergency_pages() + ORDER2COUNT(order)) {
+		// we cannot use the emergency pages
+		return PAGE_INVALID;
 	}
 
 	while (zone >= 0) {
@@ -240,6 +249,9 @@ uintptr_t pmm_zone_allocate_pages(int zone, int order) {
 			return page;
 		}
 		zone--;
+	}
+	if (flags & ALLOC_FLAG_OOM) {
+		pmm_oom();
 	}
 	return PAGE_INVALID;
 }
