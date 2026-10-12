@@ -23,6 +23,13 @@ static void evicter_thread() {
 			threshold = pmm_get_free_pages_threshold();
 		}
 		size_t to_evict = threshold - free;
+
+		// evict twice the amount and a minimum of 4 pages
+		// to avoid doing really small eviction or failing to evict the specfied pages
+		// because of pinned pages
+		to_evict *= 2;
+		if (to_evict < 4) to_evict = 4;
+		
 		cache_evict(to_evict);
 		block_prepare();
 		block_task();
