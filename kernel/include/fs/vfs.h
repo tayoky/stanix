@@ -87,6 +87,7 @@ struct vfs_dentry {
 	vfs_node_t *inode;
 	ino_t inode_number;             // constant
 	cond_var_t flags;
+	int error;
 	vfs_dentry_t *parent;           // constant
 	vfs_mount_point_t *mount_point; // constant
 	vfs_mount_point_t *shadow_mount_point; // the mount this is shadowed by, write protected by mount_lock
@@ -658,6 +659,10 @@ static vfs_dentry_t *vfs_dentry_ref(vfs_dentry_t *dentry) {
 	return dentry;
 }
 
+static int vfs_dentry_ref_if_not_zero(vfs_dentry_t *dentry) {
+	return ref_count_inc_if_not_zero(&dentry->ref_count);
+}
+
 vfs_dentry_t *vfs_get_dentry_parent_at(vfs_dentry_t *at, const char *path, char last[NAME_MAX], long flags, ...);
 
 static inline vfs_dentry_t *vfs_get_dentry_at(vfs_dentry_t *at, const char *path, long flags, ...) {
@@ -744,8 +749,6 @@ static inline void vfs_context_set_root(vfs_context_t *context, vfs_dentry_t *ro
 vfs_dentry_t *vfs_dentry_allocate(void);
 ATTR_RETURN_NONNULL vfs_dentry_t *vfs_get_root(void);
 void vfs_set_root(vfs_dentry_t *dentry);
-void dentry_add_lru(vfs_dentry_t *dentry);
-void vfs_dentry_remove_lru(vfs_dentry_t *dentry);
 void vfs_dentry_add(vfs_dentry_t *parent, vfs_dentry_t *child);
 void vfs_dentry_remove(vfs_dentry_t *dentry);
 

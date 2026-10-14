@@ -48,16 +48,14 @@ static void *dentry_evict(slab_cache_t *cache) {
 	return dentry;
 }
 
-void vfs_dentry_add_lru(vfs_dentry_t *dentry) {
-	spinlock_acquire(&lru_lock);
+static void vfs_dentry_add_lru(vfs_dentry_t *dentry) {
+	spinlock_assert_acquired(&lru_lock);
 	list_append(&dentries_lru, &dentry->lru_node);
-	spinlock_release(&lru_lock);
 }
 
-void vfs_dentry_remove_lru(vfs_dentry_t *dentry) {
-	spinlock_acquire(&lru_lock);
+static void vfs_dentry_remove_lru(vfs_dentry_t *dentry) {
+	spinlock_assert_acquired(&lru_lock);
 	list_remove(&dentries_lru, &dentry->lru_node);
-	spinlock_release(&lru_lock);
 }
 
 void init_vfs_dentry(void) {
@@ -103,7 +101,9 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 
 		if (ref_count_dec(&dentry->ref_count) == 1) {
 			// this was the last ref, we can cache
+			spinlock_acquire(&lru_lock);
 			vfs_dentry_add_lru(dentry);
+			spinlock_release(&lru_lock);
 		}
 		if (parent) rculist_release_write(&parent->children);
 		return;
@@ -117,6 +117,143 @@ vfs_dentry_t *vfs_dentry_follow_mount_points(vfs_dentry_t *dentry) {
 		kassert(dentry);
 	}
 	return dentry;
+}
+
+static int vfs_dentry_t *vfs_dentry_wait_ready_helper(vfs_dentry_t *entry) {
+	cond_var_wait(&entry->flags, VFS_DENTRY_FLAG_NEW, 0);
+	if (atomic_load(entry->flags) & VFS_DENTRY_FLAG_ERROR) {
+		int error = entry->error;
+		vfs_dentry_release(entry);
+		return ERR2PTR(error);
+	} else {
+		return entry;
+	}
+}
+
+static vfs_dentry_t *vfs_internal_lookup(vfs_dentry_t *entry, const char *name) {
+	rculist_foreach (list_node, &entry->children) {
+		vfs_dentry_t *current_entry = container_of(list_node, vfs_dentry_t, children_node);
+		if (!strcmp(current_entry->name, name)) {
+			return current_entry;
+		}
+	}
+	return NULL;
+}
+
+vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
+	// cannot do lookup on non populated entry
+	if (!vfs_dentry_is_populated(entry)) {
+		return ERR2PTR(-EINVAL);
+	}
+
+	if (!S_ISDIR(entry->inode->mode)) {
+		return ERR2PTR(-ENOTDIR);
+	}
+
+	vfs_node_acquire_read(entry->inode);
+
+	// check perm
+	int ret = 0;
+	if (!(vfs_perm(entry->inode) & PERM_EXECUTE)) {
+		ret = -EACCES;
+error:
+		vfs_node_release_read(entry->inode);
+		return ERR2PTR(ret);
+	}
+
+	// handle .. here so we can handle the parent of mount point
+	if (!strcmp("..", name)) {
+		vfs_dentry_t *parent = atomic_load(&entry->parent);
+		vfs_node_release_read(entry->inode);
+		return vfs_dentry_ref(parent ? parent : entry);
+	}
+
+	if (!strcmp(".", name)) {
+		vfs_node_release_read(entry->inode);
+		return vfs_dentry_ref(entry);
+	}
+
+	// fast path : rcu search in the dentries cache
+	rculist_acquire_read(&entry->children);
+	vfs_dentry_t *child_entry = vfs_internal_lookup(entry, name);
+	if (child_entry) {
+		// follow mount points
+		child_entry = vfs_dentry_follow_mount_points(child_entry);
+
+		if (!vfs_dentry_ref_if_not_zero(child_entry)) {
+			spinlock_acquire(&lru_lock);
+			if (!vfs_dentry_ref_if_not_zero(child_entry)) {
+				vfs_dentry_remove_lru(child_entry);
+				vfs_dentry_ref(child_entry);
+			}
+			spinlock_release(&lru_lock);
+		}
+		
+		rculist_release_read(&entry->children);
+		vfs_node_release_read(entry->inode);
+		return vfs_dentry_wait_ready_helper(child_entry);
+	}
+	rculist_release_read(&entry->children);
+
+	// it isen't chached
+	// ask the fs for it
+	if (!entry->inode->ops->lookup) {
+		ret = -EOPNOTSUPP;
+		goto error;
+	}
+
+	child_entry = vfs_dentry_allocate();
+	if (!child_entry) {
+		ret = -ENOMEM;
+		goto error;
+	}
+	strcpy(child_entry->name, name);
+	child_entry->mount_point = entry->mount_point;
+	child_entry->ref_count = 1;
+	child_entry->flags |= VFS_DENTRY_FLAG_NEW;
+
+	// link the dentry
+	rculist_acquire_write(&entry->children);
+	vfs_dentry_t *old_entry = vfs_internal_lookup(entry, name);
+	if (old_entry) {
+		old_entry = vfs_dentry_follow_mount_points(old_entry);
+		if (!vfs_dentry_ref_if_not_zero(old_entry)) {
+			spinlock_acquire(&lru_lock);
+			if (!vfs_dentry_ref_if_not_zero(old_entry)) {
+				vfs_dentry_remove_lru(old_entry);
+				vfs_dentry_ref(old_entry);
+			}
+			spinlock_release(&lru_lock);
+		}
+		rculist_release_write(&entry->children);
+		vfs_node_release_read(entry->inode);
+		vfs_dentry_release(child_entry);
+		return vfs_dentry_wait_ready_helper(old_entry);
+	}
+	child_entry->parent = vfs_dentry_ref(entry);
+	rculist_raw_append(&entry->children, child_entry);
+	rculist_release_write(&entry->children);
+
+	ret = entry->inode->ops->lookup(entry->inode, child_entry);
+	if (ret < 0) {
+		vfs_dentry_remove(child_entry);
+		child_entry->error = ret;
+		atomic_fetch_or(&child_entry->flags, VFS_DENTRY_FLAG_ERROR);
+		atomic_fetch_and(&child_entry->flags, ~VFS_DENTRY_FLAG_NEW);
+		cond_var_wakeup(&child_entry->flags);
+		vfs_dentry_release(child_entry);
+		goto error;
+	}
+	kassert(vfs_dentry_is_populated(child_entry));
+	
+	atomic_fetch_and(&child_entry->flags, ~VFS_DENTRY_FLAG_NEW);
+	cond_var_wakeup(&child_entry->flags);
+
+	vfs_node_release_read(entry->inode);
+
+	// no need to follow mount points we just loaded it
+	// it cannot be mounted yet
+	return child_entry;
 }
 
 /**
