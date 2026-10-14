@@ -39,4 +39,20 @@ static inline size_t ref_count_dec(ref_count_t *ref_count) {
 	return atomic_fetch_sub(ref_count, 1);
 }
 
+/**
+ * @brief decrement a ref count if not one
+ * @param ref_count the ref count to decrement
+ * @return 1 if decremented else 0
+ */
+static inline int ref_count_dec_if_not_one(ref_count_t *ref_count) {
+	size_t old = atomic_load(ref_count);
+	while (old != 1) {
+		if (atomic_compare_exchange_weak(ref_count, &old, old - 1)) {
+			return 1;
+		}
+		// we raced and need to retry
+	}
+	return 0;
+}
+
 #endif

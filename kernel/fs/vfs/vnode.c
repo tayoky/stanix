@@ -304,15 +304,28 @@ error:
 void vfs_node_release(vfs_node_t *node) {
 	if (!node) return;
 
-	if (ref_count_dec(&node->ref_count) > 1) {
+	if (ref_count_dec_if_not_one(&node->ref_count)) {
 		return;
 	}
 
+	// NOTE : we could race and have another thread making a ref through the lookup table
+	// making this flush useless
+	// but it's not a big deal
 	vfs_node_flush(node);
 
-	// remove from the cache
-	xarray_clear(&node->superblock->inodes, node->number);
+	// this is the last ref count we might need to free
+	rcu_acquire_write(&superblock->inodes.rcu);
+	if (ref_count_dec(&node->ref_count) > 1) {
+		// another thread made a new ref through the lookup table
+		rcu_release_write(&superblock->inodes.rcu);
+		// this isen't the last ref anymore
+		return;
+	}
 
+	// remove from the cache
+	xarray_raw_clear(&node->superblock->inodes, node->number);
+	rcu_release_write(&superblock->inodes.rcu);
+	
 	// we can cleanup
 	if (node->ops->cleanup) {
 		node->ops->cleanup(node);
