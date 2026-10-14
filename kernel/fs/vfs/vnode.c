@@ -217,8 +217,8 @@ ssize_t vfs_readlink(vfs_node_t *node, char *buf, size_t bufsiz) {
 // - 2 dentry eviction before we get time to remove it from lru
 // - 3 if a dentry is added to the cache between when we check the rculist and when call ops->lookup
 vfs_dentry_t *vfs_lookup(vfs_dentry_t *entry, const char *name) {
-	// cannot do lookup on negative entry
-	if (vfs_dentry_is_negative(entry)) {
+	// cannot do lookup on non populated entry
+	if (!vfs_dentry_is_populated(entry)) {
 		return ERR2PTR(-EINVAL);
 	}
 
@@ -254,9 +254,6 @@ error:
 	rculist_foreach (list_node, &entry->children) {
 		vfs_dentry_t *current_entry = container_of(list_node, vfs_dentry_t, children_node);
 		if (!strcmp(current_entry->name, name)) {
-			// cached entries must not be negative
-			kassert(!vfs_dentry_is_negative(current_entry));
-
 			// follow mount points
 			current_entry = vfs_dentry_follow_mount_points(current_entry);
 			vfs_dentry_ref(current_entry);
@@ -293,7 +290,7 @@ error:
 		slab_free(child_entry);
 		goto error;
 	}
-	kassert(!vfs_dentry_is_negative(child_entry));
+	kassert(vfs_dentry_is_populated(child_entry));
 
 	// no need to follow mount points we just loaded it
 	// it cannot be mounted yet
@@ -346,7 +343,7 @@ int vfs_create_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 	if (ret < 0) goto error;
 
 	// now we can link the dentry if the fs filled it
-	if (!vfs_dentry_is_negative(dentry)) {
+	if (vfs_dentry_is_populated(dentry)) {
 		vfs_dentry_add(parent, dentry);
 	}
 
@@ -371,7 +368,7 @@ int vfs_mkdir_at(vfs_dentry_t *at, const char *path, mode_t mode) {
 	if (ret < 0) goto error;
 
 	// now we can link the dentry if the fs filled it
-	if (!vfs_dentry_is_negative(dentry)) {
+	if (vfs_dentry_is_populated(dentry)) {
 		vfs_dentry_add(parent, dentry);
 	}
 
@@ -396,7 +393,7 @@ int vfs_mknod_at(vfs_dentry_t *at, const char *path, mode_t mode, dev_t dev) {
 	if (ret < 0) goto error;
 
 	// now we can link the dentry if the fs filled it
-	if (!vfs_dentry_is_negative(dentry)) {
+	if (vfs_dentry_is_populated(dentry)) {
 		vfs_dentry_add(parent, dentry);
 	}
 
@@ -467,7 +464,7 @@ int vfs_link_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_at
 	if (ret < 0) goto error;
 
 	// now we can link the dentry if the fs filled it
-	if (!vfs_dentry_is_negative(new_dentry)) {
+	if (vfs_dentry_is_populated(new_dentry)) {
 		vfs_dentry_add(new_parent, new_dentry);
 	}
 
@@ -602,7 +599,7 @@ int vfs_rename_at(vfs_dentry_t *old_at, const char *old_path, vfs_dentry_t *new_
 	if (ret < 0) goto error;
 
 	// unlink the the dentry that was already here
-	if (!vfs_dentry_is_negative(new_dentry)) {
+	if (vfs_dentry_is_populated(new_dentry)) {
 		vfs_unlink_dentry(new_dentry);
 	}
 

@@ -4,7 +4,7 @@
 #include <kernel/string.h>
 #include <kernel/vfs.h>
 
-// TODO : make this process specific
+// the absolute root
 vfs_dentry_t *root;
 
 static list_t dentries_lru;
@@ -73,7 +73,7 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 			return;
 		}
 
-		if (vfs_dentry_is_negative(dentry) || (dentry->flags & VFS_DENTRY_FLAG_UNLINKED) || (dentry->inode->superblock->flags & VFS_SUPERBLOCK_NO_DCACHE)) {
+		if (!vfs_dentry_is_populated(dentry) || (dentry->flags & VFS_DENTRY_FLAG_UNLINKED) || (dentry->inode->superblock->flags & VFS_SUPERBLOCK_NO_DCACHE)) {
 			// we cannot cache
 			vfs_dentry_t *parent = dentry->parent;
 			if (parent == dentry) parent = NULL;

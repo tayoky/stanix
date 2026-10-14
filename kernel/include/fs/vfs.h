@@ -98,6 +98,7 @@ struct vfs_dentry {
 #define VFS_DENTRY_FLAG_UNLINKED    0x02 // the dentry is unlinked
 #define VFS_DENTRY_FLAG_NEW         0x04 // newly created (and unpopulated)
 #define VFS_DENTRY_FLAG_ERROR       0x08 // an error happened
+#define VFS_DENTRY_FLAG_NEGATIVE    0x10 // the dentry repredent a non existing dentry
 
 /**
  * @brief represent an open context with a file/dir/device
@@ -748,8 +749,8 @@ void vfs_dentry_remove_lru(vfs_dentry_t *dentry);
 void vfs_dentry_add(vfs_dentry_t *parent, vfs_dentry_t *child);
 void vfs_dentry_remove(vfs_dentry_t *dentry);
 
-static inline int vfs_dentry_is_negative(vfs_dentry_t *dentry) {
-	return dentry->inode == NULL;
+static inline int vfs_dentry_is_populated(vfs_dentry_t *dentry) {
+	return dentry->inode != NULL;
 }
 
 #endif
