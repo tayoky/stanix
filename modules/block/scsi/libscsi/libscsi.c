@@ -66,7 +66,7 @@ scsi_command_t *scsi_create_read_command(scsi_device_t *device, size_t lba, size
 		};
 		command = scsi_create_command(device, &cmd, sizeof(cmd));
 	}
-	if (!command) return command;
+	if (!command) return NULL;
 	command->flags    = SCSI_CMD_READ_BUF;
 	return command;
 }
@@ -98,8 +98,8 @@ int scsi_read_capacity(scsi_device_t *device, size_t *sector_size, size_t *secto
 			.allocation_length = scsi_uint32_to_data32(sizeof(read_capacity16_data)),
 		};
 		command = scsi_create_command(device, &read_capacity16_cmd, sizeof(read_capacity16_cmd));
-		iobuf_init_continuous(&command->iobuf, &read_capacity16_data, sizeof(read_capacity16_data));
 		if (!command) return -ENOMEM;
+		iobuf_init_continuous(&command->iobuf, &read_capacity16_data, sizeof(read_capacity16_data));
 
 		ret = ioreq_submit_sync(&command->ioreq);
 		if (ret < 0) return ret;

@@ -20,9 +20,11 @@ static int atapi_check(devnode_t *devnode) {
 
 static int atapi_probe(devnode_t *devnode) {
 	ata_device_t *device = container_of(devnode, ata_device_t, devnode);
+	atapi_disk_t *disk = devnode->private;
 
 	ata_ident_t ident;
 	ata_command_t *identify = ata_create_command(device);
+	if (!identify) return -ENOMEM;
 	identify->regs.command = ATA_CMD_IDENTIFY_PACKET;
 	identify->flags        = ATA_CMD_READ_BUF;
 	iobuf_init_continuous(&identify->iobuf, &ident, sizeof(ident));
@@ -30,9 +32,6 @@ static int atapi_probe(devnode_t *devnode) {
 	int ret = ioreq_submit_sync(&identify->ioreq);
 	if (ret < 0) return ret;
 
-	atapi_disk_t *disk = kmalloc(sizeof(atapi_disk_t));
-	if (!disk) return -ENOMEM;
-	memset(disk, 0, sizeof(atapi_disk_t));
 	ata_parse_common_ident(&disk->common_ident, &ident);
 
 	// which size is a packet?
@@ -45,19 +44,16 @@ static int atapi_probe(devnode_t *devnode) {
 		break;
 	default:
 		kwarningf("unknow packet size\n");
-		kfree(disk);
 		return -ENOTSUP;
 	}
 
-	devnode->private = disk;
-
 	// spawn SCSI
-	scsi_create_device(devnode);
+	if (!scsi_create_device(devnode)) return -ENOMEM;
 	return 0;
 }
 
 static void atapi_detach(devnode_t *devnode) {
-	kfree(devnode->private);
+	(void)devnode;
 }
 
 static void atapi_command_finish(ioreq_t *ioreq, void *data) {
@@ -105,6 +101,7 @@ static scsi_driver_t atapi_driver = {
 		.name = "ATAPI disk",
 		.device_name = "scsi_bus",
 		.buses = ATA_BUSES,
+		.private_size = sizeof(atapi_disk_t),
 		.check  = atapi_check,
 		.probe  = atapi_probe,
 		.detach = atapi_detach,
