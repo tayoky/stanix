@@ -11,6 +11,7 @@
 #include <kernel/attributes.h>
 #include <kernel/time.h>
 #include <kernel/xarray.h>
+#include <kernel/condvar.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -55,24 +56,26 @@ typedef struct vfs_mount_point vfs_mount_point_t;
  */
 struct vfs_node {
 	rwsem_t rwsem;
-	vfs_superblock_t *superblock;
-	vfs_inode_ops_t *ops;
-	ino_t number;
-	ATOMIC(long) flags;
+	vfs_superblock_t *superblock; // constant
+	vfs_inode_ops_t *ops;  // constant
+	ino_t number;          // constant
 	ref_count_t ref_count;
-	ATOMIC(uid_t) uid;    // write protected by lock
-	ATOMIC(gid_t) gid;    // write protected by lock
-	ATOMIC(mode_t) mode;  // write protected by lock
-	ATOMIC(time_t) atime; // write protected by lock
-	ATOMIC(time_t) mtime; // write protected by lock
-	ATOMIC(time_t) ctime; // write protected by lock
-	ATOMIC(nlink_t) nlink;
+	ATOMIC(uid_t) uid;     // write protected by lock
+	ATOMIC(gid_t) gid;     // write protected by lock
+	ATOMIC(mode_t) mode;   // write protected by lock
+	ATOMIC(time_t) atime;  // write protected by lock
+	ATOMIC(time_t) mtime;  // write protected by lock
+	ATOMIC(time_t) ctime;  // write protected by lock
+	ATOMIC(nlink_t) nlink; // write protected by lock
+	cond_var_t flags;
+	int error;
 	spinlock_t lock;
 };
 
 #define VNODE_FLAG_DIRTY      0x01
 #define VNODE_FLAG_DATA_DIRTY 0x02 // metadata required for data is dirty
 #define VNODE_FLAG_NEW        0x04 // newly created (and unpopulated)
+#define VNODE_FLAG_ERROR      0x08 // an error happened
 
 /**
  * @brief represent a directory entry
@@ -82,17 +85,19 @@ struct vfs_dentry {
 	list_node_t lru_node;
 	char name[256];
 	vfs_node_t *inode;
-	ino_t inode_number;
-	long flags;
-	vfs_dentry_t *parent;
-	vfs_mount_point_t *mount_point;
-	vfs_mount_point_t *shadow_mount_point; // the mount this is shadowed by
+	ino_t inode_number;             // constant
+	cond_var_t flags;
+	vfs_dentry_t *parent;           // constant
+	vfs_mount_point_t *mount_point; // constant
+	vfs_mount_point_t *shadow_mount_point; // the mount this is shadowed by, write protected by mount_lock
 	rculist_t children;
 	ref_count_t ref_count;
 };
 
-#define VFS_DENTRY_MOUNT_POINT 0x01 // the dentry is a mmubt point
-#define VFS_DENTRY_UNLINKED    0x02 // the dentry is unlinked
+#define VFS_DENTRY_FLAG_MOUNT_POINT 0x01 // the dentry is a mount point
+#define VFS_DENTRY_FLAG_UNLINKED    0x02 // the dentry is unlinked
+#define VFS_DENTRY_FLAG_NEW         0x04 // newly created (and unpopulated)
+#define VFS_DENTRY_FLAG_ERROR       0x08 // an error happened
 
 /**
  * @brief represent an open context with a file/dir/device
@@ -309,6 +314,8 @@ void vfs_node_release(vfs_node_t *node);
 
 void vfs_node_mark_dirty(vfs_node_t *node);
 void vfs_node_mark_data_dirty(vfs_node_t *node);
+void vfs_node_mark_ready(vfs_node_t *node);
+void vfs_node_mark_error(vfs_node_t *node, int error);
 
 /**
  * @brief lock the rwsem of an inode for reading

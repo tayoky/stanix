@@ -61,8 +61,8 @@ static int vfs_create_dentry(vfs_dentry_t *at, const char *path, vfs_dentry_t **
 }
 
 static void vfs_unlink_dentry(vfs_dentry_t *dentry) {
+	atomic_fetch_or(&dentry->flags, VFS_DENTRY_FLAG_UNLINKED);
 	vfs_dentry_remove(dentry);
-	dentry->flags |= VFS_DENTRY_UNLINKED;
 }
 
 void vfs_init_created_node(vfs_node_t *node) {
@@ -82,19 +82,31 @@ vfs_node_t *vfs_node_allocate(vfs_superblock_t *superblock) {
 	return node;
 }
 
+static vfs_node_t *vfs_node_wait_ready_helper(vfs_node_t *node) {
+	cond_var_wait(&node->flags, VNODE_FLAG_NEW, 0);
+	unsigned int flags = atomic_load(&node->flags);
+	if (flags & VNODE_FLAG_ERROR) {
+		int error = node->error;
+		vfs_node_release(node);
+		return ERR2PTR(error);
+	}
+	return node;
+}
+
 vfs_node_t *vfs_node_get(vfs_superblock_t *superblock, ino_t inode_number) {
 	rcu_acquire_read(&superblock->inodes.rcu);
 	vfs_node_t *node = xarray_get(&superblock->inodes, inode_number);
 	if (node && vfs_node_ref_if_not_zero(node)) {
 		rcu_release_read(&superblock->inodes.rcu);
 		// fast path
-		return node;
+		return vfs_node_wait_ready_helper(node);
 	}
 	rcu_release_read(&superblock->inodes.rcu);
 
 	// the node is not cached, create it
 	node = vfs_node_allocate(superblock);
-	if (!node) return NULL;
+	if (!node) return ERR2PTR(-ENOMEM);
+	node->number = inode_number;
 
 	rcu_acquire_write(&superblock->inodes.rcu);
 	vfs_node_t *old_node = xarray_raw_cmpxchg(&superblock->inodes, inode_number, NULL, node);
@@ -102,12 +114,24 @@ vfs_node_t *vfs_node_get(vfs_superblock_t *superblock, ino_t inode_number) {
 		// we raced
 		rcu_release_write(&superblock->inodes.rcu);
 		vfs_node_release(node);
-		return old_node;
+		return vfs_node_wait_ready_helper(old_node);
 	}
 
 	rcu_release_write(&superblock->inodes.rcu);
 	vfs_node_acquire_write(node);
 	return node;
+}
+
+void vfs_node_mark_ready(vfs_node_t *node) {
+	atomic_fetch_and(&node->flags, ~VNODE_FLAG_NEW);
+	cond_var_wakeup(&node->flags);
+}
+
+void vfs_node_mark_error(vfs_node_t *node, int error) {
+	node->error = error;
+	atomic_fetch_or(&node->flags, VNODE_FLAG_ERROR);
+	atomic_fetch_and(&node->flags, ~VNODE_FLAG_NEW);
+	cond_var_wakeup(&node->flags);
 }
 
 int vfs_chmod(vfs_node_t *node, mode_t perm) {
@@ -622,7 +646,7 @@ int vfs_unlink_at(vfs_dentry_t *at, const char *path) {
 	}
 
 	// cannot unlink mount points
-	if ((dentry->flags & VFS_DENTRY_MOUNT_POINT) || dentry->shadow_mount_point) {
+	if ((dentry->flags & VFS_DENTRY_FLAG_MOUNT_POINT) || dentry->shadow_mount_point) {
 		ret = -EBUSY;
 		goto error;
 	}
@@ -685,7 +709,7 @@ int vfs_rmdir_at(vfs_dentry_t *at, const char *path) {
 	}
 
 	// cannot rmdir mount points
-	if ((dentry->flags & VFS_DENTRY_MOUNT_POINT) || dentry->shadow_mount_point) {
+	if ((dentry->flags & VFS_DENTRY_FLAG_MOUNT_POINT) || dentry->shadow_mount_point) {
 		ret = -EBUSY;
 		goto error;
 	}

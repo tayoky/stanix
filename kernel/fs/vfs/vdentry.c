@@ -73,7 +73,7 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 			return;
 		}
 
-		if (vfs_dentry_is_negative(dentry) || (dentry->flags & VFS_DENTRY_UNLINKED) || (dentry->inode->superblock->flags & VFS_SUPERBLOCK_NO_DCACHE)) {
+		if (vfs_dentry_is_negative(dentry) || (dentry->flags & VFS_DENTRY_FLAG_UNLINKED) || (dentry->inode->superblock->flags & VFS_SUPERBLOCK_NO_DCACHE)) {
 			// we cannot cache
 			vfs_dentry_t *parent = dentry->parent;
 			if (parent == dentry) parent = NULL;
@@ -275,7 +275,7 @@ char *vfs_dentry_path(vfs_dentry_t *dentry) {
 	if (!dentry) {
 		goto unreachable;
 	}
-	if (dentry->flags & VFS_DENTRY_UNLINKED) {
+	if (dentry->flags & VFS_DENTRY_FLAG_UNLINKED) {
 		return strdup("(deleted)");
 	}
 	
