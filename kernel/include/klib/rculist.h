@@ -28,6 +28,13 @@ static inline void rculist_release_read(rculist_t *rculist) {
 	rcu_release_read(NULL);
 }
 
+static inline void rculist_acquire_write(rculist_t *rculist) {
+	spinlock_acquire(&rculist->lock);
+}
+
+static inline void rculist_release_write(rculist_t *rculist) {
+	spinlock_release(&rculist->lock);
+}
 
 static inline rculist_node_t *rculist_get_first(rculist_t *rculist) {
 	return rcu_ptr_fetch(&rculist->first);
@@ -43,6 +50,11 @@ static inline rculist_node_t *rculist_get_next(rculist_node_t *node) {
 
 void rculist_init(rculist_t *rculist);
 void rculist_destroy(rculist_t *rculist);
+void rculist_raw_prepend(rculist_t *rculist, rculist_node_t *node);
+void rculist_raw_append(rculist_t *rculist, rculist_node_t *node);
+void rculist_raw_remove(rculist_t *rculist, rculist_node_t *node);
+void rculist_raw_add_after(rculist_t *rculist, rculist_node_t *ref, rculist_node_t *node);
+void rculist_raw_add_before(rculist_t *rculist, rculist_node_t *ref, rculist_node_t *node);
 void rculist_prepend(rculist_t *rculist, rculist_node_t *node);
 void rculist_append(rculist_t *rculist, rculist_node_t *node);
 void rculist_remove(rculist_t *rculist, rculist_node_t *node);

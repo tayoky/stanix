@@ -19,9 +19,7 @@ static inline void rculist_store_ptr(rcu_ptr_t *rcu_ptr, rculist_node_t *value) 
 	rcu_ptr_store(rcu_ptr, value);
 }
 
-void rculist_prepend(rculist_t *rculist, rculist_node_t *node) {
-	spinlock_acquire(&rculist->lock);
-
+void rculist_raw_prepend(rculist_t *rculist, rculist_node_t *node) {
 	// link
 	node->prev = NULL;
 	node->next = rculist->first;
@@ -32,13 +30,15 @@ void rculist_prepend(rculist_t *rculist, rculist_node_t *node) {
 		rculist->last = node;
 	}
 	rculist_store_ptr(&rculist->first, node);
-
-	spinlock_release(&rculist->lock);
 }
 
-void rculist_append(rculist_t *rculist, rculist_node_t *node) {
-	spinlock_acquire(&rculist->lock);
+void rculist_prepend(rculist_t *rculist, rculist_node_t *node) {
+	rculist_acquire_write(&rculist->lock);
+	rculist_raw_prepend(rculist, node);
+	rculist_release_write(&rculist->lock);
+}
 
+void rculist_raw_append(rculist_t *rculist, rculist_node_t *node) {
 	// link
 	node->prev = rculist->last;
 	node->next = NULL;
@@ -49,13 +49,16 @@ void rculist_append(rculist_t *rculist, rculist_node_t *node) {
 	} else {
 		rculist_store_ptr(&rculist->first, node);
 	}
-
-	spinlock_release(&rculist->lock);
 }
 
-void rculist_remove(rculist_t *rculist, rculist_node_t *node) {
+void rculist_append(rculist_t *rculist, rculist_node_t *node) {
+	rculist_acquire_write(&rculist->lock);
+	rculist_raw_append(rculist, node);
+	rculist_release_write(&rculist->lock);
+}
+
+void rculist_raw_remove(rculist_t *rculist, rculist_node_t *node) {
 	if (!node) return;
-	spinlock_acquire(&rculist->lock);
 	if (node->next) {
 		rculist_node_t *next = rculist_fetch_ptr(&node->next);
 		rculist_store_ptr(&next->prev, node->prev);
@@ -68,10 +71,16 @@ void rculist_remove(rculist_t *rculist, rculist_node_t *node) {
 	} else {
 		rculist_store_ptr(&rculist->first, node->next);
 	}
+}
 
-	spinlock_release(&rculist->lock);
+void rculist_remove(rculist_t *rculist, rculist_node_t *node) {
+	rculist_acquire_write(&rculist->lock);
+	rculist_raw_remove(rculist, node);
+	rculist_release_write(&rculist->lock);
 }
 
 // TODO : implement theses
+void rculist_raw_add_after(rculist_t *rculist, rculist_node_t *ref, rculist_node_t *node);
 void rculist_add_after(rculist_t *rculist, rculist_node_t *ref, rculist_node_t *node);
+void rculist_raw_add_before(rculist_t *rculist, rculist_node_t *ref, rculist_node_t *node);	
 void rculist_add_before(rculist_t *rculist, rculist_node_t *ref, rculist_node_t *node);	

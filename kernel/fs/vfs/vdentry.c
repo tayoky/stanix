@@ -8,6 +8,7 @@
 vfs_dentry_t *root;
 
 static list_t dentries_lru;
+static spinlock_t lru_lock;
 static slab_cache_t dentries_slab;
 
 void vfs_dentry_add(vfs_dentry_t *parent, vfs_dentry_t *child) {
@@ -48,11 +49,15 @@ static void *dentry_evict(slab_cache_t *cache) {
 }
 
 void vfs_dentry_add_lru(vfs_dentry_t *dentry) {
+	spinlock_acquire(&lru_lock);
 	list_append(&dentries_lru, &dentry->lru_node);
+	spinlock_release(&lru_lock);
 }
 
 void vfs_dentry_remove_lru(vfs_dentry_t *dentry) {
+	spinlock_acquire(&lru_lock);
 	list_remove(&dentries_lru, &dentry->lru_node);
+	spinlock_release(&lru_lock);
 }
 
 void init_vfs_dentry(void) {
@@ -69,18 +74,26 @@ void init_vfs_dentry(void) {
 void vfs_dentry_release(vfs_dentry_t *dentry) {
 	if (IS_ERR(dentry)) return;
 	while (dentry) {
-		if (ref_count_dec(&dentry->ref_count) > 1) {
+		if (ref_count_dec_if_not_one(&dentry->ref_count)) {
 			return;
 		}
+		
+		vfs_dentry_t *parent = dentry->parent;
+		kassert(parent != dentry);
+
+		if (parent) rculist_acquire_write(&parent->children);
 
 		if (!vfs_dentry_is_populated(dentry) || (dentry->flags & VFS_DENTRY_FLAG_UNLINKED) || (dentry->inode->superblock->flags & VFS_SUPERBLOCK_NO_DCACHE)) {
 			// we cannot cache
-			vfs_dentry_t *parent = dentry->parent;
-			if (parent == dentry) parent = NULL;
+			if (ref_count_dec(&dentry->ref_count) > 1) {
+				if (parent) rculist_release_write(&parent->children);
+				return;
+			}
 
 			// we cannot use vfs_remove_entry cause it call vfs_dentry_release
 			if (parent) {
 				rculist_remove(&parent->children, &dentry->children_node);
+				rculist_release_write(&parent->children);
 			}
 			dentry->parent = NULL;
 			slab_free(dentry);
@@ -88,8 +101,11 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 			continue;
 		}
 
-		// we can cache
-		vfs_dentry_add_lru(dentry);
+		if (ref_count_dec(&dentry->ref_count) == 1) {
+			// this was the last ref, we can cache
+			vfs_dentry_add_lru(dentry);
+		}
+		if (parent) rculist_release_write(&parent->children);
 		return;
 	}
 }

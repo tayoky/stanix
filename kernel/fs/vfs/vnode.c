@@ -256,6 +256,8 @@ error:
 		if (!strcmp(current_entry->name, name)) {
 			// follow mount points
 			current_entry = vfs_dentry_follow_mount_points(current_entry);
+
+			// FIXME : we should use vfs_dentry_ref_if_not_one
 			vfs_dentry_ref(current_entry);
 
 			// we might need to remove it from lru
@@ -314,17 +316,17 @@ void vfs_node_release(vfs_node_t *node) {
 	vfs_node_flush(node);
 
 	// this is the last ref count we might need to free
-	rcu_acquire_write(&superblock->inodes.rcu);
+	rcu_acquire_write(&node->superblock->inodes.rcu);
 	if (ref_count_dec(&node->ref_count) > 1) {
 		// another thread made a new ref through the lookup table
-		rcu_release_write(&superblock->inodes.rcu);
+		rcu_release_write(&node->superblock->inodes.rcu);
 		// this isen't the last ref anymore
 		return;
 	}
 
 	// remove from the cache
 	xarray_raw_clear(&node->superblock->inodes, node->number);
-	rcu_release_write(&superblock->inodes.rcu);
+	rcu_release_write(&node->superblock->inodes.rcu);
 	
 	// we can cleanup
 	if (node->ops->cleanup) {
