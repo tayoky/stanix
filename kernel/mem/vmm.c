@@ -144,8 +144,8 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 
 	seg->end = cut;
 
-	if (seg->ops && seg->ops->open) {
-		seg->ops->open(new_seg);
+	if (seg->ops && seg->ops->dup) {
+		seg->ops->dup(new_seg);
 	}
 
 	list_add_after(&space->segs, &seg->node, &new_seg->node);
@@ -368,8 +368,8 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 		seg->ops->msync(seg, seg->start, seg->end, VMM_FLAG_ASYNC);
 	}
 
-	if (seg->ops && seg->ops->close) {
-		seg->ops->close(seg);
+	if (seg->ops && seg->ops->destroy) {
+		seg->ops->destroy(seg);
 	}
 	vfs_close(seg->fd);
 
@@ -513,8 +513,8 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 	}
 	list_add_after(&child->segs, prev ? &prev->node : NULL, &new_seg->node);
 
-	if (seg->ops && seg->ops->open) {
-		seg->ops->open(new_seg);
+	if (seg->ops && seg->ops->dup) {
+		seg->ops->dup(new_seg);
 	}
 	mutex_release(&seg->lock);
 }

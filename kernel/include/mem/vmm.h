@@ -17,8 +17,8 @@ typedef struct vmm_seg vmm_seg_t;
 typedef struct vmm_space vmm_space_t;
 
 struct vmm_ops {
-	void (*open)(vmm_seg_t *seg);
-	void (*close)(vmm_seg_t *seg);
+	void (*dup)(vmm_seg_t *seg);
+	void (*destroy)(vmm_seg_t *seg);
 	int (*can_mprotect)(vmm_seg_t *seg, long prot);
 	int (*can_split)(vmm_seg_t *seg, uintptr_t cut);
 	int (*msync)(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags);
@@ -27,6 +27,7 @@ struct vmm_ops {
 
 struct vmm_seg {
 	list_node_t node;  // protected by the space lock
+	list_node_t private_node;
 	uintptr_t start;   // protected by lock and write proctected by the space lock
 	uintptr_t end;     // protected by lock and write proctected by the space lock
 	long prot;         // protected by lock

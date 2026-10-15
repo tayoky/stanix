@@ -777,9 +777,23 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	return 1;
 }
 
+static void cache_vmm_dup(vmm_seg_t *seg) {
+	cache_t *cache  = seg->private_data;
+	(void)cache;
+	// TODO : add to interval tree
+}
+
+static void cache_vmm_destroy(vmm_seg_t *seg) {
+	cache_t *cache  = seg->private_data;
+	(void)cache;
+	// TODO : add to interval tree
+}
+
 static vmm_ops_t cache_vmm_ops = {
 	.msync = cache_vmm_msync,
 	.fault = cache_vmm_fault,
+	.dup     = cache_vmm_dup,
+	.destroy = cache_vmm_destroy,
 };
 
 int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
