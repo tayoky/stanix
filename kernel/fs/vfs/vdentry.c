@@ -119,9 +119,9 @@ vfs_dentry_t *vfs_dentry_follow_mount_points(vfs_dentry_t *dentry) {
 	return dentry;
 }
 
-static int vfs_dentry_t *vfs_dentry_wait_ready_helper(vfs_dentry_t *entry) {
+static vfs_dentry_t *vfs_dentry_wait_ready_helper(vfs_dentry_t *entry) {
 	cond_var_wait(&entry->flags, VFS_DENTRY_FLAG_NEW, 0);
-	if (atomic_load(entry->flags) & VFS_DENTRY_FLAG_ERROR) {
+	if (atomic_load(&entry->flags) & VFS_DENTRY_FLAG_ERROR) {
 		int error = entry->error;
 		vfs_dentry_release(entry);
 		return ERR2PTR(error);
@@ -231,7 +231,7 @@ error:
 		return vfs_dentry_wait_ready_helper(old_entry);
 	}
 	child_entry->parent = vfs_dentry_ref(entry);
-	rculist_raw_append(&entry->children, child_entry);
+	rculist_raw_append(&entry->children, &child_entry->children_node);
 	rculist_release_write(&entry->children);
 
 	ret = entry->inode->ops->lookup(entry->inode, child_entry);
