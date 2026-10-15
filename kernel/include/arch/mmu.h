@@ -2,6 +2,7 @@
 #define KERNEL_MMU_H
 
 #include <kernel/arch.h>
+#include <kernel/macro.h>
 #include <stddef.h>
 
 // inspired by etheral's API
@@ -60,6 +61,7 @@ void mmu_entry_map(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t paddr, l
 long mmu_entry_unmap(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t vaddr);
 
 long mmu_entry_get_flags(mmu_space_t addrspace, mmu_entry_t *entry);
+uintptr_t mmu_entry_get_page(mmu_space_t addrspace, mmu_entry_t *entry);
 int mmu_entry_set_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
 int mmu_entry_or_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
 long mmu_entry_get_and_clear_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
@@ -68,13 +70,22 @@ mmu_entry_t *mmu_get_entry(mmu_space_t addrspace, uintptr_t vaddr);
 mmu_entry_t *mmu_get_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
 
 /**
- * @brief release lock on an entry and acquire a new ine
+ * @brief release lock on an entry and acquire the next one
  * @param addrspace the address space to get the new entry in
- * @param vaddr the vaddr to get the entry for
+ * @param from where to start the search
+ * @param vaddr where to store the vaddr of the found entry
  * @param old_entry the old entry to release the lock of
  * @return a pointer to the new entry or NULL if it doesn't exist
  */
-mmu_entry_t *mmu_get_entry_and_switch(mmu_space_t addrspace, uintptr_t vaddr, mmu_entry_t *old_entry);
+mmu_entry_t *mmu_next_entry(mmu_space_t addrspace, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry);
+#define mmu_foreach_entry_range(vaddr, entry, addrspace, start, end) \
+    loop_var(uintptr_t, vaddr) \
+    for (mmu_entry_t *entry = mmu_next_entry(addrspace, start, &vaddr, NULL); \
+    entry && vaddr < (end); \
+    entry = mmu_next_entry(addrspace, vaddr, &vaddr, entry))
+
+// TODO : implement this correcly
+#define mmu_foreach_entry_and_acquire_lock_range(vaddr, entry, addrspace, start, end) mmu_foreach_entry_range(vaddr, entry, addrspace, start, end)
 
 mmu_entry_t *mmu_create_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
 

@@ -309,6 +309,15 @@ long mmu_entry_get_flags(mmu_space_t PML4, mmu_entry_t *entry) {
 		return 0;
 	}
 }
+uintptr_t mmu_entry_get_page(mmu_space_t PML4, mmu_entry_t *entry) {
+	(void)PML4;
+	mmu_entry_val_t value = atomic_load(entry);
+	if (value & PAGING_FLAG_PRESENT) {
+		return value & PAGING_ENTRY_ADDRESS;
+	} else {
+		return 0;
+	}
+}
 
 int mmu_entry_set_flags(mmu_space_t PML4, mmu_entry_t *entry, long flags) {
 	(void)PML4;
@@ -354,10 +363,10 @@ void mmu_entry_release_lock(mmu_entry_t *entry) {
 	pmm_release_page_lock(page);
 }
 
-mmu_entry_t *mmu_get_entry_and_switch(mmu_space_t PML4, uintptr_t vaddr, mmu_entry_t *old_entry) {
+mmu_entry_t *mmu_next_entry(mmu_space_t PML4, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry) {
 	uintptr_t old_page = PAGE_ALIGN_DOWN(mmu_hhdm2phys(old_entry));
 	rcu_acquire_read();
-	mmu_entry_t *entry = mmu_get_entry(PML4, vaddr);
+	mmu_entry_t *entry = mmu_get_entry(PML4, from);
 	if (!entry) {
 		rcu_release_read();
 		return NULL;
