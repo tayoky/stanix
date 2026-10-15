@@ -32,13 +32,23 @@ mmu_space_t mmu_space_init(void);
 void mmu_space_destroy(mmu_space_t addrspace);
 
 /**
- * @brief map an virtual page to a physcal page
+ * @brief map a mmu entry to a physcal page
  * @param addrspace an pointer to the addrspace
+ * @param entry the entry to map
  * @param paddr the physical page to map
- * @param vaddr the virtual page to map
  * @param flags flag to use for the virtual page (eg readonly, not executable...)
  */
-void mmu_map_page(mmu_space_t addrspace, uintptr_t paddr, uintptr_t vaddr, long flags);
+void mmu_entry_map(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t paddr, long flags);
+
+/**
+ * @brief map a virtual pages to a physcal pages
+ * @param addrspace an pointer to the addrspace
+ * @param paddr the physical pages to map
+ * @param vaddr the virtual pages to map
+ * @param size the size of the region to map
+ * @param flags flag to use for the virtual pages (eg readonly, not executable...)
+ */
+void mmu_map_pages(mmu_space_t addrspace, uintptr_t paddr, uintptr_t vaddr, size_t size, long flags);
 
 /**
  * @brief unmap an page
@@ -54,6 +64,18 @@ long mmu_get_and_clear_flags(mmu_space_t addrspace, uintptr_t vaddr, long flags)
 
 mmu_entry_t *mmu_get_entry(mmu_space_t addrspace, uintptr_t vaddr);
 mmu_entry_t *mmu_get_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
+
+/**
+ * @brief release lock on an entry and acquire a new ine
+ * @param addrspace the address space to get the new entry in
+ * @param vaddr the vaddr to get the entry for
+ * @param old_entry the old entry to release the lock of
+ * @return a pointer to the new entry or NULL if it doesn't exist
+ */
+mmu_entry_t *mmu_get_entry_and_switch(mmy_space_t addrspace, uintptr_t vaddr, mmu_entry_t *old_entry);
+
+mmu_entry_t *mmu_create_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
+
 void mmu_entry_release_lock(mmu_entry_t *entry);
 
 /**
