@@ -7,6 +7,7 @@
 
 typedef uint64_t *mmu_space_t;
 typedef ATOMIC(uint64_t) mmu_entry_t;
+typedef uint64_t mmu_entry_val_t;
 
 #define PAGING_ENTRY_ADDRESS ((~(uint64_t)0XFFF)&(~(((uint64_t)0xFFF)<<52)))
 
