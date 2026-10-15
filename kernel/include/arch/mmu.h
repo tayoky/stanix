@@ -32,6 +32,16 @@ mmu_space_t mmu_space_init(void);
 void mmu_space_destroy(mmu_space_t addrspace);
 
 /**
+ * @brief map a virtual pages to a physcal pages
+ * @param addrspace an pointer to the addrspace
+ * @param paddr the physical pages to map
+ * @param vaddr the virtual pages to map
+ * @param size the size of the region to map
+ * @param flags flag to use for the virtual pages (eg readonly, not executable...)
+ */
+int mmu_map_pages(mmu_space_t addrspace, uintptr_t paddr, uintptr_t vaddr, size_t size, long flags);
+
+/**
  * @brief map a mmu entry to a physcal page
  * @param addrspace an pointer to the addrspace
  * @param entry the entry to map
@@ -41,26 +51,18 @@ void mmu_space_destroy(mmu_space_t addrspace);
 void mmu_entry_map(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t paddr, long flags);
 
 /**
- * @brief map a virtual pages to a physcal pages
- * @param addrspace an pointer to the addrspace
- * @param paddr the physical pages to map
- * @param vaddr the virtual pages to map
- * @param size the size of the region to map
- * @param flags flag to use for the virtual pages (eg readonly, not executable...)
- */
-void mmu_map_pages(mmu_space_t addrspace, uintptr_t paddr, uintptr_t vaddr, size_t size, long flags);
-
-/**
- * @brief unmap an page
+ * @brief unmap an entry
  * @param addrspace an pointer to the address space
- * @param vaddr the virtual page to unmap
+ * @param entry the entry to unmap
+ * @param vaddr the virtual address associed with this entry
+ * @return the flags off this entry
  */
-void mmu_unmap_page(mmu_space_t addrspace, uintptr_t vaddr);
+long mmu_entry_unmap(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t vaddr);
 
-long mmu_get_flags(mmu_space_t addrspace, uintptr_t vaddr);
-int mmu_set_flags(mmu_space_t addrspace, uintptr_t vaddr, long flags);
-int mmu_or_flags(mmu_space_t addrspace, uintptr_t vaddr, long flags);
-long mmu_get_and_clear_flags(mmu_space_t addrspace, uintptr_t vaddr, long flags);
+long mmu_entry_get_flags(mmu_space_t addrspace, mmu_entry_t *entry);
+int mmu_entry_set_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
+int mmu_entry_or_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
+long mmu_entry_get_and_clear_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
 
 mmu_entry_t *mmu_get_entry(mmu_space_t addrspace, uintptr_t vaddr);
 mmu_entry_t *mmu_get_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
@@ -72,7 +74,7 @@ mmu_entry_t *mmu_get_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vad
  * @param old_entry the old entry to release the lock of
  * @return a pointer to the new entry or NULL if it doesn't exist
  */
-mmu_entry_t *mmu_get_entry_and_switch(mmy_space_t addrspace, uintptr_t vaddr, mmu_entry_t *old_entry);
+mmu_entry_t *mmu_get_entry_and_switch(mmu_space_t addrspace, uintptr_t vaddr, mmu_entry_t *old_entry);
 
 mmu_entry_t *mmu_create_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
 

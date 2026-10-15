@@ -22,7 +22,7 @@ void init_kheap(void) {
 	kheap_start = PAGE_ALIGN_DOWN(MEM_KHEAP_START);
 
 	// map a page
-	mmu_map_page(mmu_get_addr_space(), pmm_allocate_page(), kheap_start, KHEAP_MMU_FLAGS);
+	mmu_map_pages(mmu_get_addr_space(), pmm_allocate_page(), kheap_start, PAGE_SIZE, KHEAP_MMU_FLAGS);
 
 	kheap_length = PAGE_SIZE;
 
@@ -44,19 +44,11 @@ static void change_kheap_size(ssize_t offset, int flags) {
 	mmu_space_t addr_space = mmu_get_addr_space();
 
 	if (offset < 0) {
-		// make kheap smaller
-		for (intptr_t i = 0; i > offset_page; i--) {
-			uintptr_t virt_page = kheap_start + kheap_length + i * PAGE_SIZE;
-			uintptr_t phys_page = mmu_virt2phys((void *)virt_page);
-			mmu_unmap_page(addr_space, virt_page);
-			pmm_release_page(phys_page);
-		}
+		kassert("unrechable");
 	} else {
 		// make kheap bigger
-		for (intptr_t i = 0; i < offset_page; i++) {
-			uintptr_t virt_page = kheap_start + kheap_length + i * PAGE_SIZE;
-			mmu_map_page(addr_space, pmm_allocate_page_flags(flags), virt_page, KHEAP_MMU_FLAGS);
-		}
+		uintptr_t virt_page = kheap_start + kheap_length;
+		mmu_map_page(addr_space, pmm_allocate_page_flags(flags), virt_page, offset, KHEAP_MMU_FLAGS);
 	}
 	kheap_length += offset_page * PAGE_SIZE;
 }

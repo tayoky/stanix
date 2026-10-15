@@ -97,12 +97,7 @@ static int framebuffer_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 	kdebugf("map framebuffer at %p in %p length : %p\n", seg->start, seg, VMM_SIZE(seg));
 	seg->prot |= MMU_FLAG_WRITE_COMBINE;
 	uintptr_t paddr = framebuffer->base + PAGE_ALIGN_DOWN(offset);
-	for (uintptr_t vaddr=seg->start; vaddr < seg->end; vaddr += PAGE_SIZE) {
-		mmu_map_page(get_current_proc()->vmm_space.addrspace, paddr, vaddr, seg->prot);
-		paddr += PAGE_SIZE;
-	}
-
-	return 0;
+	return mmu_map_pages(get_current_proc()->vmm_space.addrspace, paddr, seg->start, VMM_SIZE(seg), seg->prot);
 }
 
 void draw_pixel(vfs_fd_t *fd, size_t x, size_t y, uint32_t color, struct fb *info) {
