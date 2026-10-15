@@ -107,7 +107,7 @@ static inline cred_t *proc_get_cred(process_t *proc) {
 static inline void proc_set_cred(process_t *proc, cred_t *cred) {
 	spinlock_assert_acquired(&proc->proc_lock);
 	cred_t *old_cred = rcu_ptr_store(&proc->cred, cred_ref(cred));
-	rcu_sync(NULL);
+	rcu_sync();
 	cred_release(old_cred);
 }
 
@@ -129,7 +129,7 @@ static inline process_t *get_current_proc(void) {
 	return task ? task->process : NULL;
 }
 
-static inline cred_t *get_current_cred(void) {
+ATTR_RETURN_NONNULL static inline cred_t *get_current_cred(void) {
 	cred_t *cred = proc_get_cred(get_current_proc());
 	if (!cred) cred = &default_cred;
 	return cred;
@@ -144,9 +144,9 @@ static inline void set_current_cred(cred_t *cred) {
 		return proc_get_cred(proc)->var;\
 	}\
 	static inline type get_current_ ## var(void) {\
-		rcu_acquire_read(NULL);\
+		rcu_acquire_read();\
 		type var = get_current_cred()->var;\
-		rcu_release_read(NULL);\
+		rcu_release_read();\
 		return var;\
 	}
 

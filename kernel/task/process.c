@@ -50,10 +50,10 @@ int session_create(process_t *leader) {
 }
 
 process_group_t *process_group_from_pgid(pid_t pgid) {
-	rcu_acquire_read(&groups.rcu);
+	xarray_acquire_read(&groups);
 	process_group_t *group = xarray_get(&groups, pgid);
 	process_group_ref(group);
-	rcu_release_read(&groups.rcu);
+	xarray_release_read(&groups);
 	return group;
 }
 
@@ -107,10 +107,10 @@ int proc_set_group(process_t *proc, process_group_t *group) {
 }
 
 process_t *proc_from_pid(pid_t pid) {
-	rcu_acquire_read(&procs.rcu);
+	xarray_acquire_read(&procs);
 	process_t *proc = xarray_get(&procs, pid);
 	proc_ref(proc);
-	rcu_release_read(&procs.rcu);
+	xarray_release_read(&procs);
 	return proc;
 }
 
@@ -170,9 +170,9 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 	if (current_proc) {
 		proc->parent = current_proc;
 		proc_set_group(proc, current_proc->group);
-		rcu_acquire_read(NULL);
+		rcu_acquire_read();
 		proc_set_cred(proc, get_current_cred());
-		rcu_release_read(NULL);
+		rcu_release_read();
 		proc->umask       = current_proc->umask;
 		proc->cmdline     = strdup(current_proc->cmdline);
 		proc->vfs_context.root = vfs_context_get_root(&current_proc->vfs_context);
@@ -317,11 +317,11 @@ vfs_fd_t *fd_set(int index, vfs_fd_t *fd, long flags) {
 vfs_fd_t *fd_get_flags(int fd, long *flags) {
 	if (fd < 0) return NULL;
 
-	rcu_acquire_read(&get_current_proc()->fd_table.rcu);
+	xarray_acquire_read(&get_current_proc()->fd_table);
 	vfs_fd_t *vfs_fd = fd_value2fd(xarray_get(&get_current_proc()->fd_table, fd), flags);
 	if (vfs_fd) kassert(vfs_fd->ref_count > 0);
 	vfs_dup(vfs_fd);
-	rcu_release_read(&get_current_proc()->fd_table.rcu);
+	xarray_release_read(&get_current_proc()->fd_table);
 	return vfs_fd;
 }
 

@@ -103,25 +103,25 @@ int device_destroy(device_t *device) {
 }
 
 device_t *device_from_number(dev_t dev) {
-	rcu_acquire_read(&devices.rcu);
+	xarray_acquire_read(&devices);
 	device_t *device = xarray_get(&devices, dev);
 	device_ref(device);
-	rcu_release_read(&devices.rcu);
+	xarray_release_read(&devices);
 	return device;
 }
 
 device_t *device_from_name(const char *name) {
-	rcu_acquire_read(&devices.rcu);
+	xarray_acquire_read(&devices);
 	xarray_foreach (index, value, &devices) {
 		(void)index;
 		device_t *device = value;
 		if (!strcmp(device->name, name)) {
 			device_ref(device);
-			rcu_release_read(&devices.rcu);
+			xarray_release_read(&devices);
 			return device;
 		}
 	}
-	rcu_release_read(&devices.rcu);
+	xarray_release_read(&devices);
 	return NULL;
 }
 

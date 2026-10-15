@@ -20,12 +20,12 @@ typedef struct rculist {
 
 static inline void rculist_acquire_read(rculist_t *rculist) {
 	(void)rculist;
-	rcu_acquire_read(NULL);
+	rcu_acquire_read();
 }
 
 static inline void rculist_release_read(rculist_t *rculist) {
 	(void)rculist;
-	rcu_release_read(NULL);
+	rcu_release_read();
 }
 
 static inline void rculist_acquire_write(rculist_t *rculist) {

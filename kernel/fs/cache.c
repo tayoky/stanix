@@ -289,13 +289,13 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 	page_info->cached.offset = PAGE2PFN(offset);
 
 	pmm_acquire_page_lock(page);
-	rcu_acquire_read(&cache->pages.rcu);
+	xarray_acquire_read(&cache->pages);
 	uintptr_t new_page = cache_compare_and_set_page(cache, offset, PAGE_INVALID, page);
 
 	if (new_page == PAGE_INVALID) {
 		*raced = 0;
 		pmm_retain(page);
-		rcu_release_read(&cache->pages.rcu);
+		xarray_release_read(&cache->pages);
 		
 		// add to the current generation since 
 		// this page is freshly new
@@ -308,7 +308,7 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 		// we lost a race
 		*raced = 1;
 		pmm_retain(new_page);
-		rcu_release_read(&cache->pages.rcu);
+		xarray_release_read(&cache->pages);
 
 		pmm_release_page_lock(page);
 		pmm_release_page(page);
@@ -317,10 +317,10 @@ static uintptr_t cache_setup_page(cache_t *cache, off_t offset, int *raced) {
 }
 
 static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
-	rcu_acquire_read(&cache->pages.rcu);
+	xarray_acquire_read(&cache->pages);
 	cache_foreach_range(addr, page, cache, offset, offset + size) {
 		pmm_retain(page);
-		rcu_release_read(&cache->pages.rcu);
+		xarray_release_read(&cache->pages);
 
 		page_t *page_info = pmm_page_info(page);
 		
@@ -338,7 +338,7 @@ static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 		if (cached_page_is_evicted(page_info)) {
 			pmm_release_page_lock(page);
 			pmm_release_page(page);
-			rcu_acquire_read(&cache->pages.rcu);
+			xarray_acquire_read(&cache->pages);
 			continue;
 		}
 		int removed_it = cached_page_remove(page);
@@ -349,10 +349,14 @@ static int cache_free_pages(cache_t *cache, off_t offset, size_t size) {
 		cached_page_remove_from_gen(page_info);
 		spinlock_release(&lru_lock);
 
+		rcu_sync();
+
 		pmm_release_page(page); // the ref we created
 		pmm_release_page(page); // the from from the cache
+
+		xarray_acquire_read(&cache->pages);
 	}
-	rcu_release_read(&cache->pages.rcu);
+	xarray_release_read(&cache->pages);
 	return 0;
 }
 
@@ -484,6 +488,7 @@ size_t cache_evict(size_t to_evict) {
 		kassert(removed_it);
 		atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_EVICTING);
 		pmm_release_page_lock(page);
+		rcu_sync();
 		pmm_release_page(page);
 		evicted_pages++;
 	}
@@ -644,7 +649,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 	pages_batch_t batch;
 	pages_batch_init(&batch);
 
-	rcu_acquire_read(&cache->pages.rcu);
+	xarray_acquire_read(&cache->pages);
 	cache_foreach_range(addr, page, cache, start, end) {
 		if (!cache_clear_page_dirty(cache, page)) {
 			continue;
@@ -653,7 +658,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 		pmm_retain(page);
 
 		page_t *page_info = pmm_page_info(page);
-		rcu_release_read(&cache->pages.rcu);
+		xarray_release_read(&cache->pages);
 		cache_wait_page_no_io(page);
 		while (atomic_fetch_or(&page_info->flags, PAGE_FLAG_WRITING) & PAGE_FLAG_WRITING) {
 			// already writing
@@ -664,7 +669,7 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 		if (cached_page_is_evicted(page_info)) {
 			atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_WRITING);
 			pmm_release_page_lock(page);
-			rcu_acquire_read(&cache->pages.rcu);
+			xarray_acquire_read(&cache->pages);
 			pmm_release_page(page);
 			continue;
 		}
@@ -680,9 +685,9 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 		}
 
 		pages_batch_add(&batch, page);
-		rcu_acquire_read(&cache->pages.rcu);
+		xarray_acquire_read(&cache->pages);
 	}
-	rcu_release_read(&cache->pages.rcu);
+	xarray_release_read(&cache->pages);
 
 	if (!pages_batch_is_empty(&batch)) {
 		return cache_write_pages(cache, &batch);
@@ -910,7 +915,7 @@ int cache_truncate(cache_t *cache, size_t size) {
 		cache_free_pages(cache, start, end - start);
 	} else if (size > cache->size && cache->size % PAGE_SIZE != 0) {
 		// we need to zero the last page
-		rcu_acquire_read(&cache->pages.rcu);
+		xarray_acquire_read(&cache->pages);
 		uintptr_t page = cache_lookup_page(cache, PAGE_ALIGN_DOWN(cache->size));
 		if (page != PAGE_INVALID) {
 			char *vaddr = mmu_phys2virt(page);
@@ -918,7 +923,7 @@ int cache_truncate(cache_t *cache, size_t size) {
 			memset(vaddr + partial_size, 0, PAGE_SIZE - partial_size);
 			cache_mark_page_dirty(cache, page);
 		}
-		rcu_release_read(&cache->pages.rcu);
+		xarray_release_read(&cache->pages);
 	}
 	cache->size = size;
 	mutex_release(&cache->mutex);

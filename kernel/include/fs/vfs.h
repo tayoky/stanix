@@ -697,9 +697,9 @@ void vfs_dentry_release(vfs_dentry_t *dentry);
  * @note create a new ref to the cwd that must be released using \ref vfs_dentry_release
  */
 static inline vfs_dentry_t *vfs_context_get_cwd(vfs_context_t *context) {
-	rcu_acquire_read(NULL);
+	rcu_acquire_read();
 	vfs_dentry_t *cwd = vfs_dentry_ref(rcu_ptr_fetch(&context->cwd));
-	rcu_release_read(NULL);
+	rcu_release_read();
 	return cwd;
 }
 
@@ -710,9 +710,9 @@ static inline vfs_dentry_t *vfs_context_get_cwd(vfs_context_t *context) {
  * @note create a new ref to the root that must be released using \ref vfs_dentry_release
  */
 static inline vfs_dentry_t *vfs_context_get_root(vfs_context_t *context) {
-	rcu_acquire_read(NULL);
+	rcu_acquire_read();
 	vfs_dentry_t *root = vfs_dentry_ref(rcu_ptr_fetch(&context->root));
-	rcu_release_read(NULL);
+	rcu_release_read();
 	return root;
 }
 
@@ -727,7 +727,7 @@ static inline void vfs_context_set_cwd(vfs_context_t *context, vfs_dentry_t *cwd
 	spinlock_acquire(&context->lock);
 	vfs_dentry_t *old_cwd = rcu_ptr_store(&context->cwd, cwd);
 	spinlock_release(&context->lock);
-	rcu_sync(NULL);
+	rcu_sync();
 	vfs_dentry_release(old_cwd);
 }
 
@@ -742,7 +742,7 @@ static inline void vfs_context_set_root(vfs_context_t *context, vfs_dentry_t *ro
 	spinlock_acquire(&context->lock);
 	vfs_dentry_t *old_root = rcu_ptr_store(&context->root, root);
 	spinlock_release(&context->lock);
-	rcu_sync(NULL);
+	rcu_sync();
 	vfs_dentry_release(old_root);
 }
 

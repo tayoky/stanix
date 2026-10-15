@@ -375,10 +375,10 @@ task_t *task_from_tid(pid_t tid) {
 		return task_ref(get_current_task());
 	}
 
-	rcu_acquire_read(&tasks_list.rcu);
+	xarray_acquire_read(&tasks_list);
 	task_t *task = xarray_get(&tasks_list, tid);
 	task_ref(task);
-	rcu_release_read(&tasks_list.rcu);
+	xarray_release_read(&tasks_list);
 	return task;
 }
 

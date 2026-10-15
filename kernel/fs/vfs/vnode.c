@@ -94,30 +94,30 @@ static vfs_node_t *vfs_node_wait_ready_helper(vfs_node_t *node) {
 }
 
 vfs_node_t *vfs_node_get(vfs_superblock_t *superblock, ino_t inode_number) {
-	rcu_acquire_read(&superblock->inodes.rcu);
+	xarray_acquire_read(&superblock->inodes);
 	vfs_node_t *node = xarray_get(&superblock->inodes, inode_number);
 	if (node && vfs_node_ref_if_not_zero(node)) {
-		rcu_release_read(&superblock->inodes.rcu);
+		xarray_release_read(&superblock->inodes);
 		// fast path
 		return vfs_node_wait_ready_helper(node);
 	}
-	rcu_release_read(&superblock->inodes.rcu);
+	xarray_release_read(&superblock->inodes);
 
 	// the node is not cached, create it
 	node = vfs_node_allocate(superblock);
 	if (!node) return ERR2PTR(-ENOMEM);
 	node->number = inode_number;
 
-	rcu_acquire_write(&superblock->inodes.rcu);
+	xarray_acquire_write(&superblock->inodes);
 	vfs_node_t *old_node = xarray_raw_cmpxchg(&superblock->inodes, inode_number, NULL, node);
 	if (old_node && vfs_node_ref_if_not_zero(old_node)) {
 		// we raced
-		rcu_release_write(&superblock->inodes.rcu);
+		xarray_release_write(&superblock->inodes);
 		vfs_node_release(node);
 		return vfs_node_wait_ready_helper(old_node);
 	}
 
-	rcu_release_write(&superblock->inodes.rcu);
+	xarray_release_write(&superblock->inodes);
 	vfs_node_acquire_write(node);
 	return node;
 }
@@ -225,17 +225,19 @@ void vfs_node_release(vfs_node_t *node) {
 	vfs_node_flush(node);
 
 	// this is the last ref count we might need to free
-	rcu_acquire_write(&node->superblock->inodes.rcu);
+	xarray_acquire_write(&node->superblock->inodes);
 	if (ref_count_dec(&node->ref_count) > 1) {
 		// another thread made a new ref through the lookup table
-		rcu_release_write(&node->superblock->inodes.rcu);
+		xarray_release_write(&node->superblock->inodes);
 		// this isen't the last ref anymore
 		return;
 	}
 
 	// remove from the cache
 	xarray_raw_clear(&node->superblock->inodes, node->number);
-	rcu_release_write(&node->superblock->inodes.rcu);
+	xarray_release_write(&node->superblock->inodes);
+
+	rcu_sync();
 	
 	// we can cleanup
 	if (node->ops->cleanup) {

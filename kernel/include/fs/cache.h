@@ -55,14 +55,14 @@ static inline uintptr_t cache_lookup_page(cache_t *cache, off_t offset) {
 }
 
 static inline uintptr_t cache_lookup_and_ref_page(cache_t *cache, off_t offset) {
-	rcu_acquire_read(&cache->pages.rcu);
+	xarray_acquire_read(&cache->pages);
 	uintptr_t page = (uintptr_t)xarray_get(&cache->pages, PAGE2PFN(offset));
 	if (!page) {
-		rcu_release_read(&cache->pages.rcu);
+		xarray_release_read(&cache->pages);
 		return PAGE_INVALID;
 	}
 	pmm_retain(page);
-	rcu_release_read(&cache->pages.rcu);
+	xarray_release_read(&cache->pages);
 	return page;
 }
 

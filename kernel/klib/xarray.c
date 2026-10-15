@@ -62,9 +62,9 @@ static void xarray_entry_destroy(uintptr_t entry) {
 }
 
 void xarray_destroy(xarray_t *xarray) {
-	rcu_acquire_write(&xarray->rcu);
-	xarray_entry_destroy(xarray_entry_fetch(&xarray->rcu.ptr));
-	rcu_release_write(&xarray->rcu);
+	xarray_acquire_write(xarray);
+	xarray_entry_destroy(xarray_entry_fetch(&xarray->root));
+	xarray_release_write(xarray);
 }
 
 static inline size_t xarray_node_get_local_index(xarray_node_t *node, size_t index) {
@@ -93,7 +93,7 @@ static inline int xarray_is_in_bound(uintptr_t entry, size_t index) {
 }
 
 static void *xarray_raw_get(xarray_t *xarray, size_t index) {
-	uintptr_t current_entry = xarray_entry_fetch(&xarray->rcu.ptr);
+	uintptr_t current_entry = xarray_entry_fetch(&xarray->root);
 
 	// bound check
 	if (!xarray_is_in_bound(current_entry, index)) return NULL;
@@ -111,15 +111,15 @@ static void *xarray_raw_get(xarray_t *xarray, size_t index) {
 }
 
 void *xarray_get(xarray_t *xarray, size_t index) {
-	rcu_acquire_read(&xarray->rcu);
+	xarray_acquire_read(xarray);
 	void *ret = xarray_raw_get(xarray, index);
-	rcu_release_read(&xarray->rcu);
+	xarray_release_read(xarray);
 	return ret;
 }
 
 void *xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 	kassert((((uintptr_t)value) & 0x1) == 0);
-	rcu_ptr_t *current_entry = &xarray->rcu.ptr;
+	rcu_ptr_t *current_entry = &xarray->root;
 
 	uintptr_t current_entry_value = xarray_entry_fetch(current_entry);
 	if (!xarray_is_in_bound(current_entry_value, index)) {
@@ -157,7 +157,7 @@ void *xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 			current_shift += XARRAY_SHIFT_BITS;
 			previous_is_full = 0;
 		}
-		xarray_entry_store(&xarray->rcu.ptr, current_entry_value);
+		xarray_entry_store(&xarray->root, current_entry_value);
 	}
 
 	// keep track of the nodes we have gone through to set the mask on them
@@ -214,9 +214,9 @@ void *xarray_raw_set(xarray_t *xarray, size_t index, void *value) {
 
 void *xarray_set(xarray_t *xarray, size_t index, void *value) {
 	kassert((((uintptr_t)value) & 0x1) == 0);
-	rcu_acquire_write(&xarray->rcu);
+	xarray_acquire_write(xarray);
 	void *ret = xarray_raw_set(xarray, index, value);
-	rcu_release_write(&xarray->rcu);
+	xarray_release_write(xarray);
 	return ret;
 }
 
@@ -230,9 +230,9 @@ void *xarray_raw_cmpxchg(xarray_t *xarray, size_t index, void *expected, void *v
 
 void *xarray_cmpxchg(xarray_t *xarray, size_t index, void *expected, void *value) {
 	kassert((((uintptr_t)value) & 0x1) == 0);
-	rcu_acquire_write(&xarray->rcu);
+	xarray_acquire_write(xarray);
 	void *ret = xarray_raw_cmpxchg(xarray, index, expected, value);
-	rcu_release_write(&xarray->rcu);
+	xarray_release_write(xarray);
 	return ret;
 }
 
@@ -279,7 +279,7 @@ static int xarray_entry_allocate(rcu_ptr_t *entry, size_t min, size_t parent_shi
 }
 
 static size_t xarray_raw_allocate_from(xarray_t *xarray, size_t start, void *value) {
-	rcu_ptr_t *entry = &xarray->rcu.ptr;
+	rcu_ptr_t *entry = &xarray->root;
 	uintptr_t entry_value = xarray_entry_fetch(entry);
 
 	// get rid of the case where start is out of bound
@@ -311,9 +311,9 @@ static size_t xarray_raw_allocate_from(xarray_t *xarray, size_t start, void *val
 
 size_t xarray_allocate_from(xarray_t *xarray, size_t start, void *value) {
 	kassert((((uintptr_t)value) & 0x1) == 0);
-	rcu_acquire_write(&xarray->rcu);
+	xarray_acquire_write(xarray);
 	size_t ret = xarray_raw_allocate_from(xarray, start, value);
-	rcu_release_write(&xarray->rcu);
+	xarray_release_write(xarray);
 	return ret;
 }
 
@@ -351,27 +351,27 @@ static void *xarray_entry_find_non_null(uintptr_t entry, size_t min, size_t *ind
 }
 
 static void *xarray_raw_first(xarray_t *xarray, size_t *index) {
-	uintptr_t entry = xarray_entry_fetch(&xarray->rcu.ptr);
+	uintptr_t entry = xarray_entry_fetch(&xarray->root);
 	return xarray_entry_find_non_null(entry, 0, index);
 }
 
 void *xarray_first(xarray_t *xarray, size_t *index) {
-	rcu_acquire_read(&xarray->rcu);
+	xarray_acquire_read(xarray);
 	void *ret = xarray_raw_first(xarray, index);
-	rcu_release_read(&xarray->rcu);
+	xarray_release_read(xarray);
 	return ret;
 }
 
 static void *xarray_raw_first_from(xarray_t *xarray, size_t from, size_t *index) {
-	uintptr_t entry = xarray_entry_fetch(&xarray->rcu.ptr);
+	uintptr_t entry = xarray_entry_fetch(&xarray->root);
 	if (!xarray_is_in_bound(entry, from)) return NULL;
 	return xarray_entry_find_non_null(entry, from, index);
 }
 
 void *xarray_first_from(xarray_t *xarray, size_t from, size_t *index) {
-	rcu_acquire_read(&xarray->rcu);
+	xarray_acquire_read(xarray);
 	void *ret = xarray_raw_first_from(xarray, from, index);
-	rcu_release_read(&xarray->rcu);
+	xarray_release_read(xarray);
 	return ret;
 }
 
@@ -405,12 +405,12 @@ static void xarray_debug_entry(uintptr_t entry, size_t depth) {
 }
 
 static void xarray_raw_debug(xarray_t *xarray) {
-	uintptr_t entry = xarray_entry_fetch(&xarray->rcu.ptr);
+	uintptr_t entry = xarray_entry_fetch(&xarray->root);
 	xarray_debug_entry(entry, 0);
 }
 
 void xarray_debug(xarray_t *xarray) {
-	rcu_acquire_read(&xarray->rcu);
+	xarray_acquire_read(xarray);
 	xarray_raw_debug(xarray);
-	rcu_release_read(&xarray->rcu);
+	xarray_release_read(xarray);
 }

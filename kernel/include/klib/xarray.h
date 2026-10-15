@@ -8,13 +8,14 @@
 #define XARRAY_MASK             ((1 << XARRAY_SHIFT_BITS) - 1)
 
 typedef struct xarray_node {
-	size_t shift;       // hold the shift of the current mask
-	uint64_t full_mask; // bitmap of is each entry full ?
-	rcu_ptr_t entries[XARRAY_ENTRIES_PER_NODE];
+	size_t shift;       // hold the shift of the current mask, write protected by lock
+	uint64_t full_mask; // bitmap of is each entry full ? protected by lock
+	rcu_ptr_t entries[XARRAY_ENTRIES_PER_NODE]; // write protected by lock
 } xarray_node_t;
 
 typedef struct xarray {
-	rcu_t rcu;
+	rcu_ptr_t root; // write protected by lock
+	spinlock_t lock;
 } xarray_t;
 
 /**
@@ -147,6 +148,40 @@ void *xarray_first_from(xarray_t *xarray, size_t from, size_t *index);
  * @return the first non NULL value after a specified index
  */
 void *xarray_next(xarray_t *xarray, size_t after, size_t *index);
+
+/**
+ * @brief acquire the rcu read lock of a xarray
+ * @param xarray the xarray to acquire the lock of
+ */
+static inline void xarray_acquire_read(xarray_t *xarray) {
+	(void)xarray;
+	rcu_acquire_read();
+}
+
+/**
+ * @brief release the rcu read lock of a xarray
+ * @param xarray the xarray to release the lock of
+ */
+static inline void xarray_release_read(xarray_t *xarray) {
+	(void)xarray;
+	rcu_release_read();
+}
+
+/**
+ * @brief acquire the write lock of a xarray
+ * @param xarray the xarray to acquire the lock of
+ */
+static inline void xarray_acquire_write(xarray_t *xarray) {
+	spinlock_acquire(&xarray->lock);
+}
+
+/**
+ * @brief release the write lock of a xarray
+ * @param xarray the xarray to release the lock of
+ */
+static inline void xarray_release_write(xarray_t *xarray) {
+	spinlock_release(&xarray->lock);
+}
 
 /**
  * @brief print debug info about an xarray

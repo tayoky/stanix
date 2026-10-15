@@ -44,16 +44,16 @@ int vfs_unregister_fs(vfs_filesystem_t *fs) {
 int vfs_superblock_flush(vfs_superblock_t *superblock) {
 	if (!superblock) return -EINVAL;
 	// TODO : maybee use a dedicated dirty list
-	rcu_acquire_read(&superblock->inodes.rcu);
+	xarray_acquire_read(&superblock->inodes);
 	xarray_foreach (index, value, &superblock->inodes) {
 		vfs_node_t *node = value;
 		vfs_node_ref(node);
-		rcu_release_read(&superblock->inodes.rcu);
+		xarray_release_read(&superblock->inodes);
 		vfs_node_flush(node);
 		vfs_node_release(node);
-		rcu_acquire_read(&superblock->inodes.rcu);
+		xarray_acquire_read(&superblock->inodes);
 	}
-	rcu_release_read(&superblock->inodes.rcu);
+	xarray_release_read(&superblock->inodes);
 	if (superblock->ops && superblock->ops->flush) {
 		int ret = 0;
 		if (ret < 0) return ret;

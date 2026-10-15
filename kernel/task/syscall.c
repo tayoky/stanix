@@ -675,14 +675,14 @@ int sys_sigpending(sigset_t *set) {
 }
 
 static int check_sig_perm(process_t *proc) {
-	rcu_acquire_read(NULL);
+	rcu_acquire_read();
 	cred_t *proc_cred = proc_get_cred(proc);
 	cred_t *current_cred = proc_get_cred(proc);
 	int ret = 0;
 	if (current_cred->euid == EUID_ROOT || current_cred->uid == proc_cred->uid || current_cred->euid == proc_cred->suid) {
 		ret = 1;
 	}
-	rcu_release_read(NULL);
+	rcu_release_read();
 	return ret;
 }
 
@@ -1253,10 +1253,10 @@ int sys_access(const char *pathname, int mode) {
 		vfs_node_release(node);
 		return 0;
 	}
-	rcu_acquire_read(NULL);
+	rcu_acquire_read();
 	uid_t uid = get_current_uid();
 	gid_t gid = get_current_gid();
-	rcu_release_read(NULL);
+	rcu_release_read();
 	int succed = (vfs_user_perm(node, uid, gid) & mode) == mode;
 	vfs_node_release(node);
 	return succed ? 0 : -EACCES;
@@ -1697,10 +1697,10 @@ int sys_setgroups(size_t size, const gid_t *list) {
 }
 
 int sys_getgroups(int size, gid_t *list) {
-	rcu_acquire_read(NULL);
+	rcu_acquire_read();
 	cred_t *cred = get_current_cred();
 	cred_ref(cred);
-	rcu_release_read(NULL);
+	rcu_release_read();
 
 	int ret = cred->groups->count;
 	if (size != 0) {
