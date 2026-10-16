@@ -232,21 +232,29 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 	int ret = 0;
 	if (flags & VMM_FLAG_ANONYMOUS) {
 		fd = NULL;
-		for (uintptr_t addr = new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
-			uintptr_t page;
-			if (flags & VMM_FLAG_SHARED) {
+		if (flags & VMM_FLAG_SHARED) {
+			for (uintptr_t addr = new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
+				uintptr_t page;
 				page = pmm_allocate_page();
 				if (page == PAGE_INVALID) {
 					// unmap already mapped pages
+unmap_pages:
 					vmm_space_unmap_and_release_pages(space, new_seg->start, addr);
 					ret = -ENOMEM;
 					goto error;
 				}
 				memset(mmu_phys2virt(page), 0, PAGE_SIZE);
-				mmu_map_page(space->addrspace, page, addr, prot);
-			} else {
-				page = pmm_get_zero_page();
-				mmu_map_page(space->addrspace, page, addr, prot & ~MMU_FLAG_WRITE);
+				// calling mmu_map_pages in a loop is slow as hell
+				// might come back later on this
+				if (mmu_map_pages(space->addrspace, addr, page, PAGE_SIZE, prot) < 0) {
+					pmm_release_page(page);
+					goto unmap_pages;
+				}
+			}
+		} else {
+			uintptr_t page = pmm_get_zero_page();
+			mmu_foreach_create_page_range (space->addrspace,addr, entry, seg->start, seg->end) {
+				mmu_entry_map(space->addrspace, entry, prot & ~MMU_FLAG_WRITE);
 			}
 		}
 	} else if (fd) {
@@ -472,9 +480,10 @@ int vmm_space_sync_range(vmm_space_t *space, uintptr_t start, uintptr_t end, int
 	return ret;
 }
 
-static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg) {
+static int vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg) {
+	vmm_seg_t *new_seg = slab_alloc(&vmm_seg_slab);
+	if (!new_seg) return -ENOMEM;
 	mutex_acquire(&seg->lock);
-	vmm_seg_t *new_seg    = slab_alloc(&vmm_seg_slab);
 	new_seg->prot         = seg->prot;
 	new_seg->flags        = seg->flags;
 	new_seg->start        = seg->start;
@@ -488,15 +497,27 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 		prot &= ~MMU_FLAG_WRITE;
 	}
 	// remap in child
-	for (uintptr_t addr = seg->start; addr < seg->end; addr += PAGE_SIZE) {
-		uintptr_t phys = mmu_space_virt2phys(parent->addrspace, (void *)addr);
+	rcu_acquire_read();
+	mmu_entry_t *child_entry = NULL;
+	uintptr_t old_vaddr = 0;
+	mmu_foreach_entry_range (vaddr, parent_entry, parent->addrspace, seg->start, seg->end) {
+		uintptr_t page = mmu_entry_get_page(parent->addrspace, parent_entry);
 		// do not touch ref count of IO mapping
 		// because they actually do not have a ref count
 		if (!(seg->flags & VMM_FLAG_IO)) {
-			pmm_retain(phys);
+			pmm_retain(page);
 		}
-		mmu_map_page(child->addrspace, phys, addr, prot);
+		rcu_release_read();
+
+		child_entry = mmu_create_next_entry(child->addrspace, vaddr, child_entry, old_vaddr);
+		if (!child_entry) {
+			kassert("TODO : handle memory failure");
+		}
+		mmu_entry_map(child->addrspace, child_entry, page, prot);
+		rcu_acquire_read();
 	}
+	rcu_release_read();
+	if (child_entry) mmu_entry_release_lock(child_entry);
 
 	if (seg->flags & VMM_FLAG_PRIVATE) {
 		// we need to remap as readonly in the parent too
@@ -521,6 +542,7 @@ static void vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *se
 		seg->ops->dup(new_seg);
 	}
 	mutex_release(&seg->lock);
+	return 0;
 }
 
 int vmm_clone(vmm_space_t *parent, vmm_space_t *child) {

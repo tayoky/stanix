@@ -88,6 +88,14 @@ mmu_entry_t *mmu_next_entry(mmu_space_t addrspace, uintptr_t from, uintptr_t *va
 #define mmu_foreach_entry_and_acquire_lock_range(vaddr, entry, addrspace, start, end) mmu_foreach_entry_range(vaddr, entry, addrspace, start, end)
 
 mmu_entry_t *mmu_create_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
+mmu_entry_t *mmu_create_next_entry(mmu_space_t addrspace, uintptr_t vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr);
+/*#define mmu_foreach_create_entry_range(vaddr, entry, addrspace, start, end) \
+    loop_var_value(uintptr_t, vaddr, (start)) \
+    for (mmu_entry_t *entry = mmu_create_entry_and_acquire_lock(addrspace, start); \
+    vaddr < (end); \
+    entry = mmu_create_next_entry(addrspace, vaddr + PAGE_SIZE, entry, vaddr), \
+	vaddr += PAGE_SIZE)*/
+
 
 void mmu_entry_release_lock(mmu_entry_t *entry);
 

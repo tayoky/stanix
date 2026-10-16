@@ -315,7 +315,7 @@ uintptr_t mmu_entry_get_page(mmu_space_t PML4, mmu_entry_t *entry) {
 	if (value & PAGING_FLAG_PRESENT) {
 		return value & PAGING_ENTRY_ADDRESS;
 	} else {
-		return 0;
+		return PAGE_INVALID;
 	}
 }
 
@@ -381,6 +381,24 @@ mmu_entry_t *mmu_next_entry(mmu_space_t PML4, uintptr_t from, uintptr_t *vaddr, 
 		pmm_acquire_page_lock(page);
 	}
 	return entry;
+}
+
+mmu_entry_t *mmu_create_next_entry(mmu_space_t PML4, uintptr_t vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr) {
+	if (!old_entry) return mmu_create_entry_and_acquire_lock(PML4, vaddr);
+
+	if ((vaddr & (512 * PAGE_SIZE)) == (old_vaddr & (512 * PAGE_SIZE))) {
+		// the two entries are on the same PD
+		if (vaddr > old_vaddr) {
+			size_t diff = vaddr - old_vaddr;
+			return old_entry + diff / PAGE_SIZE;
+		} else {
+			size_t diff = old_vaddr - vaddr;
+			return old_entry - diff / PAGE_SIZE;
+		}
+	}
+
+	mmu_entry_release_lock(old_entry);
+	return mmu_create_entry_and_acquire_lock(PML4, vaddr);
 }
 
 void mmu_map_kernel(uint64_t *PML4) {

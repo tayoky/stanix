@@ -719,10 +719,12 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 
 	cache_t *cache = seg->private_data;
 
-	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-		uintptr_t page = mmu_virt2phys((void *)addr);
+	rcu_acquire_read();
+	mmu_entry_foreach_range (index, entry, get_current_proc()->vmm_space.addrspace, seg->start, seg->end) {
+		// FIXME : do we need the entry's lock??
+		uintptr_t page = mmu_entry_get_page(get_current_proc()->vmm_space.addrspace);
 		if (page == PAGE_INVALID) continue;
-		long mmu_flags = mmu_get_and_clear_flags(get_current_proc()->vmm_space.addrspace, addr, MMU_FLAG_DIRTY | MMU_FLAG_ACCESS);
+		long mmu_flags = mmu_entry,get_and_clear_flags(get_current_proc()->vmm_space.addrspace, entry, MMU_FLAG_DIRTY | MMU_FLAG_ACCESS);
 		if (mmu_flags & MMU_FLAG_DIRTY) {
 			cache_mark_page_dirty(cache, page);
 		}
@@ -730,6 +732,7 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 			cache_mark_page_active(cache, page);
 		}
 	}
+	rcu_release_read();
 
 	if (flags & VMM_FLAG_SYNC) {
 		return cache_flush(cache, seg->offset + start - seg->start, end - start);
@@ -753,9 +756,10 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	uintptr_t page;
 	int ret = cache_get_page(cache, offset, &page);
 	if (ret < 0) {
-		// the page is not cached
+		// cannot get the page
 		// we are cooked
 		kdebugf("uncached mapped page access\n");
+sigbus:
 		signal_send_task(get_current_task(), SIGBUS);
 		return 1;
 	}
@@ -768,8 +772,8 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 			uintptr_t new_page = pmm_dup_page(page);
 			pmm_release_page(page);
 			if (new_page == PAGE_INVALID) {
-				signal_send_task(get_current_task(), SIGBUS);
-				return 1;
+				kdebugf("failed to duplicate page\n");
+				goto sigbus;
 			}
 			page = new_page;
 		} else {
@@ -777,8 +781,23 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 		}
 	}
 
+	mmu_entry_t *entry = mmu_create_entry_and_acquire_lock(entry);
+	if (!entry) {
+		kdebugf("failed to create mmu entry\n");
+		pmm_release_page(page);
+		goto sigbus;
+	}
+
+	if (mmu_get_flags(get_current_proc()->vmm_space.addrspace, entry) & MMU_FLAG_PRESENT) {
+		// page was mapped in between, we raced
+		mmu_entry_release_lock(entry);
+		pmm_release_page(page);
+		return 1;
+	}
+
 	// cache_get_page already made a new ref to the page
-	mmu_map_page(get_current_proc()->vmm_space.addrspace, page, vpage, mapping_prot);
+	mmu_entry_map(get_current_proc()->vmm_space.addrspace, entry, page, mapping_prot);
+	mmu_entry_release_lock(entry);
 	return 1;
 }
 
