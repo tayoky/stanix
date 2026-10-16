@@ -155,21 +155,6 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 	return 0;
 }
 
-static void vmm_space_unmap_and_release_pages(vmm_space_t *space, uintptr_t start, uintptr_t end) {
-	mmu_foreach_entry_range (vaddr, entry, space->addrspace, start, end) {
-		uintptr_t page = mmu_entry_get_page(space->addrspace, entry);
-		if (page == PAGE_INVALID) continue;
-		mmu_entry_unmap(space->addrspace, entry, vaddr);
-		pmm_release_page(page);
-	}
-}
-
-static void vmm_space_unmap_pages(vmm_space_t *space, uintptr_t start, uintptr_t end) {
-	mmu_foreach_entry_range (vaddr, entry, space->addrspace, start, end) {
-		mmu_entry_unmap(space->addrspace, entry, vaddr);
-	}
-}
-
 static vmm_seg_t *vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags) {
 	vmm_seg_t *prev = NULL;
 	if (address) {
@@ -240,7 +225,7 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 				if (page == PAGE_INVALID) {
 					// unmap already mapped pages
 unmap_pages:
-					vmm_space_unmap_and_release_pages(space, new_seg->start, addr);
+					mmu_unmap_and_release_pages(space->addrspace, new_seg->start, addr - new_seg->start);
 					ret = -ENOMEM;
 					goto error;
 				}
@@ -390,9 +375,9 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	// so do not free them
 	// it's the driver job to do it
 	if (seg->flags & VMM_FLAG_IO) {
-		vmm_space_unmap_pages(space, seg->start, seg->end);
+		mmu_unmap_pages(space->addrspace, seg->start, VMM_SIZE(seg));
 	} else {
-		vmm_space_unmap_and_release_pages(space, seg->start, seg->end);
+		mmu_unmap_and_release_pages(space->addrspace, seg->start, VMM_SIZE(seg));
 	}
 	slab_free(seg);
 }

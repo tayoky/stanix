@@ -22,7 +22,7 @@ void init_kheap(void) {
 	kheap_start = PAGE_ALIGN_DOWN(MEM_KHEAP_START);
 
 	// map a page
-	mmu_map_pages(mmu_get_addr_space(), pmm_allocate_page(), kheap_start, PAGE_SIZE, KHEAP_MMU_FLAGS);
+	mmu_allocate_and_map_pages(mmu_get_addr_space(), kheap_start, PAGE_SIZE, KHEAP_MMU_FLAGS);
 
 	kheap_length = PAGE_SIZE;
 
@@ -48,9 +48,7 @@ static void change_kheap_size(ssize_t offset, int flags) {
 	} else {
 		// make kheap bigger
 		uintptr_t virt_page = kheap_start + kheap_length;
-		for (size_t i = 0; i < offset_page; i++) {
-			mmu_map_pages(addr_space, virt_page, pmm_allocate_page_flags(flags), PAGE_SIZE, KHEAP_MMU_FLAGS);
-		}
+		mmu_allocate_and_map_pages(addr_space, virt_page, offset_page * PAGE_SIZE, KHEAP_MMU_FLAGS);
 	}
 	kheap_length += offset_page * PAGE_SIZE;
 }

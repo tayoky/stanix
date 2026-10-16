@@ -72,12 +72,9 @@ static page_t **pmm_page_section(uintptr_t addr) {
 static page_t *pmm_allocate_page_section(uintptr_t *map_addr) {
 	// we need to map new pages
 	page_t *pages_info = (page_t *)*map_addr;
-	for (size_t size = 0; size < PAGES_PER_SECTION * sizeof(page_t); size += PAGE_SIZE) {
-		uintptr_t page = pmm_allocate_page();
-		kassert(page != PAGE_INVALID && "early OOM");
-		mmu_map_page(mmu_get_addr_space(), page, *map_addr, PAGES_INFO_MMU_FLAGS);
-		*map_addr += PAGE_SIZE;
-	}
+	size_t size = PAGE_ALIGN_UP(PAGES_PER_SECTION * sizeof(page_t));
+	mmu_allocate_and_map_pages(mmu_get_addr_space(), *map_addr, size, PAGES_INFO_MMU_FLAGS);
+	*map_addr += size;
 
 	// setup flags and ref count
 	page_t *pages_end = pages_info + PAGES_PER_SECTION;
@@ -92,12 +89,7 @@ void init_second_stage_pmm(void) {
 	// allocate memory for sections array
 	uintptr_t sections_start = MEM_PAGES_START;
 	uintptr_t sections_end   = PAGE_ALIGN_UP(MEM_PAGES_START + highest_page / PAGE_SIZE / PAGES_PER_SECTION * sizeof(page_t *)) + PAGE_SIZE;
-	for (uintptr_t addr = sections_start; addr < sections_end; addr += PAGE_SIZE) {
-		// we need to map a new page
-		uintptr_t page = pmm_allocate_page();
-		kassert(page != PAGE_INVALID && "early OOM");
-		mmu_map_page(mmu_get_addr_space(), page, addr, PAGES_INFO_MMU_FLAGS);
-	}
+	mmu_allocate_and_map_pages(mmu_get_addr_space(), sections_start, sections_end - sections_start, PAGES_INFO_MMU_FLAGS);
 	memset((void *)sections_start, 0, sections_end - sections_start);
 	page_info_sections = (page_t **)sections_start;
 	uintptr_t map_addr = sections_end;

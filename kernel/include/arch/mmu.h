@@ -31,14 +31,27 @@ mmu_space_t mmu_space_init(void);
 void mmu_space_destroy(mmu_space_t addrspace);
 
 /**
- * @brief map a virtual pages to a physcal pages
+ * @brief map virtual pages to physcal pages
  * @param addrspace an pointer to the addrspace
- * @param paddr the physical pages to map
  * @param vaddr the virtual pages to map
+ * @param paddr the physical pages to map
  * @param size the size of the region to map
  * @param flags flag to use for the virtual pages (eg readonly, not executable...)
  */
-int mmu_map_pages(mmu_space_t addrspace, uintptr_t paddr, uintptr_t vaddr, size_t size, long flags);
+int mmu_map_pages(mmu_space_t addrspace, uintptr_t vaddr, uintptr_t paddr, size_t size, long flags);
+
+/**
+ * @brief allocate and map pages
+ * @param addrspace an pointer to the addrspace
+ * @param vaddr the virtual pages to map
+ * @param size the size of the region to allocate and map
+ * @param flags flag to use for the virtual pages (eg readonly, not executable...)
+ */
+int mmu_allocate_and_map_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size, long flags);
+
+
+void mmu_unmap_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size);
+void mmu_unmap_and_release_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size);
 
 /**
  * @brief map a mmu entry to a physcal page

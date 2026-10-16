@@ -211,18 +211,61 @@ mmu_entry_t *mmu_create_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t vaddr
 	return &PT[PTi];
 }
 
-int mmu_map_pages(mmu_space_t PML4, uintptr_t paddr, uintptr_t vaddr, size_t size, long flags) {
+int mmu_map_pages(mmu_space_t PML4, uintptr_t vaddr, uintptr_t paddr, size_t size, long flags) {
+	mmu_entry_t *entry = NULL;
+	uintptr_t start = vaddr;
 	while (size > 0) {
-		mmu_entry_t *entry = mmu_create_entry_and_acquire_lock(PML4, vaddr);
-		if (entry) return -ENOMEM;
+		entry = mmu_create_next_entry_and_acquire_lock(PML4, vaddr, entry, vaddr - PAGE_SIZE);
+		if (entry) {
+			mmu_unmap_pages(PML4, start, vaddr - start);
+			return -ENOMEM;
+		}
 		mmu_entry_map(PML4, entry, paddr, flags);
 		mmu_entry_release_lock(entry);
 		if (mmu_get_addr_space() == PML4) mmu_invalidate(vaddr);
 		paddr += PAGE_SIZE;
 		vaddr += PAGE_SIZE;
-		size -= PAGE_SIZE;
+		size  -= PAGE_SIZE;
+	}
+	if (entry) mmu_entry_release_lock(entry);
+	return 0;
+}
+
+int mmu_allocate_and_map_pages(mmu_space_t PML4, uintptr_t vaddr, size_t size, long flags) {
+	uintptr_t start = vaddr;
+	while (size > 0) {
+		uintptr_t page = pmm_allocate_page();
+		if (page == PAGE_INVALID) {
+			mmu_unmap_and_release_pages(PML4, start, vaddr - start);
+			return -ENOMEM;
+		}
+		// FIXME : calling mmu_map_pages in a loop is bad
+		int ret = mmu_map_pages(PML4, vaddr, page, PAGE_SIZE, flags);
+		if (ret < 0) {
+			pmm_release_page(page);
+			mmu_unmap_and_release_pages(PML4, start, vaddr - start);
+			return ret;
+		}
+
+		vaddr += PAGE_SIZE;
+		size  -= PAGE_SIZE;
 	}
 	return 0;
+}
+
+void mmu_unmap_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size) {
+	mmu_foreach_entry_range (current, entry, addrspace, vaddr, vaddr + size) {
+		mmu_entry_unmap(addrspace, entry, current);
+	}
+}
+
+void mmu_unmap_and_release_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size) {
+	mmu_foreach_entry_range (current, entry, addrspace, vaddr, vaddr + size) {
+		uintptr_t page = mmu_entry_get_page(addrspace, entry);
+		if (page == PAGE_INVALID) continue;
+		mmu_entry_unmap(addrspace, entry, current);
+		pmm_release_page(page);
+	}
 }
 
 mmu_entry_t *mmu_get_entry(mmu_space_t PML4, uintptr_t vaddr) {
@@ -401,7 +444,7 @@ mmu_entry_t *mmu_create_next_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t 
 	return mmu_create_entry_and_acquire_lock(PML4, vaddr);
 }
 
-mmu_entry_t *mmu_get_next_entry_and_acquire_lick(mmu_space_t addrspace, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry) {
+mmu_entry_t *mmu_get_next_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry) {
 	if (!old_entry) return mmu_get_entry_and_acquire_lock(PML4, vaddr);
 }
 
@@ -416,8 +459,8 @@ void mmu_map_kernel(uint64_t *PML4) {
 	uint64_t text_end    = PAGE_ALIGN_DOWN(kernel_text_end);
 
 	long flags = MMU_FLAG_READ | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL;
-	mmu_map_pages(PML4, phys_page, virt_page, text_end - virt_page, flags | MMU_FLAG_EXEC);
-	mmu_map_pages(PML4, phys_page + (text_end - virt_page), text_end, virt_end - text_end, flags | MMU_FLAG_WRITE);
+	mmu_map_pages(PML4, virt_page, phys_page, text_end - virt_page, flags | MMU_FLAG_EXEC);
+	mmu_map_pages(PML4, text_end, phys_page + (text_end - virt_page), virt_end - text_end, flags | MMU_FLAG_WRITE);
 }
 
 void mmu_map_hhdm(uint64_t *PML4) {
@@ -433,6 +476,6 @@ void mmu_map_hhdm(uint64_t *PML4) {
 		uintptr_t phys_page = PAGE_ALIGN_DOWN(entry.start);
 		uintptr_t phys_end  = PAGE_ALIGN_UP(entry.start + entry.size);
 		uintptr_t virt_page = (uintptr_t)mmu_phys2virt(phys_page);
-		mmu_map_pages(PML4, phys_page, virt_page, phys_end - phys_page, flags);
+		mmu_map_pages(PML4, virt_page, phys_page, phys_end - phys_page, flags);
 	}
 }
