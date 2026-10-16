@@ -339,7 +339,7 @@ long mmu_entry_get_and_clear_flags(mmu_space_t PML4, mmu_entry_t *entry, long fl
 	mmu_entry_val_t paging_flags = mmu2paging_flags(flags);
 	mmu_entry_val_t old = atomic_fetch_and(entry, ~paging_flags);
 	if (old & PAGING_FLAG_PRESENT) {
-		return paging2mmu_flags(old & paging_flags);
+		return paging2mmu_flags(old);
 	} else {
 		return 0;
 	}

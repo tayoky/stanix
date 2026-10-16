@@ -720,11 +720,13 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 	cache_t *cache = seg->private_data;
 
 	rcu_acquire_read();
-	mmu_entry_foreach_range (index, entry, get_current_proc()->vmm_space.addrspace, seg->start, seg->end) {
+	mmu_foreach_entry_range (addr, entry, get_current_proc()->vmm_space.addrspace, seg->start, seg->end) {
 		// FIXME : do we need the entry's lock??
-		uintptr_t page = mmu_entry_get_page(get_current_proc()->vmm_space.addrspace);
-		if (page == PAGE_INVALID) continue;
-		long mmu_flags = mmu_entry,get_and_clear_flags(get_current_proc()->vmm_space.addrspace, entry, MMU_FLAG_DIRTY | MMU_FLAG_ACCESS);
+		uintptr_t page = mmu_entry_get_page(get_current_proc()->vmm_space.addrspace, entry);
+		long mmu_flags = mmu_entry_get_and_clear_flags(get_current_proc()->vmm_space.addrspace, entry, MMU_FLAG_DIRTY | MMU_FLAG_ACCESS);
+		if (!(mmu_flags & MMU_FLAG_PRESENT) || page == PAGE_INVALID) {
+			continue;
+		}
 		if (mmu_flags & MMU_FLAG_DIRTY) {
 			cache_mark_page_dirty(cache, page);
 		}
@@ -781,14 +783,14 @@ sigbus:
 		}
 	}
 
-	mmu_entry_t *entry = mmu_create_entry_and_acquire_lock(entry);
+	mmu_entry_t *entry = mmu_create_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
 	if (!entry) {
 		kdebugf("failed to create mmu entry\n");
 		pmm_release_page(page);
 		goto sigbus;
 	}
 
-	if (mmu_get_flags(get_current_proc()->vmm_space.addrspace, entry) & MMU_FLAG_PRESENT) {
+	if (mmu_entry_get_flags(get_current_proc()->vmm_space.addrspace, entry) & MMU_FLAG_PRESENT) {
 		// page was mapped in between, we raced
 		mmu_entry_release_lock(entry);
 		pmm_release_page(page);
@@ -838,12 +840,23 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 		prot &= ~MMU_FLAG_WRITE;
 	}
 
+	mmu_entry_t *entry = NULL;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE, vaddr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_and_ref_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
-		
-		mmu_map_page(get_current_proc()->vmm_space.addrspace, page, vaddr, prot);
+
+		entry = mmu_create_next_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vaddr, entry, vaddr - PAGE_SIZE);
+
+		// memory failure is non fatal
+		// because we don't need the entry right now
+		if (!entry) {
+			pmm_release_page(page);
+			break;
+		}
+
+		mmu_entry_map(get_current_proc()->vmm_space.addrspace, entry, page, prot);
 	}
+	if (entry) mmu_entry_release_lock(entry);
 	return 0;
 }
 
