@@ -5,8 +5,6 @@
 #include <kernel/macro.h>
 #include <stddef.h>
 
-// inspired by etheral's API
-
 #define MMU_FLAG_PRESENT       0x1   // present in memory
 #define MMU_FLAG_READ          0x2   // readable memory
 #define MMU_FLAG_WRITE         0x4   // writable memory
@@ -77,25 +75,17 @@ mmu_entry_t *mmu_get_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vad
  * @param old_entry the old entry to release the lock of
  * @return a pointer to the new entry or NULL if it doesn't exist
  */
-mmu_entry_t *mmu_next_entry(mmu_space_t addrspace, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry);
+mmu_entry_t *mmu_get_next_entry(mmu_space_t addrspace, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry);
 #define mmu_foreach_entry_range(vaddr, entry, addrspace, start, end) \
     loop_var(uintptr_t, vaddr) \
-    for (mmu_entry_t *entry = mmu_next_entry(addrspace, start, &vaddr, NULL); \
+    for (mmu_entry_t *entry = mmu_get_next_entry(addrspace, start, &vaddr, NULL); \
     entry && vaddr < (end); \
-    entry = mmu_next_entry(addrspace, vaddr, &vaddr, entry))
+    entry = mmu_get_next_entry(addrspace, vaddr, &vaddr, entry))
 
-// TODO : implement this correcly
-#define mmu_foreach_entry_and_acquire_lock_range(vaddr, entry, addrspace, start, end) mmu_foreach_entry_range(vaddr, entry, addrspace, start, end)
+mmu_entry_t *mmu_get_next_entry_and_acquire_lick(mmu_space_t addrspace, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry);
 
 mmu_entry_t *mmu_create_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
-mmu_entry_t *mmu_create_next_entry(mmu_space_t addrspace, uintptr_t vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr);
-/*#define mmu_foreach_create_entry_range(vaddr, entry, addrspace, start, end) \
-    loop_var_value(uintptr_t, vaddr, (start)) \
-    for (mmu_entry_t *entry = mmu_create_entry_and_acquire_lock(addrspace, start); \
-    vaddr < (end); \
-    entry = mmu_create_next_entry(addrspace, vaddr + PAGE_SIZE, entry, vaddr), \
-	vaddr += PAGE_SIZE)*/
-
+mmu_entry_t *mmu_create_next_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr);
 
 void mmu_entry_release_lock(mmu_entry_t *entry);
 

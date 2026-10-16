@@ -232,8 +232,9 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 	int ret = 0;
 	if (flags & VMM_FLAG_ANONYMOUS) {
 		fd = NULL;
-		if (flags & VMM_FLAG_SHARED) {
-			for (uintptr_t addr = new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
+		mmu_entry_t *entry = NULL;
+		for (uintptr_t addr = new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
+			if (flags & VMM_FLAG_SHARED) {
 				uintptr_t page;
 				page = pmm_allocate_page();
 				if (page == PAGE_INVALID) {
@@ -250,13 +251,15 @@ unmap_pages:
 					pmm_release_page(page);
 					goto unmap_pages;
 				}
-			}
-		} else {
-			uintptr_t page = pmm_get_zero_page();
-			mmu_foreach_create_page_range (space->addrspace,addr, entry, seg->start, seg->end) {
+			} else {
+				uintptr_t page = pmm_get_zero_page();
+				entry = mmu_create_next_entry_and_acquire_lock(space->addrspace, addr, entry, addr - PAGE_SIZE);
+				if (!entry) goto unmap_pages;
+				pmm_retain(page);
 				mmu_entry_map(space->addrspace, entry, prot & ~MMU_FLAG_WRITE);
 			}
 		}
+		if (entry) mmu_entry_release_lock(entry);
 	} else if (fd) {
 		ret = vfs_mmap(fd, offset, new_seg);
 	} else {
@@ -509,7 +512,8 @@ static int vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg
 		}
 		rcu_release_read();
 
-		child_entry = mmu_create_next_entry(child->addrspace, vaddr, child_entry, old_vaddr);
+		child_entry = mmu_create_next_entry_and_acquire_lock(child->addrspace, vaddr, child_entry, old_vaddr);
+		old_vaddr = vaddr;
 		if (!child_entry) {
 			kassert("TODO : handle memory failure");
 		}

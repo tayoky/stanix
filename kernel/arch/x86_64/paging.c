@@ -363,7 +363,7 @@ void mmu_entry_release_lock(mmu_entry_t *entry) {
 	pmm_release_page_lock(page);
 }
 
-mmu_entry_t *mmu_next_entry(mmu_space_t PML4, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry) {
+mmu_entry_t *mmu_get_next_entry(mmu_space_t PML4, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry) {
 	uintptr_t old_page = PAGE_ALIGN_DOWN(mmu_hhdm2phys(old_entry));
 	rcu_acquire_read();
 	mmu_entry_t *entry = mmu_get_entry(PML4, from);
@@ -383,7 +383,7 @@ mmu_entry_t *mmu_next_entry(mmu_space_t PML4, uintptr_t from, uintptr_t *vaddr, 
 	return entry;
 }
 
-mmu_entry_t *mmu_create_next_entry(mmu_space_t PML4, uintptr_t vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr) {
+mmu_entry_t *mmu_create_next_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr) {
 	if (!old_entry) return mmu_create_entry_and_acquire_lock(PML4, vaddr);
 
 	if ((vaddr & (512 * PAGE_SIZE)) == (old_vaddr & (512 * PAGE_SIZE))) {
@@ -399,6 +399,10 @@ mmu_entry_t *mmu_create_next_entry(mmu_space_t PML4, uintptr_t vaddr, mmu_entry_
 
 	mmu_entry_release_lock(old_entry);
 	return mmu_create_entry_and_acquire_lock(PML4, vaddr);
+}
+
+mmu_entry_t *mmu_get_next_entry_and_acquire_lick(mmu_space_t addrspace, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry) {
+	if (!old_entry) return mmu_get_entry_and_acquire_lock(PML4, vaddr);
 }
 
 void mmu_map_kernel(uint64_t *PML4) {
