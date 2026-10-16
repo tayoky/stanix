@@ -256,7 +256,7 @@ unmap_pages:
 				entry = mmu_create_next_entry_and_acquire_lock(space->addrspace, addr, entry, addr - PAGE_SIZE);
 				if (!entry) goto unmap_pages;
 				pmm_retain(page);
-				mmu_entry_map(space->addrspace, entry, prot & ~MMU_FLAG_WRITE);
+				mmu_entry_map(space->addrspace, entry, page, prot & ~MMU_FLAG_WRITE);
 			}
 		}
 		if (entry) mmu_entry_release_lock(entry);

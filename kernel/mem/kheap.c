@@ -48,7 +48,9 @@ static void change_kheap_size(ssize_t offset, int flags) {
 	} else {
 		// make kheap bigger
 		uintptr_t virt_page = kheap_start + kheap_length;
-		mmu_map_page(addr_space, pmm_allocate_page_flags(flags), virt_page, offset, KHEAP_MMU_FLAGS);
+		for (size_t i = 0; i < offset_page; i++) {
+			mmu_map_pages(addr_space, virt_page, pmm_allocate_page_flags(flags), PAGE_SIZE, KHEAP_MMU_FLAGS);
+		}
 	}
 	kheap_length += offset_page * PAGE_SIZE;
 }
