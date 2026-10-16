@@ -66,10 +66,9 @@ void mmu_entry_map(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t paddr, l
  * @brief unmap an entry
  * @param addrspace an pointer to the address space
  * @param entry the entry to unmap
- * @param vaddr the virtual address associed with this entry
  * @return the flags off this entry
  */
-long mmu_entry_unmap(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t vaddr);
+long mmu_entry_unmap(mmu_space_t addrspace, mmu_entry_t *entry);
 
 long mmu_entry_get_flags(mmu_space_t addrspace, mmu_entry_t *entry);
 uintptr_t mmu_entry_get_page(mmu_space_t addrspace, mmu_entry_t *entry);
@@ -101,6 +100,8 @@ mmu_entry_t *mmu_create_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t 
 mmu_entry_t *mmu_create_next_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr);
 
 void mmu_entry_release_lock(mmu_entry_t *entry);
+
+void mmu_invalidate(uintptr_t vaddr, size_t size);
 
 /**
  * @brief map the kernel code and global data

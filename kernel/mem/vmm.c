@@ -57,6 +57,7 @@ static int vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
 		pmm_release_page(phys);
 		mmu_entry_map(get_current_proc()->vmm_space.addrspace, entry, new_page, seg->prot);
 	}
+	mmu_invalidate(vpage, PAGE_SIZE);
 	mmu_entry_release_lock(entry);
 	return 0;
 }
@@ -226,6 +227,7 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 					// unmap already mapped pages
 unmap_pages:
 					mmu_unmap_and_release_pages(space->addrspace, new_seg->start, addr - new_seg->start);
+					if (space == &get_current_proc()->vmm_space) mmu_invalidate(new_seg->start, addr - new_seg->start);
 					ret = -ENOMEM;
 					goto error;
 				}
@@ -295,6 +297,10 @@ int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {
 			return ret;
 		}
 	}
+	if (seg->prot == prot) {
+		mutex_release(&seg->lock);
+		return 0;
+	}
 	seg->prot = prot;
 
 	rcu_acquire_read();
@@ -308,6 +314,7 @@ int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {
 		}
 	}
 	rcu_release_read();
+	if (space == &get_current_proc()->vmm_space) mmu_invalidate(seg->start, VMM_SIZE(seg));
 	mutex_release(&seg->lock);
 	return 0;
 }
@@ -376,8 +383,10 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	// it's the driver job to do it
 	if (seg->flags & VMM_FLAG_IO) {
 		mmu_unmap_pages(space->addrspace, seg->start, VMM_SIZE(seg));
+		if (space == &get_current_proc()->vmm_space) mmu_invalidate(seg->start, VMM_SIZE(seg));
 	} else {
 		mmu_unmap_and_release_pages(space->addrspace, seg->start, VMM_SIZE(seg));
+		if (space == &get_current_proc()->vmm_space) mmu_invalidate(seg->start, VMM_SIZE(seg));
 	}
 	slab_free(seg);
 }

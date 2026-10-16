@@ -22,7 +22,7 @@ static size_t shared_pages;
 static uintptr_t zero_page    = PAGE_INVALID;
 static uintptr_t highest_page = 0;
 static pmm_t pmms[ZONES_COUNT];
-static int is_stage2 = 0;
+int pmm_is_stage2 = 0;
 static sleep_queue_t sleep_queues[64];
 static int bootstrap_flags = 0;
 
@@ -134,7 +134,7 @@ void init_second_stage_pmm(void) {
 		}
 		pmm_set_free_pages_range(start, count);
 	}
-	is_stage2 = 1;
+	pmm_is_stage2 = 1;
 	zero_page = pmm_allocate_page();
 	memset(mmu_phys2virt(zero_page), 0, PAGE_SIZE);
 }
@@ -245,7 +245,7 @@ ATTR_NORETURN void pmm_oom(void) {
 uintptr_t pmm_zone_allocate_pages_flags(int zone, int order, int flags) {
 	flags |= pmm_get_flags();
 	if (zone == ZONE_DEFAULT) zone = ZONE_NORMAL;
-	if (!is_stage2) {
+	if (!pmm_is_stage2) {
 		// we can only allocate individual pages
 		kassert(order == ORDER_SIZE1);
 		uintptr_t page = pmm1_allocate_page();

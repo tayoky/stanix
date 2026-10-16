@@ -277,12 +277,15 @@ static inline int pmm_wait(uintptr_t page, unsigned int mask, unsigned int value
  */
 void pmm_wakeup(uintptr_t page);
 
+extern int pmm_is_stage2;
+
 /**
  * @brief try to acquire the lock of a page
  * @param page the page to acquire the lock of
  * @return 1 on success or 0 if the page could not be locked
  */
 static inline int pmm_try_acquire_page_lock(uintptr_t page) {
+	if (!pmm_is_stage2) return 0;
 	int previous_flags = atomic_fetch_or(&pmm_page_info(page)->flags, PAGE_FLAG_LOCKED);
 	return !(previous_flags & PAGE_FLAG_LOCKED);
 }
@@ -294,6 +297,7 @@ static inline int pmm_try_acquire_page_lock(uintptr_t page) {
  * @note can block
  */
 static inline int pmm_acquire_page_lock(uintptr_t page) {
+	if (!pmm_is_stage2) return 0;
 	page_t *page_info = pmm_page_info(page);
 	while (atomic_fetch_or(&page_info->flags, PAGE_FLAG_LOCKED) & PAGE_FLAG_LOCKED) {
 		int ret = pmm_wait(page, PAGE_FLAG_LOCKED, 0);
@@ -307,6 +311,7 @@ static inline int pmm_acquire_page_lock(uintptr_t page) {
  * @param page the page to release the lock of
  */
 static inline void pmm_release_page_lock(uintptr_t page) {
+	if (!pmm_is_stage2) return 0;
 	int previous_flags = atomic_fetch_and(&pmm_page_info(page)->flags, ~PAGE_FLAG_LOCKED);
 	(void)previous_flags;
 	kassert(previous_flags & PAGE_FLAG_LOCKED);

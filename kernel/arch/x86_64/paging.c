@@ -70,8 +70,12 @@ static long paging2mmu_flags(uint64_t paging_flags) {
 	return flags;
 }
 
-static void mmu_invalidate(uintptr_t vaddr) {
-	asm volatile("invlpg (%0)" ::"r"(vaddr) : "memory");
+void mmu_invalidate(uintptr_t vaddr, size_t size) {
+	while (size > 0) {
+		asm volatile("invlpg (%0)" ::"r"(vaddr) : "memory");
+		vaddr += PAGE_SIZE;
+		size  -= PAGE_SIZE;
+	}
 }
 
 mmu_space_t mmu_get_addr_space() {
@@ -222,7 +226,6 @@ int mmu_map_pages(mmu_space_t PML4, uintptr_t vaddr, uintptr_t paddr, size_t siz
 		}
 		mmu_entry_map(PML4, entry, paddr, flags);
 		mmu_entry_release_lock(entry);
-		if (mmu_get_addr_space() == PML4) mmu_invalidate(vaddr);
 		paddr += PAGE_SIZE;
 		vaddr += PAGE_SIZE;
 		size  -= PAGE_SIZE;
@@ -255,7 +258,7 @@ int mmu_allocate_and_map_pages(mmu_space_t PML4, uintptr_t vaddr, size_t size, l
 
 void mmu_unmap_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size) {
 	mmu_foreach_entry_range (current, entry, addrspace, vaddr, vaddr + size) {
-		mmu_entry_unmap(addrspace, entry, current);
+		mmu_entry_unmap(addrspace, entry);
 	}
 }
 
@@ -263,7 +266,7 @@ void mmu_unmap_and_release_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t 
 	mmu_foreach_entry_range (current, entry, addrspace, vaddr, vaddr + size) {
 		uintptr_t page = mmu_entry_get_page(addrspace, entry);
 		if (page == PAGE_INVALID) continue;
-		mmu_entry_unmap(addrspace, entry, current);
+		mmu_entry_unmap(addrspace, entry);
 		pmm_release_page(page);
 	}
 }
@@ -331,11 +334,10 @@ void mmu_entry_map(mmu_space_t PML4, mmu_entry_t *entry, uintptr_t paddr, long f
 	atomic_store(entry, (paddr & ~0xFFFUL) | paging_flags);
 }
 
-long mmu_entry_unmap(mmu_space_t PML4, mmu_entry_t *entry, uintptr_t vaddr) {
+long mmu_entry_unmap(mmu_space_t PML4, mmu_entry_t *entry) {
 	mmu_entry_val_t entry_val = atomic_exchange(entry, 0);
 
 	if (entry_val & MMU_FLAG_PRESENT) {
-		if (mmu_get_addr_space() == PML4) mmu_invalidate(vaddr);
 		return paging2mmu_flags(entry_val);
 	} else {
 		return 0;
@@ -352,6 +354,7 @@ long mmu_entry_get_flags(mmu_space_t PML4, mmu_entry_t *entry) {
 		return 0;
 	}
 }
+
 uintptr_t mmu_entry_get_page(mmu_space_t PML4, mmu_entry_t *entry) {
 	(void)PML4;
 	mmu_entry_val_t value = atomic_load(entry);
