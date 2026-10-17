@@ -158,6 +158,21 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 	return 0;
 }
 
+static int vmm_has_perm(vfs_fd_t *fd, long prot, int flags) {
+	if (flags & VMM_FLAG_ANONYMOUS) {
+		// we can always do anything on anonymous mappings
+		return 1;
+	}
+
+	if (fd->flags & O_WRONLY) {
+		return 0;
+	}
+	if ((flags & VMM_FLAG_SHARED) && (prot & MMU_FLAG_WRITE) && !(fd->flags & O_RDWR)) {
+		return 0;
+	}
+	return 1;
+}
+
 static vmm_seg_t *vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags) {
 	vmm_seg_t *prev = NULL;
 	if (address) {
@@ -209,6 +224,10 @@ static vmm_seg_t *vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address
 static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset) {
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
+		
+	if (!vmm_has_perm(fd, prot, flags)) {
+		return ERR2PTR(-EACCES);
+	}
 
 	vmm_seg_t *new_seg = vmm_space_raw_create_seg(space, address, size, prot, flags);
 	if (IS_ERR(new_seg)) return new_seg;
@@ -289,6 +308,10 @@ vmm_seg_t *vmm_space_map(vmm_space_t *space, uintptr_t address, size_t size, lon
 
 int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {
 	mutex_acquire(&seg->lock);
+	if (!vmm_has_perm(seg->fd, prot, seg->flags)) {
+		mutex_release(&seg->lock);
+		return -EACCES;
+	}
 	if (seg->ops && seg->ops->can_mprotect) {
 		int ret = seg->ops->can_mprotect(seg, prot);
 		if (ret < 0) {
