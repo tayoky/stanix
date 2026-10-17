@@ -293,16 +293,16 @@ static mmu_entry_t *mmu_get_next_entry_helper(mmu_entry_t *table, size_t level, 
 		mmu_entry_val_t current = atomic_load(&table[i]);
 		if (!(current & PAGING_FLAG_PRESENT)) continue;
 
-		mmu_entry_t *entry;
 		if (level > 0) {
 			mmu_entry_t *sub_table = mmu_phys2virt(current & PAGING_ENTRY_ADDRESS);
-			entry = mmu_get_next_entry_helper(sub_table, level - 1, i == start ? from : 0, vaddr);
+			mmu_entry_t *entry = mmu_get_next_entry_helper(sub_table, level - 1, i == start ? from : 0, vaddr);
+			if (!entry) continue;
+			if (vaddr) *vaddr += i << PAGING_LEVEL_SHIFT(level);
+			return entry;
 		} else {
-			entry = &table[i];
+			if (vaddr) *vaddr = i << PAGING_LEVEL_SHIFT(level);
+			return &table[i];
 		}
-		if (!entry) continue;
-		vaddr += i << PAGING_LEVEL_SHIFT(level);
-		return entry;
 	}
 	return NULL;
 }
@@ -312,6 +312,29 @@ mmu_entry_t *mmu_get_next_entry(mmu_space_t PML4, uintptr_t from, uintptr_t *vad
 	mmu_entry_t *entry = mmu_get_next_entry_helper(PML4, PAGING_LEVEL_MAX, from, vaddr);
 	rcu_release_read();
 	return entry;
+}
+
+static mmu_entry_t *mmu_get_next_entry_and_acquire_lock_helper(mmu_entry_t *table, size_t level, uintptr_t from, uintptr_t *vaddr) {
+	pmm_acquire_page_lock(mmu_hhdm2phys(table));
+	size_t start = PAGING_LEVEL_INDEX(level, from);
+	for (size_t i = start; i < PAGING_ENTRIES_PER_LEVEL; i++) {
+		mmu_entry_val_t current = atomic_load(&table[i]);
+		if (!(current & PAGING_FLAG_PRESENT)) continue;
+
+		if (level > 0) {
+			mmu_entry_t *sub_table = mmu_phys2virt(current & PAGING_ENTRY_ADDRESS);
+			mmu_entry_t *entry = mmu_get_next_entry_and_acquire_lock_helper(sub_table, level - 1, i == start ? from : 0, vaddr);
+			if (!entry) continue;
+			pmm_release_page_lock(mmu_hhdm2phys(table));
+			if (vaddr) *vaddr += i << PAGING_LEVEL_SHIFT(level);
+			return entry;
+		} else {
+			if (vaddr) *vaddr = i << PAGING_LEVEL_SHIFT(level);
+			return &table[i];
+		}
+	}
+	pmm_release_page_lock(mmu_hhdm2phys(table));
+	return NULL;
 }
 
 mmu_entry_t *mmu_get_next_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr) {
@@ -326,14 +349,14 @@ mmu_entry_t *mmu_get_next_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t fro
 		}
 		for (size_t i = start; i < PAGING_ENTRIES_PER_LEVEL; i++) {
 			if (atomic_load(&table[i]) & PAGING_FLAG_PRESENT) {
+				if (vaddr) *vaddr = old_vaddr + i - (old_entry - table);
 				return &table[i];
 			}
 		}
 	}
 
 	if (old_entry) mmu_entry_release_lock(old_entry);
-	// TODO : do a classic slow search
-	return NULL;
+	return mmu_get_next_entry_and_acquire_lock_helper(PML4, PAGING_LEVEL_MAX, from, vaddr);
 }
 
 mmu_entry_t *mmu_create_next_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr) {
