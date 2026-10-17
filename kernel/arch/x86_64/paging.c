@@ -165,16 +165,17 @@ void mmu_set_hhdm(uintptr_t hhdm) {
 }
 
 int mmu_map_pages(mmu_space_t PML4, uintptr_t vaddr, uintptr_t paddr, size_t size, long flags) {
+	kassert(vaddr % PAGE_SIZE == 0);
+	kassert(size % PAGE_SIZE == 0);
 	mmu_entry_t *entry = NULL;
 	uintptr_t start = vaddr;
 	while (size > 0) {
 		entry = mmu_create_next_entry_and_acquire_lock(PML4, vaddr, entry, vaddr - PAGE_SIZE);
-		if (entry) {
+		if (!entry) {
 			mmu_unmap_pages(PML4, start, vaddr - start);
 			return -ENOMEM;
 		}
 		mmu_entry_map(PML4, entry, paddr, flags);
-		mmu_entry_release_lock(entry);
 		paddr += PAGE_SIZE;
 		vaddr += PAGE_SIZE;
 		size  -= PAGE_SIZE;
@@ -184,6 +185,8 @@ int mmu_map_pages(mmu_space_t PML4, uintptr_t vaddr, uintptr_t paddr, size_t siz
 }
 
 int mmu_allocate_and_map_pages(mmu_space_t PML4, uintptr_t vaddr, size_t size, long flags) {
+	kassert(vaddr % PAGE_SIZE == 0);
+	kassert(size % PAGE_SIZE == 0);
 	uintptr_t start = vaddr;
 	while (size > 0) {
 		uintptr_t page = pmm_allocate_page();
@@ -206,12 +209,16 @@ int mmu_allocate_and_map_pages(mmu_space_t PML4, uintptr_t vaddr, size_t size, l
 }
 
 void mmu_unmap_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size) {
+	kassert(vaddr % PAGE_SIZE == 0);
+	kassert(size % PAGE_SIZE == 0);
 	mmu_foreach_entry_range (current, entry, addrspace, vaddr, vaddr + size) {
 		mmu_entry_unmap(addrspace, entry);
 	}
 }
 
 void mmu_unmap_and_release_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size) {
+	kassert(vaddr % PAGE_SIZE == 0);
+	kassert(size % PAGE_SIZE == 0);
 	mmu_foreach_entry_range (current, entry, addrspace, vaddr, vaddr + size) {
 		mmu_entry_val_t value = mmu_entry_unmap(addrspace, entry);
 		uintptr_t page = mmu_entry_val_get_page(value);
@@ -273,6 +280,7 @@ mmu_entry_t *mmu_create_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t vaddr
 				pmm_release_page_lock(mmu_hhdm2phys(table));
 				return NULL;
 			}
+			memset(mmu_phys2virt(page), 0, PAGE_SIZE);
 			current = page | PAGING_FLAG_RW_CPL3;
 			atomic_store(&table[index], current);
 		}

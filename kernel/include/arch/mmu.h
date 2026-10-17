@@ -95,7 +95,7 @@ mmu_entry_t *mmu_get_next_entry(mmu_space_t addrspace, uintptr_t from, uintptr_t
     loop_var(uintptr_t, vaddr) \
     for (mmu_entry_t *entry = mmu_get_next_entry(addrspace, start, &vaddr); \
     entry && vaddr < (end); \
-    entry = mmu_get_next_entry(addrspace, vaddr, &vaddr))
+    entry = mmu_get_next_entry(addrspace, vaddr + PAGE_SIZE, &vaddr))
 
 
 mmu_entry_t *mmu_get_next_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr);

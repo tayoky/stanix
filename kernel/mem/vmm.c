@@ -30,7 +30,7 @@ void init_vmm(void) {
 	kok();
 }
 
-static int vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
+static int vmm_cow(uintptr_t vpage, uintptr_t addr) {
 	mmu_entry_t *entry = mmu_get_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
 	if (!entry) return 0;
 	uintptr_t page = mmu_entry_get_page(get_current_proc()->vmm_space.addrspace, entry);
@@ -77,9 +77,9 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	if ((seg->flags & VMM_FLAG_PRIVATE) && (seg->prot & MMU_FLAG_WRITE) && prot == MMU_FLAG_WRITE) {
 		// we failed a write but we have write perm
 		// it's CoW
-		int ret = vmm_cow(seg, vpage, addr);
+		int ret = vmm_cow(vpage, addr);
 		if (ret && vpage + PAGE_SIZE < seg->end) {
-			vmm_cow(seg, vpage + PAGE_SIZE, addr);
+			vmm_cow(vpage + PAGE_SIZE, addr);
 		}
 		mutex_release(&seg->lock);
 		return 1;
@@ -528,6 +528,7 @@ static int vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg
 			mmu_entry_clear_flags(parent->addrspace, entry, MMU_FLAG_WRITE);
 		}
 		rcu_release_read();
+		if (parent == &get_current_proc()->vmm_space) mmu_invalidate(seg->start, VMM_SIZE(seg));
 	}
 
 	vmm_seg_t *prev = NULL;
