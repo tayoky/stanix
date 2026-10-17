@@ -33,14 +33,14 @@ void init_vmm(void) {
 static int vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
 	mmu_entry_t *entry = mmu_get_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
 	if (!entry) return 0;
-	uintptr_t phys = mmu_entry_get_page(get_current_proc()->vmm_space.addrspace, entry);
-	if (phys == PAGE_INVALID) return 0;
-	if (atomic_load(&pmm_page_info(phys)->ref_count) <= 1) {
+	uintptr_t page = mmu_entry_get_page(get_current_proc()->vmm_space.addrspace, entry);
+	if (page == PAGE_INVALID) return 0;
+	if (atomic_load(&pmm_page_info(page)->ref_count) <= 1) {
 		// other processes already copied
 		mmu_entry_or_flags(get_current_proc()->vmm_space.addrspace, entry, MMU_FLAG_WRITE);
 	} else {
 		// we need to copy
-		uintptr_t new_page = pmm_dup_page(phys);
+		uintptr_t new_page = pmm_dup_page(page);
 		if (new_page == PAGE_INVALID) {
 			mmu_entry_release_lock(entry);
 			// not looking good
@@ -55,8 +55,8 @@ static int vmm_cow(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr) {
 			}
 			return -ENOMEM;
 		}
-		pmm_release_page(phys);
-		mmu_entry_map(get_current_proc()->vmm_space.addrspace, entry, new_page, seg->prot);
+		pmm_release_page(page);
+		mmu_entry_map_and_or_flags(get_current_proc()->vmm_space.addrspace, entry, new_page, MMU_FLAG_WRITE);
 	}
 	mmu_invalidate(vpage, PAGE_SIZE);
 	mmu_entry_release_lock(entry);
@@ -524,7 +524,7 @@ static int vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg
 		// we need to remap as readonly in the parent too
 		rcu_acquire_read();
 		mmu_foreach_entry_range (vaddr, entry, parent->addrspace, seg->start, seg->end) {
-			mmu_entry_get_and_clear_flags(parent->addrspace, entry, MMU_FLAG_WRITE);
+			mmu_entry_clear_flags(parent->addrspace, entry, MMU_FLAG_WRITE);
 		}
 		rcu_release_read();
 	}

@@ -53,9 +53,6 @@ int mmu_allocate_and_map_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t si
 void mmu_unmap_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size);
 void mmu_unmap_and_release_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size);
 
-uintptr_t mmu_entry_val_get_page(mmu_entry_val_t entry_val);
-long mmu_entry_val_get_flags(mmu_entry_val_t entry_val);
-
 /**
  * @brief map a mmu entry to a physcal page
  * @param addrspace an pointer to the addrspace
@@ -65,6 +62,16 @@ long mmu_entry_val_get_flags(mmu_entry_val_t entry_val);
  * @note require the entry's lock
  */
 void mmu_entry_map(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t paddr, long flags);
+
+/**
+ * @brief map a mmu entry to a physcal page and or flags
+ * @param addrspace an pointer to the addrspace
+ * @param entry the entry to map
+ * @param paddr the physical page to map
+ * @param flags flag to or for the virtual page (eg readonly, not executable...)
+ * @note require the entry's lock
+ */
+void mmu_entry_map_and_or_flags(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t paddr, long flags);
 
 /**
  * @brief unmap an entry
@@ -77,9 +84,16 @@ mmu_entry_val_t mmu_entry_unmap(mmu_space_t addrspace, mmu_entry_t *entry);
 
 long mmu_entry_get_flags(mmu_space_t addrspace, mmu_entry_t *entry);
 uintptr_t mmu_entry_get_page(mmu_space_t addrspace, mmu_entry_t *entry);
-int mmu_entry_set_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
-int mmu_entry_or_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
-long mmu_entry_get_and_clear_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
+mmu_entry_val_t mmu_entry_set_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
+mmu_entry_val_t mmu_entry_or_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
+mmu_entry_val_t mmu_entry_clear_flags(mmu_space_t addrspace, mmu_entry_t *entry, long flags);
+
+static inline mmu_entry_val_t mmu_entry_fetch(mmu_entry_t *entry) {
+	return atomic_load(entry);
+}
+
+uintptr_t mmu_entry_val_get_page(mmu_entry_val_t entry_val);
+long mmu_entry_val_get_flags(mmu_entry_val_t entry_val);
 
 mmu_entry_t *mmu_get_entry(mmu_space_t addrspace, uintptr_t vaddr);
 mmu_entry_t *mmu_get_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);

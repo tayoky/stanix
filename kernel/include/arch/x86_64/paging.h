@@ -10,6 +10,7 @@ typedef ATOMIC(uint64_t) mmu_entry_t;
 typedef uint64_t mmu_entry_val_t;
 
 #define PAGING_ENTRY_ADDRESS ((~(uint64_t)0XFFF)&(~(((uint64_t)0xFFF)<<52)))
+#define PAGING_ENTRY_FLAGS (0xfffUL | (0x1ULL << 52))
 
 #define PAGING_LEVEL_SHIFT(level) (12 + 9 * level)
 #define PAGING_LEVEL_INDEX(level, addr) (((addr) >> PAGING_LEVEL_SHIFT(level)) & 0x1ff)

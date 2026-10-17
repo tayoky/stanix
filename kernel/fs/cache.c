@@ -721,9 +721,9 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 
 	rcu_acquire_read();
 	mmu_foreach_entry_range (addr, entry, get_current_proc()->vmm_space.addrspace, seg->start, seg->end) {
-		// FIXME : do we need the entry's lock??
-		uintptr_t page = mmu_entry_get_page(get_current_proc()->vmm_space.addrspace, entry);
-		long mmu_flags = mmu_entry_get_and_clear_flags(get_current_proc()->vmm_space.addrspace, entry, MMU_FLAG_DIRTY | MMU_FLAG_ACCESS);
+		mmu_entry_val_t value = mmu_entry_clear_flags(get_current_proc()->vmm_space.addrspace, entry, MMU_FLAG_DIRTY | MMU_FLAG_ACCESS);
+		uintptr_t page = mmu_entry_val_get_page(value);
+		long mmu_flags = mmu_entry_val_get_flags(value);
 		if (!(mmu_flags & MMU_FLAG_PRESENT) || page == PAGE_INVALID) {
 			continue;
 		}
