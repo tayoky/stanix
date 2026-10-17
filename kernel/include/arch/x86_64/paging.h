@@ -5,9 +5,9 @@
 #include <kernel/atomic.h>
 #include <stdint.h>
 
-typedef uint64_t *mmu_space_t;
-typedef ATOMIC(uint64_t) mmu_entry_t;
 typedef uint64_t mmu_entry_val_t;
+typedef ATOMIC(mmu_entry_val_t) mmu_entry_t;
+typedef mmu_entry_t *mmu_space_t;
 
 #define PAGING_ENTRY_ADDRESS ((~(uint64_t)0XFFF)&(~(((uint64_t)0xFFF)<<52)))
 #define PAGING_ENTRY_FLAGS (0xfffUL | (0x1ULL << 52))

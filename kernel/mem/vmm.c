@@ -306,8 +306,9 @@ int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {
 
 	rcu_acquire_read();
 	mmu_foreach_entry_range (vaddr, entry, space->addrspace, seg->start, seg->end) {
-		uintptr_t phys = mmu_entry_get_page(space->addrspace, entry);
-		if ((seg->flags & VMM_FLAG_PRIVATE) && pmm_page_info(phys)->ref_count > 1) {
+		uintptr_t page = mmu_entry_get_page(space->addrspace, entry);
+		if (page == PAGE_INVALID) continue;
+		if ((seg->flags & VMM_FLAG_PRIVATE) && pmm_page_info(page)->ref_count > 1) {
 			// we are doing CoW
 			mmu_entry_set_flags(space->addrspace, entry, prot & ~MMU_FLAG_WRITE);
 		} else {
