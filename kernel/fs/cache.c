@@ -743,14 +743,7 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 	}
 }
 
-static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
-	if (!(prot & seg->prot)) return 0;
-
-	if (mmu_virt2phys((void *)addr) != PAGE_INVALID) {
-		// the page is already mapped it's not our job
-		return 0;
-	}
-
+static uintptr_t cache_vmm_get_page(vmm_seg_t *seg, uintptr_t addr) {
 	cache_t *cache  = seg->private_data;
 	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
 	off_t offset    = vpage - seg->start + seg->offset;
@@ -760,47 +753,9 @@ static int cache_vmm_fault(vmm_seg_t *seg, uintptr_t addr, long prot) {
 	if (ret < 0) {
 		// cannot get the page
 		// we are cooked
-		kdebugf("uncached mapped page access\n");
-sigbus:
-		signal_send_task(get_current_task(), SIGBUS);
-		return 1;
+		return PAGE_INVALID;
 	}
-
-	// Copy on Write check
-	long mapping_prot = seg->prot;
-	if (seg->flags & VMM_FLAG_PRIVATE) {
-		if (prot == MMU_FLAG_WRITE) {
-			// if we faulted for write duplicate now
-			uintptr_t new_page = pmm_dup_page(page);
-			pmm_release_page(page);
-			if (new_page == PAGE_INVALID) {
-				kdebugf("failed to duplicate page\n");
-				goto sigbus;
-			}
-			page = new_page;
-		} else {
-			mapping_prot &= ~MMU_FLAG_WRITE;
-		}
-	}
-
-	mmu_entry_t *entry = mmu_create_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
-	if (!entry) {
-		kdebugf("failed to create mmu entry\n");
-		pmm_release_page(page);
-		goto sigbus;
-	}
-
-	if (mmu_entry_get_flags(get_current_proc()->vmm_space.addrspace, entry) & MMU_FLAG_PRESENT) {
-		// page was mapped in between, we raced
-		mmu_entry_release_lock(entry);
-		pmm_release_page(page);
-		return 1;
-	}
-
-	// cache_get_page already made a new ref to the page
-	mmu_entry_map(get_current_proc()->vmm_space.addrspace, entry, page, mapping_prot);
-	mmu_entry_release_lock(entry);
-	return 1;
+	return page;
 }
 
 static void cache_vmm_dup(vmm_seg_t *seg) {
@@ -816,10 +771,10 @@ static void cache_vmm_destroy(vmm_seg_t *seg) {
 }
 
 static vmm_ops_t cache_vmm_ops = {
-	.msync = cache_vmm_msync,
-	.fault = cache_vmm_fault,
-	.dup     = cache_vmm_dup,
-	.destroy = cache_vmm_destroy,
+	.msync    = cache_vmm_msync,
+	.get_page = cache_vmm_get_page,
+	.dup      = cache_vmm_dup,
+	.destroy  = cache_vmm_destroy,
 };
 
 int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {

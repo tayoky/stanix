@@ -23,6 +23,9 @@ struct vmm_ops {
 	int (*can_split)(vmm_seg_t *seg, uintptr_t cut);
 	int (*msync)(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags);
 	int (*fault)(vmm_seg_t *seg, uintptr_t addr, long prot);
+
+	// if VMM_FLAG_IO is not set, is expected to return a new ref to the page
+	uintptr_t (*get_page)(vmm_seg_t *seg, uintptr_t addr);
 };
 
 struct vmm_seg {

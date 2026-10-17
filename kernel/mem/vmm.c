@@ -30,6 +30,68 @@ void init_vmm(void) {
 	kok();
 }
 
+static void vmm_send_sigbus(uintptr_t addr) {
+	siginfo_t siginfo = {
+		.si_signo = SIGBUS,
+		.si_addr  = (void*)addr,
+	};
+	if (signal_send_siginfo_task(get_current_task(), &siginfo) < 0) {
+		// retry with a lightweight signal
+		// we lose some information (like address) but at least the process get killed
+		signal_send_siginfo_lightweight_task(get_current_task(), SIGBUS);
+	}
+}
+
+static int vmm_map_page(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr, long prot) {
+	if (!seg->ops || !seg->ops->get_page) return 0;
+	if (mmu_virt2phys((void*)addr) != PAGE_INVALID) {
+		// the page is already mapped
+		return 0;
+	}
+
+	uintptr_t page = seg->ops->get_page(seg, addr);
+	if (page == PAGE_INVALID) {
+		vmm_send_sigbus(addr);
+		return 1;
+	}
+
+	long mapping_prot = seg->prot;
+	if (!(seg->flags & VMM_FLAG_IO) && (seg->flags & VMM_FLAG_PRIVATE)) {
+		// we need to setup CoW
+		if (prot & MMU_FLAG_WRITE) {
+			// we need to do the copy right now
+			uintptr_t new_page = pmm_dup_page(page);
+			pmm_release_page(page);
+			if (new_page == PAGE_INVALID) {
+				vmm_send_sigbus(addr);
+				return 1;
+			}
+			page = new_page;
+		} else {
+			mapping_prot &= ~MMU_FLAG_WRITE;
+		}
+	}
+
+	mmu_entry_t *entry = mmu_create_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
+	if (!entry) {
+		vmm_send_sigbus(addr);
+		return 1;
+	}
+
+	if (mmu_entry_get_flags(get_current_proc()->vmm_space.addrspace, entry) & MMU_FLAG_PRESENT) {
+		// the page was mapped in between, we raced
+		mmu_entry_release_lock(entry);
+		if (!(seg->flags & VMM_FLAG_IO)) {
+			pmm_release_page(page);
+		}
+		return 1;
+	}
+
+	mmu_entry_map(get_current_proc()->vmm_space.addrspace, entry, page, mapping_prot);
+	mmu_entry_release_lock(entry);
+	return 1;
+}
+
 static int vmm_cow(uintptr_t vpage, uintptr_t addr) {
 	mmu_entry_t *entry = mmu_get_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
 	if (!entry) return 0;
@@ -44,23 +106,15 @@ static int vmm_cow(uintptr_t vpage, uintptr_t addr) {
 		if (new_page == PAGE_INVALID) {
 			mmu_entry_release_lock(entry);
 			// not looking good
-			siginfo_t siginfo = {
-				.si_signo = SIGBUS,
-				.si_addr  = (void*)addr,
-			};
-			if (signal_send_siginfo_task(get_current_task(), &siginfo) < 0) {
-				// retry with a lightweight signal
-				// we lose some information (like address) but at least the process get killed
-				signal_send_siginfo_lightweight_task(get_current_task(), SIGBUS);
-			}
-			return -ENOMEM;
+			vmm_send_sigbus(addr);
+			return 0;
 		}
 		pmm_release_page(page);
 		mmu_entry_map_and_or_flags(get_current_proc()->vmm_space.addrspace, entry, new_page, MMU_FLAG_WRITE);
 	}
 	mmu_invalidate(vpage, PAGE_SIZE);
 	mmu_entry_release_lock(entry);
-	return 0;
+	return 1;
 }
 
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
@@ -74,11 +128,22 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 		}
 	}
 
-	if ((seg->flags & VMM_FLAG_PRIVATE) && (seg->prot & MMU_FLAG_WRITE) && prot == MMU_FLAG_WRITE) {
+	if (!(seg->prot & prot)) {
+		// violation of permissions
+		mutex_release(&seg->lock);
+		return 0;
+	}
+
+	if (vmm_map_page(seg, vpage, addr, prot)) {
+		mutex_release(&seg->lock);
+		return 1;
+	}
+
+	if ((seg->flags & VMM_FLAG_PRIVATE) && prot == MMU_FLAG_WRITE) {
 		// we failed a write but we have write perm
 		// it's CoW
 		int ret = vmm_cow(vpage, addr);
-		if (ret && vpage + PAGE_SIZE < seg->end) {
+		if (ret == 1 && vpage + PAGE_SIZE < seg->end) {
 			vmm_cow(vpage + PAGE_SIZE, addr);
 		}
 		mutex_release(&seg->lock);
@@ -250,7 +315,7 @@ unmap_pages:
 					goto error;
 				}
 				memset(mmu_phys2virt(page), 0, PAGE_SIZE);
-				// calling mmu_map_pages in a loop is slow as hell
+				// FIXME : calling mmu_map_pages in a loop is slow as hell
 				// might come back later on this
 				if (mmu_map_pages(space->addrspace, addr, page, PAGE_SIZE, prot) < 0) {
 					pmm_release_page(page);
