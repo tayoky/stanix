@@ -90,7 +90,7 @@ void vfs_dentry_release(vfs_dentry_t *dentry) {
 
 			// we cannot use vfs_remove_entry cause it call vfs_dentry_release
 			if (parent) {
-				rculist_remove(&parent->children, &dentry->children_node);
+				rculist_raw_remove(&parent->children, &dentry->children_node);
 				rculist_release_write(&parent->children);
 			}
 			dentry->parent = NULL;

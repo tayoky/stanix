@@ -20,7 +20,7 @@ static inline void rculist_store_ptr(rcu_ptr_t *rcu_ptr, rculist_node_t *value) 
 }
 
 void rculist_raw_prepend(rculist_t *rculist, rculist_node_t *node) {
-	// link
+	spinlock_assert_acquired(&rculist->lock);
 	node->prev = NULL;
 	node->next = rculist->first;
 	if (rculist->first) {
@@ -39,7 +39,7 @@ void rculist_prepend(rculist_t *rculist, rculist_node_t *node) {
 }
 
 void rculist_raw_append(rculist_t *rculist, rculist_node_t *node) {
-	// link
+	spinlock_assert_acquired(&rculist->lock);
 	node->prev = rculist->last;
 	node->next = NULL;
 	rculist->last = node;
@@ -58,6 +58,7 @@ void rculist_append(rculist_t *rculist, rculist_node_t *node) {
 }
 
 void rculist_raw_remove(rculist_t *rculist, rculist_node_t *node) {
+	spinlock_assert_acquired(&rculist->lock);
 	if (!node) return;
 	if (node->next) {
 		rculist_node_t *next = rculist_fetch_ptr(&node->next);
