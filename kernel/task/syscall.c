@@ -22,6 +22,7 @@
 #include <kernel/asm.h>
 #include <kernel/poll.h>
 #include <kernel/cache.h>
+#include <kernel/config.h>
 #include <abi/termios.h>
 #include <abi/dirent.h>
 #include <sys/types.h>
@@ -1844,7 +1845,7 @@ void syscall_handler(registers_t *context, void *arg) {
 	
 	get_current_task()->syscall_frame = context;
 
-#ifdef DEBUG
+#ifdef ENABLE_PREEMPT_LEAK_DETECTOR
 	size_t prev_preempt_disable = get_current_task()->preempt_disable;
 #endif
 
@@ -1852,7 +1853,7 @@ void syscall_handler(registers_t *context, void *arg) {
 	long (*syscall)(long, long, long, long, long, long) = syscall_table[sys_num];
 	RET_REG(*context) = syscall(ARG1_REG(*context), ARG2_REG(*context), ARG3_REG(*context), ARG4_REG(*context), ARG5_REG(*context), ARG6_REG(*context));
 
-#ifdef DEBUG
+#ifdef ENABLE_PREEMPT_LEAK_DETECTOR
 	// preemption disable leak detector
 	if (get_current_task()->preempt_disable > prev_preempt_disable) {
 		kwarningf("leaked preempt disable +%zu on syscall %d\n", get_current_task()->preempt_disable - prev_preempt_disable, sys_num);

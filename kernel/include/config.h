@@ -15,4 +15,7 @@
 // work only with no SMP
 #define ENABLE_SPINLOCK_DEBUG
 
+// enable the preemption disable leak detector
+#define ENABLE_PREEMPT_LEAK_DETECTOR
+
 #endif
