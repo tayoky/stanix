@@ -53,12 +53,16 @@ int mmu_allocate_and_map_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t si
 void mmu_unmap_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size);
 void mmu_unmap_and_release_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size);
 
+uintptr_t mmu_entry_val_get_page(mmu_entry_val_t entry_val);
+long mmu_entry_val_get_flags(mmu_entry_val_t entry_val);
+
 /**
  * @brief map a mmu entry to a physcal page
  * @param addrspace an pointer to the addrspace
  * @param entry the entry to map
  * @param paddr the physical page to map
  * @param flags flag to use for the virtual page (eg readonly, not executable...)
+ * @note require the entry's lock
  */
 void mmu_entry_map(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t paddr, long flags);
 
@@ -66,9 +70,10 @@ void mmu_entry_map(mmu_space_t addrspace, mmu_entry_t *entry, uintptr_t paddr, l
  * @brief unmap an entry
  * @param addrspace an pointer to the address space
  * @param entry the entry to unmap
- * @return the flags off this entry
+ * @return the previous value of this entry
+ * @note require the entry's lock
  */
-long mmu_entry_unmap(mmu_space_t addrspace, mmu_entry_t *entry);
+mmu_entry_val_t mmu_entry_unmap(mmu_space_t addrspace, mmu_entry_t *entry);
 
 long mmu_entry_get_flags(mmu_space_t addrspace, mmu_entry_t *entry);
 uintptr_t mmu_entry_get_page(mmu_space_t addrspace, mmu_entry_t *entry);
@@ -80,23 +85,22 @@ mmu_entry_t *mmu_get_entry(mmu_space_t addrspace, uintptr_t vaddr);
 mmu_entry_t *mmu_get_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
 
 /**
- * @brief release lock on an entry and acquire the next one
+ * @brief get the next existing entry
  * @param addrspace the address space to get the new entry in
  * @param from where to start the search
  * @param vaddr where to store the vaddr of the found entry
- * @param old_entry the old entry to release the lock of
  * @return a pointer to the new entry or NULL if it doesn't exist
  */
-mmu_entry_t *mmu_get_next_entry(mmu_space_t addrspace, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry);
+mmu_entry_t *mmu_get_next_entry(mmu_space_t addrspace, uintptr_t from, uintptr_t *vaddr);
 #define mmu_foreach_entry_range(vaddr, entry, addrspace, start, end) \
     loop_var(uintptr_t, vaddr) \
-    for (mmu_entry_t *entry = mmu_get_next_entry(addrspace, start, &vaddr, NULL); \
+    for (mmu_entry_t *entry = mmu_get_next_entry(addrspace, start, &vaddr); \
     entry && vaddr < (end); \
-    entry = mmu_get_next_entry(addrspace, vaddr, &vaddr, entry))
+    entry = mmu_get_next_entry(addrspace, vaddr, &vaddr))
 
 mmu_entry_t *mmu_get_next_entry_and_acquire_lick(mmu_space_t addrspace, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry);
 
-mmu_entry_t *mmu_create_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr);
+mmu_entry_t *mmu_get_next_entry_and_acquire_lock(mmu_space_t PML4, uintptr_t from, uintptr_t *vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr);
 mmu_entry_t *mmu_create_next_entry_and_acquire_lock(mmu_space_t addrspace, uintptr_t vaddr, mmu_entry_t *old_entry, uintptr_t old_vaddr);
 
 void mmu_entry_release_lock(mmu_entry_t *entry);

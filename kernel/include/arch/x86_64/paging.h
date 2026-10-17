@@ -11,6 +11,12 @@ typedef uint64_t mmu_entry_val_t;
 
 #define PAGING_ENTRY_ADDRESS ((~(uint64_t)0XFFF)&(~(((uint64_t)0xFFF)<<52)))
 
+#define PAGING_LEVEL_SHIFT(level) (12 + 9 * level)
+#define PAGING_LEVEL_INDEX(level, addr) (((addr) >> PAGING_LEVEL_SHIFT(level)) & 0x1ff)
+#define PAGING_LEVELS_COUNT 4
+#define PAGING_LEVEL_MAX (PAGING_LEVELS_COUNT - 1)
+#define PAGING_ENTRIES_PER_LEVEL 512
+
 #define PAGING_FLAG_PRESENT 0x001
 #define PAGING_FLAG_WRITE   0x002
 #define PAGING_FLAG_USER    0x004
