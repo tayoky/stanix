@@ -122,6 +122,7 @@ vmm_space_t *vmm_get_current_space(void) {
 }
 
 int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
+	kassert(cut % PAGE_SIZE == 0);
 	mutex_acquire(&seg->lock);
 	if (cut <= seg->start || cut >= seg->end) {
 		mutex_release(&seg->lock);
@@ -175,9 +176,6 @@ static vmm_seg_t *vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address
 			prev = current;
 		}
 	} else {
-		// we need to page align everything
-		size = PAGE_ALIGN_UP(size);
-
 		// no address ? we need to find one ourself
 		foreach (node, &space->segs) {
 			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
@@ -322,6 +320,8 @@ int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {
 }
 
 static int vmm_space_raw_chprot_range(vmm_space_t *space, uintptr_t start, uintptr_t end, long prot) {
+	kassert(start % PAGE_SIZE == 0);
+	kassert(end % PAGE_SIZE == 0);
 	foreach (node, &space->segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		if (seg->end <= start) continue;
@@ -370,7 +370,7 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 
 	// kdebugf("unmap %p to %p\n", seg->start, seg->end);
 
-	// flush shared mappings so we don't lost changes
+	// flush shared mappings so we don't lose changes
 	if ((seg->flags & VMM_FLAG_SHARED) && seg->ops && seg->ops->msync) {
 		seg->ops->msync(seg, seg->start, seg->end, VMM_FLAG_ASYNC);
 	}
@@ -400,6 +400,8 @@ void vmm_space_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 }
 
 static int vmm_space_raw_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end) {
+	kassert(start % PAGE_SIZE == 0);
+	kassert(end % PAGE_SIZE == 0);
 	if (list_is_empty(&space->segs)) {
 		return 0;
 	}
@@ -445,7 +447,7 @@ void vmm_space_unmap_all(vmm_space_t *space) {
 }
 
 int vmm_space_sync(vmm_space_t *space, vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
-	// TODO : pass the adddress space to the driver
+	// TODO : pass the address space to the driver
 	(void)space;
 	mutex_acquire(&seg->lock);
 	if (!seg->ops || !seg->ops->msync) {

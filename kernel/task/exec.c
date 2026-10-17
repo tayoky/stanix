@@ -235,7 +235,7 @@ error:
 				}
 			}
 		} else {
-			vmm_seg_t *seg = vmm_map(prog_header[i].p_vaddr, prog_header[i].p_memsz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0);
+			vmm_seg_t *seg = vmm_map(prog_header[i].p_vaddr, PAGE_ALIGN_UP(prog_header[i].p_memsz), MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0);
 			if (IS_ERR(seg)) {
 				goto error;
 			}

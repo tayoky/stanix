@@ -915,8 +915,8 @@ static long prot2mmu(long prot) {
 
 void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t offset) {
 	int check = flags & (MAP_SHARED | MAP_PRIVATE);
-	if (check == 0 || check == (MAP_PRIVATE & MAP_SHARED))return (void *)-EINVAL;
-	if (!length)return (void *)-EINVAL;
+	if (check == 0 || check == (MAP_PRIVATE & MAP_SHARED)) return (void *)-EINVAL;
+	if (length == 0) return (void *)-EINVAL;
 
 	if (flags & MAP_FIXED) {
 		if (addr % PAGE_SIZE || length % PAGE_SIZE) return (void *)-EINVAL;
@@ -943,6 +943,8 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 		if (!vfs_fd) return (void*)(uintptr_t)-EBADF;
 	}
 
+	length = PAGE_ALIGN_UP(length);
+
 	vmm_seg_t *seg = vmm_map(addr, length, mmu_flags, vmm_flags, vfs_fd, offset);
 	vfs_close(vfs_fd);
 	if (IS_ERR(seg)) {
@@ -952,14 +954,21 @@ void *sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t
 	}
 }
 
-int sys_munmap(void *addr, size_t len) {
-	if (!len)return -EINVAL;
-	if (!CHECK_PTR((uintptr_t)addr + len)) return -EINVAL;
+int sys_munmap(void *addr, size_t length) {
+	if (length == 0) return -EINVAL;
+	if (!CHECK_PTR((uintptr_t)addr + length)) return -EINVAL;
 	if ((uintptr_t)addr % PAGE_SIZE) return -EINVAL;
-	return vmm_unmap_range((uintptr_t)addr, (uintptr_t)addr + len);
+
+	length = PAGE_ALIGN_UP(length);
+	return vmm_unmap_range((uintptr_t)addr, (uintptr_t)addr + length);
 }
 
 int sys_mprotect(void *addr, size_t length, int prot) {
+	if (length == 0) return -EINVAL;
+	if (!CHECK_PTR((uintptr_t)addr + length)) return -ENOMEM;
+	if ((uintptr_t)addr % PAGE_SIZE) return -EINVAL;
+
+	length = PAGE_ALIGN_UP(length);
 	long mmu_flags = prot2mmu(prot);
 	return vmm_chprot_range((uintptr_t)addr, (uintptr_t)addr + length, mmu_flags);
 }
