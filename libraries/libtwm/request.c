@@ -76,7 +76,7 @@ int twm_get_window_fb(twm_window_t window, int *fd, twm_fb_info_t *fb_info) {
 	*fb_info = event->fb_info;
 
 	// we need to open the framebuffer
-	*fd = shm_open(event->path, O_WRONLY, 0);
+	*fd = shm_open(event->path, O_RDWR, 0);
 	if (*fd < 0) {
 		free(event);
 		return -1;

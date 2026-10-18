@@ -10,7 +10,7 @@
 
 gfx_t *gfx_open_framebuffer(const char *path) {
 	if (!path) path = getenv("FB");
-	int fb = open(path, O_WRONLY);
+	int fb = open(path, O_RDWR);
 	if (fb < 0)return NULL;
 
 	//get framebuffer info

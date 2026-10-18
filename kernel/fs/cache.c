@@ -782,6 +782,10 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 	int ret = cache_preload(cache, offset, VMM_SIZE(seg));
 	if (ret < 0) return ret;
 
+	if (seg->flags & VMM_FLAG_SHARED) {
+		kdebugf("mmap shared page at %p %lu\n", seg->start, VMM_SIZE(seg));
+	}
+
 	seg->ops          = &cache_vmm_ops;
 	seg->private_data = cache;
 
@@ -796,11 +800,13 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 	}
 
 	mmu_entry_t *entry = NULL;
+	uintptr_t old_vaddr = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE, vaddr += PAGE_SIZE) {
 		uintptr_t page = cache_lookup_and_ref_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
 
-		entry = mmu_create_next_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vaddr, entry, vaddr - PAGE_SIZE);
+		entry = mmu_create_next_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vaddr, entry, old_vaddr);
+		old_vaddr = vaddr;
 
 		// memory failure is non fatal
 		// because we don't need the entry right now
