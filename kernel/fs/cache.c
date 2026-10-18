@@ -234,6 +234,10 @@ static int cached_page_remove(uintptr_t page) {
 	off_t offset = cached_page_get_offset(page_info);
 	page_info->private = NULL;
 	cache_lookup_and_clear_page(cache, offset);
+
+	// force remove the page from the dirty lists
+	cache_clear_page_dirty(cache, page);
+
 	pmm_release_page(page);
 	return 1;
 }
