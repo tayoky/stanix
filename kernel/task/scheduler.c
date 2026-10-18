@@ -445,6 +445,8 @@ int unblock_task_reason(task_t *task, int reason) {
 
 	// if unblocking because of a signal can only do it if interruptible
 	if (reason == WAKEUP_SIGNAL && task->status != TASK_STATUS_INTERRUPTIBLE) {
+		run_queue_release_lock(task);
+		spinlock_release_irq(&task->state_lock, irq_save);
 		return 0;
 	}
 
