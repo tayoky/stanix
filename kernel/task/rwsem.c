@@ -20,6 +20,7 @@ int rwsem_acquire_read(rwsem_t *rwsem) {
 		sleep_on_queue_lock(&rwsem->reader_queue, &rwsem->lock, rwsem->waiting_writers_count == 0 && !rwsem->writer_active);
 		rwsem->readers_count++;
 	}
+	lock_acquired();
 	spinlock_release(&rwsem->lock);
 	return 0;
 }
@@ -37,6 +38,7 @@ int rwsem_release_read(rwsem_t *rwsem) {
 			wakeup_queue(&rwsem->writer_queue, 1);
 		}
 	}
+	lock_released();
 	spinlock_release(&rwsem->lock);
 	return 0;
 }
@@ -53,6 +55,7 @@ int rwsem_acquire_write(rwsem_t *rwsem) {
 		rwsem->writer_active = get_current_task();
 		rwsem->lock_depth = 1;
 	}
+	lock_acquired();
 	spinlock_release(&rwsem->lock);
 	return 0;
 }
@@ -70,6 +73,7 @@ int rwsem_release_write(rwsem_t *rwsem) {
 			wakeup_queue(&rwsem->reader_queue, 0);
 		}
 	}
+	lock_released();
 	spinlock_release(&rwsem->lock);
 	return 0;
 }

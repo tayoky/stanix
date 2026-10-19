@@ -55,6 +55,9 @@ typedef struct task {
 	size_t preempt_disable; // only the thread itself can read/write
 	atomic_size_t preempt_context_switches;
 	atomic_size_t voluntary_context_switches;
+#ifdef ENABLE_LOCK_LEAK_DETECTOR
+	size_t locks_count // only the thread itself can read/write
+#endif
 } task_t;
 
 #define TASK_STATUS_RUNNING       1 // is the task actually running on a cpu
@@ -77,6 +80,20 @@ void init_task(void);
 task_t *get_current_task(void);
 
 task_t *new_kernel_task(void (*func)(void *arg), void *arg);
+
+// TODO : maybee move those outside the scheduler ??
+
+static inline void lock_acquired(void) {
+#ifdef ENABLE_LOCK_LEAK_DETECTOR
+	if (get_current_task()) get_current_task()->locks_count++;
+#endif
+}
+
+static inline void lock_released(void) {
+#ifdef ENABLE_LOCK_LEAK_DETECTOR
+	if (get_current_task()) get_current_task()->locks_count--;
+#endif
+}
 
 /**
  * @brief create a new task

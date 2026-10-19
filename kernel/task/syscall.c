@@ -1858,6 +1858,10 @@ void syscall_handler(registers_t *context, void *arg) {
 	size_t prev_preempt_disable = get_current_task()->preempt_disable;
 #endif
 
+#ifdef ENABLE_LOCK_LEAK_DETECTOR
+	get_current_task()->locks_count = 0;
+#endif
+
 	int sys_num = ARG0_REG(*context);
 	long (*syscall)(long, long, long, long, long, long) = syscall_table[sys_num];
 	RET_REG(*context) = syscall(ARG1_REG(*context), ARG2_REG(*context), ARG3_REG(*context), ARG4_REG(*context), ARG5_REG(*context), ARG6_REG(*context));
@@ -1866,6 +1870,13 @@ void syscall_handler(registers_t *context, void *arg) {
 	// preemption disable leak detector
 	if (get_current_task()->preempt_disable > prev_preempt_disable) {
 		kwarningf("leaked preempt disable +%zu on syscall %d\n", get_current_task()->preempt_disable - prev_preempt_disable, sys_num);
+	}
+#endif
+
+#ifdef ENABLE_LOCK_LEAK_DETECTOR
+	// lock leak detector
+	if (get_current_task()->locks_count > 0) {
+		kwarningf("leaked %zu locks on syscall %d\n", get_current_task()->locks_count, sys_num);
 	}
 #endif
 

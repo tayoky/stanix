@@ -18,4 +18,8 @@
 // enable the preemption disable leak detector
 #define ENABLE_PREEMPT_LEAK_DETECTOR
 
+
+// enable runtime lock (mutex and rwsem) leak detector
+#define ENABLE_LOCK_LEAK_DETECTOR
+
 #endif

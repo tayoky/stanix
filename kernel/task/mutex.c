@@ -15,6 +15,7 @@ int mutex_try_acquire(mutex_t *mutex) {
 	task_t *expected = NULL;
 	if (atomic_compare_exchange_strong(&mutex->lock, &expected, get_current_task())) {
 		// we locked the mutex
+		lock_acquired();
 		mutex->depth = 1;
 		return 1;
 	}
@@ -36,5 +37,6 @@ void mutex_release(mutex_t *mutex) {
 	if (mutex->depth == 0) {
 		atomic_store(&mutex->lock, NULL);
 		wakeup_queue(&mutex->sleep_queue, 1);
+		lock_released();
 	}
 }
