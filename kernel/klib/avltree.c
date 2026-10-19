@@ -113,7 +113,8 @@ static int avltree_insert_helper(avltree_t *avltree, avltree_node_t **parent, av
 	return 1;
 }
 
-int avltree_insert(avltree_t *avltree, avltree_node_t *node, void *key) {
+int avltree_raw_insert(avltree_t *avltree, avltree_node_t *node, void *key) {
+	rwsem_assert_write_acquired(&avltree->rwsem);
 	node->key = key;
 	node->height = 1;
 
@@ -167,11 +168,12 @@ static int avltree_remove_helper(avltree_t *avltree, avltree_node_t **current, v
 	return 1;
 }
  
-int avltree_remove(avltree_t *avltree, void *key) {
+int avltree_raw_remove(avltree_t *avltree, void *key) {
+	rwsem_assert_write_acquired(&avltree->rwsem);
 	return avltree_remove_helper(avltree, &avltree->root, key);
 }
 
-avltree_node_t *avltree_lookup(avltree_t *avltree, void *key) {
+avltree_node_t *avltree_raw_lookup(avltree_t *avltree, void *key) {
 	avltree_node_t *node = avltree->root;
 	while (node) {
 		switch (avltree_compare(avltree, key, node->key)) {
@@ -188,4 +190,25 @@ avltree_node_t *avltree_lookup(avltree_t *avltree, void *key) {
 		}
 	}
 	return NULL;
+}
+
+int avltree_insert(avltree_t *avltree, avltree_node_t *node, void *key) {
+	avltree_acquire_write(avltree);
+	int ret = avltree_raw_insert(avltree, node, key);
+	avltree_release_write(avltree);
+	return ret;
+}
+
+int avltree_remove(avltree_t *avltree, void *key) {
+	avltree_acquire_write(avltree);
+	int ret = avltree_raw_remove(avltree, key);
+	avltree_release_write(avltree);
+	return ret;
+}
+
+avltree_node_t *avltree_lookup(avltree_t *avltree, void *key) {
+	avltree_acquire_read(avltree);
+	avltree_node_t *node = avltree_raw_lookup(avltree, key);
+	avltree_release_read(avltree);
+	return node;
 }
