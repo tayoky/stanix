@@ -11,6 +11,7 @@
 #endif
 #include <kernel/asm.h>
 #include <kernel/assert.h>
+#include <kernel/attributes.h>
 #include <stdatomic.h>
 
 typedef struct spinlock {
@@ -18,13 +19,13 @@ typedef struct spinlock {
 #ifdef ENABLE_SPINLOCK_DEBUG
 	const char *line;
 #endif
-} spinlock_t;
+} ATTR_CAPABILITY("spinlock") spinlock_t;
 
 void preempt_enable(void);
 void preempt_disable(void);
 	
 #ifdef ENABLE_SPINLOCK_DEBUG
-static inline void __spinlock_raw_acquire(spinlock_t *lock, const char *line) {
+static inline void __spinlock_raw_acquire(spinlock_t *lock, const char *line) ATTR_ACQUIRE(lock) {
 	while (atomic_flag_test_and_set_explicit(&lock->lock, memory_order_acquire)) {
 		kdebugf("deadlock on %s, lock acquired at %s\n", line, lock->line);
 		panic("deadlock", NULL);
@@ -32,12 +33,12 @@ static inline void __spinlock_raw_acquire(spinlock_t *lock, const char *line) {
 	lock->line = line;
 }
 
-static inline void __spinlock_acquire(spinlock_t *lock, const char *line) {
+static inline void __spinlock_acquire(spinlock_t *lock, const char *line) ATTR_ACQUIRE(lock) {
 	preempt_disable();
     __spinlock_raw_acquire(lock, line);
 }
 
-static inline int __spinlock_acquire_irq(spinlock_t *lock, const char *line) {
+static inline int __spinlock_acquire_irq(spinlock_t *lock, const char *line) ATTR_ACQUIRE(lock) {
 	int irq_save = have_interrupt();
 	disable_interrupt();
     __spinlock_raw_acquire(lock, line);
@@ -48,16 +49,16 @@ static inline int __spinlock_acquire_irq(spinlock_t *lock, const char *line) {
 #define spinlock_acquire(lock) __spinlock_acquire(lock, __FILE__ ":" STRINGIFY(__LINE__))
 #define spinlock_acquire_irq(lock) __spinlock_acquire_irq(lock, __FILE__ ":" STRINGIFY(__LINE__))
 #else
-static inline void spinlock_raw_acquire(spinlock_t *lock) {
+static inline void spinlock_raw_acquire(spinlock_t *lock) ATTR_ACQUIRE(lock) {
 	while (atomic_flag_test_and_set_explicit(&lock->lock, memory_order_acquire));
 }
 
-static inline void spinlock_acquire(spinlock_t *lock) {
+static inline void spinlock_acquire(spinlock_t *lock) ATTR_ACQUIRE(lock) {
 	preempt_disable();
 	spinlock_raw_acquire(lock);
 }
 
-static inline int spinlock_acquire_irq(spinlock_t *lock) {
+ATTR_ACQUIRE(lock) static inline int spinlock_acquire_irq(spinlock_t *lock) {
 	int irq_save = have_interrupt();
 	disable_interrupt();
 	spinlock_raw_acquire(lock);
@@ -65,16 +66,16 @@ static inline int spinlock_acquire_irq(spinlock_t *lock) {
 }
 #endif
 
-static inline void spinlock_raw_release(spinlock_t *lock) {
+static inline void spinlock_raw_release(spinlock_t *lock) ATTR_RELEASE(lock) {
 	atomic_flag_clear_explicit(&lock->lock, memory_order_release);
 }
 
-static inline void spinlock_release(spinlock_t *lock) {
+static inline void spinlock_release(spinlock_t *lock) ATTR_RELEASE(lock) {
 	spinlock_raw_release(lock);
 	preempt_enable();
 }
 
-static inline void spinlock_release_irq(spinlock_t *lock, int irq_save) {
+static inline void spinlock_release_irq(spinlock_t *lock, int irq_save) ATTR_RELEASE(lock) {
 	spinlock_raw_release(lock);
 	if (irq_save) enable_interrupt();
 }

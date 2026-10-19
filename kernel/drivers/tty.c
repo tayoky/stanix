@@ -12,7 +12,7 @@
 #include <ctype.h>
 #include <poll.h>
 
-static int tty_output(tty_t *tty, char c) {
+static int tty_output(tty_t *tty, char c) ATTR_REQUIRE(&tty->lock) {
 	spinlock_assert_acquired(&tty->lock);
 	if (tty->termios.c_oflag & OPOST) {
 		// enable output processing
@@ -46,7 +46,7 @@ static int tty_output(tty_t *tty, char c) {
 	return tty->ops->out(tty, &c, 1);
 }
 
-static int tty_max_bell(tty_t *tty) {
+static int tty_max_bell(tty_t *tty) ATTR_REQUIRE(&tty->lock) {
 	spinlock_assert_acquired(&tty->lock);
 	if (tty->termios.c_iflag & IMAXBEL) {
 		return tty_output(tty, '\a');
@@ -54,7 +54,7 @@ static int tty_max_bell(tty_t *tty) {
 	return 0;
 }
 
-static int tty_canon_send_line(tty_t *tty) {
+static int tty_canon_send_line(tty_t *tty) ATTR_REQUIRE(&tty->lock) {
 	spinlock_assert_acquired(&tty->lock);
 	ssize_t ret;
 	if ((ret = ringbuffer_write(&tty->input_buffer, tty->canon_buf, tty->canon_index)) < (ssize_t)tty->canon_index) {
@@ -72,12 +72,12 @@ static int tty_canon_send_line(tty_t *tty) {
 	return 0;
 }
 
-static int tty_has_lflag(tty_t *tty, tcflag_t flags) {
+static int tty_has_lflag(tty_t *tty, tcflag_t flags) ATTR_REQUIRE(&tty->lock) {
 	spinlock_assert_acquired(&tty->lock);
 	return (tty->termios.c_lflag & flags) == flags;
 }
 
-static int tty_erase(tty_t *tty, char c) {
+static int tty_erase(tty_t *tty, char c) ATTR_REQUIRE(&tty->lock) {
 	spinlock_assert_acquired(&tty->lock);
 	if (iscntrl(c) && tty_has_lflag(tty, ECHOCTL)) {
 		// if char is a control char we need to earse both the char and the ^
@@ -91,7 +91,7 @@ static int tty_erase(tty_t *tty, char c) {
 	return 0;
 }
 
-static int tty_echo(tty_t *tty, char c) {
+static int tty_echo(tty_t *tty, char c) ATTR_REQUIRE(&tty->lock) {
 	if (c == '\n' && tty_has_lflag(tty, ECHONL | ICANON)) {
 		return tty_output(tty, c);
 	} else if (tty_has_lflag(tty, ECHO)) {
@@ -113,7 +113,7 @@ static int tty_echo(tty_t *tty, char c) {
 	return 0;
 }
 
-static int tty_input(tty_t *tty, char c) {
+static int tty_input(tty_t *tty, char c) ATTR_REQUIRE(&tty->lock) {
 	spinlock_assert_acquired(&tty->lock);
 	if (tty->termios.c_iflag & INLCR) {
 		// translate NL to CR
@@ -198,7 +198,7 @@ static int tty_input(tty_t *tty, char c) {
 	return 0;
 }
 
-int tty_raw_add_input(tty_t *tty, const char *buffer, size_t count) {
+int tty_raw_add_input(tty_t *tty, const char *buffer, size_t count) ATTR_REQUIRE(&tty->lock) {
 	spinlock_assert_acquired(&tty->lock);
 	ssize_t total = 0;
 	while (count > 0) {
@@ -217,7 +217,7 @@ int tty_add_input(tty_t *tty, const char *buffer, size_t count) {
 	return ret;
 }
 
-static int tty_end_read_sleep(tty_t *tty) {
+static int tty_end_read_sleep(tty_t *tty) ATTR_REQUIRE(&tty->lock) {
 	if (tty_raw_is_unplugged(tty)) {
 		return 1;
 	}
@@ -235,7 +235,7 @@ static int tty_end_read_sleep(tty_t *tty) {
 }
 
 // TODO : respect line bounds on canonical mode
-static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count, long flags) {
+static ssize_t tty_raw_read(tty_t *tty, char *buffer, size_t count, long flags) ATTR_REQUIRE(&tty->lock) {
 	// sleep until read available
 	if (!(flags & O_NONBLOCK)) {
 		if (sleep_on_queue_lock_interruptible(&tty->reader_queue, &tty->lock, tty_end_read_sleep(tty)) < 0) {
@@ -287,7 +287,7 @@ static ssize_t tty_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count) 
 	return ret;
 }
 
-static ssize_t tty_raw_write(tty_t *tty, const char *buffer, size_t count) {
+static ssize_t tty_raw_write(tty_t *tty, const char *buffer, size_t count) ATTR_REQUIRE(&tty->lock) {
 	ssize_t total = 0;
 	int ret = 0;
 	while (count > 0) {	
@@ -356,7 +356,7 @@ static int tty_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	return 0;
 }
 
-static int tty_raw_set_session(tty_t *tty, session_t *session) {
+static int tty_raw_set_session(tty_t *tty, session_t *session) ATTR_REQUIRE(&proctree_lock, &tty->lock) {
 	spinlock_assert_acquired(&proctree_lock);
 	spinlock_assert_acquired(&tty->lock);
 	if (tty->session == session) {
@@ -418,7 +418,7 @@ static void tty_destroy(device_t *device) {
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 }
 
-static int tty_termios_update(tty_t *tty, struct termios *new) {
+static int tty_termios_update(tty_t *tty, struct termios *new) ATTR_REQUIRE(&tty->lock) {
 	if (tty->ops->update_termios) {
 		int ret = tty->ops->update_termios(tty, new);
 		if (ret < 0) return ret;
@@ -450,7 +450,7 @@ static int tty_termios_update(tty_t *tty, struct termios *new) {
 	return 0;
 }
 
-static void tty_set_fg_group(tty_t *tty, process_group_t *group) {
+static void tty_set_fg_group(tty_t *tty, process_group_t *group) ATTR_REQUIRE(&tty->lock) {
 	process_group_t *old = tty->fg_group;
 	tty->fg_group = group;
 
@@ -461,7 +461,7 @@ static void tty_set_fg_group(tty_t *tty, process_group_t *group) {
 	}
 }
 
-static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) {
+static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) ATTR_REQUIRE(&tty->lock) {
 	switch (request) {
 	case TIOCGETA:
 		return safe_copy_auto_to(arg, &tty->termios);
