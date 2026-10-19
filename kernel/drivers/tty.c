@@ -356,7 +356,7 @@ static int tty_poll_get(vfs_fd_t *fd, poll_event_t *event) {
 	return 0;
 }
 
-static int tty_raw_set_session(tty_t *tty, session_t *session) ATTR_REQUIRE(&proctree_lock, &tty->lock) {
+static int tty_raw_set_session(tty_t *tty, session_t *session) ATTR_REQUIRE(&proctree_lock) ATTR_REQUIRE(&tty->lock) {
 	spinlock_assert_acquired(&proctree_lock);
 	spinlock_assert_acquired(&tty->lock);
 	if (tty->session == session) {

@@ -19,7 +19,7 @@ int gettime(clockid_t clock, struct timespec *time);
 int settime(clockid_t clock, struct timespec *time);
 
 
-static inline gettime_sec(clockid_t clock) {
+static inline int gettime_sec(clockid_t clock) {
     struct timespec time;
     gettime(clock, &time);
     return time.tv_sec;

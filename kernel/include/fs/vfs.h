@@ -252,7 +252,7 @@ static inline int vfs_mknod(const char *path, mode_t mode, dev_t dev) {
 	return vfs_mknod_at(NULL, path, mode, dev);
 }
 
-static inline vfs_link(const char *old_path, const char *new_path) {
+static inline int vfs_link(const char *old_path, const char *new_path) {
 	return vfs_link_at(NULL, old_path, NULL, new_path);
 }
 
@@ -260,15 +260,15 @@ static inline int vfs_symlink(const char *target, const char *path) {
 	return vfs_symlink_at(target, NULL, path);
 }
 
-static inline vfs_rename(const char *old_path, const char *new_path, unsigned int flags) {
+static inline int vfs_rename(const char *old_path, const char *new_path, unsigned int flags) {
 	return vfs_rename_at(NULL, old_path, NULL, new_path, flags);
 }
 
-static inline vfs_unlink(const char *path) {
+static inline int vfs_unlink(const char *path) {
 	return vfs_unlink_at(NULL, path);
 }
 
-static inline vfs_rmdir(const char *path) {
+static inline int vfs_rmdir(const char *path) {
 	return vfs_rmdir_at(NULL, path);
 }
 
@@ -604,7 +604,7 @@ static inline int vfs_flush_range(vfs_fd_t *fd, off_t offset, size_t count) {
 	return fd->ops->flush(fd, offset, count);
 }
 
-static inline vfs_flush(vfs_fd_t *fd) {
+static inline int vfs_flush(vfs_fd_t *fd) {
 	if (!fd) return -EBADF;
 	if (fd->inode) {
 		int ret = vfs_node_flush(fd->inode);

@@ -38,12 +38,12 @@
 #include <kernel/fsthreads.h>
 #include <sys/time.h>
 
-kernel_table master_kernel_table;
+static kernel_table master_kernel_table;
 kernel_table *kernel = &master_kernel_table;
 
-void print_license(void) {
+static void print_license(void) {
 	kinfof("the STANIX kernel\n"
-		"Copyright (C) 2024 - 2025 Tayoky\n"
+		"Copyright (C) 2024 - 2026 Tayoky\n"
 		"\n"
 		"This program is free software: you can redistribute it and/or modify\n"
 		"it under the terms of the GNU General Public License as published by\n"
@@ -56,7 +56,7 @@ void print_license(void) {
 		"GNU General Public License for more details.\n");
 }
 
-void spawn_init() {
+static void spawn_init(void) {
 	kstatusf("try spawn init...\n");
 	// first get the path for the init program
 	const char *init_path = kcmdline_get_option("--init");
@@ -92,8 +92,8 @@ void spawn_init() {
 	halt();
 }
 
-//the entry point
-void kmain() {
+// the generic entry point
+void kmain(void) {
 	kprintf("███████╗████████╗ █████╗ ███╗   ██╗██╗██╗  ██╗    \n");
 	kprintf("██╔════╝╚══██╔══╝██╔══██╗████╗  ██║██║╚██╗██╔╝    \n");
 	kprintf("███████╗   ██║   ███████║██╔██╗ ██║██║ ╚███╔╝     \n");

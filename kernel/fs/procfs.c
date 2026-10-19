@@ -60,7 +60,7 @@ static vfs_node_t *proc_new_node(vfs_superblock_t *superblock, process_t *proc, 
 static int proc_readdir(vfs_node_t *vnode, unsigned long index, struct dirent *dirent) {
 	proc_inode_t *inode = container_of(vnode, proc_inode_t, vnode);
 	switch (inode->type) {
-	case INODE_DIR:
+	case INODE_DIR:;
 		static char *content[] = {
 			".",
 			"..",

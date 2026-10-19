@@ -10,8 +10,6 @@
 #include <elf.h>
 #include <errno.h>
 
-int sys_sbrk(size_t);
-
 int verfiy_elf(Elf64_Ehdr *header) {
 	if (memcmp(header, ELFMAG, 4)) {
 		return 0;

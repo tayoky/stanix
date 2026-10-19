@@ -311,7 +311,7 @@ static inline int pmm_acquire_page_lock(uintptr_t page) {
  * @param page the page to release the lock of
  */
 static inline void pmm_release_page_lock(uintptr_t page) {
-	if (!pmm_is_stage2) return 0;
+	if (!pmm_is_stage2) return;
 	int previous_flags = atomic_fetch_and(&pmm_page_info(page)->flags, ~PAGE_FLAG_LOCKED);
 	(void)previous_flags;
 	kassert(previous_flags & PAGE_FLAG_LOCKED);

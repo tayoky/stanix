@@ -196,10 +196,10 @@ static inline int bus_activate_resource(devnode_t *bus, devnode_t *devnode, reso
 	return 0;
 }
 
-static inline void bus_deactivate_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
-	if (!resource) return;
+static inline int bus_deactivate_resource(devnode_t *bus, devnode_t *devnode, resource_t *resource) {
+	if (!resource) return -EINVAL;
 	if (!(resource->flags & RESOURCE_ACTIVE)) {
-		return;
+		return -EINVAL;
 	}
 	resource->flags &= ~RESOURCE_ACTIVE;
 	BUS_UPWARD_OP(bus, deactivate_resource, devnode, resource);
@@ -235,7 +235,7 @@ static inline resource_t *device_allocate_simple_resource(devnode_t *devnode, in
 	return device_allocate_size_resource(devnode, RESOURCE_ANY_SIZE, flags, rid);
 }
 
-static inline void device_release_resource(devnode_t *devnode, resource_t *resource) {
+static inline int device_release_resource(devnode_t *devnode, resource_t *resource) {
 	return bus_release_resource(devnode->parent, devnode, resource);
 }
 

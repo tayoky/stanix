@@ -40,7 +40,7 @@ static inline rculist_node_t *rculist_get_first(rculist_t *rculist) {
 	return rcu_ptr_fetch(&rculist->first);
 }
 
-static inline rculist_is_empty(rculist_t *rculist) {
+static inline int rculist_is_empty(rculist_t *rculist) {
 	return rculist_get_first(rculist) == NULL;
 }
 
