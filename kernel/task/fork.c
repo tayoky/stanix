@@ -7,30 +7,43 @@
 #include <kernel/arch.h>
 #include <kernel/vmm.h>
 
+typedef struct fork_data {
+	registers_t registers;
+	int kill;
+} fork_data_t;
+
 static void fork_trampoline(void *arg) {
-	registers_t registers = *(registers_t*)arg;
+	fork_data_t data = *(fork_data_t *)arg;
 	kfree(arg);
-	arch_registers_load(&registers);
+
+	if (data.kill) return;
+	arch_registers_load(&data.registers);
 }
 
 pid_t fork(void) {
 	// setup new context for child
 	// and return 0 to the child
-	registers_t *new_registers = kmalloc(sizeof(registers_t));
-	if (!new_registers) return -ENOMEM;
-	*new_registers = *get_current_task()->syscall_frame;
-	RET_REG(*new_registers) = 0;
+	fork_data_t *data = kmalloc(sizeof(fork_data_t));
+	if (!data) return -ENOMEM;
+	data->registers = *get_current_task()->syscall_frame;
+	data->kill = 0;
+	RET_REG(data->registers) = 0;
 
 	process_t *parent = get_current_proc();
-	process_t *child = proc_new(fork_trampoline, new_registers);
+	process_t *child = proc_new(fork_trampoline, data);
 	if (!child) {
-		kfree(new_registers);
+		kfree(data);
 		return -ENOMEM;
 	}
 
 	kdebugf("forking child : %ld\n", child->pid);
 
-	vmm_clone(&parent->vmm_space, &child->vmm_space);
+	int ret = vmm_clone(&parent->vmm_space, &child->vmm_space);
+	if (ret < 0) {
+		data->kill = 1;
+		unblock_task(child->main_thread);
+		return ret;
+	}
 
 	// clone metadata
 	child->heap_end   = parent->heap_end;

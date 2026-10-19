@@ -603,7 +603,15 @@ static int vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg
 		child_entry = mmu_create_next_entry_and_acquire_lock(child->addrspace, vaddr, child_entry, old_vaddr);
 		old_vaddr = vaddr;
 		if (!child_entry) {
-			kassert("TODO : handle memory failure");
+			// release already mapped pages
+			if (seg->flags & VMM_FLAG_IO) {
+				mmu_unmap_pages(child->addrspace, seg->start, vaddr - seg->start);
+			} else {
+				mmu_unmap_and_release_pages(child->addrspace, seg->start, vaddr - seg->start);
+			}
+			mutex_release(&seg->lock);
+			slab_free(seg);
+			return -ENOMEM;
 		}
 		mmu_entry_map(child->addrspace, child_entry, page, prot);
 		rcu_acquire_read();
@@ -646,10 +654,13 @@ int vmm_clone(vmm_space_t *parent, vmm_space_t *child) {
 	child->file_size    = parent->file_size;
 	child->anon_size    = parent->anon_size;
 	rwsem_acquire_read(&parent->lock);
+	int ret = 0;
 	foreach (node, &parent->segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
-		vmm_clone_seg(parent, child, seg);
+		ret = vmm_clone_seg(parent, child, seg);
+		if (ret < 0) break;
 	}
 	rwsem_release_read(&parent->lock);
-	return 0;
+	if (ret < 0) vmm_space_unmap_all(child);
+	return ret;
 }
