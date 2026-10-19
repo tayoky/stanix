@@ -208,6 +208,8 @@ static uintptr_t pmm_helper_allocate_pages(pmm_t *pmm, int order) {
 		for (size_t i = 0; i < ORDER2COUNT(order); i++) {
 			page_t *page_info = pmm_page_info(pages + i * PAGE_SIZE);
 			kassert(page_info);
+			// reset the entry
+			atomic_fetch_and(&page_info->flags, PAGE_FLAG_USABLE | PAGE_FLAG_RESERVED);
 			atomic_store(&page_info->ref_count, 1);
 		}
 	}
