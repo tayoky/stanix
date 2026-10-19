@@ -4,6 +4,3 @@
 [submodule "libraries/libtgui"]
 	path = libraries/libtgui
 	url = https://github.com/tayoky/tgui
-[submodule "userspace/tgui-apps"]
-	path = userspace/tgui-apps
-	url = https://github.com/tayoky/tgui-apps
