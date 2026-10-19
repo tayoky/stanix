@@ -30,14 +30,14 @@ void init_kheap(void);
  * @param flags flags to change the behaviour of the function, see ALLOC_FLAG_XXX constants
  * @return an pointer to the allocated region
  */
-ATTR_MUST_USE ATTR_MALLOC void *kmalloc_flags(size_t amount, int flags);
+ATTR_MUST_USE ATTR_MALLOC void *kmalloc_flags(size_t amount, int flags) ATTR_OWNERSHIP_RETURN(kmalloc, 1);
 
 /**
  * @brief allocate space in kernel heap
  * @param amount the amount of memory to allocate
  * @return a pointer to the allocated region or NULL on error
  */
-ATTR_MUST_USE ATTR_MALLOC static inline void *kmalloc(size_t amount) {
+ATTR_MUST_USE ATTR_MALLOC static inline void *kmalloc(size_t amount) ATTR_OWNERSHIP_RETURN(kmalloc, 1) {
 	return kmalloc_flags(amount, 0);
 }
 
@@ -45,7 +45,7 @@ ATTR_MUST_USE ATTR_MALLOC static inline void *kmalloc(size_t amount) {
  * @brief free space in the kernel heap
  * @param ptr a pointer to the memory region to free
  */
-void kfree(void *ptr);
+void kfree(void *ptr) ATTR_OWNERSHIP_TAKE(kmalloc, 1);
 
 /**
  * @brief reallocate a block with a different size

@@ -24,7 +24,7 @@ void list_append(list_t *list, list_node_t *node);
 void list_remove(list_t *list, list_node_t *node);
 void list_add_after(list_t *list, list_node_t *ref, list_node_t *node);
 void list_add_before(list_t *list, list_node_t *ref, list_node_t *node);
-static inline list_is_empty(list_t *list) {
+static inline int list_is_empty(list_t *list) {
 	return list->first_node == NULL;
 }
 

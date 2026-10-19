@@ -18,7 +18,7 @@ static inline int have_interrupt(){
     return (flags & (1 << 9)) ;
 }
 
-static inline arch_pause(void) {
+static inline void arch_pause(void) {
    asm volatile("hlt");
 }
 

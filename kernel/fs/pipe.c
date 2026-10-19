@@ -12,16 +12,16 @@
 #include <stdatomic.h>
 
 typedef struct pipe {
-	ringbuffer_t ring;          // protected by lock
-	sleep_queue_t reader_queue; // protected by lock
-	sleep_queue_t writer_queue; // protected by lock
-	int isbroken;               // protected by lock
 	spinlock_t lock;
+	int isbroken ATTR_GUARDED_BY(&lock);
+	ringbuffer_t ring ATTR_GUARDED_BY(&lock);
+	sleep_queue_t reader_queue ATTR_GUARDED_BY(&lock);
+	sleep_queue_t writer_queue ATTR_GUARDED_BY(&lock);
 } pipe_t;
 
 #define PIPE_SIZE 4096
 
-static ssize_t pipe_raw_read(pipe_t *pipe, void *buffer, size_t count, long flags) {
+static ssize_t pipe_raw_read(pipe_t *pipe, void *buffer, size_t count, long flags) ATTR_REQUIRE(&pipe->lock) {
 	if (ringbuffer_read_available(&pipe->ring) == 0) {
 		// broken pipe check
 		if (pipe->isbroken) {
@@ -55,7 +55,7 @@ static ssize_t pipe_read(vfs_fd_t *fd, void *buffer, off_t offset, size_t count)
 	return ret;
 }
 
-static ssize_t pipe_raw_write(pipe_t *pipe, const char *buffer, size_t count, long flags) {
+static ssize_t pipe_raw_write(pipe_t *pipe, const char *buffer, size_t count, long flags) ATTR_REQUIRE(&pipe->lock) {
 	// broken pipe check
 	if (pipe->isbroken) {
 		return -EPIPE;

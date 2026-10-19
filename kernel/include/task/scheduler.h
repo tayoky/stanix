@@ -56,7 +56,7 @@ typedef struct task {
 	atomic_size_t preempt_context_switches;
 	atomic_size_t voluntary_context_switches;
 #ifdef ENABLE_LOCK_LEAK_DETECTOR
-	size_t locks_count // only the thread itself can read/write
+	size_t locks_count; // only the thread itself can read/write
 #endif
 } task_t;
 
