@@ -7,8 +7,21 @@ static task_t *evicter_task   = NULL;
 
 static void writeback_thread() {
 	for (;;) {
-		nano_sleep(30L * 1000000000L);
+		size_t clean = cache_get_clean_pages();
+		size_t threshold = cache_get_clean_pages_threshold();
+		while (clean >= threshold) {
+			block_prepare();
+			block_task();
+			clean = cache_get_clean_pages();
+			threshold = cache_get_clean_pages_threshold();
+		}
+		
 		cache_flush_all();
+		
+		// add a minimum of 5 second between flushs
+		nano_sleep(5L * 1000000000L);
+		block_prepare();
+		block_task();
 	}
 }
 
