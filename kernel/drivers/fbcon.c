@@ -29,9 +29,49 @@ uint32_t ansi_colors[] = {
 	0xFFFFFF, // light white
 };
 
+static size_t fbcon_pixel_offset(fbcon_t *fbcon, long x, long y) {
+	return x * fbcon->fb_info.bpp / 8 + y * fbcon->fb_info.pitch;
+}
+
+static void *fbcon_pixel_addr(fbcon_t *fbcon, long x, long y) {
+	return fbcon->back_buffer + fbcon_pixel_offset(fbcon, x, y);
+}
+
+static void fbcon_draw_pixel(fbcon_t *fbcon, long x, long y, uint32_t color) {
+	void *addr = fbcon_pixel_addr(fbcon, x, y);
+	switch (fbcon->fb_info.bpp) {
+	case 32:
+		*(uint32_t*)addr = color;
+		break;
+	case 24:
+		memcpy(addr, &color, sizeof(uint8_t) * 3);
+		break;
+	}
+}
+
+static void fbcon_push_buffer(fbcon_t *fbcon) {
+	vfs_write(fbcon->framebuffer_dev, fbcon->back_buffer, 0, fbcon->fb_info.pitch * fbcon->fb_info.height);
+}
+
+static void fbcon_push_rect(fbcon_t *fbcon, long x, long y, long width, long height) {
+	size_t offset = fbcon_pixel_offset(fbcon, x, y);
+	size_t line_size = width * fbcon->fb_info.bpp / 8;
+	for (long i = 0; i < height; i++) {
+		vfs_write(fbcon->framebuffer_dev, fbcon->back_buffer + offset, offset, line_size);
+		offset += fbcon->fb_info.pitch;
+	}
+}
+
 static void fbcon_linefeed(fbcon_t *fbcon) {
-	fbcon->y++;
-	// TODO : scrolling
+	size_t character_height = (((PSF1_Header *)fbcon->header)->characterSize + 1);
+	if (fbcon->y + 1 >= fbcon->fb_info.height / character_height) {
+		// TODO : scrolling
+		memmove(fbcon->back_buffer, fbcon->back_buffer + character_height * fbcon->fb_info.pitch, (fbcon->fb_info.height - character_height) * fbcon->fb_info.pitch);
+		memset(fbcon->back_buffer + (fbcon->fb_info.height - character_height) * fbcon->fb_info.pitch, 0, character_height * fbcon->fb_info.pitch);
+		fbcon_push_buffer(fbcon);
+	} else {
+		fbcon->y++;
+	}
 }
 
 static void fbcon_handle_c0(fbcon_t *fbcon, char c) {
@@ -175,39 +215,6 @@ static void fbcon_handle_esc(fbcon_t *fbcon, char c) {
 		fbcon->params[0]    = -1;
 	} else {
 		fbcon->state = FBCON_STATE_GROUND;
-	}
-}
-
-static size_t fbcon_pixel_offset(fbcon_t *fbcon, long x, long y) {
-	return x * fbcon->fb_info.bpp / 8 + y * fbcon->fb_info.pitch;
-}
-
-static void *fbcon_pixel_addr(fbcon_t *fbcon, long x, long y) {
-	return (char*)fbcon->back_buffer + fbcon_pixel_offset(fbcon, x, y);
-}
-
-static void fbcon_draw_pixel(fbcon_t *fbcon, long x, long y, uint32_t color) {
-	void *addr = fbcon_pixel_addr(fbcon, x, y);
-	switch (fbcon->fb_info.bpp) {
-	case 32:
-		*(uint32_t*)addr = color;
-		break;
-	case 24:
-		memcpy(addr, &color, sizeof(uint8_t) * 3);
-		break;
-	}
-}
-
-static void fbcon_push_buffer(fbcon_t *fbcon) {
-	vfs_write(fbcon->framebuffer_dev, fbcon->back_buffer, 0, fbcon->fb_info.pitch * fbcon->fb_info.height);
-}
-
-static void fbcon_push_rect(fbcon_t *fbcon, long x, long y, long width, long height) {
-	size_t offset = fbcon_pixel_offset(fbcon, x, y);
-	size_t line_size = width * fbcon->fb_info.bpp / 8;
-	for (long i = 0; i < height; i++) {
-		vfs_write(fbcon->framebuffer_dev, (char*)fbcon->back_buffer + offset, offset, line_size);
-		offset += fbcon->fb_info.pitch;
 	}
 }
 
