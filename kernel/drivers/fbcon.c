@@ -8,7 +8,7 @@
 #include <kernel/string.h>
 #include <ctype.h>
 
-// a lot of code here is taken from libterm, https://github.com/tayoky/libterm
+// a lot of code here is taken from libterm, https://github.com/stanix-org/libterm
 
 uint32_t ansi_colors[] = {
 	0x000000, // black
@@ -29,6 +29,11 @@ uint32_t ansi_colors[] = {
 	0xFFFFFF, // light white
 };
 
+static void fbcon_linefeed(fbcon_t *fbcon) {
+	fbcon->y++;
+	// TODO : scrolling
+}
+
 static void fbcon_handle_c0(fbcon_t *fbcon, char c) {
 	switch (c) {
 	case '\b': // backspace
@@ -40,8 +45,7 @@ static void fbcon_handle_c0(fbcon_t *fbcon, char c) {
 	case '\n':
 	case '\v':
 	case '\f':
-		fbcon->y++;
-		// TODO : scrolling
+		fbcon_linefeed(fbcon);
 		break;
 	case '\t':
 		fbcon->x -= fbcon->x % 8;
@@ -174,6 +178,39 @@ static void fbcon_handle_esc(fbcon_t *fbcon, char c) {
 	}
 }
 
+static size_t fbcon_pixel_offset(fbcon_t *fbcon, long x, long y) {
+	return x * fbcon->fb_info.bpp / 8 + y * fbcon->fb_info.pitch;
+}
+
+static void *fbcon_pixel_addr(fbcon_t *fbcon, long x, long y) {
+	return (char*)fbcon->back_buffer + fbcon_pixel_offset(fbcon, x, y);
+}
+
+static void fbcon_draw_pixel(fbcon_t *fbcon, long x, long y, uint32_t color) {
+	void *addr = fbcon_pixel_addr(fbcon, x, y);
+	switch (fbcon->fb_info.bpp) {
+	case 32:
+		*(uint32_t*)addr = color;
+		break;
+	case 24:
+		memcpy(addr, &color, sizeof(uint8_t) * 3);
+		break;
+	}
+}
+
+static void fbcon_push_buffer(fbcon_t *fbcon) {
+	vfs_write(fbcon->framebuffer_dev, fbcon->back_buffer, 0, fbcon->fb_info.pitch * fbcon->fb_info.height);
+}
+
+static void fbcon_push_rect(fbcon_t *fbcon, long x, long y, long width, long height) {
+	size_t offset = fbcon_pixel_offset(fbcon, x, y);
+	size_t line_size = width * fbcon->fb_info.bpp / 8;
+	for (long i = 0; i < height; i++) {
+		vfs_write(fbcon->framebuffer_dev, (char*)fbcon->back_buffer + offset, offset, line_size);
+		offset += fbcon->fb_info.pitch;
+	}
+}
+
 static void fbcon_print_char(fbcon_t *fbcon, char c) {
 	PSF1_Header *header    = fbcon->header;
 	char *font_data        = fbcon->font;
@@ -181,14 +218,15 @@ static void fbcon_print_char(fbcon_t *fbcon, char c) {
 	for (uint16_t y = 0; y < header->characterSize; y++) {
 		for (uint8_t x = 0; x < 8; x++) {
 			if ((font_data[current_byte] >> (7 - x)) & 0x01) {
-				draw_pixel(fbcon->framebuffer_dev, fbcon->x * 8 + x, fbcon->y * header->characterSize + y, fbcon->font_color, &fbcon->fb_info);
+				fbcon_draw_pixel(fbcon, fbcon->x * 8 + x, fbcon->y * header->characterSize + y, fbcon->font_color);
 			} else {
-				draw_pixel(fbcon->framebuffer_dev, fbcon->x * 8 + x, fbcon->y * header->characterSize + y, fbcon->back_color, &fbcon->fb_info);
+				fbcon_draw_pixel(fbcon, fbcon->x * 8 + x, fbcon->y * header->characterSize + y, fbcon->back_color);
 			}
 		}
 
 		current_byte++;
 	}
+	fbcon_push_rect(fbcon, fbcon->x * 8, fbcon->y * header->characterSize, 8, header->characterSize);
 	fbcon->x++;
 }
 
@@ -298,6 +336,8 @@ void init_fbcon(void) {
 	// start by parsing the font
 	fbcon->header = font;
 	if (((PSF1_Header *)font)->magic != PSF1_FONT_MAGIC) {
+		kfree(fbcon);
+		kfree(font);
 		kfail();
 		kinfof("font %s is not a psf1 file\n", font_path);
 		return;
@@ -309,6 +349,11 @@ void init_fbcon(void) {
 	fbcon->tty.size.ws_row    = fbcon->fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
 	fbcon->tty.size.ws_xpixel = fbcon->fb_info.width;
 	fbcon->tty.size.ws_ypixel = fbcon->fb_info.height;
+
+	// initalize the backbuffer
+	size_t framebuffer_size = fbcon->fb_info.pitch * fbcon->fb_info.height;
+	fbcon->back_buffer = kmalloc(framebuffer_size);
+	memset(fbcon->back_buffer, 0 , framebuffer_size);
 
 	fbcon->font_type = FONT_TYPE_PSF1;
 	fbcon->font      = font + sizeof(PSF1_Header);
@@ -324,6 +369,8 @@ void init_fbcon(void) {
 
 	// create the device
 	if (tty_register(&fbcon->tty, "tty%d", 0) < 0) {
+		kfree(fbcon);
+		kfree(font);
 		kfail();
 		kinfof("terminal emulator init but can't create device /dev/tty0\n");
 		return;

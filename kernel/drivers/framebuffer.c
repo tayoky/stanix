@@ -46,18 +46,6 @@ static ssize_t framebuffer_write(vfs_fd_t *fd, const void *buffer, off_t offset,
 	return count;
 }
 
-// really bad scrolling
-static int framebuffer_scroll(framebuffer_t *framebuffer, size_t count) {
-	uint32_t *buffer = (uint32_t *)framebuffer->base;
-	struct fb info;
-	int ret = framebuffer_get_info(framebuffer, &info);
-	if (ret < 0) return ret;
-
-	memmove(buffer, &buffer[count * info.width], (info.height - count) * info.width * sizeof(uint32_t));
-	
-	return 0;
-}
-
 static int framebuffer_ioctl(vfs_fd_t *fd, long request, void *arg) {
 	framebuffer_t *framebuffer = fd->private;
 	
@@ -68,8 +56,6 @@ static int framebuffer_ioctl(vfs_fd_t *fd, long request, void *arg) {
 		int ret = framebuffer_get_info(framebuffer, &fb_info);
 		if (ret < 0) return ret;
 		return safe_copy_auto_to(arg, &fb_info);
-	case IOCTL_FRAMEBUFFER_SCROLL:
-		return framebuffer_scroll(framebuffer, (size_t)arg);
 	default:
 		return -EINVAL;
 		break;
@@ -98,11 +84,6 @@ static int framebuffer_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 	seg->prot |= MMU_FLAG_WRITE_COMBINE;
 	uintptr_t paddr = framebuffer->base + PAGE_ALIGN_DOWN(offset);
 	return mmu_map_pages(get_current_proc()->vmm_space.addrspace, seg->start, paddr, VMM_SIZE(seg), seg->prot);
-}
-
-void draw_pixel(vfs_fd_t *fd, size_t x, size_t y, uint32_t color, struct fb *info) {
-	uintptr_t location =  y * info->pitch  + (x * sizeof(uint32_t));
-	vfs_write(fd, &color, location, sizeof(uint32_t));
 }
 
 static vfs_fd_ops_t framebuffer_ops = {

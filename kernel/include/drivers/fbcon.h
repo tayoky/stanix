@@ -15,6 +15,7 @@ typedef struct fbcon {
 	void *font;
 	char font_type;
 	char activate;
+	void *back_buffer;
 	vfs_fd_t *framebuffer_dev;
 	struct fb fb_info;
 	uint32_t font_color;
