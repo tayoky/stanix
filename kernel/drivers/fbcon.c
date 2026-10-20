@@ -63,11 +63,10 @@ static void fbcon_push_rect(fbcon_t *fbcon, long x, long y, long width, long hei
 }
 
 static void fbcon_linefeed(fbcon_t *fbcon) {
-	size_t character_height = (((PSF1_Header *)fbcon->header)->characterSize + 1);
-	if (fbcon->y + 1 >= fbcon->fb_info.height / character_height) {
+	if (fbcon->y + 1 >= fbcon->fb_info.height / fbcon->font_height) {
 		// TODO : scrolling
-		memmove(fbcon->back_buffer, fbcon->back_buffer + character_height * fbcon->fb_info.pitch, (fbcon->fb_info.height - character_height) * fbcon->fb_info.pitch);
-		memset(fbcon->back_buffer + (fbcon->fb_info.height - character_height) * fbcon->fb_info.pitch, 0, character_height * fbcon->fb_info.pitch);
+		memmove(fbcon->back_buffer, fbcon->back_buffer + fbcon->font_height * fbcon->fb_info.pitch, (fbcon->fb_info.height - fbcon->font_height) * fbcon->fb_info.pitch);
+		memset(fbcon->back_buffer + (fbcon->fb_info.height - fbcon->font_height) * fbcon->fb_info.pitch, 0, fbcon->font_height * fbcon->fb_info.pitch);
 		fbcon_push_buffer(fbcon);
 	} else {
 		fbcon->y++;
@@ -219,21 +218,21 @@ static void fbcon_handle_esc(fbcon_t *fbcon, char c) {
 }
 
 static void fbcon_print_char(fbcon_t *fbcon, char c) {
-	PSF1_Header *header    = fbcon->header;
+	// TODO : support widths other than 8
 	char *font_data        = fbcon->font;
-	uintptr_t current_byte = c * header->characterSize;
-	for (uint16_t y = 0; y < header->characterSize; y++) {
-		for (uint8_t x = 0; x < 8; x++) {
+	uintptr_t current_byte = c * fbcon->font_width * fbcon->font_height / CHAR_BIT;
+	for (uint16_t y = 0; y < fbcon->font_height; y++) {
+		for (uint8_t x = 0; x < fbcon->font_width; x++) {
 			if ((font_data[current_byte] >> (7 - x)) & 0x01) {
-				fbcon_draw_pixel(fbcon, fbcon->x * 8 + x, fbcon->y * header->characterSize + y, fbcon->font_color);
+				fbcon_draw_pixel(fbcon, fbcon->x * fbcon->font_width + x, fbcon->y * fbcon->font_height + y, fbcon->font_color);
 			} else {
-				fbcon_draw_pixel(fbcon, fbcon->x * 8 + x, fbcon->y * header->characterSize + y, fbcon->back_color);
+				fbcon_draw_pixel(fbcon, fbcon->x * fbcon->font_width + x, fbcon->y * fbcon->font_height + y, fbcon->back_color);
 			}
 		}
 
 		current_byte++;
 	}
-	fbcon_push_rect(fbcon, fbcon->x * 8, fbcon->y * header->characterSize, 8, header->characterSize);
+	fbcon_push_rect(fbcon, fbcon->x * fbcon->font_width, fbcon->y * fbcon->font_height, fbcon->font_width, fbcon->font_height);
 	fbcon->x++;
 }
 
@@ -320,18 +319,6 @@ void init_fbcon(void) {
 		return;
 	}
 
-	// and read it
-	struct stat st;
-	vfs_getattr(font_file->inode, &st);
-	char *font = kmalloc(st.st_size);
-	if (vfs_read(font_file, font, 0, st.st_size) != (ssize_t)st.st_size) {
-		kfail();
-		kinfof("fail to read from file %s\n", font_path);
-		return;
-	}
-
-	vfs_close(font_file);
-
 	fbcon_t *fbcon = kmalloc(sizeof(fbcon_t));
 	memset(fbcon, 0, sizeof(fbcon_t));
 	fbcon->tty.ops = &fbcon_ops;
@@ -341,19 +328,42 @@ void init_fbcon(void) {
 	device_release(framebuffer_dev);
 
 	// start by parsing the font
-	fbcon->header = font;
-	if (((PSF1_Header *)font)->magic != PSF1_FONT_MAGIC) {
-		kfree(fbcon);
-		kfree(font);
+	PSF1_Header psf1_header;
+	if (vfs_read(font_file, &psf1_header, 0, sizeof(psf1_header)) != sizeof(psf1_header)) {
+fail_to_read:
 		kfail();
-		kinfof("font %s is not a psf1 file\n", font_path);
+		kinfof("fail to read from file %s\n", font_path);
+close_font:
+		vfs_close(font_file);
+free_fbcon:
+		kfree(fbcon->back_buffer);
+		kfree(fbcon);
+		vfs_close(fbcon->framebuffer_dev);
 		return;
 	}
 
+	if (psf1_header.magic != PSF1_FONT_MAGIC) {
+		kfail();
+		kinfof("font %s is not a psf1 file\n", font_path);
+		goto close_font;
+	}
+	fbcon->font_width = 8;
+	fbcon->font_height = psf1_header.characterSize;
+
+	// and read it
+	struct stat st;
+	vfs_getattr(font_file->inode, &st);
+	fbcon->font_size = st.st_size - sizeof(psf1_header);
+	fbcon->font = kmalloc(fbcon->font_size);
+	if (vfs_read(font_file, fbcon->font, sizeof(psf1_header), fbcon->font_size) != (ssize_t)fbcon->font_size) {
+		goto fail_to_read;
+	}
+	vfs_close(font_file);
+
 	// init width height and the char buffer
 	vfs_ioctl(fbcon->framebuffer_dev, IOCTL_GET_FB_INFO, &fbcon->fb_info);
-	fbcon->tty.size.ws_col    = fbcon->fb_info.width / 8;
-	fbcon->tty.size.ws_row    = fbcon->fb_info.height / (((PSF1_Header *)font)->characterSize + 1);
+	fbcon->tty.size.ws_col    = fbcon->fb_info.width / fbcon->font_width;
+	fbcon->tty.size.ws_row    = fbcon->fb_info.height / fbcon->font_height;
 	fbcon->tty.size.ws_xpixel = fbcon->fb_info.width;
 	fbcon->tty.size.ws_ypixel = fbcon->fb_info.height;
 
@@ -361,9 +371,6 @@ void init_fbcon(void) {
 	size_t framebuffer_size = fbcon->fb_info.pitch * fbcon->fb_info.height;
 	fbcon->back_buffer = kmalloc(framebuffer_size);
 	memset(fbcon->back_buffer, 0 , framebuffer_size);
-
-	fbcon->font_type = FONT_TYPE_PSF1;
-	fbcon->font      = font + sizeof(PSF1_Header);
 
 	// init cursor position
 	fbcon->x     = 0;
@@ -376,11 +383,9 @@ void init_fbcon(void) {
 
 	// create the device
 	if (tty_register(&fbcon->tty, "tty%d", 0) < 0) {
-		kfree(fbcon);
-		kfree(font);
 		kfail();
 		kinfof("terminal emulator init but can't create device /dev/tty0\n");
-		return;
+		goto free_fbcon;
 	}
 
 	vfs_fd_t *tty = vfs_open("/dev/tty0", O_WRONLY);

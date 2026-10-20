@@ -7,13 +7,13 @@
 #include <kernel/framebuffer.h>
 #include <stdint.h>
 
-#define FONT_TYPE_PSF1 0x01
-
 typedef struct fbcon {
 	tty_t tty;
-	void *header;
 	void *font;
-	char font_type;
+	size_t font_size;
+	size_t font_width;
+	size_t font_height;
+	size_t font_count;
 	char activate;
 	char *back_buffer;
 	vfs_fd_t *framebuffer_dev;
