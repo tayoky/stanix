@@ -46,6 +46,7 @@ static avltree_node_t *avltree_rotate_left(avltree_t *avltree, avltree_node_t *n
 	right->left = node;
 	right->parent = node->parent;
 	node->parent = right;
+	if (node->right) node->right->parent = node;
 
 	avltree_compute_height(avltree, node);
 	avltree_compute_height(avltree, right);
@@ -58,6 +59,7 @@ static avltree_node_t *avltree_rotate_right(avltree_t *avltree, avltree_node_t *
 	left->right = node;
 	left->parent = node->parent;
 	node->parent = left;
+	if (node->left) node->left->parent = node;
 
 	avltree_compute_height(avltree, node);
 	avltree_compute_height(avltree, left);
@@ -150,27 +152,31 @@ static int avltree_remove_helper(avltree_t *avltree, avltree_node_t **current, a
 			break;
 		}
 		// this is the node to delete
-		avltree_node_t *node = *current;
-		if (!node->right) {
+		avltree_node_t *cur_node = *current;
+		if (!cur_node->right) {
 			// no children or only left children
-			*current = node->left;
-		} else if (!node->left) {
+			*current = cur_node->left;
+			if (cur_node->left) cur_node->left->parent = cur_node->parent;
+		} else if (!cur_node->left) {
 			// only right children
-			*current = node->right;
+			*current = cur_node->right;
+			if (cur_node->right) cur_node->right->parent = cur_node->parent;
 		} else {
 			// both left and right children
-			avltree_node_t *leftest = avltree_leftest_subnode(node->right);
+			avltree_node_t *leftest = avltree_leftest_subnode(cur_node->right);
 
 			// remove the leftest subnode of right
-			if (!avltree_remove_helper(avltree, &node->right, leftest)) {
+			if (!avltree_remove_helper(avltree, &cur_node->right, leftest)) {
 				// normally we must find the leftest node
 				__builtin_unreachable();
 			}
 
 			// and replace it over us
-			leftest->left   = node->left;
-			leftest->right  = node->right;
-			leftest->parent = node->parent;
+			leftest->left   = cur_node->left;
+			leftest->right  = cur_node->right;
+			leftest->parent = cur_node->parent;
+			if (leftest->left)  leftest->left->parent = leftest;
+			if (leftest->right) leftest->right->parent = leftest;
 			*current = leftest;
 			avltree_rebalance(avltree, current, &leftest->right);
 		}
