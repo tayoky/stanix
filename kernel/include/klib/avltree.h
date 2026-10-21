@@ -16,9 +16,10 @@ struct avltree_ops {
 };
 
 struct avltree_node {
+	avltree_node_t *parent;
 	avltree_node_t *left;
 	avltree_node_t *right;
-	int height;
+	size_t height;
 };
 
 struct avltree {
@@ -52,10 +53,10 @@ static void avltree_release_write(avltree_t *avltree) {
 	rwsem_release_write(&avltree->rwsem);
 }
 
-int avltree_raw_insert(avltree_t *avltree, avltree_node_t *node);
+void avltree_raw_insert(avltree_t *avltree, avltree_node_t *node);
 int avltree_raw_remove(avltree_t *avltree, avltree_node_t *node);
 avltree_node_t *avltree_raw_lookup(avltree_t *avltree, void *key);
-int avltree_insert(avltree_t *avltree, avltree_node_t *node);
+void avltree_insert(avltree_t *avltree, avltree_node_t *node);
 int avltree_remove(avltree_t *avltree, avltree_node_t *node);
 avltree_node_t *avltree_lookup(avltree_t *avltree, void *key);
 

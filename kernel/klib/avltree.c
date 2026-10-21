@@ -44,6 +44,8 @@ static avltree_node_t *avltree_rotate_left(avltree_t *avltree, avltree_node_t *n
 	avltree_node_t *right = node->right;
 	node->right = right->left;
 	right->left = node;
+	right->parent = node->parent;
+	node->parent = right;
 
 	avltree_compute_height(avltree, node);
 	avltree_compute_height(avltree, right);
@@ -54,6 +56,8 @@ static avltree_node_t *avltree_rotate_right(avltree_t *avltree, avltree_node_t *
 	avltree_node_t *left = node->left;
 	node->left = left->right;
 	left->right = node;
+	left->parent = node->parent;
+	node->parent = left;
 
 	avltree_compute_height(avltree, node);
 	avltree_compute_height(avltree, left);
@@ -96,38 +100,35 @@ static void avltree_rebalance(avltree_t *avltree, avltree_node_t **current, avlt
 	}
 }
 
-static int avltree_insert_helper(avltree_t *avltree, avltree_node_t **parent, avltree_node_t *node) {
-	if (!*parent) {
-		*parent = node;
-		return 1;
+static void avltree_insert_helper(avltree_t *avltree, avltree_node_t *parent, avltree_node_t **current, avltree_node_t *node) {
+	if (!*current) {
+		node->parent = parent;
+		*current = node;
+		return;
 	}
 
 	avltree_node_t **child;
-	switch (avltree_compare_nodes(avltree, node, *parent)) {
+	switch (avltree_compare_nodes(avltree, node, *current)) {
 	case -1:
-		child = &(*parent)->left;
+		child = &(*current)->left;
 		break;
+	case 0: // if equal also go to the right
 	case 1:
-		child = &(*parent)->right;
+		child = &(*current)->right;
 		break;
-	case 0:
-		// cannot have twice the same value
-		return 0;
 	default:
 		__builtin_unreachable();
 	}
 	
-	if (!avltree_insert_helper(avltree, child, node)) return 0;
-
-	avltree_rebalance(avltree, parent, child);
-	return 1;
+	avltree_insert_helper(avltree, *current, child, node);
+	avltree_rebalance(avltree, current, child);
 }
 
-int avltree_raw_insert(avltree_t *avltree, avltree_node_t *node) {
+void avltree_raw_insert(avltree_t *avltree, avltree_node_t *node) {
 	rwsem_assert_write_acquired(&avltree->rwsem);
 	node->height = 1;
 
-	return avltree_insert_helper(avltree, &avltree->root, node);
+	avltree_insert_helper(avltree, NULL, &avltree->root, node);
 }
 
 static int avltree_remove_helper(avltree_t *avltree, avltree_node_t **current, avltree_node_t *node) {
@@ -141,7 +142,13 @@ static int avltree_remove_helper(avltree_t *avltree, avltree_node_t **current, a
 	case 1:
 		child = &(*current)->right;
 		break;
-	case 0:;
+	case 0:
+		if (*current != node) {
+			// the node we are searching is equal to this one
+			// so go right
+			child = &(*current)->right;
+			break;
+		}
 		// this is the node to delete
 		avltree_node_t *node = *current;
 		if (!node->right) {
@@ -161,8 +168,9 @@ static int avltree_remove_helper(avltree_t *avltree, avltree_node_t **current, a
 			}
 
 			// and replace it over us
-			leftest->left  = node->left;
-			leftest->right = node->right;
+			leftest->left   = node->left;
+			leftest->right  = node->right;
+			leftest->parent = node->parent;
 			*current = leftest;
 			avltree_rebalance(avltree, current, &leftest->right);
 		}
@@ -201,11 +209,10 @@ avltree_node_t *avltree_raw_lookup(avltree_t *avltree, void *key) {
 	return NULL;
 }
 
-int avltree_insert(avltree_t *avltree, avltree_node_t *node) {
+void avltree_insert(avltree_t *avltree, avltree_node_t *node) {
 	avltree_acquire_write(avltree);
-	int ret = avltree_raw_insert(avltree, node);
+	avltree_raw_insert(avltree, node);
 	avltree_release_write(avltree);
-	return ret;
 }
 
 int avltree_remove(avltree_t *avltree, avltree_node_t *node) {
