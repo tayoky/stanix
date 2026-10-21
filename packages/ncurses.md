@@ -1,29 +1,36 @@
 ---
 title: ncurses
 ---
-## infos
+
+# Description
 version : 6.5  
 website : [https://invisible-island.net/ncurses](https://invisible-island.net/ncurses)  
-tar     : [https://ftp.gnu.org/gnu/ncurses/ncurses-6.5.tar.gz](https://ftp.gnu.org/gnu/ncurses/ncurses-6.5.tar.gz)  
+tarball : [https://ftp.gnu.org/ncurses/ncurses-6.5.tar.gz](https://ftp.gnu.org/ncurses/ncurses-6.5.tar.gz)  
 
-## build
-To build, once stanix's core is compiled, run
+# Dependencies
+- [stanix-base](stanix-base)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh ncurses
-./install ncurses
+./tinx.sh install ncurses
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
+```sh
+./tinx.sh run scripts/download-packages.sh ncurses
+```
+
+# Manifest
 ```sh
 VERSION="6.5"
-TAR="$GNU_MIRROR/ncurses/ncurses-$VERSION.tar.gz"
-WEBSITE=https://invisible-island.net/ncurses
+SOURCE="ncurses"
+DEPENDENCIES="stanix-base"
+. "$TOP/scripts/gnu-package.sh"
+WEBSITE="https://invisible-island.net/ncurses"
 
 configure() {
-	./configure --host="$HOST" --prefix="$PREFIX" \
-	--with-pkg-config=$PKG_CONFIG \
-	--with-pkg-config-libdir=/usr/lib/pkgconfig \
+	gnu_configure --with-pkg-config-libdir=/usr/lib/pkgconfig \
 	--enable-pc-files \
 	--enable-sigwinch \
 	--disable-widec \
@@ -31,14 +38,4 @@ configure() {
 	--without-dlsym \
 	--without-cxx-binding
 }
-
-build() {
-	make all -j$NPROC
-}
-
-install() {
-	make install DESTDIR="$DESTDIR"
-}
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/ncurses](https://github.com/tayoky/ports/blob/main/ports/ncurses).
-

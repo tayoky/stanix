@@ -1,37 +1,35 @@
 ---
 title: nasm
 ---
-## infos
+
+# Description
 version : 2.16.03  
 website : [https://nasm.us](https://nasm.us)  
-tar     : [https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz](https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz)  
+tarball : [https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz](https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz)  
 
-## build
-To build, once stanix's core is compiled, run
+# Dependencies
+- [stanix-base](stanix-base)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh nasm
-./install nasm
+./tinx.sh install nasm
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
+```sh
+./tinx.sh run scripts/download-packages.sh nasm
+```
+
+# Manifest
 ```sh
 VERSION="2.16.03"
-TAR="https://www.nasm.us/pub/nasm/releasebuilds/$VERSION/nasm-$VERSION.tar.xz"
+SOURCE="nasm"
 WEBSITE="https://nasm.us"
+DEPENDENCIES="stanix-base"
 
-configure() {
-	#thanks bananymous for the --disable-gdb
-	./configure --host="$HOST" --prefix="$PREFIX" --disable-gdb
-}
-
-build() {
-	make
-}
-
-install() {
-	make install DESTDIR="$DESTDIR"
+configure () {
+	# thanks bananymous for the --disable-gdb
+	"$SOURCE_DIR/configure" --host="$HOST" --prefix="$PREFIX" --disable-gdb
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/nasm](https://github.com/tayoky/ports/blob/main/ports/nasm).
-

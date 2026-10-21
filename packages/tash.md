@@ -1,34 +1,37 @@
 ---
 title: tash
 ---
-## infos
-version : unknow  
-git     : [https://github.com/tayoky/tash](https://github.com/tayoky/tash)  
 
-## build
-To build, once stanix's core is compiled, run
+# Description
+version : 0.1.0  
+git     : [https://github.com/stanix-org/tash](https://github.com/stanix-org/tash)  
+commit  : 5c25113df8b12a55a8f9c0a69e53bb38c8087de6  
+
+# Dependencies
+- [tlibc](tlibc)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh tash
-./install tash
+./tinx.sh install tash
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
 ```sh
-GIT=https://github.com/tayoky/tash
-COMMIT=5bc2f93e9b1a4a0f016f4e15404153eb2b3d3aab
+./tinx.sh run scripts/download-packages.sh tash
+```
 
-configure() {
-	./configure --host="$HOST" --cc=$CC --prefix="$PREFIX"
-}
+# Manifest
+```sh
+VERSION="0.1.0"
+SOURCE="tash"
+BUILD_DEPENDENCIES="stanix-toolchain"
+DEPENDENCIES="tlibc"
+. "$TOP/scripts/tconf-package.sh"
+PREFIX="/usr"
 
-build() {
-	make
-}
-
-install() {
-	make install DESTDIR="$DESTDIR"
+install () {
+	# install in /bin
+	make install DESTDIR="$DESTDIR" BINDIR="/bin"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tash](https://github.com/tayoky/ports/blob/main/ports/tash).
-

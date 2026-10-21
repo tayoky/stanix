@@ -1,42 +1,58 @@
 ---
 title: tcc
 ---
-## infos
-version : unknow  
+
+# Description
+version : unknown  
 website : [https://bellard.org/tcc/](https://bellard.org/tcc/)  
 git     : [https://github.com/TinyCC/tinycc](https://github.com/TinyCC/tinycc)  
+commit  : fada98b1ce9ee0c36771183177218828ccb9b9de  
 
-## build
-To build, once stanix's core is compiled, run
+# Dependencies
+- [stanix-base](stanix-base)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh tcc
-./install tcc
+./tinx.sh install tcc
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
 ```sh
-GIT="https://github.com/TinyCC/tinycc"
-COMMIT="fada98b1ce9ee0c36771183177218828ccb9b9de"
+./tinx.sh run scripts/download-packages.sh tcc
+```
+
+# Manifest
+```sh
+SOURCE="tcc"
+DEPENDENCIES="stanix-base"
 WEBSITE="https://bellard.org/tcc/"
 
-configure() {
-	./configure --prefix=$PREFIX --sysroot=$SYSROOT --targetos=stanix --enable-static --cc=$CC --triplet=x86_64-stanix \
-    --sysincludepaths=/usr/include:$PREFIX/lib/tcc/include \
-    --libpaths=/usr/lib:$PREFIX/lib/tcc \
-    --crtprefix=/usr/lib \
-    --elfinterp=/usr/lib/ld-tlibc.so
-    
+configure () {
+	"$SOURCE_DIR/configure" --prefix="$PREFIX" --sysroot="$SYSROOT" \
+		--cpu="${HOST%%-*}" \
+        --targetos="${HOST##*-}" \
+		--enable-cross \
+		--cross-prefix=$HOST- \
+        --triplet="$HOST" \
+        --sysincludepaths="/usr/include:/usr/local/include:$PREFIX/lib/tcc/include" \
+        --libpaths="/lib:/usr/lib:/usr/local/lib:$PREFIX/lib/tcc" \
+        --crtprefix="/usr/lib" \
+        --elfinterp="/usr/lib/ld-tlibc.so" \
+        --cc="gcc" --ar="$HOST-ar"
+
+    # disable semaphores
 	echo '#define CONFIG_TCC_SEMLOCK 0' >> config.h
 }
 
-build() {
-	make XTCC=gcc XAR=$AR
+build () {
+    # TOP causes issues with tcc's makefile
+	(unset TOP && make cross-${HOST%%-*} XTCC="$HOST-gcc" XAR="$HOST-ar")
 }
 
-install() {
-	make install DESTDIR="$DESTDIR"
+install () {
+    # TOP causes issues with tcc's makefile
+	(unset TOP && make install DESTDIR="$DESTDIR" XTCC="$HOST-gcc" XAR="$HOST-ar") || return 1
+    ln -sf "${HOST%%-*}-tcc" "$DESTDIR$PREFIX/bin/tcc"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tcc](https://github.com/tayoky/ports/blob/main/ports/tcc).
-

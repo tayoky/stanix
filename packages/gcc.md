@@ -1,56 +1,48 @@
 ---
 title: gcc
 ---
-## infos
+
+# Description
 version : 12.2.0  
 website : [https://www.gnu.org/software/gcc/](https://www.gnu.org/software/gcc/)  
-tar     : [https://ftp.gnu.org/gnu/gcc/gcc-12.2.0/gcc-12.2.0.tar.xz](https://ftp.gnu.org/gnu/gcc/gcc-12.2.0/gcc-12.2.0.tar.xz)  
+tarball : [https://ftp.gnu.org/gnu/gcc/gcc-12.2.0/gcc-12.2.0.tar.gz](https://ftp.gnu.org/gnu/gcc/gcc-12.2.0/gcc-12.2.0.tar.gz)  
 
-## build
-To build, once stanix's core is compiled, run
-```sh
-cd ports
-./build.sh gcc
-./install gcc
-```
-
-## dependencies
-This package has dependencies : 
+# Dependencies
 - [libgmp](libgmp)
 - [libmpfr](libmpfr)
 - [libmpc](libmpc)
+- [binutils](binutils)
 
-## manifest
+# Install
+To build and install this package, run  
+```sh
+./tinx.sh install gcc
+```
+
+Alternatively you can try to download pre compiled of this package using
+```sh
+./tinx.sh run scripts/download-packages.sh gcc
+```
+
+# Manifest
 ```sh
 VERSION="12.2.0"
-TAR="$GNU_MIRROR/gcc/gcc-$VERSION/gcc-$VERSION.tar.xz"
+SOURCE="gcc"
+DEPENDENCIES="libgmp libmpfr libmpc binutils"
+. "$TOP/scripts/gnu-package.sh"
 WEBSITE="https://www.gnu.org/software/gcc/"
-DEPENDENCIES="libgmp libmpfr libmpc"
 
-configure() {
-	./configure --host="$HOST" \
-	--target="$HOST" \
-	--prefix="$PREFIX" \
-	--with-sysroot=/ \
-	--with-build-sysroot=$SYSROOT \
-	--disable-nls --disable-werror \
-	--enable-shared \
-	--disable-multilib --enable-shared --enable-threads=posix \
-	--enable-languages=c,c++ \
-	CFLAGS="-D_Thread_local=" #stupid tls workaround
-}
-
-build() {
-	make all-gcc -j$NPROC
-	make all-target-libgcc -j$NPROC
-	make all-target-libstdc++-v3 -j$NPROC
-}
-
-install() {
-	make install-strip-gcc DESTDIR="$DESTDIR"
-	make install-strip-target-libgcc DESTDIR="$DESTDIR"
-	make install-strip-target-libstdc++-v3 DESTDIR="$DESTDIR"
+configure () {
+	gnu_configure --target="$HOST" \
+		--with-sysroot=/ \
+		--with-build-sysroot="$SYSROOT" \
+		--disable-nls \
+		--enable-languages=c,c++ \
+		--enable-initfini-array \
+		--disable-multilib \
+		--enable-shared \
+		--with-pic \
+		--enable-threads=posix \
+		CFLAGS="-D_Thread_local= $CFLAGS" #stupid tls workaround
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/gcc](https://github.com/tayoky/ports/blob/main/ports/gcc).
-

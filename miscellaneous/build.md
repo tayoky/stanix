@@ -47,7 +47,7 @@ cd stanix
 
 ## Compiling
 Run `./tinx.sh --host=x86_64-stanix install` and then run :
-- `./tinx.sh run scrupts/build-hdd-image.sh` For hdd image.
+- `./tinx.sh run scripts/build-hdd-image.sh` For hdd image.
 - `./tinx.sh run scripts/build-iso-image.sh` For iso image.
 - `./tinx.sh run scripts/qemu.sh` To test the image in QEMU.
 

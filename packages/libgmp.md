@@ -1,37 +1,35 @@
 ---
 title: libgmp
 ---
-## infos
+
+# Description
 version : 6.3.0  
 website : [https://gmplib.org/](https://gmplib.org/)  
-tar     : [https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz](https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz)  
+tarball : [https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz](https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz)  
 
-## build
-To build, once stanix's core is compiled, run
+# Dependencies
+- [stanix-base](stanix-base)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh libgmp
-./install libgmp
+./tinx.sh install libgmp
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
 ```sh
-VERSION=6.3.0
-TAR="$GNU_MIRROR/gmp/gmp-$VERSION.tar.xz"
-WEBSITE=https://gmplib.org/
+./tinx.sh run scripts/download-packages.sh libgmp
+```
 
-configure() {
-	./configure --host="$HOST" \
-	--prefix="$PREFIX" --disable-cxx
-}
+# Manifest
+```sh
+VERSION="6.3.0"
+SOURCE="libgmp"
+DEPENDENCIES="stanix-base"
+. "$TOP/scripts/gnu-package.sh"
+WEBSITE="https://gmplib.org/"
 
-build() {
-	make all -j$NPROC
-}
-
-install() {
-	make install-strip DESTDIR="$DESTDIR"
+configure () {
+    gnu_configure --disable-cxx
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/libgmp](https://github.com/tayoky/ports/blob/main/ports/libgmp).
-

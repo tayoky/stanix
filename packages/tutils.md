@@ -1,34 +1,37 @@
 ---
 title: tutils
 ---
-## infos
-version : unknow  
-git     : [https://github.com/tayoky/tutils](https://github.com/tayoky/tutils)  
 
-## build
-To build, once stanix's core is compiled, run
+# Description
+version : 0.7.0  
+git     : [https://github.com/stanix-org/tutils](https://github.com/stanix-org/tutils)  
+commit  : cf9f179b35c711e72a53b389de7637b592062535  
+
+# Dependencies
+- [tlibc](tlibc)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh tutils
-./install tutils
+./tinx.sh install tutils
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
 ```sh
-GIT=https://github.com/tayoky/tutils
-COMMIT=ba00c74218b91097fd592840e05ae2edb763407c
+./tinx.sh run scripts/download-packages.sh tutils
+```
 
-configure() {
-	./configure --host="$HOST" --with-CC="$CC" --prefix="$PREFIX"
-}
+# Manifest
+```sh
+VERSION="0.7.0"
+SOURCE="tutils"
+BUILD_DEPENDENCIES="stanix-toolchain"
+DEPENDENCIES="tlibc"
+. "$TOP/scripts/tconf-package.sh"
+PREFIX="/usr"
 
-build() {
-	make
-}
-
-install() {
-	make install DESTDIR="$DESTDIR"
+install () {
+	# install in /bin
+	make install DESTDIR="$DESTDIR" BINDIR="/bin"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tutils](https://github.com/tayoky/ports/blob/main/ports/tutils).
-

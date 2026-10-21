@@ -1,36 +1,43 @@
 ---
 title: doomgeneric
 ---
-## infos
-version : unknow  
+
+# Description
+version : unknown  
 website : [https://ozkl.github.io/](https://ozkl.github.io/)  
 git     : [https://github.com/ozkl/doomgeneric.git](https://github.com/ozkl/doomgeneric.git)  
+commit  : dd975839780b4c957c4597f77ccadc3dc592a038  
 
-## build
-To build, once stanix's core is compiled, run
+# Dependencies
+- [stanix-base](stanix-base)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh doomgeneric
-./install doomgeneric
+./tinx.sh install doomgeneric
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
 ```sh
-GIT=https://github.com/ozkl/doomgeneric.git
-COMMIT=dd975839780b4c957c4597f77ccadc3dc592a038
-WEBSITE=https://ozkl.github.io/
+./tinx.sh run scripts/download-packages.sh doomgeneric
+```
 
-build() {
+# Manifest
+```sh
+SOURCE="doomgeneric"
+DEPENDENCIES="stanix-base"
+
+configure () {
+	true
+}
+
+build () {
 	# pretty weird but make must be run in a sub dir
-	cd doomgeneric
-	make -f Makefile.stanix SYSROOT="$SYSROOT"
+	make -C "$SOURCE_DIR/doomgeneric" -f Makefile.stanix SYSROOT="$SYSROOT" CC="$HOST-gcc"
 }
 
-install() {
-	cd doomgeneric
-	mkdir -p "$DESTDIR/$PREFIX/bin"
-	cp ./doom "$DESTDIR/$PREFIX/bin"
+install () {
+	mkdir -p "$DESTDIR$PREFIX/bin"
+	cp "$SOURCE_DIR/doomgeneric/doom" "$DESTDIR$PREFIX/bin"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/doomgeneric](https://github.com/tayoky/ports/blob/main/ports/doomgeneric).
-

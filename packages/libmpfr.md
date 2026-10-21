@@ -1,42 +1,35 @@
 ---
 title: libmpfr
 ---
-## infos
+
+# Description
 version : 4.2.2  
 website : [https://www.mpfr.org/](https://www.mpfr.org/)  
-tar     : [https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.xz](https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.xz)  
+tarball : [https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.xz](https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.xz)  
 
-## build
-To build, once stanix's core is compiled, run
-```sh
-cd ports
-./build.sh libmpfr
-./install libmpfr
-```
-
-## dependencies
-This package has dependencies : 
+# Dependencies
 - [libgmp](libgmp)
 
-## manifest
+# Install
+To build and install this package, run  
+```sh
+./tinx.sh install libmpfr
+```
+
+Alternatively you can try to download pre compiled of this package using
+```sh
+./tinx.sh run scripts/download-packages.sh libmpfr
+```
+
+# Manifest
 ```sh
 VERSION="4.2.2"
-TAR="$GNU_MIRROR/mpfr/mpfr-$VERSION.tar.xz"
-WEBSITE="https://www.mpfr.org/"
+SOURCE="libmpfr"
 DEPENDENCIES="libgmp"
+. "$TOP/scripts/gnu-package.sh"
+WEBSITE="https://www.mpfr.org/"
 
-configure() {
-	./configure --host="$HOST" --target="$HOST" \
-	--prefix="$PREFIX"
-}
-
-build() {
-	make all -j$NPROC
-}
-
-install() {
-	make install-strip DESTDIR="$DESTDIR"
+configure () {
+    gnu_configure --target="$HOST"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/libmpfr](https://github.com/tayoky/ports/blob/main/ports/libmpfr).
-

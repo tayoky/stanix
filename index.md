@@ -89,12 +89,12 @@ Futures goals (once a goal is reached it is removed from the list).
 **Stanix** is a large project and is split across multiple repos and subprojects.
 - [Stanix's core](https://github.com/tayoky/stanix) contain the kernel, Stanix specific tool (terminal emulator, window manager, ...) and the base sysroot along docs.
 - [tlibc](https://github.com/tayoky/tlibc) a reimplementation of the standard libc for Stanix.
-- [tash](https://github.com/tayoky/tash) a homemade Posix shell used as the default one for Stanix.
-- [tutils](https://github.com/tayoky/tutils) a homemade portable reimplementation of coreutils and other various generic utilities for Unix-like used for Stanix.
-- [libterm](https://github.com/tayoky/libterm) a library to make terminal emulators.
+- [tash](https://github.com/stanix-org/tash) a homemade Posix shell used as the default one for Stanix.
+- [tutils](https://github.com/stanix-org/tutils) a homemade portable reimplementation of coreutils and other various generic utilities for Unix-like used for Stanix.
+- [libterm](https://github.com/stanix-org/libterm) a library to make terminal emulators.
 - [libttf](https://github.com/tayoky/libttf) a library to parse and render truetype fonts.
 - [libtgui](https://github.com/tayoky/libtgui) a GUI library with a collection of widgets.
-- [Stanix's ports](https://github.com/tayoky/ports) a list of ports and packages for Stanix.
+- [tgui-apps](https://github.com/stanix-org/tgui-apps) various GUI apps for libtgui.
 
 ## Packages
 A list of available packages and ports can be found [here](packages).

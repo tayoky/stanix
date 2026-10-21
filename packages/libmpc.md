@@ -1,43 +1,35 @@
 ---
 title: libmpc
 ---
-## infos
+
+# Description
 version : 1.4.1  
 website : [https://www.multiprecision.org/](https://www.multiprecision.org/)  
-tar     : [https://ftp.gnu.org/gnu/mpc/mpc-1.4.1.tar.xz](https://ftp.gnu.org/gnu/mpc/mpc-1.4.1.tar.xz)  
+tarball : [https://ftp.gnu.org/gnu/mpc/mpc-1.4.1.tar.xz](https://ftp.gnu.org/gnu/mpc/mpc-1.4.1.tar.xz)  
 
-## build
-To build, once stanix's core is compiled, run
-```sh
-cd ports
-./build.sh libmpc
-./install libmpc
-```
-
-## dependencies
-This package has dependencies : 
+# Dependencies
 - [libgmp](libgmp)
 - [libmpfr](libmpfr)
 
-## manifest
+# Install
+To build and install this package, run  
+```sh
+./tinx.sh install libmpc
+```
+
+Alternatively you can try to download pre compiled of this package using
+```sh
+./tinx.sh run scripts/download-packages.sh libmpc
+```
+
+# Manifest
 ```sh
 VERSION="1.4.1"
-TAR="$GNU_MIRROR/mpc/mpc-$VERSION.tar.xz"
-WEBSITE="https://www.multiprecision.org/"
+SOURCE="libmpc"
 DEPENDENCIES="libgmp libmpfr"
+. "$TOP/scripts/gnu-package.sh"
+WEBSITE="https://www.multiprecision.org/"
 
-configure() {
-	./configure --host="$HOST" --target="$HOST" \
-	--prefix="$PREFIX" --with-sysroot="$SYSROOT"
-}
-
-build(){
-	make all -j$NPROC
-}
-
-install(){
-	make install-strip DESTDIR="$DESTDIR"
-}
-```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/libmpc](https://github.com/tayoky/ports/blob/main/ports/libmpc).
-
+configure () {
+    gnu_configure --target="$HOST" --with-sysroot="$SYSROOT"
+}```

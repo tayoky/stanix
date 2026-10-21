@@ -1,55 +1,43 @@
 ---
 title: mesa
 ---
-## infos
+
+# Description
 version : 25.0.7  
 website : [https://mesa3d.org](https://mesa3d.org)  
-tar     : [https://mesa3d.org/archive/mesa-25.0.7.tar.xz](https://mesa3d.org/archive/mesa-25.0.7.tar.xz)  
+tarball : [https://mesa3d.org/archive/mesa-25.0.7.tar.xz](https://mesa3d.org/archive/mesa-25.0.7.tar.xz)  
 
-## build
-To build, once stanix's core is compiled, run
-```sh
-cd ports
-./build.sh mesa
-./install mesa
-```
-
-## dependencies
-This package has dependencies : 
+# Dependencies
 - [zlib](zlib)
 
-## manifest
+# Install
+To build and install this package, run  
+```sh
+./tinx.sh install mesa
+```
+
+Alternatively you can try to download pre compiled of this package using
+```sh
+./tinx.sh run scripts/download-packages.sh mesa
+```
+
+# Manifest
 ```sh
 VERSION="25.0.7"
-TAR="https://mesa3d.org/archive/mesa-$VERSION.tar.xz"
-WEBSITE="https://mesa3d.org"
+SOURCE="mesa"
 DEPENDENCIES="zlib"
+. "$TOP/scripts/meson-package.sh"
+WEBSITE="https://mesa3d.org"
 
-configure() {
-	mkdir -p build
-	cd build
-
-	meson setup .. \
-      --prefix="$PREFIX"   \
-      --buildtype=release \
-      --cross-file "$MESON_CROSS" \
-      -D platforms=[] \
-      -D gallium-drivers=softpipe  \
-      -D vulkan-drivers=[]   \
-      -D valgrind=disabled \
-      -D glx=disabled \
-      -D osmesa=true \
-      -D llvm=disabled 
-}
-
-build() {
-	cd build
-	meson compile
-}
-
-install() {
-	meson install --destdir="$DESTDIR"
+configure () {
+	CFLAGS="-Wno-error -Wno-implicit-function-declaration" \
+		meson_configure \
+		-D platforms=[] \
+		-D gallium-drivers=softpipe  \
+		-D vulkan-drivers=[]   \
+		-D valgrind=disabled \
+		-D glx=disabled \
+		-D osmesa=true \
+		-D llvm=disabled 
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/mesa](https://github.com/tayoky/ports/blob/main/ports/mesa).
-

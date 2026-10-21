@@ -1,35 +1,44 @@
 ---
 title: nyancat
 ---
-## infos
-version : unknow  
+
+# Description
+version : 1.5.2  
 git     : [https://github.com/klange/nyancat](https://github.com/klange/nyancat)  
+tag     : 1.5.2  
 
-## build
-To build, once stanix's core is compiled, run
+# Dependencies
+- [stanix-base](stanix-base)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh nyancat
-./install nyancat
+./tinx.sh install nyancat
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
 ```sh
-GIT="https://github.com/klange/nyancat"
-COMMIT="32fd2eb40332ae0001995705f0c1f8de69a2d543"
+./tinx.sh run scripts/download-packages.sh nyancat
+```
 
-configure() {
-	true
+# Manifest
+```sh
+VERSION="1.5.2"
+SOURCE="nyancat"
+DEPENDENCIES="stanix-base"
+
+configure () {
+    true
 }
 
-build() {
-	make
+build () {
+    make -C "$SOURCE_DIR" CC="$HOST-gcc"
 }
 
-install() {
-	mkdir -p "$DESTDIR/$PREFIX/bin"
-	cp src/nyancat "$DESTDIR/$PREFIX/bin"
+install () {
+    mkdir -p "$DESTDIR$PREFIX/bin"
+    mkdir -p "$DESTDIR$PREFIX/share/man1"
+	cp -p "$SOURCE_DIR/src/nyancat" "$DESTDIR$PREFIX/bin/"
+	cp -p "$SOURCE_DIR/nyancat.1" "$DESTDIR$PREFIX/share/man1/"
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/nyancat](https://github.com/tayoky/ports/blob/main/ports/nyancat).
-

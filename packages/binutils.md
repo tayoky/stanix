@@ -1,43 +1,40 @@
 ---
 title: binutils
 ---
-## infos
+
+# Description
 version : 2.44  
 website : [https://www.gnu.org/software/binutils/](https://www.gnu.org/software/binutils/)  
-tar     : [https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz](https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz)  
+tarball : [https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.gz](https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.gz)  
 
-## build
-To build, once stanix's core is compiled, run
+# Dependencies
+- [stanix-base](stanix-base)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh binutils
-./install binutils
+./tinx.sh install binutils
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
 ```sh
-VERSION=2.44
-TAR="$GNU_MIRROR/binutils/binutils-$VERSION.tar.xz"
-WEBSITE=https://www.gnu.org/software/binutils/
+./tinx.sh run scripts/download-packages.sh binutils
+```
 
-configure() {
-	./configure --host=$HOST \
-	--target=$HOST \
-	--prefix="$PREFIX" \
+# Manifest
+```sh
+VERSION="2.44"
+SOURCE="binutils"
+DEPENDENCIES="stanix-base"
+. "$TOP/scripts/gnu-package.sh"
+WEBSITE="https://www.gnu.org/software/binutils/"
+
+configure () {
+	gnu_configure --target="$HOST" \
 	--with-sysroot=/ \
-	--with-build-sysroot=$SYSROOT \
+	--with-build-sysroot="$SYSROOT" \
 	--disable-nls --disable-werror \
 	--enable-shared \
-	CFLAGS="-D_Thread_local=" #stupid tls workaround
-}
-
-build(){
-	make all -j$NPROC
-}
-
-install(){
-	make install-strip DESTDIR="$DESTDIR"
+	CFLAGS="-D_Thread_local= $CFLAGS" # stupid tls workaround
 }
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/binutils](https://github.com/tayoky/ports/blob/main/ports/binutils).
-

@@ -1,35 +1,32 @@
 ---
 title: tvi
 ---
-## infos
-version : unknow  
-git     : [https://github.com/tayoky/tvi](https://github.com/tayoky/tvi)  
 
-## build
-To build, once stanix's core is compiled, run
+# Description
+version : 0.0.1  
+git     : [https://github.com/stanix-org/tvi](https://github.com/stanix-org/tvi)  
+commit  : 8e8fa25c85ed7b27b55a055a50cd9b4aa43a466a  
+
+# Dependencies
+- [tlibc](tlibc)
+
+# Install
+To build and install this package, run  
 ```sh
-cd ports
-./build.sh tvi
-./install tvi
+./tinx.sh install tvi
 ```
 
-## manifest
+Alternatively you can try to download pre compiled of this package using
 ```sh
-GIT=https://github.com/tayoky/tvi
-COMMIT=20929ba6923388f689ef3e554dcc27aefd767f03
-
-configure() {
-	# disable dynamic linking linking
-	./configure --host="$HOST" --cc="$CC" --prefix="$PREFIX"
-}
-
-build() {
-	make
-}
-
-install() {
-	make install DESTDIR="$DESTDIR"
-}
+./tinx.sh run scripts/download-packages.sh tvi
 ```
-This package manifest and it's associed patches can be found at [https://github.com/tayoky/ports/blob/main/ports/tvi](https://github.com/tayoky/ports/blob/main/ports/tvi).
 
+# Manifest
+```sh
+VERSION="0.0.1"
+SOURCE="tvi"
+BUILD_DEPENDENCIES="stanix-toolchain"
+DEPENDENCIES="tlibc"
+. "$TOP/scripts/tconf-package.sh"
+PREFIX="/usr"
+```
