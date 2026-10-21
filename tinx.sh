@@ -17,15 +17,16 @@ tinx_help () {
 	echo "--help          : print this help and exit"
 	echo "--version       : print tinx version"
 	echo "actions :"
-	echo "update-cache : update tinx's cache"
-	echo "get-source   : download and prepare the source for a package"
-	echo "build        : build a package"
-	echo "install      : install a package (by default to sysroot/build-env)"
-	echo "clean-build  : clean the build directory for a package"
-	echo "run          : run a command inside the tinx environement"
-	echo "get-packages : get a list of packages to build for the specified packages"
-	echo "get-dirty    : get a list of dirty packages to rebuild for the specified packages"
-	echo "get-ready    : get a list of already built packages for the specified packages"
+	echo "update-cache   : update tinx's cache"
+	echo "get-source     : download and prepare the source for a package"
+	echo "build          : build a package"
+	echo "install        : install a package (by default to sysroot/build-env)"
+	echo "install-source : install the source for a package (by default to sysroot/build-env)"
+	echo "clean-build    : clean the build directory for a package"
+	echo "run            : run a command inside the tinx environement"
+	echo "get-packages   : get a list of packages to build for the specified packages"
+	echo "get-dirty      : get a list of dirty packages to rebuild for the specified packages"
+	echo "get-ready      : get a list of already built packages for the specified packages"
 }
 
 tinx_error () {
@@ -424,6 +425,13 @@ tinx_install () {
 	fi
 }
 
+tinx_install_source () {
+	tinx_get_source "$SOURCE" || return 1
+	tinx_log "install source for $PACKAGE..."
+	mkdir -p "$DESTDIR$PREFIX/src" || return 1
+	cp -rT "$SOURCE_DIR" "$DESTDIR$PREFIX/src/$PACKAGE"
+}
+
 tinx_clean_build () {
 	rm -fr "$BUILD_DIR"
 }
@@ -436,16 +444,13 @@ TINX_VERSION="0.0.3"
 : ${SYSROOT:="$BUILDDIR/sysroot"}
 : ${BUILD_PREFIX:="$BUILDDIR/build-env"}
 : ${HOST_PREFIX:="/usr/local"}
-: ${GNU_MIRROR:="https://ftp.gnu.org"}
-: ${TAYOKY_MIRROR:="https://github.com/tayoky"}
-: ${STANIX_MIRROR:="https://github.com/stanix-org"}
 : ${CURL:="curl"}
 : ${PARALLELISM:="$(nproc || echo 1)"}
 : ${DRY_RUN:="no"}
-: ${HOST:="$(uname -m)-stanix"}
-: ${CFLAGS:="-Wall -Wextra -O2"}
 : ${TMPDIR:=${TMP:=${TEMP:-/tmp}}}
 : ${TOP:="$(dirname "$(realpath "$0")")"}
+
+test -f "$TOP/tinx-config.sh" && . "$TOP/tinx-config.sh"
 
 # add build tools to env
 export PATH="$BUILD_PREFIX/bin:$PATH"
@@ -647,6 +652,11 @@ for PACKAGE_PATH in $PACKAGES_TO_DO ; do
 			;;
 		install)
 			tinx_install || exit 1
+			;;
+		install-source)
+			if test "$IS_CMDLINE" = "yes" ; then
+				tinx_install_source || exit 1
+			fi
 			;;
 		clean|clean-build)
 			if test "$IS_CMDLINE" = "yes" ; then
