@@ -4,26 +4,32 @@
 #include <kernel/rwsem.h>
 #include <stddef.h>
 
+typedef struct avltree_ops avltree_ops_t;
 typedef struct avltree_node avltree_node_t;
 typedef struct avltree avltree_t;
 typedef int (*avltree_compare_func_t)(avltree_t *avltree, void *a, void *b);
 
+struct avltree_ops {
+	int (*compare_nodes)(avltree_t *avltree, avltree_node_t *a, avltree_node_t *b);
+	int (*compare_key)(avltree_t *avltree, void *key, avltree_node_t *node);
+	void (*recalculate)(avltree_t *avltree, avltree_node_t *node);
+};
+
 struct avltree_node {
 	avltree_node_t *left;
 	avltree_node_t *right;
-	void *key;
 	int height;
 };
 
 struct avltree {
 	rwsem_t rwsem;
 	avltree_node_t *root;
-	avltree_compare_func_t compare;
+	avltree_ops_t *ops;
 };
 
-static inline void avltree_init(avltree_t *avltree, avltree_compare_func_t compare) {
+static inline void avltree_init(avltree_t *avltree, avltree_ops_t *ops) {
 	avltree->root = NULL;
-	avltree->compare = compare;
+	avltree->ops  = ops;
 }
 
 static inline void avltree_destroy(avltree_t *avltree) {
@@ -46,11 +52,11 @@ static void avltree_release_write(avltree_t *avltree) {
 	rwsem_release_write(&avltree->rwsem);
 }
 
-int avltree_raw_insert(avltree_t *avltree, avltree_node_t *node, void *key);
-int avltree_raw_remove(avltree_t *avltree, void *key);
+int avltree_raw_insert(avltree_t *avltree, avltree_node_t *node);
+int avltree_raw_remove(avltree_t *avltree, avltree_node_t *node);
 avltree_node_t *avltree_raw_lookup(avltree_t *avltree, void *key);
-int avltree_insert(avltree_t *avltree, avltree_node_t *node, void *key);
-int avltree_remove(avltree_t *avltree, void *key);
+int avltree_insert(avltree_t *avltree, avltree_node_t *node);
+int avltree_remove(avltree_t *avltree, avltree_node_t *node);
 avltree_node_t *avltree_lookup(avltree_t *avltree, void *key);
 
 #endif
