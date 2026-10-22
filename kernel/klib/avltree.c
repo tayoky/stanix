@@ -282,6 +282,7 @@ avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void 
 		if (parent->left == node) { 
 			// we are the left subtree
 			// which mean we didn't visit the parent and its right subtree
+			// FIXME : this won't work because compare_key will return -1
 			if (avltree_compare_key(avltree, key, parent) == 0) {
 				// the parent match
 				break;
