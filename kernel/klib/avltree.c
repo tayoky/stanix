@@ -126,11 +126,12 @@ static void avltree_insert_helper(avltree_t *avltree, avltree_node_t *parent, av
 	avltree_rebalance(avltree, current, child);
 }
 
-void avltree_raw_insert(avltree_t *avltree, avltree_node_t *node) {
-	rwsem_assert_write_acquired(&avltree->rwsem);
+void avltree_insert(avltree_t *avltree, avltree_node_t *node) {
 	node->height = 1;
 
+	avltree_acquire_write(avltree);
 	avltree_insert_helper(avltree, NULL, &avltree->root, node);
+	avltree_release_write(avltree);
 }
 
 static int avltree_remove_helper(avltree_t *avltree, avltree_node_t **current, avltree_node_t *node) {
@@ -191,13 +192,15 @@ static int avltree_remove_helper(avltree_t *avltree, avltree_node_t **current, a
 	return 1;
 }
  
-int avltree_raw_remove(avltree_t *avltree, avltree_node_t *node) {
-	rwsem_assert_write_acquired(&avltree->rwsem);
-	return avltree_remove_helper(avltree, &avltree->root, node);
+int avltree_remove(avltree_t *avltree, avltree_node_t *node) {
+	avltree_acquire_write(avltree);
+	int ret = avltree_remove_helper(avltree, &avltree->root, node);
+	avltree_release_write(avltree);
+	return ret;
 }
 
-avltree_node_t *avltree_raw_lookup(avltree_t *avltree, void *key) {
-	avltree_node_t *node = avltree->root;
+avltree_node_t *avltree_node_lookup(avltree_t *avltree, avltree_node_t *node, void *key) {
+	avltree_acquire_read(avltree);
 	while (node) {
 		switch (avltree_compare_key(avltree, key, node)) {
 		case -1:
@@ -207,30 +210,94 @@ avltree_node_t *avltree_raw_lookup(avltree_t *avltree, void *key) {
 			node = node->right;
 			break;
 		case 0:
+			avltree_release_read(avltree);
 			return node;
 		default:
 			__builtin_unreachable();
 		}
 	}
+	avltree_release_read(avltree);
 	return NULL;
-}
-
-void avltree_insert(avltree_t *avltree, avltree_node_t *node) {
-	avltree_acquire_write(avltree);
-	avltree_raw_insert(avltree, node);
-	avltree_release_write(avltree);
-}
-
-int avltree_remove(avltree_t *avltree, avltree_node_t *node) {
-	avltree_acquire_write(avltree);
-	int ret = avltree_raw_remove(avltree, node);
-	avltree_release_write(avltree);
-	return ret;
 }
 
 avltree_node_t *avltree_lookup(avltree_t *avltree, void *key) {
 	avltree_acquire_read(avltree);
-	avltree_node_t *node = avltree_raw_lookup(avltree, key);
+	avltree_node_t *node = avltree_node_lookup(avltree, avltree->root, key);
 	avltree_release_read(avltree);
 	return node;
+}
+
+avltree_node_t *avltree_first(avltree_t *avltree) {
+	avltree_acquire_read(avltree);
+	avltree_node_t *node = avltree->root;
+	while (node && node->left) {
+		node = node->left;
+	}
+	avltree_release_read(avltree);
+	return node;
+}
+
+avltree_node_t *avltree_next(avltree_t *avltree, avltree_node_t *node) {
+	if (!node) return NULL;
+	avltree_acquire_read(avltree);
+
+	// we already visisted the current node and node->left
+	// we want to go right or up
+	if (node->right) {
+		// we can go into the right subtree
+		avltree_node_t *right = avltree_leftest_subnode(node->right);
+		avltree_release_read(avltree);
+		return right;
+	}
+
+	// move up
+	avltree_node_t *parent = node->parent;
+	while (parent && parent->right == node) {
+		node = parent;
+		parent = node->parent;
+	}
+	avltree_release_read(avltree);
+	return parent;
+}
+
+avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void *key) {
+	if (!node) return NULL;
+	avltree_acquire_read(avltree);
+
+	// we already visisted the current node and node->left
+	// we want to go right or up
+	if (node->right) {
+		// can we go into the right subtree ?
+		avltree_node_t *right_match = avltree_node_lookup(avltree, node->right, key);
+		if (right_match) {
+			// yes we can
+			avltree_release_read(avltree);
+			return right_match;
+		}
+	}
+
+	// move up
+	avltree_node_t *parent = node->parent;
+	while (parent) {
+		if (parent->left == node) { 
+			// we are the left subtree
+			// which mean we didn't visit the parent and its right subtree
+			if (avltree_compare_key(avltree, key, parent) == 0) {
+				// the parent match
+				break;
+			} else if (parent->right) {
+				// can we go into the right subtree ?
+				avltree_node_t *right_match = avltree_node_lookup(avltree, parent->right, key);
+				if (right_match) {
+					// yes we can
+					avltree_release_read(avltree);
+					return right_match;
+				}
+			}
+		}
+		node = parent;
+		parent = node->parent;
+	}
+	avltree_release_read(avltree);
+	return parent;
 }

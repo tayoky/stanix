@@ -53,11 +53,25 @@ static void avltree_release_write(avltree_t *avltree) {
 	rwsem_release_write(&avltree->rwsem);
 }
 
-void avltree_raw_insert(avltree_t *avltree, avltree_node_t *node);
-int avltree_raw_remove(avltree_t *avltree, avltree_node_t *node);
-avltree_node_t *avltree_raw_lookup(avltree_t *avltree, void *key);
 void avltree_insert(avltree_t *avltree, avltree_node_t *node);
 int avltree_remove(avltree_t *avltree, avltree_node_t *node);
+avltree_node_t *avltree_node_lookup(avltree_t *avltree, avltree_node_t *node, void *key);
 avltree_node_t *avltree_lookup(avltree_t *avltree, void *key);
+avltree_node_t *avltree_first(avltree_t *avltree);
+avltree_node_t *avltree_next(avltree_t *avltree, avltree_node_t *node);
+static inline avltree_node_t *avltree_first_key(avltree_t *avltree, void *key) {
+	return avltree_lookup(avltree, key);
+}
+avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void *key);
+
+#define avltree_foreach(node, avltree, key) \
+	for (avltree_node_t *node = avltree_first(avltree); \
+		node; \
+		node = avltree_next(avltree, node))
+
+#define avltree_foreach_key(node, avltree, key) \
+	for (avltree_node_t *node = avltree_first_key(avltree, key); \
+		node; \
+		node = avltree_next_key(avltree, node, key))
 
 #endif
