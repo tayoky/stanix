@@ -103,10 +103,9 @@ int main(int argc, char **argv) {
 			add_file(argv[i]);
 		}
 	} else {
-		// TODO : search in fortune path
 		const char *fortune_path = getenv("FORTUNE_PATH");
 		if (!fortune_path) {
-			fortune_path = PREFIX"/share/games/fortunes:/usr/local/share/games/fortunes";
+			fortune_path = PREFIX"/games/fortunes:/usr/local/games/fortunes";
 		}
 		char *path = strdup(fortune_path);
 		char *tok = strtok(path, ":");
