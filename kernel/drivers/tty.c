@@ -140,17 +140,23 @@ static int tty_input(tty_t *tty, char c) ATTR_REQUIRE(&tty->lock) {
 	if (tty->termios.c_lflag & ISIG) {
 		if (c == tty->termios.c_cc[VINTR]) {
 			tty_echo(tty, c);
+			spinlock_raw_release(&tty->lock);
 			signal_send_group(tty->fg_group, SIGINT);
+			spinlock_raw_acquire(&tty->lock);
 			return 0;
 		}
 		if (c == tty->termios.c_cc[VQUIT]) {
 			tty_echo(tty, c);
+			spinlock_raw_release(&tty->lock);
 			signal_send_group(tty->fg_group, SIGQUIT);
+			spinlock_raw_acquire(&tty->lock);
 			return 0;
 		}
 		if (c == tty->termios.c_cc[VSUSP]) {
 			tty_echo(tty, c);
+			spinlock_raw_release(&tty->lock);
 			signal_send_group(tty->fg_group, SIGTSTP);
+			spinlock_raw_acquire(&tty->lock);
 			return 0;
 		}
 	}
@@ -374,10 +380,12 @@ static void tty_raw_set_session(tty_t *tty, session_t *session) ATTR_REQUIRE(&pr
 	}
 
 	if (old) {
-		// cannot send signals while holding a proc lock or tty lock
+		// cannot send signals while holding a spinlock
 		spinlock_raw_release(&tty->lock);
+		spinlock_release(&proctree_lock);
 		signal_send_group(tty->fg_group, SIGCONT);
 		signal_send_group(tty->fg_group, SIGHUP);
+		spinlock_acquire(&proctree_lock);
 		spinlock_raw_acquire(&tty->lock);
 
 		spinlock_acquire(&old->lock);
@@ -392,7 +400,10 @@ static void tty_destroy(device_t *device) {
 
 	spinlock_acquire(&proctree_lock);
 	if (tty->session) {
-		signal_send_proc(tty->session->leader, SIGHUP);
+		process_t *leader = tty->session->leader;
+		spinlock_release(&proctree_lock);
+		signal_send_proc(leader, SIGHUP);
+		spinlock_acquire(&proctree_lock);
 	}
 
 	int irq_save = spinlock_acquire_irq(&tty->lock);
@@ -483,7 +494,9 @@ static int tty_do_raw_ioctl(tty_t *tty, long request, void *arg) ATTR_REQUIRE(&t
 		return 0;
 	case TIOCSWINSZ:
 		if (safe_copy_auto_from(&tty->size, arg) < 0) return -EFAULT;
+		spinlock_raw_release(&tty->lock);
 		signal_send_group(tty->fg_group, SIGWINCH);
+		spinlock_raw_acquire(&tty->lock);
 		return 0;
 	case TIOCGWINSZ:
 		return safe_copy_auto_to(arg, &tty->size);
