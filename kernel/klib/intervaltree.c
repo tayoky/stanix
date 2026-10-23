@@ -21,6 +21,25 @@ static int interval_tree_compare_key(avltree_t *avltree, void *key, avltree_node
 	(void)avltree;
 	interval_tree_span_t *span = key;
 	interval_tree_node_t *node = container_of(avltree_node, interval_tree_node_t, node);
+	if (span->start < node->span.end && span->end > node->span.end) {
+		return 0;
+	} else if (span->start < node->span.start) {
+		return -1;
+	} else if (span->start > node->span.start) {
+		return 1;
+	} else if (span->end < node->span.end) {
+		return -1;
+	} else if (span->end > node->span.end) {
+		return 1;
+	} else {
+		__builtin_unreachable();
+	}
+}
+
+static int interval_tree_search_leftest(avltree_t *avltree, void *key, avltree_node_t *avltree_node) {
+	(void)avltree;
+	interval_tree_span_t *span = key;
+	interval_tree_node_t *node = container_of(avltree_node, interval_tree_node_t, node);
 	if (node->node.left) {
 		interval_tree_node_t *left = container_of(node->node.left, interval_tree_node_t, node);
 		if (left->max >= span->start) {
@@ -48,9 +67,10 @@ static void interval_tree_recalculate(avltree_t *avltree, avltree_node_t *avltre
 }
 
 static avltree_ops_t interval_tree_ops = {
-	.compare_nodes = interval_tree_compare_nodes,
-	.compare_key   = interval_tree_compare_key,
-	.recalculate   = interval_tree_recalculate,
+	.compare_nodes  = interval_tree_compare_nodes,
+	.compare_key    = interval_tree_compare_key,
+	.search_leftest = interval_tree_search_leftest,
+	.recalculate    = interval_tree_recalculate,
 };
 
 void interval_tree_init(interval_tree_t *tree) {

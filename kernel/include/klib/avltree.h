@@ -12,6 +12,7 @@ typedef int (*avltree_compare_func_t)(avltree_t *avltree, void *a, void *b);
 struct avltree_ops {
 	int (*compare_nodes)(avltree_t *avltree, avltree_node_t *a, avltree_node_t *b);
 	int (*compare_key)(avltree_t *avltree, void *key, avltree_node_t *node);
+	int (*search_leftest)(avltree_t *avltree, void *key, avltree_node_t *node);
 	void (*recalculate)(avltree_t *avltree, avltree_node_t *node);
 };
 
@@ -55,13 +56,10 @@ static void avltree_release_write(avltree_t *avltree) {
 
 void avltree_insert(avltree_t *avltree, avltree_node_t *node);
 int avltree_remove(avltree_t *avltree, avltree_node_t *node);
-avltree_node_t *avltree_node_lookup(avltree_t *avltree, avltree_node_t *node, void *key);
 avltree_node_t *avltree_lookup(avltree_t *avltree, void *key);
 avltree_node_t *avltree_first(avltree_t *avltree);
 avltree_node_t *avltree_next(avltree_t *avltree, avltree_node_t *node);
-static inline avltree_node_t *avltree_first_key(avltree_t *avltree, void *key) {
-	return avltree_lookup(avltree, key);
-}
+avltree_node_t *avltree_first_key(avltree_t *avltree, void *key);
 avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void *key);
 
 #define avltree_foreach(node, avltree, key) \

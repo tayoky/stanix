@@ -23,6 +23,19 @@ static int avltree_compare_key(avltree_t *avltree, void *key, avltree_node_t *no
 	}
 }
 
+static int avltree_search_leftest(avltree_t *avltree, void *key, avltree_node_t *node) {
+	// avl trees without search_leftest do not have builtin support for equals keys
+	if (!avltree->ops->search_leftest) return avltree_compare_key(avltree, key, node);
+	int ret = avltree->ops->search_leftest(avltree, key, node);
+	if (ret < 0) {
+		return -1;
+	} else if (ret > 0) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 static int avltree_height(avltree_node_t *node) {
 	return node ? node->height : 0;
 }
@@ -67,13 +80,32 @@ static avltree_node_t *avltree_rotate_right(avltree_t *avltree, avltree_node_t *
 }
 
 static avltree_node_t *avltree_leftest_subnode(avltree_node_t *node) {
-	while (node->left) {
+	while (node && node->left) {
 		node = node->left;
 	}
 	return node;
 }
 
+static avltree_node_t *avltree_leftest_subnode_key(avltree_t *avltree, avltree_node_t *node, void *key) {
+	while (node) {
+		switch (avltree_search_leftest(avltree, key, node)) {
+		case -1:
+			node = node->left;
+			break;
+		case 1:
+			node = node->right;
+			break;
+		case 0:
+			return node;
+		default:
+			__builtin_unreachable();
+		}
+	}
+	return NULL;
+}
+
 static void avltree_rebalance(avltree_t *avltree, avltree_node_t **current, avltree_node_t **child) {
+	avltree_compute_height(avltree, *current);
 	switch (avltree_balance_factor(*current)) {
 	case -2:
 		// left heavy
@@ -87,7 +119,6 @@ static void avltree_rebalance(avltree_t *avltree, avltree_node_t **current, avlt
 	case 0:
 	case 1:
 		// balanced enough, no rotation needed
-		avltree_compute_height(avltree, *current);
 		break;
 	case 2:
 		// right heavy
@@ -199,8 +230,9 @@ int avltree_remove(avltree_t *avltree, avltree_node_t *node) {
 	return ret;
 }
 
-avltree_node_t *avltree_node_lookup(avltree_t *avltree, avltree_node_t *node, void *key) {
+avltree_node_t *avltree_lookup(avltree_t *avltree, void *key) {
 	avltree_acquire_read(avltree);
+	avltree_node_t *node = avltree->root;
 	while (node) {
 		switch (avltree_compare_key(avltree, key, node)) {
 		case -1:
@@ -220,19 +252,9 @@ avltree_node_t *avltree_node_lookup(avltree_t *avltree, avltree_node_t *node, vo
 	return NULL;
 }
 
-avltree_node_t *avltree_lookup(avltree_t *avltree, void *key) {
-	avltree_acquire_read(avltree);
-	avltree_node_t *node = avltree_node_lookup(avltree, avltree->root, key);
-	avltree_release_read(avltree);
-	return node;
-}
-
 avltree_node_t *avltree_first(avltree_t *avltree) {
 	avltree_acquire_read(avltree);
-	avltree_node_t *node = avltree->root;
-	while (node && node->left) {
-		node = node->left;
-	}
+	avltree_node_t *node = avltree_leftest_subnode(avltree->root);
 	avltree_release_read(avltree);
 	return node;
 }
@@ -260,6 +282,13 @@ avltree_node_t *avltree_next(avltree_t *avltree, avltree_node_t *node) {
 	return parent;
 }
 
+avltree_node_t *avltree_first_key(avltree_t *avltree, void *key) {
+	avltree_acquire_read(avltree);
+	avltree_node_t *node = avltree_leftest_subnode_key(avltree, avltree->root, key);
+	avltree_release_read(avltree);
+	return node;
+}
+
 avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void *key) {
 	if (!node) return NULL;
 	avltree_acquire_read(avltree);
@@ -268,7 +297,7 @@ avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void 
 	// we want to go right or up
 	if (node->right) {
 		// can we go into the right subtree ?
-		avltree_node_t *right_match = avltree_node_lookup(avltree, node->right, key);
+		avltree_node_t *right_match = avltree_leftest_subnode_key(avltree, node->right, key);
 		if (right_match) {
 			// yes we can
 			avltree_release_read(avltree);
@@ -282,13 +311,12 @@ avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void 
 		if (parent->left == node) { 
 			// we are the left subtree
 			// which mean we didn't visit the parent and its right subtree
-			// FIXME : this won't work because compare_key will return -1
 			if (avltree_compare_key(avltree, key, parent) == 0) {
 				// the parent match
 				break;
 			} else if (parent->right) {
 				// can we go into the right subtree ?
-				avltree_node_t *right_match = avltree_node_lookup(avltree, parent->right, key);
+				avltree_node_t *right_match = avltree_leftest_subnode_key(avltree, parent->right, key);
 				if (right_match) {
 					// yes we can
 					avltree_release_read(avltree);
