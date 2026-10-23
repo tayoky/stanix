@@ -159,14 +159,14 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 	proc->pid    = proc->main_thread->tid;
 	proc->state  = PROC_STATE_RUNNING;
 
-	if (!get_current_proc()) {
+	if (!get_current_proc_nullable()) {
 		session_create(proc);
 	}
 
 	spinlock_acquire(&proctree_lock);
 	spinlock_acquire(&proc->proc_lock);
 
-	process_t *current_proc = get_current_proc();
+	process_t *current_proc = get_current_proc_nullable();
 	if (current_proc) {
 		proc->parent = current_proc;
 		proc_set_group(proc, current_proc->group);
@@ -207,7 +207,6 @@ process_t *proc_new(void (*func)(void *arg), void *arg) {
 void proc_exit(int status) {
 	process_t *proc = get_current_proc();
 	spinlock_acquire(&proc->proc_lock);
-	kassert(proc);
 	proc->exit_status = status;
 	// mark the process as killed
 	atomic_fetch_or(&proc->flags, PROC_FLAG_KILLED);
@@ -239,7 +238,6 @@ static void alert_parent(process_t *proc) {
 
 void do_proc_deletion(void) {
 	process_t *proc = get_current_proc();
-	kassert(proc);
 	
 	// all the childreen become orphelan
 	// the parent of orphelan is init

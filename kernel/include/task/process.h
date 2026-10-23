@@ -124,9 +124,15 @@ static inline void proc_set_state(process_t *proc, int state) {
 	if (proc->parent) wakeup_queue(&proc->parent->wait_queue, 0);
 }
 
-static inline process_t *get_current_proc(void) {
+static inline process_t *get_current_proc_nullable(void) {
 	task_t *task = get_current_task();
 	return task ? task->process : NULL;
+}
+
+ATTR_RETURN_NONNULL static inline process_t *get_current_proc(void) {
+	process_t *proc = get_current_proc_nullable();
+	kassert(proc);
+	return proc;
 }
 
 ATTR_RETURN_NONNULL static inline cred_t *get_current_cred(void) {

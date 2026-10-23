@@ -347,7 +347,6 @@ ATTR_NORETURN void task_exit(void) {
 	preempt_disable();
 
 	process_t *proc = get_current_proc();
-	kassert(proc);
 
 	spinlock_acquire(&proc->proc_lock);
 	proc->threads_count--;

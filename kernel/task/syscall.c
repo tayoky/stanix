@@ -676,9 +676,10 @@ int sys_sigpending(sigset_t *set) {
 }
 
 static int check_sig_perm(process_t *proc) {
+	kassert(proc);
 	rcu_acquire_read();
 	cred_t *proc_cred = proc_get_cred(proc);
-	cred_t *current_cred = proc_get_cred(proc);
+	cred_t *current_cred = get_current_cred();
 	int ret = 0;
 	if (current_cred->euid == EUID_ROOT || current_cred->uid == proc_cred->uid || current_cred->euid == proc_cred->suid) {
 		ret = 1;

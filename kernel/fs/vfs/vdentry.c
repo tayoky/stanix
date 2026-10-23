@@ -393,7 +393,7 @@ vfs_dentry_t *vfs_get_dentry_parent_at(vfs_dentry_t *at, const char *path, char 
 	if (at) {
 		vfs_dentry_ref(at);
 	} else {
-		if (get_current_proc()) {
+		if (get_current_proc_nullable()) {
 			// if absolute relative to root else relative to cwd
 			if (path[0] == '/' || path[0] == '\0') {
 				at = vfs_context_get_root(&get_current_proc()->vfs_context);
