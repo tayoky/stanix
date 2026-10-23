@@ -1,3 +1,4 @@
+#define _TLIBC_SOURCE 1
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/module.h>
@@ -50,7 +51,7 @@ int main(int argc, char **argv) {
 	const char *modules[] = {
 		"/mod/pci.ko",
 		"/mod/libscsi.ko",
-		"/mod/scsi-mmc.ko",
+		"/mod/scsi-cdrom.ko",
 		"/mod/libata.ko",
 		"/mod/ide.ko",
 		"/mod/ata.ko",

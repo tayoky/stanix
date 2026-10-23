@@ -10,14 +10,14 @@
 #define ATA_SIG 0x00000101
 #define ATA_COMMAND_SETS_LBA48 (1U << 26)
 
-typedef struct mmc_disk {
+typedef struct cdrom_disk {
 	block_device_t *block_device;
 	cdrom_toc_header_t toc;
 	size_t tracks_count;
 	cdrom_toc_entry_t *tracks;
-} mmc_disk_t;
+} cdrom_disk_t;
 
-static cdrom_toc_entry_t *mmc_get_track(mmc_disk_t *disk, size_t track) {
+static cdrom_toc_entry_t *cdrom_get_track(cdrom_disk_t *disk, size_t track) {
 	for (size_t i = 0; i < disk->tracks_count; i++) {
 		if (disk->tracks[i].track == track) {
 			return &disk->tracks[i];
@@ -26,7 +26,7 @@ static cdrom_toc_entry_t *mmc_get_track(mmc_disk_t *disk, size_t track) {
 	return NULL;
 }
 
-static cdrom_toc_entry_t *mmc_get_track_at(mmc_disk_t *disk, size_t lba) {
+static cdrom_toc_entry_t *cdrom_get_track_at(cdrom_disk_t *disk, size_t lba) {
 	for (size_t i = 0; i < disk->tracks_count; i++) {
 		uintptr_t start = disk->tracks[i].start;
 		uintptr_t end   = disk->tracks[i].start + disk->tracks[i].size;
@@ -37,21 +37,21 @@ static cdrom_toc_entry_t *mmc_get_track_at(mmc_disk_t *disk, size_t lba) {
 	return NULL;
 }
 
-static void mmc_finish_callback(ioreq_t *ioreq, void *data) {
+static void cdrom_finish_callback(ioreq_t *ioreq, void *data) {
 	block_request_t *request = data;
 	// bubble up
 	ioreq_finish(&request->ioreq, ioreq->ret);
 }
 
-static int mmc_submit(block_device_t *block_device, block_request_t *request) {
+static int cdrom_submit(block_device_t *block_device, block_request_t *request) {
 	scsi_device_t *device = container_of(block_device->device.devnode, scsi_device_t, devnode);
-	mmc_disk_t *disk      = block_device->private;
+	cdrom_disk_t *disk      = block_device->private;
 
 	// cannot write to a cdrom
 	if (request->type != BLOCK_REQUEST_READ) return -EOPNOTSUPP;
 
-	cdrom_toc_entry_t *start_track = mmc_get_track_at(disk, request->start_sector);
-	cdrom_toc_entry_t *end_track   = mmc_get_track_at(disk, request->start_sector + request->sectors_count);
+	cdrom_toc_entry_t *start_track = cdrom_get_track_at(disk, request->start_sector);
+	cdrom_toc_entry_t *end_track   = cdrom_get_track_at(disk, request->start_sector + request->sectors_count);
 
 	// we cannot cross a track boundary
 	if (start_track != end_track) {
@@ -72,16 +72,16 @@ static int mmc_submit(block_device_t *block_device, block_request_t *request) {
 		return ret;
 	}
 
-	ioreq_set_callback(&command->ioreq, mmc_finish_callback, request);
+	ioreq_set_callback(&command->ioreq, cdrom_finish_callback, request);
 	return ioreq_submit(&command->ioreq);
 }
 
-static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
+static int cdrom_ioctl(block_device_t *block_device, long req, void *arg) {
 	if (block_device_is_unplugged(block_device)) {
 		return -ENXIO;
 	}
 	scsi_device_t *device = container_of(block_device->device.devnode, scsi_device_t, devnode);
-	mmc_disk_t *disk      = block_device->private;
+	cdrom_disk_t *disk      = block_device->private;
 	switch (req) {
 	case DEVICE_GET_INFO:
 		return safe_copy_auto_to(arg, &device->info);
@@ -95,7 +95,7 @@ static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
 	case CDROM_READ_TOC_ENTRY:;
 		cdrom_toc_entry_t current;
 		if (safe_copy_auto_from(&current, arg) < 0) return -EFAULT;
-		cdrom_toc_entry_t *track = mmc_get_track(disk, current.track);
+		cdrom_toc_entry_t *track = cdrom_get_track(disk, current.track);
 		if (!track) return -ENOENT;
 		return safe_copy_auto_to(arg, track);
 	default:
@@ -103,19 +103,19 @@ static int mmc_ioctl(block_device_t *block_device, long req, void *arg) {
 	}
 }
 
-static block_ops_t mmc_ops = {
-	.submit  = mmc_submit,
-	.ioctl   = mmc_ioctl,
+static block_ops_t cdrom_ops = {
+	.submit  = cdrom_submit,
+	.ioctl   = cdrom_ioctl,
 };
 
-static int mmc_check(devnode_t *devnode) {
+static int cdrom_check(devnode_t *devnode) {
 	scsi_device_t *device = container_of(devnode, scsi_device_t, devnode);
 	return device->type == SCSI_INQUIRY_PERIPHERAL_TYPE_MMC5;
 }
 
-static int mmc_probe(devnode_t *devnode) {
+static int cdrom_probe(devnode_t *devnode) {
 	scsi_device_t *device = container_of(devnode, scsi_device_t, devnode);
-	mmc_disk_t *disk = devnode->private;
+	cdrom_disk_t *disk = devnode->private;
 
 	// send READ TOC and see size of the cdrom
 	// TODO : support multi sessions disks
@@ -160,7 +160,7 @@ static int mmc_probe(devnode_t *devnode) {
 
 	disk->block_device = block_device_allocate();
 	if (!disk->block_device) return -ENOMEM;
-	disk->block_device->ops = &mmc_ops;
+	disk->block_device->ops = &cdrom_ops;
 	disk->block_device->sector_size    = sector_size;
 	disk->block_device->sectors_count  = sectors_count;
 	disk->block_device->device.devnode = devnode;
@@ -190,37 +190,37 @@ static int mmc_probe(devnode_t *devnode) {
 	return 0;
 }
 
-static void mmc_detach(devnode_t *devnode) {
-	mmc_disk_t *disk = devnode->private;
+static void cdrom_detach(devnode_t *devnode) {
+	cdrom_disk_t *disk = devnode->private;
 	block_device_destroy(disk->block_device);
 }
 
-static driver_t mmc_driver = {
+static driver_t cdrom_driver = {
 	.name = "ATA disk",
 	.device_name = "cd",
 	.buses = BUSES("scsi_bus"),
-	.private_size = sizeof(mmc_disk_t),
-	.check  = mmc_check,
-	.probe  = mmc_probe,
-	.detach = mmc_detach,
+	.private_size = sizeof(cdrom_disk_t),
+	.check  = cdrom_check,
+	.probe  = cdrom_probe,
+	.detach = cdrom_detach,
 };
 
-static int mmc_init(int argc, char **argv) {
+static int cdrom_init(int argc, char **argv) {
 	(void)argc;
 	(void)argv;
-	return driver_register(&mmc_driver);
+	return driver_register(&cdrom_driver);
 }
 
-static int mmc_fini(void) {
-	return driver_unregister(&mmc_driver);
+static int cdrom_fini(void) {
+	return driver_unregister(&cdrom_driver);
 }
 
 kmodule_t module_meta = {
 	.magic       = MODULE_MAGIC,
-	.init        = mmc_init,
-	.fini        = mmc_fini,
+	.init        = cdrom_init,
+	.fini        = cdrom_fini,
 	.author      = "tayoky",
-	.name        = "mmc",
-	.description = "SCSI MMC disk driver",
+	.name        = "scsi-cdrom",
+	.description = "SCSI MMC cdrom driver",
 	.license     = "GPL 3",
 };

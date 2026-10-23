@@ -22,7 +22,7 @@ echo "loading modules"
 
 for MODULE in \
 pci \
-libscsi scsi-mmc \
+libscsi scsi-cdrom \
 libata ide ata atapi \
 mbr gpt fat iso9660 \
 libps2 i8042 ps2-kb ps2-mouse \
