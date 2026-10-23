@@ -106,14 +106,29 @@ static void iobuf_transfer_helper(void *iobuf_buf, void *buf, size_t size, int d
 }
 
 void iobuf_transfer(iobuf_t *iobuf, void *buf, size_t addr, size_t size, int direction) {
-	kassert(addr < iobuf->size);
+	kassert(addr <= iobuf->size);
 	kassert(addr + size <= iobuf->size);
 	switch (iobuf->type) {
 	case IOBUF_TYPE_CONTINUOUS:
 		iobuf_transfer_helper((char*)iobuf->buffer + addr, buf, size, direction);
 		break;
-	case IOBUF_TYPE_PAGES:
-		kassert(!"TODO");
+	case IOBUF_TYPE_PAGES:;
+		char *ptr = buf;
+		while (size > 0) {
+			size_t remaining = PAGE_SIZE - ((addr + iobuf->offset) % PAGE_SIZE);
+			size_t chunk_size  = size;
+			if (chunk_size > remaining) chunk_size = remaining;
+			uintptr_t page = iobuf_get_page_at(iobuf, addr);
+			if (page != PAGE_INVALID) {
+				iobuf_transfer_helper(mmu_phys2virt(page), ptr, chunk_size, direction);
+			} else if (direction == IOBUF_IN) {
+				memset(ptr, 0, chunk_size);
+			}
+
+			addr += chunk_size;
+			ptr += chunk_size;
+			size -= chunk_size;
+		}
 		break;
 	default:
 		kassert(!"unknown iobuf type");
