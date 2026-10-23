@@ -89,8 +89,7 @@ void init_second_stage_pmm(void) {
 	// allocate memory for sections array
 	uintptr_t sections_start = MEM_PAGES_START;
 	uintptr_t sections_end   = PAGE_ALIGN_UP(MEM_PAGES_START + highest_page / PAGE_SIZE / PAGES_PER_SECTION * sizeof(page_t *)) + PAGE_SIZE;
-	mmu_allocate_and_map_pages(mmu_get_addr_space(), sections_start, sections_end - sections_start, PAGES_INFO_MMU_FLAGS);
-	memset((void *)sections_start, 0, sections_end - sections_start);
+	mmu_allocate_zero_and_map_pages(mmu_get_addr_space(), sections_start, sections_end - sections_start, PAGES_INFO_MMU_FLAGS);
 	page_info_sections = (page_t **)sections_start;
 	uintptr_t map_addr = sections_end;
 

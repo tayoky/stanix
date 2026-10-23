@@ -301,35 +301,26 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 	int ret = 0;
 	if (flags & VMM_FLAG_ANONYMOUS) {
 		fd = NULL;
-		mmu_entry_t *entry = NULL;
-		for (uintptr_t addr = new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
-			if (flags & VMM_FLAG_SHARED) {
-				uintptr_t page;
-				page = pmm_allocate_page();
-				if (page == PAGE_INVALID) {
+		if (flags & VMM_FLAG_SHARED) {
+			ret = mmu_allocate_zero_and_map_pages(space->addrspace, new_seg->start, new_seg->end - new_seg->start, prot);
+			if (ret < 0) goto error;
+		} else {
+			uintptr_t page = pmm_get_zero_page();
+			mmu_entry_t *entry = NULL;
+			for (uintptr_t addr = new_seg->start; addr < new_seg->end; addr += PAGE_SIZE) {
+				entry = mmu_create_next_entry_and_acquire_lock(space->addrspace, addr, entry, addr - PAGE_SIZE);
+				if (!entry) {
 					// unmap already mapped pages
-unmap_pages:
 					mmu_unmap_and_release_pages(space->addrspace, new_seg->start, addr - new_seg->start);
 					if (space == &get_current_proc()->vmm_space) mmu_invalidate(new_seg->start, addr - new_seg->start);
 					ret = -ENOMEM;
 					goto error;
 				}
-				memset(mmu_phys2virt(page), 0, PAGE_SIZE);
-				// FIXME : calling mmu_map_pages in a loop is slow as hell
-				// might come back later on this
-				if (mmu_map_pages(space->addrspace, addr, page, PAGE_SIZE, prot) < 0) {
-					pmm_release_page(page);
-					goto unmap_pages;
-				}
-			} else {
-				uintptr_t page = pmm_get_zero_page();
-				entry = mmu_create_next_entry_and_acquire_lock(space->addrspace, addr, entry, addr - PAGE_SIZE);
-				if (!entry) goto unmap_pages;
 				pmm_retain(page);
 				mmu_entry_map(space->addrspace, entry, page, prot & ~MMU_FLAG_WRITE);
 			}
+			if (entry) mmu_entry_release_lock(entry);
 		}
-		if (entry) mmu_entry_release_lock(entry);
 	} else if (fd) {
 		ret = vfs_mmap(fd, offset, new_seg);
 	} else {
@@ -433,10 +424,9 @@ static int vmm_space_raw_chprot_range(vmm_space_t *space, uintptr_t start, uintp
 }
 
 int vmm_space_chprot_range(vmm_space_t *space, uintptr_t start, uintptr_t end, long prot) {
-	// FIXME : we might need to acquire write lock since chrprot_range can split
-	rwsem_acquire_read(&space->lock);
+	rwsem_acquire_write(&space->lock);
 	int ret = vmm_space_raw_chprot_range(space, start, end, prot);
-	rwsem_release_read(&space->lock);
+	rwsem_release_write(&space->lock);
 	return ret;
 }
 

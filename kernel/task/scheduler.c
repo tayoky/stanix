@@ -107,7 +107,6 @@ static void reaper_task() {
 		}
 		task_t *task = container_of(node, task_t, dead_list_node);
 		// make sure the task is not on a run queue
-		// FIXME : is this bad ?
 		while (atomic_load(&task->run_queue));
 		task_final_cleanup(task);
 	}

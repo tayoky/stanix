@@ -199,6 +199,8 @@ int vfs_unmount_at(vfs_dentry_t *at, const char *path) {
 	vfs_mount_point_t *mount_point = root_dentry->mount_point;
 	kassert(mount_point->root == root_dentry);
 
+	// TODO : evict dentries
+
 	if (atomic_load(&root_dentry->ref_count) > 2) {
 		ret = -EBUSY;
 		goto error;

@@ -49,6 +49,14 @@ int mmu_map_pages(mmu_space_t addrspace, uintptr_t vaddr, uintptr_t paddr, size_
  */
 int mmu_allocate_and_map_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size, long flags);
 
+/**
+ * @brief allocate pages, fill them with 0 and map them
+ * @param addrspace an pointer to the addrspace
+ * @param vaddr the virtual pages to map
+ * @param size the size of the region to allocate and map
+ * @param flags flag to use for the virtual pages (eg readonly, not executable...)
+ */
+int mmu_allocate_zero_and_map_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size, long flags);
 
 void mmu_unmap_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size);
 void mmu_unmap_and_release_pages(mmu_space_t addrspace, uintptr_t vaddr, size_t size);

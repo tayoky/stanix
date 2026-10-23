@@ -192,6 +192,7 @@ int mmu_allocate_and_map_pages(mmu_space_t PML4, uintptr_t vaddr, size_t size, l
 		uintptr_t page = pmm_allocate_page();
 		if (page == PAGE_INVALID) {
 			mmu_unmap_and_release_pages(PML4, start, vaddr - start);
+			if (PML4 == mmu_get_addr_space()) mmu_invalidate(start, vaddr - start);
 			return -ENOMEM;
 		}
 		// FIXME : calling mmu_map_pages in a loop is bad
@@ -199,6 +200,35 @@ int mmu_allocate_and_map_pages(mmu_space_t PML4, uintptr_t vaddr, size_t size, l
 		if (ret < 0) {
 			pmm_release_page(page);
 			mmu_unmap_and_release_pages(PML4, start, vaddr - start);
+			if (PML4 == mmu_get_addr_space()) mmu_invalidate(start, vaddr - start);
+			return ret;
+		}
+
+		vaddr += PAGE_SIZE;
+		size  -= PAGE_SIZE;
+	}
+	return 0;
+}
+
+int mmu_allocate_zero_and_map_pages(mmu_space_t PML4, uintptr_t vaddr, size_t size, long flags) {
+	kassert(vaddr % PAGE_SIZE == 0);
+	kassert(size % PAGE_SIZE == 0);
+	uintptr_t start = vaddr;
+	while (size > 0) {
+		uintptr_t page = pmm_allocate_page();
+		if (page == PAGE_INVALID) {
+			mmu_unmap_and_release_pages(PML4, start, vaddr - start);
+			if (PML4 == mmu_get_addr_space()) mmu_invalidate(start, vaddr - start);
+			return -ENOMEM;
+		}
+		memset(mmu_phys2virt(page), 0, PAGE_SIZE);
+		
+		// FIXME : calling mmu_map_pages in a loop is bad
+		int ret = mmu_map_pages(PML4, vaddr, page, PAGE_SIZE, flags);
+		if (ret < 0) {
+			pmm_release_page(page);
+			mmu_unmap_and_release_pages(PML4, start, vaddr - start);
+			if (PML4 == mmu_get_addr_space()) mmu_invalidate(start, vaddr - start);
 			return ret;
 		}
 

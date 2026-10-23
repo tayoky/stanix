@@ -5,8 +5,6 @@
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 
-// FIXME : should we disable interrupt on mutex
-
 void mutex_init(mutex_t *mutex) {
 	memset(mutex, 0, sizeof(mutex_t));
 }
