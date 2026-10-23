@@ -21,30 +21,30 @@ typedef struct tty_ops {
 
 typedef struct tty {
 	device_t device;
-	ringbuffer_t input_buffer;  // protected by lock
-	sleep_queue_t reader_queue; // protected by lock
-	sleep_queue_t writer_queue; // protected by lock
-	char canon_buf[512];        // protected by lock
-	struct termios termios;     // protected by lock
-	struct winsize size;        // protected by lock
-	size_t column;              // protected by lock
+	ringbuffer_t input_buffer  ATTR_GUARDED_BY(&lock);
+	sleep_queue_t reader_queue ATTR_GUARDED_BY(&lock);
+	sleep_queue_t writer_queue ATTR_GUARDED_BY(&lock);
+	char canon_buf[512]        ATTR_GUARDED_BY(&lock);
+	struct termios termios     ATTR_GUARDED_BY(&lock);
+	struct winsize size        ATTR_GUARDED_BY(&lock);
+	size_t column              ATTR_GUARDED_BY(&lock);
 	tty_ops_t *ops;
-	size_t canon_index;         // protected by lock
-	process_group_t *fg_group;  // protected by lock
-	session_t *session;         // protected by lock
-	size_t lines_count;         // protected by lock
-	size_t lines[256];          // protected by lock
-	spinlock_t lock;
-	int unplugged;              // protected by lock
+	size_t canon_index         ATTR_GUARDED_BY(&lock);
+	process_group_t *fg_group  ATTR_GUARDED_BY(&lock);
+	session_t *session         ATTR_GUARDED_BY(&lock, &proctree_lock);
+	size_t lines_count         ATTR_GUARDED_BY(&lock);
+	size_t lines[256]          ATTR_GUARDED_BY(&lock);
+	spinlock_t lock ATTR_ACQUIRED_AFTER(&proctree_lock);
+	int unplugged              ATTR_GUARDED_BY(&lock);
 } tty_t;
 
 typedef struct pty pty_t;
 typedef struct pty_slave pty_slave_t;
 
 struct pty {
-	ringbuffer_t output_buffer; // protected by lock
-	sleep_queue_t writer_queue; // protected by lock
-	sleep_queue_t reader_queue; // protected by lock
+	ringbuffer_t output_buffer ATTR_GUARDED_BY(&lock);
+	sleep_queue_t writer_queue ATTR_GUARDED_BY(&lock);
+	sleep_queue_t reader_queue ATTR_GUARDED_BY(&lock);
 	pty_slave_t *slave; // cannot acquire if holding lock
 	spinlock_t lock;
 };
