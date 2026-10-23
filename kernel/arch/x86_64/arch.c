@@ -9,7 +9,7 @@ void kmain();
 void _start(){
 	// init arch sepcfic stuff before launching
 	// generic main
-	disable_interrupt();
+	arch_disable_interrupt();
 	init_serial();
 	init_gdt();
 	init_idt();

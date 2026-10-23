@@ -89,7 +89,7 @@ static void spawn_init(void) {
 	}
 
 	kinfof("halt because no init program can be executed\n");
-	halt();
+	arch_halt();
 }
 
 // the generic entry point

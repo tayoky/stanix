@@ -1846,7 +1846,7 @@ uint64_t syscall_number = sizeof(syscall_table) / sizeof(void *);
 
 void syscall_handler(registers_t *context, void *arg) {
 	(void)arg;
-	enable_interrupt();
+	arch_enable_interrupt();
 	if (ARG0_REG(*context) >= syscall_number) {
 		ARG0_REG(*context) = (uint64_t)-EINVAL;
 		return;

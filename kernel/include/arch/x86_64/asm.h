@@ -6,16 +6,35 @@
 #include <stdint.h>
 #include <kernel/port.h>
 
-#define disable_interrupt() asm("cli")
-#define enable_interrupt() asm("sti")
-#define halt() while(1)
-
-static inline int have_interrupt(void) {
+static inline int arch_have_interrupt(void) {
     uintptr_t flags;
     asm volatile ("pushf\n"
                   "pop %0" : "=rm"(flags));
 
-    return (flags & (1 << 9)) ;
+    return (flags & (1U << 9)) ;
+}
+
+static inline void arch_disable_interrupt(void) {
+	asm volatile("cli");
+}
+
+static inline void arch_enable_interrupt(void) {
+	asm volatile("sti");
+}
+
+static inline int arch_save_and_disable_interrupt(void) {
+	int ret = arch_have_interrupt();
+	arch_disable_interrupt();
+	return ret;
+}
+
+static inline void arch_restore_interrupt(int saved) {
+	if (saved) arch_enable_interrupt();
+}
+
+static inline void arch_halt(void) {
+	arch_disable_interrupt();
+	for (;;) ;
 }
 
 static inline void arch_pause(void) {

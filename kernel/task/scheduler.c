@@ -202,7 +202,7 @@ static void task_new_trampoline(void (*func)(void *arg), void *arg) {
 
 	// the task with interrupt disabled to avoid chaos
 	// enable it ourself
-	enable_interrupt();
+	arch_enable_interrupt();
 
 	func(arg);
 	task_exit();
@@ -277,8 +277,7 @@ void yield(int preempt) {
 
 	wakeup_sleepers();
 
-	int prev_int = have_interrupt();
-	disable_interrupt();
+	int prev_int = arch_save_and_disable_interrupt();
 
 	spinlock_raw_acquire(&get_run_queue()->lock);
 
@@ -298,7 +297,7 @@ void yield(int preempt) {
 	// fast path
 	if (old == new) {
 		finish_yield();
-		if (prev_int) enable_interrupt();
+		arch_restore_interrupt(prev_int);
 		return;
 	}
 
@@ -313,7 +312,7 @@ void yield(int preempt) {
 	}
 	if (arch_registers_save(&old->context.frame)) {
 		finish_yield();
-		if (prev_int) enable_interrupt();
+		arch_restore_interrupt(prev_int);
 		return;
 	}
 

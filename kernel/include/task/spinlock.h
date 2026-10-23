@@ -39,8 +39,7 @@ static inline void __spinlock_acquire(spinlock_t *lock, const char *line) ATTR_A
 }
 
 static inline int __spinlock_acquire_irq(spinlock_t *lock, const char *line) ATTR_ACQUIRE(lock) {
-	int irq_save = have_interrupt();
-	disable_interrupt();
+	int irq_save = arch_save_and_disable_interrupt();
     __spinlock_raw_acquire(lock, line);
 	return irq_save;
 }
@@ -59,8 +58,7 @@ static inline void spinlock_acquire(spinlock_t *lock) ATTR_ACQUIRE(lock) {
 }
 
 ATTR_ACQUIRE(lock) static inline int spinlock_acquire_irq(spinlock_t *lock) {
-	int irq_save = have_interrupt();
-	disable_interrupt();
+	int irq_save = arch_save_and_disable_interrupt();
 	spinlock_raw_acquire(lock);
 	return irq_save;
 }
@@ -77,7 +75,7 @@ static inline void spinlock_release(spinlock_t *lock) ATTR_RELEASE(lock) {
 
 static inline void spinlock_release_irq(spinlock_t *lock, int irq_save) ATTR_RELEASE(lock) {
 	spinlock_raw_release(lock);
-	if (irq_save) enable_interrupt();
+	arch_restore_interrupt(irq_save);
 }
 
 #define spinlock_assert_acquired(_lock) kassert(atomic_flag_test_and_set(&(_lock)->lock) && "spinlock acquired")

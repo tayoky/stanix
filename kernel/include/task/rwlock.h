@@ -44,27 +44,25 @@ static inline void rwlock_raw_release_read(rwlock_t *rwlock) {
 
 #define __WRAPPERS(name) static inline int rwlock_try_acquire_ ## name(rwlock_t *rwlock, int *interrupt_save) {\
 	if (interrupt_save) {\
-		*interrupt_save = have_interrupt();\
-		disable_interrupt();\
+		*interrupt_save = arch_save_and_disable_interrupt();\
 	}\
 	int ret = rwlock_raw_try_acquire_ ## name(rwlock);\
-	if(ret == 0 && interrupt_save && *interrupt_save) {\
-		enable_interrupt();\
+	if(ret == 0 && interrupt_save) {\
+		arch_restore_interrupt(*interrupt_save);\
 	}\
 	return ret;\
 }\
 \
 static inline void rwlock_acquire_ ## name(rwlock_t *rwlock, int *interrupt_save) {\
 	if (interrupt_save) {\
-		*interrupt_save = have_interrupt();\
-		disable_interrupt();\
+		*interrupt_save = arch_save_and_disable_interrupt();\
 	}\
 	rwlock_raw_acquire_ ## name(rwlock);\
 }\
 \
 static inline void rwlock_release_ ## name(rwlock_t *rwlock, int *interrupt_save) {\
 	rwlock_raw_release_ ## name(rwlock);\
-	if (interrupt_save && *interrupt_save) enable_interrupt();\
+	if (interrupt_save) arch_restore_interrupt(*interrupt_save);\
 }
 
 __WRAPPERS(write)

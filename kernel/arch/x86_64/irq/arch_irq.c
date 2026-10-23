@@ -15,5 +15,5 @@ void init_arch_irq(void) {
 	kok();
 
 	kinfof("using irq chip '%s'\n", main_irq_chip->name);
-	enable_interrupt();
+	arch_enable_interrupt();
 }

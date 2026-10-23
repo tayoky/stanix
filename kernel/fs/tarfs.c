@@ -23,7 +23,7 @@ void mount_initrd(void) {
 	// create an tmpfs for it
 	if (vfs_auto_mount(NULL, "/", "tmpfs", 0, NULL) < 0) {
 		kfail();
-		halt();
+		arch_halt();
 	}
 
 	// "chroot" into it
@@ -50,7 +50,7 @@ void mount_initrd(void) {
 			if (vfs_mkdir(full_path, octal2int(current_file->file_mode)) < 0) {
 				kfail();
 				kinfof("can't create folder %s for initrd\n", full_path);
-				halt();
+				arch_halt();
 			}
 		} else if (current_file->type == USTAR_REGTYPE) {
 			// create open the file
@@ -58,7 +58,7 @@ void mount_initrd(void) {
 			if (IS_ERR(file)) {
 				kfail();
 				kinfof("fail to create file %s\n", full_path);
-				halt();
+				arch_halt();
 			}
 
 			// copy the files content
@@ -67,7 +67,7 @@ void mount_initrd(void) {
 				kfail();
 				kinfof("%s\n", current_file->name);
 				kinfof("fail to write to file %s, can only write %luKB/%luKB\n", full_path, write_size / 1024, file_size / 1024);
-				halt();
+				arch_halt();
 			}
 
 			// now close and free

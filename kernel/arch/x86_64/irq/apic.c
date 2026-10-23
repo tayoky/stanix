@@ -71,7 +71,7 @@ void init_apic(void) {
 	if (!madt) {
 		kfail();
 		kinfof("fail to get MADT table\n");
-		halt();
+		arch_halt();
 	}
 
 	// fun fact : to init the APIC you need to init the ... PIC
