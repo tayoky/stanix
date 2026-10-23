@@ -64,7 +64,6 @@ static void fbcon_push_rect(fbcon_t *fbcon, long x, long y, long width, long hei
 
 static void fbcon_linefeed(fbcon_t *fbcon) {
 	if (fbcon->y + 1 >= fbcon->fb_info.height / fbcon->font_height) {
-		// TODO : scrolling
 		memmove(fbcon->back_buffer, fbcon->back_buffer + fbcon->font_height * fbcon->fb_info.pitch, (fbcon->fb_info.height - fbcon->font_height) * fbcon->fb_info.pitch);
 		memset(fbcon->back_buffer + (fbcon->fb_info.height - fbcon->font_height) * fbcon->fb_info.pitch, 0, fbcon->font_height * fbcon->fb_info.pitch);
 		fbcon_push_buffer(fbcon);

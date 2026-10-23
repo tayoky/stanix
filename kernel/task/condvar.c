@@ -6,8 +6,8 @@
 static sleep_queue_t queues[QUEUES_COUNT];
 
 static sleep_queue_t *get_queue(cond_var_t *var) {
-	// TODO : true hash
-	size_t hash = ((uintptr_t)var / sizeof(cond_var_t));
+	// this simple hash work well enought
+	size_t hash = ((uintptr_t)var / sizeof(cond_var_t)) * 0x1F;
 	return &queues[hash % QUEUES_COUNT];
 }
 
