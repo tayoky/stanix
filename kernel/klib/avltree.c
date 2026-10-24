@@ -244,6 +244,28 @@ avltree_node_t *avltree_lookup(avltree_t *avltree, void *key) {
 	return NULL;
 }
 
+avltree_node_t *avltree_first_superior_or_equal(avltree_t *avltree, void *key) {
+	avltree_node_t *node = avltree->root;
+	avltree_node_t *best = NULL;
+	while (node) {
+		switch (avltree_compare_key(avltree, key, node)) {
+		case -1:
+		case 0:
+			// even if we found a match
+			// we might have another match in the left subtree
+			best = node;
+			node = node->left;
+			break;
+		case 1:
+			node = node->right;
+			break;
+		default:
+			__builtin_unreachable();
+		}
+	}
+	return best;
+}
+
 avltree_node_t *avltree_first(avltree_t *avltree) {
 	return avltree_leftest_subnode(avltree->root);
 }

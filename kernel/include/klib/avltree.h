@@ -39,6 +39,7 @@ static inline void avltree_destroy(avltree_t *avltree) {
 void avltree_insert(avltree_t *avltree, avltree_node_t *node);
 int avltree_remove(avltree_t *avltree, avltree_node_t *node);
 avltree_node_t *avltree_lookup(avltree_t *avltree, void *key);
+avltree_node_t *avltree_first_superior_or_equal(avltree_t *avltree, void *key);
 avltree_node_t *avltree_first(avltree_t *avltree);
 avltree_node_t *avltree_next(avltree_t *avltree, avltree_node_t *node);
 avltree_node_t *avltree_first_key(avltree_t *avltree, void *key);

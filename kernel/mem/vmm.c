@@ -1,5 +1,5 @@
 #include <kernel/kernel.h>
-#include <kernel/list.h>
+#include <kernel/avltree.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/print.h>
@@ -227,6 +227,7 @@ vmm_seg_t *vmm_space_lookup(vmm_space_t *space, uintptr_t addr) {
 }
 
 int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
+	rwsem_assert_write_acquired(&space->lock);
 	kassert(cut % PAGE_SIZE == 0);
 	mutex_acquire(&seg->lock);
 	if (cut <= seg->start || cut >= seg->end) {
@@ -242,6 +243,7 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 	}
 
 	vmm_seg_t *new_seg    = slab_alloc(&vmm_seg_slab);
+	if (!new_seg) return -ENOMEM;
 	new_seg->prot         = seg->prot;
 	new_seg->flags        = seg->flags;
 	new_seg->start        = cut;
@@ -256,7 +258,7 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 		seg->ops->dup(new_seg);
 	}
 
-	list_add_after(&space->segs, &seg->node, &new_seg->node);
+	avltree_insert(&space->segs, &new_seg->node);
 
 	if (out_seg) *out_seg = new_seg;
 	mutex_release(&seg->lock);
@@ -435,10 +437,10 @@ int vmm_space_chprot(vmm_space_t *space, vmm_seg_t *seg, long prot) {
 static int vmm_space_raw_chprot_range(vmm_space_t *space, uintptr_t start, uintptr_t end, long prot) {
 	kassert(start % PAGE_SIZE == 0);
 	kassert(end % PAGE_SIZE == 0);
-	foreach (node, &space->segs) {
+	for (avltree_node_t *node = avltree_first_superior_or_equal(&space->segs, &start); node; node = avltree_next(&space->segs)) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
-		if (seg->end <= start) continue;
 		if (seg->start >= end) break;
+		
 		if (start > seg->start) {
 			int ret = vmm_space_split(space, seg, start, NULL);
 			if (ret < 0) return ret;
@@ -465,6 +467,7 @@ int vmm_space_chprot_range(vmm_space_t *space, uintptr_t start, uintptr_t end, l
 }
 
 static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
+	rwsem_assert_write_acquired(&space->lock);
 	mutex_acquire(&seg->lock);
 	avltree_remove(&space->segs, &seg->node);
 	mutex_release(&seg->lock);
@@ -514,22 +517,16 @@ void vmm_space_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 static int vmm_space_raw_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end) {
 	kassert(start % PAGE_SIZE == 0);
 	kassert(end % PAGE_SIZE == 0);
-	if (list_is_empty(&space->segs)) {
-		return 0;
-	}
 
-	vmm_seg_t *seg = container_of(space->segs.first_node, vmm_seg_t, node);
-	for (vmm_seg_t *next; seg; seg = next) {
-		next = container_of(seg->node.next, vmm_seg_t, node);
-
-		if (seg->end <= start) continue;
+	avltree_node_t *node = avltree_first_superior_or_equal(&space->segs, &start);
+	while (node) {
+		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		if (seg->start >= end) break;
-		if (start > seg->start) {
-			int ret = vmm_space_split(space, seg, start, NULL);
-			if (ret < 0) return ret;
+		node = avltree_next(&space->segs, node);
 
-			// on the next iteration we will land on the newly created segment
-			continue;
+		if (start > seg->start) {
+			int ret = vmm_space_split(space, seg, start, &seg);
+			if (ret < 0) return ret;
 		}
 		if (end < seg->end) {
 			int ret = vmm_space_split(space, seg, end, NULL);
@@ -549,11 +546,11 @@ int vmm_space_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end) {
 
 void vmm_space_unmap_all(vmm_space_t *space) {
 	rwsem_acquire_write(&space->lock);
-	vmm_seg_t *current = container_of(space->segs.first_node, vmm_seg_t, node);
-	while (current) {
-		vmm_seg_t *next = container_of(current->node.next, vmm_seg_t, node);
-		vmm_space_raw_unmap(space, current);
-		current = next;
+	avltree_node_t *node = avltree_first(&space->segs);
+	while (node) {
+		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
+		node = avltree_next(&space->segs, node);
+		vmm_space_raw_unmap(space, seg);
 	}
 	rwsem_release_write(&space->lock);
 }
@@ -569,15 +566,15 @@ int vmm_space_sync(vmm_space_t *space, vmm_seg_t *seg, uintptr_t start, uintptr_
 	// cap start/end
 	if (start < seg->start) start = seg->start;
 	if (end > seg->end) end = seg->end;
+	kassert(start < end);
 	int ret = seg->ops->msync(seg, start, end, flags);
 	mutex_release(&seg->lock);
 	return ret;
 }
 
 static int vmm_space_raw_sync_range(vmm_space_t *space, uintptr_t start, uintptr_t end, int flags) {
-	foreach (node, &space->segs) {
+	for (avltree_node_t *node = avltree_first_superior_or_equal(&space->segs, &start); node; node = avltree_next(&space->segs)) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
-		if (seg->end <= start) continue;
 		if (seg->start >= end) break;
 		int ret = vmm_space_sync(space, seg, start, end, flags);
 		if (ret < 0) return ret;
