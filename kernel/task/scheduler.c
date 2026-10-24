@@ -127,7 +127,7 @@ void init_task() {
 
 	// setup the kernel proc and the idle task
 	kernel_proc = proc_new(idle_task, NULL);
-	proc_set_cmdline(kernel_proc, "stanix kernel");
+	proc_set_cmdline(kernel_proc, "Stanix kernel");
 	idle = kernel_proc->main_thread;
 
 	// init the boot task (task running since boot)

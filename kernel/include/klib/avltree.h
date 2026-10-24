@@ -1,7 +1,6 @@
 #ifndef KERNEL_AVLTREE_H
 #define KERNEL_AVLTREE_H
 
-#include <kernel/rwsem.h>
 #include <stddef.h>
 
 typedef struct avltree_ops avltree_ops_t;
@@ -24,7 +23,6 @@ struct avltree_node {
 };
 
 struct avltree {
-	rwsem_t rwsem;
 	avltree_node_t *root;
 	avltree_ops_t *ops;
 };
@@ -36,22 +34,6 @@ static inline void avltree_init(avltree_t *avltree, avltree_ops_t *ops) {
 
 static inline void avltree_destroy(avltree_t *avltree) {
 	(void)avltree;
-}
-
-static void avltree_acquire_read(avltree_t *avltree) {
-	rwsem_acquire_read(&avltree->rwsem);
-}
-
-static void avltree_release_read(avltree_t *avltree) {
-	rwsem_release_read(&avltree->rwsem);
-}
-
-static void avltree_acquire_write(avltree_t *avltree) {
-	rwsem_acquire_write(&avltree->rwsem);
-}
-
-static void avltree_release_write(avltree_t *avltree) {
-	rwsem_release_write(&avltree->rwsem);
 }
 
 void avltree_insert(avltree_t *avltree, avltree_node_t *node);

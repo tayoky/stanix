@@ -2,6 +2,7 @@
 #define KERNEL_INTERVALTREE_H
 
 #include <kernel/avltree.h>
+#include <kernel/macro.h>
 
 typedef struct interval_tree {
 	avltree_t avltree;
@@ -17,22 +18,6 @@ typedef struct interval_tree_node {
 	interval_tree_span_t span;
 	size_t max;
 } interval_tree_node_t;
-
-static void interval_tree_acquire_read(interval_tree_t *tree) {
-	avltree_acquire_read(&tree->avltree);
-}
-
-static void interval_tree_release_read(interval_tree_t *tree) {
-	avltree_release_read(&tree->avltree);
-}
-
-static void interval_tree_acquire_write(interval_tree_t *tree) {
-	avltree_acquire_write(&tree->avltree);
-}
-
-static void interval_tree_release_write(interval_tree_t *tree) {
-	avltree_release_write(&tree->avltree);
-}
 
 void interval_tree_init(interval_tree_t *tree);
 void interval_tree_destroy(interval_tree_t *tree);
@@ -51,7 +36,7 @@ static inline interval_tree_node_t *interval_tree_first(interval_tree_t *tree) {
 	return container_of(avltree_node, interval_tree_node_t, node);
 }
 
-interval_tree_node_t *interval_tree_next(interval_tree_t *tree, interval_tree_node_t *node) {
+static inline interval_tree_node_t *interval_tree_next(interval_tree_t *tree, interval_tree_node_t *node) {
 	if (!node) return NULL;
 	avltree_node_t *avltree_node = avltree_next(&tree->avltree, &node->node);
 	if (!avltree_node) return NULL;

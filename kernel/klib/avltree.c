@@ -160,9 +160,7 @@ static void avltree_insert_helper(avltree_t *avltree, avltree_node_t *parent, av
 void avltree_insert(avltree_t *avltree, avltree_node_t *node) {
 	node->height = 1;
 
-	avltree_acquire_write(avltree);
 	avltree_insert_helper(avltree, NULL, &avltree->root, node);
-	avltree_release_write(avltree);
 }
 
 static int avltree_remove_helper(avltree_t *avltree, avltree_node_t **current, avltree_node_t *node) {
@@ -224,14 +222,10 @@ static int avltree_remove_helper(avltree_t *avltree, avltree_node_t **current, a
 }
  
 int avltree_remove(avltree_t *avltree, avltree_node_t *node) {
-	avltree_acquire_write(avltree);
-	int ret = avltree_remove_helper(avltree, &avltree->root, node);
-	avltree_release_write(avltree);
-	return ret;
+	return avltree_remove_helper(avltree, &avltree->root, node);
 }
 
 avltree_node_t *avltree_lookup(avltree_t *avltree, void *key) {
-	avltree_acquire_read(avltree);
 	avltree_node_t *node = avltree->root;
 	while (node) {
 		switch (avltree_compare_key(avltree, key, node)) {
@@ -242,34 +236,27 @@ avltree_node_t *avltree_lookup(avltree_t *avltree, void *key) {
 			node = node->right;
 			break;
 		case 0:
-			avltree_release_read(avltree);
 			return node;
 		default:
 			__builtin_unreachable();
 		}
 	}
-	avltree_release_read(avltree);
 	return NULL;
 }
 
 avltree_node_t *avltree_first(avltree_t *avltree) {
-	avltree_acquire_read(avltree);
-	avltree_node_t *node = avltree_leftest_subnode(avltree->root);
-	avltree_release_read(avltree);
-	return node;
+	return avltree_leftest_subnode(avltree->root);
 }
 
 avltree_node_t *avltree_next(avltree_t *avltree, avltree_node_t *node) {
+	(void)avltree;
 	if (!node) return NULL;
-	avltree_acquire_read(avltree);
 
 	// we already visisted the current node and node->left
 	// we want to go right or up
 	if (node->right) {
 		// we can go into the right subtree
-		avltree_node_t *right = avltree_leftest_subnode(node->right);
-		avltree_release_read(avltree);
-		return right;
+		return avltree_leftest_subnode(node->right);
 	}
 
 	// move up
@@ -278,20 +265,15 @@ avltree_node_t *avltree_next(avltree_t *avltree, avltree_node_t *node) {
 		node = parent;
 		parent = node->parent;
 	}
-	avltree_release_read(avltree);
 	return parent;
 }
 
 avltree_node_t *avltree_first_key(avltree_t *avltree, void *key) {
-	avltree_acquire_read(avltree);
-	avltree_node_t *node = avltree_leftest_subnode_key(avltree, avltree->root, key);
-	avltree_release_read(avltree);
-	return node;
+	return avltree_leftest_subnode_key(avltree, avltree->root, key);
 }
 
 avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void *key) {
 	if (!node) return NULL;
-	avltree_acquire_read(avltree);
 
 	// we already visisted the current node and node->left
 	// we want to go right or up
@@ -300,7 +282,6 @@ avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void 
 		avltree_node_t *right_match = avltree_leftest_subnode_key(avltree, node->right, key);
 		if (right_match) {
 			// yes we can
-			avltree_release_read(avltree);
 			return right_match;
 		}
 	}
@@ -319,7 +300,6 @@ avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void 
 				avltree_node_t *right_match = avltree_leftest_subnode_key(avltree, parent->right, key);
 				if (right_match) {
 					// yes we can
-					avltree_release_read(avltree);
 					return right_match;
 				}
 			}
@@ -327,6 +307,5 @@ avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void 
 		node = parent;
 		parent = node->parent;
 	}
-	avltree_release_read(avltree);
 	return parent;
 }
