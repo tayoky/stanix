@@ -44,16 +44,20 @@ static inline interval_tree_node_t *interval_tree_next(interval_tree_t *tree, in
 }
 
 static inline interval_tree_node_t *interval_tree_first_span(interval_tree_t *tree, interval_tree_span_t *span) {
-	avltree_node_t *avltree_node = avltree_first_key(&tree->avltree, span);
+	avltree_node_t *avltree_node = avltree_first_superior_or_equal(&tree->avltree, span);
 	if (!avltree_node) return NULL;
-	return container_of(avltree_node, interval_tree_node_t, node);
+	interval_tree_node_t *node = container_of(avltree_node, interval_tree_node_t, node);
+	if (node->start >= span->end) return NULL;
+	return node;
 }
 
 interval_tree_node_t *interval_tree_next_span(interval_tree_t *tree, interval_tree_node_t *node, interval_tree_span_t *span) {
 	if (!node) return NULL;
-	avltree_node_t *avltree_node = avltree_next_key(&tree->avltree, &node->node, span);
+	avltree_node_t *avltree_node = avltree_next(&tree->avltree, &node->node);
 	if (!avltree_node) return NULL;
-	return container_of(avltree_node, interval_tree_node_t, node);
+	interval_tree_node_t *node = container_of(avltree_node, interval_tree_node_t, node);
+	if (node->start >= span->end) return NULL;
+	return node;
 }
 
 #define interval_tree_foreach(node, tree) \
