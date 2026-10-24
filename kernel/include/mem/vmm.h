@@ -4,7 +4,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/rwsem.h>
 #include <kernel/mutex.h>
-#include <kernel/list.h>
+#include <kernel/avltree.h>
 #include <kernel/mmu.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -29,7 +29,7 @@ struct vmm_ops {
 };
 
 struct vmm_seg {
-	list_node_t node;  // protected by the space lock
+	avltree_node_t node;  // protected by the space lock
 	list_node_t private_node;
 	uintptr_t start;   // protected by lock and write proctected by the space lock
 	uintptr_t end;     // protected by lock and write proctected by the space lock
@@ -52,7 +52,7 @@ struct vmm_seg {
 
 struct vmm_space {
 	mmu_space_t addrspace;
-	list_t segs;         // protected by lock
+	avltree_t segs;         // protected by lock
 	rwsem_t lock;
 	size_t total_size;   // protected by lock
 	size_t peak_size;    // protected by lock
@@ -89,6 +89,14 @@ void vmm_destroy_space(vmm_space_t *space);
  * @return the current address space
  */
 vmm_space_t *vmm_get_current_space(void);
+
+/**
+ * @brief lookup the segment at the specified address in a vmm space
+ * @param space the address space to lookup in
+ * @param addr the virtual address to lookup
+ * @return the segment at this address or NULL if no segment is present
+ */
+vmm_seg_t *vmm_space_lookup(vmm_space_t *space, uintptr_t addr);
 
 /**
  * @brief mmap memory and create a segment for it into a specfied address space

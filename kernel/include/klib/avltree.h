@@ -44,7 +44,7 @@ avltree_node_t *avltree_next(avltree_t *avltree, avltree_node_t *node);
 avltree_node_t *avltree_first_key(avltree_t *avltree, void *key);
 avltree_node_t *avltree_next_key(avltree_t *avltree, avltree_node_t *node, void *key);
 
-#define avltree_foreach(node, avltree, key) \
+#define avltree_foreach(node, avltree) \
 	for (avltree_node_t *node = avltree_first(avltree); \
 		node; \
 		node = avltree_next(avltree, node))

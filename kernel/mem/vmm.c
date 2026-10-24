@@ -157,33 +157,73 @@ int vmm_fault_report(uintptr_t addr, int prot) {
 	if (!get_current_proc()) return 0;
 	rwsem_acquire_read(&get_current_proc()->vmm_space.lock);
 	atomic_fetch_add(&get_current_proc()->vmm_space.page_faults, 1);
-	foreach (node, &get_current_proc()->vmm_space.segs) {
-		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
-		if (seg->start > addr) break;
-		if (seg->end > addr) {
-			// we found a seg to report to
-			int ret = vmm_handle_fault(seg, addr, prot);
-			rwsem_release_read(&get_current_proc()->vmm_space.lock);
-			return ret;
-		}
+	vmm_seg_t *seg = vmm_space_lookup(vmm_get_current_space(), addr);
+	int ret = 0;
+	if (seg) {
+		// we found a seg to report to
+		ret = vmm_handle_fault(seg, addr, prot);
 	}
 	rwsem_release_read(&get_current_proc()->vmm_space.lock);
 	return 0;
 }
 
+static int vmm_tree_compare_nodes(avltree_node_t *a, avltree_node_t *b) {
+	vmm_seg_t *seg_a = container_of(a, vmm_seg_t, node);
+	vmm_seg_t *seg_b = container_of(b, vmm_seg_t, node);
+
+	if (seg_a->end < seg_b->start) {
+		return -1;
+	} else if (seg_a->start > seg_b->end) {
+		return 1;
+	} else {
+		__builtin_unreachable();
+	}
+}
+
+static int vmm_tree_compare_key(void *key, avltree_node_t *node) {
+	uintptr_t addr = *(uintptr_t *)key;
+	vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
+	if (addr < seg->start) {
+		return -1;
+	} else if (addr >= seg->end) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+
+static void vmm_tree_recalculate(avltree_node_t *node) {
+	vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
+	// TODO
+}
+
+static avltree_ops_t vmm_tree_ops = {
+	.compare_nodes = vmm_tree_compare_nodes,
+	.compare_key   = vmm_tree_compare_key,
+	.recalculate   = vmm_tree_compare_recalculate,
+};
+
 void vmm_init_space(vmm_space_t *space) {
 	memset(space, 0, sizeof(vmm_space_t));
 	space->addrspace = mmu_space_init();
+	avltree_init(&space->segs, &vmm_tree_ops);
 }
 
 void vmm_destroy_space(vmm_space_t *space) {
 	vmm_space_unmap_all(space);
 	mmu_space_destroy(space->addrspace);
-	list_destroy(&space->segs);
+	avltree_destroy(&space->segs);
 }
 
 vmm_space_t *vmm_get_current_space(void) {
 	return &get_current_proc()->vmm_space;
+}
+
+vmm_seg_t *vmm_space_lookup(vmm_space_t *space, uintptr_t addr) {
+	avltree_node_t *node = avltree_lookup(&space->segs, &addr);
+	if (!node) return NULL;
+	return container_of(node, vmm_seg_t, node);
 }
 
 int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t **out_seg) {
@@ -239,50 +279,44 @@ static int vmm_has_perm(vfs_fd_t *fd, long prot, int flags) {
 }
 
 static vmm_seg_t *vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags) {
-	vmm_seg_t *prev = NULL;
+	int ret = 0;
+	vmm_seg_t *new_seg = slab_alloc(&vmm_seg_slab);
+	if (!new_seg) return -ENOMEM;
 	if (address) {
 		uintptr_t end = address + size;
 
-		// first remove any overlaping mapping
+		// remove any overlaping mapping
 		int ret = vmm_space_raw_unmap_range(space, address, end);
-		if (ret < 0) return ERR2PTR(ret);
-
-		// then find where we need to insert
-		foreach (node, &space->segs) {
-			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
-			if (current->start >= end) {
-				break;
-			}
-			prev = current;
+		if (ret < 0) {
+error:
+			slab_free(new_seg);
+			return ERR2PTR(ret);
 		}
 	} else {
 		// no address ? we need to find one ourself
-		foreach (node, &space->segs) {
-			vmm_seg_t *current = container_of(node, vmm_seg_t, node);
-			vmm_seg_t *next    = container_of(node->next, vmm_seg_t, node);
-			if (!next || next->start - current->end >= size) {
-				address = current->end;
-				prev    = current;
+
+		// hardcoded userspace start
+		uintptr_t address = PAGE_SIZE * 64;
+		avltree_foreach (node, &space->segs) {
+			vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
+			if (seg->start - address >= size) {
 				break;
 			}
+			address = seg->end;
 		}
-
 		if (!address) {
-			// hardcoded userspace start
-			address = PAGE_SIZE * 12;
-			prev    = NULL;
+			ret = -ENOMEM;
+			goto error;
 		}
 	}
 
-	vmm_seg_t *new_seg = slab_alloc(&vmm_seg_slab);
 	new_seg->start     = address;
 	new_seg->end       = address + size;
 	new_seg->prot      = prot;
 	new_seg->flags     = flags;
 	mutex_acquire(&new_seg->lock);
 
-	list_add_after(&space->segs, prev ? &prev->node : NULL, &new_seg->node);
-
+	avltree_insert(&space->regs, &new_seg->node);
 	return new_seg;
 }
 
@@ -329,7 +363,7 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 
 	if (ret < 0) {
 error:
-		list_remove(&space->segs, &new_seg->node);
+		avltree_remove(&space->segs, &new_seg->node);
 		mutex_release(&new_seg->lock);
 		slab_free(new_seg);
 		return ERR2PTR(ret);
@@ -432,7 +466,7 @@ int vmm_space_chprot_range(vmm_space_t *space, uintptr_t start, uintptr_t end, l
 
 static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	mutex_acquire(&seg->lock);
-	list_remove(&space->segs, &seg->node);
+	avltree_remove(&space->segs, &seg->node);
 	mutex_release(&seg->lock);
 	space->total_size -= VMM_SIZE(seg);
 	if (seg->fd) {
@@ -619,15 +653,7 @@ static int vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg
 		if (parent == &get_current_proc()->vmm_space) mmu_invalidate(seg->start, VMM_SIZE(seg));
 	}
 
-	vmm_seg_t *prev = NULL;
-	foreach (node, &child->segs) {
-		vmm_seg_t *current = container_of(node, vmm_seg_t, node);
-		if (current->start > seg->end) {
-			break;
-		}
-		prev = current;
-	}
-	list_add_after(&child->segs, prev ? &prev->node : NULL, &new_seg->node);
+	avltree_insert(&child->segs, &new_seg->node);
 
 	if (seg->ops && seg->ops->dup) {
 		seg->ops->dup(new_seg);
@@ -645,7 +671,7 @@ int vmm_clone(vmm_space_t *parent, vmm_space_t *child) {
 	child->anon_size    = parent->anon_size;
 	rwsem_acquire_read(&parent->lock);
 	int ret = 0;
-	foreach (node, &parent->segs) {
+	avltree_foreach (node, &parent->segs) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 		ret = vmm_clone_seg(parent, child, seg);
 		if (ret < 0) break;
