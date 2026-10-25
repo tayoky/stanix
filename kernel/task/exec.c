@@ -221,6 +221,7 @@ error:
 				// zero the last page
 				if (filesz_remainer) {
 					uintptr_t start_bss = vaddr + filesz - PAGE_SIZE + filesz_remainer;
+					// UNSAFE
 					memset((void *)start_bss, 0, PAGE_SIZE - filesz_remainer);
 				}
 				vmm_chprot(seg, prot);

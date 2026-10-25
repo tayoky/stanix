@@ -155,8 +155,8 @@ static ssize_t proc_read(vfs_fd_t *fd, void *buf, off_t offset, size_t count) {
 	process_t *proc = inode->proc;
 	switch (inode->type) {
 	case INODE_MAPS:
-		foreach (node, &proc->vmm_space.segs) {
-			vmm_seg_t *seg = (vmm_seg_t *)node;
+		avltree_foreach (node, &proc->vmm_space.segs) {
+			vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
 			char prot[5];
 			prot[0] = seg->prot & MMU_FLAG_READ ? 'r' : '-';
 			prot[1] = seg->prot & MMU_FLAG_WRITE ? 'w' : '-';

@@ -3,6 +3,7 @@
 
 #include <kernel/avltree.h>
 #include <kernel/macro.h>
+#include <stddef.h>
 
 typedef struct interval_tree {
 	avltree_t avltree;
@@ -47,7 +48,7 @@ static inline interval_tree_node_t *interval_tree_first_span(interval_tree_t *tr
 	avltree_node_t *avltree_node = avltree_first_superior_or_equal(&tree->avltree, span);
 	if (!avltree_node) return NULL;
 	interval_tree_node_t *node = container_of(avltree_node, interval_tree_node_t, node);
-	if (node->start >= span->end) return NULL;
+	if (node->span.start >= span->end) return NULL;
 	return node;
 }
 
@@ -55,9 +56,9 @@ interval_tree_node_t *interval_tree_next_span(interval_tree_t *tree, interval_tr
 	if (!node) return NULL;
 	avltree_node_t *avltree_node = avltree_next(&tree->avltree, &node->node);
 	if (!avltree_node) return NULL;
-	interval_tree_node_t *node = container_of(avltree_node, interval_tree_node_t, node);
-	if (node->start >= span->end) return NULL;
-	return node;
+	interval_tree_node_t *next_node = container_of(avltree_node, interval_tree_node_t, node);
+	if (next_node->span.start >= span->end) return NULL;
+	return next_node;
 }
 
 #define interval_tree_foreach(node, tree) \
