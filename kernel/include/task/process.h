@@ -136,7 +136,7 @@ ATTR_RETURN_NONNULL static inline process_t *get_current_proc(void) {
 }
 
 ATTR_RETURN_NONNULL static inline cred_t *get_current_cred(void) {
-	cred_t *cred = proc_get_cred(get_current_proc());
+	cred_t *cred = proc_get_cred(get_current_proc_nullable());
 	if (!cred) cred = &default_cred;
 	return cred;
 }
