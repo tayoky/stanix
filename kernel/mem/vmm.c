@@ -44,7 +44,7 @@ static void vmm_send_sigbus(uintptr_t addr) {
 
 
 static int vmm_map_page(vmm_seg_t *seg, uintptr_t vpage, long prot) {
-	if (!seg->ops || !seg->ops->get_page) return 0;
+	if (!seg->ops || !seg->ops->get_page) return VMM_FAULT_NOT_HANDLED;
 	if (mmu_virt2phys((void*)vpage) != PAGE_INVALID) {
 		// the page is already mapped
 		return VMM_FAULT_NOT_HANDLED;
@@ -124,7 +124,6 @@ static int vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	mutex_acquire(&seg->lock);
 	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
-	kdebugf("handle fault at %p\n", vpage);
 
 	if (seg->ops && seg->ops->fault) {
 		switch (seg->ops->fault(seg, addr, prot)) {
@@ -167,6 +166,11 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	}
 	seg->last_fault_size = fault_size;
 	seg->last_fault_page = vpage;
+	if (fault_size > VMM_DEFAULT_FAULT_SIZE) {
+		char *name = seg->fd ? vfs_dentry_path(seg->fd->dentry) : NULL;
+		kdebugf("predict %zu at %p on %s\n", fault_size, vpage, name);
+		kfree(name);
+	}
 
 	if (seg->ops && seg->ops->preload) {
 		// we ignore errors
@@ -202,6 +206,7 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 			return 1;
 		}
 	}
+	kdebugf("return 1\n");
 	mutex_release(&seg->lock);
 	return 1;
 }
