@@ -762,6 +762,11 @@ static uintptr_t cache_vmm_get_page(vmm_seg_t *seg, uintptr_t addr) {
 	return page;
 }
 
+static int cache_vmm_preload(vmm_seg_t *seg, uintptr_t addr, size_t size) {
+	cache_t *cache  = seg->private_data;
+	return cache_preload(cache, seg->offset + (addr - seg->offset), size);
+}
+
 static void cache_vmm_dup(vmm_seg_t *seg) {
 	cache_t *cache  = seg->private_data;
 	(void)cache;
@@ -777,14 +782,13 @@ static void cache_vmm_destroy(vmm_seg_t *seg) {
 static vmm_ops_t cache_vmm_ops = {
 	.msync    = cache_vmm_msync,
 	.get_page = cache_vmm_get_page,
+	.preload  = cache_vmm_preload,
 	.dup      = cache_vmm_dup,
 	.destroy  = cache_vmm_destroy,
 };
 
 int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 	if (offset % PAGE_SIZE) return -EINVAL;
-	int ret = cache_preload(cache, offset, VMM_SIZE(seg));
-	if (ret < 0) return ret;
 
 	if (seg->flags & VMM_FLAG_SHARED) {
 		kdebugf("mmap shared page at %p %lu\n", seg->start, VMM_SIZE(seg));

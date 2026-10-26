@@ -42,17 +42,17 @@ static void vmm_send_sigbus(uintptr_t addr) {
 	}
 }
 
-static int vmm_map_page(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr, long prot) {
+
+static int vmm_map_page(vmm_seg_t *seg, uintptr_t vpage, long prot) {
 	if (!seg->ops || !seg->ops->get_page) return 0;
-	if (mmu_virt2phys((void*)addr) != PAGE_INVALID) {
+	if (mmu_virt2phys((void*)vpage) != PAGE_INVALID) {
 		// the page is already mapped
-		return 0;
+		return VMM_FAULT_NOT_HANDLED;
 	}
 
-	uintptr_t page = seg->ops->get_page(seg, addr);
+	uintptr_t page = seg->ops->get_page(seg, vpage);
 	if (page == PAGE_INVALID) {
-		vmm_send_sigbus(addr);
-		return 1;
+		return VMM_FAULT_FAILED;
 	}
 
 	long mapping_prot = seg->prot;
@@ -61,10 +61,11 @@ static int vmm_map_page(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr, long pr
 		if (prot & MMU_FLAG_WRITE) {
 			// we need to do the copy right now
 			uintptr_t new_page = pmm_dup_page(page);
-			pmm_release_page(page);
+			if (!(seg->flags & VMM_FLAG_IO)) {
+				pmm_release_page(page);
+			}
 			if (new_page == PAGE_INVALID) {
-				vmm_send_sigbus(addr);
-				return 1;
+				return VMM_FAULT_FAILED;
 			}
 			page = new_page;
 		} else {
@@ -74,8 +75,10 @@ static int vmm_map_page(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr, long pr
 
 	mmu_entry_t *entry = mmu_create_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
 	if (!entry) {
-		vmm_send_sigbus(addr);
-		return 1;
+		if (!(seg->flags & VMM_FLAG_IO)) {
+			pmm_release_page(page);
+		}
+		return VMM_FAULT_FAILED;
 	}
 
 	if (mmu_entry_get_flags(get_current_proc()->vmm_space.addrspace, entry) & MMU_FLAG_PRESENT) {
@@ -84,19 +87,19 @@ static int vmm_map_page(vmm_seg_t *seg, uintptr_t vpage, uintptr_t addr, long pr
 		if (!(seg->flags & VMM_FLAG_IO)) {
 			pmm_release_page(page);
 		}
-		return 1;
+		return VMM_FAULT_SUCCED;
 	}
 
 	mmu_entry_map(get_current_proc()->vmm_space.addrspace, entry, page, mapping_prot);
 	mmu_entry_release_lock(entry);
-	return 1;
+	return VMM_FAULT_SUCCED;
 }
 
-static int vmm_cow(uintptr_t vpage, uintptr_t addr) {
+static int vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
 	mmu_entry_t *entry = mmu_get_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
-	if (!entry) return 0;
+	if (!entry) return VMM_FAULT_NOT_HANDLED;
 	uintptr_t page = mmu_entry_get_page(get_current_proc()->vmm_space.addrspace, entry);
-	if (page == PAGE_INVALID) return 0;
+	if (page == PAGE_INVALID) return VMM_FAULT_NOT_HANDLED;
 	if (atomic_load(&pmm_page_info(page)->ref_count) <= 1) {
 		// other processes already copied
 		mmu_entry_or_flags(get_current_proc()->vmm_space.addrspace, entry, MMU_FLAG_WRITE);
@@ -106,23 +109,28 @@ static int vmm_cow(uintptr_t vpage, uintptr_t addr) {
 		if (new_page == PAGE_INVALID) {
 			mmu_entry_release_lock(entry);
 			// not looking good
-			vmm_send_sigbus(addr);
-			return 0;
+			return VMM_FAULT_FAILED;
 		}
-		pmm_release_page(page);
+		if (!(seg->flags & VMM_FLAG_IO)) {
+			pmm_release_page(page);
+		}
 		mmu_entry_map_and_or_flags(get_current_proc()->vmm_space.addrspace, entry, new_page, MMU_FLAG_WRITE);
 	}
 	mmu_invalidate(vpage, PAGE_SIZE);
 	mmu_entry_release_lock(entry);
-	return 1;
+	return VMM_FAULT_SUCCED;
 }
 
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	mutex_acquire(&seg->lock);
-	uintptr_t vpage = PAGE_ALIGN_DOWN((uintptr_t)addr);
+	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
 
 	if (seg->ops && seg->ops->fault) {
-		if (seg->ops->fault(seg, addr, prot)) {
+		switch (seg->ops->fault(seg, addr, prot)) {
+		case VMM_FAULT_FAILED:
+			vmm_send_sigbus(addr);
+			// fallthrough
+		case VMM_FAULT_SUCCED:
 			mutex_release(&seg->lock);
 			return 1;
 		}
@@ -134,23 +142,67 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 		return 0;
 	}
 
-	if (vmm_map_page(seg, vpage, addr, prot)) {
-		mutex_release(&seg->lock);
-		return 1;
+	// calculate the size of the fault, with prediction
+	size_t fault_size;
+	if (vpage > seg->last_fault_page || vpage <= seg->last_fault_page + seg->last_fault_size) {
+		// the fault is continuous to the previous one
+		// continue predicition
+		fault_size = seg->last_fault_size;
+		seg->last_fault_counter++;
+	} else {
+		// the fault isen't continuous to the previous one
+		// reset predicition
+		fault_size = VMM_DEFAULT_FAULT_SIZE;
+		seg->last_fault_counter = 0;
 	}
 
-	if ((seg->flags & VMM_FLAG_PRIVATE) && prot == MMU_FLAG_WRITE) {
-		// we failed a write but we have write perm
-		// it's CoW
-		int ret = vmm_cow(vpage, addr);
-		if (ret == 1 && vpage + PAGE_SIZE < seg->end) {
-			vmm_cow(vpage + PAGE_SIZE, addr);
+	if (seg->last_fault_counter * PAGE_SIZE >= fault_size) {
+		// we pass to the next stage
+		seg->last_fault_counter = 0;
+		fault_size *= 2;
+		if (fault_size > VMM_MAX_FAULT_SIZE) {
+			fault_size = VMM_MAX_FAULT_SIZE;
 		}
-		mutex_release(&seg->lock);
-		return 1;
+	}
+	seg->last_fault_size = fault_size;
+	seg->last_fault_page = vpage;
+
+	if (seg->ops && seg->ops->preload) {
+		// we ignore errors
+		// because a failed preload is not fatal
+		// and we also preload a few mores pages beyond the size of the fault
+		// so they are ready for the next fault
+		seg->ops->preload(seg, vpage, fault_size * 2 - VMM_DEFAULT_FAULT_SIZE);
+	}
+
+	for (uintptr_t current = vpage; current < vpage + fault_size && current < seg->end; current += PAGE_SIZE) {
+		int ret = vmm_map_page(seg, current, prot);
+		if (ret == VMM_FAULT_NOT_HANDLED && (seg->flags & VMM_FLAG_PRIVATE) && prot == MMU_FLAG_WRITE) {
+			// we failed a write but we have write perm
+			// it's CoW
+			ret = vmm_cow(seg, current);
+		}
+
+		switch (ret) {
+		case VMM_FAULT_NOT_HANDLED:
+			if (current == vpage) {
+				mutex_release(&seg->lock);
+				return 0;
+			}
+			break;
+		case VMM_FAULT_FAILED:
+			// note that an ahead failed fault (prediction) is non fatal
+			// because we actually do not need the page yet
+			if (current == vpage) {
+				// not looking good
+				vmm_send_sigbus(addr);
+			}
+			mutex_release(&seg->lock);
+			return 1;
+		}
 	}
 	mutex_release(&seg->lock);
-	return 0;
+	return 1;
 }
 
 int vmm_fault_report(uintptr_t addr, int prot) {
@@ -177,7 +229,7 @@ static int vmm_tree_compare_nodes(avltree_t *avltree, avltree_node_t *a, avltree
 	} else if (seg_a->start >= seg_b->end) {
 		return 1;
 	} else {
-		__builtin_unreachable();
+		return 0;
 	}
 }
 

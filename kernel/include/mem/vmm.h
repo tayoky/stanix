@@ -23,23 +23,32 @@ struct vmm_ops {
 	int (*can_split)(vmm_seg_t *seg, uintptr_t cut);
 	int (*msync)(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags);
 	int (*fault)(vmm_seg_t *seg, uintptr_t addr, long prot);
+	int (*preload)(vmm_seg_t *seg, uintptr_t addr, size_t size);
 
 	// if VMM_FLAG_IO is not set, is expected to return a new ref to the page
 	uintptr_t (*get_page)(vmm_seg_t *seg, uintptr_t addr);
 };
 
+// return values for fault ops
+#define VMM_FAULT_NOT_HANDLED 0
+#define VMM_FAULT_SUCCED      1
+#define VMM_FAULT_FAILED     -1
+
 struct vmm_seg {
 	avltree_node_t node;  // protected by the space lock
 	list_node_t private_node;
-	uintptr_t start;   // protected by lock and write proctected by the space lock
-	uintptr_t end;     // protected by lock and write proctected by the space lock
-	long prot;         // protected by lock
+	mutex_t lock;
+	uintptr_t start   GUARDED_BY(&lock); // and write proctected by the space lock
+	uintptr_t end     GUARDED_BY(&lock); // and write proctected by the space lock
+	long prot         GUARDED_BY(&lock);
 	long flags;        // constant
 	struct vfs_fd *fd; // constant
 	void *private_data;
 	vmm_ops_t *ops;    // constant
 	off_t offset;      // constant
-	mutex_t lock;
+	uintptr_t last_fault_page GUARDED_BY(&lock);
+	size_t last_fault_size    GUARDED_BY(&lock);
+	size_t last_fault_counter GUARDED_BY(&lock);
 };
 
 #define VMM_FLAG_ANONYMOUS 0x01
@@ -52,16 +61,20 @@ struct vmm_seg {
 
 struct vmm_space {
 	mmu_space_t addrspace;
-	avltree_t segs;         // protected by lock
 	rwsem_t lock;
-	size_t total_size;   // protected by lock
-	size_t peak_size;    // protected by lock
-	size_t private_size; // protected by lock
-	size_t shared_size;  // protected by lock
-	size_t file_size;    // protected by lock
-	size_t anon_size;    // protected by lock
+	avltree_t segs      GUARDED_BY(&lock);
+	size_t total_size   GUARDED_BY(&lock);
+	size_t peak_size    GUARDED_BY(&lock);
+	size_t private_size GUARDED_BY(&lock);
+	size_t shared_size  GUARDED_BY(&lock);
+	size_t file_size    GUARDED_BY(&lock);
+	size_t anon_size    GUARDED_BY(&lock);
 	atomic_size_t page_faults;
 };
+
+// TODO : make this configurable
+#define VMM_DEFAULT_FAULT_SIZE 2 * PAGE_SIZE
+#define VMM_MAX_FAULT_SIZE 64 * PAGE_SIZE
 
 /**
  * @brief report a seg fault to vmm_seg
