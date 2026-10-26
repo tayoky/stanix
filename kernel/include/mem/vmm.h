@@ -5,6 +5,7 @@
 #include <kernel/rwsem.h>
 #include <kernel/mutex.h>
 #include <kernel/avltree.h>
+#include <kernel/attributes.h>
 #include <kernel/mmu.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -38,17 +39,17 @@ struct vmm_seg {
 	avltree_node_t node;  // protected by the space lock
 	list_node_t private_node;
 	mutex_t lock;
-	uintptr_t start   GUARDED_BY(&lock); // and write proctected by the space lock
-	uintptr_t end     GUARDED_BY(&lock); // and write proctected by the space lock
-	long prot         GUARDED_BY(&lock);
+	uintptr_t start   ATTR_GUARDED_BY(&lock); // and write proctected by the space lock
+	uintptr_t end     ATTR_GUARDED_BY(&lock); // and write proctected by the space lock
+	long prot         ATTR_GUARDED_BY(&lock);
 	long flags;        // constant
 	struct vfs_fd *fd; // constant
 	void *private_data;
 	vmm_ops_t *ops;    // constant
 	off_t offset;      // constant
-	uintptr_t last_fault_page GUARDED_BY(&lock);
-	size_t last_fault_size    GUARDED_BY(&lock);
-	size_t last_fault_counter GUARDED_BY(&lock);
+	uintptr_t last_fault_page ATTR_GUARDED_BY(&lock);
+	size_t last_fault_size    ATTR_GUARDED_BY(&lock);
+	size_t last_fault_counter ATTR_GUARDED_BY(&lock);
 };
 
 #define VMM_FLAG_ANONYMOUS 0x01
@@ -62,13 +63,13 @@ struct vmm_seg {
 struct vmm_space {
 	mmu_space_t addrspace;
 	rwsem_t lock;
-	avltree_t segs      GUARDED_BY(&lock);
-	size_t total_size   GUARDED_BY(&lock);
-	size_t peak_size    GUARDED_BY(&lock);
-	size_t private_size GUARDED_BY(&lock);
-	size_t shared_size  GUARDED_BY(&lock);
-	size_t file_size    GUARDED_BY(&lock);
-	size_t anon_size    GUARDED_BY(&lock);
+	avltree_t segs      ATTR_GUARDED_BY(&lock);
+	size_t total_size   ATTR_GUARDED_BY(&lock);
+	size_t peak_size    ATTR_GUARDED_BY(&lock);
+	size_t private_size ATTR_GUARDED_BY(&lock);
+	size_t shared_size  ATTR_GUARDED_BY(&lock);
+	size_t file_size    ATTR_GUARDED_BY(&lock);
+	size_t anon_size    ATTR_GUARDED_BY(&lock);
 	atomic_size_t page_faults;
 };
 

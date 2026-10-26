@@ -37,6 +37,7 @@ static void avltree_compute_height(avltree_t *avltree, avltree_node_t *node) {
 }
 
 static int avltree_balance_factor(avltree_node_t *node) {
+	if (!node) return 0;
 	return avltree_height(node->right) - avltree_height(node->left);
 }
 
@@ -74,6 +75,7 @@ static avltree_node_t *avltree_leftest_subnode(avltree_node_t *node) {
 }
 
 static void avltree_rebalance(avltree_t *avltree, avltree_node_t **current, avltree_node_t **child) {
+	if (!*current) return;
 	avltree_compute_height(avltree, *current);
 	switch (avltree_balance_factor(*current)) {
 	case -2:

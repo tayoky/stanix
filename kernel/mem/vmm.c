@@ -124,6 +124,7 @@ static int vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
 static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 	mutex_acquire(&seg->lock);
 	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
+	kdebugf("handle fault at %p\n", vpage);
 
 	if (seg->ops && seg->ops->fault) {
 		switch (seg->ops->fault(seg, addr, prot)) {
@@ -144,7 +145,7 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 
 	// calculate the size of the fault, with prediction
 	size_t fault_size;
-	if (vpage > seg->last_fault_page || vpage <= seg->last_fault_page + seg->last_fault_size) {
+	if (vpage > seg->last_fault_page && vpage <= seg->last_fault_page + seg->last_fault_size) {
 		// the fault is continuous to the previous one
 		// continue predicition
 		fault_size = seg->last_fault_size;
@@ -276,7 +277,6 @@ vmm_space_t *vmm_get_current_space(void) {
 }
 
 vmm_seg_t *vmm_space_lookup(vmm_space_t *space, uintptr_t addr) {
-	kdebugf("lookup for %p\n", addr);
 	avltree_node_t *node = avltree_lookup(&space->segs, &addr);
 	if (!node) return NULL;
 	return container_of(node, vmm_seg_t, node);
@@ -366,7 +366,6 @@ error:
 			ret = -ENOMEM;
 			goto error;
 		}
-		kdebugf("dynamic allocation at %p\n", address);
 	}
 
 	new_seg->start     = address;
@@ -390,7 +389,7 @@ static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_
 	vmm_seg_t *new_seg = vmm_space_raw_create_seg(space, address, size, prot, flags);
 	if (IS_ERR(new_seg)) return new_seg;
 
-	kdebugf("map %p size : %lx\n", new_seg->start, size);
+	//kdebugf("map %p size : %lx\n", new_seg->start, size);
 	int ret = 0;
 	if (flags & VMM_FLAG_ANONYMOUS) {
 		fd = NULL;
