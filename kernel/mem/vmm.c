@@ -61,9 +61,7 @@ static int vmm_map_page(vmm_seg_t *seg, uintptr_t vpage, long prot) {
 		if (prot & MMU_FLAG_WRITE) {
 			// we need to do the copy right now
 			uintptr_t new_page = pmm_dup_page(page);
-			if (!(seg->flags & VMM_FLAG_IO)) {
-				pmm_release_page(page);
-			}
+			pmm_release_page(page);
 			if (new_page == PAGE_INVALID) {
 				return VMM_FAULT_FAILED;
 			}
@@ -98,8 +96,13 @@ static int vmm_map_page(vmm_seg_t *seg, uintptr_t vpage, long prot) {
 static int vmm_cow(vmm_seg_t *seg, uintptr_t vpage) {
 	mmu_entry_t *entry = mmu_get_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vpage);
 	if (!entry) return VMM_FAULT_NOT_HANDLED;
+
 	uintptr_t page = mmu_entry_get_page(get_current_proc()->vmm_space.addrspace, entry);
-	if (page == PAGE_INVALID) return VMM_FAULT_NOT_HANDLED;
+	if (page == PAGE_INVALID) {
+		mmu_entry_release_lock(entry);
+		return VMM_FAULT_NOT_HANDLED;
+	}
+
 	if (atomic_load(&pmm_page_info(page)->ref_count) <= 1) {
 		// other processes already copied
 		mmu_entry_or_flags(get_current_proc()->vmm_space.addrspace, entry, MMU_FLAG_WRITE);

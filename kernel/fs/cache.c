@@ -747,10 +747,9 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 	}
 }
 
-static uintptr_t cache_vmm_get_page(vmm_seg_t *seg, uintptr_t addr) {
+static uintptr_t cache_vmm_get_page(vmm_seg_t *seg, uintptr_t vpage) {
 	cache_t *cache  = seg->private_data;
-	uintptr_t vpage = PAGE_ALIGN_DOWN(addr);
-	off_t offset    = vpage - seg->start + seg->offset;
+	off_t offset    = seg->offset + (vpage - seg->start);
 
 	uintptr_t page;
 	int ret = cache_get_page(cache, offset, &page);
@@ -764,7 +763,7 @@ static uintptr_t cache_vmm_get_page(vmm_seg_t *seg, uintptr_t addr) {
 
 static int cache_vmm_preload(vmm_seg_t *seg, uintptr_t addr, size_t size) {
 	cache_t *cache  = seg->private_data;
-	return cache_preload(cache, seg->offset + (addr - seg->offset), size);
+	return cache_preload(cache, seg->offset + (addr - seg->start), size);
 }
 
 static void cache_vmm_dup(vmm_seg_t *seg) {
