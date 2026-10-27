@@ -564,11 +564,10 @@ static void vmm_space_raw_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 	// it's the driver job to do it
 	if (seg->flags & VMM_FLAG_IO) {
 		mmu_unmap_pages(space->addrspace, seg->start, VMM_SIZE(seg));
-		if (space == &get_current_proc()->vmm_space) mmu_invalidate(seg->start, VMM_SIZE(seg));
 	} else {
 		mmu_unmap_and_release_pages(space->addrspace, seg->start, VMM_SIZE(seg));
-		if (space == &get_current_proc()->vmm_space) mmu_invalidate(seg->start, VMM_SIZE(seg));
 	}
+	if (space == &get_current_proc()->vmm_space) mmu_invalidate(seg->start, VMM_SIZE(seg));
 	slab_free(seg);
 }
 
