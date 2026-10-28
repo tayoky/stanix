@@ -186,7 +186,7 @@ static int cdrom_probe(devnode_t *devnode) {
 		disk->tracks[i].flags = flags;
 	}
 
-	int ret = block_device_register(disk->block_device, NULL, 0);
+	ret = block_device_register(disk->block_device, NULL, 0);
 	if (ret < 0) {
 		kfree(disk->tracks);
 		block_device_release(disk->block_device);
