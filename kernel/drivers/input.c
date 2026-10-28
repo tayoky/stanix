@@ -202,6 +202,13 @@ int input_device_register(input_device_t *input_device) {
 	input_device->device.ops     = &input_ops;
 	input_device->device.destroy = input_device_do_destroy;
 	input_device->device.cleanup = input_device_cleanup;
-	ringbuffer_init(&input_device->events, sizeof(struct input_event) * 25);
-	return device_register(&input_device->device, NULL, 0);
+	int ret = ringbuffer_init(&input_device->events, sizeof(struct input_event) * 25);
+	if (ret < 0) return ret;
+
+	ret = device_register(&input_device->device, NULL, 0);
+	if (ret < 0) {
+		ringbuffer_destroy(&input_device->events);
+		return ret;
+	}
+	return 0;
 }

@@ -571,10 +571,12 @@ static vfs_fd_ops_t tty_ops = {
 };
 
 int tty_register(tty_t *tty, const char *fmt, dev_t number) {
-	ringbuffer_init(&tty->input_buffer, 4096);
+	int ret = ringbuffer_init(&tty->input_buffer, 4096);
+	if (ret < 0) return ret;
 
-	// reset termios to default value
+	// reset termios and size to default value
 	memset(&tty->termios, 0, sizeof(struct termios));
+	memset(&tty->size, 0, sizeof(struct winsz));
 	tty->termios.c_cc[VEOF]   = 004;
 	tty->termios.c_cc[VEOL]   = 000;
 	tty->termios.c_cc[VERASE] = 0177;
@@ -593,5 +595,10 @@ int tty_register(tty_t *tty, const char *fmt, dev_t number) {
 	tty->device.ops     = &tty_ops;
 	tty->device.destroy = tty_destroy;
 
-	return device_register(&tty->device, fmt, number);
+	ret = device_register(&tty->device, fmt, number);
+	if (ret < 0) {
+		ringbuffer_destroy(&tty->input_buffer);
+		return ret;
+	}
+	return 0;
 }

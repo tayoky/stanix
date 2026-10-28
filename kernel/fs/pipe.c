@@ -197,7 +197,8 @@ int pipe_create(vfs_fd_t **read, vfs_fd_t **write) {
 	if (!pipe) return -ENOMEM;
 	memset(pipe, 0, sizeof(pipe_t));
 	pipe->isbroken = 0;
-	ringbuffer_init(&pipe->ring, PIPE_SIZE);
+	int ret = ringbuffer_init(&pipe->ring, PIPE_SIZE);
+	if (ret < 0) return ret;
 
 	*read = vfs_fd_alloc();
 	if (!*read) {

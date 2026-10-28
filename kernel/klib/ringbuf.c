@@ -7,26 +7,19 @@
 #include <kernel/poll.h>
 #include <errno.h>
 
-void ringbuffer_init(ringbuffer_t *ring, size_t buffer_size) {
+int ringbuffer_init(ringbuffer_t *ring, size_t buffer_size) {
 	memset(ring, 0, sizeof(ringbuffer_t));
 	ring->buffer_size = buffer_size;
 	ring->write_offset = 0;
 	ring->read_offset = 0;
 	ring->read_available = 0;
 	ring->buffer = kmalloc(buffer_size);
+	if (!ring->buffer) return -ENOMEM;
+	return 0;
 }
 
 void ringbuffer_destroy(ringbuffer_t *ring) {
 	kfree(ring->buffer);
-}
-
-size_t ringbuffer_read_available(ringbuffer_t *ring) {
-	return ring->read_available;
-}
-
-size_t ringbuffer_write_available(ringbuffer_t *ring) {
-	// take the buffer size and take what is used
-	return ring->buffer_size - ringbuffer_read_available(ring);
 }
 
 ssize_t ringbuffer_read(ringbuffer_t *ring, void *buf, size_t count) {

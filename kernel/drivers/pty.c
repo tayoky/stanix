@@ -238,10 +238,16 @@ static int pty_major = 0;
 
 int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	pty_t *pty = kmalloc(sizeof(pty_t));
+	if (!pty) return -ENOMEM;
 	memset(pty, 0, sizeof(pty_t));
-	ringbuffer_init(&pty->output_buffer, 4096);
+	int ret = ringbuffer_init(&pty->output_buffer, 4096);
+	if (ret < 0) goto free_pty;
 
 	pty_slave_t *slave = kmalloc(sizeof(pty_slave_t));
+	if (!slave) {
+		ret = -ENOMEM;
+		goto free_output_buffer;
+	}
 	memset(slave, 0, sizeof(tty_t));
 	pty->slave         = slave;
 	*rep               = &slave->tty;
@@ -250,6 +256,10 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 
 	// create the master fd
 	(*master_fd)            = vfs_fd_alloc();
+	if (!*master_fd) {
+		ret = -ENOMEM;
+		goto free_slave;
+	}
 	(*master_fd)->private   = pty;
 	(*master_fd)->ops       = &pty_master_ops;
 	(*master_fd)->ref_count = 1;
@@ -257,9 +267,16 @@ int new_pty(vfs_fd_t **master_fd, vfs_fd_t **slave_fd, tty_t **rep) {
 	(*master_fd)->flags     = O_RDWR;
 
 	// register and save the slave
-	if (tty_register(&slave->tty, "pts/%d", makedev(pty_major, 0)) < 0) {
+	ret = tty_register(&slave->tty, "pts/%d", makedev(pty_major, 0));
+	if (ret < 0) {
 		vfs_close(*master_fd);
-		return -ENOENT;
+free_slave:
+		kfree(slave);
+free_output_buffer:
+		ringbuffer_destroy(&pty->output_buffer);
+free_pty:
+		kfree(pty);
+		return ret;
 	}
 
 	*slave_fd = device_open(&slave->tty.device, O_RDWR);
