@@ -186,7 +186,12 @@ static int cdrom_probe(devnode_t *devnode) {
 		disk->tracks[i].flags = flags;
 	}
 
-	block_device_register(disk->block_device, NULL, 0);
+	int ret = block_device_register(disk->block_device, NULL, 0);
+	if (ret < 0) {
+		kfree(disk->tracks);
+		block_device_release(disk->block_device);
+		return ret;
+	}
 	return 0;
 }
 
@@ -196,7 +201,7 @@ static void cdrom_detach(devnode_t *devnode) {
 }
 
 static driver_t cdrom_driver = {
-	.name = "ATA disk",
+	.name = "SCSI MMC cd",
 	.device_name = "cd",
 	.buses = BUSES("scsi_bus"),
 	.private_size = sizeof(cdrom_disk_t),

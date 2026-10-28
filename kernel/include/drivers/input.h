@@ -38,6 +38,10 @@ static inline void input_device_destroy(input_device_t *input_device) {
 	if (input_device) device_destroy(&input_device->device);
 }
 
+static inline void input_device_release(input_device_t *input_device) {
+	if (input_device) device_release(&input_device->device);
+}
+
 void init_input(void);
 input_device_t *input_device_allocate(void);
 int input_device_register(input_device_t *input_device);

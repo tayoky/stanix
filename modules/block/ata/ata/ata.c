@@ -127,7 +127,11 @@ static int ata_probe(devnode_t *devnode) {
 
 	kdebugf("model : %s command sets : %x support LBA48 : %s max LBA : %zu\n", disk->common_ident.model, disk->common_ident.command_sets, disk->common_ident.command_sets & ATA_COMMAND_SETS_LBA48 ? "true" : "false", disk->block_device->sectors_count);
 
-	block_device_register(disk->block_device, NULL, 0);
+	int ret = block_device_register(disk->block_device, NULL, 0);
+	if (ret < 0) {
+		block_device_release(disk->block_device);
+		return ret;
+	}
 	return 0;
 }
 

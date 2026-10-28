@@ -124,16 +124,38 @@ static int ps2_kb_probe(devnode_t *devnode) {
 	}
 
 	keyboard->irq_resource = device_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
+	if (IS_ERR(keyboard->irq_resource)) {
+		return PTR2ERR(keyboard->irq_resource);
+	}
+	int ret = 0;
 	keyboard->input_device = input_device_allocate();
+	if (!keyboard->input_device) {
+		ret = -ENOMEM;
+		goto free_irq_resource;
+	}
+
+	keyboard->handler_handle = resource_register_handler(keyboard->irq_resource, ps2_kb_handler, keyboard);
+	if (!keyboard->handler_handle) {
+		ret = -ENOMEM;
+		goto free_input_device;
+	}
+
 	keyboard->input_device->device.devnode = devnode;
 	keyboard->input_device->class          = IE_CLASS_KEYBOARD;
 	keyboard->input_device->subclass       = IE_SUBCLASS_PS2_KBD;
 	keyboard->input_device->private        = keyboard;
-	input_device_register(keyboard->input_device);
 
-	keyboard->handler_handle = resource_register_handler(keyboard->irq_resource, ps2_kb_handler, keyboard);
+	ret = input_device_register(keyboard->input_device);
+	if (ret < 0) {
+		resource_unregister_handler(keyboard->irq_resource, keyboard->handler_handle);
+free_input_device:
+		input_device_release(keyboard->input_device);
+free_irq_resource:
+		device_release_resource(devnode, keyboard->irq_resource);
+		return ret;
+	}
+
 	kdebugf("ps2 keyboard successfully initialized\n");
-
 	return 0;
 }
 
