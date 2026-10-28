@@ -50,8 +50,8 @@ static void evicter_thread() {
 }
 
 void init_fsthreads(void) {
-	writeback_task = new_kernel_task(writeback_thread, NULL);
-	evicter_task   = new_kernel_task(evicter_thread, NULL);
+	writeback_task = new_kernel_task(writeback_thread, NULL, "writeback");
+	evicter_task   = new_kernel_task(evicter_thread, NULL, "evicter");
 }
 
 void fsthreads_wakeup_evicter(void) {

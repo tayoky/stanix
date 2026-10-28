@@ -22,6 +22,7 @@ static run_queue_t main_run_queue;
 static xarray_t tasks_list;
 static atomic_size_t tid_count = 0;
 static char can_task_switch    = 0;
+static slab_cache_t tasks_slab;
 list_t sleeping_tasks;
 spinlock_t sleep_lock;
 spinlock_t proctree_lock;
@@ -124,6 +125,7 @@ void init_task() {
 	// init the scheduler first
 	xarray_init(&tasks_list);
 	list_init(&sleeping_tasks);
+	slab_init(&tasks_tasks_slab, sizeof(task_t), "tasks");
 
 	// setup the kernel proc and the idle task
 	kernel_proc = proc_new(idle_task, NULL);
@@ -147,7 +149,7 @@ void init_task() {
 	init = get_current_proc();
 	
 	// init the reaper task
-	reaper = new_kernel_task(reaper_task, NULL);
+	reaper = new_kernel_task(reaper_task, NULL, "reaper");
 
 	// activate task switch
 	can_task_switch = 1;
@@ -208,7 +210,8 @@ static void task_new_trampoline(void (*func)(void *arg), void *arg) {
 }
 
 task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
-	task_t *task = kmalloc(sizeof(task_t));
+	task_t *task = slab_alloc(&tasks_slab);
+	if (!task) return NULL;
 	memset(task, 0, sizeof(task_t));
 
 	task->tid    = atomic_fetch_add(&tid_count, 1);
@@ -218,6 +221,10 @@ task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 
 	// setup a new kernel stack
 	task->kernel_stack = (uintptr_t)kmalloc(KERNEL_STACK_SIZE);
+	if (!task->kernel_stack) {
+		slab_free(task);
+		return NULL;
+	}
 
 	// the task hold a ref to the proc
 	task->process = proc_ref(proc);
@@ -252,10 +259,12 @@ task_t *task_new(process_t *proc, void (*func)(void *arg), void *arg) {
 	return task;
 }
 
-task_t *new_kernel_task(void (*func)(void *arg), void *arg) {
+task_t *new_kernel_task(void (*func)(void *arg), void *arg, const char *name) {
+	// TODO : use the name
+	(void)name;
 	task_t *task = task_new(kernel_proc, func, arg);
 
-	// created task are blocked until with unblock them
+	// created task are blocked until we unblock them
 	unblock_task(task);
 
 	return task;
@@ -470,5 +479,5 @@ void task_release(task_t *task) {
 		return;
 	}
 	signal_context_destroy(&task->signal_context);
-	kfree(task);
+	slab_free(task);
 }

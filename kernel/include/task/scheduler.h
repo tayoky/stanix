@@ -79,7 +79,7 @@ void init_task(void);
 
 task_t *get_current_task(void);
 
-task_t *new_kernel_task(void (*func)(void *arg), void *arg);
+task_t *new_kernel_task(void (*func)(void *arg), void *arg, const char *name);
 
 // TODO : maybee move those outside the scheduler ??
 

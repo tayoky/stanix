@@ -33,7 +33,7 @@ static void worker_thread() {
 
 void init_workqueue(void) {
 	list_init(&works);
-	worker = new_kernel_task(worker_thread, NULL);
+	worker = new_kernel_task(worker_thread, NULL, "worker");
 }
 
 static void work_raw_queue(work_t *work) {

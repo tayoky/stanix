@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <kernel/kheap.h>
 
-char *strdup(const char *str){
-	size_t str_size = strlen(str) + 1;
-	char *new_str = kmalloc(str_size);
-	return strcpy(new_str,str);
+char *strdup(const char *str) {
+	char *new_str = kmalloc(strlen(str) + 1);
+	if (!new_str) return NULL;
+	return strcpy(new_str, str);
 }
