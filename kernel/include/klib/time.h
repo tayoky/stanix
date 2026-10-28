@@ -17,7 +17,7 @@ int timespec_cmp(struct timespec *time1, struct timespec *time2);
 
 #define NSEC_PER_SEC 1000000000
 
-static void timespec_add(struct timespec *dest, struct timespec a, struct timespec *b) {
+static void timespec_add(struct timespec *dest, const struct timespec *a, const struct timespec *b) {
 	dest->tv_sec  = a->tv_sec  + b->tv_sec;
 	dest->tv_nsec = a->tv_nsec + b->tv_nsec;
 	if (dest->tv_nsec > NSEC_PER_SEC) {
@@ -27,7 +27,7 @@ static void timespec_add(struct timespec *dest, struct timespec a, struct timesp
 	return a;
 }
 
-static void timespec_sub(struct timespec *dest, struct timespec a, struct timespec *b) {
+static void timespec_sub(struct timespec *dest, const struct timespec *a, const struct timespec *b) {
 	dest->tv_sec  = a->tv_sec  - b->tv_sec;
 	dest->tv_nsec = a->tv_nsec - b->tv_nsec;
 	if (dest->tv_nsec < 0) {
