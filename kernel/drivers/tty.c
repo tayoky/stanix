@@ -576,7 +576,7 @@ int tty_register(tty_t *tty, const char *fmt, dev_t number) {
 
 	// reset termios and size to default value
 	memset(&tty->termios, 0, sizeof(struct termios));
-	memset(&tty->size, 0, sizeof(struct winsz));
+	memset(&tty->size, 0, sizeof(struct winsize));
 	tty->termios.c_cc[VEOF]   = 004;
 	tty->termios.c_cc[VEOL]   = 000;
 	tty->termios.c_cc[VERASE] = 0177;

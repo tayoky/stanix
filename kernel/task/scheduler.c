@@ -13,6 +13,7 @@
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/time.h>
+#include <kernel/slab.h>
 #include <kernel/vmm.h>
 #include <kernel/xarray.h>
 #include <errno.h>
@@ -125,7 +126,7 @@ void init_task() {
 	// init the scheduler first
 	xarray_init(&tasks_list);
 	list_init(&sleeping_tasks);
-	slab_init(&tasks_tasks_slab, sizeof(task_t), "tasks");
+	slab_init(&tasks_slab, sizeof(task_t), "tasks");
 
 	// setup the kernel proc and the idle task
 	kernel_proc = proc_new(idle_task, NULL);
