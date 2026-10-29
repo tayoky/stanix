@@ -7,7 +7,7 @@
 #include <kernel/signal.h>
 #include <kernel/string.h>
 #include <kernel/userspace.h>
-#include <kernel/mutex.h>
+#include <kernel/rwsem.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
 #include <kernel/xarray.h>
@@ -387,7 +387,7 @@ static int cache_write_pages(cache_t *cache, pages_batch_t *pages_batch) {
 void init_cache(cache_t *cache) {
 	memset(cache, 0, sizeof(cache_t));
 	xarray_init(&cache->pages);
-	mutex_init(&cache->mutex);
+	rwsem_init(&cache->lock);
 	list_append(&caches, &cache->node);
 }
 
@@ -396,6 +396,7 @@ void free_cache(cache_t *cache) {
 	// flush the whole thing
 	cache_flush_whole_async(cache);
 	cache_free_pages(cache, 0, PAGE_ALIGN_UP(cache->size));
+	rwsem_destroy(&cache->lock);
 	xarray_destroy(&cache->pages);
 }
 
@@ -539,11 +540,17 @@ size_t cache_get_clean_pages_threshold(void) {
 }
 
 int cache_flush_whole_async(cache_t *cache) {
-	return cache_flush_async(cache, 0, cache->size);
+	rwsem_acquire_read(&cache->lock);
+	int ret = cache_flush_async(cache, 0, cache->size);
+	rwsem_release_read(&cache->lock);
+	return ret;
 }
 
 int cache_flush_whole(cache_t *cache) {
-	return cache_flush(cache, 0, cache->size);
+	rwsem_acquire_read(&cache->lock);
+	int ret = cache_flush(cache, 0, cache->size);
+	rwsem_release_read(&cache->lock);
+	return ret;
 }
 
 void cache_flush_all(void) {
@@ -562,7 +569,8 @@ void cache_flush_all(void) {
 	}
 }
 
-int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
+static int cache_raw_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) ATTR_REQUIRE_SHARED(&cache->lock) {
+	if ((size_t)offset >= PAGE_ALIGN_UP(cache->size)) return -EINVAL;
 	uintptr_t page = cache_lookup_and_ref_page(cache, offset);
 	int need_read = 0;
 	int ret = 0;
@@ -595,7 +603,14 @@ int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
 	return 0;
 }
 
-int cache_preload(cache_t *cache, off_t offset, size_t size) {
+int cache_get_page(cache_t *cache, off_t offset, uintptr_t *page_ret) {
+	rwsem_acquire_read(&cache->lock);
+	int ret = cache_raw_get_page(cache, offset, page_ret);
+	rwsem_release_read(&cache->lock);
+	return ret;
+}
+
+static int cache_raw_preload(cache_t *cache, off_t offset, size_t size) ATTR_REQUIRE_SHARED(&cache->lock) {
 	if (!cache->ops || !cache->ops->read) return -EINVAL;
 
 	uintptr_t start, end;
@@ -627,6 +642,9 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 		}
 
 		if (pages_batch_is_full(&pages_batch)) {
+			// NOTE : it's not an issue that the read cqn complete later after we've released the cache lock
+			// because if the cache get truncated these pages will get removed
+			// and the read will complete silenty with it's result ignored
 			int ret = cache_read_pages(cache, &pages_batch);
 			if (ret < 0) {
 				pmm_release_page(page);
@@ -642,6 +660,13 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 		return cache_read_pages(cache, &pages_batch);
 	}
 	return 0;
+}
+
+int cache_preload(cache_t *cache, off_t offset, size_t size) {
+	rwsem_acquire_read(&cache->lock);
+	int ret = cache_raw_preload(cache, offset, size);
+	rwsem_release_read(&cache->lock);
+	return ret;
 }
 
 int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
@@ -796,15 +821,17 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 	seg->ops          = &cache_vmm_ops;
 	seg->private_data = cache;
 
-	uintptr_t start, end;
-	cache_get_range(cache, offset, VMM_SIZE(seg), &start, &end);
-	uintptr_t vaddr = seg->start;
-
 	// Copy on Write check
 	long prot = seg->prot;
 	if (seg->flags & VMM_FLAG_PRIVATE) {
 		prot &= ~MMU_FLAG_WRITE;
 	}
+
+	uintptr_t start, end;
+	cache_get_range(cache, offset, VMM_SIZE(seg), &start, &end);
+	uintptr_t vaddr = seg->start;
+
+	rwsem_acquire_read(&cache->lock);
 
 	mmu_entry_t *entry = NULL;
 	uintptr_t old_vaddr = 0;
@@ -824,15 +851,16 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 
 		mmu_entry_map(get_current_proc()->vmm_space.addrspace, entry, page, prot);
 	}
+	rwsem_release_read(&cache->lock);
 	if (entry) mmu_entry_release_lock(entry);
 	return 0;
 }
 
-ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
+static ssize_t cache_raw_read(cache_t *cache, void *buffer, off_t offset, size_t size) ATTR_REQUIRE_SHARED(&cache->lock) {
 	if ((size_t)offset >= cache->size) return 0;
-	if (offset + size > cache->size) size = cache->size - offset;
+	if (size > cache->size - (size_t)offset) size = cache->size - offset;
 
-	int ret = cache_preload(cache, offset, size);
+	int ret = cache_raw_preload(cache, offset, size);
 	if (ret < 0) return ret;
 
 	uintptr_t start, end;
@@ -842,7 +870,7 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	ssize_t total = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page;
-		ret = cache_get_page(cache, addr, &page);
+		ret = cache_raw_get_page(cache, addr, &page);
 		if (ret < 0) break;
 		
 		uintptr_t page_start = 0;
@@ -866,11 +894,18 @@ ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
 	return total;
 }
 
-ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t size) {
+ssize_t cache_read(cache_t *cache, void *buffer, off_t offset, size_t size) {
+	rwsem_acquire_read(&cache->lock);
+	ssize_t ret = cache_raw_read(cache, buffer, offset, size);
+	rwsem_release_read(&cache->lock);
+	return ret;
+}
+
+static ssize_t cache_raw_write(cache_t *cache, const void *buffer, off_t offset, size_t size) ATTR_REQUIRE_SHARED(&cache->lock) {
 	if ((size_t)offset >= cache->size) return 0;
 	if (offset + size > cache->size) size = cache->size - offset;
 
-	int ret = cache_preload(cache, offset, size);
+	int ret = cache_raw_preload(cache, offset, size);
 	if (ret < 0) return ret;
 
 	uintptr_t start, end;
@@ -880,7 +915,7 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 	ssize_t total = 0;
 	for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
 		uintptr_t page;
-		ret = cache_get_page(cache, addr, &page);
+		ret = cache_raw_get_page(cache, addr, &page);
 		if (ret < 0) break;
 		
 		uintptr_t page_start = 0;
@@ -907,8 +942,16 @@ ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t siz
 	return total;
 }
 
+ssize_t cache_write(cache_t *cache, const void *buffer, off_t offset, size_t size) {
+	// FIXME : allow only one write at time??
+	rwsem_acquire_read(&cache->lock);
+	ssize_t ret = cache_raw_write(cache, buffer, offset, size);
+	rwsem_release_read(&cache->lock);
+	return ret;
+}
+
 int cache_truncate(cache_t *cache, size_t size) {
-	mutex_acquire(&cache->mutex);
+	rwsem_acquire_write(&cache->lock);
 	if (size < cache->size) {
 		uintptr_t start = PAGE_ALIGN_UP(size);
 		uintptr_t end   = PAGE_ALIGN_UP(cache->size);
@@ -926,7 +969,7 @@ int cache_truncate(cache_t *cache, size_t size) {
 		xarray_release_read(&cache->pages);
 	}
 	cache->size = size;
-	mutex_release(&cache->mutex);
+	rwsem_release_write(&cache->lock);
 	return 0;
 }
 

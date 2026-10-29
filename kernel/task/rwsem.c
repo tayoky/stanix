@@ -7,7 +7,7 @@
 
 // based on an implementation on wikipedia
 
-void init_rwsem(rwsem_t *rwsem) {
+void rwsem_init(rwsem_t *rwsem) {
 	memset(rwsem, 0, sizeof(rwsem_t));
 }
 

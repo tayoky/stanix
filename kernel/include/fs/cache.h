@@ -1,7 +1,7 @@
 #ifndef KERNEL_CACHE_H
 #define KERNEL_CACHE_H
 
-#include <kernel/rwlock.h>
+#include <kernel/rwsem.h>
 #include <kernel/xarray.h>
 #include <kernel/pagesbatch.h>
 #include <kernel/mutex.h>
@@ -21,9 +21,9 @@ typedef struct cache {
 	list_node_t dirty_node; // protected by dirty_lock
 	size_t dirty_count;     // protected by dirty_lock
 	xarray_t pages;
-	mutex_t mutex;
+	rwsem_t	lock;
 	cache_ops_t *ops;
-	size_t size;
+	size_t size ATTR_GUARDED_BY(&lock);
 } cache_t;
 
 void init_cache(cache_t *cache);

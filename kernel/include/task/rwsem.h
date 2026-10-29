@@ -21,7 +21,10 @@ typedef struct rwsem {
 	task_t *writer_active;
 } ATTR_REENTRANT_CAPABILITY ATTR_CAPABILITY("rwsem") rwsem_t;
 
-void init_rwsem(rwsem_t *rwsem);
+void rwsem_init(rwsem_t *rwsem);
+static inline void rwsem_destroy(rwsem_t *rwsem) {
+	(void)rwsem;
+}
 int rwsem_acquire_read(rwsem_t *rwsem) ATTR_ACQUIRE_SHARED(rwsem);
 int rwsem_release_read(rwsem_t *rwsem) ATTR_RELEASE_SHARED(rwsem);
 int rwsem_acquire_write(rwsem_t *rwsem) ATTR_ACQUIRE(rwsem);
