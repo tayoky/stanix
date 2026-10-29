@@ -479,6 +479,8 @@ size_t cache_evict(size_t to_evict) {
 			}
 			pages_batch_t pages_batch;
 			pages_batch_from_page(&pages_batch, page);
+			// NOTE : we don't need the read cache lock
+			// because of the evicting bit the page cannot get removed
 			if (cache_write_pages(cache, &pages_batch) < 0) continue;
 			if (cache_wait_page_written(page) < 0) continue;
 
@@ -669,7 +671,7 @@ int cache_preload(cache_t *cache, off_t offset, size_t size) {
 	return ret;
 }
 
-int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
+static int cache_raw_flush_async(cache_t *cache, off_t offset, size_t size) {
 	if (!cache->ops || !cache->ops->write) return -EINVAL;
 
 	uintptr_t start, end;
@@ -724,18 +726,40 @@ int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
 	return 0;
 }
 
+int cache_flush_async(cache_t *cache, off_t offset, size_t size) {
+	rwsem_acquire_read(&cache->lock);
+	int ret = cache_raw_flush_async(cache, offset, size);
+	rwsem_release_read(&cache->lock);
+	return ret;
+}
+
 int cache_flush(cache_t *cache, off_t offset, size_t size) {
-	int ret = cache_flush_async(cache, offset, size);
-	if (ret < 0) return ret;
+	// we need the read lock during the whole operation
+	// else pages could get removed between when the 
+	// write finish and wait_page_written
+	rwsem_acquire_read(&cache->lock);
+	int ret = cache_raw_flush_async(cache, offset, size);
+	if (ret < 0) {
+		rwsem_acquire_read(&cache->lock);
+		return ret;
+	}
 
 	// wait for each page to be fully written
 	uintptr_t start, end;
 	cache_get_range(cache, offset, size, &start, &end);
+	rcu_acquire_read();
 	cache_foreach_range(addr, page, cache, start, end) {
 		(void)addr;
+		rcu_release_read();
 		ret = cache_wait_page_written(page);
-		if (ret < 0) return ret;
+		if (ret < 0) {
+			rwsem_acquire_read(&cache->lock);
+			return ret;
+		}
+		rcu_acquire_read();
 	}
+	rcu_release_read();
+	rwsem_release_read(&cache->lock);
 	return 0;
 }
 
