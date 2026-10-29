@@ -167,6 +167,7 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 			fault_size = VMM_MAX_FAULT_SIZE;
 		}
 	}
+	if (vpage + fault_size > seg->end) fault_size = seg->end - vpage;
 	seg->last_fault_size = fault_size;
 	seg->last_fault_page = vpage;
 	if (fault_size > VMM_DEFAULT_FAULT_SIZE) {
@@ -183,7 +184,7 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 		seg->ops->preload(seg, vpage, fault_size * 2 - VMM_DEFAULT_FAULT_SIZE);
 	}
 
-	for (uintptr_t current = vpage; current < vpage + fault_size && current < seg->end; current += PAGE_SIZE) {
+	for (uintptr_t current = vpage; current < vpage + fault_size; current += PAGE_SIZE) {
 		int ret = vmm_map_page(seg, current, prot);
 		if (ret == VMM_FAULT_NOT_HANDLED && (seg->flags & VMM_FLAG_PRIVATE) && prot == MMU_FLAG_WRITE) {
 			// we failed a write but we have write perm
@@ -209,7 +210,6 @@ static int vmm_handle_fault(vmm_seg_t *seg, uintptr_t addr, int prot) {
 			return 1;
 		}
 	}
-	kdebugf("return 1\n");
 	mutex_release(&seg->lock);
 	return 1;
 }
@@ -311,6 +311,7 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 	new_seg->prot         = seg->prot;
 	new_seg->flags        = seg->flags;
 	new_seg->start        = cut;
+	new_seg->offset       = seg->offset + (cut - seg->start);
 	new_seg->end          = seg->end;
 	new_seg->ops          = seg->ops;
 	new_seg->private_data = seg->private_data;

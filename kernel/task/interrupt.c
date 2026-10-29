@@ -38,7 +38,7 @@ int page_fault_handler(registers_t *frame) {
 	}
 
 	// print some info for debuging
-	switch(arch_fault_get_prot(frame)) {
+	switch (arch_fault_get_prot(frame)) {
 	case MMU_FLAG_READ:
 		kdebugf("userspace (%lx) tryied to read %lx\n", PC_REG(*frame), arch_fault_get_addr(frame));
 		break;
@@ -51,6 +51,26 @@ int page_fault_handler(registers_t *frame) {
 	}
 
 	// TODO : remove this
+	rwsem_acquire_read(&vmm_get_current_space()->lock);
+	for (avltree_node_t *node = avltree_first(&vmm_get_current_space()->segs); node; node = avltree_next(&vmm_get_current_space()->segs, node)) {
+		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
+		char prot[5];
+		prot[0] = seg->prot & MMU_FLAG_READ ? 'r' : '-';
+		prot[1] = seg->prot & MMU_FLAG_WRITE ? 'w' : '-';
+		prot[2] = seg->prot & MMU_FLAG_EXEC ? 'x' : '-';
+		prot[3] = seg->flags & VMM_FLAG_PRIVATE ? 'p' : 's';
+		prot[4] = '\0';
+
+		char *name = NULL;
+		if (seg->flags & VMM_FLAG_ANONYMOUS) {
+			name = strdup("[anonymous]");
+		} else {
+			name = vfs_dentry_path(seg->fd->dentry);
+		}
+		kdebugf("%012lx-%012lx %s %6zd %s\n", seg->start, seg->end, prot, seg->offset, name);
+		kfree(name);
+	}
+	rwsem_release_read(&vmm_get_current_space()->lock);
 	arch_registers_stacktrace(frame);
 
 	return 0;
