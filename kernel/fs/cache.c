@@ -129,8 +129,15 @@ static void cache_mark_page_dirty(cache_t *cache, uintptr_t page) {
 	page_t *page_info = pmm_page_info(page);
 	if (!(atomic_fetch_or(&page_info->flags, PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY)) {
 		atomic_fetch_add(&dirty_pages, 1);
+
+		// fast path
+		if (ref_count_inc_if_not_zero(&cache->dirty_count)) {
+			return;
+		}
+		
+		// slow path
 		spinlock_acquire(&dirty_lock);
-		if (cache->dirty_count++ == 0) {
+		if (ref_count_inc(&cache->dirty_count) == 0) {
 			// this is the first dirty page
 			list_append(&dirty_caches, &cache->dirty_node);
 		}
@@ -145,17 +152,24 @@ static void cache_mark_page_active(cache_t *cache, uintptr_t page) {
 
 static int cache_clear_page_dirty(cache_t *cache, uintptr_t page) {
 	page_t *page_info = pmm_page_info(page);
-	int ret = atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY;
-	if (ret) {
+	if (atomic_fetch_and(&page_info->flags, ~PAGE_FLAG_DIRTY) & PAGE_FLAG_DIRTY) {
 		atomic_fetch_sub(&dirty_pages, 1);
+
+		// fast path
+		if (ref_count_dec_if_not_one(&cache->dirty_count)) {
+			return 1;
+		}
+		
+		// slow path
 		spinlock_acquire(&dirty_lock);
-		if (cache->dirty_count-- == 1) {
+		if (ref_count_dec(&cache->dirty_count) == 1) {
 			// this was the last dirty page
 			list_remove(&dirty_caches, &cache->dirty_node);
 		}
 		spinlock_release(&dirty_lock);
+		return 1;
 	}
-	return ret;
+	return 0;
 }
 
 static void cache_get_range(cache_t *cache, off_t offset, size_t size, uintptr_t *start, uintptr_t *end) {

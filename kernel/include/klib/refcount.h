@@ -9,9 +9,10 @@ typedef ATOMIC(size_t) ref_count_t;
 /**
  * @brief increment a ref count
  * @param ref_count the ref count to increment
+ * @return the previous value of the ref count
  */
-static inline void ref_count_inc(ref_count_t *ref_count) {
-	atomic_fetch_add(ref_count, 1);
+static inline size_t ref_count_inc(ref_count_t *ref_count) {
+	return atomic_fetch_add(ref_count, 1);
 }
 
 /**

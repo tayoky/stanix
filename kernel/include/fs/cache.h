@@ -4,6 +4,7 @@
 #include <kernel/rwsem.h>
 #include <kernel/xarray.h>
 #include <kernel/pagesbatch.h>
+#include <kernel/refcount.h>
 #include <kernel/mutex.h>
 
 struct cache;
@@ -19,7 +20,7 @@ typedef struct cache_op {
 typedef struct cache {
 	list_node_t node;
 	list_node_t dirty_node; // protected by dirty_lock
-	size_t dirty_count;     // protected by dirty_lock
+	ref_count_t dirty_count;
 	xarray_t pages;
 	rwsem_t	lock;
 	cache_ops_t *ops;
