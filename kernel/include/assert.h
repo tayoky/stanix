@@ -8,7 +8,7 @@
 #include <kernel/macro.h>
 #define kassert(cond) if (!(cond)) {panic(__FILE__ ":" STRINGIFY(__LINE__) " assert : '" #cond "' failed", NULL);}
 #else
-#define kassert(cond)
+#define kassert(cond) {if (!cond) __builtin_unreachable();}
 #endif
 
 #endif
