@@ -777,13 +777,9 @@ int cache_flush(cache_t *cache, off_t offset, size_t size) {
 	return 0;
 }
 
-// mapping cache
+// vmm support
 
 static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
-	(void)flags;
-	// never sync private mappings
-	if (seg->flags & VMM_FLAG_PRIVATE) return 0;
-
 	cache_t *cache = seg->private_data;
 
 	rcu_acquire_read();
@@ -794,6 +790,10 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 		if (!(mmu_flags & MMU_FLAG_PRESENT) || page == PAGE_INVALID) {
 			continue;
 		}
+
+		// if private is NULL it's a copied page
+		if (!pmm_page_info(page)->private) continue;
+
 		if (mmu_flags & MMU_FLAG_DIRTY) {
 			cache_mark_page_dirty(cache, page);
 		}
@@ -805,6 +805,8 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 
 	if (flags & VMM_FLAG_SYNC) {
 		return cache_flush(cache, seg->offset + start - seg->start, end - start);
+	} else if (flags & VMM_FLAG_ASYNC) {
+		return cache_flush_async(cache, seg->offset + start - seg->start, end - start);
 	} else {
 		return 0;
 	}

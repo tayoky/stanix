@@ -210,6 +210,7 @@ static uintptr_t pmm_helper_allocate_pages(pmm_t *pmm, int order) {
 			// reset the entry
 			atomic_fetch_and(&page_info->flags, PAGE_FLAG_USABLE | PAGE_FLAG_RESERVED);
 			atomic_store(&page_info->ref_count, 1);
+			page_info->private = NULL;
 		}
 	}
 	spinlock_release(&pmm->lock);
