@@ -1,6 +1,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/scheduler.h>
 #include <kernel/userspace.h>
+#include <kernel/config.h>
 #include <kernel/signal.h>
 #include <kernel/print.h>
 #include <kernel/arch.h>
@@ -50,7 +51,7 @@ int page_fault_handler(registers_t *frame) {
 		break;
 	}
 
-	// TODO : remove this
+#ifdef ENABLE_USER_SEGFAULT_DEBUG
 	rwsem_acquire_read(&vmm_get_current_space()->lock);
 	for (avltree_node_t *node = avltree_first(&vmm_get_current_space()->segs); node; node = avltree_next(&vmm_get_current_space()->segs, node)) {
 		vmm_seg_t *seg = container_of(node, vmm_seg_t, node);
@@ -72,6 +73,7 @@ int page_fault_handler(registers_t *frame) {
 	}
 	rwsem_release_read(&vmm_get_current_space()->lock);
 	arch_registers_stacktrace(frame);
+#endif
 
 	return 0;
 }

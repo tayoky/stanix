@@ -4,7 +4,7 @@
 // kernel compile time config
 
 // enable poison
-// poison with 0xaa for allocate non initalized regions
+// poison with 0xaa for allocate non initialized regions
 // poison with 0xdd for freed regions
 #define ENABLE_POISON
 
@@ -20,5 +20,9 @@
 
 // enable runtime lock (mutex and rwsem) leak detector
 #define ENABLE_LOCK_LEAK_DETECTOR
+
+// enable the printing of debug info on userspace segfault
+// this is unsafe and introduce a security vulnerability
+#define ENABLE_USER_SEGFAULT_DEBUG
 
 #endif
