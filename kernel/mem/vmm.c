@@ -308,6 +308,7 @@ int vmm_space_split(vmm_space_t *space, vmm_seg_t *seg, uintptr_t cut, vmm_seg_t
 
 	vmm_seg_t *new_seg    = slab_alloc(&vmm_seg_slab);
 	if (!new_seg) return -ENOMEM;
+	new_seg->space        = space;
 	new_seg->prot         = seg->prot;
 	new_seg->flags        = seg->flags;
 	new_seg->start        = cut;
@@ -377,6 +378,7 @@ error:
 		}
 	}
 
+	new_seg->space     = space;
 	new_seg->start     = address;
 	new_seg->end       = address + size;
 	new_seg->prot      = prot;
@@ -620,7 +622,6 @@ void vmm_space_unmap_all(vmm_space_t *space) {
 }
 
 int vmm_space_sync(vmm_space_t *space, vmm_seg_t *seg, uintptr_t start, uintptr_t end, int flags) {
-	// TODO : pass the address space to the driver
 	(void)space;
 	mutex_acquire(&seg->lock);
 	if (!seg->ops || !seg->ops->msync) {
@@ -658,10 +659,12 @@ static int vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg
 	vmm_seg_t *new_seg = slab_alloc(&vmm_seg_slab);
 	if (!new_seg) return -ENOMEM;
 	mutex_acquire(&seg->lock);
+	new_seg->space        = child;
 	new_seg->prot         = seg->prot;
 	new_seg->flags        = seg->flags;
 	new_seg->start        = seg->start;
 	new_seg->end          = seg->end;
+	new_seg->offset       = seg->offset;
 	new_seg->ops          = seg->ops;
 	new_seg->private_data = seg->private_data;
 	new_seg->fd           = vfs_dup(seg->fd);

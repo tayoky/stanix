@@ -53,7 +53,7 @@ static int trm_fb_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 		kdebugf("map TRM framebuffer at %p in %p length : %p\n", seg->start, seg, VMM_SIZE(seg));
 
 		uintptr_t paddr = fb->base + fb->gpu->vram_mmio + PAGE_ALIGN_DOWN(offset);
-		return mmu_map_pages(get_current_proc()->vmm_space.addrspace, seg->start, paddr, VMM_SIZE(seg), seg->prot);
+		return mmu_map_pages(seg->space->addrspace, seg->start, paddr, VMM_SIZE(seg), seg->prot);
 	}
 	return fb->gpu->ops->mmap(fb->gpu, fb->base + offset, seg);
 }

@@ -783,8 +783,8 @@ static int cache_vmm_msync(vmm_seg_t *seg, uintptr_t start, uintptr_t end, int f
 	cache_t *cache = seg->private_data;
 
 	rcu_acquire_read();
-	mmu_foreach_entry_range (addr, entry, get_current_proc()->vmm_space.addrspace, seg->start, seg->end) {
-		mmu_entry_val_t value = mmu_entry_clear_flags(get_current_proc()->vmm_space.addrspace, entry, MMU_FLAG_DIRTY | MMU_FLAG_ACCESS);
+	mmu_foreach_entry_range (addr, entry, seg->space->addrspace, seg->start, seg->end) {
+		mmu_entry_val_t value = mmu_entry_clear_flags(seg->space->addrspace, entry, MMU_FLAG_DIRTY | MMU_FLAG_ACCESS);
 		uintptr_t page = mmu_entry_val_get_page(value);
 		long mmu_flags = mmu_entry_val_get_flags(value);
 		if (!(mmu_flags & MMU_FLAG_PRESENT) || page == PAGE_INVALID) {
@@ -879,7 +879,7 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 		uintptr_t page = cache_lookup_and_ref_page(cache, addr);
 		if (page == PAGE_INVALID) continue;
 
-		entry = mmu_create_next_entry_and_acquire_lock(get_current_proc()->vmm_space.addrspace, vaddr, entry, old_vaddr);
+		entry = mmu_create_next_entry_and_acquire_lock(seg->space->addrspace, vaddr, entry, old_vaddr);
 		old_vaddr = vaddr;
 
 		// memory failure is non fatal
@@ -889,7 +889,7 @@ int cache_mmap(cache_t *cache, off_t offset, vmm_seg_t *seg) {
 			break;
 		}
 
-		mmu_entry_map(get_current_proc()->vmm_space.addrspace, entry, page, prot);
+		mmu_entry_map(seg->space->addrspace, entry, page, prot);
 	}
 	rwsem_release_read(&cache->lock);
 	if (entry) mmu_entry_release_lock(entry);

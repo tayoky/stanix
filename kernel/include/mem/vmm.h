@@ -37,8 +37,8 @@ struct vmm_ops {
 
 struct vmm_seg {
 	avltree_node_t node;  // protected by the space lock
-	list_node_t private_node;
 	mutex_t lock;
+	vmm_space_t *space; // constant
 	uintptr_t start   ATTR_GUARDED_BY(&lock); // and write proctected by the space lock
 	uintptr_t end     ATTR_GUARDED_BY(&lock); // and write proctected by the space lock
 	long prot         ATTR_GUARDED_BY(&lock);

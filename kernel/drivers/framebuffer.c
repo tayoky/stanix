@@ -83,7 +83,7 @@ static int framebuffer_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
 	kdebugf("map framebuffer at %p in %p length : %p\n", seg->start, seg, VMM_SIZE(seg));
 	seg->prot |= MMU_FLAG_WRITE_COMBINE;
 	uintptr_t paddr = framebuffer->base + PAGE_ALIGN_DOWN(offset);
-	return mmu_map_pages(get_current_proc()->vmm_space.addrspace, seg->start, paddr, VMM_SIZE(seg), seg->prot);
+	return mmu_map_pages(seg->space->addrspace, seg->start, paddr, VMM_SIZE(seg), seg->prot);
 }
 
 static vfs_fd_ops_t framebuffer_ops = {
