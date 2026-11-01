@@ -12,6 +12,9 @@
 #include <sys/fb.h>
 #include <errno.h>
 
+static list_t framebuffers;
+static spinlock_t framebuffers_lock;
+
 int framebuffer_get_info(framebuffer_t *framebuffer, struct fb *info) {
 	if (framebuffer->ops->get_info) {
 		return framebuffer->ops->get_info(framebuffer, info);
@@ -29,7 +32,7 @@ int framebuffer_get_edid(framebuffer_t *framebuffer, edid_t **edid) {
 }
 
 static ssize_t framebuffer_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t count) {
-	framebuffer_t *framebuffer = fd->private;
+	framebuffer_t *framebuffer = container_of(fd->private, framebuffer_t, device);
 	
 	if (offset + count > framebuffer->size) {
 		if ((size_t)offset > framebuffer->size) {
@@ -38,7 +41,7 @@ static ssize_t framebuffer_write(vfs_fd_t *fd, const void *buffer, off_t offset,
 		count = framebuffer->size - offset;
 	}
 
-	// write to the framebuffer is easy just memcpy
+	// writing to the framebuffer is easy just memcpy
 	if (safe_copy_from(mmu_phys2virt(framebuffer->base + offset), buffer, count) < 0) {
 		return -EFAULT;
 	}
@@ -47,7 +50,7 @@ static ssize_t framebuffer_write(vfs_fd_t *fd, const void *buffer, off_t offset,
 }
 
 static int framebuffer_ioctl(vfs_fd_t *fd, long request, void *arg) {
-	framebuffer_t *framebuffer = fd->private;
+	framebuffer_t *framebuffer = container_of(fd->private, framebuffer_t, device);
 	
 	switch (request){
 	case IOCTL_GET_FB_INFO:;
@@ -57,13 +60,12 @@ static int framebuffer_ioctl(vfs_fd_t *fd, long request, void *arg) {
 		if (ret < 0) return ret;
 		return safe_copy_auto_to(arg, &fb_info);
 	default:
-		return -EINVAL;
-		break;
+		return -ENOTTY;
 	}
 }
 
 static int framebuffer_mmap(vfs_fd_t *fd, off_t offset, vmm_seg_t *seg) {
-	framebuffer_t *framebuffer = fd->private;
+	framebuffer_t *framebuffer = container_of(fd->private, framebuffer_t, device);
 	if(!(seg->flags & VMM_FLAG_SHARED)){
 		return -EINVAL;
 	}
@@ -92,13 +94,59 @@ static vfs_fd_ops_t framebuffer_ops = {
 	.ioctl = framebuffer_ioctl,
 };
 
-static int fb_major = 0;
+static void framebuffer_destroy(device_t *device) {
+	framebuffer_t *framebuffer = container_of(device, framebuffer_t, device);
+	spinlock_acquire(&framebuffers_lock);
+	list_remove(&framebuffers, &framebuffer->node);
+	spinlock_release(&framebuffers_lock);
+	if (framebuffer->ops && framebuffer->ops->destroy) {
+		framebuffer->ops->destroy(framebuffer);
+	}
+}
 
-int framebuffer_register(framebuffer_t *fb) {
+static void framebuffer_cleanup(device_t *device) {
+	framebuffer_t *framebuffer = container_of(device, framebuffer_t, device);
+	if (framebuffer->ops && framebuffer->ops->cleanup) {
+		framebuffer->ops->cleanup(framebuffer);
+	}
+}
+
+int framebuffer_register(framebuffer_t *framebuffer) {
+	static int fb_major = 0;
 	if (fb_major == 0) {
 		fb_major = device_allocate_major();
 	}
-	fb->device.ops = &framebuffer_ops;
-	fb->device.type = DEVICE_BLOCK;
-	return device_register(&fb->device, "fb%d", makedev(fb_major, 0));
+	framebuffer->device.ops     = &framebuffer_ops;
+	framebuffer->device.destroy = framebuffer_destroy;
+	framebuffer->device.cleanup = framebuffer_cleanup;
+	framebuffer->device.type    = DEVICE_CHAR;
+	int ret = device_register(&framebuffer->device, "fb%d", makedev(fb_major, 0));
+	if (ret < 0) return ret;
+	spinlock_acquire(&framebuffers_lock);
+	list_append(&framebuffers, &framebuffer->node);
+	spinlock_release(&framebuffers_lock);
+	return 0;
+}
+
+void framebuffer_destroy_in_mmio_range(uintptr_t start, size_t size) {
+	uintptr_t end = start + size;
+	spinlock_acquire(&framebuffers_lock);
+	int found = 1;
+	while (found) {
+		found = 0;
+		foreach (node, &framebuffers) {
+			framebuffer_t *framebuffer = container_of(node, framebuffer_t, node);
+			if (framebuffer->base + framebuffer->size > start && framebuffer->base < end) {
+				// this framebuffer is in the mmio region
+				device_ref(&framebuffer->device);
+				spinlock_release(&framebuffers_lock);
+				device_destroy(&framebuffer->device);
+				device_release(&framebuffer->device);
+				spinlock_acquire(&framebuffers_lock);
+				found = 1;
+				break;
+			}
+		}
+	}
+	spinlock_release(&framebuffers_lock);
 }
