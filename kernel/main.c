@@ -59,12 +59,10 @@ static void print_license(void) {
 
 static void spawn_init(void) {
 	kstatusf("try spawn init...\n");
+
 	// first get the path for the init program
 	const char *init_path = kcmdline_get_option("--init");
-
-	if (!init_path) {
-		init_path = "/bin/init";
-	}
+	if (!init_path) init_path = "/bin/init";
 
 	kinfof("try to exec %s\n", init_path);
 

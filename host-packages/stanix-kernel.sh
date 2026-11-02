@@ -8,5 +8,6 @@ build () {
 }
 
 install () {
-	make -C "$SOURCE_DIR" install CC="$HOST-gcc" NASM="nasm" NM="$HOST-nm" DESTDIR="$DESTDIR" BUILDDIR="$BUILD_DIR" BINDIR="/boot"
+	# install only the kernel binary
+	make -C "$SOURCE_DIR" install-bin CC="$HOST-gcc" NASM="nasm" NM="$HOST-nm" DESTDIR="$DESTDIR" BUILDDIR="$BUILD_DIR" BINDIR="/boot"
 }
