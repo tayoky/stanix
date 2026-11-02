@@ -17,6 +17,7 @@
 #include <kernel/string.h>
 #include <kernel/sys.h>
 #include <kernel/exec.h>
+#include <kernel/rtc.h>
 #include <kernel/module.h>
 #include <kernel/procfs.h>
 #include <kernel/sysfs.h>
@@ -145,6 +146,7 @@ void kmain(void) {
 	init_workqueue();
 	init_bus();
 	init_root_bus();
+	init_rtc();
 	init_timer();
 	init_mod();
 	init_procfs();
