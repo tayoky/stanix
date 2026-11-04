@@ -1,0 +1,22 @@
+diff --git a/m4/libtool.m4 b/m4/libtool.m4
+index 8d323b3..95b45e5 100644
+--- a/m4/libtool.m4
++++ b/m4/libtool.m4
+@@ -3111,6 +3111,17 @@ solaris*)
+   postinstall_cmds='chmod +x $lib'
+   ;;
+ 
++stanix*)
++  version_type=linux # correct to gnu/linux during the next big refactor
++  need_lib_prefix=no
++  need_version=no
++  library_names_spec='$libname$release$shared_ext$versuffix $libname$release$shared_ext$major $libname$shared_ext'
++  soname_spec='$libname$release$shared_ext$major'
++  shlibpath_overrides_runpath=no
++  dynamic_linker='$host_os ld-tlibc.so'
++  shlibpath_var=LD_LIBRARY_PATH
++  ;;
++
+ sunos4*)
+   version_type=sunos
+   library_names_spec='$libname$release$shared_ext$versuffix $libname$shared_ext$versuffix'

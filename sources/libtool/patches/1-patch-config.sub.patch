@@ -1,0 +1,12 @@
+diff --git a/build-aux/config.sub b/build-aux/config.sub
+index 4aaae46..3c19a71 100755
+--- a/build-aux/config.sub
++++ b/build-aux/config.sub
+@@ -2109,6 +2109,7 @@ case $os in
+ 	| solaris* \
+ 	| solidbsd* \
+ 	| sortix* \
++	| stanix* \
+ 	| storm-chaos* \
+ 	| sunos \
+ 	| sunos[34]* \

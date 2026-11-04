@@ -384,7 +384,7 @@ tinx_get_source () {
 	fi
 	tinx_apply_patches "$1" || return 1
 	test "$DRY_RUN" = "yes" && return 0
-	prepare
+	(cd "$SOURCE_DIR" && prepare)
 }
 
 tinx_configure () {

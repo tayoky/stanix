@@ -1,5 +1,5 @@
-VERSION=2.5.4
-SOURCE=libtool
+VERSION="2.5.4"
+SOURCE="libtool"
 BUILD_DEPENDENCIES="autoconf automake"
 
 configure () {
