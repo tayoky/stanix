@@ -1,1 +1,2 @@
 TAR="$GNU_MIRROR/gnu/mtools/mtools-$VERSION.tar.gz"
+TAR_HASH="10cd1111da87bf2400a380c1639a6cba8bfb937a24f9c51f5f88d393ae5f6f76"
