@@ -12,5 +12,5 @@ build () {
 }
 
 install () {
-	make -C "$BUILD_DIR/../gcc" install-target-strip-libstdc++-v3 DESTDIR="$DESTDIR"
+	make -C "$BUILD_DIR/../gcc" install-strip-target-libstdc++-v3 DESTDIR="$DESTDIR"
 }
