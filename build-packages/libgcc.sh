@@ -12,5 +12,5 @@ build () {
 }
 
 install () {
-	make -C "$BUILD_DIR/../gcc" install-target-libgcc DESTDIR="$DESTDIR"
+	make -C "$BUILD_DIR/../gcc" install-strip-target-libgcc DESTDIR="$DESTDIR"
 }
