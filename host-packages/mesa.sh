@@ -1,6 +1,6 @@
 VERSION="25.0.7"
 SOURCE="mesa"
-DEPENDENCIES="zlib"
+DEPENDENCIES="zlib libstdxx"
 . "$TOP/scripts/meson-package.sh"
 WEBSITE="https://mesa3d.org"
 
