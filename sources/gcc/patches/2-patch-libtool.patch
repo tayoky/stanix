@@ -1,0 +1,22 @@
+diff --git a/libtool.m4 b/libtool.m4
+index 17f8e5f..1ef63df 100644
+--- a/libtool.m4
++++ b/libtool.m4
+@@ -2186,6 +2186,17 @@ amigaos*)
+   esac
+   ;;
+ 
++stanix*)
++  version_type=linux # correct to gnu/linux during the next big refactor
++  need_lib_prefix=no
++  need_version=no
++  library_names_spec='$libname$release$shared_ext$versuffix $libname$release$shared_ext$major $libname$shared_ext'
++  soname_spec='$libname$release$shared_ext$major'
++  shlibpath_overrides_runpath=no
++  dynamic_linker='$host_os ld-tlibc.so'
++  shlibpath_var=LD_LIBRARY_PATH
++  ;;
++
+ beos*)
+   library_names_spec='${libname}${shared_ext}'
+   dynamic_linker="$host_os ld.so"
