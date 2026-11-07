@@ -20,8 +20,6 @@ CFLAGS += \
 	-fno-omit-frame-pointer \
 	-fsanitize=undefined \
 	-D__KERNEL__=1 -g -fanalyzer
-CFLAGS += -I ./include/
-CFLAGS += -I ../limine/
 
 LDFLAGS += \
 	-nostdlib \

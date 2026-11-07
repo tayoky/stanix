@@ -7,7 +7,7 @@
 #include <kernel/string.h>
 #include <kernel/sym.h>
 #include <kernel/vfs.h>
-#include <elf.h>
+#include <kernel/elf.h>
 #include <errno.h>
 
 // dynamic module loading
@@ -15,50 +15,17 @@
 extern uintptr_t p_kernel_end[];
 static uintptr_t ptr = MEM_MODULE_START;
 
-#ifdef i386
-#define Elf_Ehdr      Elf32_Ehdr
-#define Elf_Shdr      Elf32_Shdr
-#define Elf_Addr      Elf32_Addr
-#define Elf_Sym       Elf32_Sym
-#define Elf_Rela      Elf32_Rela
-#define ELF_R_SYM(i)  ELF32_R_SYM(i)
-#define ELF_R_TYPE(i) ELF32_R_TYPE(i)
-#define ELF_R_INFO(i) ELF32_R_INFO(i)
-#else
-#define Elf_Ehdr      Elf64_Ehdr
-#define Elf_Shdr      Elf64_Shdr
-#define Elf_Addr      Elf64_Addr
-#define Elf_Sym       Elf64_Sym
-#define Elf_Rela      Elf64_Rela
-#define ELF_R_SYM(i)  ELF64_R_SYM(i)
-#define ELF_R_TYPE(i) ELF64_R_TYPE(i)
-#define ELF_R_INFO(i) ELF64_R_INFO(i)
-#endif
-
-
 exported_sym *exported_sym_list = NULL;
 list_t loaded_mods;
 
 int check_mod_header(Elf_Ehdr *header) {
-	if (memcmp(header->e_ident, ELFMAG, 4)) {
-		return 0;
-	}
+	if (memcmp(header->e_ident, ELFMAG, 4)) return 0;
 
-	if (header->e_ident[EI_VERSION] != EV_CURRENT) {
-		return 0;
-	}
-
-	if (header->e_ident[EI_DATA] != ELFDATA2LSB) {
-		return 0;
-	}
-
-	if (header->e_ident[EI_CLASS] != ELFCLASS64) {
-		return 0;
-	}
-
-	if (header->e_type != ET_REL) {
-		return 0;
-	}
+	if (header->e_ident[EI_VERSION] != EV_CURRENT) return 0;
+	if (header->e_ident[EI_DATA] != ELFDATA) return 0;
+	if (header->e_ident[EI_CLASS] != ELFCLASS) return 0;
+	if (header->e_machine != ELFMACHINE) return 0;
+	if (header->e_type != ET_REL) return 0;
 
 	return 1;
 }

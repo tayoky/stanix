@@ -7,27 +7,15 @@
 #include <kernel/userspace.h>
 #include <kernel/arch.h>
 #include <kernel/vmm.h>
-#include <elf.h>
+#include <kernel/elf.h>
 #include <errno.h>
 
-int verfiy_elf(Elf64_Ehdr *header) {
-	if (memcmp(header, ELFMAG, 4)) {
-		return 0;
-	}
-
-	if (header->e_ident[EI_VERSION] != EV_CURRENT) {
-		return 0;
-	}
-
-#ifdef __i386__
-	if (header->e_ident[EI_CLASS] != ELFCLASS32) {
-		return 0;
-	}
-#else
-	if (header->e_ident[EI_CLASS] != ELFCLASS64) {
-		return 0;
-	}
-#endif
+int verfiy_elf(Elf_Ehdr *header) {
+	if (memcmp(header, ELFMAG, 4)) return 0;
+	if (header->e_ident[EI_VERSION] != EV_CURRENT) return 0;
+	if (header->e_ident[EI_DATA] != ELFDATA) return 0;
+	if (header->e_ident[EI_CLASS] != ELFCLASS) return 0;
+	if (header->e_machine != ELFMACHINE) return 0;
 
 	return 1;
 }
@@ -61,12 +49,17 @@ int exec_elf(const char *path, int argc, char **argv, int envc, char **envp, uin
 	}
 
 	// first read the header
-	Elf64_Ehdr header;
-	if (vfs_read(file, &header, 0, sizeof(header)) < 0) {
-		ret = -ENOMEM;
+	Elf_Ehdr header;
+	ssize_t r = vfs_read(file, &header, 0, sizeof(header));
+	if (r < 0) {
+		ret = r;
 error:
 		vfs_close(file);
 		return ret;
+	}
+	if (r < (ssize_t)sizeof(header)) {
+		ret = -ENOEXEC;
+		goto error;
 	}
 
 	// then verify it
@@ -86,13 +79,6 @@ error:
 			ret = -ENOEXEC;
 			goto error;
 		}
-	}
-
-	// now read all program headers
-	Elf64_Phdr *prog_header = kmalloc(header.e_phentsize * header.e_phnum);
-	if (vfs_read(file, prog_header, header.e_phoff, header.e_phentsize * header.e_phnum) < 0) {
-		kfree(prog_header);
-		goto error;
 	}
 
 	if (depth == 0) {
@@ -157,12 +143,24 @@ error:
 	}
 
 	// then iterate trought each prog header
+	off_t offset = header.e_phoff;
 	for (size_t i = 0; i < header.e_phnum; i++) {
-		if (prog_header[i].p_type == PT_INTERP) {
+		Elf_Phdr prog_header;
+		ssize_t r = vfs_read(file, &prog_header, offset, sizeof(prog_header));
+		if (r < 0) {
+			ret = r;
+			goto error;
+		}
+		if (r < (ssize_t)sizeof(prog_header)) {
+			ret = -ENOEXEC;
+			goto error;
+		}
+		offset += header.e_phentsize;
+		if (prog_header.p_type == PT_INTERP) {
 			char interp[PATH_MAX];
-			size_t size = prog_header[i].p_filesz;
+			size_t size = prog_header.p_filesz;
 			if (size >= PATH_MAX) size = PATH_MAX - 1;
-			vfs_read(file, interp, prog_header[i].p_offset, size);
+			vfs_read(file, interp, prog_header.p_offset, size);
 			interp[size] = '\0';
 
 			if (interpret) {
@@ -171,51 +169,51 @@ error:
 				interpret = file;
 			}
 
-			kfree(prog_header);
 			return exec_elf(interp, argc, argv, envc, envp, 0x100000000, depth + 1, interpret);
 		}
-		// only load porgram header with PT_LOAD
-		if (prog_header[i].p_type != PT_LOAD) {
-			kdebugf("ignored header of type\n", prog_header[i].p_type);
+		// only load program headers with PT_LOAD
+		if (prog_header.p_type != PT_LOAD) {
+			kdebugf("ignored header of type %d\n", prog_header.p_type);
 			continue;
 		}
 
-		// convert elf header to paging header
+		// convert elf flags to paging flags
 		long prot = MMU_FLAG_PRESENT | MMU_FLAG_USER;
-		if (prog_header[i].p_flags & PF_R) {
+		if (prog_header.p_flags & PF_R) {
 			prot |= MMU_FLAG_READ;
 		}
-		if (prog_header[i].p_flags & PF_W) {
+		if (prog_header.p_flags & PF_W) {
 			prot |= MMU_FLAG_WRITE;
 		}
-		if (prog_header[i].p_flags & PF_X) {
+		if (prog_header.p_flags & PF_X) {
 			prot |= MMU_FLAG_EXEC;
 		}
 
 		// make sure heap start is after the segment
 		// so at the end the heap start is right after the end of excetuable
-		if (get_current_proc()->heap_start < PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz)) {
-			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header[i].p_vaddr + prog_header[i].p_memsz);
+		if (get_current_proc()->heap_start < PAGE_ALIGN_UP(prog_header.p_vaddr + prog_header.p_memsz)) {
+			get_current_proc()->heap_start = PAGE_ALIGN_UP(prog_header.p_vaddr + prog_header.p_memsz);
 		}
 
-		if (prog_header[i].p_offset % PAGE_SIZE == prog_header[i].p_vaddr % PAGE_SIZE) {
+		if (prog_header.p_offset % PAGE_SIZE == prog_header.p_vaddr % PAGE_SIZE) {
 			// we can use mmap
 
 			// page align everything
-			uintptr_t vaddr        = PAGE_ALIGN_DOWN(prog_header[i].p_vaddr) + base;
-			size_t vaddr_off       = prog_header[i].p_vaddr % PAGE_SIZE;
-			off_t offset           = PAGE_ALIGN_DOWN(prog_header[i].p_offset);
-			size_t filesz          = PAGE_ALIGN_UP(prog_header[i].p_filesz + vaddr_off);
-			size_t memsz           = PAGE_ALIGN_UP(prog_header[i].p_memsz + vaddr_off);
+			uintptr_t vaddr        = PAGE_ALIGN_DOWN(prog_header.p_vaddr) + base;
+			size_t vaddr_off       = prog_header.p_vaddr % PAGE_SIZE;
+			off_t offset           = PAGE_ALIGN_DOWN(prog_header.p_offset);
+			size_t filesz          = PAGE_ALIGN_UP(prog_header.p_filesz + vaddr_off);
+			size_t memsz           = PAGE_ALIGN_UP(prog_header.p_memsz + vaddr_off);
 			size_t filesz_remainer = 0;
 
-			if (prog_header[i].p_memsz > prog_header[i].p_filesz && (prog_header[i].p_filesz + vaddr_off) % PAGE_SIZE) {
-				filesz_remainer = (prog_header[i].p_filesz + vaddr_off) % PAGE_SIZE;
+			if (prog_header.p_memsz > prog_header.p_filesz && (prog_header.p_filesz + vaddr_off) % PAGE_SIZE) {
+				filesz_remainer = (prog_header.p_filesz + vaddr_off) % PAGE_SIZE;
 			}
 
 			if (filesz > 0) {
 				vmm_seg_t *seg = vmm_map(vaddr, filesz, MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE, file, offset);
 				if (IS_ERR(seg)) {
+					ret = PTR2ERR(seg);
 					goto error;
 				}
 				// zero the last page
@@ -229,29 +227,33 @@ error:
 			if (memsz > filesz) {
 				// we need to fill with anonymous mapping
 				vaddr += filesz;
-				if (IS_ERR(vmm_map(vaddr, memsz - filesz, prot, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0))) {
+				vmm_seg_t *anon_seg = vmm_map(vaddr, memsz - filesz, prot, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0);
+				if (IS_ERR(anon_seg)) {
+					ret = PTR2ERR(anon_seg);
 					goto error;
 				}
 			}
 		} else {
-			vmm_seg_t *seg = vmm_map(prog_header[i].p_vaddr, PAGE_ALIGN_UP(prog_header[i].p_memsz), MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0);
+			vmm_seg_t *seg = vmm_map(prog_header.p_vaddr, PAGE_ALIGN_UP(prog_header.p_memsz), MMU_FLAG_WRITE | MMU_FLAG_PRESENT, VMM_FLAG_PRIVATE | VMM_FLAG_ANONYMOUS, NULL, 0);
 			if (IS_ERR(seg)) {
+				ret = PTR2ERR(seg);
 				goto error;
 			}
 
 			// file size must be <= to virtual size
-			if (prog_header[i].p_filesz > prog_header[i].p_memsz) {
-				prog_header[i].p_filesz = prog_header[i].p_memsz;
+			if (prog_header.p_filesz > prog_header.p_memsz) {
+				prog_header.p_filesz = prog_header.p_memsz;
 			}
 
-			if (vfs_read(file, (void *)prog_header[i].p_vaddr, prog_header[i].p_offset, prog_header[i].p_filesz) < 0) {
+			ssize_t r = vfs_read(file, (void *)prog_header.p_vaddr, prog_header.p_offset, prog_header.p_filesz);
+			if (r < 0) {
+				ret = r;
 				goto error;
 			}
 			// set the protection
 			vmm_chprot(seg, prot);
 		}
 	}
-	kfree(prog_header);
 
 	vfs_close(file);
 
