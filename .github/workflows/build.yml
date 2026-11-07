@@ -8,7 +8,7 @@ on:
   # TODO : run on pull requests ??
 
 env:
-  MAIN_PACKAGES: stanix-base make nasm tcc libstdcxx
+  MAIN_PACKAGES: stanix-base make nasm tcc libstdcxx zlib sdl3
 
 jobs:
   build:
