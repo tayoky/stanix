@@ -1,0 +1,13 @@
+diff --git a/src/feature.h b/src/feature.h
+index 04069d4..d53ca54 100644
+--- a/src/feature.h
++++ b/src/feature.h
+@@ -265,7 +265,7 @@
+ 	&& defined(FEAT_EVAL) \
+ 	&& ((defined(HAVE_GETTIMEOFDAY) && defined(HAVE_SYS_TIME_H) \
+ 		&& (!defined(MACOS_X) || defined(HAVE_DISPATCH_DISPATCH_H))) \
+-	    || defined(MSWIN))
++	    || defined(MSWIN)) && !defined(__stanix__)
+ # define FEAT_RELTIME
+ #endif
+ 
