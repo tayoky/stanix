@@ -10,6 +10,7 @@ void _start(){
 	// init arch sepcfic stuff before launching
 	// generic main
 	arch_disable_interrupt();
+	init_debugcon();
 	init_serial();
 	init_gdt();
 	init_idt();

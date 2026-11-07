@@ -33,7 +33,7 @@ int init_serial(void) {
 	out_byte(SERIAL_PORT + 4, 0x1E);
 	out_byte(SERIAL_PORT + 0, 0xAE);
 	if (in_byte(SERIAL_PORT + 0) != 0xAE) {
-		return 1;
+		return -1;
 	}
 	out_byte(SERIAL_PORT + 4, 0x0F);
 	earlycon_register(&serial_con);

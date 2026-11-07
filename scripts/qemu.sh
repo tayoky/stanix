@@ -9,8 +9,9 @@ help () {
 	echo "--hdd-image         : use the hdd image"
 	echo "--memory=MEMORY     : specify the amount of memory [$MEMORY]"
 	echo "--media=MEDIA       : specify the media type, values can be nvme,ata,cdrom [$MEDIA]"
-	echo "--stdio-serial      : redirect serial to stdio"
-	echo "--kvm               : use kvm"
+	echo "--serial=CHARDEV    : redirect serial to CHARDEV"
+	echo "--debugcon=CHARDEV  : enable the debugcon and redirect it to CHARDEV"
+	echo "--kvm               : use kvm (requires root on WSL)"
 	echo "--extra-options=XXX : pass extra options direcly to qemu"
 	echo "--qemu=QEMU         : specify the qemu to use [$QEMU]"
 	echo "--help              : show this help and exit"
@@ -51,8 +52,11 @@ for I in "$@" ; do
 		--media=*)
 			MEDIA="${I#*=}"
 			;;
-		--stdio-serial)
-			add_options -serial stdio
+		--serial=*)
+			add_options -serial "${I#*=}"
+			;;
+		--debugcon=*)
+			add_options -debugcon "${I#*=}"
 			;;
 		--kvm)
 			add_options -cpu host -enable-kvm -smp 1
@@ -86,7 +90,7 @@ case "$MEDIA" in
 		add_options -drive file="$IMAGE",format=raw,if=none,id=nvm \
 			-device nvme,serial=deadbeef,drive=nvm
 		;;
-	ata)
+	ata|pata)
 		add_options -drive file="$IMAGE",format=raw,if=ide
 		;;
 	cdrom|cd|atapi)
