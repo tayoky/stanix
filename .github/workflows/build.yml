@@ -22,44 +22,14 @@ jobs:
 
     - name: Install build tools
       run: sudo apt update && sudo apt install build-essential gettext libgmp-dev libmpc-dev libmpfr-dev bison flex texinfo nasm xorriso mtools -y
-    
-    - name: Calculate toolchain hash
-      id: toolchain-hash
 
-      run: |
-        HASH="$(./tinx.sh --build-package get-hash stanix-toolchain)"
-        echo "hash=$HASH" >> "$GITHUB_OUTPUT"
-    
-    - name: Restore toolchain cache
-      id: toolchain-cache
-      uses: actions/cache/restore@v4
-      with:
-        path: |
-          ./build/build-packages/*/.tinx-*
-          ./build/build-env
-          ./build/tinx-cache
-        key: ${{ runner.os }}-toolchain-${{ steps.toolchain-hash.outputs.hash }}
-
-    - name: Build toolchain
-      if: steps.toolchain-cache.outputs.cache-hit != 'true'
-      run: ./tinx.sh --build-package install stanix-toolchain
-
-    - name: Save toolchain cache
-      if: steps.toolchain-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          ./build/build-packages/*/.tinx-*
-          ./build/build-env
-          ./build/tinx-cache
-        key: ${{ runner.os }}-toolchain-${{ steps.toolchain-hash.outputs.hash }}
-
-    - name: Restore tinx cache
+    - name: Restore state
       id: tinx-cache
       uses: actions/cache/restore@v4
       with:
         path: |
-          ./build/host-packages/*/.tinx-*
+          ./build/build-env
+          ./build/*-packages/*/.tinx-*
           ./build/tinx-cache
         key: tinx-cache-${{ github.ref_name }}-${{ github.sha }}
         restore-keys: |
@@ -102,11 +72,12 @@ jobs:
         GH_TOKEN: ${{ secrets.PACKAGES_REPO_TOKEN }}
       run: ./tinx.sh run scripts/upload-packages.sh ${{ steps.select-packages.outputs.dirty }}
 
-    - name: Save tinx cache
+    - name: Save state
       if: github.event_name == 'push' && steps.select-packages.outputs.dirty != ''
       uses: actions/cache/save@v4
       with:
         path: |
-          ./build/host-packages/*/.tinx-*
+          ./build/build-env
+          ./build/*-packages/*/.tinx-*
           ./build/tinx-cache
         key: tinx-cache-${{ github.ref_name }}-${{ github.sha }}
