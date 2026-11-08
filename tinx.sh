@@ -5,6 +5,7 @@ tinx_help () {
 	echo "or $0 [OPTIONS] run SCRIPT [ARGUMENTS]"
 	echo "options :"
 	echo "--host=HOST     : specify host"
+	echo "--buildenv=PATH : specify path to build env"
 	echo "--redownload    : force redownload archive"
 	echo "--reunpack      : force reunpack"
 	echo "--reclone       : force recloning"
@@ -512,7 +513,7 @@ tinx_clean_build () {
 	rm -fr "$BUILD_DIR"
 }
 
-TINX_VERSION="0.0.3"
+TINX_VERSION="0.1.0"
 
 : ${TINX:="$(realpath "$0")"}
 : ${BUILDDIR:="$PWD/build"}
@@ -587,6 +588,9 @@ for I in "$@" ; do
 		--host=*)
 			HOST="${I##*=}"
 			;;
+		--buildenv=*)
+			BUILD_PREFIX="${I##*=}"
+			;;
 		--help)
 			tinx_help
 			exit 0
@@ -650,12 +654,13 @@ case "$ACTION" in
 	get-dirty)
 		DIRTY_PACKAGES=""
 		for PACKAGE in $PACKAGES_TO_DO ; do
-			(
-			    tinx_select_package "$PACKAGE" || exit 1
-				if ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" || ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
-					DIRTY_PACKAGES="$DIRTY_PACKAGES $PACKAGE"
-				fi
-			)
+			(tinx_select_package "$PACKAGE") || exit 1
+		done
+		
+		for PACKAGE in $PACKAGES_TO_DO ; do
+			if ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" || ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
+				DIRTY_PACKAGES="$DIRTY_PACKAGES $PACKAGE"
+			fi
 		done
 		echo "$DIRTY_PACKAGES"
 		exit 0
@@ -663,12 +668,13 @@ case "$ACTION" in
 	get-ready)
 		READY_PACKAGES=""
 		for PACKAGE in $PACKAGES_TO_DO ; do
-			(
-			    tinx_select_package "$PACKAGE" || exit 1
-				if test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" && test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
-					READY_PACKAGES="$READY_PACKAGES $PACKAGE"
-				fi
-			)
+			(tinx_select_package "$PACKAGE") || exit 1
+		done
+
+		for PACKAGE in $PACKAGES_TO_DO ; do
+			if test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" && test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
+				READY_PACKAGES="$READY_PACKAGES $PACKAGE"
+			fi
 		done
 		echo "$READY_PACKAGES"
 		exit 0
