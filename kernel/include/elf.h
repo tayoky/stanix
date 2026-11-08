@@ -7,6 +7,7 @@
 #define Elf_Ehdr      Elf32_Ehdr
 #define Elf_Phdr      Elf32_Phdr
 #define Elf_Shdr      Elf32_Shdr
+#define Elf_Nhdr      Elf32_Nhdr
 #define Elf_Addr      Elf32_Addr
 #define Elf_Sym       Elf32_Sym
 #define Elf_Rela      Elf32_Rela
@@ -18,6 +19,7 @@
 #define Elf_Ehdr      Elf64_Ehdr
 #define Elf_Phdr      Elf64_Phdr
 #define Elf_Shdr      Elf64_Shdr
+#define Elf_Nhdr      Elf64_Nhdr
 #define Elf_Addr      Elf64_Addr
 #define Elf_Sym       Elf64_Sym
 #define Elf_Rela      Elf64_Rela

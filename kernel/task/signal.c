@@ -5,6 +5,8 @@
 #include <kernel/string.h>
 #include <kernel/userspace.h>
 #include <kernel/slab.h>
+#include <kernel/config.h>
+#include <kernel/core.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdatomic.h>
@@ -290,11 +292,16 @@ sigset_t signal_get_unhandled_mask(void) {
 	return signal_get_pending_mask() & ~get_current_task()->sig_mask;
 }
 
-static void handle_default(int signum) {
-	switch (default_handling[signum]) {
+static void handle_default(siginfo_t *siginfo) {
+	switch (default_handling[siginfo->si_signo]) {
 	case CORE:
+#ifdef ENABLE_CORE_DUMP
+		core_dump(siginfo);
+#endif
+		proc_sigexit(siginfo->si_signo);
+		break;
 	case KILL:
-		proc_sigexit(signum);
+		proc_sigexit(siginfo->si_signo);
 		break;
 	case IGN:
 	case CONT:
@@ -327,7 +334,7 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 	if (handler.sa_handler == SIG_IGN) {
 		return;
 	} else if (handler.sa_handler == SIG_DFL) {
-		handle_default(siginfo->si_signo);
+		handle_default(siginfo);
 		return;
 	} else {
 		// TODO : move this to arch specific
