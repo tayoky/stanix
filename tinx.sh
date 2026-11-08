@@ -147,8 +147,13 @@ tinx_tools_needed_list () {
 
 tinx_add_tools_to_path () {
 	for TOOL in "$@" ; do
-		PATH="$BUILD_PREFIX/$TOOL/bin:$PATH"
-		LD_LIBRARY_PATH="$BUILD_PREFIX/$TOOL/lib:$LD_LIBRARY_PATH"
+		export PATH="$BUILD_PREFIX/$TOOL/bin:$PATH"
+		if test -d "$BUILD_PREFIX/$TOOL/lib" ; then
+			export LD_LIBRARY_PATH="$BUILD_PREFIX/$TOOL/lib:$LD_LIBRARY_PATH"
+		fi
+		if test -d "$BUILD_PREFIX/$TOOL/share/aclocal" ; then
+			export ACLOCAL_PATH="$BUILD_PREFIX/$TOOL/share/aclocal:$ACLOCAL_PATH"
+		fi
 	done
 }
 
@@ -693,38 +698,41 @@ for PACKAGE in $PACKAGES_TO_DO ; do
 			REBUILD_CACHE="no"
 			;;
 	esac
-	tinx_select_package "$PACKAGE" || exit 1
+	
+	(
+		tinx_select_package "$PACKAGE" || exit 1
 
-	case "$ACTION" in
-		update-cache)
-			# cache already updated by tinx_select_package
-			true
-			;;
-		get-source)
-			tinx_get_source "$SOURCE" || exit 1
-			;;
-		configure)
-			tinx_configure || exit 1
-			;;
-		build)
-			tinx_build || exit 1
-			;;
-		install)
-			tinx_install || exit 1
-			;;
-		install-source)
-			if test "$IS_CMDLINE" = "yes" ; then
-				tinx_install_source || exit 1
-			fi
-			;;
-		clean|clean-build)
-			if test "$IS_CMDLINE" = "yes" ; then
-				tinx_clean_build || exit 1
-			fi
-			;;
-		*)
-			tinx_error "unknown action '$ACTION'"
-			exit 1
-			;;
-	esac
+		case "$ACTION" in
+			update-cache)
+				# cache already updated by tinx_select_package
+				true
+				;;
+			get-source)
+				tinx_get_source "$SOURCE" || exit 1
+				;;
+			configure)
+				tinx_configure || exit 1
+				;;
+			build)
+				tinx_build || exit 1
+				;;
+			install)
+				tinx_install || exit 1
+				;;
+			install-source)
+				if test "$IS_CMDLINE" = "yes" ; then
+					tinx_install_source || exit 1
+				fi
+				;;
+			clean|clean-build)
+				if test "$IS_CMDLINE" = "yes" ; then
+					tinx_clean_build || exit 1
+				fi
+				;;
+			*)
+				tinx_error "unknown action '$ACTION'"
+				exit 1
+				;;
+		esac
+	)
 done
