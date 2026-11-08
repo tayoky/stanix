@@ -25,6 +25,7 @@ tinx_help () {
 	echo "get-packages   : get a list of packages to build for the specified packages"
 	echo "get-dirty      : get a list of dirty packages to rebuild for the specified packages"
 	echo "get-ready      : get a list of already built packages for the specified packages"
+	echo "get-path       : get a PATH to use the specified packages (only for build tools)"
 }
 
 tinx_error () {
@@ -649,9 +650,12 @@ case "$ACTION" in
 	get-dirty)
 		DIRTY_PACKAGES=""
 		for PACKAGE in $PACKAGES_TO_DO ; do
-			if ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" || ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
-				DIRTY_PACKAGES="$DIRTY_PACKAGES $PACKAGE"
-			fi
+			(
+			    tinx_select_package "$PACKAGE" || exit 1
+				if ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" || ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
+					DIRTY_PACKAGES="$DIRTY_PACKAGES $PACKAGE"
+				fi
+			)
 		done
 		echo "$DIRTY_PACKAGES"
 		exit 0
@@ -659,9 +663,12 @@ case "$ACTION" in
 	get-ready)
 		READY_PACKAGES=""
 		for PACKAGE in $PACKAGES_TO_DO ; do
-			if test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" && test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
-				READY_PACKAGES="$READY_PACKAGES $PACKAGE"
-			fi
+			(
+			    tinx_select_package "$PACKAGE" || exit 1
+				if test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" && test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
+					READY_PACKAGES="$READY_PACKAGES $PACKAGE"
+				fi
+			)
 		done
 		echo "$READY_PACKAGES"
 		exit 0
