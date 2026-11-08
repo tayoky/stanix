@@ -68,7 +68,7 @@ tinx_setup_environ () {
 		export TARGET="$HOST"
 		export DESTDIR="${CMDLINE_DESTDIR:-"$SYSROOT"}"
 	fi
-	tinx_tools_needed_list "$1"
+	tinx_tools_needed_list "$1" $(tinx_source_package "$1" && echo "$BUILD_DEPENDENCIES")
 	tinx_add_tools_to_path $TOOLS_NEEDED
 	BUILD_DIR="$BUILDDIR/packages/$1"
 }
@@ -136,7 +136,7 @@ tinx_tools_needed_list_recur () {
 }
 
 tinx_tools_needed_list () {
-	TOOLS_NEEDED="$(tinx_source_package "$1" && echo "$BUILD_DEPENDENCIES")" || return 1
+	TOOLS_NEEDED="" || return 1
 	VISITING=""
 	VISITED=""
 
