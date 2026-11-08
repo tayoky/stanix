@@ -31,9 +31,9 @@ jobs:
           ./build/build-env
           ./build/packages/*/.tinx-*
           ./build/tinx-cache
-        key: tinx-cache-v2-${{ github.ref_name }}-${{ github.sha }}
+        key: tinx-cache-v3-${{ github.ref_name }}-${{ github.sha }}
         restore-keys: |
-          tinx-cache-v2-${{ github.ref_name }}-
+          tinx-cache-v3-${{ github.ref_name }}-
 
     - name: Select packages
       id: select-packages
@@ -80,4 +80,4 @@ jobs:
           ./build/build-env
           ./build/packages/*/.tinx-*
           ./build/tinx-cache
-        key: tinx-cache-v2-${{ github.ref_name }}-${{ github.sha }}
+        key: tinx-cache-v3-${{ github.ref_name }}-${{ github.sha }}

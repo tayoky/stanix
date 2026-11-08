@@ -71,7 +71,7 @@ tinx_setup_environ () {
 	fi
 	tinx_tools_needed_list "$1" $(tinx_source_package "$1" && echo "$BUILD_DEPENDENCIES")
 	tinx_add_tools_to_path $TOOLS_NEEDED
-	BUILD_DIR="$BUILDDIR/packages/$1"
+	BUILD_DIR="$BUILDDIR/$1"
 }
 
 tinx_build_dependencies_list_recur () {
