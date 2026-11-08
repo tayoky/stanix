@@ -305,7 +305,7 @@ int core_dump(siginfo_t *siginfo) {
 	// TODO : make the path configurable
 	char name[PATH_MAX];
 	snprintf(name, sizeof(name), "core.%ld", get_current_proc()->pid);
-	vfs_fd_t *fd = vfs_open(name, O_CREAT, 0600);
+	vfs_fd_t *fd = vfs_open(name, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	if (IS_ERR(fd)) return PTR2ERR(fd);
 
 	int ret = core_write(fd, siginfo);
