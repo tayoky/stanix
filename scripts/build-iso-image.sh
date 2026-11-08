@@ -2,7 +2,8 @@
 # build an iso image from a sysroot
 
 set -e
-LIMINE_DIR="$BUILD_PREFIX/share/limine"
+PATH="$("$TINX" get-path tool-limine-binaries)"
+LIMINE_DIR="$BUILD_PREFIX/tool-limine-binaries/share/limine"
 IMAGE_DIR="$BUILDDIR/images"
 ISO_IMAGE="$IMAGE_DIR/stanix.iso"
 mkdir -p "$IMAGE_DIR"

@@ -1,6 +1,6 @@
 # helper script to build meson packages
 # TODO : add meson as dependency ???
-BUILD_DEPENDENCIES="$BUILD_DEPENDENCIES cross-files pkgconf"
+BUILD_DEPENDENCIES="$BUILD_DEPENDENCIES tool-cross-files tool-pkgconf"
 
 meson_configure () {
 	meson setup "$SOURCE_DIR" --prefix="$PREFIX" --buildtype=release --cross-file="$BUILD_PREFIX/lib/cross-files/$HOST.meson" "$@"

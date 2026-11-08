@@ -1,7 +1,7 @@
 VERSION="0.7.0"
 SOURCE="tutils"
-BUILD_DEPENDENCIES="stanix-toolchain"
 DEPENDENCIES="tlibc"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/tconf-package.sh"
 PREFIX="/usr"
 

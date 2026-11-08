@@ -1,5 +1,6 @@
 VERSION="3.8.8"
 SOURCE="libarchive"
 DEPENDENCIES="zlib libzstd"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/cmake-package.sh"
 WEBSITE="https://www.libarchive.org/"

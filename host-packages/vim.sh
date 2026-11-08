@@ -1,6 +1,7 @@
 VERSION="9.2.1302"
 SOURCE="vim"
 DEPENDENCIES="ncurses"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 WEBSITE="https://www.vim.org"
 
 configure () {

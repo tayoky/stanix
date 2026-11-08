@@ -1,4 +1,4 @@
-BUILD_DEPENDENCIES="pkgconf"
+DEPENDENCIES="tool-pkgconf"
 
 configure () {
 	true

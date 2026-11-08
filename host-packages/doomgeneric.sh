@@ -1,5 +1,6 @@
 SOURCE="doomgeneric"
 DEPENDENCIES="stanix-base"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 
 configure () {
 	true

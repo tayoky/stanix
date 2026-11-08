@@ -1,5 +1,6 @@
 SOURCE="infones"
 DEPENDENCIES="sdl12-compat"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/cmake-package.sh"
 
 configure () {

@@ -1,5 +1,6 @@
 VERSION="0.4.2"
 SOURCE="libzstd"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 DEPENDENCIES="stanix-base"
 
 configure () {

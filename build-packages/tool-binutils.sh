@@ -1,6 +1,6 @@
-VERSION=2.44
-SOURCE=binutils
-BUILD_DEPENDENCIES="autoconf automake"
+VERSION="2.44"
+SOURCE="binutils"
+BUILD_DEPENDENCIES="tool-autoconf tool-automake"
 
 configure () {
 	"$SOURCE_DIR"/configure --target="$TARGET" --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror --enable-shared

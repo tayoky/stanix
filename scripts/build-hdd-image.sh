@@ -2,6 +2,7 @@
 # build an hdd image from a sysroot
 
 set -e
+PATH="$("$TINX" get-path tool-limine-binaries)"
 IMAGE_DIR="$BUILDDIR/images"
 HDD_IMAGE="$IMAGE_DIR/stanix.hdd"
 mkdir -p "$IMAGE_DIR"

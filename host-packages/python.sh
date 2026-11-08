@@ -1,7 +1,7 @@
 VERSION="3.14.7"
 SOURCE="python"
-BUILD_DEPENDENCIES="python"
 DEPENDENCIES="stanix-base libffi zlib libzstd"
+BUILD_DEPENDENCIES="tool-python"
 . "$TOP/scripts/gnu-package.sh"
 WEBSITE="https://www.python.org/"
 

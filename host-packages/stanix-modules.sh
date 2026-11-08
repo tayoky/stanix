@@ -1,6 +1,6 @@
 SOURCE="stanix-modules"
-BUILD_DEPENDENCIES="stanix-toolchain"
 DEPENDENCIES="stanix-kernel"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/stanix-package.sh"
 
 install () {

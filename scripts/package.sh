@@ -3,7 +3,7 @@
 set -e
 PACKAGES_DIR="$BUILDDIR/packages"
 
-# first,install every package to sysroot
+# first, install every package to sysroot
 "$TINX" install "$@"
 
 for PACKAGE in "$@" ; do

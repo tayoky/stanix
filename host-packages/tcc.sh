@@ -1,5 +1,6 @@
 SOURCE="tcc"
 DEPENDENCIES="stanix-base"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 WEBSITE="https://bellard.org/tcc/"
 
 configure () {

@@ -1,6 +1,7 @@
 VERSION="2.44"
 SOURCE="binutils"
 DEPENDENCIES="stanix-base"
+BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-stanix-toolchain"
 . "$TOP/scripts/gnu-package.sh"
 WEBSITE="https://www.gnu.org/software/binutils/"
 

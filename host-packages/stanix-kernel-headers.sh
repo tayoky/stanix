@@ -1,6 +1,6 @@
 SOURCE="stanix-kernel"
-BUILD_DEPENDENCIES="stanix-toolchain"
 DEPENDENCIES="tlibc limine-files"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/stanix-package.sh"
 
 configure () {

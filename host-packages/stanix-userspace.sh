@@ -1,4 +1,4 @@
 SOURCE="stanix-userspace"
-BUILD_DEPENDENCIES="stanix-toolchain limine-binaries"
 DEPENDENCIES="tlibc stanix-libraries stanix-modules"
+BUILD_DEPENDENCIES="tool-stanix-toolchain tool-limine-binaries"
 . "$TOP/scripts/stanix-package.sh"

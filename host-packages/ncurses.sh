@@ -1,6 +1,7 @@
 VERSION="6.5"
 SOURCE="ncurses"
 DEPENDENCIES="stanix-base"
+BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-libtool tool-stanix-toolchain"
 . "$TOP/scripts/gnu-package.sh"
 WEBSITE="https://invisible-island.net/ncurses"
 

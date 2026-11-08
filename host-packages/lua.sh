@@ -1,6 +1,7 @@
 VERSION="5.5.1"
 SOURCE="lua"
 DEPENDENCIES="stanix-base"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 
 configure () {
 	true

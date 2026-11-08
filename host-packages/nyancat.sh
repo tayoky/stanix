@@ -1,6 +1,7 @@
 VERSION="1.5.2"
 SOURCE="nyancat"
 DEPENDENCIES="stanix-base"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 
 configure () {
     true

@@ -1,6 +1,7 @@
 VERSION="25.0.7"
 SOURCE="mesa"
-DEPENDENCIES="zlib libstdxx"
+DEPENDENCIES="zlib libstdcxx"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/meson-package.sh"
 WEBSITE="https://mesa3d.org"
 

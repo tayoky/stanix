@@ -1,6 +1,6 @@
 SOURCE="stanix-kernel"
-BUILD_DEPENDENCIES="stanix-toolchain"
 DEPENDENCIES="tlibc stanix-kernel-headers stanix-libraries"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/stanix-package.sh"
 
 build () {

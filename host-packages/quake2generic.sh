@@ -1,5 +1,6 @@
 SOURCE="quake2generic"
 DEPENDENCIES="stanix-base"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 
 build () {
 	make -C "$SOURCE_DIR" CC="$HOST-gcc" -f Makefile-stanix -j"$PARALLELISM" BUILDDIR="$BUILD_DIR"

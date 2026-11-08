@@ -1,6 +1,7 @@
 VERSION="1.2.76"
 SOURCE="sdl12-compat"
 DEPENDENCIES="sdl2-compat"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/cmake-package.sh"
 WEBSITE="https://libsdl.org/"
 

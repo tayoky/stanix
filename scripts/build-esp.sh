@@ -2,7 +2,7 @@
 # script to build the EFI System Partition (ESP)
 
 set -e
-LIMINE_DIR="$BUILD_PREFIX/share/limine"
+LIMINE_DIR="$BUILD_PREFIX/tool-limine-binaries/share/limine"
 ESP_ROOT="$BUILDDIR/esp"
 
 

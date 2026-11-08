@@ -1,5 +1,6 @@
 VERSION="12.2.0"
-BUILD_DEPENDENCIES="libgcc"
+DEPENDENCIES="tlibc"
+BUILD_DEPENDENCIES="tool-libgcc"
 
 PREFIX="/usr"
 

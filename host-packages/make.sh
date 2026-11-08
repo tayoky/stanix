@@ -1,6 +1,7 @@
 VERSION="4.4.1"
 SOURCE="make"
 DEPENDENCIES="stanix-base"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/gnu-package.sh"
 WEBSITE="https://www.gnu.org/software/make"
 

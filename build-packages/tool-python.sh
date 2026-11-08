@@ -1,6 +1,6 @@
 VERSION="3.14.7"
 SOURCE="python"
-BUILD_DEPENDENCIES="pkgconf"
+BUILD_DEPENDENCIES="tool-pkgconf"
 WEBSITE="https://www.python.org/"
 
 configure () {

@@ -1,5 +1,5 @@
 SOURCE="tgui-apps"
-BUILD_DEPENDENCIES="stanix-toolchain"
 DEPENDENCIES="stanix-libraries"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/tconf-package.sh"
 PREFIX="/usr"

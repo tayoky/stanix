@@ -1,4 +1,4 @@
-BUILD_DEPENDENCIES="limine-binaries"
+BUILD_DEPENDENCIES="tool-limine-binaries"
 PREFIX="/usr"
 
 configure () {

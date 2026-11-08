@@ -2,6 +2,7 @@ VERSION="8.1.2"
 SOURCE="ffmpeg"
 WEBSITE="https://www.ffmpeg.org/"
 DEPENDENCIES="sdl2-compat zlib"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 
 configure () {
 	# TODO : remove --disable-asm when we get posix_memalign

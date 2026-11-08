@@ -1,6 +1,7 @@
 VERSION="12.2.0"
 SOURCE="gcc"
 DEPENDENCIES="libgmp libmpfr libmpc binutils"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/gnu-package.sh"
 WEBSITE="https://www.gnu.org/software/gcc/"
 

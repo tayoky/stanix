@@ -1,6 +1,6 @@
 VERSION="2.3.0"
 SOURCE="pkgconf"
-BUILD_DEPENDENCIES="autoconf automake libtool"
+BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-libtool"
 
 configure () {
 	"$SOURCE_DIR/configure" --prefix="$PREFIX"

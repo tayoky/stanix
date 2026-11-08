@@ -1,7 +1,7 @@
 VERSION="0.1.0"
 SOURCE="tash"
-BUILD_DEPENDENCIES="stanix-toolchain"
 DEPENDENCIES="tlibc"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/tconf-package.sh"
 PREFIX="/usr"
 

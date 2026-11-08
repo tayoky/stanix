@@ -1,6 +1,7 @@
 VERSION="2.8.2"
 SOURCE="sdl2-mixer"
 DEPENDENCIES="sdl2-compat"
+BUILD_DEPENDENCIES="tool-stanix-toolchain"
 . "$TOP/scripts/cmake-package.sh"
 WEBSITE="https://libsdl.org/"
 
