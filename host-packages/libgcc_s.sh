@@ -14,6 +14,6 @@ build () {
 
 install () {
     mkdir -p "$DESTDIR$PREFIX/lib"
-    cp "$BUILD_PREFIX/$HOST/lib/libgcc_s.so" "$DESTDIR$PREFIX/lib"
-    cp "$BUILD_PREFIX/$HOST/lib/libgcc_s.so.1" "$DESTDIR$PREFIX/lib"
+    cp "$BUILD_PREFIX/tool-gcc/$HOST/lib/libgcc_s.so" "$DESTDIR$PREFIX/lib"
+    cp "$BUILD_PREFIX/tool-gcc/$HOST/lib/libgcc_s.so.1" "$DESTDIR$PREFIX/lib"
 }
