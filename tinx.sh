@@ -303,6 +303,22 @@ tinx_unpack () {
 	return 0
 }
 
+tinx_init_git () {
+	if test "$#" != 2 ; then
+		tinx_error "usage : tinx_init_git GIT OUT"
+		return 1
+	fi
+	mkdir -p "$2"
+	git -C "$2" init -b main
+	if git -C "$2" remote get-url origin "$1" 2>/dev/null ; then
+		# reinitialize
+		git -C "$2" remote set-url origin "$1"
+	else
+		# initialize
+		git -C "$2" remote add origin "$1"
+	fi
+}
+
 tinx_clone_commit () {
 	if test "$#" != 3 ; then
 		tinx_error "usage : tinx_clone_commit GIT COMMIT OUT"
@@ -310,8 +326,7 @@ tinx_clone_commit () {
 	fi
 	tinx_log "clone $1#$2..."
 	test "$DRY_RUN" = "yes" && return 0
-	rm -fr "$3" || return 1
-	git clone --depth 1 "$1" "$3" || return 1
+	tinx_init_git "$1" "$3" || return 1
 	git -C "$3" fetch --depth=1 origin "$2" || return 1
 	git -C "$3" checkout --detach  "$2"
 }
@@ -323,8 +338,7 @@ tinx_clone_tag () {
 	fi
 	tinx_log "clone $1#$2..."
 	test "$DRY_RUN" = "yes" && return 0
-	rm -fr "$3" || return 1
-	git clone --depth 1 "$1" "$3" || return 1
+	tinx_init_git "$1" "$3" || return 1
 	git -C "$3" fetch --depth=1 origin refs/tags/"$2":refs/tags/"$2" || return 1
 	git -C "$3" checkout --detach "$2"
 }
