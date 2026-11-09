@@ -658,7 +658,7 @@ case "$ACTION" in
 		done
 		
 		for PACKAGE in $PACKAGES_TO_DO ; do
-			if ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" || ! test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
+			if ! test -f "$BUILDDIR/$PACKAGE/.tinx-built" || ! test -f "$BUILDDIR/$PACKAGE/.tinx-installed" ; then
 				DIRTY_PACKAGES="$DIRTY_PACKAGES $PACKAGE"
 			fi
 		done
@@ -672,7 +672,7 @@ case "$ACTION" in
 		done
 
 		for PACKAGE in $PACKAGES_TO_DO ; do
-			if test -f "$BUILDDIR/packages/$PACKAGE/.tinx-built" && test -f "$BUILDDIR/packages/$PACKAGE/.tinx-installed" ; then
+			if test -f "$BUILDDIR/$PACKAGE/.tinx-built" && test -f "$BUILDDIR/$PACKAGE/.tinx-installed" ; then
 				READY_PACKAGES="$READY_PACKAGES $PACKAGE"
 			fi
 		done
