@@ -161,7 +161,7 @@ static int serial_probe(devnode_t *devnode) {
 		goto error;
 	}
 
-	ret = tty_register(&serial->tty, "ttyS%d", 0);
+	ret = tty_register(&serial->tty, "ttyS%d", devnode->unit);
 	if (ret < 0) goto error;
 
 	return 0;
