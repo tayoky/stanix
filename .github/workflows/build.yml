@@ -7,8 +7,12 @@ on:
       - dev
   # TODO : run on pull requests ??
 
+defaults:
+  run:
+    shell: bash
+
 env:
-  MAIN_PACKAGES: stanix-base make nasm tcc libstdcxx zlib libgmp libmpfr
+  MAIN_PACKAGES: stanix-base make nasm tcc libstdcxx zlib binutils libmpc
 
 jobs:
   build:
