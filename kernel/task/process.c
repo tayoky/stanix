@@ -221,7 +221,7 @@ void proc_exit(int status) {
 
 void proc_sigexit(int signum) {
 	kdebugf("proc killed by signal %d\n", signum);
-	proc_exit((1U << 17) | signum);
+	proc_exit(W_EXITCODE(0, signum));
 }
 
 static void alert_parent(process_t *proc) {

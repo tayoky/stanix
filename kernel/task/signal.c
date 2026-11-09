@@ -7,6 +7,7 @@
 #include <kernel/slab.h>
 #include <kernel/config.h>
 #include <kernel/core.h>
+#include <abi/wait.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdatomic.h>
@@ -27,32 +28,31 @@ static const char default_handling[] = {
 	[SIGILL]    = CORE,
 	[SIGTRAP]   = CORE,
 	[SIGABRT]   = CORE,
-	[SIGCAT]    = IGN,
+	[SIGBUS]    = CORE,
 	[SIGFPE]    = CORE,
 	[SIGKILL]   = KILL,
-	[SIGBUS]    = CORE,
+	[SIGUSR1]   = IGN,
 	[SIGSEGV]   = CORE,
-	[SIGSYS]    = CORE,
+	[SIGUSR2]   = IGN,
 	[SIGPIPE]   = KILL,
 	[SIGALRM]   = KILL,
 	[SIGTERM]   = KILL,
-	[SIGURG]    = IGN,
+	[SIGSTKFLT] = KILL,
+	[SIGCHLD]   = IGN,
+	[SIGCONT]   = CONT,
 	[SIGSTOP]   = STOP,
 	[SIGTSTP]   = STOP,
-	[SIGCONT]   = CONT,
-	[SIGCHLD]   = IGN,
 	[SIGTTIN]   = STOP,
 	[SIGTTOU]   = STOP,
-	[SIGPOLL]   = KILL,
+	[SIGURG]    = IGN,
 	[SIGXCPU]   = CORE,
 	[SIGXFSZ]   = CORE,
 	[SIGVTALRM] = KILL,
 	[SIGPROF]   = KILL,
 	[SIGWINCH]  = IGN,
-	[SIGINFO]   = IGN,
-	[SIGUSR1]   = IGN,
-	[SIGUSR2]   = IGN,
+	[SIGIO]     = KILL,
 	[SIGTHR]    = IGN,
+	[SIGSYS]    = CORE,
 };
 
 void init_signal(void) {
@@ -63,12 +63,6 @@ static signal_pending_t *signal_create_pending(siginfo_t *siginfo) {
 	signal_pending_t *signal_pending = slab_alloc(&signal_pendings_slab);
 	if (!signal_pending) return NULL;
 	signal_pending->siginfo = *siginfo;
-	if (!signal_pending->siginfo.si_pid) {
-		process_t *current_proc = get_current_proc();
-		kassert(current_proc);
-		signal_pending->siginfo.si_pid = current_proc->pid;
-		signal_pending->siginfo.si_uid = get_current_uid();
-	}
 	return signal_pending;
 }
 
@@ -297,9 +291,9 @@ static void handle_default(siginfo_t *siginfo) {
 	case CORE:
 #ifdef ENABLE_CORE_DUMP
 		core_dump(siginfo);
-#endif
-		proc_sigexit(siginfo->si_signo);
+		proc_exit(WCOREFLAG | W_EXITCODE(0, siginfo->si_signo));
 		break;
+#endif
 	case KILL:
 		proc_sigexit(siginfo->si_signo);
 		break;

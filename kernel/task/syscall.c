@@ -115,7 +115,7 @@ ssize_t sys_read(int fd, void *buffer, size_t count) {
 void sys_exit(int error_code) {
 	// set that we exited normally
 	kdebugf("exit with code : %ld\n", error_code);
-	proc_exit((1UL << 16) | error_code);
+	proc_exit(W_EXITCODE(error_code, 0));
 }
 
 int sys_dup(int oldfd) {
