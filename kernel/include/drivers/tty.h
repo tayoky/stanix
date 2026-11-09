@@ -54,6 +54,7 @@ struct pty_slave {
 	pty_t *pty;
 };
 
+void tty_raw_set_session(tty_t *tty, session_t *session) ATTR_REQUIRE(&proctree_lock) ATTR_REQUIRE(&tty->lock);
 int tty_raw_add_input(tty_t *tty, const char *buffer, size_t count);
 int tty_add_input(tty_t *tty, const char *buffer, size_t count);
 int tty_do_ioctl(tty_t *fd, long request, void *arg);

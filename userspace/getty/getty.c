@@ -6,6 +6,7 @@
 #include <syslog.h>
 #include <libini.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 
 const char *autologin;
 int noreset = 0;
@@ -190,6 +191,8 @@ int main(int argc, char **argv) {
 	}
 
 	// setup process group
+	int steal = 0;
+	ioctl(STDOUT_FILENO, TIOCSCTTY, &steal);
 	tcsetpgrp(STDOUT_FILENO, getpgid(0));
 
 	setenv("TERM", term, 1);

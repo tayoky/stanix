@@ -1,5 +1,6 @@
 #include <kernel/process.h>
 #include <kernel/slab.h>
+#include <kernel/tty.h>
 #include <kernel/xarray.h>
 #include <abi/wait.h>
 
@@ -252,6 +253,22 @@ void do_proc_deletion(void) {
 		if (proc_get_state(child) == PROC_STATE_ZOMBIE) alert_parent(child);
 	}
 	list_destroy(&proc->child);
+	
+
+	
+	// are we the session leader
+	if (proc->group->session->leader == proc) {
+		session_t *session = proc->group->session;
+		if (session->tty) {
+			// drop the tty
+			tty_t *tty = tty_ref(session->tty);
+			int irq_save = spinlock_acquire_irq(&tty->lock);
+			tty_raw_set_session(tty, NULL);
+			spinlock_release_irq(&tty->lock, irq_save);
+			tty_release(tty);
+		}
+		session->leader = NULL;
+	}
 	
 	// release session / group / cred
 	spinlock_acquire(&proc->proc_lock);
