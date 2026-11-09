@@ -1,0 +1,26 @@
+diff --git a/lib/fseeko.c b/lib/fseeko.c
+index f6cd7cb..12ff837 100644
+--- a/lib/fseeko.c
++++ b/lib/fseeko.c
+@@ -104,7 +104,7 @@ fseeko (FILE *fp, off_t offset, int whence)
+ #elif defined EPLAN9                /* Plan9 */
+   if (fp->rp == fp->buf
+       && fp->wp == fp->buf)
+-#elif defined __OpenBSD__ && !defined __sferror /* OpenBSD >= 7.8 */
++#elif( defined __OpenBSD__ && !defined __sferror) || defined __stanix__ /* OpenBSD >= 7.8, Stanix */
+   /* fseeko and fflush work as advertised.  */
+   if (0)
+ #elif FUNC_FFLUSH_STDIN < 0 && 200809 <= _POSIX_VERSION
+diff --git a/lib/localename-unsafe.c b/lib/localename-unsafe.c
+index 12748cb..c0a4ad6 100644
+--- a/lib/localename-unsafe.c
++++ b/lib/localename-unsafe.c
+@@ -2742,7 +2742,7 @@ gl_locale_name_thread_unsafe (int category, _GL_UNUSED const char *categoryname)
+      - native Windows (because it has locale names such as French_France.1252),
+      - Android (because it only supports the C and C.UTF-8 locales).
+  */
+-#if defined _LIBC || ((defined __GLIBC__ && __GLIBC__ >= 2) && !defined __UCLIBC__) || MUSL_LIBC || defined __FreeBSD__ || defined __NetBSD__ || defined __sun || defined __HAIKU__
++#if defined _LIBC || ((defined __GLIBC__ && __GLIBC__ >= 2) && !defined __UCLIBC__) || MUSL_LIBC || defined __FreeBSD__ || defined __NetBSD__ || defined __sun || defined __HAIKU__ || defined __stanix__
+ # define HAVE_LOCALE_NULL
+ #endif
+ 
