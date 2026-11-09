@@ -283,6 +283,9 @@ int main(int argc, const char **argv) {
 		dup2(slave, STDIN_FILENO);
 		dup2(slave, STDOUT_FILENO);
 		dup2(slave, STDERR_FILENO);
+		int steal = 0;
+		setsid();
+		ioctl(slave, TIOCSCTTY, &steal);
 		close(master);
 		close(slave);
 

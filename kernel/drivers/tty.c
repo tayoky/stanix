@@ -422,8 +422,14 @@ static void tty_destroy(device_t *device) {
 	spinlock_release_irq(&tty->lock, irq_save);
 
 	process_group_release(old_group);
+}
 
+static void tty_cleanup(device_t *device) {
+	tty_t *tty = (tty_t *)device;
+	
+	int irq_save = spinlock_acquire_irq(&tty->lock);
 	ringbuffer_destroy(&tty->input_buffer);
+	spinlock_release_irq(&tty->lock, irq_save);
 	
 	if (tty->ops->cleanup) tty->ops->cleanup(tty);
 }
@@ -594,6 +600,7 @@ int tty_register(tty_t *tty, const char *fmt, dev_t number) {
 	tty->device.type    = DEVICE_CHAR;
 	tty->device.ops     = &tty_ops;
 	tty->device.destroy = tty_destroy;
+	tty->device.cleanup = tty_cleanup;
 
 	ret = device_register(&tty->device, fmt, number);
 	if (ret < 0) {
