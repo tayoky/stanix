@@ -286,11 +286,12 @@ sigset_t signal_get_unhandled_mask(void) {
 	return signal_get_pending_mask() & ~get_current_task()->sig_mask;
 }
 
-static void handle_default(siginfo_t *siginfo) {
+static void handle_default(registers_t *registers, siginfo_t *siginfo) {
+	(void)registers;
 	switch (default_handling[siginfo->si_signo]) {
 	case CORE:
 #ifdef ENABLE_CORE_DUMP
-		core_dump(siginfo);
+		core_dump(registers, siginfo);
 		proc_exit(WCOREFLAG | W_EXITCODE(0, siginfo->si_signo));
 		break;
 #endif
@@ -328,7 +329,7 @@ static void signal_handle_siginfo(siginfo_t *siginfo, registers_t *registers) {
 	if (handler.sa_handler == SIG_IGN) {
 		return;
 	} else if (handler.sa_handler == SIG_DFL) {
-		handle_default(siginfo);
+		handle_default(registers, siginfo);
 		return;
 	} else {
 		// TODO : move this to arch specific

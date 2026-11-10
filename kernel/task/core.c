@@ -9,6 +9,50 @@
 
 // core dump
 
+#ifdef __x86_64__
+#define ELF_NGREG 27
+#elif defined(__i386__)
+#define ELF_NGREG 17
+#elif defined(__aarch64__)
+#define ELF_NGREG 34
+#else
+#error "unknown ELF_NGREG for current arch"
+#endif
+
+
+// elf definitions taken from linux
+typedef unsigned long elf_greg_t;
+typedef elf_greg_t elf_gregset_t[ELF_NGREG];
+
+typedef struct elf_siginfo {
+  int si_signo;
+  int si_code;
+  int si_errno;
+} elf_siginfo_t;
+
+typedef int linux_pid_t;
+typedef struct linux_old_timeval {
+	long tv_sec;
+	long tv_usec;
+} linux_old_timeval_t;
+
+typedef struct elf_prstatus {
+	elf_siginfo_t pr_info;	/* Info associated with signal */
+	short	pr_cursig;		/* Current signal */
+	unsigned long pr_sigpend;	/* Set of pending signals */
+	unsigned long pr_sighold;	/* Set of held signals */
+	linux_pid_t pr_pid;
+	linux_pid_t pr_ppid;
+	linux_pid_t pr_pgrp;
+	linux_pid_t pr_sid;
+	linux_old_timeval_t pr_utime;	/* User time */
+	linux_old_timeval_t pr_stime;	/* System time */
+	linux_old_timeval_t pr_cutime;	/* Cumulative user time */
+	linux_old_timeval_t pr_cstime;	/* Cumulative system time */
+	elf_gregset_t pr_reg;	/* GP registers */
+	int pr_fpvalid;		/* True if math co-processor being used.  */
+} elf_prstatus_t;
+
 typedef struct note {
 	size_t size;
 	const char *name;
@@ -123,7 +167,67 @@ static int core_fill_files_note(note_t *note, size_t segs_count) {
 	return 0;
 }
 
-static int core_raw_write(vfs_fd_t *fd, siginfo_t *siginfo, vmm_space_t *space) {
+static int core_fill_prstatus_note(note_t *note, registers_t *registers, siginfo_t *siginfo) {
+	elf_prstatus_t *prstatus = kmalloc(sizeof(elf_prstatus_t));
+	if (!prstatus) return -ENOMEM;
+	memset(prstatus, 0, sizeof(elf_prstatus_t));
+
+	prstatus->pr_info.si_signo = siginfo->si_signo;
+	prstatus->pr_info.si_code  = siginfo->si_code;
+	prstatus->pr_cursig        = siginfo->si_signo;
+	prstatus->pr_sigpend       = signal_get_pending_mask();
+	prstatus->pr_sighold       = signal_get_unhandled_mask();
+
+	spinlock_acquire(&get_current_proc()->proc_lock);
+	prstatus->pr_pid  = get_current_proc()->pid;
+	prstatus->pr_ppid = get_current_proc()->parent->pid;
+	prstatus->pr_pgrp = get_current_proc()->group->pgid;
+	prstatus->pr_sid  = get_current_proc()->group->session->sid;
+	spinlock_release(&get_current_proc()->proc_lock);
+
+	// TODO : move this to arch specific
+#ifdef __x86_64__
+	prstatus->pr_reg[0]  = registers->r15;
+	prstatus->pr_reg[1]  = registers->r14;
+	prstatus->pr_reg[2]  = registers->r13;
+	prstatus->pr_reg[3]  = registers->r12;
+	prstatus->pr_reg[4]  = registers->rbp;
+	prstatus->pr_reg[5]  = registers->rbx;
+	prstatus->pr_reg[6]  = registers->r11;
+	prstatus->pr_reg[7]  = registers->r10;
+	prstatus->pr_reg[8]  = registers->r9;
+	prstatus->pr_reg[9]  = registers->r8;
+	prstatus->pr_reg[10] = registers->rax;
+	prstatus->pr_reg[11] = registers->rcx;
+	prstatus->pr_reg[12] = registers->rdx;
+	prstatus->pr_reg[13] = registers->rsi;
+	prstatus->pr_reg[14] = registers->rdi;
+	prstatus->pr_reg[15] = -1;
+	prstatus->pr_reg[16] = registers->rip;
+	prstatus->pr_reg[17] = registers->cs;
+	prstatus->pr_reg[18] = registers->flags;
+	prstatus->pr_reg[19] = registers->rsp;
+	prstatus->pr_reg[20] = registers->ss;
+	prstatus->pr_reg[21] = 0; // fs_base
+	prstatus->pr_reg[22] = 0; // gs_base
+	prstatus->pr_reg[23] = registers->ds;
+	prstatus->pr_reg[24] = registers->es;
+	prstatus->pr_reg[25] = registers->fs;
+	prstatus->pr_reg[26] = registers->gs;
+#else
+#warning "unknown elf_gregset_t layout for the current arch"
+#endif
+
+	prstatus->pr_fpvalid = atomic_load(&get_current_task()->flags) & TASK_FLAG_FPU;
+
+	note->name = "CORE";
+	note->type = NT_PRSTATUS;
+	note->size = sizeof(elf_prstatus_t);
+	note->data = prstatus;
+	return 0;
+}
+
+static int core_raw_write(vfs_fd_t *fd, registers_t *registers, siginfo_t *siginfo, vmm_space_t *space) {
 	// first pass, count segments
 	size_t segs_count = 0;
 	avltree_foreach (node, &space->segs) {
@@ -164,6 +268,10 @@ static int core_raw_write(vfs_fd_t *fd, siginfo_t *siginfo, vmm_space_t *space) 
 	note_t files_note;
 	ret = core_fill_files_note(&files_note, segs_count);
 	if (ret < 0) return ret;
+
+	note_t prstatus_note;
+	ret = core_fill_prstatus_note(&prstatus_note, registers, siginfo);
+	if (ret < 0) goto free_files_note;
 	
 	static const char strtab[] = "\0.shstrtab\0note0\0load";
 #define CORE_NAME_SHSTRTAB 1
@@ -171,7 +279,7 @@ static int core_raw_write(vfs_fd_t *fd, siginfo_t *siginfo, vmm_space_t *space) 
 #define CORE_NAME_LOAD     CORE_NAME_NOTE0 + 6
 	off_t strtab_offset = sizeof(header) + phdrs_count * sizeof(Elf_Phdr) + sections_count * sizeof(Elf_Shdr);
 	off_t note_offset = strtab_offset + sizeof(strtab);
-	size_t note_size = core_note_size(&files_note);
+	size_t note_size = core_note_size(&files_note) + core_note_size(&prstatus_note);
 	off_t seg_data_offset = note_offset + note_size;
 
 
@@ -185,6 +293,8 @@ static int core_raw_write(vfs_fd_t *fd, siginfo_t *siginfo, vmm_space_t *space) 
 	ret = core_write_exact(fd, &note_phdr, sizeof(note_phdr));
 	if (ret < 0) {
 free_notes:
+		core_free_note(&prstatus_note);
+free_files_note:
 		core_free_note(&files_note);
 		return ret;
 	}
@@ -281,7 +391,10 @@ free_notes:
 	// write notes
 	ret = core_write_note(fd, &files_note);
 	if (ret < 0) goto free_notes;
+	ret = core_write_note(fd, &prstatus_note);
+	if (ret < 0) goto free_notes;
 	core_free_note(&files_note);
+	core_free_note(&prstatus_note);
 	
 	// write segment data
 	avltree_foreach (node, &space->segs) {
@@ -293,22 +406,22 @@ free_notes:
 	return 0;
 }
 
-int core_write(vfs_fd_t *fd, siginfo_t *siginfo) {
+int core_write(vfs_fd_t *fd, registers_t *registers, siginfo_t *siginfo) {
 	vmm_space_t *space = vmm_get_current_space();
 	rwsem_acquire_read(&space->lock);
-	int ret = core_raw_write(fd, siginfo, space);
+	int ret = core_raw_write(fd, registers, siginfo, space);
 	rwsem_release_read(&space->lock);
 	return ret;
 }
 
-int core_dump(siginfo_t *siginfo) {
+int core_dump(registers_t *registers, siginfo_t *siginfo) {
 	// TODO : make the path configurable
 	char name[PATH_MAX];
 	snprintf(name, sizeof(name), "core.%ld", get_current_proc()->pid);
 	vfs_fd_t *fd = vfs_open(name, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	if (IS_ERR(fd)) return PTR2ERR(fd);
 
-	int ret = core_write(fd, siginfo);
+	int ret = core_write(fd, registers, siginfo);
 
 	vfs_close(fd);
 	return ret;
