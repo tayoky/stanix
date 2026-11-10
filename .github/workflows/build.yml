@@ -12,7 +12,7 @@ defaults:
     shell: bash
 
 env:
-  MAIN_PACKAGES: stanix-base make nasm tcc libstdcxx zlib binutils libmpc
+  MAIN_PACKAGES: stanix-base libstdcxx zlib libmpc stanix-dev
 
 jobs:
   build:

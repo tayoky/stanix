@@ -747,5 +747,5 @@ for PACKAGE in $PACKAGES_TO_DO ; do
 				exit 1
 				;;
 		esac
-	)
+	) || exit 1
 done
