@@ -1,11 +1,11 @@
 #include <kernel/bootinfo.h>
-#include <kernel/kernel.h>
 #include <kernel/mmu.h>
 #include <kernel/paging.h>
 #include <kernel/pmm.h>
 #include <kernel/rcu.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
+#include <errno.h>
 
 extern uint64_t p_kernel_start[];
 extern uint64_t p_kernel_end[];
@@ -539,7 +539,7 @@ void mmu_map_hhdm(mmu_space_t PML4) {
 
 		// map all the whole region
 		long flags = MMU_FLAG_READ | MMU_FLAG_WRITE | MMU_FLAG_PRESENT | MMU_FLAG_GLOBAL;
-		if (entry.type == LIMINE_MEMMAP_FRAMEBUFFER) {
+		if (entry.type == MEMMAP_FRAMEBUFFER) {
 			flags |= MMU_FLAG_WRITE_COMBINE;
 		}
 		uintptr_t phys_page = PAGE_ALIGN_DOWN(entry.start);

@@ -2,8 +2,9 @@
 #define KERNEL_H
 #include <stdint.h>
 #include <sys/time.h>
-#include <kernel/limine.h>
 #include <kernel/vfs.h>
+
+// TODO : get rid of this header
 
 typedef struct kernel_table_struct{
 	vfs_fd_t **outs;
