@@ -680,8 +680,7 @@ case "$ACTION" in
 		exit 0
 		;;
 	get-path)
-		tinx_tools_needed_list $CMDLINE_PACKAGES || exit 1
-		tinx_add_tools_to_path $TOOLS_NEEDED
+		tinx_add_tools_to_path $CMDLINE_PACKAGES
 		echo "$PATH"
 		exit
 		;;
