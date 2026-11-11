@@ -23,7 +23,7 @@
 
 // enable the printing of debug info on userspace segfault
 // this is unsafe and introduce a security vulnerability
-#define ENABLE_USER_SEGFAULT_DEBUG
+//#define ENABLE_USER_SEGFAULT_DEBUG
 
 // currently core dump cannot be configured at runtime
 // so this option enable core dump
