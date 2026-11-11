@@ -347,6 +347,7 @@ static int vmm_has_perm(vfs_fd_t *fd, long prot, int flags) {
 }
 
 static vmm_seg_t *vmm_space_raw_create_seg(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags) {
+	rwsem_assert_write_acquired(&space->lock);
 	int ret = 0;
 	vmm_seg_t *new_seg = slab_alloc(&vmm_seg_slab);
 	if (!new_seg) return ERR2PTR(-ENOMEM);
@@ -390,6 +391,8 @@ error:
 }
 
 static vmm_seg_t *vmm_space_raw_map(vmm_space_t *space, uintptr_t address, size_t size, long prot, int flags, vfs_fd_t *fd, off_t offset) {
+	rwsem_assert_write_acquired(&space->lock);
+
 	// we need size to be aligned
 	size = PAGE_ALIGN_UP(size);
 		
@@ -581,6 +584,7 @@ void vmm_space_unmap(vmm_space_t *space, vmm_seg_t *seg) {
 }
 
 static int vmm_space_raw_unmap_range(vmm_space_t *space, uintptr_t start, uintptr_t end) {
+	rwsem_assert_write_acquired(&space->lock);
 	kassert(start % PAGE_SIZE == 0);
 	kassert(end % PAGE_SIZE == 0);
 
@@ -698,7 +702,7 @@ static int vmm_clone_seg(vmm_space_t *parent, vmm_space_t *child, vmm_seg_t *seg
 				mmu_unmap_and_release_pages(child->addrspace, seg->start, vaddr - seg->start);
 			}
 			mutex_release(&seg->lock);
-			slab_free(seg);
+			slab_free(new_seg);
 			return -ENOMEM;
 		}
 		mmu_entry_map(child->addrspace, child_entry, page, prot);
