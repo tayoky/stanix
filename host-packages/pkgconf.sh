@@ -1,7 +1,7 @@
 VERSION="2.3.0"
 SOURCE="pkgconf"
 DEPENDENCIES="stanix-base"
-BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-libtool"
+BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-libtool tool-stanix-toolchain"
 . "$TOP/scripts/gnu-package.sh"
 
 configure () {
