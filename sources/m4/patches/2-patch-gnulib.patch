@@ -24,3 +24,27 @@ index 12748cb..c0a4ad6 100644
  # define HAVE_LOCALE_NULL
  #endif
  
+diff --git a/lib/getlocalename_l-unsafe.c b/lib/getlocalename_l-unsafe.c
+index 665e6d6..e8ccd16 100644
+--- a/lib/getlocalename_l-unsafe.c
++++ b/lib/getlocalename_l-unsafe.c
+@@ -34,7 +34,7 @@
+ #endif
+ #include "setlocale_null.h"
+ 
+-#if (__GLIBC__ >= 2 && !defined __UCLIBC__) || (defined __linux__ && HAVE_LANGINFO_H) || defined __CYGWIN__
++#if (__GLIBC__ >= 2 && !defined __UCLIBC__) || ((defined __linux__ || defined __stanix__) && HAVE_LANGINFO_H) || defined __CYGWIN__
+ # include <langinfo.h>
+ #endif
+ #if defined __sun
+@@ -465,8 +465,8 @@ getlocalename_l_unsafe (int category, locale_t locale)
+            nl_langinfo_l (_NL_LOCALE_NAME (category), locale).  */
+         name = locale->__names[category];
+       return (struct string_with_storage) { name, STORAGE_OBJECT };
+-#elif defined __linux__ && HAVE_LANGINFO_H && defined NL_LOCALE_NAME
+-      /* musl libc */
++#elif (defined __linux__ || defined __stanix__) && HAVE_LANGINFO_H && defined NL_LOCALE_NAME
++      /* musl libc, Stanix */
+       const char *name = nl_langinfo_l (NL_LOCALE_NAME (category), locale);
+       return (struct string_with_storage) { name, STORAGE_OBJECT };
+ #elif (defined __FreeBSD__ || defined __DragonFly__) || (defined __APPLE__ && defined __MACH__)
