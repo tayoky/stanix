@@ -1,5 +1,5 @@
 diff --git a/m4/libtool.m4 b/m4/libtool.m4
-index 8d323b3..95b45e5 100644
+index 8d323b3..e0ec581 100644
 --- a/m4/libtool.m4
 +++ b/m4/libtool.m4
 @@ -3111,6 +3111,17 @@ solaris*)
@@ -20,3 +20,33 @@ index 8d323b3..95b45e5 100644
  sunos4*)
    version_type=sunos
    library_names_spec='$libname$release$shared_ext$versuffix $libname$shared_ext$versuffix'
+@@ -3716,6 +3727,10 @@ serenity*)
+   lt_cv_deplibs_check_method=pass_all
+   ;;
+ 
++stanix*)
++  lt_cv_deplibs_check_method=pass_all
++  ;;
++
+ solaris*)
+   lt_cv_deplibs_check_method=pass_all
+   ;;
+@@ -4595,6 +4610,8 @@ m4_if([$1], [CXX], [
+ 	;;
+       serenity*)
+         ;;
++      stanix*)
++        ;;
+       solaris*)
+ 	case $cc_basename in
+ 	  CC* | sunCC*)
+@@ -4946,6 +4963,9 @@ m4_if([$1], [CXX], [
+     serenity*)
+       ;;
+ 
++    stanix*)
++      ;;
++
+     solaris*)
+       _LT_TAGVAR(lt_prog_compiler_pic, $1)='-KPIC'
+       _LT_TAGVAR(lt_prog_compiler_static, $1)='-Bstatic'
