@@ -105,8 +105,8 @@ tinx_build_dependencies_list () {
 	VISITING=""
 	VISITED=""
 
-	for PACKAGE in "$@" ; do
-		tinx_build_dependencies_list_recur "$PACKAGE" || return 1
+	for DEP in "$@" ; do
+		tinx_build_dependencies_list_recur "$DEP" || return 1
 	done
 }
 
@@ -142,8 +142,8 @@ tinx_tools_needed_list () {
 	VISITING=""
 	VISITED=""
 
-	for PACKAGE in "$@" ; do
-		tinx_tools_needed_list_recur "$PACKAGE" || return 1
+	for DEP in "$@" ; do
+		tinx_tools_needed_list_recur "$DEP" || return 1
 	done
 }
 
@@ -506,7 +506,7 @@ tinx_install_source () {
 	tinx_get_source "$SOURCE" || return 1
 	tinx_log "install source for $PACKAGE..."
 	mkdir -p "$DESTDIR$PREFIX/src" || return 1
-	cp -rT "$SOURCE_DIR" "$DESTDIR$PREFIX/src/$PACKAGE"
+	cp -rTf "$SOURCE_DIR" "$DESTDIR$PREFIX/src/$PACKAGE"
 }
 
 tinx_clean_build () {
