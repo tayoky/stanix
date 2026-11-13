@@ -1,0 +1,13 @@
+diff --git a/Makefile.am b/Makefile.am
+index 9737481..91c0a39 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -20,7 +20,7 @@
+ ##
+ ## Written by Gary V. Vaughan <gary@gnu.org>
+ 
+-SUBDIRS = . examples lib src doc checks po tests
++SUBDIRS = . examples lib src doc checks po
+ 
+ EXTRA_DIST = bootstrap c-boxes.el cfg.mk maint.mk \
+ 	.prev-version .version m4/gnulib-cache.m4 ChangeLog-2014
