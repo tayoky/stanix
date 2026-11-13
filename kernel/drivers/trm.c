@@ -1,3 +1,4 @@
+#include <kernel/userspace.h>
 #include <kernel/kernel.h>
 #include <kernel/paging.h>
 #include <kernel/print.h>
@@ -15,7 +16,7 @@ static uintptr_t trm_alloc(trm_gpu_t *gpu, size_t size) {
 		size += gpu->align - (size % gpu->align);
 	}
 	foreach (node, &gpu->alloc_blocks) {
-		trm_alloc_block_t *block = (trm_alloc_block_t *)block;
+		trm_alloc_block_t *block = container_of(node, trm_alloc_block_t, node);
 		if (!block->free || block->size < size) {
 			continue;
 		}
@@ -186,16 +187,16 @@ static int trm_ioctl(vfs_fd_t *fd, long req, void *arg) {
 	case TRM_GET_FRAMEBUFFER:;
 		// UNSAFE
 		trm_fb_t *fb                   = arg;
-		trm_framebuffer_t *framebuffer = trm_get_fb(gpu, fb->id);
 		if (!fb) return -EINVAL;
+		trm_framebuffer_t *framebuffer = trm_get_fb(gpu, fb->id);
+		if (!framebuffer) return -EINVAL;
 		if (fd != gpu->master && framebuffer->owner != fd) return -EPERM;
 		// TODO : add framebuffer fd to proc fd
 		return 0;
 	case TRM_GET_PLANE:;
-		// UNSAFE
 		trm_plane_t *plane = arg;
 		if (plane->id > gpu->card.planes_count) return -EINVAL;
-		memcpy(plane, &gpu->card.planes[plane->id - 1], sizeof(trm_plane_t));
+		return safe_copy_auto_to(plane, &gpu->card.planes[plane->id - 1]);
 		return 0;
 	case TRM_KMS_TEST:
 		return trm_check_mode(gpu, arg);
