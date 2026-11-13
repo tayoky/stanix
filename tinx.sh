@@ -70,7 +70,7 @@ tinx_setup_environ () {
 		export TARGET="$HOST"
 		export DESTDIR="${CMDLINE_DESTDIR:-"$SYSROOT"}"
 	fi
-	tinx_tools_needed_list "$1" $(tinx_source_package "$1" && echo "$BUILD_DEPENDENCIES")
+	tinx_tools_needed_list "$1" $(tinx_source_package "$1" && echo "$BUILD_DEPENDENCIES") || return 1
 	tinx_add_tools_to_path $TOOLS_NEEDED
 	BUILD_DIR="$BUILDDIR/$1"
 }
@@ -155,6 +155,9 @@ tinx_add_tools_to_path () {
 		fi
 		if test -d "$BUILD_PREFIX/$TOOL/share/aclocal" ; then
 			export ACLOCAL_PATH="$BUILD_PREFIX/$TOOL/share/aclocal:$ACLOCAL_PATH"
+		fi
+		if test -d "$BUILD_PREFIX/$TOOL/lib/python3.14/site-packages" ; then
+			export PYTHONPATH="$BUILD_PREFIX/$TOOL/lib/python3.14/site-packages:$PYTHONPATH"
 		fi
 	done
 }
@@ -373,7 +376,7 @@ tinx_init_git () {
 	fi
 	mkdir -p "$2"
 	git -C "$2" init -b main
-	if git -C "$2" remote get-url origin "$1" 2>/dev/null ; then
+	if git -C "$2" remote get-url origin 2>/dev/null ; then
 		# reinitialize
 		git -C "$2" remote set-url origin "$1"
 	else
@@ -564,11 +567,6 @@ for I in "$@" ; do
 			CMDLINE_REBUILD=yes
 			CMDLINE_REINSTALL=yes
 			;;
-		--reconfigure)
-			CMDLINE_RECONFIGURE=yes
-			CMDLINE_REBUILD=yes
-			CMDLINE_REINSTALL=yes
-			;;
 		--rebuild)
 			CMDLINE_REBUILD=yes
 			CMDLINE_REINSTALL=yes
@@ -646,7 +644,7 @@ case "$ACTION" in
 	get-hash)
 		(cd  "$TINX_CACHE" &&
 			for PACKAGE in $PACKAGES_TO_DO ; do
-				sha256sum "$(tinx_get_package_path)"
+				sha256sum "$(tinx_get_package_path "$PACKAGE")"
 			done
 		) | sha256sum | cut -d' ' -f1
 		exit 0

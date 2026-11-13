@@ -1,5 +1,5 @@
 VERSION="3.8.0"
 SOURCE="libffi"
 DEPENDENCIES="stanix-base"
-BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-libtool tool-libtooltool-stanix-toolchain"
+BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-libtool tool-stanix-toolchain"
 . "$TOP/scripts/gnu-package.sh"

@@ -12,7 +12,7 @@ defaults:
     shell: bash
 
 env:
-  MAIN_PACKAGES: stanix-base libstdcxx zlib libmpc stanix-dev mtools
+  MAIN_PACKAGES: stanix-base libstdcxx zlib libmpc stanix-dev mtools mesa
 
 jobs:
   build:

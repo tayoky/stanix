@@ -6,6 +6,7 @@ BUILD_DEPENDENCIES="tool-stanix-toolchain"
 WEBSITE="https://mesa3d.org"
 
 configure () {
+	# define _GNU_SOURCE to work around -std=c11 hiding localtime_r
 	CFLAGS="-Wno-error -Wno-implicit-function-declaration" \
 		meson_configure \
 		-D platforms=[] \
@@ -14,5 +15,6 @@ configure () {
 		-D valgrind=disabled \
 		-D glx=disabled \
 		-D osmesa=true \
-		-D llvm=disabled 
+		-D llvm=disabled  \
+		-Dc_args="-D_GNU_SOURCE"
 }

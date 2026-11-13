@@ -1,0 +1,13 @@
+diff --git a/src/util/u_thread.c b/src/util/u_thread.c
+index 0ea33e0..afdb187 100644
+--- a/src/util/u_thread.c
++++ b/src/util/u_thread.c
+@@ -154,7 +154,7 @@ util_set_thread_affinity(thrd_t thread,
+ int64_t
+ util_thread_get_time_nano(thrd_t thread)
+ {
+-#if defined(HAVE_PTHREAD) && !defined(__APPLE__) && !defined(__HAIKU__) && !defined(__managarm__)
++#if defined(HAVE_PTHREAD) && !defined(__APPLE__) && !defined(__HAIKU__) && !defined(__managarm__) && !defined(__stanix__)
+    struct timespec ts;
+    clockid_t cid;
+ 
