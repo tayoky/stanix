@@ -6,10 +6,10 @@
 #include <kernel/spinlock.h>
 #include <kernel/string.h>
 #include <kernel/sleep.h>
+#include <kernel/signal.h>
 #include <kernel/vfs.h>
 #include <errno.h>
 #include <poll.h>
-#include <stdatomic.h>
 
 typedef struct pipe {
 	spinlock_t lock;
@@ -65,7 +65,7 @@ static ssize_t pipe_raw_write(pipe_t *pipe, const char *buffer, size_t count, lo
 	int ret = 0;
 	while (count > 0) {
 		// guarantee atomic write for write under size of 4096
-		// mandated by posix
+		// mandated by POSIX
 		size_t minimum_write = count < 4096 ? count : 4096;
 		if (ringbuffer_write_available(&pipe->ring) < minimum_write) {
 			if (flags & O_NONBLOCK) {
@@ -104,6 +104,7 @@ static ssize_t pipe_write(vfs_fd_t *fd, const void *buffer, off_t offset, size_t
 	spinlock_acquire(&pipe->lock);
 	ssize_t ret = pipe_raw_write(pipe, buffer, count, fd->flags);
 	spinlock_release(&pipe->lock);
+	if (ret == -EPIPE) signal_send_task(get_current_task(), SIGPIPE);
 	return ret;
 }
 
