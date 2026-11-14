@@ -7,12 +7,15 @@ One of the main goal of Stanix always as been **self-hosting**, and while TCC is
 - TCC lack some features used by the kernel
 - TCC cannot compile C++ (required for some ports)
 
-In order to fix these, another compiler must be used, the compiler currently used to cross compile Stanix, GCC. Specially GCC 12.2.0 (the version used to cross compile Stanix as of this writing). GCC is much harder to port than TCC as it has many dependencies (`binutils`, `libgmp`, `libmpfr` and `libmpc`) and is written in C++, which add an additional dependency to `libstdc++`. The first step to port GCC was to cross compile it's dependencies.
+In order to fix these, another compiler must be used, the compiler currently used to cross compile Stanix, GCC. Specially GCC 12.2.0 (the version used to cross compile Stanix as of this writing). GCC is much harder to port than TCC as it has many dependencies (`binutils`, `libgmp`, `libmpfr`, `libmpc`, `zlib` and optionally `libisl` and `libzstd`) and is written in C++, which add an additional dependency to `libstdc++`. The first step to port GCC was to cross compile its dependencies.
 
 ## cross compiling dependencies
 
-### binutils
+## binutils
 `binutils` was already ported since quite a long time and is really stable on Stanix.
+
+## zlib
+`zlib` was already ported on Stanix.
 
 ## libgmp
 `libgmp` is when the actual work begin, I first downloaded `libgmp` 6.3.0 patched the `configfsf.sub` (yeah not `config.sub` this time) and cross compiled. Then something unexpected happened during compilation :
@@ -48,7 +51,7 @@ Uh `__gmpz_inp_str_nowhite` is not defined, this is really weird. So i then reco
 __GMP_DECLSPEC size_t  mpz_inp_str_nowhite (mpz_ptr, FILE *, int, int, size_t);
 #endif
 ```
-For some reason the declaration was behind a check for a feature. As suggested by `cpplover0` on the osdev discord i checked the `config.log` for anything related to some kind of `HAVE_FILE` and found nothing. Until a `grep -r` finally told me where was this check done, in `gmp-h.in` :
+For some reason the declaration was behind a check for a feature. As suggested by `cpplover0` on the osdev discord I checked the `config.log` for anything related to some kind of `HAVE_FILE` and found nothing. Until a `grep -r` finally told me where was this check done, in `gmp-h.in` :
 ```c
 /* For reference, "defined(EOF)" cannot be used here.  In g++ 2.95.4,
    <iostream> defines EOF but not FILE.  */
@@ -75,10 +78,10 @@ For some reason the declaration was behind a check for a feature. As suggested b
 Okay this check is extremely weird but it make sense it does not work. For some reason `libgmp` thought it would be a good idea to check for libc specific **header guard** to see if `<stdio.h>` was in fact included correctly. On Stanix, [tlibc](https://github.com/tayoky/tlibc) is used as libc, and tlibc used `STDIO_H` as header guard which was not checked for. So i updated all header of tlibc to header guards prefixed with an underscore. I recompiled and BINGO ! `libgmp` was finally ready.
 
 ## libmpfr
-I cross compiled `libmpfr` 4.2.2 same as `libgmp` and it worked first try. Nothing really interesting here.
+I cross compiled `libmpfr` 4.2.2 like `libgmp` and it worked first try. Nothing really interesting here.
 
 ## libmpc
-I cross compiled `libmpc` 1.4.4 same as `libgmp` and it got pretty far in the compilation, but during linking this happened :
+I cross compiled `libmpc` 1.4.4 like `libgmp` and it got pretty far in the compilation, but during linking this happened :
 ```
 /bin/bash ../libtool  --tag=CC   --mode=link x86_64-stanix-gcc  -O2 -g  -version-info 7:1:4  -o libmpc.la -rpath /usr/lib abs.lo acos.lo acosh.lo add.lo add_fr.lo add_si.lo add_ui.lo agm.lo arg.lo asin.lo asinh.lo atan.lo atanh.lo clear.lo cmp.lo cmp_abs.lo cmp_si_si.lo conj.lo cos.lo cosh.lo div_2si.lo div_2ui.lo div.lo div_fr.lo div_ui.lo dot.lo eta.lo exp.lo fma.lo fr_div.lo fr_sub.lo get_prec2.lo get_prec.lo get_version.lo get_x.lo imag.lo init2.lo init3.lo inp_str.lo log.lo log10.lo mem.lo mul_2si.lo mul_2ui.lo mul.lo mul_fr.lo mul_i.lo mul_si.lo mul_ui.lo neg.lo norm.lo out_str.lo pow.lo pow_fr.lo pow_ld.lo pow_d.lo pow_si.lo pow_ui.lo pow_z.lo proj.lo real.lo rootofunity.lo urandom.lo set.lo set_prec.lo set_str.lo set_x.lo set_x_x.lo sin.lo sin_cos.lo sinh.lo sqr.lo sqrt.lo strtoc.lo sub.lo sub_fr.lo sub_ui.lo sum.lo swap.lo tan.lo tanh.lo uceil_log2.lo ui_div.lo ui_ui_sub.lo radius.lo balls.lo exp10.lo exp2.lo log2.lo  -lmpfr -lgmp 
 /usr/bin/grep: /usr/lib/libgmp.la: No such file or directory
@@ -94,11 +97,37 @@ This is weird, it's searching for `libgmp` on my host system, outside the sysroo
 ## libstdc++-v3
 Compiling `libstdc++-v3` is much weirder than compiling standard independent libs, as `libstdc++-v3` is a direct part of GCC. So I had to modify my `build-toolchain.sh` script to enable `libstdc++-v3` which was a pretty hard to do and required modifying my patches. Once this was done I had to be very careful to build things in this order :
 - main GCC cross compiler first `all-gcc` (needed to compile the rest)
-- then `libgcc` `all-target-libgcc` (needed for some parts of `tlibc`)
-- then `tlibc` as the standard c++ library depends on it
+- then `tlibc` as `libstdc++-v3` and `libgcc` depend on it
+- then `libgcc`
 - and finally `libstdc++-v3`
 
-Once I reached the compile `libgcc` step the installation always complain about a missing `libgcc_eh.h` but it seem to work without it. Finally when the standard c++ library compiled I was rewarded with a bunch of errors about broken libc header and missing libc functions. I then fixed my headers guard and used the `volatile` for atomic trick recommended by `sasdallas` on the unmapped nest discord since `<stdatomic.h>` does not work well in C++. Time was then to implement various `tlibc` functions such as `strcoll` or `fgetpos`. After the standard c++ libray compiled, I tryied a quick, classic, c++ hello world. But when linking a bunch of undefined function references appeared (`_UnwindResume`, `__cxa_throw`, ...). These functions were defined in `libgcc_eh.a` (static) and `libgcc_s.so` (shared), but for some reason GCC was only picking `libgcc.a`. With `sasdallas` we then fixed the GCC patch. Then I implemented the `__cxa_atexit` and `__cxa_finalize` ABI functions and `libstdc++-v3` was finnaly working ! I also had to fix a kernel bug with the tty drover see [commit 4787752](https://github.com/tayoky/stanix/commit/4787752f6a503bfd46f6954f61f110e4ba196eab).
+Once I reached the compile `libgcc` step the installation always complain about a missing `libgcc_eh.h` but it seem to work without it. Finally when the standard c++ library compiled I was rewarded with a bunch of errors about broken libc header and missing libc functions. I then fixed my headers guard and used the `volatile` for atomic trick recommended by `sasdallas` on the unmapped nest discord since `<stdatomic.h>` does not work well in C++. Time was then to implement various `tlibc` functions such as `strcoll` or `fgetpos`. After the standard c++ library compiled, I tried a quick, classic, c++ hello world. But when linking a bunch of undefined function references appeared (`_UnwindResume`, `__cxa_throw`, ...). These functions were defined in `libgcc_eh.a` (static) and `libgcc_s.so` (shared), but for some reason GCC was only picking `libgcc.a`. With `sasdallas` we then fixed the GCC patch. Then I implemented the `__cxa_atexit` and `__cxa_finalize` ABI functions and `libstdc++-v3` was finally working ! I also had to fix a kernel bug with the tty driver see [commit 4787752](https://github.com/tayoky/stanix/commit/4787752f6a503bfd46f6954f61f110e4ba196eab).
+
+## Shared libraries
+At this point `libstdc++-v3`, `libgmp`, `libmpfr` and `libmpc` all compiled as static libraries. In order to get them to compile as shared library a custom patched `libtool` was required. Once this patched `libtool` was made all that was needed was to run `autoreconf -fiv` (which internally calls `libtoolize`) to update the `libtool` version and even update `config.sub` (making the patches useless). `libgmp`, `libmpfr` and `libmpc` then perfectly compiled as shared libraries for Stanix without any patch! But `libstdc++-v3` is much weirder, as it is directly a part of GCC. I first simply tried the classic `autoreconf -fiv` but this happened :
+```
+checking whether vasprintf is declared... yes
+checking dependency style of g++... none
+configure: error: no usable dependency style found
+checking for tmpnam... yes
+make: *** [Makefile:3018: configure-build-libcpp] Error 1
+make: *** Waiting for unfinished jobs...
+```
+GCC's build system has many manually modified build files, which means running `libtoolize` or `autoreconf -fiv` would break them. Instead it was needed to directly patch GCC's `libtool.m4` and run `autoconf` in `libstdc++-v3` (and any order library in the GCC source tree). This made a fully working shared `libstdc++` !
 
 ## GCC 12.2.0
-With all depencies of GCC working mostly correcly (because of libc stubs some part of `libstdc++-v3` didn't work), it was finnaly time to port GCC itself. That how far I am currently, I will update this post when i get further.
+With all dependencies of GCC working mostly correctly (because of `tlibc`'s stubs some part of `libstdc++-v3` didn't work), it was finally time to port GCC itself. I first tried to compile it with options similar to the cross compiler, and it got pretty far but failed on compiling `libcody` :
+```
+TODO : put libcody failing
+```
+`libcody` is a library to communicate with the build system to handle **c++ modules**. `libcody` requires `<netdb.h>` which tlibc does not provide as Stanix currently does not have any kind of networking (outside serial ports if you count that as networking).
+
+I then retried to compile GCC but with `--disable-libcody`. This successfully disabled `libcody` but then the `gcc` executable still tried to link with it.
+```
+TODO : put gcc trying to link with libcody
+```
+It seems like `--disable-libcody` is simply not working, my hypothesis is that this is an automatically generated option that is not really meant to be used. In order to at least get a part of GCC to work i simply disabled c++ support. The compilation got much further but still failed on `popen` and `pclose` usage as these were not implemented in tlibc.
+```
+TODO : gcc failing on popen
+```
+I implemented them in tlibc and that is how far I am currently, I will update this post when i get further.
