@@ -166,7 +166,7 @@ tinx_get_directory_hash () {
 	if test "$#" != 1 ; then
 		tinx_error "usage : tinx_get_directory_hash DIRECTORY"
 	fi
-	sha256sum $(find "$1" -type f) | sha256sum | cut -d' ' -f1
+	sha256sum $(find "$1" -type f | LC_ALL="C" sort) | sha256sum | cut -d' ' -f1
 }
 
 tinx_get_file_hash () {
