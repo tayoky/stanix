@@ -1,7 +1,8 @@
 VERSION="6.5"
+REVISION="1"
 SOURCE="ncurses"
 DEPENDENCIES="stanix-base"
-BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-libtool tool-stanix-toolchain"
+BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-libtool tool-pkgconf tool-stanix-toolchain"
 . "$TOP/scripts/gnu-package.sh"
 WEBSITE="https://invisible-island.net/ncurses"
 
@@ -12,7 +13,9 @@ configure() {
 	--disable-widec \
 	--without-ada \
 	--without-dlsym \
-	--without-cxx-binding
+	--without-cxx-binding \
+	--with-shared \
+	--without-debug
 }
 
 install () {

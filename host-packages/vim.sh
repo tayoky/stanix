@@ -5,7 +5,11 @@ BUILD_DEPENDENCIES="tool-stanix-toolchain"
 WEBSITE="https://www.vim.org"
 
 configure () {
-	cd "$SOURCE_DIR" && ./configure --prefix="$PREFIX" --host="$HOST" --with-tlib="ncurses"
+	cd "$SOURCE_DIR" && ./configure --prefix="$PREFIX" --host="$HOST" --with-tlib="ncurses" \
+	--disable-netbeans \
+	--disable-gtktest \
+	--disable-channel \
+	--with-wayland=no
 }
 
 build () {
