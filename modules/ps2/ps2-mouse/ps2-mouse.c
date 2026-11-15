@@ -135,14 +135,38 @@ static int ps2_mouse_probe(devnode_t *devnode) {
 		return -EIO;
 	}
 
+	int ret = 0;
 	mouse->irq_resource = device_allocate_simple_resource(devnode, RESOURCE_IRQ, RID_ANY);
+	if (IS_ERR(mouse->irq_resource)) {
+		return PTR2ERR(mouse->irq_resource);
+	}
 	mouse->input_device = input_device_allocate();
+	if (!mouse->input_device) {
+		ret = -ENOMEM;
+		goto free_irq_resource;
+	}
+
 	mouse->input_device->device.devnode = devnode;
 	mouse->input_device->class    = IE_CLASS_MOUSE;
 	mouse->input_device->subclass = IE_SUBCLASS_PS2_MOUSE;
 	mouse->input_device->private = mouse;
-	input_device_register(mouse->input_device);
+	
 	mouse->handler_handle = resource_register_handler(mouse->irq_resource, ps2_mouse_handler, mouse);
+	if (!mouse->handler_handle) {
+		ret = -ENOMEM;
+		goto free_input_device;
+	}
+
+	ret = input_device_register(mouse->input_device);
+	if (ret < 0) {
+		resource_unregister_handler(mouse->irq_resource, mouse->handler_handle);
+free_input_device:
+		input_device_release(mouse->input_device);
+free_irq_resource:
+		device_release_resource(devnode, mouse->irq_resource);
+		return ret;
+	}
+
 	return 0;
 }
 

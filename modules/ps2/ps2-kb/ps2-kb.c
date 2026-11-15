@@ -134,16 +134,16 @@ static int ps2_kb_probe(devnode_t *devnode) {
 		goto free_irq_resource;
 	}
 
+	keyboard->input_device->device.devnode = devnode;
+	keyboard->input_device->class          = IE_CLASS_KEYBOARD;
+	keyboard->input_device->subclass       = IE_SUBCLASS_PS2_KBD;
+	keyboard->input_device->private        = keyboard;
+
 	keyboard->handler_handle = resource_register_handler(keyboard->irq_resource, ps2_kb_handler, keyboard);
 	if (!keyboard->handler_handle) {
 		ret = -ENOMEM;
 		goto free_input_device;
 	}
-
-	keyboard->input_device->device.devnode = devnode;
-	keyboard->input_device->class          = IE_CLASS_KEYBOARD;
-	keyboard->input_device->subclass       = IE_SUBCLASS_PS2_KBD;
-	keyboard->input_device->private        = keyboard;
 
 	ret = input_device_register(keyboard->input_device);
 	if (ret < 0) {
