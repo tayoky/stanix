@@ -1,6 +1,6 @@
 VERSION="1.4.21"
 SOURCE="m4"
 DEPENDENCIES="stanix-base"
-BUILD_DEPENDENCIES="tool-stanix-toolchain"
+BUILD_DEPENDENCIES="tool-stanix-toolchain tool-autoconf tool-automake-1.18"
 . "$TOP/scripts/gnu-package.sh"
 WEBSITE="http://www.gnu.org/software/m4/"
