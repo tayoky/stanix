@@ -1,2 +1,2 @@
 GIT="$TAYOKY_MIRROR/tlibc"
-COMMIT="323d34c6a3eeef2fce9fbd252cfda7894bdd8b33"
+COMMIT="f26dcacd4031b17d7d77cf9d39cb4cba74753f9a"
