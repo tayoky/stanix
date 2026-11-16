@@ -46,6 +46,8 @@ jobs:
         echo "ready=$READY_PACKAGES" >> "$GITHUB_OUTPUT"
         DIRTY_PACKAGES="$(./tinx.sh run scripts/get-dirty-host-packages.sh $MAIN_PACKAGES)"
         echo "dirty=$DIRTY_PACKAGES" >> "$GITHUB_OUTPUT"
+        DIRTY_ALL_PACKAGES="$(./tinx.sh get-dirty $MAIN_PACKAGES)"
+        echo "dirty_all=$DIRTY_ALL_PACKAGES" >> "$GITHUB_OUTPUT"
 
     - name: Select packages repo
       run: |
@@ -77,7 +79,7 @@ jobs:
       run: ./tinx.sh run scripts/upload-packages.sh ${{ steps.select-packages.outputs.dirty }}
 
     - name: Save state
-      if: github.event_name == 'push' && steps.select-packages.outputs.dirty != ''
+      if: github.event_name == 'push' && steps.select-packages.outputs.dirty_all != ''
       uses: actions/cache/save@v4
       with:
         path: |
