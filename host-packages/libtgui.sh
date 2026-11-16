@@ -1,0 +1,5 @@
+SOURCE="libtgui"
+DEPENDENCIES="tlibc stanix-libraries"
+BUILD_DEPENDENCIES="tool-stanix-toolchain tool-pkgconf"
+. "$TOP/scripts/tconf-package.sh"
+PREFIX="/usr"

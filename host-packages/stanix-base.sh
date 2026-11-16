@@ -1,6 +1,6 @@
 SOURCE="stanix-base"
 DEPENDENCIES="stanix-kernel stanix-modules stanix-libraries stanix-userspace 
-tlibc tash tutils tvi tgui-apps
+tlibc tash tutils tvi libtgui tgui-apps
 limine-files libgcc_s"
 . "$TOP/scripts/stanix-package.sh"
 
