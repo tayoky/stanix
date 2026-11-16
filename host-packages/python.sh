@@ -1,7 +1,7 @@
 VERSION="3.14.7"
 SOURCE="python"
 DEPENDENCIES="stanix-base libffi zlib libzstd"
-BUILD_DEPENDENCIES="tool-python"
+BUILD_DEPENDENCIES="tool-python tool-stanix-toolchain"
 . "$TOP/scripts/gnu-package.sh"
 WEBSITE="https://www.python.org/"
 
@@ -14,4 +14,8 @@ configure () {
 		--disable-test-modules \
 		ac_cv_file__dev_ptmx=no \
 		ac_cv_file__dev_ptc=no
+}
+
+install () {
+	make install DESTDIR="$DESTDIR"
 }
