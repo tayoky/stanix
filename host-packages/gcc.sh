@@ -13,10 +13,9 @@ configure () {
 		--with-build-sysroot="$SYSROOT" \
 		--with-system-zlib \
 		--disable-nls \
-		--enable-languages=c \
+		--enable-languages=c,c++ \
 		--enable-initfini-array \
 		--disable-multilib \
-		--disable-libcody \
 		--enable-shared \
 		--with-pic \
 		--enable-threads=posix \
