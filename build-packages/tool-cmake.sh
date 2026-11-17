@@ -1,4 +1,4 @@
-VERSION="3.29.2"
+VERSION="4.0.0"
 SOURCE="cmake"
 DEPENDENCIES="tool-pkgconf"
 BUILD_DEPENDENCIES="tool-autoconf tool-automake tool-libtool"
