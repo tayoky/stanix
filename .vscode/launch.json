@@ -4,14 +4,34 @@
         {
             "type": "gdb",
             "request": "attach",
-            "name": "debug stanix",
-            "gdbpath": "/usr/bin/gdb",
-            "executable": "${workspaceFolder}/out/boot/stanix.elf",
+            "name": "Debug Stanix kernel",
+            "executable": "${workspaceFolder}/build/sysroot/boot/stanix.elf",
             "target": "localhost:1234",
             "remote": true,
             "printCalls": true,
             "cwd": "${workspaceRoot}",
             "valuesFormatting": "parseText"
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Open a core dump(c/c++)",
+            "program": "${workspaceFolder}/${input:progFileName}",
+            "coreDumpPath": "${workspaceFolder}/${input:coreFileName}",
+            "cwd": "${workspaceFolder}",
+            "MIMode": "gdb"
         }
+    ],
+    "inputs": [
+      {
+        "id": "coreFileName",
+        "type": "promptString",
+        "description": "Enter core file path"
+      },
+      {
+        "id": "progFileName",
+        "type": "promptString",
+        "description": "Enter program file path"
+      }
     ]
 }

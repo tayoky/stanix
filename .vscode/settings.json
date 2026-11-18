@@ -74,31 +74,17 @@
     },
     "C_Cpp.default.includePath": [
         "${workspaceFolder}/**",
-        "/home/tayoky/stanix/usr/include"
+        "${workspaceFolder}/build/sysroot/usr/include",
+        "${workspaceFolder}/build/sysroot/usr/local/include"
     ],
     "editor.tabSize":  4,
     "editor.indentSize": "tabSize" ,
 
-    "C_Cpp.formatting": "vcFormat",
-    "C_Cpp.vcFormat.space.beforeComma": false,
-    "C_Cpp.vcFormat.space.afterComma": true,
-    "C_Cpp.vcFormat.space.betweenEmptyBraces": true,
-    "C_Cpp.vcFormat.space.afterKeywordsInControlFlowStatements": true,
-    "C_Cpp.vcFormat.space.withinCastParentheses": false,
-    "C_Cpp.vcFormat.space.beforeFunctionOpenParenthesis": "remove",
-    "C_Cpp.vcFormat.space.beforeBlockOpenBrace": true,
-    "C_Cpp.vcFormat.indent.caseLabels": false,
-    "C_Cpp.vcFormat.space.pointerReferenceAlignment": "right",
-
-    //we want the '{' alaways on the same line
-    "C_Cpp.vcFormat.newLine.beforeOpenBrace.block": "sameLine",
-    "C_Cpp.vcFormat.newLine.beforeOpenBrace.type": "sameLine",
-    "C_Cpp.vcFormat.newLine.beforeElse": false,
-
-    //we don't want vcformat to meesed up assignement alignement
-    "C_Cpp.vcFormat.space.aroundAssignmentOperator": "ignore",
-
-    //include order
-    "C_Cpp.vcFormat.sortIncludes": "alphabetical",
+    "C_Cpp.files.exclude": {
+        "**/.vscode": true,
+        "**/.vs": true,
+        "build" : true,
+    },
+    "C_Cpp.formatting": "clangFormat",
     "C_Cpp.default.cStandard": "c11",
 }
